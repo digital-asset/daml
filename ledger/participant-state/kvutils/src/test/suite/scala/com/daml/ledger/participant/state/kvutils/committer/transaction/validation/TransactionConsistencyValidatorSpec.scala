@@ -29,6 +29,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   StepResult,
   StepStop,
 }
+import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -40,8 +41,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{forAll, _}
 import org.scalatest.wordspec.AnyWordSpec
 
-class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
-  import ContractKeysValidatorSpec._
+class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
+  import TransactionConsistencyValidatorSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -121,7 +122,13 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
     "succeeds when a global contract gets archived before a local contract gets created" in {
       val globalCid = s"#$freshContractId"
       val globalCreate = newCreateNodeWithFixedKey(globalCid)
-      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid))
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = Map(
+          makeContractIdStateKey(globalCid) -> Some(makeContractIdStateValue()),
+          contractStateKey(conflictingKey) -> Some(contractKeyStateValue(globalCid)),
+        ),
+      )
       val builder = TransactionBuilder()
       builder.add(archive(globalCreate, Set("Alice")))
       builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
@@ -274,14 +281,14 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
       ctx: CommitContext,
       transaction: SubmittedTransaction,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-    ContractKeysValidator.createValidationStep(rejections)(
+    TransactionConsistencyValidator.createValidationStep(rejections)(
       ctx,
       DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
     )
   }
 }
 
-object ContractKeysValidatorSpec {
+object TransactionConsistencyValidatorSpec {
   private val aKeyMaintainer = "maintainer"
   private val aKey = "key"
   private val aDummyValue = TransactionBuilder.record("field" -> "value")

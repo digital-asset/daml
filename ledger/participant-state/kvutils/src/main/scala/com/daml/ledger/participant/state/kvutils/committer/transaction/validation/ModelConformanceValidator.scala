@@ -5,15 +5,10 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction.validati
 
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   contractIdToStateKey,
-  decodeContractId,
   packageStateKey,
   parseTimestamp,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlContractKey,
-  DamlContractState,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlContractState, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
   Rejections,
@@ -24,9 +19,18 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.{Engine, Error => LfError}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.{Engine, Result, Error => LfError}
 import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Transaction.{
+  DuplicateKeys,
+  InconsistentKeys,
+  KeyActive,
+  KeyInput,
+  KeyInputError,
+}
 import com.daml.lf.transaction.{
+  GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
@@ -40,99 +44,107 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
+/** Validates the submission's conformance to the Daml model.
+  *
+  * @param engine An [[Engine]] instance to reinterpret and validate the transaction.
+  * @param metrics A [[Metrics]] instance to record metrics.
+  */
 private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Metrics)
     extends TransactionValidator {
   import ModelConformanceValidator._
 
   private final val logger = ContextualizedLogger.get(getClass)
 
-  /** Creates a committer step that validates the submission's conformance to the Daml model. */
+  /** Validates model conformance based on the transaction itself (where it's possible).
+    * Because fetch nodes don't contain contracts, we still need to get them from the current state ([[CommitContext]]).
+    * It first reinterprets the transaction to detect a potentially malicious participant or bugs.
+    * Then, checks the causal monotonicity.
+    *
+    * @param rejections A helper object for creating rejection [[Step]]s.
+    * @return A committer [[Step]] that performs validation.
+    */
   override def createValidationStep(rejections: Rejections): Step = new Step {
     def apply(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] =
       metrics.daml.kvutils.committer.transaction.interpretTimer.time(() => {
-        // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
-        // which are not evidenced in the transaction itself and hence the contract key state is
-        // not included in the inputs.
-        lazy val knownKeys: Map[DamlContractKey, Value.ContractId] =
-          commitContext.collectInputs {
-            case (key, Some(value))
-                if value.getContractState.hasContractKey
-                  && contractIsActive(transactionEntry, value.getContractState) =>
-              value.getContractState.getContractKey -> Conversions
-                .stateKeyToContractId(key)
-          }
+        val validationResult = engine.validate(
+          transactionEntry.submitters.toSet,
+          SubmittedTransaction(transactionEntry.transaction),
+          transactionEntry.ledgerEffectiveTime,
+          commitContext.participantId,
+          transactionEntry.submissionTime,
+          transactionEntry.submissionSeed,
+        )
 
-        try {
-          engine
-            .validate(
-              transactionEntry.submitters.toSet,
-              SubmittedTransaction(transactionEntry.transaction),
-              transactionEntry.ledgerEffectiveTime,
-              commitContext.participantId,
-              transactionEntry.submissionTime,
-              transactionEntry.submissionSeed,
-            )
-            .consume(
-              lookupContract(transactionEntry, commitContext),
-              lookupPackage(commitContext),
-              lookupKey(commitContext, knownKeys),
-            )
-            .fold(
-              err =>
-                rejections.buildRejectionStep(
-                  transactionEntry,
-                  rejectionReasonForValidationError(err),
-                  commitContext.recordTime,
-                ),
-              _ => StepContinue[DamlTransactionEntrySummary](transactionEntry),
-            )
-        } catch {
-          case err: Err.MissingInputState =>
-            logger.warn(
-              "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant)."
-            )
-            rejections.buildRejectionStep(
-              transactionEntry,
-              RejectionReasonV0.Disputed(err.getMessage),
-              commitContext.recordTime,
-            )
-        }
+        for {
+          stepResult <- consumeValidationResult(
+            validationResult,
+            transactionEntry,
+            commitContext,
+            rejections,
+          )
+          finalStepResult <- validateCausalMonotonicity(stepResult, commitContext, rejections)
+        } yield finalStepResult
       })
   }
 
-  private def contractIsActive(
-      transactionEntry: DamlTransactionEntrySummary,
-      contractState: DamlContractState,
-  ): Boolean = {
-    val activeAt = Option(contractState.getActiveAt).map(parseTimestamp)
-    !contractState.hasArchivedAt && activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
-  }
-
-  // Helper to lookup contract instances. We verify the activeness of
-  // contract instances here. Since we look up every contract that was
-  // an input to a transaction, we do not need to verify the inputs separately.
-  private def lookupContract(
+  private def consumeValidationResult(
+      validationResult: Result[Unit],
       transactionEntry: DamlTransactionEntrySummary,
       commitContext: CommitContext,
-  )(
-      coid: Value.ContractId
-  ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
+      rejections: Rejections,
+  )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
+    try {
+      val stepResult = for {
+        contractKeyInputs <- transactionEntry.transaction.contractKeyInputs.left
+          .map(rejectionForKeyInputError(transactionEntry, commitContext.recordTime, rejections))
+        _ <- validationResult
+          .consume(
+            lookupContract(commitContext),
+            lookupPackage(commitContext),
+            lookupKey(contractKeyInputs),
+          )
+          .left
+          .map(error =>
+            rejections.buildRejectionStep(
+              transactionEntry,
+              rejectionReasonForValidationError(error),
+              commitContext.recordTime,
+            )
+          )
+      } yield ()
+      stepResult.fold(identity, _ => StepContinue(transactionEntry))
+    } catch {
+      case err: Err.MissingInputState =>
+        logger.warn(
+          "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant)."
+        )
+        rejections.buildRejectionStep(
+          transactionEntry,
+          RejectionReasonV0.Disputed(err.getMessage),
+          commitContext.recordTime,
+        )
+    }
+  }
+
+  // Helper to lookup contract instances. Since we look up every contract that was
+  // an input to a transaction, we do not need to verify the inputs separately.
+  private def lookupContract(
+      commitContext: CommitContext
+  )(coid: Value.ContractId): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
     val stateKey = contractIdToStateKey(coid)
-    for {
-      // Fetch the state of the contract so that activeness can be checked.
-      // There is the possibility that the reinterpretation of the transaction yields a different
-      // result in a LookupByKey than the original transaction. This means that the contract state data for the
-      // contractId pointed to by that contractKey might not have been preloaded into the input state map.
-      // This is not a problem because after the transaction reinterpretation, we compare the original
-      // transaction with the reinterpreted one, and the LookupByKey node will not match.
-      // Additionally, all contract keys are checked to uphold causal monotonicity.
-      contractState <- commitContext.read(stateKey).map(_.getContractState)
-      if contractIsActive(transactionEntry, contractState)
-      contract = Conversions.decodeContractInstance(contractState.getContractInstance)
-    } yield contract
+    // There is the possibility that the reinterpretation of the transaction yields a different
+    // result in a LookupByKey than the original transaction. This means that the contract state data for the
+    // contractId pointed to by that contractKey might not have been preloaded into the input state map.
+    // This is not a problem because after the transaction reinterpretation, we compare the original
+    // transaction with the reinterpreted one, and the LookupByKey node will not match.
+    commitContext
+      .read(stateKey)
+      .map(_.getContractState)
+      .map(_.getContractInstance)
+      .map(Conversions.decodeContractInstance)
   }
 
   // Helper to lookup package from the state. The package contents
@@ -171,36 +183,70 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
     }
 
   private def lookupKey(
-      commitContext: CommitContext,
-      knownKeys: Map[DamlContractKey, Value.ContractId],
+      contractKeyInputs: Map[GlobalKey, KeyInput]
   )(key: GlobalKeyWithMaintainers): Option[Value.ContractId] = {
-    // we don't check whether the contract is active or not, because in we might not have loaded it earlier.
-    // this is not a problem, because:
-    // a) if the lookup was negative and we actually found a contract,
-    //    the transaction validation will fail.
-    // b) if the lookup was positive and its result is a different contract,
-    //    the transaction validation will fail.
-    // c) if the lookup was positive and its result is the same contract,
-    //    - the authorization check ensures that the submitter is in fact allowed
-    //      to lookup the contract
-    //    - the separate contract keys check ensures that all contracts pointed to by
-    //    contract keys respect causal monotonicity.
-    val stateKey = Conversions.globalKeyToStateKey(key.globalKey)
-    val contractId = for {
-      stateValue <- commitContext.read(stateKey)
-      if stateValue.getContractKeyState.getContractId.nonEmpty
-    } yield decodeContractId(stateValue.getContractKeyState.getContractId)
-
-    // If the key was not in state inputs, then we look whether any of the accessed contracts has
-    // the key we're looking for. This happens with "fetchByKey" where the key lookup is not
-    // evidenced in the transaction. The activeness of the contract is checked when it is fetched.
-    contractId.orElse {
-      knownKeys.get(stateKey.getContractKey)
+    contractKeyInputs.get(key.globalKey) match {
+      case Some(KeyActive(cid)) => Some(cid)
+      case _ => None
     }
+  }
+
+  private[validation] def validateCausalMonotonicity(
+      transactionEntry: DamlTransactionEntrySummary,
+      commitContext: CommitContext,
+      rejections: Rejections,
+  )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
+
+    val inputContracts: Map[Value.ContractId, DamlContractState] = commitContext
+      .collectInputs {
+        case (key, Some(value)) if value.hasContractState =>
+          Conversions.stateKeyToContractId(key) -> value.getContractState
+      }
+
+    val isCasualMonotonicityHeld = transactionEntry.transaction.inputContracts.forall {
+      contractId =>
+        val inputContractState = inputContracts(contractId)
+        val activeAt = Option(inputContractState.getActiveAt).map(parseTimestamp)
+        activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
+    }
+
+    if (isCasualMonotonicityHeld)
+      StepContinue(transactionEntry)
+    else
+      rejections.buildRejectionStep(
+        transactionEntry,
+        RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated"),
+        commitContext.recordTime,
+      )
   }
 }
 
 private[transaction] object ModelConformanceValidator {
+
+  private def rejectionForKeyInputError(
+      transactionEntry: DamlTransactionEntrySummary,
+      recordTime: Option[Timestamp],
+      rejections: Rejections,
+  )(
+      error: KeyInputError
+  )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
+    val rejectionReason = error match {
+      case DuplicateKeys(key) =>
+        RejectionReasonV0.Disputed(
+          s"DuplicateKeys: the transaction contains a duplicate key: ${key.key}"
+        )
+      case InconsistentKeys(key) =>
+        RejectionReasonV0.Disputed(
+          s"InconsistentKeys: the transaction is internally inconsistent due to a contract with the key: ${key.key}"
+        )
+    }
+    rejections.buildRejectionStep(
+      transactionEntry,
+      rejectionReason,
+      recordTime,
+    )
+  }
+
   def rejectionReasonForValidationError(
       validationError: LfError
   ): RejectionReasonV0 = {

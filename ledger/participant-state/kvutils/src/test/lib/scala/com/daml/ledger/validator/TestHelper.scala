@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.value.ValueOuterClass.Identifier
 import com.google.protobuf.{ByteString, Empty}
 
-private[validator] object TestHelper {
+private[ledger] object TestHelper {
 
   lazy val aParticipantId: ParticipantId = ParticipantId.assertFromString("aParticipantId")
 
