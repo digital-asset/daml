@@ -10,8 +10,8 @@ import scala.util.Try
 /** The ledger time model and associated validations. Some values are given by constructor args;
   * others are derived.
   *
-  * @param avgTransactionLatency  The expected average latency of a transaction, i.e., the average
-  *                               time from submitting the transaction to a write service and the
+  * @param avgTransactionLatency The expected average latency of a transaction, i.e., the average
+  *                              time from submitting the transaction to a write service and the
   *                              transaction being assigned a record time.
   * @param minSkew               The minimimum skew between ledger time and record time:
   *                              lt_TX >= rt_TX - minSkew
@@ -19,7 +19,7 @@ import scala.util.Try
   *                              lt_TX <= rt_TX + maxSkew
   * @throws IllegalArgumentException if the parameters aren't valid
   */
-case class TimeModel private (
+case class LedgerTimeModel private (
     avgTransactionLatency: Duration,
     minSkew: Duration,
     maxSkew: Duration,
@@ -53,23 +53,27 @@ case class TimeModel private (
     ledgerTime.plus(minSkew)
 }
 
-object TimeModel {
+object LedgerTimeModel {
 
   /** A default TimeModel that's reasonable for a test or sandbox ledger application.
     * Serious applications (viz. ledger) should probably specify their own TimeModel.
     */
-  val reasonableDefault: TimeModel =
-    TimeModel(
+  val reasonableDefault: LedgerTimeModel =
+    LedgerTimeModel(
       avgTransactionLatency = Duration.ofSeconds(0L),
       minSkew = Duration.ofSeconds(30L),
       maxSkew = Duration.ofSeconds(30L),
     ).get
 
-  def apply(avgTransactionLatency: Duration, minSkew: Duration, maxSkew: Duration): Try[TimeModel] =
+  def apply(
+      avgTransactionLatency: Duration,
+      minSkew: Duration,
+      maxSkew: Duration,
+  ): Try[LedgerTimeModel] =
     Try {
       require(!avgTransactionLatency.isNegative, "Negative average transaction latency")
       require(!minSkew.isNegative, "Negative min skew")
       require(!maxSkew.isNegative, "Negative max skew")
-      new TimeModel(avgTransactionLatency, minSkew, maxSkew)
+      new LedgerTimeModel(avgTransactionLatency, minSkew, maxSkew)
     }
 }

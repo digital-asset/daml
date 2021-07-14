@@ -12,7 +12,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
-import com.daml.ledger.configuration
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WriteConfigService}
 import com.daml.lf.data.{Ref, Time}
@@ -80,7 +80,7 @@ class ApiConfigManagementServiceSpec
     override def submitConfiguration(
         maxRecordTime: Time.Timestamp,
         submissionId: SubmissionId,
-        config: configuration.Configuration,
+        config: Configuration,
     )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,
@@ -99,9 +99,9 @@ object ApiConfigManagementServiceSpec {
   private val configurationEntries = Source.single(
     Absolute(Ref.LedgerString.assertFromString("0")) -> domain.ConfigurationEntry.Accepted(
       aSubmissionId,
-      configuration.Configuration(
+      Configuration(
         aConfigurationGeneration,
-        configuration.TimeModel.reasonableDefault,
+        LedgerTimeModel.reasonableDefault,
         jDuration.ZERO,
       ),
     )

@@ -16,7 +16,7 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach,
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.configuration.{Configuration, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto
@@ -70,7 +70,7 @@ class TransactionTimeModelComplianceIT
   ) = {
     val config = Configuration(
       generation = generation,
-      timeModel = TimeModel(JDuration.ZERO, minSkew, maxSkew).get,
+      timeModel = LedgerTimeModel(JDuration.ZERO, minSkew, maxSkew).get,
       maxDeduplicationTime = JDuration.ofSeconds(10),
     )
     ledger.publishConfiguration(

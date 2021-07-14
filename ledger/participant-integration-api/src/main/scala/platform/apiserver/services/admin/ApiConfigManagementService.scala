@@ -12,7 +12,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service._
-import com.daml.ledger.configuration
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WriteConfigService}
 import com.daml.lf.data.Time
@@ -63,7 +63,7 @@ private[apiserver] final class ApiConfigManagementService private (
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
 
-  private def configToResponse(config: configuration.Configuration): GetTimeModelResponse = {
+  private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
     GetTimeModelResponse(
       configurationGeneration = config.generation,
@@ -138,7 +138,7 @@ private[apiserver] final class ApiConfigManagementService private (
     }
 
   private case class SetTimeModelParameters(
-      newTimeModel: configuration.TimeModel,
+      newTimeModel: LedgerTimeModel,
       maximumRecordTime: Time.Timestamp,
       timeToLive: FiniteDuration,
   )
@@ -155,7 +155,7 @@ private[apiserver] final class ApiConfigManagementService private (
       )
       pMinSkew <- requirePresence(pTimeModel.minSkew, "min_skew")
       pMaxSkew <- requirePresence(pTimeModel.maxSkew, "max_skew")
-      newTimeModel <- configuration.TimeModel(
+      newTimeModel <- LedgerTimeModel(
         avgTransactionLatency = DurationConversion.fromProto(pAvgTransactionLatency),
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
@@ -204,7 +204,7 @@ private[apiserver] object ApiConfigManagementService {
       ledgerEnd: Option[LedgerOffset.Absolute],
   )(implicit loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
-        (Time.Timestamp, configuration.Configuration),
+        (Time.Timestamp, Configuration),
         ConfigurationEntry,
         ConfigurationEntry.Accepted,
       ] {
@@ -214,7 +214,7 @@ private[apiserver] object ApiConfigManagementService {
 
     override def submit(
         submissionId: SubmissionId,
-        input: (Time.Timestamp, configuration.Configuration),
+        input: (Time.Timestamp, Configuration),
     )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService

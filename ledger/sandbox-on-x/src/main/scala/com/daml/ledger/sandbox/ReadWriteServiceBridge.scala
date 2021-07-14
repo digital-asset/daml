@@ -11,7 +11,12 @@ import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions, TimeModel}
+import com.daml.ledger.configuration.{
+  Configuration,
+  LedgerId,
+  LedgerInitialConditions,
+  LedgerTimeModel,
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
@@ -103,7 +108,7 @@ case class ReadWriteServiceBridge(
         ledgerId = ledgerId,
         config = Configuration(
           generation = 1L,
-          timeModel = TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = java.time.Duration.ofSeconds(maxDedupSeconds.toLong),
         ),
         initialRecordTime = Timestamp.now(),

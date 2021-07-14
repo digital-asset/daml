@@ -16,7 +16,7 @@ import scala.util.Try
   */
 final case class Configuration(
     generation: Long,
-    timeModel: TimeModel,
+    timeModel: LedgerTimeModel,
     maxDeduplicationTime: Duration,
 )
 
@@ -58,8 +58,8 @@ object Configuration {
         )
       }
 
-    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
-      TimeModel(
+    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, LedgerTimeModel] =
+      LedgerTimeModel(
         avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
         minSkew = parseDuration(tm.getMinSkew),
         maxSkew = parseDuration(tm.getMaxSkew),
@@ -88,8 +88,8 @@ object Configuration {
         )
       }
 
-    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
-      TimeModel(
+    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, LedgerTimeModel] =
+      LedgerTimeModel(
         avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
         minSkew = parseDuration(tm.getMinSkew),
         maxSkew = parseDuration(tm.getMaxSkew),

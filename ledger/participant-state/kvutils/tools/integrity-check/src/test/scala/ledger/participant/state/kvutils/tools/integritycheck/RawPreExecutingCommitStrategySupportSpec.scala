@@ -7,7 +7,7 @@ import java.time.{Duration, Instant, ZoneOffset, ZonedDateTime}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.{Configuration, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationSubmission,
   DamlLogEntry,
@@ -86,7 +86,7 @@ class RawPreExecutingCommitStrategySupportSpec
         maximumRecordTime = baseTime.plusSeconds(60),
         configuration = Configuration(
           generation = 1,
-          timeModel = TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = Duration.ofMinutes(1),
         ),
       )
@@ -98,7 +98,7 @@ class RawPreExecutingCommitStrategySupportSpec
         maximumRecordTime = baseTime.minusSeconds(60),
         configuration = Configuration(
           generation = 2,
-          timeModel = TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = Duration.ofMinutes(1),
         ),
       )

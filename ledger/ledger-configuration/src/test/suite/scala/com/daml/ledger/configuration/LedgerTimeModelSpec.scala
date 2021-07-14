@@ -8,12 +8,12 @@ import java.time._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TimeModelSpec extends AnyWordSpec with Matchers {
+class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
 
   private val referenceTime = Instant.EPOCH
   private val epsilon = Duration.ofMillis(10L)
   private val timeModel =
-    TimeModel(
+    LedgerTimeModel(
       avgTransactionLatency = Duration.ZERO,
       minSkew = Duration.ofSeconds(30L),
       maxSkew = Duration.ofSeconds(30L),
@@ -92,12 +92,11 @@ class TimeModelSpec extends AnyWordSpec with Matchers {
       }
 
       "produce a valid error message" in {
-        val timeModel =
-          TimeModel(
-            avgTransactionLatency = Duration.ZERO,
-            minSkew = Duration.ofSeconds(10L),
-            maxSkew = Duration.ofSeconds(20L),
-          ).get
+        val timeModel = LedgerTimeModel(
+          avgTransactionLatency = Duration.ZERO,
+          minSkew = Duration.ofSeconds(10L),
+          maxSkew = Duration.ofSeconds(20L),
+        ).get
         val ledgerTime = "2000-01-01T12:00:00Z"
         val recordTime = "2000-01-01T12:30:00Z"
         val lowerBound = "2000-01-01T12:29:50Z"
@@ -112,8 +111,8 @@ class TimeModelSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  private def createAsymmetricTimeModel(minSkew: Duration, maxSkew: Duration): TimeModel =
-    TimeModel(
+  private def createAsymmetricTimeModel(minSkew: Duration, maxSkew: Duration): LedgerTimeModel =
+    LedgerTimeModel(
       avgTransactionLatency = Duration.ZERO,
       minSkew = minSkew,
       maxSkew = maxSkew,

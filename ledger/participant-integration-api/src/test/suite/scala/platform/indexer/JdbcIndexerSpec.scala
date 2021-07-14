@@ -10,7 +10,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{Offset, ReadService, Update}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
@@ -53,7 +53,7 @@ final class JdbcIndexerSpec
             ledgerId = "ledger-id",
             config = Configuration(
               generation = 0,
-              timeModel = TimeModel.reasonableDefault,
+              timeModel = LedgerTimeModel.reasonableDefault,
               maxDeduplicationTime = Duration.ofDays(1),
             ),
             initialRecordTime = Timestamp.Epoch,

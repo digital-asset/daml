@@ -71,7 +71,7 @@ trait ReadService extends ReportsHealth {
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
     * ledger time `lt_tx` and a record time `rt_tx`, it holds that
     * `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
-    * are parameters specified in the ledger [[com.daml.ledger.configuration.TimeModel]]
+    * are parameters specified in the ledger [[com.daml.ledger.configuration.LedgerTimeModel]]
     * of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
     *
     * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]

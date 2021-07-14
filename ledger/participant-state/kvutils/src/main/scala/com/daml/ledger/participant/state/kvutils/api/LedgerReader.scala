@@ -8,7 +8,7 @@ import java.time.Duration
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.ledger.configuration.{Configuration, LedgerId, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerTimeModel}
 import com.daml.ledger.participant.state.v1.Offset
 
 /** Defines how a participant's state is read from the ledger.
@@ -46,7 +46,7 @@ object LedgerReader {
     */
   val DefaultConfiguration: Configuration = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
 }

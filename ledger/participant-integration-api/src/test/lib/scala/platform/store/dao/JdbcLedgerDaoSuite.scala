@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.configuration.{Configuration, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
@@ -160,7 +160,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final val defaultConfig = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     Duration.ofDays(1),
   )
 

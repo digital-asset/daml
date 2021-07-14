@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction.validati
 
 import java.time.Instant
 
-import com.daml.ledger.configuration.{Configuration, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.Conversions.{commandDedupKey, parseTimestamp}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
 import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
@@ -85,7 +85,7 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
       submissionTime: Instant,
       ledgerTime: Instant,
       maybeDeduplicateUntil: Option[Instant],
-      timeModel: TimeModel,
+      timeModel: LedgerTimeModel,
   ): Instant =
     List(
       maybeDeduplicateUntil
@@ -99,7 +99,7 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
   private def transactionMaxRecordTime(
       submissionTime: Instant,
       ledgerTime: Instant,
-      timeModel: TimeModel,
+      timeModel: LedgerTimeModel,
   ): Instant =
     List(timeModel.maxRecordTime(ledgerTime), timeModel.maxRecordTime(submissionTime)).min
 

@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.{LedgerId, TimeModel}
+import com.daml.ledger.configuration.{LedgerId, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
@@ -498,7 +498,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               submissionId = newSubmissionId(),
               config = lic.config.copy(
                 generation = lic.config.generation + 1,
-                timeModel = TimeModel(
+                timeModel = LedgerTimeModel(
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
