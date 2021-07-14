@@ -14,7 +14,7 @@ import scala.io.Source
 import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
-import com.daml.lf.archive.{ArchivePayload, Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.iface.EnvironmentInterface
@@ -33,8 +33,7 @@ object RunnerMain {
   }
 
   def main(config: RunnerConfig): Unit = {
-    val encodedDar: Dar[ArchivePayload] = DarReader.readArchiveFromFile(config.darPath).get
-    val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
+    val dar: Dar[(PackageId, Package)] = DarDecoder.readArchiveFromFile(config.darPath).get
     val scriptId: Identifier =
       Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 

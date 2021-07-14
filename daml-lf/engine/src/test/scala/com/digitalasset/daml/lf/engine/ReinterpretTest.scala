@@ -43,7 +43,7 @@ class ReinterpretTest
 
   private def loadPackage(resource: String): (PackageId, Map[PackageId, Package]) = {
     val payloads = UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
     (payloads.main.pkgId, packages)
   }
 

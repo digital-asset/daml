@@ -7,7 +7,7 @@ import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.Backend
 import com.daml.lf.codegen.backend.java.JavaBackend
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
@@ -65,7 +65,7 @@ object CodeGenRunner extends StrictLogging {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
       val file = path.toFile
       // Explicitly calling `get` to bubble up any exception when reading the dar
-      val dar = RawDarReader.readArchiveFromFile(file).get
+      val dar = DarParser.readArchiveFromFile(file).get
       dar.all.map { archive =>
         val (errors, interface) = InterfaceReader.readInterface(archive)
         if (!errors.equals(Errors.zeroErrors)) {

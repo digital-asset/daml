@@ -75,7 +75,7 @@ class EngineTest
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val payloads = UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
     val mainPkgId = payloads.main.pkgId
     (mainPkgId, packages(mainPkgId), packages)
   }

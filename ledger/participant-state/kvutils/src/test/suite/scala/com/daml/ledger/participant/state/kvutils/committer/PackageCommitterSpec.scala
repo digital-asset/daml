@@ -51,7 +51,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         }
       """
     )
-    pkgWithId = Decode.decode(archive)
+    pkgWithId = Decode.decodeArchive(archive)
     (pkgId, pkg) = pkgWithId
   } yield (pkg, pkgId, archive)
 
@@ -65,7 +65,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         }
       """
   )
-  val (libraryPackageId, libraryPackage) = Decode.decode(libraryArchive)
+  val (libraryPackageId, libraryPackage) = Decode.decodeArchive(libraryArchive)
 
   // [dependentArchive] contains a well-typed package that depends on [libraryArchive]
   private[this] val dependentArchive = encodePackage(
@@ -77,7 +77,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         }
       """
   )
-  val (dependentPackageId, _) = Decode.decode(dependentArchive)
+  val (dependentPackageId, _) = Decode.decodeArchive(dependentArchive)
 
   private[this] val participantId = Ref.ParticipantId.assertFromString("participant")
 

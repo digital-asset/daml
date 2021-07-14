@@ -16,10 +16,9 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
-import scalaz.syntax.traverse._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -51,8 +50,8 @@ object RunnerMain {
     RunnerConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) => {
-        val encodedDar = DarReader.readArchiveFromFile(config.darPath.toFile).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
+        val dar: Dar[(PackageId, Package)] =
+          DarDecoder.readArchiveFromFile(config.darPath.toFile).get
 
         if (config.listTriggers) {
           listTriggers(config.darPath.toFile, dar)

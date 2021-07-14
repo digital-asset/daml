@@ -15,7 +15,7 @@ import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -324,6 +324,6 @@ object SqlLedgerSpecAppendOnly {
 
   private val Success(testDar) = {
     val fileName = new File(rlocation(ModelTestDar.path))
-    RawDarReader.readArchiveFromFile(fileName)
+    DarParser.readArchiveFromFile(fileName)
   }
 }

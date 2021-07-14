@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.index.v2.{
   LedgerEndService,
 }
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.lf.archive.{Dar, Decode, GenDarReader, RawDarReader}
+import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -88,7 +88,7 @@ private[apiserver] final class ApiPackageManagementService private (
   private def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
     for {
       dar <- darReader.readArchive("package-upload", stream)
-      packages <- Try(dar.all.iterator.map(Decode.decode).toMap)
+      packages <- Try(dar.all.iterator.map(Decode.decodeArchive(_)).toMap)
       _ <- engine
         .validatePackages(packages)
         .left
@@ -142,7 +142,7 @@ private[apiserver] object ApiPackageManagementService {
       writeBackend: WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
-      darReader: GenDarReader[Archive] = RawDarReader,
+      darReader: GenDarReader[Archive] = DarParser,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,

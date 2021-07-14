@@ -22,12 +22,11 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
 import scalaz.syntax.tag._
-import scalaz.syntax.traverse._
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
@@ -63,7 +62,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
       .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
 
-  protected val dar = DarReader.readArchiveFromFile(darFile).get.map(Decode.decode)
+  protected val dar = DarDecoder.readArchiveFromFile(darFile).get
   protected val compiledPackages =
     PureCompiledPackages.assertBuild(dar.all.toMap, speedy.Compiler.Config.Dev)
 

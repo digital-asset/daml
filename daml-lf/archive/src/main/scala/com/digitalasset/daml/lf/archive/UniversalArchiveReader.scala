@@ -30,7 +30,7 @@ case class UniversalArchiveReader(
 
   /** Reads a DALF from an InputStream. This method takes care of closing the stream! */
   def readDalfStream(dalf: InputStream): Dar[ArchivePayload] =
-    Dar(Reader.readArchive(dalf), List.empty)
+    Dar(ArchiveReader.fromInputStream(dalf), List.empty)
 
 }
 

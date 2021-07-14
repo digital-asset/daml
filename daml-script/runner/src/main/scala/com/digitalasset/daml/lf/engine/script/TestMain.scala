@@ -12,7 +12,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
@@ -23,7 +23,6 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.syntax.traverse._
 import spray.json._
 
 import scala.concurrent.duration.Duration
@@ -51,8 +50,7 @@ object TestMain extends StrictLogging {
     TestConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val encodedDar = DarReader.readArchiveFromFile(config.darPath).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
+        val dar: Dar[(PackageId, Package)] = DarDecoder.readArchiveFromFile(config.darPath).get
 
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
