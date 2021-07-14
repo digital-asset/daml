@@ -75,7 +75,7 @@ class Endpoints(
   // does not see a difference between Future[HttpResponse] & other inner types.
   // Without it, it will complain that the function has been defined twice.
   @nowarn("msg=parameter value ev in method toRoute is never used")
-  def toRoute[A <: HttpResponse](res: Future[A])(implicit
+  private def toRoute[A <: HttpResponse](res: Future[A])(implicit
       ev: A =:= HttpResponse
   ): Route = _ => res map Complete
   // I think the arguments need to be lazy
