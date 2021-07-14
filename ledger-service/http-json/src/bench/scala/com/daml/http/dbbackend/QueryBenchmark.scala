@@ -22,7 +22,7 @@ class QueryBenchmark extends ContractDaoBenchmark {
     ()
   }
 
-  @Benchmark
+  @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
     implicit val driver: SupportedJdbcDriver = dao.jdbcDriver
     val result = dao

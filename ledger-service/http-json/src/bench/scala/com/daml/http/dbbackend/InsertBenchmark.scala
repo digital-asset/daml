@@ -43,7 +43,7 @@ class InsertBenchmark extends ContractDaoBenchmark {
     assert(deleted == numContracts)
   }
 
-  @Benchmark
+  @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
     val driver: SupportedJdbcDriver = dao.jdbcDriver
     import driver._
