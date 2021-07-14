@@ -172,7 +172,8 @@ private[kvutils] class TransactionCommitter(
 
       def rejection(reason: RejectionReasonV0): StepResult[DamlTransactionEntrySummary] =
         rejections.buildRejectionStep(
-          rejections.buildRejectionEntry(transactionEntry, reason),
+          transactionEntry,
+          reason,
           commitContext.recordTime,
         )
 
@@ -293,10 +294,8 @@ private[kvutils] class TransactionCommitter(
         StepContinue(transactionEntry)
       else
         rejections.buildRejectionStep(
-          rejections.buildRejectionEntry(
-            transactionEntry,
-            RejectionReasonV0.PartyNotKnownOnLedger("Not all parties known"),
-          ),
+          transactionEntry,
+          RejectionReasonV0.PartyNotKnownOnLedger("Not all parties known"),
           commitContext.recordTime,
         )
     }
