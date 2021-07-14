@@ -83,7 +83,7 @@ class Endpoints(
   // the method of each possible path.
   // I assume that otherwise it would execute these
   // in advance, although the path never would have matched.
-  def toRoute[A](
+  private def toRoute[A](
       res: => ET[domain.SyncResponse[A]]
   )(implicit metrics: Metrics, jsonWriter: JsonWriter[A]): Route =
     toRoute(httpResponse(res))
