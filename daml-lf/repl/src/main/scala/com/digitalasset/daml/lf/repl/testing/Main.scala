@@ -401,7 +401,7 @@ object Repl {
     val state = initialState(compilerConfig)
     try {
       val (packagesMap, loadingTime) =
-        time(UniversalArchiveDecoder.readFile(new File(darFile)).get.all.toMap)
+        time(UniversalArchiveDecoder.assertReadFile(new File(darFile)).all.toMap)
 
       val npkgs = packagesMap.size
       val ndefs =

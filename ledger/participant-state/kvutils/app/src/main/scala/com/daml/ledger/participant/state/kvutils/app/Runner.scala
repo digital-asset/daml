@@ -183,7 +183,7 @@ final class Runner[T <: ReadWriteService, Extra](
     implicit telemetryContext =>
       val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future.fromTry(DarParser.readArchiveFromFile(from.toFile))
+        dar <- Future.fromTry(DarParser.readArchiveFromFile(from.toFile).toTry)
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }

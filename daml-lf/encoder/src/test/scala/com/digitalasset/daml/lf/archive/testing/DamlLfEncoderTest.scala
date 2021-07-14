@@ -69,7 +69,7 @@ class DamlLfEncoderTest
           UniversalArchiveReader
             .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
-        dar shouldBe Symbol("success")
+        dar shouldBe a[Right[_, _]]
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 

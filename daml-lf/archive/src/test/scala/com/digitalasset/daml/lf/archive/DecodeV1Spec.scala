@@ -622,11 +622,9 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(testCases) { string =>
-          decoder.decodeExpr(toDecimalProto(string), "test") match {
+          inside(decoder.decodeExpr(toDecimalProto(string), "test")) {
             case Ast.EPrimLit(Ast.PLNumeric(num)) =>
               num shouldBe new BigDecimal(string).setScale(10)
-            case _ =>
-              throw new Error("")
           }
         }
       }
@@ -682,11 +680,9 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
         forEvery(testCases) { (id, string) =>
-          decoder.decodeExpr(toNumericProto(id), "test") match {
+          inside(decoder.decodeExpr(toNumericProto(id), "test")) {
             case Ast.EPrimLit(Ast.PLNumeric(num)) =>
               num shouldBe new BigDecimal(string)
-            case _ =>
-              throw new Error("")
           }
         }
       }

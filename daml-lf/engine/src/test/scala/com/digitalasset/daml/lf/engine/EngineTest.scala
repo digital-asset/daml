@@ -74,7 +74,7 @@ class EngineTest
   private val clara = Party.assertFromString("Clara")
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.readFile(new File(rlocation(resource))).get
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }

@@ -4,12 +4,14 @@
 package com.daml.lf.archive
 
 import com.daml.lf.data.Bytes
-import com.daml.lf.data.TryOps.sequence
+import com.daml.nameof.NameOf
 
 import java.io.{File, FileInputStream, IOException}
 import java.util.zip.ZipInputStream
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try, Using}
+
+import scalaz.syntax.traverse._
+import scalaz.std.list._
+import scalaz.std.either._
 
 sealed abstract class GenDarReader[A] {
   import GenDarReader._
@@ -17,13 +19,17 @@ sealed abstract class GenDarReader[A] {
   def readArchiveFromFile(
       darFile: File,
       entrySizeThreshold: Int = EntrySizeThreshold,
-  ): Try[Dar[A]]
+  ): Either[Error, Dar[A]]
+
+  @throws[Error]
+  def assertReadArchiveFromFile(darFile: File): Dar[A] =
+    assertRight(readArchiveFromFile(darFile))
 
   def readArchive(
       name: String,
       darStream: ZipInputStream,
       entrySizeThreshold: Int = EntrySizeThreshold,
-  ): Try[Dar[A]]
+  ): Either[Error, Dar[A]]
 }
 
 private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends GenDarReader[A] {
@@ -34,17 +40,17 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
   override def readArchiveFromFile(
       darFile: File,
       entrySizeThreshold: Int = EntrySizeThreshold,
-  ): Try[Dar[A]] =
-    Using(new ZipInputStream(new FileInputStream(darFile)))(
-      readArchive(darFile.getName, _, entrySizeThreshold)
-    ).flatten
+  ): Either[Error, Dar[A]] =
+    using(NameOf.qualifiedNameOfCurrentFunc, () => new FileInputStream(darFile))(is =>
+      readArchive(darFile.getName, new ZipInputStream(is), entrySizeThreshold)
+    )
 
   /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */
   override def readArchive(
       name: String,
       darStream: ZipInputStream,
       entrySizeThreshold: Int = EntrySizeThreshold,
-  ): Try[Dar[A]] =
+  ): Either[Error, Dar[A]] =
     for {
       entries <- loadZipEntries(name, darStream, entrySizeThreshold)
       names <- entries.readDalfNames
@@ -53,7 +59,7 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
     } yield Dar(main, deps)
 
   // Fails if a zip bomb is detected
-  @throws[Error.ZipBomb]
+  @throws[Error.ZipBomb.type]
   @throws[IOException]
   private[this] def slurpWithCaution(
       name: String,
@@ -65,7 +71,7 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
     var output = Bytes.Empty
     Iterator.continually(zip.read(buffer)).takeWhile(_ >= 0).foreach { size =>
       output ++= Bytes.fromByteArray(buffer, 0, size)
-      if (output.length >= entrySizeThreshold) throw Error.ZipBomb()
+      if (output.length >= entrySizeThreshold) throw Error.ZipBomb
     }
     name -> output
   }
@@ -74,20 +80,30 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
       name: String,
       darStream: ZipInputStream,
       entrySizeThreshold: Int,
-  ): Try[ZipEntries] =
-    Try(
-      Iterator
-        .continually(darStream.getNextEntry)
-        .takeWhile(_ != null)
-        .map(entry => slurpWithCaution(entry.getName, darStream, entrySizeThreshold))
-        .toMap
-    ).map(ZipEntries(name, _))
+  ): Either[Error, ZipEntries] =
+    attempt(
+      NameOf.qualifiedNameOfCurrentFunc,
+      ZipEntries(
+        name,
+        Iterator
+          .continually(darStream.getNextEntry)
+          .takeWhile(_ != null)
+          .map(entry => slurpWithCaution(entry.getName, darStream, entrySizeThreshold))
+          .toMap,
+      ),
+    )
 
-  private[this] def parseAll(getPayload: String => Try[Bytes])(names: List[String]): Try[List[A]] =
-    sequence(names.map(parseOne(getPayload)))
+  private[this] def parseAll(getPayload: String => Either[Error, Bytes])(
+      names: List[String]
+  ): Either[Error, List[A]] =
+    names.traverse(parseOne(getPayload))
 
-  private[this] def parseOne(getPayload: String => Try[Bytes])(s: String): Try[A] =
-    getPayload(s).flatMap(bytes => Try(reader.fromBytes(bytes)))
+  private[this] def parseOne(
+      getPayload: String => Either[Error, Bytes]
+  )(s: String): Either[Error, A] =
+    getPayload(s).flatMap(bytes =>
+      attempt(NameOf.qualifiedNameOfCurrentFunc, reader.fromBytes(bytes))
+    )
 
 }
 
@@ -99,16 +115,13 @@ object GenDarReader {
   private[archive] val EntrySizeThreshold = 1024 * 1024 * 1024 // 1 GB
 
   private[archive] case class ZipEntries(name: String, entries: Map[String, Bytes]) {
-    private[archive] def get(entryName: String): Try[Bytes] = {
-      entries.get(entryName) match {
-        case Some(is) => Success(is)
-        case None => Failure(Error.InvalidZipEntry(entryName, this))
-      }
-    }
+    private[archive] def get(entryName: String): Either[Error, Bytes] =
+      entries.get(entryName).toRight(Error.InvalidZipEntry(entryName, this))
 
-    private[archive] def readDalfNames: Try[Dar[String]] =
+    private[archive] def readDalfNames: Either[Error, Dar[String]] =
       get(ManifestName)
         .flatMap(DarManifestReader.dalfNames)
-        .recoverWith { case NonFatal(e1) => Failure(Error.InvalidDar(this, e1)) }
+        .left
+        .map(Error.InvalidDar(this, _))
   }
 }

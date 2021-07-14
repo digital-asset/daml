@@ -71,7 +71,7 @@ object PlaySpeedy {
     val darFile = new File(rlocation(dar))
 
     println("Loading dar...")
-    val packages = UniversalArchiveDecoder.readFile(darFile).get
+    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)

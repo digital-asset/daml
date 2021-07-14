@@ -88,10 +88,10 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
     for {
-      dar <- darReader.readArchive("package-upload", stream)
-      packages <- Try(dar.all.iterator.map(Decode.decodeArchive(_)).toMap)
+      dar <- darReader.readArchive("package-upload", stream).toTry
+      packages <- Try(dar.all.map(Decode.decodeArchive(_)))
       _ <- engine
-        .validatePackages(packages)
+        .validatePackages(packages.toMap)
         .left
         .map(e => new IllegalArgumentException(e.msg))
         .toTry

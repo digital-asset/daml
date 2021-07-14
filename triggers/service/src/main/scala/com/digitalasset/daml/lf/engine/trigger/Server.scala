@@ -394,9 +394,9 @@ class Server(
                 val inputStream = new ByteArrayInputStream(byteString.toArray)
                 DarReader
                   .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                  case Failure(err) =>
+                  case Left(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                  case Success(dar) =>
+                  case Right(dar) =>
                     extractExecutionContext { implicit ec =>
                       onComplete(addDar(dar.map(p => p.pkgId -> p.proto))) {
                         case Failure(err: archive.Error) =>
