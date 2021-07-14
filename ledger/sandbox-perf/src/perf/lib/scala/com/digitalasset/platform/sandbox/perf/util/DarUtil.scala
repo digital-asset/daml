@@ -10,6 +10,6 @@ import com.daml.lf.data.Ref.PackageId
 
 object DarUtil {
   def getPackageId(dalf: File): PackageId = {
-    UniversalArchiveReader().readFile(dalf).get.main.pkgId
+    UniversalArchiveReader.readFile(dalf).get.main.pkgId
   }
 }

@@ -6,7 +6,7 @@ package speedy
 package explore
 
 import com.daml.bazeltools.BazelRunfiles.{rlocation}
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -71,13 +71,12 @@ object PlaySpeedy {
     val darFile = new File(rlocation(dar))
 
     println("Loading dar...")
-    val payloads = UniversalArchiveReader().readFile(darFile).get
-    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
+    val packages = UniversalArchiveDecoder.readFile(darFile).get
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)
     val compiledPackages =
-      PureCompiledPackages.build(packages, compilerConfig) match {
+      PureCompiledPackages.build(packages.all.toMap, compilerConfig) match {
         case Right(x) => x
         case Left(x) =>
           throw new MachineProblem(s"Unexpecteded result when compiling $x")
@@ -88,7 +87,7 @@ object PlaySpeedy {
       val expr = {
         val ref: DefinitionRef =
           Identifier(
-            payloads.main.pkgId,
+            packages.main._1,
             QualifiedName.assertFromString(s"${base}:${config.funcName}"),
           )
         val func = SEVal(LfDefRef(ref))

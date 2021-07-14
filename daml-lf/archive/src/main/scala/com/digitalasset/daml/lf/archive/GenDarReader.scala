@@ -93,6 +93,8 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
 
 object GenDarReader {
 
+  def apply[A](reader: GenReader[A]): GenDarReader[A] = new GenDarReaderImpl[A](reader)
+
   private val ManifestName = "META-INF/MANIFEST.MF"
   private[archive] val EntrySizeThreshold = 1024 * 1024 * 1024 // 1 GB
 
