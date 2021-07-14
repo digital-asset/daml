@@ -101,7 +101,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
 
-            md_adts = mapMaybe (filterTypeByExports dc_exports) adts
+            md_adts = mapMaybe (filterTypeByExports md_name dc_exports) adts
 
         in ModuleDoc {..}
 
