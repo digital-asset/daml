@@ -101,7 +101,7 @@ object CodeGen {
   private def decodeInterfaces(
       files: NonEmptyList[File]
   ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
-    files.traverse(f => decodeInterface(parseFile)(f).validationNel)
+    files.traverse(f => decodeInterface(parseFile(_))(f).validationNel)
   }
 
   private def parseFile(f: File): String \/ Dar[ArchivePayload] =
