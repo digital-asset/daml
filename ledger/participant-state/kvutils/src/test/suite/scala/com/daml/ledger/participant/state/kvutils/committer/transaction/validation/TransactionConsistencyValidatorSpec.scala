@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractKey,
   DamlContractKeyState,
+  DamlContractState,
   DamlStateKey,
   DamlStateValue,
 }
@@ -37,6 +38,7 @@ import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.google.protobuf.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{forAll, _}
 import org.scalatest.wordspec.AnyWordSpec
@@ -227,6 +229,28 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       val rejectionReason =
         getTransactionRejectionReason(result).getInconsistent.getDetails
       rejectionReason should startWith("InconsistentKeys")
+    }
+
+    "fail if a contract is not active anymore" in {
+      val globalCid = s"#$freshContractId"
+      val globalCreate = newCreateNodeWithFixedKey(globalCid)
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = Map(
+          makeContractIdStateKey(globalCid) -> Some(
+            makeContractIdStateValue().toBuilder
+              .setContractState(
+                DamlContractState.newBuilder().setArchivedAt(Timestamp.getDefaultInstance)
+              )
+              .build()
+          )
+        ),
+      )
+      val builder = TransactionBuilder()
+      builder.add(archive(globalCreate, Set("Alice")))
+      val transaction = builder.buildSubmitted()
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
     }
   }
 

@@ -131,7 +131,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
 
   // Helper to lookup contract instances. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
-  private def lookupContract(
+  private[validation] def lookupContract(
       commitContext: CommitContext
   )(coid: Value.ContractId): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
     val stateKey = contractIdToStateKey(coid)
@@ -182,7 +182,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       } yield pkg
     }
 
-  private def lookupKey(
+  private[validation] def lookupKey(
       contractKeyInputs: Map[GlobalKey, KeyInput]
   )(key: GlobalKeyWithMaintainers): Option[Value.ContractId] = {
     contractKeyInputs.get(key.globalKey) match {
@@ -230,19 +230,15 @@ private[transaction] object ModelConformanceValidator {
   )(
       error: KeyInputError
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-    val rejectionReason = error match {
-      case DuplicateKeys(key) =>
-        RejectionReasonV0.Disputed(
-          s"DuplicateKeys: the transaction contains a duplicate key: ${key.key}"
-        )
-      case InconsistentKeys(key) =>
-        RejectionReasonV0.Disputed(
-          s"InconsistentKeys: the transaction is internally inconsistent due to a contract with the key: ${key.key}"
-        )
+    val description = error match {
+      case DuplicateKeys(_) =>
+        "DuplicateKeys: the transaction contains a duplicate key"
+      case InconsistentKeys(_) =>
+        "InconsistentKeys: the transaction is internally inconsistent"
     }
     rejections.buildRejectionStep(
       transactionEntry,
-      rejectionReason,
+      RejectionReasonV0.Disputed(description),
       recordTime,
     )
   }

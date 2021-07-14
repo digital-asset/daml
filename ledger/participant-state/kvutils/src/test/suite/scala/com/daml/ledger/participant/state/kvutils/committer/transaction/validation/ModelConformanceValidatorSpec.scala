@@ -9,53 +9,69 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractState,
-  DamlStateKey,
+  DamlLogEntry,
   DamlStateValue,
+  DamlSubmitterInfo,
   DamlTransactionEntry,
+  DamlTransactionRejectionEntry,
+  InvalidLedgerTime,
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, lfTuple}
-import com.daml.ledger.participant.state.kvutils.committer.StepContinue
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
   Rejections,
 }
+import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.v1.{RejectionReason, RejectionReasonV0}
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
-import com.daml.lf.engine.{Engine, Error => LfError}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.{Engine, Result, ResultError, Error => LfError}
+import com.daml.lf.language.Ast
 import com.daml.lf.transaction
+import com.daml.lf.transaction.TransactionOuterClass.ContractInstance
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
   NodeId,
   RecordedNodeMissing,
   ReplayNodeMismatch,
   ReplayedNodeMissing,
+  SubmittedTransaction,
   Transaction,
   TransactionVersion,
 }
-import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ValueRecord, ValueText}
+import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.mockito.ArgumentMatchersSugar.eqTo
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with MockitoSugar {
+class ModelConformanceValidatorSpec
+    extends AnyWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   import ModelConformanceValidatorSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val metrics = new Metrics(new MetricRegistry)
-  private val modelConformanceValidator = new ModelConformanceValidator(Engine.DevEngine(), metrics)
 
-  private val txBuilder = TransactionBuilder(TransactionVersion.VDev)
+  private val mockEngine = mock[Engine]
+  private val modelConformanceValidator = new ModelConformanceValidator(mockEngine, metrics)
+  private val rejections = new Rejections(metrics)
 
-  private val inputContractId = "#inputContractId"
-  private val createInput = create(inputContractId)
-  private val contractId1 = "#someContractId"
-  private val contractKey1 = DamlStateKey.newBuilder().setContractId(contractId1).build()
+  private val createInput = create(
+    inputContractId,
+    keyAndMaintainer = Some(inputContractKey, inputContractKeyMaintainer),
+  )
   private val create1 = create(contractId1)
   private val create2 = create("#otherContractId")
   private val otherKeyCreate = create(
@@ -79,7 +95,7 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
     }
 
   val Seq(tx1, tx2, txNone, txOther) = lookupNodes map { node =>
-    val builder = TransactionBuilder()
+    val builder = txBuilder
     val rootId = builder.add(exercise)
     val lookupId = builder.add(node, rootId)
     builder.build() -> lookupId
@@ -93,45 +109,147 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
       .build
   )
 
-  "validateCausalMonotonicity" should {
+  "createValidationStep" should {
     "create StepContinue in case of correct input" in {
+      val mockValidationResult = mock[Result[Unit]]
+      when(
+        mockValidationResult.consume(
+          any[Value.ContractId => Option[
+            Value.ContractInst[Value.VersionedValue[Value.ContractId]]
+          ]],
+          any[Ref.PackageId => Option[Ast.Package]],
+          any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
+        )
+      ).thenReturn(Right(()))
+      when(
+        mockEngine.validate(
+          any[Set[Ref.Party]],
+          any[SubmittedTransaction],
+          any[Timestamp],
+          any[Ref.ParticipantId],
+          any[Timestamp],
+          any[Hash],
+        )
+      ).thenReturn(mockValidationResult)
+
+      modelConformanceValidator.createValidationStep(rejections)(
+        createCommitContext(
+          None,
+          Map(
+            inputContractIdStateKey -> Some(makeContractIdStateValue()),
+            contractIdStateKey1 -> Some(makeContractIdStateValue()),
+          ),
+        ),
+        transactionEntry1,
+      ) shouldBe StepContinue(transactionEntry1)
+    }
+
+    "create StepStop in case of validation error" in {
+      when(
+        mockEngine.validate(
+          any[Set[Ref.Party]],
+          any[SubmittedTransaction],
+          any[Timestamp],
+          any[Ref.ParticipantId],
+          any[Timestamp],
+          any[Hash],
+        )
+      ).thenReturn(ResultError(LfError.Validation.ReplayMismatch(mkMismatch(tx1, tx2))))
+
+      val step = modelConformanceValidator
+        .createValidationStep(rejections)(
+          createCommitContext(
+            None,
+            Map(
+              inputContractIdStateKey -> Some(makeContractIdStateValue()),
+              contractIdStateKey1 -> Some(makeContractIdStateValue()),
+            ),
+          ),
+          transactionEntry1,
+        )
+      step shouldBe a[StepStop]
+      step
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry
+        .hasInconsistent shouldBe true
+    }
+  }
+
+  "lookupContract" should {
+    "lookup contract" in {
+      modelConformanceValidator.lookupContract(
+        createCommitContext(
+          None,
+          Map(
+            inputContractIdStateKey -> Some(
+              aContractIdStateValue
+            )
+          ),
+        )
+      )(Conversions.decodeContractId(inputContractId)) shouldBe a[Some[_]]
+    }
+  }
+
+  "lookupKey" should {
+    val contractKeyInputs = transactionEntry1.transaction.contractKeyInputs match {
+      case Left(_) => fail()
+      case Right(contractKeyInputs) => contractKeyInputs
+    }
+
+    "return Some when mapping exists" in {
+      modelConformanceValidator.lookupKey(contractKeyInputs)(
+        aGlobalKeyWithMaintainers(inputContractKey, inputContractKeyMaintainer)
+      ) shouldBe Some(Conversions.decodeContractId(inputContractId))
+    }
+
+    "return None when mapping does not exist" in {
+      modelConformanceValidator.lookupKey(contractKeyInputs)(
+        aGlobalKeyWithMaintainers("nonexistentKey", "nonexistentMaintainer")
+      ) shouldBe None
+    }
+  }
+
+  "validateCausalMonotonicity" should {
+    "create StepContinue when causal monotonicity is held" in {
       modelConformanceValidator
         .validateCausalMonotonicity(
           transactionEntry1,
           createCommitContext(
             None,
             Map(
-              makeContractIdStateKey(inputContractId) -> Some(makeContractIdStateValue()),
-              contractKey1 -> Some(aStateValueActiveAt(ledgerEffectiveTime.minusSeconds(1))),
+              inputContractIdStateKey -> Some(makeContractIdStateValue()),
+              contractIdStateKey1 -> Some(aStateValueActiveAt(ledgerEffectiveTime.minusSeconds(1))),
             ),
           ),
-          mock[Rejections],
+          rejections,
         ) shouldBe StepContinue(transactionEntry1)
     }
 
-    "reject transaction in case of incorrect input" in {
-      val rejections = mock[Rejections]
-
-      modelConformanceValidator
+    "reject transaction when causal monotonicity is not held" in {
+      val step = modelConformanceValidator
         .validateCausalMonotonicity(
           transactionEntry1,
           createCommitContext(
             None,
             Map(
-              makeContractIdStateKey(inputContractId) -> Some(makeContractIdStateValue()),
-              contractKey1 -> Some(aStateValueActiveAt(ledgerEffectiveTime.plusSeconds(1))),
+              inputContractIdStateKey -> Some(makeContractIdStateValue()),
+              contractIdStateKey1 -> Some(aStateValueActiveAt(ledgerEffectiveTime.plusSeconds(1))),
             ),
           ),
           rejections,
         )
 
-      verify(rejections).buildRejectionStep(
-        eqTo(transactionEntry1),
-        eqTo(RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated")),
-        eqTo(None),
-      )(eqTo(loggingContext))
-
-      succeed
+      val expectedEntry = DamlLogEntry.newBuilder
+        .setTransactionRejectionEntry(
+          DamlTransactionRejectionEntry.newBuilder
+            .setSubmitterInfo(DamlSubmitterInfo.getDefaultInstance)
+            .setInvalidLedgerTime(
+              InvalidLedgerTime.newBuilder.setDetails("Causal monotonicity violated")
+            )
+        )
+        .build()
+      step shouldBe StepStop(expectedEntry)
     }
   }
 
@@ -148,14 +266,14 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
 
       "report Disputed if one of contracts is created in the same transaction" in {
         val Seq(txC1, txC2, txCNone) = Seq(lookup1, lookup2, lookupNone) map { node =>
-          val builder = TransactionBuilder()
+          val builder = txBuilder
           val rootId = builder.add(exercise)
           builder.add(create1, rootId)
           val lookupId = builder.add(node, rootId)
           builder.build() -> lookupId
         }
         val Seq(tx1C, txNoneC) = Seq(lookup1, lookupNone) map { node =>
-          val builder = TransactionBuilder()
+          val builder = txBuilder
           val rootId = builder.add(exercise)
           val lookupId = builder.add(node, rootId)
           builder.add(create1)
@@ -178,12 +296,12 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
     "the mismatch is not between two lookup nodes" should {
       "report Disputed" in {
         val txExerciseOnly = {
-          val builder = TransactionBuilder()
+          val builder = txBuilder
           builder.add(exercise)
           builder.build()
         }
         val txCreate = {
-          val builder = TransactionBuilder()
+          val builder = txBuilder
           val rootId = builder.add(exercise)
           val createId = builder.add(create1, rootId)
           builder.build() -> createId
@@ -203,15 +321,16 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
       signatories: Seq[String] = Seq(aKeyMaintainer),
       argument: TransactionBuilder.Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
-  ): TransactionBuilder.Create =
+  ): TransactionBuilder.Create = {
     txBuilder.create(
       id = contractId,
-      template = "dummyPackage:DummyModule:DummyTemplate",
+      template = aTemplateId,
       argument = argument,
       signatories = signatories,
       observers = Seq.empty,
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
+  }
 
   private def checkRejectionReason(
       mkReason: String => RejectionReason
@@ -224,13 +343,63 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
 }
 
 object ModelConformanceValidatorSpec {
-  private val aKeyMaintainer = "maintainer"
+  private val inputContractId = "#inputContractId"
+  private val inputContractIdStateKey = makeContractIdStateKey(inputContractId)
+  private val contractId1 = "#someContractId"
+  private val contractIdStateKey1 = makeContractIdStateKey(contractId1)
+  private val inputContractKey = "inputContractKey"
+  private val inputContractKeyMaintainer = "inputContractKeyMaintainer"
   private val aKey = "key"
+  private val aKeyMaintainer = "maintainer"
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
+  private val aTemplateId = "dummyPackage:DummyModule:DummyTemplate"
 
   private val aSubmissionSeed = ByteString.copyFromUtf8("a" * 32)
   private val ledgerEffectiveTime =
     ZonedDateTime.of(2021, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
+
+  private val aContractIdStateValue = {
+    makeContractIdStateValue().toBuilder
+      .setContractState(
+        DamlContractState
+          .newBuilder()
+          .setContractInstance(
+            ContractInstance
+              .newBuilder()
+              .setTemplateId(
+                ValueOuterClass.Identifier
+                  .newBuilder()
+                  .setPackageId("dummyPackage")
+                  .addModuleName("dummyModule")
+                  .addName("dummyName")
+              )
+              .setArgVersioned(
+                ValueOuterClass.VersionedValue
+                  .newBuilder()
+                  .setVersion(TransactionVersion.VDev.protoValue)
+                  .setValue(ValueOuterClass.Value.newBuilder().setText("dummyValue"))
+              )
+          )
+          .build()
+      )
+      .build()
+  }
+
+  private def txBuilder = TransactionBuilder(TransactionVersion.VDev)
+
+  private def aGlobalKeyWithMaintainers(key: String, maintainer: String) = GlobalKeyWithMaintainers(
+    GlobalKey.assertBuild(
+      Ref.TypeConName.assertFromString(aTemplateId),
+      ValueRecord(
+        None,
+        ImmArray(
+          (None, ValueText(maintainer)),
+          (None, ValueText(key)),
+        ),
+      ),
+    ),
+    Set.empty,
+  )
 
   private def aStateValueActiveAt(activeAt: Instant) =
     DamlStateValue.newBuilder
