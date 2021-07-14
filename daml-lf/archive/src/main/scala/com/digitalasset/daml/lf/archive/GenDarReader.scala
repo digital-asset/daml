@@ -3,25 +3,44 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Bytes
 import com.daml.lf.data.TryOps.sequence
 
-import java.io.{File, FileInputStream, IOException, InputStream}
+import java.io.{File, FileInputStream, IOException}
 import java.util.zip.ZipInputStream
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try, Using}
 
-class GenDarReader[A](parseDalf: Bytes => Try[A]) {
+sealed abstract class GenDarReader[A] {
+  import GenDarReader._
+
+  def readArchiveFromFile(
+      darFile: File,
+      entrySizeThreshold: Int = EntrySizeThreshold,
+  ): Try[Dar[A]]
+
+  def readArchive(
+      name: String,
+      darStream: ZipInputStream,
+      entrySizeThreshold: Int = EntrySizeThreshold,
+  ): Try[Dar[A]]
+}
+
+private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends GenDarReader[A] {
 
   import GenDarReader._
 
   /** Reads an archive from a File. */
-  def readArchiveFromFile(darFile: File): Try[Dar[A]] =
-    Using(new ZipInputStream(new FileInputStream(darFile)))(readArchive(darFile.getName, _)).flatten
+  override def readArchiveFromFile(
+      darFile: File,
+      entrySizeThreshold: Int = EntrySizeThreshold,
+  ): Try[Dar[A]] =
+    Using(new ZipInputStream(new FileInputStream(darFile)))(
+      readArchive(darFile.getName, _, entrySizeThreshold)
+    ).flatten
 
   /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */
-  def readArchive(
+  override def readArchive(
       name: String,
       darStream: ZipInputStream,
       entrySizeThreshold: Int = EntrySizeThreshold,
@@ -68,7 +87,7 @@ class GenDarReader[A](parseDalf: Bytes => Try[A]) {
     sequence(names.map(parseOne(getPayload)))
 
   private[this] def parseOne(getPayload: String => Try[Bytes])(s: String): Try[A] =
-    getPayload(s).flatMap(parseDalf)
+    getPayload(s).flatMap(bytes => Try(reader.fromBytes(bytes)))
 
 }
 
@@ -77,24 +96,17 @@ object GenDarReader {
   private val ManifestName = "META-INF/MANIFEST.MF"
   private[archive] val EntrySizeThreshold = 1024 * 1024 * 1024 // 1 GB
 
-  private[archive] case class ZipEntry(size: Long, getStream: () => InputStream)
-
   private[archive] case class ZipEntries(name: String, entries: Map[String, Bytes]) {
-    private[GenDarReader] def get(entryName: String): Try[Bytes] = {
+    private[archive] def get(entryName: String): Try[Bytes] = {
       entries.get(entryName) match {
         case Some(is) => Success(is)
         case None => Failure(Error.InvalidZipEntry(entryName, this))
       }
     }
 
-    private[GenDarReader] def readDalfNames: Try[Dar[String]] =
+    private[archive] def readDalfNames: Try[Dar[String]] =
       get(ManifestName)
         .flatMap(DarManifestReader.dalfNames)
         .recoverWith { case NonFatal(e1) => Failure(Error.InvalidDar(this, e1)) }
   }
 }
-
-object DarReader extends GenDarReader[ArchivePayload](is => Try(Reader.readArchive(is)))
-
-object RawDarReader
-    extends GenDarReader[DamlLf.Archive](is => Try(DamlLf.Archive.parseFrom(is.toByteString)))

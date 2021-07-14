@@ -402,7 +402,7 @@ object Repl {
     try {
       val (packagesMap, loadingTime) = time {
         val payloads = UniversalArchiveReader().readFile(new File(darFile)).get
-        payloads.all.map(Decode.decode).toMap
+        payloads.all.map(Decode.decodeArchivePayload(_)).toMap
       }
 
       val npkgs = packagesMap.size

@@ -16,7 +16,7 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{NodeId => _, _}
+import com.daml.lf.value.Value._
 import com.daml.lf.command._
 import org.scalameter
 import org.scalameter.Quantity
@@ -84,7 +84,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       resource: String
   ): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
     val payloads = UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
     val mainPkgId = payloads.main.pkgId
     (mainPkgId, packages(mainPkgId), packages)
   }

@@ -105,7 +105,7 @@ private[replay] object Replay {
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
     val payloads = UniversalArchiveReader().readFile(darFile.toFile).get.all
-    payloads.map(Decode.decode).toMap
+    payloads.map(Decode.decodeArchivePayload(_)).toMap
   }
 
   def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {

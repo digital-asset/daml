@@ -18,6 +18,10 @@ import io.grpc.{Metadata, StatusRuntimeException}
 
 import scala.jdk.CollectionConverters._
 
+/** Adapts a [[com.daml.ledger.participant.state.v1.WriteService]] implementation to the
+  * [[com.daml.ledger.participant.state.v2.WriteService]] API.
+  * Please note that this adaptor is not a fully faithful implementation of the v2 API.
+  */
 class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
   import AdaptedV1WriteService._
 

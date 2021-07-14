@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.archive.{Decode, Reader}
+import com.daml.lf.archive
 import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
@@ -77,18 +77,6 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     newCtx
   }
 
-  private[this] val dop: Decode.OfPackage[_] = Decode.decoders
-    .lift(languageVersion)
-    .getOrElse(
-      throw Context.ContextException(s"No decode support for LF ${languageVersion.pretty}")
-    )
-    .decoder
-
-  private def decodeModule(bytes: ByteString): Ast.Module = {
-    val lfScenarioModule = dop.protoScenarioModule(Reader.damlLfCodedInputStream(bytes.newInput))
-    dop.decodeScenarioModule(homePackageId, lfScenarioModule)
-  }
-
   @throws[archive.Error]
   def update(
       unloadModules: Set[ModuleName],
@@ -98,13 +86,15 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    val newModules = loadModules.map(module => decodeModule(module.getDamlLf1))
+    val newModules = loadModules.map(module =>
+      archive.moduleDecoder(languageVersion, homePackageId).fromByteString(module.getDamlLf1)
+    )
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 
     val newPackages =
-      loadPackages.map { archive =>
-        Decode.decode(Reader.readArchive(archive.newInput))
+      loadPackages.map { bytes =>
+        archive.Decode.decodeArchive(archive.ArchiveParser.fromByteString(bytes))
       }.toMap
 
     val modulesToCompile =
@@ -195,9 +185,10 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       ScriptTimeMode.Static,
     )
     val traceLog = Speedy.Machine.newTraceLog
-    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog)
+    val warningLog = Speedy.Machine.newWarningLog
+    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
-    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog)
+    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog, warningLog)
 
     def handleFailure(e: Error) =
       // SError are the errors that should be handled and displayed as
@@ -207,6 +198,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           ScenarioRunner.ScenarioError(
             ledgerClient.ledger,
             clientMachine.traceLog,
+            clientMachine.warningLog,
             ledgerClient.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.empty,
@@ -225,6 +217,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
             ScenarioRunner.ScenarioSuccess(
               ledgerClient.ledger,
               clientMachine.traceLog,
+              clientMachine.warningLog,
               dummyDuration,
               dummySteps,
               v,

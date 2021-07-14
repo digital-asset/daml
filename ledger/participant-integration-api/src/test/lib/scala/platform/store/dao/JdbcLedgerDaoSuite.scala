@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
@@ -55,7 +55,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   private[this] val Success(dar) = {
     val fileName = new File(rlocation(ModelTestDar.path))
-    RawDarReader.readArchiveFromFile(fileName)
+    DarParser.readArchiveFromFile(fileName)
   }
 
   private val now = Instant.now()

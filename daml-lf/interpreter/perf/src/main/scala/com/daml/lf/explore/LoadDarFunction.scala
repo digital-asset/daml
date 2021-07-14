@@ -19,7 +19,7 @@ object LoadDarFunction extends App {
   def load(darFile: File, base: String, funcName: String): (Long => Long) = {
 
     val payloads = UniversalArchiveReader().readFile(darFile).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
 
     val compilerConfig =
       Compiler.Config.Default.copy(

@@ -16,8 +16,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  Step,
   Rejections,
+  Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
@@ -83,11 +83,8 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
             .fold(
               err =>
                 rejections.buildRejectionStep(
-                  rejections
-                    .buildRejectionEntry(
-                      transactionEntry,
-                      rejectionReasonForValidationError(err),
-                    ),
+                  transactionEntry,
+                  rejectionReasonForValidationError(err),
                   commitContext.recordTime,
                 ),
               _ => StepContinue[DamlTransactionEntrySummary](transactionEntry),
@@ -98,8 +95,8 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
               "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant)."
             )
             rejections.buildRejectionStep(
-              rejections
-                .buildRejectionEntry(transactionEntry, RejectionReasonV0.Disputed(err.getMessage)),
+              transactionEntry,
+              RejectionReasonV0.Disputed(err.getMessage),
               commitContext.recordTime,
             )
         }
@@ -158,7 +155,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
             // NOTE(JM): Engine only looks up packages once, compiles and caches,
             // provided that the engine instance is persisted.
             try {
-              Some(archive.Decode.decode(value.getArchive)._2)
+              Some(archive.Decode.decodeArchive(value.getArchive)._2)
             } catch {
               case err: archive.Error =>
                 logger.warn("Decoding the archive failed.")

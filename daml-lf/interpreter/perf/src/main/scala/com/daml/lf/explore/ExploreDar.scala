@@ -72,7 +72,7 @@ object PlaySpeedy {
 
     println("Loading dar...")
     val payloads = UniversalArchiveReader().readFile(darFile).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)

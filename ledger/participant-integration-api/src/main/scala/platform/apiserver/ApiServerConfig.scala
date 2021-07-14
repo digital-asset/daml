@@ -6,9 +6,10 @@ package com.daml.platform.apiserver
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.ports.Port
 

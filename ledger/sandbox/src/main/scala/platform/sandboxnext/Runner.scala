@@ -22,15 +22,16 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.v1.WritePackagesService
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.PartyConfiguration
@@ -38,7 +39,6 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneI
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
-import com.daml.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
@@ -148,16 +148,17 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ledgerId = ledgerId,
                 participantId = config.participantId,
                 metrics = metrics,
+                engine = engine,
                 jdbcUrl = ledgerJdbcUrl,
                 resetOnStartup = isReset,
-                timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-                seedService = SeedService(config.seeding.get),
+                logEntryIdAllocator =
+                  new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
                 stateValueCache = caching.WeightedCache.from(
                   caching.WeightedCache.Configuration(
                     maximumWeight = MaximumStateValueCacheSize
                   )
                 ),
-                engine = engine,
+                timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               )
               ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
               readService = new TimedReadService(ledger, metrics)
@@ -295,7 +296,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     implicit telemetryContext =>
       val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future.fromTry(RawDarReader.readArchiveFromFile(from))
+        dar <- Future.fromTry(DarParser.readArchiveFromFile(from))
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }

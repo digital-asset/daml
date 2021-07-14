@@ -136,6 +136,7 @@ class ScenarioService(implicit
                       error.ledger,
                       error.currentSubmission.map(_.ptx),
                       error.traceLog,
+                      error.warningLog,
                       error.currentSubmission.flatMap(_.commitLocation),
                       error.stackTrace,
                     )
@@ -150,6 +151,7 @@ class ScenarioService(implicit
                       success.ledger,
                       None,
                       success.traceLog,
+                      success.warningLog,
                       None,
                       ImmArray.empty,
                     )

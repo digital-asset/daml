@@ -17,7 +17,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
 }
 import com.daml.lf.value.Value
-import Value.{NodeId => _, _}
+import Value._
 
 import scala.annotation.tailrec
 import scala.collection.compat._

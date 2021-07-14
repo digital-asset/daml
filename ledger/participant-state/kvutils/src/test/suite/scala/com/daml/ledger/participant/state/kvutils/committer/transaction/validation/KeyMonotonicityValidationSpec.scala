@@ -60,14 +60,12 @@ class KeyMonotonicityValidationSpec
           rejections,
         )
 
-      verify(rejections).buildRejectionEntry(
-        eqTo(testTransactionEntry),
-        any[RejectionReasonV0.InvalidLedgerTime],
-      )(any[LoggingContext])
       verify(rejections).buildRejectionStep(
-        any[DamlTransactionRejectionEntry.Builder],
+        eqTo(testTransactionEntry),
+        eqTo(RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated")),
         eqTo(None),
-      )
+      )(eqTo(loggingContext))
+
       succeed
     }
   }

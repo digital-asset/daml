@@ -15,9 +15,9 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.language.LanguageVersion
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture

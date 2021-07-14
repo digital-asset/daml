@@ -143,7 +143,6 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",

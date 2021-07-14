@@ -24,7 +24,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{NodeId => _, _}
+import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 
@@ -267,9 +267,6 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  @deprecated("use genNonEmptyParties instead", since = "100.11.17")
-  private[lf] def genParties = genNonEmptyParties
-
   val contractInstanceGen: Gen[ContractInst[Value[Value.ContractId]]] = {
     for {
       template <- idGen
@@ -433,9 +430,6 @@ object ValueGenerators {
       version,
     )
 
-  @deprecated("use danglingRefExerciseNodeGen instead", since = "100.11.17")
-  private[lf] def exerciseNodeGen = danglingRefExerciseNodeGen
-
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
@@ -486,9 +480,6 @@ object ValueGenerators {
         1 -> refGenNode(danglingRefRollbackNodeGen),
       )
   }
-
-  @deprecated("use danglingRefGenNode instead", since = "100.11.17")
-  private[lf] def genNode = danglingRefGenNode
 
   /** Aside from the invariants failed as listed under `malformedCreateNodeGen`,
     * resulting transactions may be malformed in several other ways:
