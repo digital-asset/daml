@@ -3,7 +3,6 @@
 
 package com.daml.http.dbbackend
 
-import scalaz.std.list._
 import cats.instances.list._
 import doobie.util.log.LogHandler
 import com.daml.doobie.logging.Slf4jLogHandler
@@ -12,6 +11,7 @@ import com.daml.http.domain.TemplateId
 import com.daml.testing.oracle, oracle.{OracleAround, User}
 import org.openjdk.jmh.annotations._
 import scala.concurrent.ExecutionContext
+import scalaz.std.list._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
