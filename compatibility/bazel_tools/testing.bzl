@@ -282,10 +282,10 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.15.0-snapshot.20210705.7286.1.62aabcc4",
+        "start": "1.16.0-snapshot.20210713.7343.1.1f35db17",
         "platform_ranges": [
             {
-                "end": "1.15.0-snapshot.20210705.7286.0.62aabcc4",
+                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
                 "exclusions": [
                     "ConfigManagementServiceIT:DuplicateSubmissionId",
                     "PackageManagementServiceIT:DuplicateSubmissionId",
