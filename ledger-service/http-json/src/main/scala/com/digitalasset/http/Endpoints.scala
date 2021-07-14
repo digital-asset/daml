@@ -49,6 +49,8 @@ import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Directive
 
+import scala.annotation.nowarn
+
 class Endpoints(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
@@ -72,6 +74,7 @@ class Endpoints(
   // Weird signature required, because it looks like Scala
   // does not see a difference between Future[HttpResponse] & other inner types.
   // Without it, it will complain that the function has been defined twice.
+  @nowarn("msg=parameter value ev in method toRoute is never used")
   def toRoute[A <: HttpResponse](res: Future[A])(implicit
       ev: A =:= HttpResponse
   ): Route = _ => res map Complete
