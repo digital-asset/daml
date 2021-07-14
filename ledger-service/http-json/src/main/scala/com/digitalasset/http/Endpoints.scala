@@ -4,7 +4,6 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{
   Authorization,
@@ -14,7 +13,7 @@ import akka.http.scaladsl.model.headers.{
   `X-Forwarded-Proto`,
 }
 import akka.http.scaladsl.server.Directives.extractClientIP
-import akka.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
+import akka.http.scaladsl.server.{Directive0, Route}
 import akka.http.scaladsl.server.RouteResult._
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -47,8 +46,8 @@ import scala.util.Try
 import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
-
-import scala.collection.immutable
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directive
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -69,106 +68,71 @@ class Endpoints(
   import encoder.implicits._
   import json.JsonProtocol._
   import util.ErrorOps._
-  import Uri.Path._
+
+  // Weird signature required, because it looks like Scala
+  // does not see a difference between Future[HttpResponse] & other inner types.
+  // Without it, it will complain that the function has been defined twice.
+  def toRoute[A <: HttpResponse](res: Future[A])(implicit
+      ev: A =:= HttpResponse
+  ): Route = _ => res map Complete
+  // I think the arguments need to be lazy
+  // because we extract the request early and pass it on to
+  // the method of each possible path.
+  // I assume that otherwise it would execute these
+  // in advance, although the path never would have matched.
+  def toRoute[A](
+      res: => ET[domain.SyncResponse[A]]
+  )(implicit metrics: Metrics, jsonWriter: JsonWriter[A]): Route =
+    toRoute(httpResponse(res))
+  def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
+    toRoute(httpResponse(res))
 
   def all(implicit
-      lc: LoggingContextOf[InstanceUUID],
+      lc0: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): Route = extractClientIP { remoteAddress => (ctx: RequestContext) =>
-    val apiMetrics = metrics.daml.HttpJsonApi
-    type DispatchFun =
-      PartialFunction[HttpRequest, LoggingContextOf[InstanceUUID with RequestID] => Future[
-        HttpResponse
-      ]]
-    def mkDispatchFunWithTimer(timer: Timer)(fun: DispatchFun): DispatchFun =
-      fun andThen (f => lc => Timed.future(timer, f(lc)))
-    val commandDispatch =
-      mkDispatchFunWithTimer(apiMetrics.commandSubmissionTimer) {
-        case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
-          (implicit lc => httpResponse(create(req)))
-        case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
-          (implicit lc => httpResponse(exercise(req)))
-        case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
-          (implicit lc => httpResponse(createAndExercise(req)))
+  ): Route = extractClientIP & extractRequest apply { (remoteAddress, req) =>
+    implicit val lc: LoggingContextOf[InstanceUUID with RequestID] =
+      extendWithRequestIdLogCtx(identity)(lc0)
+    import metrics.daml.HttpJsonApi._
+    def withTimer(timer: Timer) =
+      Directive[Unit] { (fn: Unit => Route) =>
+        logger.info(s"Incoming request on ${req.uri} from $remoteAddress")
+        fn(()).andThen(res => Timed.future(timer, res))
       }
-    val queryAllDispatch = mkDispatchFunWithTimer(apiMetrics.queryAllTimer) {
-      case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
-        (implicit lc => httpResponse(retrieveAll(req)))
-    }
-    val queryMatchingDispatch = mkDispatchFunWithTimer(apiMetrics.queryMatchingTimer) {
-      case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
-        (implicit lc => httpResponse(query(req)))
-    }
-    val fetchDispatch: DispatchFun = {
-      case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
-        (implicit lc => Timed.future(apiMetrics.fetchTimer, httpResponse(fetch(req))))
-    }
-    val getPartyDispatch = mkDispatchFunWithTimer(apiMetrics.getPartyTimer) {
-      case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) =>
-        (implicit lc => httpResponse(allParties(req)))
-      case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) =>
-        (implicit lc => httpResponse(parties(req)))
-    }
-    val allocatePartyDispatch: DispatchFun = {
-      case req @ HttpRequest(POST, Uri.Path("/v1/parties/allocate"), _, _, _) =>
-        (
-            implicit lc =>
-              Timed.future(apiMetrics.allocatePartyTimer, httpResponse(allocateParty(req)))
-        )
-    }
-    val packageManagementDispatch: DispatchFun = {
-      case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
-        (implicit lc => httpResponse(listPackages(req)))
-      case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
-        (
-            implicit lc =>
-              Timed.future(
-                apiMetrics.uploadPackageTimer,
-                httpResponse(uploadDarFile(req)),
-              )
-        )
-      // format: off
-      case req @ HttpRequest(GET,
-        Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-        _, _, _) =>
-          (implicit lc => Timed.future(apiMetrics.downloadPackageTimer, downloadPackage(req, packageId)))
-      // format: on
-    }
-    val liveOrHealthDispatch: DispatchFun = {
-      case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
-        _ => Future.successful(HttpResponse(status = StatusCodes.OK))
-      case HttpRequest(GET, Uri.Path("/readyz"), _, _, _) =>
-        _ => healthService.ready().map(_.toHttpResponse)
-    }
-    import scalaz.std.partialFunction._, scalaz.syntax.arrow._
-    val dispatch = commandDispatch orElse
-      queryAllDispatch orElse
-      queryMatchingDispatch orElse
-      fetchDispatch orElse
-      getPartyDispatch orElse
-      allocatePartyDispatch orElse
-      packageManagementDispatch orElse
-      liveOrHealthDispatch
-    dispatch
-      .&&& { case r => r }
-      .andThen { case (lcFhr, req) =>
-        extendWithRequestIdLogCtx(implicit lc => {
-          val t0 = System.nanoTime
-          logger.info(s"Incoming request on ${req.uri} from $remoteAddress")
-          metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
-          for {
-            res <- lcFhr(lc)
-            _ = {
-              logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-              logger.info(s"Responding to client with HTTP ${res.status}")
-            }
-          } yield Complete(res)
-        })
-      }
-      .applyOrElse[HttpRequest, Future[RouteResult]](
-        ctx.request,
-        _ => Future(Rejected(immutable.Seq.empty[Rejection])),
-      )
+    val withCmdSubmitTimer: Directive0 = withTimer(commandSubmissionTimer)
+    val withFetchTimer: Directive0 = withTimer(fetchTimer)
+    concat(
+      pathPrefix("v1") apply concat(
+        post apply concat(
+          path("create") & withCmdSubmitTimer apply toRoute(create(req)),
+          path("exercise") & withCmdSubmitTimer apply toRoute(exercise(req)),
+          path("create-and-exercise") & withCmdSubmitTimer apply toRoute(
+            createAndExercise(req)
+          ),
+          path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
+          path("fetch") & withFetchTimer apply toRoute(fetch(req)),
+          path("parties") & withFetchTimer apply toRoute(parties(req)),
+          path("parties" / "allocate") & withTimer(
+            allocatePartyTimer
+          ) apply toRoute(allocateParty(req)),
+          path("packages") apply toRoute(uploadDarFile(req)),
+        ),
+        get apply concat(
+          path("query") & withTimer(queryAllTimer) apply
+            toRoute(retrieveAll(req)),
+          path("parties") & withTimer(getPartyTimer) apply
+            toRoute(allParties(req)),
+          path("packages") apply toRoute(listPackages(req)),
+          path("packages" / ".+".r)(packageId =>
+            withTimer(downloadPackageTimer) & extractRequest apply (req =>
+              toRoute(downloadPackage(req, packageId))
+            )
+          ),
+        ),
+      ),
+      path("livez") apply toRoute(Future.successful(HttpResponse(status = StatusCodes.OK))),
+      path("readyz") apply toRoute(healthService.ready().map(_.toHttpResponse)),
+    )
   }
 
   def getParseAndDecodeTimerCtx()(implicit
