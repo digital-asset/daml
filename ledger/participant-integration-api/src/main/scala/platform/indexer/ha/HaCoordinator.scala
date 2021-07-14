@@ -59,8 +59,8 @@ case class HaConfig(
     workerLockAquireRetryMillis: Long = 500,
     workerLockAquireMaxRetry: Long = 1000,
     mainLockCheckerPeriodMillis: Long = 1000,
-    indexerLockId: Int = 100,
-    indexerWorkerLockId: Int = 101,
+    indexerLockId: Int = 0x646d6c00,
+    indexerWorkerLockId: Int = 0x646d6c01,
     enable: Boolean = false, // TODO ha: remove as stable
 )
 
