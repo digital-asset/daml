@@ -69,18 +69,13 @@ class Endpoints(
   import json.JsonProtocol._
   import util.ErrorOps._
 
-  private def toRoute(res: Future[HttpResponse]): Route = _ => res map Complete
-  // I think the arguments need to be lazy
-  // because we extract the request early and pass it on to
-  // the method of each possible path.
-  // I assume that otherwise it would execute these
-  // in advance, although the path never would have matched.
+  private def responseToRoute(res: Future[HttpResponse]): Route = _ => res map Complete
   private def toRoute[A](
-      res: => ET[domain.SyncResponse[A]]
+      res: ET[domain.SyncResponse[A]]
   )(implicit metrics: Metrics, jsonWriter: JsonWriter[A]): Route =
-    toRoute(httpResponse(res))
+    responseToRoute(httpResponse(res))
   private def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
-    toRoute(httpResponse(res))
+    responseToRoute(httpResponse(res))
 
   def all(implicit
       lc0: LoggingContextOf[InstanceUUID],
@@ -120,13 +115,13 @@ class Endpoints(
           path("packages") apply toRoute(listPackages(req)),
           path("packages" / ".+".r)(packageId =>
             withTimer(downloadPackageTimer) & extractRequest apply (req =>
-              toRoute(downloadPackage(req, packageId))
+              responseToRoute(downloadPackage(req, packageId))
             )
           ),
         ),
       ),
-      path("livez") apply toRoute(Future.successful(HttpResponse(status = StatusCodes.OK))),
-      path("readyz") apply toRoute(healthService.ready().map(_.toHttpResponse)),
+      path("livez") apply responseToRoute(Future.successful(HttpResponse(status = StatusCodes.OK))),
+      path("readyz") apply responseToRoute(healthService.ready().map(_.toHttpResponse)),
     )
   }
 
