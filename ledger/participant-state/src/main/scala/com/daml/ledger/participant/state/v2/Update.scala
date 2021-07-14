@@ -217,8 +217,6 @@ object Update {
   object CommandRejected {
 
     /** A template for generating gRPC status codes.
-      * The indexer server should provide some details
-      * before the [[FinalReason]] gives an actual gRPC status code.
       */
     sealed trait RejectionReasonTemplate {
 
@@ -238,29 +236,6 @@ object Update {
       override def message: String = status.message
       override def definiteAnswer: Boolean =
         GrpcStatuses.isDefiniteAnswer(status)
-    }
-
-    /** The indexer shall fill in a completion offset for the completion that corresponds to
-      * the `submissionId` by calling `createStatus` with the completion offset. If no completion
-      * offset for the `submissionId` can be provided, [[scala.None]] can be used instead,
-      * which may lead to less informative errors.
-      */
-    final class NeedCompletionOffsetForSubmissionId(
-        val submissionId: SubmissionId,
-        private val incompleteStatus: com.google.rpc.status.Status,
-    ) extends RejectionReasonTemplate {
-
-      override def message: String = incompleteStatus.message
-
-      override def definiteAnswer: Boolean =
-        GrpcStatuses.isDefiniteAnswer(incompleteStatus)
-
-      def createStatus(
-          completionOffsetForSubmissionId: Option[Offset]
-      ): com.google.rpc.status.Status =
-        completionOffsetForSubmissionId.fold(incompleteStatus)(
-          GrpcStatuses.completeWithOffset(incompleteStatus, _)
-        )
     }
   }
 }
