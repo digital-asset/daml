@@ -259,7 +259,7 @@ class ApiSubmissionServiceSpec
             submittedAt = Instant.MIN,
             deduplicateUntil = Instant.MIN,
             commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
-          ),
+          )
         )
         when(
           mockCommandExecutor.execute(eqTo(submitRequest.commands), any[Hash])(
