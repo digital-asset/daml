@@ -70,7 +70,7 @@ class ModelConformanceValidatorSpec
 
   private val createInput = create(
     inputContractId,
-    keyAndMaintainer = Some(inputContractKey, inputContractKeyMaintainer),
+    keyAndMaintainer = Some(inputContractKey -> inputContractKeyMaintainer),
   )
   private val create1 = create(contractId1)
   private val create2 = create("#otherContractId")
