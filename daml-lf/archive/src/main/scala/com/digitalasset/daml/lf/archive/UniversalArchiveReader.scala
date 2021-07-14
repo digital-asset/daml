@@ -21,7 +21,7 @@ final class GenUniversalArchiveReader[A](
   ): Try[Dar[A]] =
     SupportedFileType.supportedFileType(file).flatMap {
       case SupportedFileType.DarFile =>
-        new GenDarReaderImpl(reader).readArchiveFromFile(file, entrySizeThreshold)
+        GenDarReader(reader).readArchiveFromFile(file, entrySizeThreshold)
       case SupportedFileType.DalfFile =>
         Success(Dar(reader.fromFile(file), List.empty))
     }
