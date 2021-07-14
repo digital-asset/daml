@@ -12,8 +12,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.KeyMonotonicityValidation.checkContractKeysCausalMonotonicity
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  Step,
   Rejections,
+  Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
@@ -114,10 +114,8 @@ private[transaction] object ContractKeysValidator extends TransactionValidator {
             "InconsistentKeys: at least one contract key has changed since the submission"
         }
         rejections.buildRejectionStep(
-          rejections.buildRejectionEntry(
-            transactionEntry,
-            RejectionReasonV0.Inconsistent(message),
-          ),
+          transactionEntry,
+          RejectionReasonV0.Inconsistent(message),
           recordTime,
         )
     }

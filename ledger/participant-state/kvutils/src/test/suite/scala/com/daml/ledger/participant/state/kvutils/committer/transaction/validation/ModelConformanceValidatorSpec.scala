@@ -3,28 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
-import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlPartyAllocation,
-  DamlStateKey,
-  DamlStateValue,
-}
-import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
-import com.daml.ledger.participant.state.kvutils.TestHelpers.{
-  createCommitContext,
-  createEmptyTransactionEntry,
-  getTransactionRejectionReason,
-  lfTuple,
-  mkParticipantId,
-  theDefaultConfig,
-}
-import com.daml.ledger.participant.state.kvutils.committer.transaction.{
-  DamlTransactionEntrySummary,
-  TransactionCommitter,
-}
-import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
+import com.daml.ledger.participant.state.kvutils.TestHelpers.lfTuple
 import com.daml.ledger.participant.state.v1.{RejectionReason, RejectionReasonV0}
-import com.daml.lf.engine.{Engine, Error => LfError}
+import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.transaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
@@ -35,8 +16,6 @@ import com.daml.lf.transaction.{
   Transaction,
 }
 import com.daml.lf.value.Value
-import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
 import org.mockito.MockitoSugar
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.matchers.should.Matchers
@@ -45,11 +24,6 @@ import org.scalatest.wordspec.AnyWordSpec
 class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with MockitoSugar {
   import ModelConformanceValidatorSpec._
 
-  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-
-  private val metrics = new Metrics(new MetricRegistry)
-  private val transactionCommitter =
-    createTransactionCommitter() // Stateless, can be shared between tests
   private val txBuilder = TransactionBuilder()
 
   private val createInput = create("#inputContractId")
@@ -145,81 +119,6 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
     }
   }
 
-  "authorizeSubmitters" should {
-    "reject a submission when any of the submitters keys is not present in the input state" in {
-      val context = createCommitContext(
-        recordTime = None,
-        inputs = createInputs(
-          Alice -> Some(hostedParty(Alice)),
-          Bob -> Some(hostedParty(Bob)),
-        ),
-        participantId = ParticipantId,
-      )
-      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob, Emma)))
-
-      a[MissingInputState] should be thrownBy transactionCommitter.authorizeSubmitters(
-        context,
-        tx,
-      )
-    }
-
-    "reject a submission when any of the submitters is not known" in {
-      val context = createCommitContext(
-        recordTime = None,
-        inputs = createInputs(
-          Alice -> Some(hostedParty(Alice)),
-          Bob -> None,
-        ),
-        participantId = ParticipantId,
-      )
-      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob)))
-
-      val result = transactionCommitter.authorizeSubmitters(context, tx)
-      result shouldBe a[StepStop]
-
-      val rejectionReason =
-        getTransactionRejectionReason(result).getPartyNotKnownOnLedger.getDetails
-      rejectionReason should fullyMatch regex """Submitting party .+ not known"""
-    }
-
-    "reject a submission when any of the submitters' participant id is incorrect" in {
-      val context = createCommitContext(
-        recordTime = None,
-        inputs = createInputs(
-          Alice -> Some(hostedParty(Alice)),
-          Bob -> Some(notHostedParty(Bob)),
-        ),
-        participantId = ParticipantId,
-      )
-      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob)))
-
-      val result = transactionCommitter.authorizeSubmitters(context, tx)
-      result shouldBe a[StepStop]
-
-      val rejectionReason =
-        getTransactionRejectionReason(result).getSubmitterCannotActViaParticipant.getDetails
-      rejectionReason should fullyMatch regex s"""Party .+ not hosted by participant ${mkParticipantId(
-        ParticipantId
-      )}"""
-    }
-
-    "allow a submission when all of the submitters are hosted on the participant" in {
-      val context = createCommitContext(
-        recordTime = None,
-        inputs = createInputs(
-          Alice -> Some(hostedParty(Alice)),
-          Bob -> Some(hostedParty(Bob)),
-          Emma -> Some(hostedParty(Emma)),
-        ),
-        participantId = ParticipantId,
-      )
-      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob, Emma)))
-
-      val result = transactionCommitter.authorizeSubmitters(context, tx)
-      result shouldBe a[StepContinue[_]]
-    }
-  }
-
   private def create(
       contractId: String,
       signatories: Seq[String] = Seq(aKeyMaintainer),
@@ -235,14 +134,6 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
-  private def createTransactionCommitter(): TransactionCommitter =
-    new TransactionCommitter(
-      theDefaultConfig,
-      mock[Engine],
-      metrics,
-      inStaticTimeMode = false,
-    )
-
   private def checkRejectionReason(
       mkReason: String => RejectionReason
   )(mismatch: transaction.ReplayMismatch[NodeId, Value.ContractId]) = {
@@ -254,36 +145,9 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
 }
 
 object ModelConformanceValidatorSpec {
-  private val Alice = "alice"
-  private val Bob = "bob"
-  private val Emma = "emma"
-  private val ParticipantId = 0
-  private val OtherParticipantId = 1
-
   private val aKeyMaintainer = "maintainer"
   private val aKey = "key"
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
-
-  private def createInputs(
-      inputs: (String, Option[DamlPartyAllocation])*
-  ): Map[DamlStateKey, Option[DamlStateValue]] =
-    inputs.map { case (party, partyAllocation) =>
-      DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation
-        .map(
-          DamlStateValue.newBuilder().setParty(_).build()
-        )
-    }.toMap
-
-  private def hostedParty(party: String): DamlPartyAllocation =
-    partyAllocation(party, ParticipantId)
-  private def notHostedParty(party: String): DamlPartyAllocation =
-    partyAllocation(party, OtherParticipantId)
-  private def partyAllocation(party: String, participantId: Int): DamlPartyAllocation =
-    DamlPartyAllocation
-      .newBuilder()
-      .setParticipantId(mkParticipantId(participantId))
-      .setDisplayName(party)
-      .build()
 
   private def mkMismatch(
       recorded: (Transaction.Transaction, NodeId),

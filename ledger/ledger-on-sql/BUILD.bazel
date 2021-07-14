@@ -97,7 +97,6 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-common",

@@ -25,6 +25,17 @@ private[transaction] class Rejections(metrics: Metrics) {
   private final val logger = ContextualizedLogger.get(getClass)
 
   def buildRejectionStep[A](
+      transactionEntry: DamlTransactionEntrySummary,
+      reason: RejectionReasonV0,
+      recordTime: Option[Timestamp],
+  )(implicit loggingContext: LoggingContext): StepResult[A] = {
+    buildRejectionStep(
+      buildRejectionEntry(transactionEntry, reason),
+      recordTime,
+    )
+  }
+
+  def buildRejectionStep[A](
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
       recordTime: Option[Timestamp],
   ): StepResult[A] = {
