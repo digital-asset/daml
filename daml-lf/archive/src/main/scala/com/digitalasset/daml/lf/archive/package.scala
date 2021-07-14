@@ -51,4 +51,9 @@ package object archive {
   val DarReader: GenDarReader[ArchivePayload] = new GenDarReaderImpl(ArchiveReader)
   val DarDecoder: GenDarReader[(PackageId, Ast.Package)] = new GenDarReaderImpl(ArchiveDecoder)
 
+  val UniversalArchiveReader: GenUniversalArchiveReader[ArchivePayload] =
+    new GenUniversalArchiveReader(ArchiveReader)
+  val UniversalArchiveDecoder: GenUniversalArchiveReader[(PackageId, Ast.Package)] =
+    new GenUniversalArchiveReader(ArchiveDecoder)
+
 }
