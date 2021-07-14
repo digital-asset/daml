@@ -14,22 +14,20 @@ import scala.util.control.NonFatal
 
 package object archive {
 
-  type Result[X] = Either[Error, X]
-
   @throws[Error]
-  private[archive] def assertRight[X](e: Result[X]): X =
+  private[archive] def assertRight[X](e: Either[Error, X]): X =
     e match {
       case Right(value) => value
       case Left(error) => throw error
     }
 
   // like normal Using, but catches error when trying to open the resource
-  private[archive] def using[R, X](where: => String, open: () => R)(f: R => Result[X])(implicit
-      releasable: Releasable[R]
+  private[archive] def using[R, X](where: => String, open: () => R)(f: R => Either[Error, X])(
+      implicit releasable: Releasable[R]
   ) =
     attempt(where, open()).flatMap(Using.resource(_)(f))
 
-  private[archive] def attempt[X](where: => String, x: => X): Result[X] =
+  private[archive] def attempt[X](where: => String, x: => X): Either[Error, X] =
     try Right(x)
     catch {
       case error: java.io.IOException => Left(Error.IO(where, error))

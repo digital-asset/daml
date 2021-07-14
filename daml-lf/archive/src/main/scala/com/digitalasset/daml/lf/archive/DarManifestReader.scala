@@ -13,10 +13,10 @@ object DarManifestReader {
 
   private val supportedFormat = "daml-lf"
 
-  def dalfNames(bytes: Bytes): Result[Dar[String]] =
+  def dalfNames(bytes: Bytes): Either[Error, Dar[String]] =
     dalfNames(bytes.toInputStream)
 
-  def dalfNames(is: InputStream): Result[Dar[String]] = {
+  def dalfNames(is: InputStream): Either[Error, Dar[String]] = {
     val manifest = new Manifest(is)
     val attributes = value(manifest.getMainAttributes) _
     for {
@@ -32,13 +32,13 @@ object DarManifestReader {
     deps.filter(x => x != main).toList
   }
 
-  private def value(attributes: Attributes)(key: String): Result[String] =
+  private def value(attributes: Attributes)(key: String): Either[Error, String] =
     Option(attributes.getValue(key)) match {
       case Some(x) => Right(x.trim)
       case None => failure(s"Cannot find attribute: $key")
     }
 
-  private def checkFormat(format: String): Result[Unit] =
+  private def checkFormat(format: String): Either[Error, Unit] =
     if (format == supportedFormat) Right(())
     else failure(s"Unsupported format: $format")
 

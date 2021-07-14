@@ -18,7 +18,7 @@ final class GenUniversalArchiveReader[A](
   def readFile(
       file: File,
       entrySizeThreshold: Int = GenDarReader.EntrySizeThreshold,
-  ): Result[Dar[A]] =
+  ): Either[Error, Dar[A]] =
     SupportedFileType.supportedFileType(file).flatMap {
       case SupportedFileType.DarFile =>
         GenDarReader(reader).readArchiveFromFile(file, entrySizeThreshold)
@@ -33,7 +33,7 @@ final class GenUniversalArchiveReader[A](
 }
 
 object SupportedFileType {
-  def supportedFileType(f: File): Result[SupportedFileType] =
+  def supportedFileType(f: File): Either[Error, SupportedFileType] =
     if (DarFile.matchesFileExtension(f)) Right(DarFile)
     else if (DalfFile.matchesFileExtension(f)) Right(DalfFile)
     else Left(Error.UnsupportedFileExtension(f))
