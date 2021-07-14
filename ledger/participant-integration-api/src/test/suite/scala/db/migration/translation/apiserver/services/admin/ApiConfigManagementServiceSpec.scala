@@ -53,6 +53,7 @@ class ApiConfigManagementServiceSpec
         TestWriteConfigService,
         TimeProvider.UTC,
         LedgerConfiguration.defaultLocalLedger,
+        _ => SubmissionId.assertFromString("aSubmission"),
       )
 
       val span = anEmptySpan()
