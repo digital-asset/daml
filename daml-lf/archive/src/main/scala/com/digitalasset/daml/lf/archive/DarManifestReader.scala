@@ -8,16 +8,15 @@ import com.daml.lf.data.Bytes
 
 import java.io.InputStream
 import java.util.jar.{Attributes, Manifest}
-import scala.util.{Failure, Success, Try, Using}
 
 object DarManifestReader {
 
   private val supportedFormat = "daml-lf"
 
-  def dalfNames(bytes: Bytes): Try[Dar[String]] =
-    Using.resource(bytes.toInputStream)(dalfNames)
+  def dalfNames(bytes: Bytes): Result[Dar[String]] =
+    dalfNames(bytes.toInputStream)
 
-  def dalfNames(is: InputStream): Try[Dar[String]] = {
+  def dalfNames(is: InputStream): Result[Dar[String]] = {
     val manifest = new Manifest(is)
     val attributes = value(manifest.getMainAttributes) _
     for {
@@ -33,17 +32,16 @@ object DarManifestReader {
     deps.filter(x => x != main).toList
   }
 
-  private def value(attributes: Attributes)(key: String): Try[String] =
+  private def value(attributes: Attributes)(key: String): Result[String] =
     Option(attributes.getValue(key)) match {
+      case Some(x) => Right(x.trim)
       case None => failure(s"Cannot find attribute: $key")
-      case Some(x) => Success(x.trim)
     }
 
-  private def checkFormat(format: String): Try[Unit] =
-    if (format == supportedFormat) Success(())
+  private def checkFormat(format: String): Result[Unit] =
+    if (format == supportedFormat) Right(())
     else failure(s"Unsupported format: $format")
 
-  private def failure(msg: String) = Failure(DarManifestReaderException(msg))
+  private def failure(msg: String) = Left(Error.DarManifestReaderException(msg))
 
-  case class DarManifestReaderException(msg: String) extends IllegalStateException(msg)
 }

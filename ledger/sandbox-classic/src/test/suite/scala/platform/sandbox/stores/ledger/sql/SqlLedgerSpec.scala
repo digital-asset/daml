@@ -39,7 +39,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
-import scala.util.Success
 
 final class SqlLedgerSpec
     extends AsyncWordSpec
@@ -320,8 +319,6 @@ object SqlLedgerSpec {
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
-  private val Success(testDar) = {
-    val fileName = new File(rlocation(ModelTestDar.path))
-    DarParser.readArchiveFromFile(fileName)
-  }
+  private val testDar =
+    DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
 }

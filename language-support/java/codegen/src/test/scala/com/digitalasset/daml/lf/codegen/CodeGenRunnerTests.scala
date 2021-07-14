@@ -30,7 +30,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
   def path(p: String) = new File(p).getAbsoluteFile.toPath
 
   val testDar = path(rlocation("language-support/java/codegen/test-daml.dar"))
-  val dar = DarReader.readArchiveFromFile(testDar.toFile).get
+  val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
   val dummyOutputDir = Files.createTempDirectory("codegen")
 

@@ -65,7 +65,7 @@ object CodeGenRunner extends StrictLogging {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
       val file = path.toFile
       // Explicitly calling `get` to bubble up any exception when reading the dar
-      val dar = DarParser.readArchiveFromFile(file).get
+      val dar = DarParser.assertReadArchiveFromFile(file)
       dar.all.map { archive =>
         val (errors, interface) = InterfaceReader.readInterface(archive)
         if (!errors.equals(Errors.zeroErrors)) {

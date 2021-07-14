@@ -42,7 +42,7 @@ class ReinterpretTest
   private val party = Party.assertFromString("Party")
 
   private def loadPackage(resource: String): (PackageId, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.readFile(new File(rlocation(resource))).get
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     (packages.main._1, packages.all.toMap)
   }
 

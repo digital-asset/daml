@@ -153,7 +153,7 @@ final class IT
       tmpDir.resolve("export.dar").toString,
     ).! shouldBe 0
     // load DAR
-    dar <- Future.fromTry(DarDecoder.readArchiveFromFile(tmpDir.resolve("export.dar").toFile))
+    dar <- Future.fromTry(DarDecoder.readArchiveFromFile(tmpDir.resolve("export.dar").toFile).toTry)
   } yield dar
 
   private def runScriptExport(
