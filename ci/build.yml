@@ -562,7 +562,7 @@ jobs:
         # succeed.
         #
         # release only run on releases and is skipped otherwise.
-        if [[ (!("$(Linux.status)" == "Succeeded" || "$(Linux.status)" == "SucceededWithIssues")
+        if [[ !("$(Linux.status)" == "Succeeded" || "$(Linux.status)" == "SucceededWithIssues")
             || "$(Linux_oracle.status)" != "Succeeded"
             || !("$(macOS.status)" == "Succeeded" || "$(macOS.status)" == "SucceededWithIssues")
             || "$(Windows.status)" != "Succeeded"
