@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
-import java.util.UUID
 import java.util.zip.ZipInputStream
 
 import akka.stream.Materializer
@@ -18,6 +17,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexTransactionsService,
   LedgerEndService,
 }
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.engine.Engine
@@ -43,6 +43,7 @@ private[apiserver] final class ApiPackageManagementService private (
     managementServiceTimeout: Duration,
     engine: Engine,
     darReader: GenDarReader[Archive],
+    submissionIdGenerator: String => v1.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -104,12 +105,7 @@ private[apiserver] final class ApiPackageManagementService private (
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
 
-        val submissionId =
-          if (request.submissionId.isEmpty)
-            SubmissionId.assertFromString(UUID.randomUUID().toString)
-          else
-            SubmissionId.assertFromString(request.submissionId)
-
+        val submissionId = submissionIdGenerator(request.submissionId)
         val darInputStream = new ZipInputStream(request.darFile.newInput())
 
         val response = for {
@@ -143,6 +139,7 @@ private[apiserver] object ApiPackageManagementService {
       managementServiceTimeout: Duration,
       engine: Engine,
       darReader: GenDarReader[Archive] = DarParser,
+      submissionIdGenerator: String => SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -155,6 +152,7 @@ private[apiserver] object ApiPackageManagementService {
       managementServiceTimeout,
       engine,
       darReader,
+      submissionIdGenerator,
     )
 
   private final class SynchronousResponseStrategy(

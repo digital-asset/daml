@@ -25,7 +25,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
-import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -869,6 +869,28 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   def nextOffsetStep(offset: Offset): OffsetStep =
     OffsetStep(previousOffset.getAndSet(Some(offset)), offset)
+
+  protected def storeConfigurationEntry(
+      offset: Offset,
+      submissionId: String,
+      lastConfig: Configuration,
+      rejectionReason: Option[String] = None,
+      maybePreviousOffset: Option[Offset] = Option.empty,
+  ): Future[PersistenceResponse] =
+    ledgerDao
+      .storeConfigurationEntry(
+        offsetStep = maybePreviousOffset
+          .orElse(previousOffset.get())
+          .map(IncrementalOffsetStep(_, offset))
+          .getOrElse(CurrentOffset(offset)),
+        Instant.EPOCH,
+        submissionId,
+        lastConfig,
+        rejectionReason,
+      )
+      .andThen { case Success(_) =>
+        previousOffset.set(Some(offset))
+      }
 }
 
 object JdbcLedgerDaoSuite {

@@ -46,6 +46,22 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "DuplicateSubmissionId",
+    "Duplicate submission ids are accepted when package uploaded twice",
+    allocate(NoParties, NoParties),
+  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
+    // Multiple package updates should always succeed. Participant adds extra entropy to the
+    // submission id to ensure client does not inadvertently cause problems by poor selection
+    // of submission ids.
+    for {
+      testPackage <- loadTestPackage()
+      request = alpha.uploadDarRequest(testPackage)
+      _ <- alpha.uploadDarFile(request)
+      _ <- beta.uploadDarFile(request)
+    } yield ()
+  })
+
+  test(
     "PackageManagementLoad",
     "Concurrent uploads of the same package should be idempotent and result in the package being available for use",
     allocate(SingleParty),

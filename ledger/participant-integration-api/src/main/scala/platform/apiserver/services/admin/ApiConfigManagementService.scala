@@ -37,6 +37,7 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
+    submissionIdGenerator: String => SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -104,8 +105,11 @@ private[apiserver] final class ApiConfigManagementService private (
           _ <-
             if (request.configurationGeneration != expectedGeneration) {
               Future.failed(
-                ErrorFactories.invalidArgument(
-                  s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                ValidationLogger.logFailureWithContext(
+                  request,
+                  ErrorFactories.invalidArgument(
+                    s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                  ),
                 )
               )
             } else {
@@ -119,7 +123,7 @@ private[apiserver] final class ApiConfigManagementService private (
             .copy(timeModel = params.newTimeModel)
 
           // Submit configuration to the ledger, and start polling for the result.
-          submissionId = SubmissionId.assertFromString(request.submissionId)
+          augmentedSubmissionId = submissionIdGenerator(request.submissionId)
           synchronousResponse = new SynchronousResponse(
             new SynchronousResponseStrategy(
               writeService,
@@ -129,7 +133,7 @@ private[apiserver] final class ApiConfigManagementService private (
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
           )
           entry <- synchronousResponse.submitAndWait(
-            submissionId,
+            augmentedSubmissionId,
             (params.maximumRecordTime, newConfig),
           )
         } yield SetTimeModelResponse(entry.configuration.generation)
@@ -186,6 +190,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration,
+      submissionIdGenerator: String => SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -196,6 +201,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend,
       timeProvider,
       ledgerConfiguration,
+      submissionIdGenerator,
     )
 
   private final class SynchronousResponseStrategy(

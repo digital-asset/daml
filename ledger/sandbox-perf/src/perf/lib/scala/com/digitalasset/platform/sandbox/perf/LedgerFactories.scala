@@ -24,7 +24,7 @@ import scala.concurrent.ExecutionContext
 object LedgerFactories {
 
   private def getPackageIdOrThrow(file: File): Ref.PackageId =
-    UniversalArchiveReader().readFile(file).get.all.head.pkgId
+    UniversalArchiveReader.readFile(file).get.all.head.pkgId
 
   private def sandboxConfig(jdbcUrl: Option[String], darFiles: List[File]) =
     sandbox.DefaultConfig.copy(

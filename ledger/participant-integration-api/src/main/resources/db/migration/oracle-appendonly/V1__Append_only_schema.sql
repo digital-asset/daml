@@ -70,7 +70,7 @@ CREATE TABLE configuration_entries
                 (typ = 'reject' and rejection_reason is not null))
 );
 
-CREATE UNIQUE INDEX idx_configuration_submission ON configuration_entries (submission_id);
+CREATE INDEX idx_configuration_submission ON configuration_entries (submission_id);
 
 CREATE TABLE package_entries
 (
@@ -92,7 +92,7 @@ CREATE TABLE package_entries
 );
 
 -- Index for retrieving the package entry by submission id
-CREATE UNIQUE INDEX idx_package_entries ON package_entries (submission_id);
+CREATE INDEX idx_package_entries ON package_entries (submission_id);
 
 CREATE TABLE party_entries
 (
@@ -120,7 +120,7 @@ CREATE TABLE party_entries
                 (typ = 'reject' and rejection_reason is not null)
             )
 );
-CREATE UNIQUE INDEX idx_party_entries ON party_entries(submission_id);
+CREATE INDEX idx_party_entries ON party_entries(submission_id);
 
 CREATE TABLE participant_command_completions
 (
