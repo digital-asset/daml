@@ -96,7 +96,7 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
   private[this] def parseAll(getPayload: String => Result[Bytes])(
       names: List[String]
   ): Result[List[A]] =
-    names.traverseU(parseOne(getPayload))
+    names.traverse(parseOne(getPayload))
 
   private[this] def parseOne(getPayload: String => Result[Bytes])(s: String): Result[A] =
     getPayload(s).flatMap(bytes =>

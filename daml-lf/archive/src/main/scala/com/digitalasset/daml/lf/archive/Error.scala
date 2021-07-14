@@ -5,7 +5,7 @@ package com.daml.lf.archive
 
 import java.io.File
 
-class Error(val msg: String) extends RuntimeException(msg)
+sealed abstract class Error(val msg: String) extends RuntimeException(msg)
 
 object Error {
 

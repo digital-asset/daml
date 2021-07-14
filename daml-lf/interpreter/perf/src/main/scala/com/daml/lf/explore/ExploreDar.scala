@@ -6,7 +6,7 @@ package speedy
 package explore
 
 import com.daml.bazeltools.BazelRunfiles.{rlocation}
-import com.daml.lf.archive.{UniversalArchiveDecoder}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._

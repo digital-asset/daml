@@ -17,7 +17,7 @@ package object archive {
   type Result[X] = Either[Error, X]
 
   @throws[Error]
-  def assertRight[X](e: Result[X]): X =
+  private[archive] def assertRight[X](e: Result[X]): X =
     e match {
       case Right(value) => value
       case Left(error) => throw error
