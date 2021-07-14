@@ -128,7 +128,7 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         )
       }
 
-      "return with passed in ledger ID" in {
+      "return passed ledger ID" in {
         inside(
           validator.validateCompletionEndRequest(endReq)
         ) { case Right(out) =>
