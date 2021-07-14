@@ -9,8 +9,8 @@ import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.{
-  Offset,
   PruningResult,
   SubmissionId,
   SubmissionResult,

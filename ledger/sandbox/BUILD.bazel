@@ -200,6 +200,7 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
             "//ledger/ledger-configuration",
+            "//ledger/ledger-offset",
             "//ledger/ledger-resources",
             "//ledger/ledger-resources:ledger-resources-test-lib",
             "//ledger/metrics",

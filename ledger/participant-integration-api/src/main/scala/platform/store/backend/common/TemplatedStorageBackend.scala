@@ -11,7 +11,7 @@ import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
 import com.daml.platform.store.Conversions.{contractId, instant, offset}
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}

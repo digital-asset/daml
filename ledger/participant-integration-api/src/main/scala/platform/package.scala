@@ -3,7 +3,7 @@
 
 package com.daml
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 
 /** Type aliases used throughout the package */
 package object platform {

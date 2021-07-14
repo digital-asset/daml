@@ -3,7 +3,7 @@
 
 package com.daml.platform
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 
 import scala.util.{Failure, Success, Try}

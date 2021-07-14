@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerTimeModel}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 
 /** Defines how a participant's state is read from the ledger.
   *

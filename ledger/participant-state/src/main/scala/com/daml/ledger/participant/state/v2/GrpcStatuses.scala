@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
+import com.daml.ledger.offset.Offset
 import com.google.rpc.error_details.ErrorInfo
 
 import scala.util.Try

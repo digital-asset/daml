@@ -6,7 +6,8 @@ package com.daml.platform.indexer.parallel
 import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{Offset, SubmissionId, Update}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{SubmissionId, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext

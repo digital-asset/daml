@@ -5,10 +5,10 @@ package com.daml.ledger.on.memory
 
 import java.util.concurrent.locks.StampedLock
 
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory.InMemoryState._
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.daml.ledger.participant.state.v1.Offset
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}

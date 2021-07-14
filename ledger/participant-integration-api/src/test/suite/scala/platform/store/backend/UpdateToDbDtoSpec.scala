@@ -9,11 +9,11 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
   DivulgedContract,
-  Offset,
   ParticipantId,
   Party,
   RejectionReasonV0,

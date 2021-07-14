@@ -6,12 +6,13 @@ package com.daml.platform.store
 import java.sql.{PreparedStatement, Timestamp, Types}
 import java.time.Instant
 import java.util.Date
+
 import anorm.Column.nonNull
 import anorm._
 import com.daml.ledger.EventId
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v1.RejectionReasonV0._
-import com.daml.ledger.participant.state.v1.{Offset, RejectionReasonV0}
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -20,8 +21,11 @@ import io.grpc.Status.Code
 import spray.json._
 import DefaultJsonProtocol._
 import java.io.BufferedReader
+
 import scala.language.implicitConversions
 import java.util.stream.Collectors
+
+import com.daml.ledger.offset.Offset
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 

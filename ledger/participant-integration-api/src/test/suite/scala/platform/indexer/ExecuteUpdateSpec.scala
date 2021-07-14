@@ -9,6 +9,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.Update.{
   PublicPackageUploadRejected,
   TransactionAccepted,

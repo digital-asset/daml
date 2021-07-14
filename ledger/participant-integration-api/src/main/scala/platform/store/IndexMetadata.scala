@@ -6,8 +6,8 @@ package com.daml.platform.store
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics

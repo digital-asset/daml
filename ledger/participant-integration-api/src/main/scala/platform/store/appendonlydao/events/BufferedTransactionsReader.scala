@@ -14,7 +14,8 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions

@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.configuration.LedgerInitialConditions
+import com.daml.ledger.offset.Offset
 
 /** An interface for reading the state of a ledger participant.
   *

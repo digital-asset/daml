@@ -3,7 +3,8 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{DivulgedContract, SubmitterInfo}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.entries.LedgerEntry
