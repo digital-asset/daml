@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.v2
+package com.daml.platform.apiserver
 
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
@@ -42,7 +42,7 @@ object SeedService {
     * Thread safe.
     */
   // lazy to avoid gathering unnecessary entropy.
-  lazy val StrongRandom = {
+  lazy val StrongRandom: SeedService = {
     val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
     val timer = new java.util.Timer()
     val task = new java.util.TimerTask {
@@ -71,7 +71,7 @@ object SeedService {
   lazy val WeakRandom: SeedService = {
     val seed = new Array[Byte](crypto.Hash.underlyingHashLength)
     // uses `nextBytes` on a default SecureRandom, that should not block
-    (new SecureRandom()).nextBytes(seed)
+    new SecureRandom().nextBytes(seed)
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
 

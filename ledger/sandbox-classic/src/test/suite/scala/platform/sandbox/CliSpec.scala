@@ -4,8 +4,8 @@
 package com.daml.platform.sandbox
 
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.CommonCliSpecBase
 import com.daml.platform.sandbox.cli.CommonCliSpecBase.exampleJdbcUrl

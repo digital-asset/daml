@@ -12,8 +12,8 @@ import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.sandbox.cli.CommonCliBase._
