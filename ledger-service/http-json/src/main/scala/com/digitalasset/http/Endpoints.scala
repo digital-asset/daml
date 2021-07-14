@@ -87,7 +87,7 @@ class Endpoints(
       res: => ET[domain.SyncResponse[A]]
   )(implicit metrics: Metrics, jsonWriter: JsonWriter[A]): Route =
     toRoute(httpResponse(res))
-  def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
+  private def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
     toRoute(httpResponse(res))
 
   def all(implicit
