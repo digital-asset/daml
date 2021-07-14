@@ -95,7 +95,7 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
 
   private[this] def parseAll(getPayload: String => Either[Error, Bytes])(
       names: List[String]
-  ): Result[List[A]] =
+  ): Either[Error, List[A]] =
     names.traverse(parseOne(getPayload))
 
   private[this] def parseOne(
@@ -115,12 +115,8 @@ object GenDarReader {
   private[archive] val EntrySizeThreshold = 1024 * 1024 * 1024 // 1 GB
 
   private[archive] case class ZipEntries(name: String, entries: Map[String, Bytes]) {
-    private[archive] def get(entryName: String): Either[Error, Bytes] = {
-      entries.get(entryName) match {
-        case Some(is) => Right(is)
-        case None => Left(Error.InvalidZipEntry(entryName, this))
-      }
-    }
+    private[archive] def get(entryName: String): Either[Error, Bytes] =
+      entries.get(entryName).toRight(Error.InvalidZipEntry(entryName, this))
 
     private[archive] def readDalfNames: Either[Error, Dar[String]] =
       get(ManifestName)
