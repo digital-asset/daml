@@ -73,8 +73,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
           Seq.empty,
           Some(protoDuration.of(120, 0)),
         )
-      ),
-      None,
+      )
     )
 
     val input =
