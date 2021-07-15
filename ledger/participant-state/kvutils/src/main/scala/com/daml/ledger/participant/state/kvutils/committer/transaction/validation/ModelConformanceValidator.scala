@@ -133,19 +133,14 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   // an input to a transaction, we do not need to verify the inputs separately.
   private[validation] def lookupContract(
       commitContext: CommitContext
-  )(coid: Value.ContractId): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
-    val stateKey = contractIdToStateKey(coid)
-    // There is the possibility that the reinterpretation of the transaction yields a different
-    // result in a LookupByKey than the original transaction. This means that the contract state data for the
-    // contractId pointed to by that contractKey might not have been preloaded into the input state map.
-    // This is not a problem because after the transaction reinterpretation, we compare the original
-    // transaction with the reinterpreted one, and the LookupByKey node will not match.
+  )(
+      contractId: Value.ContractId
+  ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] =
     commitContext
-      .read(stateKey)
+      .read(contractIdToStateKey(contractId))
       .map(_.getContractState)
       .map(_.getContractInstance)
       .map(Conversions.decodeContractInstance)
-  }
 
   // Helper to lookup package from the state. The package contents
   // are stored in the [[DamlLogEntry]], which we find by looking up
