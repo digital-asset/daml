@@ -906,12 +906,11 @@ toDiagnostic ::
     -> Either SS.Error SS.ScenarioResult
     -> Maybe FileDiagnostic
 toDiagnostic file world range = \case
-    Right (SS.scenarioResultWarnings -> warnings)
-        | V.null warnings -> Nothing
-        | otherwise -> Just $
-            mkDiagnostic DsWarning (LF.prettyWarningMessages warnings)
-    Left err -> Just $
-        mkDiagnostic DsError (formatScenarioError world err)
+    Left err -> Just $ mkDiagnostic DsError $ formatScenarioError world err
+    Right SS.ScenarioResult{..}
+        | V.null scenarioResultWarnings -> Nothing
+        | otherwise -> Just $ mkDiagnostic DsWarning $
+            LF.prettyWarningMessages scenarioResultWarnings
   where
     mkDiagnostic severity pretty = (file, ShowDiag, ) $ Diagnostic
         { _range = range
