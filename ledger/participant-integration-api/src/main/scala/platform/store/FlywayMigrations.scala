@@ -10,9 +10,10 @@ import com.daml.platform.store.FlywayMigrations._
 import com.daml.platform.store.dao.HikariConnection
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
-import org.flywaydb.core.api.MigrationVersion
+import org.flywaydb.core.api.{FlywayException, MigrationVersion}
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
@@ -65,6 +66,52 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
         logger.info("Running Flyway clean...")
         flyway.clean()
         logger.info("Flyway schema clean finished successfully.")
+      }
+    }
+
+  def validateAndWaitOnly(
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean = false
+  )(implicit resourceContext: ResourceContext): Future[Unit] =
+    dataSource.use { ds =>
+      val flyway = configurationBase(dbType, enableAppendOnlySchema)
+        .dataSource(ds)
+        .ignoreFutureMigrations(false)
+        .load()
+      logger.info("Running Flyway validation...")
+
+      @tailrec
+      def flywayMigrationDone(retries: Int, needLessThan: Option[Int]): Either[String, Unit] = {
+        val pendingMigrations = flyway.info().pending().length
+        if (pendingMigrations == 0) {
+          Right(())
+        } else if (retries <= 0) {
+          Left(s"Ran out of retries with ${pendingMigrations} migrations remaining")
+        } else if (needLessThan.exists(pendingMigrations >= _)) {
+          Left(s"Stopped progressing with ${pendingMigrations} migrations")
+        } else {
+          logger.debug(
+            s"Concurrent migration has reduced the pending migrations set to ${pendingMigrations}, waiting until pending set is empty.."
+          )
+          Thread.sleep(1000)
+          flywayMigrationDone(retries - 1, Some(pendingMigrations))
+        }
+      }
+
+      try {
+        flywayMigrationDone(10, None) match {
+          case Right(_) =>
+            logger.info("Flyway schema validation finished successfully.")
+            Future.unit
+          case Left(err) =>
+            val msg = s"Flyway schema validation failed: ${err}"
+            logger.error(msg)
+            Future.failed(new RuntimeException(msg))
+        }
+      } catch {
+        case ex: FlywayException =>
+          logger.error("Failed to retrieve pending flyway migration info", ex)
+          Future.failed(ex)
       }
     }
 
