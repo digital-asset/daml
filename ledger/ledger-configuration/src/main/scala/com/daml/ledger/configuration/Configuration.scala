@@ -46,10 +46,11 @@ object Configuration {
     def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
       for {
         tm <-
-          if (config.hasTimeModel)
+          if (config.hasTimeModel) {
             decodeTimeModel(config.getTimeModel)
-          else
+          } else {
             Left("Missing time model")
+          }
       } yield {
         Configuration(
           generation = config.getGeneration,
@@ -71,15 +72,22 @@ object Configuration {
     def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
       for {
         tm <-
-          if (config.hasTimeModel)
+          if (config.hasTimeModel) {
             decodeTimeModel(config.getTimeModel)
-          else
+          } else {
             Left("Missing time model")
+          }
         maxDeduplicationTime <-
-          if (config.hasMaxDeduplicationTime)
-            Right(parseDuration(config.getMaxDeduplicationTime))
-          else
+          if (config.hasMaxDeduplicationTime) {
+            val duration = parseDuration(config.getMaxDeduplicationTime)
+            if (duration.isNegative) {
+              Left("requirement failed: Negative maximum command time to live")
+            } else {
+              Right(duration)
+            }
+          } else {
             Left("Missing maximum command time to live")
+          }
       } yield {
         Configuration(
           generation = config.getGeneration,

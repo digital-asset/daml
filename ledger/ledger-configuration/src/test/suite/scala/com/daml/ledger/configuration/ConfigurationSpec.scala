@@ -207,6 +207,29 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
           Left("decodeTimeModel: requirement failed: Negative max skew")
         )
       }
+
+      "rejects a negative maximum deduplication time in the time model" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 2,
+            generation = 1,
+            timeModel = Some(
+              protobuf.LedgerTimeModel.of(
+                avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+              )
+            ),
+            maxDeduplicationTime = Some((-1).day.toProtobuf),
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Left("requirement failed: Negative maximum command time to live")
+        )
+      }
     }
   }
 }
