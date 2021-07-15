@@ -383,6 +383,8 @@ function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
  *             compiler requires the --downlevelIteration flag, which
  *             however does not play nicely with Jest when running the
  *             tests.
+ *
+ * TODO Moving the compilation target to ES6 probably would solve this, investigate.
  */
 function materialize<A>(iterator: IterableIterator<A>): Array<A> {
   return Array.from(iterator);
