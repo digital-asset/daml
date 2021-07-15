@@ -171,12 +171,11 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
 
   private[validation] def lookupKey(
       contractKeyInputs: Map[GlobalKey, KeyInput]
-  )(key: GlobalKeyWithMaintainers): Option[Value.ContractId] = {
+  )(key: GlobalKeyWithMaintainers): Option[Value.ContractId] =
     contractKeyInputs.get(key.globalKey) match {
       case Some(KeyActive(cid)) => Some(cid)
       case _ => None
     }
-  }
 
   private[validation] def validateCausalMonotonicity(
       transactionEntry: DamlTransactionEntrySummary,
