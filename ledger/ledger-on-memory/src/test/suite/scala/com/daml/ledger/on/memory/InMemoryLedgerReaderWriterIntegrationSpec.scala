@@ -5,10 +5,11 @@ package com.daml.ledger.on.memory
 
 import java.util.concurrent.Executors
 
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.engine.Engine

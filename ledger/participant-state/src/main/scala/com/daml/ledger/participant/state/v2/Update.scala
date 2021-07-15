@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.v2
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.BlindingInfo
 

@@ -32,18 +32,14 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _,
-  _,
-}
+import com.daml.ledger.participant.state.v1.{ApplicationId => _, TransactionId => _, _}
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast

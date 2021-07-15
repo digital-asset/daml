@@ -5,7 +5,7 @@ package com.daml.platform.configuration
 
 import java.time.Duration
 
-import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 
 /** Configuration surrounding ledger parameters.
   *
@@ -35,7 +35,7 @@ object LedgerConfiguration {
 
   private val reasonableInitialConfiguration: Configuration = Configuration(
     generation = StartingGeneration,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
 

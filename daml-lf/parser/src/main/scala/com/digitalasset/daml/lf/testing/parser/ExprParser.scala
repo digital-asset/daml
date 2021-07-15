@@ -296,7 +296,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "TEXT_TO_PARTY" -> BTextToParty,
     "TEXT_TO_INT64" -> BTextToInt64,
     "TEXT_TO_NUMERIC" -> BTextToNumeric,
-    "TEXT_POINTS_TO_CODE" -> BTextToCodePoints,
+    "TEXT_TO_CODE_POINTS" -> BTextToCodePoints,
     "ERROR" -> BError,
     "LESS_NUMERIC" -> BLessNumeric,
     "LESS_EQ_NUMERIC" -> BLessEqNumeric,

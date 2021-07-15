@@ -15,6 +15,7 @@ import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationNew,
   IndexConfigManagementService,
@@ -294,7 +295,7 @@ class ApiSubmissionServiceSpec
     val mockMetricRegistry = mock[MetricRegistry]
     val mockIndexSubmissionService = mock[IndexSubmissionService]
     val mockConfigManagementService = mock[IndexConfigManagementService]
-    val configuration = Configuration(0L, TimeModel.reasonableDefault, Duration.ZERO)
+    val configuration = Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ZERO)
     when(mockMetricRegistry.meter(any[String])).thenReturn(new Meter())
     when(
       mockIndexSubmissionService.deduplicateCommand(

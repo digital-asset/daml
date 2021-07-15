@@ -7,6 +7,7 @@ import java.time.Duration
 import java.util.UUID
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlSubmitterInfo,
@@ -15,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepResult, StepStop}
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.SubmittedTransaction
@@ -37,7 +38,7 @@ object TestHelpers {
   val theRecordTime: Timestamp = Timestamp.Epoch
   val theDefaultConfig: Configuration = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
 

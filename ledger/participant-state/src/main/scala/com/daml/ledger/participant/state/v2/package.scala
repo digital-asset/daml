@@ -49,9 +49,6 @@ import com.daml.lf.value.Value
   */
 package object v2 {
 
-  /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerId = String
-
   /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
   val ParticipantId: Ref.ParticipantId.type = Ref.ParticipantId
   type ParticipantId = Ref.ParticipantId

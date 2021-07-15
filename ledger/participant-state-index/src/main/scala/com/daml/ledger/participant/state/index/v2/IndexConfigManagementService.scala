@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.index.v2
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
+import com.daml.ledger.configuration.Configuration
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future

@@ -5,8 +5,9 @@ package com.daml.ledger.on.memory
 
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.api._
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.engine.Engine

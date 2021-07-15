@@ -12,7 +12,8 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, Update}
+import com.daml.ledger.configuration.LedgerInitialConditions
+import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.daml.lf.data.Time
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}

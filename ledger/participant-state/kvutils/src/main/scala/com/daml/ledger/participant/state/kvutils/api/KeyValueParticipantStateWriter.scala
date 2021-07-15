@@ -8,6 +8,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._

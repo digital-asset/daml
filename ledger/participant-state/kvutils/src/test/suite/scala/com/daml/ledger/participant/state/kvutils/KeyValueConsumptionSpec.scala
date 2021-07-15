@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Instant
 
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -14,13 +15,13 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
   outOfTimeBoundsEntryToUpdate,
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReasonV0, Update}
+import com.daml.ledger.participant.state.v1.{RejectionReasonV0, Update}
 import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.Empty
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
 import org.scalatest.prop.Tables.Table
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {

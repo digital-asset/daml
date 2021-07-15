@@ -3,9 +3,9 @@
 
 package com.daml.ledger.on.sql.queries
 
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.LedgerId
 
 import scala.util.Try
 
