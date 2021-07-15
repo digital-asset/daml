@@ -60,9 +60,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
 
         val configuration = Configuration.decode(configurationBytes)
 
-        configuration should be(
-          Left("Missing time model")
-        )
+        configuration should be(Left("Missing time model"))
       }
     }
 
@@ -196,6 +194,23 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
 
           configuration should be(Left(errorMessage))
         }
+      }
+    }
+
+    "decoding a protobuf with an invalid version" should {
+      "reject the protobuf" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 3,
+            generation = 0,
+            timeModel = None,
+            maxDeduplicationTime = None,
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(Left("Unknown version: 3"))
       }
     }
   }
