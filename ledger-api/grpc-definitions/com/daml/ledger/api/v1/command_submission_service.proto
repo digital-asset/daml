@@ -21,10 +21,10 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 //
 // Commands may fail in 2 distinct manners:
 //
-// 1. Failure communicated in the gRPC error of the submission.
-// 2. Failure communicated in a Completion.
+// 1. Failure communicated synchronously in the gRPC error of the submission.
+// 2. Failure communicated asynchronously in a Completion, see ``completion.proto``.
 //
-// Only successfully submitted commands may produce a completion event.
+// Failures and errors are communicated as described in ``error.proto``.
 //
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
@@ -34,14 +34,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service CommandSubmissionService {
 
   // Submit a single composite command.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
-  // - ``RESOURCE_EXHAUSTED``: if the participant or the ledger is overloaded. Clients should back off exponentially and retry.
-  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
   rpc Submit (SubmitRequest) returns (google.protobuf.Empty);
 
 }
