@@ -13,6 +13,7 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
@@ -68,6 +69,49 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       }
     }
 
+  def validateAndWaitOnly(
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean = false
+  )(implicit resourceContext: ResourceContext): Future[Unit] =
+    dataSource.use { ds =>
+      val flyway = configurationBase(dbType, enableAppendOnlySchema)
+        .dataSource(ds)
+        .ignoreFutureMigrations(false)
+        .load()
+      logger.info("Running Flyway validation...")
+
+      @tailrec
+      def flywayMigrationDone(
+          retries: Int,
+          needLessThan: Option[Int],
+      ): Unit = {
+        val pendingMigrations = flyway.info().pending().length
+        if (pendingMigrations == 0) {
+          ()
+        } else if (retries <= 0) {
+          throw ExhaustedRetries(pendingMigrations)
+        } else if (needLessThan.exists(pendingMigrations >= _)) {
+          throw StoppedProgressing(pendingMigrations)
+        } else {
+          logger.debug(
+            s"Concurrent migration has reduced the pending migrations set to ${pendingMigrations}, waiting until pending set is empty.."
+          )
+          Thread.sleep(1000)
+          flywayMigrationDone(retries - 1, Some(pendingMigrations))
+        }
+      }
+
+      try {
+        flywayMigrationDone(10, None)
+        logger.info("Flyway schema validation finished successfully.")
+        Future.unit
+      } catch {
+        case ex: RuntimeException =>
+          logger.error(s"Failed to validate and wait only: ${ex.getMessage}", ex)
+          Future.failed(ex)
+      }
+    }
+
   private def dataSource: ResourceOwner[HikariDataSource] =
     HikariConnection.owner(
       serverRole = ServerRole.IndexMigrations,
@@ -116,4 +160,9 @@ private[platform] object FlywayMigrations {
     Flyway
       .configure()
       .locations(locations(enableAppendOnlySchema, dbType): _*)
+
+  case class ExhaustedRetries(pendingMigrations: Int)
+      extends RuntimeException(s"Ran out of retries with ${pendingMigrations} migrations remaining")
+  case class StoppedProgressing(pendingMigrations: Int)
+      extends RuntimeException(s"Stopped progressing with ${pendingMigrations} migrations")
 }
