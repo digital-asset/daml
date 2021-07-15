@@ -418,8 +418,8 @@ class QueryStreamsManager {
     private request: StreamingQueryRequest[] = [];
 
     // web socket handle and associated properties
-    private ws: WebSocket | null = null;
-    private wsLiveSince: number | undefined = undefined;
+    private ws?: WebSocket;
+    private wsLiveSince?: number;
     private wsClosed: boolean = true;
 
     // Mutable state END
@@ -445,17 +445,17 @@ class QueryStreamsManager {
       this.matchIndexLookupTable = [];
       this.templateIdsLookupTable = {};
       this.request = [];
-      this.ws = null;
+      this.ws = undefined;
       this.wsLiveSince = undefined;
       this.wsClosed = true;
     }
 
     private handleQueriesChange() {
-      if (this.ws !== null) {
+      if (this.ws !== undefined) {
           this.wsClosed = true;
           this.wsLiveSince = undefined;
           this.ws.close();
-          this.ws = null;
+          this.ws = undefined;
       }
       if (this.queries.size > 0) {
         const manager = this; // stable self-reference for callbacks
