@@ -15,15 +15,18 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
+import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
+import com.daml.platform.store.appendonlydao.events.TracingUtils.endSpanOnTermination
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{Transaction => TxUpdate}
+import com.daml.platform.store.utils.Telemetry
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,6 +38,7 @@ private[events] class BufferedTransactionsReader(
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
+  private val logger = ContextualizedLogger.get(getClass)
 
   private val outputStreamBufferSize = 128
 
@@ -43,7 +47,9 @@ private[events] class BufferedTransactionsReader(
       endInclusive: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+    logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
+
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, filter, verbose)(
       toApiTx = toFlatTransaction,
       apiResponseCtor = GetTransactionsResponse(_),
@@ -52,11 +58,10 @@ private[events] class BufferedTransactionsReader(
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.flatTransactionsBuffered,
       totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.flatTransactionsTotal,
-      bufferSizeCounter =
-        // TODO in-memory fan-out: Specialize the metric per consumer
-        metrics.daml.services.index.flatTransactionsBufferSize,
+      bufferSizeCounter = metrics.daml.services.index.flatTransactionsBufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
+  }
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -65,7 +70,11 @@ private[events] class BufferedTransactionsReader(
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+    logger.debug(
+      s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)"
+    )
+
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, requestingParties, verbose)(
       toApiTx = toTransactionTree,
       apiResponseCtor = GetTransactionTreesResponse(_),
@@ -74,11 +83,10 @@ private[events] class BufferedTransactionsReader(
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
       totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
-      bufferSizeCounter =
-        // TODO in-memory fan-out: Specialize the metric per consumer
-        metrics.daml.services.index.transactionTreesBufferSize,
+      bufferSizeCounter = metrics.daml.services.index.transactionTreesBufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
+  }
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -155,9 +163,12 @@ private[platform] object BufferedTransactionsReader {
       outputStreamBufferSize: Int,
       bufferSizeCounter: Counter,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
-    def bufferedSource(
+    def tracedBufferedSource(
         slice: Vector[(Offset, TransactionLogUpdate)]
-    ): Source[(Offset, API_RESPONSE), NotUsed] =
+    ): Source[(Offset, API_RESPONSE), NotUsed] = {
+      val span =
+        Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
+
       Source
         .fromIterator(() => slice.iterator)
         // Using collect + mapAsync as an alternative to the non-existent collectAsync
@@ -172,6 +183,8 @@ private[platform] object BufferedTransactionsReader {
           resolvedFromBufferCounter.inc()
           offset -> apiResponseCtor(Seq(tx))
         }
+        .watchTermination()(endSpanOnTermination(span))
+    }
 
     val transactionsSource = Timed.source(
       sourceTimer, {
@@ -185,11 +198,11 @@ private[platform] object BufferedTransactionsReader {
 
           case BufferSlice.Prefix((firstOffset: Offset, _) +: tl) =>
             fetchTransactions(startExclusive, firstOffset, filter, verbose)
-              .concat(bufferedSource(tl))
+              .concat(tracedBufferedSource(tl))
               .mapMaterializedValue(_ => NotUsed)
 
           case BufferSlice.Inclusive(slice) =>
-            bufferedSource(slice).mapMaterializedValue(_ => NotUsed)
+            tracedBufferedSource(slice).mapMaterializedValue(_ => NotUsed)
         }
       }.map(tx => {
         totalRetrievedCounter.inc()
