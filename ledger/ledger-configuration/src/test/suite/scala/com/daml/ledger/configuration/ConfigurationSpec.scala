@@ -1,0 +1,221 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.ledger.configuration
+
+import com.daml.ledger.configuration.ConfigurationSpec._
+import com.daml.ledger.participant.state.protobuf.{ledger_configuration => protobuf}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import scala.compat.java8.DurationConverters._
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+
+class ConfigurationSpec extends AnyWordSpec with Matchers {
+  "a ledger configuration" when {
+    "decoding a v1 protobuf" should {
+      "decode a valid protobuf" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 1,
+            generation = 7,
+            timeModel = Some(
+              protobuf.LedgerTimeModel.of(
+                avgTransactionLatency = Some(1.minute.toProtobuf),
+                minSkew = Some(30.seconds.toProtobuf),
+                maxSkew = Some(2.minutes.toProtobuf),
+              )
+            ),
+            maxDeduplicationTime = None,
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Right(
+            Configuration(
+              generation = 7,
+              timeModel = LedgerTimeModel(
+                avgTransactionLatency = 1.minute.toJava,
+                minSkew = 30.seconds.toJava,
+                maxSkew = 2.minutes.toJava,
+              ).get,
+              maxDeduplicationTime = 1.day.toJava,
+            )
+          )
+        )
+      }
+
+      "reject a missing time model" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 1,
+            generation = 2,
+            timeModel = None,
+            maxDeduplicationTime = None,
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Left("Missing time model")
+        )
+      }
+    }
+
+    "decoding a v2 protobuf" should {
+      "decode a valid protobuf" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 2,
+            generation = 3,
+            timeModel = Some(
+              protobuf.LedgerTimeModel.of(
+                avgTransactionLatency = Some(30.seconds.toProtobuf),
+                minSkew = Some(20.seconds.toProtobuf),
+                maxSkew = Some(5.minutes.toProtobuf),
+              )
+            ),
+            maxDeduplicationTime = Some(6.hours.toProtobuf),
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Right(
+            Configuration(
+              generation = 3,
+              timeModel = LedgerTimeModel(
+                avgTransactionLatency = 30.seconds.toJava,
+                minSkew = 20.seconds.toJava,
+                maxSkew = 5.minutes.toJava,
+              ).get,
+              maxDeduplicationTime = 6.hours.toJava,
+            )
+          )
+        )
+      }
+
+      "reject a missing time model" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 2,
+            generation = 4,
+            timeModel = None,
+            maxDeduplicationTime = Some(1.day.toProtobuf),
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Left("Missing time model")
+        )
+      }
+
+      "reject a missing max deduplication time" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 2,
+            generation = 1,
+            timeModel = Some(
+              protobuf.LedgerTimeModel.of(
+                avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+              )
+            ),
+            maxDeduplicationTime = None,
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Left("Missing maximum command time to live")
+        )
+      }
+
+      "rejects a negative transaction latency in the time model" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 2,
+            generation = 1,
+            timeModel = Some(
+              protobuf.LedgerTimeModel.of(
+                avgTransactionLatency = Some((-5).seconds.toProtobuf),
+                minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+              )
+            ),
+            maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Left("decodeTimeModel: requirement failed: Negative average transaction latency")
+        )
+      }
+
+      "rejects a negative minimum skew in the time model" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 2,
+            generation = 1,
+            timeModel = Some(
+              protobuf.LedgerTimeModel.of(
+                avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                minSkew = Some((-30).seconds.toProtobuf),
+                maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+              )
+            ),
+            maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Left("decodeTimeModel: requirement failed: Negative min skew")
+        )
+      }
+
+      "rejects a negative maximum skew in the time model" in {
+        val configurationBytes = protobuf.LedgerConfiguration
+          .of(
+            version = 2,
+            generation = 1,
+            timeModel = Some(
+              protobuf.LedgerTimeModel.of(
+                avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
+                maxSkew = Some((-10).seconds.toProtobuf),
+              )
+            ),
+            maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
+          )
+          .toByteArray
+
+        val configuration = Configuration.decode(configurationBytes)
+
+        configuration should be(
+          Left("decodeTimeModel: requirement failed: Negative max skew")
+        )
+      }
+    }
+  }
+}
+
+object ConfigurationSpec {
+  implicit class Converter(duration: FiniteDuration) {
+    def toProtobuf: com.google.protobuf.duration.Duration = {
+      val javaDuration = duration.toJava
+      new com.google.protobuf.duration.Duration(javaDuration.getSeconds, javaDuration.getNano)
+    }
+  }
+}
