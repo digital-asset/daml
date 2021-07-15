@@ -107,14 +107,12 @@ object Configuration {
       maxSkew = parseDuration(tm.getMaxSkew),
     ).toEither.left.map(e => s"decodeTimeModel: ${e.getMessage}")
 
-  private def parseDuration(dur: com.google.protobuf.Duration): Duration = {
+  private def parseDuration(dur: com.google.protobuf.Duration): Duration =
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
-  }
 
-  private def buildDuration(dur: Duration): com.google.protobuf.Duration = {
+  private def buildDuration(dur: Duration): com.google.protobuf.Duration =
     com.google.protobuf.Duration.newBuilder
       .setSeconds(dur.getSeconds)
       .setNanos(dur.getNano)
       .build
-  }
 }
