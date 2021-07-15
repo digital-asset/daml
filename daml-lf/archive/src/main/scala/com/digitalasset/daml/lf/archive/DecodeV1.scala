@@ -1728,7 +1728,7 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
       ),
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(TEXT_POINTS_TO_CODE, BTextToCodePoints, minVersion = textPacking),
+      BuiltinFunctionInfo(TEXT_TO_POINTS_CODE, BTextToCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),

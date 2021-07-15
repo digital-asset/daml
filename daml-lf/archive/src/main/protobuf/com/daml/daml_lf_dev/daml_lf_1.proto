@@ -29,7 +29,7 @@
 //         2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 //         2019-05-24: Make actors in exercise optional
 // * 6 --  2019-05-27: Add enum type.
-//         2019-06-04: Add BuiltinFunction.{CODE_POINTS_TO_TEXT, TEXT_POINTS_TO_CODE}
+//         2019-06-04: Add BuiltinFunction.{CODE_POINTS_TO_TEXT, TEXT_TO_POINTS_CODE}
 //         2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 // * 7 --  2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
 //         2019-09-17: Add Any type and, `to_any` and `from_any` builtins
@@ -555,7 +555,7 @@ enum BuiltinFunction {
   COERCE_CONTRACT_ID = 102;
 
   CODE_POINTS_TO_TEXT = 105;
-  TEXT_POINTS_TO_CODE = 106;
+  TEXT_TO_POINTS_CODE = 106;
 
   SCALE_BIGNUMERIC = 137; // *Available in versions >= 1.13*
   PRECISION_BIGNUMERIC = 138; // *Available in versions >= 1.13*

@@ -3994,7 +3994,7 @@ String functions
 
   Returns string such as.
 
-* ``TEXT_POINTS_TO_CODE``: 'Text' → 'List' 'Int64'
+* ``TEXT_TO_POINTS_CODE``: 'Text' → 'List' 'Int64'
 
   Returns the list of the Unicode `codepoints
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
