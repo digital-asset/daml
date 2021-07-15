@@ -21,5 +21,6 @@ object TestDarReader {
         path,
         new ZipInputStream(this.getClass.getClassLoader.getResourceAsStream(path)),
       )
+      .toTry
   }
 }

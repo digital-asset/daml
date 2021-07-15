@@ -59,16 +59,14 @@ private[platform] case class InMemoryPackageStore(
       knownSince: Instant,
       sourceDescription: Option[String],
       file: File,
-  ): Either[String, InMemoryPackageStore] = {
-    val archivesTry = for {
-      dar <- archive.DarParser.readArchiveFromFile(file)
-    } yield dar.all
-
+  ): Either[String, InMemoryPackageStore] =
     for {
-      archives <- archivesTry.toEither.left.map(t => s"Failed to parse DAR from $file: $t")
-      packages <- addArchives(knownSince, sourceDescription, archives)
+      dar <- archive.DarParser
+        .readArchiveFromFile(file)
+        .left
+        .map(t => s"Failed to parse DAR from $file: $t")
+      packages <- addArchives(knownSince, sourceDescription, dar.all)
     } yield packages
-  }
 
   private[InMemoryPackageStore] def addPackage(
       pkgId: PackageId,

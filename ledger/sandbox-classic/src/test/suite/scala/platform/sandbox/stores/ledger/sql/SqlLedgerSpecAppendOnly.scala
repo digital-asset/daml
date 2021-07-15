@@ -39,7 +39,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
-import scala.util.Success
 
 // TODO append-only: Remove this class once the mutating schema is removed
 final class SqlLedgerSpecAppendOnly
@@ -322,8 +321,6 @@ object SqlLedgerSpecAppendOnly {
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
-  private val Success(testDar) = {
-    val fileName = new File(rlocation(ModelTestDar.path))
-    DarParser.readArchiveFromFile(fileName)
-  }
+  private val testDar =
+    DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
 }

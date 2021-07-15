@@ -33,6 +33,46 @@ import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Serializes and deserializes Daml-Lf values and events.
+  *
+  *  Deserializing values in verbose mode involves loading packages in order to fill in missing type information.
+  *  That's why these methods return Futures, while the serialization methods are synchronous.
+  */
+trait LfValueSerialization {
+  def serialize(
+      contractId: ContractId,
+      contractArgument: VersionedValue[ContractId],
+  ): Array[Byte]
+
+  /** Returns (contract argument, contract key) */
+  def serialize(
+      eventId: EventId,
+      create: Create,
+  ): (Array[Byte], Option[Array[Byte]])
+
+  /** Returns (choice argument, exercise result, contract key) */
+  def serialize(
+      eventId: EventId,
+      exercise: Exercise,
+  ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]])
+
+  def deserialize[E](
+      raw: Raw.Created[E],
+      verbose: Boolean,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[CreatedEvent]
+
+  def deserialize(
+      raw: Raw.TreeEvent.Exercised,
+      verbose: Boolean,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[ExercisedEvent]
+}
+
 final class LfValueTranslation(
     val cache: LfValueTranslationCache.Cache,
     metrics: Metrics,
@@ -41,7 +81,7 @@ final class LfValueTranslation(
         LfPackageId,
         LoggingContext,
     ) => Future[Option[com.daml.daml_lf_dev.DamlLf.Archive]],
-) {
+) extends LfValueSerialization {
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
 
@@ -91,7 +131,7 @@ final class LfValueTranslation(
       )
     )
 
-  def serialize(
+  override def serialize(
       contractId: ContractId,
       contractArgument: VersionedValue[ContractId],
   ): Array[Byte] = {
@@ -102,7 +142,7 @@ final class LfValueTranslation(
     serializeCreateArgOrThrow(contractId, contractArgument)
   }
 
-  def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
+  override def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
     cache.events.put(
       key = LfValueTranslationCache.EventCache.Key(eventId),
       value = LfValueTranslationCache.EventCache.Value
@@ -115,7 +155,7 @@ final class LfValueTranslation(
     (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
   }
 
-  def serialize(
+  override def serialize(
       eventId: EventId,
       exercise: Exercise,
   ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) = {
@@ -229,7 +269,7 @@ final class LfValueTranslation(
     )
   }
 
-  def deserialize[E](
+  override def deserialize[E](
       raw: Raw.Created[E],
       verbose: Boolean,
   )(implicit
@@ -278,7 +318,7 @@ final class LfValueTranslation(
     }
   }
 
-  def deserialize(
+  override def deserialize(
       raw: Raw.TreeEvent.Exercised,
       verbose: Boolean,
   )(implicit

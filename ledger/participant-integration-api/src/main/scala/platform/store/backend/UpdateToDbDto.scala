@@ -18,7 +18,7 @@ object UpdateToDbDto {
 
   def apply(
       participantId: ParticipantId,
-      translation: LfValueTranslation,
+      translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
   ): Offset => Update => Iterator[DbDto] = { offset =>
     {

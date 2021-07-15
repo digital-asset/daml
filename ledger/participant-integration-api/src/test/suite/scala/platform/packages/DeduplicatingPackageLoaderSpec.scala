@@ -22,7 +22,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import scala.util.Success
 
 class DeduplicatingPackageLoaderSpec
     extends AsyncWordSpec
@@ -35,9 +34,9 @@ class DeduplicatingPackageLoaderSpec
   private[this] val metricRegistry = new MetricRegistry
   private[this] val metric = metricRegistry.timer("test-metric")
 
-  private[this] val Success(dar) = {
+  private[this] val dar = {
     val fileName = new File(rlocation(ModelTestDar.path))
-    DarParser.readArchiveFromFile(fileName)
+    DarParser.assertReadArchiveFromFile(fileName)
   }
 
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {

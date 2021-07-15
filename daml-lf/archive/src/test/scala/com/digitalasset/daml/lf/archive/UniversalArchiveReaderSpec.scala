@@ -19,19 +19,19 @@ class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValue
   behavior of UniversalArchiveReader.toString
 
   it should "parse a DAR file" in {
-    UniversalArchiveReader.readFile(darFile).success
+    UniversalArchiveReader.readFile(darFile) shouldBe a[Right[_, _]]
   }
 
   it should "parse a DALF file" in {
-    UniversalArchiveReader.readFile(dalfFile).success
+    UniversalArchiveReader.readFile(dalfFile) shouldBe a[Right[_, _]]
   }
 
   it should "parse a DAR file and return language version" in {
-    UniversalArchiveReader.readFile(darFile).success
+    UniversalArchiveReader.readFile(darFile) shouldBe a[Right[_, _]]
   }
 
   it should "parse a DALF file and return language version" in {
-    UniversalArchiveReader.readFile(dalfFile).success
+    UniversalArchiveReader.readFile(dalfFile) shouldBe a[Right[_, _]]
   }
 
 }

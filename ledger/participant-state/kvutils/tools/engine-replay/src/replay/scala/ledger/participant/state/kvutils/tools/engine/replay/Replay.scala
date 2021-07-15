@@ -104,7 +104,7 @@ private[replay] object Replay {
 
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
-    UniversalArchiveDecoder.readFile(darFile.toFile).get.all.toMap
+    UniversalArchiveDecoder.assertReadFile(darFile.toFile).all.toMap
   }
 
   def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {

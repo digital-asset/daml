@@ -848,7 +848,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     ).foreach(_.execute()(connection))
   }
 
-  private val rawTransactionEventParser: RowParser[RawTransactionEvent] =
+  private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {
+    import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
     (int("event_kind") ~
       str("transaction_id") ~
       int("node_index") ~
@@ -913,6 +914,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           offset,
         )
     }
+  }
 
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection

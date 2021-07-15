@@ -54,10 +54,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
-  private[this] val Success(dar) = {
-    val fileName = new File(rlocation(ModelTestDar.path))
-    DarParser.readArchiveFromFile(fileName)
-  }
+  private[this] val dar =
+    DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
 
   private val now = Instant.now()
 

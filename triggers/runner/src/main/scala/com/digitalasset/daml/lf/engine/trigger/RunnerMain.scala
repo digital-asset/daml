@@ -51,7 +51,7 @@ object RunnerMain {
       case None => sys.exit(1)
       case Some(config) => {
         val dar: Dar[(PackageId, Package)] =
-          DarDecoder.readArchiveFromFile(config.darPath.toFile).get
+          DarDecoder.assertReadArchiveFromFile(config.darPath.toFile)
 
         if (config.listTriggers) {
           listTriggers(config.darPath.toFile, dar)

@@ -62,7 +62,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
       .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
 
-  protected val dar = DarDecoder.readArchiveFromFile(darFile).get
+  protected val dar = DarDecoder.assertReadArchiveFromFile(darFile)
   protected val compiledPackages =
     PureCompiledPackages.assertBuild(dar.all.toMap, speedy.Compiler.Config.Dev)
 

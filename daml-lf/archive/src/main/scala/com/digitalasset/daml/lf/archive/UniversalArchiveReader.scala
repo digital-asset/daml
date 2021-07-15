@@ -4,9 +4,9 @@
 package com.daml.lf
 package archive
 
-import java.io.File
+import com.daml.nameof.NameOf
 
-import scala.util.{Failure, Success, Try}
+import java.io.File
 
 /** Can parse DARs and DALFs.
   */
@@ -18,21 +18,25 @@ final class GenUniversalArchiveReader[A](
   def readFile(
       file: File,
       entrySizeThreshold: Int = GenDarReader.EntrySizeThreshold,
-  ): Try[Dar[A]] =
+  ): Either[Error, Dar[A]] =
     SupportedFileType.supportedFileType(file).flatMap {
       case SupportedFileType.DarFile =>
         GenDarReader(reader).readArchiveFromFile(file, entrySizeThreshold)
       case SupportedFileType.DalfFile =>
-        Try(Dar(reader.fromFile(file), List.empty))
+        attempt(NameOf.qualifiedNameOfCurrentFunc, Dar(reader.fromFile(file), List.empty))
     }
+
+  @throws[Error]
+  def assertReadFile(file: File): Dar[A] =
+    assertRight(readFile(file))
 
 }
 
 object SupportedFileType {
-  def supportedFileType(f: File): Try[SupportedFileType] =
-    if (DarFile.matchesFileExtension(f)) Success(DarFile)
-    else if (DalfFile.matchesFileExtension(f)) Success(DalfFile)
-    else Failure(UnsupportedFileExtension(f))
+  def supportedFileType(f: File): Either[Error, SupportedFileType] =
+    if (DarFile.matchesFileExtension(f)) Right(DarFile)
+    else if (DalfFile.matchesFileExtension(f)) Right(DalfFile)
+    else Left(Error.UnsupportedFileExtension(f))
 
   sealed abstract class SupportedFileType(fileExtension: String) extends Serializable with Product {
     def matchesFileExtension(f: File): Boolean = f.getName.endsWith(fileExtension)
@@ -40,6 +44,4 @@ object SupportedFileType {
   final case object DarFile extends SupportedFileType(".dar")
   final case object DalfFile extends SupportedFileType(".dalf")
 
-  case class UnsupportedFileExtension(file: File)
-      extends RuntimeException(s"Unsupported file extension: ${file.getAbsolutePath}")
 }
