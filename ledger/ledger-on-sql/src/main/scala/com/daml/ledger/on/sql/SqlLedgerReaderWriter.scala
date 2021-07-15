@@ -13,6 +13,7 @@ import com.daml.caching.Cache
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.api.{

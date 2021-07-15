@@ -9,6 +9,7 @@ import java.util.UUID
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
@@ -18,7 +19,7 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Overloaded,
   SynchronousReject,
 }
-import com.daml.ledger.participant.state.v1.{Configuration, SubmissionResult, WriteService}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteService}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Error => LfError}

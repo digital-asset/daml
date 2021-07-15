@@ -17,6 +17,7 @@ import com.daml.caching
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -58,7 +59,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   *   - does not support scenarios
   */
 class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
-  private val specifiedLedgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
+  private val specifiedLedgerId: Option[LedgerId] = config.ledgerIdMode match {
     case LedgerIdMode.Static(ledgerId) =>
       Some(Ref.LedgerString.assertFromString(ledgerId.unwrap))
     case LedgerIdMode.Dynamic =>

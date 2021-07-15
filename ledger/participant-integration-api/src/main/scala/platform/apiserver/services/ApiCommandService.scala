@@ -26,7 +26,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
-import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
+import com.daml.ledger.configuration.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics

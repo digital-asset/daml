@@ -31,8 +31,9 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
+import com.daml.ledger.participant.state.v1.{Offset, ParticipantId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast

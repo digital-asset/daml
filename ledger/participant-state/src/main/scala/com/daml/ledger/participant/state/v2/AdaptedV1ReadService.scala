@@ -8,6 +8,7 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v2.AdaptedV1ReadService._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
@@ -20,9 +21,7 @@ import com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReas
   */
 class AdaptedV1ReadService(delegate: v1.ReadService) extends ReadService {
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-    delegate
-      .getLedgerInitialConditions()
-      .map(adaptLedgerInitialConditions)
+    delegate.getLedgerInitialConditions()
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     delegate
@@ -33,29 +32,6 @@ class AdaptedV1ReadService(delegate: v1.ReadService) extends ReadService {
 }
 
 private[v2] object AdaptedV1ReadService {
-  def adaptLedgerInitialConditions(
-      ledgerInitialConditions: v1.LedgerInitialConditions
-  ): LedgerInitialConditions =
-    LedgerInitialConditions(
-      ledgerId = ledgerInitialConditions.ledgerId,
-      config = adaptLedgerConfiguration(ledgerInitialConditions.config),
-      initialRecordTime = ledgerInitialConditions.initialRecordTime,
-    )
-
-  def adaptLedgerConfiguration(config: v1.Configuration): Configuration =
-    Configuration(
-      generation = config.generation,
-      timeModel = adaptTimeModel(config.timeModel),
-      maxDeduplicationTime = config.maxDeduplicationTime,
-    )
-
-  def adaptTimeModel(timeModel: v1.TimeModel): TimeModel =
-    TimeModel(
-      timeModel.avgTransactionLatency,
-      timeModel.minSkew,
-      timeModel.maxSkew,
-    ).get
-
   def adaptUpdate(update: v1.Update): Update = update match {
     case v1.Update.ConfigurationChanged(
           recordTime,
@@ -67,7 +43,7 @@ private[v2] object AdaptedV1ReadService {
         recordTime = recordTime,
         submissionId = submissionId,
         participantId = participantId,
-        newConfiguration = adaptLedgerConfiguration(newConfiguration),
+        newConfiguration = newConfiguration,
       )
     case v1.Update.ConfigurationChangeRejected(
           recordTime,
@@ -80,7 +56,7 @@ private[v2] object AdaptedV1ReadService {
         recordTime = recordTime,
         submissionId = submissionId,
         participantId = participantId,
-        proposedConfiguration = adaptLedgerConfiguration(proposedConfiguration),
+        proposedConfiguration = proposedConfiguration,
         rejectionReason = rejectionReason,
       )
     case v1.Update.PartyAddedToParticipant(

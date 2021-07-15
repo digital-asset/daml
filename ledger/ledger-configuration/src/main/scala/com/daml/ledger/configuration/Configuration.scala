@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.v1
+package com.daml.ledger.configuration
 
 import java.time.Duration
 
@@ -10,13 +10,13 @@ import scala.util.Try
 /** Ledger configuration describing the ledger's time model.
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
   *
-  * @param generation The configuration generation. Monotonically increasing.
-  * @param timeModel The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands.
+  * @param generation            The configuration generation. Monotonically increasing.
+  * @param timeModel             The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands.
   * @param maxDeduplicationTime The maximum time window during which commands can be deduplicated.
   */
 final case class Configuration(
     generation: Long,
-    timeModel: TimeModel,
+    timeModel: LedgerTimeModel,
     maxDeduplicationTime: Duration,
 )
 
@@ -58,8 +58,8 @@ object Configuration {
         )
       }
 
-    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
-      TimeModel(
+    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, LedgerTimeModel] =
+      LedgerTimeModel(
         avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
         minSkew = parseDuration(tm.getMinSkew),
         maxSkew = parseDuration(tm.getMaxSkew),
@@ -88,8 +88,8 @@ object Configuration {
         )
       }
 
-    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
-      TimeModel(
+    def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, LedgerTimeModel] =
+      LedgerTimeModel(
         avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
         minSkew = parseDuration(tm.getMinSkew),
         maxSkew = parseDuration(tm.getMaxSkew),

@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Instant
 
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
@@ -15,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
   ModelConformanceValidator,
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReasonV0}
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}

@@ -8,10 +8,10 @@ import java.time.{Duration, Instant}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
-  Configuration,
   DivulgedContract,
   Offset,
   ParticipantId,
@@ -19,7 +19,6 @@ import com.daml.ledger.participant.state.v1.{
   RejectionReasonV0,
   SubmissionId,
   SubmitterInfo,
-  TimeModel,
   TransactionId,
   TransactionMeta,
   Update,
@@ -1246,7 +1245,7 @@ object UpdateToDbDtoSpec {
     SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
   val someWorkflowId = WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
   val someConfiguration =
-    Configuration(1, TimeModel.reasonableDefault, Duration.ofHours(23))
+    Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
   val someParty = Party.assertFromString("UpdateToDbDtoSpecParty")
   val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")

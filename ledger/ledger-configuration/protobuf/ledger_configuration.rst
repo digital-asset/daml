@@ -16,8 +16,11 @@ Please read ``daml-lf/spec/transaction.rst`` to understand the rules
 we follow for evolving the ledger configuration.
 
 The canonical specification compliant implementation for encoding and
-decoding ledger configurations is part of the participant-state package
-in ``ledger/participant-state``.
+decoding ledger configurations is part of the ledger-configuration
+package in ``ledger/ledger-configuration``.
+
+For historical reasons, we have kept the package name as
+``com.daml.ledger.participant.state``.
 
 Version history
 ^^^^^^^^^^^^^^^

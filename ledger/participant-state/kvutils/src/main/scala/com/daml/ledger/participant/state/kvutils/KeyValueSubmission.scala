@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
