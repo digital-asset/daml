@@ -169,7 +169,7 @@ private[platform] abstract class BaseLedger(
     ledgerDao
       .getLfArchive(packageId)
       .flatMap(archiveO =>
-        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2)))
+        Future.fromTry(Try(archiveO.map(archive => Decode.assertDecodeArchive(archive)._2)))
       )(
         DEC
       )

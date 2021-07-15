@@ -301,7 +301,7 @@ class PlatformSubscriber(
   }
 
   private def decodePackage(res: GetPackageResponse) = {
-    val payload = ArchivePayloadParser.fromByteString(res.archivePayload)
+    val payload = ArchivePayloadParser.assertFromByteString(res.archivePayload)
     val (errors, out) =
       InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash), payload)
     if (!errors.equals(Errors.zeroErrors)) {

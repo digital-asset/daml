@@ -692,7 +692,7 @@ private class JdbcLedgerDao(
           )
           .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
       }
-      .map(_.map(data => ArchiveParser.fromByteArray(data)))(
+      .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
         servicesExecutionContext
       )
 

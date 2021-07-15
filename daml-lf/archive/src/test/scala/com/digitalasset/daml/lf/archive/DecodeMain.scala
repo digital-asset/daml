@@ -25,7 +25,7 @@ object DecodeMain extends App {
     val archives = DarReader.assertReadArchiveFromFile(new File(args(0)))
     val t1 = System.nanoTime()
 
-    val _: (Ref.PackageId, Ast.Package) = Decode.decodeArchivePayload(archives.main)
+    val _: (Ref.PackageId, Ast.Package) = Decode.assertDecodeArchivePayload(archives.main)
     val t2 = System.nanoTime()
 
     println(s"parseFrom in ${toMillis(t0, t1)}ms, decoded in ${toMillis(t1, t2)}ms.")

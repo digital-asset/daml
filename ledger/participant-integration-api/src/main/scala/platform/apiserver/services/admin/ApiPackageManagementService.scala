@@ -36,6 +36,10 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
+import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.syntax.traverse._
+
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
@@ -89,7 +93,7 @@ private[apiserver] final class ApiPackageManagementService private (
   private def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
     for {
       dar <- darReader.readArchive("package-upload", stream).toTry
-      packages <- Try(dar.all.map(Decode.decodeArchive(_)))
+      packages <- dar.all.traverse(Decode.decodeArchive(_)).toTry
       _ <- engine
         .validatePackages(packages.toMap)
         .left

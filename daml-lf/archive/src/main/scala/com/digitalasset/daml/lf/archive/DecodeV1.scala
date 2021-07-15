@@ -13,6 +13,7 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.nameof.NameOf
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.compat._
@@ -29,7 +30,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       packageId: PackageId,
       lfPackage: PLF.Package,
       onlySerializableDataDefs: Boolean,
-  ): Package = {
+  ): Either[Error, Package] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
     val internedStrings: ImmArraySeq[String] = ImmArraySeq(
       lfPackage.getInternedStringsList.asScala.toSeq: _*
     )
@@ -90,7 +91,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
   // each LF scenario module is wrapped in a distinct proto package
   type ProtoScenarioModule = PLF.Package
 
-  def decodeScenarioModule(packageId: PackageId, lfScenarioModule: ProtoScenarioModule): Module = {
+  def decodeScenarioModule(
+      packageId: PackageId,
+      lfScenarioModule: ProtoScenarioModule,
+  ): Either[Error, Module] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
 
     val internedStrings =
       ImmArray(lfScenarioModule.getInternedStringsList.asScala).toSeq

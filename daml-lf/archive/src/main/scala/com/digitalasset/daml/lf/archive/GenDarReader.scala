@@ -81,8 +81,7 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
       darStream: ZipInputStream,
       entrySizeThreshold: Int,
   ): Either[Error, ZipEntries] =
-    attempt(
-      NameOf.qualifiedNameOfCurrentFunc,
+    attempt(NameOf.qualifiedNameOfCurrentFunc)(
       ZipEntries(
         name,
         Iterator
@@ -90,7 +89,7 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
           .takeWhile(_ != null)
           .map(entry => slurpWithCaution(entry.getName, darStream, entrySizeThreshold))
           .toMap,
-      ),
+      )
     )
 
   private[this] def parseAll(getPayload: String => Either[Error, Bytes])(
@@ -101,9 +100,7 @@ private[archive] final class GenDarReaderImpl[A](reader: GenReader[A]) extends G
   private[this] def parseOne(
       getPayload: String => Either[Error, Bytes]
   )(s: String): Either[Error, A] =
-    getPayload(s).flatMap(bytes =>
-      attempt(NameOf.qualifiedNameOfCurrentFunc, reader.fromBytes(bytes))
-    )
+    getPayload(s).flatMap(reader.fromBytes)
 
 }
 

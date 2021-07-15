@@ -13,24 +13,39 @@ object Decode {
   def decodeArchivePayload(
       payload: ArchivePayload,
       onlySerializableDataDefs: Boolean = false,
-  ): (PackageId, Ast.Package) =
+  ): Either[Error, (PackageId, Ast.Package)] =
     payload.version match {
       case LanguageVersion(LanguageMajorVersion.V1, minor)
           if LanguageMajorVersion.V1.supportedMinorVersions.contains(minor) =>
-        payload.pkgId ->
-          new DecodeV1(minor).decodePackage(
+        new DecodeV1(minor)
+          .decodePackage(
             payload.pkgId,
             payload.proto.getDamlLf1,
             onlySerializableDataDefs,
           )
-      case v => throw Error.Parsing(s"$v unsupported")
+          .map(payload.pkgId -> _)
+      case v => Left(Error.Parsing(s"$v unsupported"))
     }
+
+  @throws[Error]
+  def assertDecodeArchivePayload(
+      payload: ArchivePayload,
+      onlySerializableDataDefs: Boolean = false,
+  ): (PackageId, Ast.Package) =
+    assertRight(decodeArchivePayload(payload, onlySerializableDataDefs: Boolean))
 
   // decode an Archive
   def decodeArchive(
       archive: DamlLf.Archive,
       onlySerializableDataDefs: Boolean = false,
+  ): Either[Error, (PackageId, Ast.Package)] =
+    Reader.readArchive(archive).flatMap(decodeArchivePayload(_, onlySerializableDataDefs))
+
+  @throws[Error]
+  def assertDecodeArchive(
+      archive: DamlLf.Archive,
+      onlySerializableDataDefs: Boolean = false,
   ): (PackageId, Ast.Package) =
-    decodeArchivePayload(Reader.readArchive(archive), onlySerializableDataDefs)
+    assertRight(decodeArchive(archive, onlySerializableDataDefs))
 
 }
