@@ -28,6 +28,7 @@ ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
 XML_CONDUIT_VERSION = "1.9.1.1"
+LSP_TYPES_VERSION = "1.2.0.0"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -70,6 +71,50 @@ haskell_binary(
     #
     # Vendored Libraries
     #
+
+    http_archive(
+        name = "lsp-types",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "lsp-types",
+    version = "{version}",
+    srcs = glob(["**"]),
+    deps = [
+      "@stackage//:base",
+      "@stackage//:aeson",
+      "@stackage//:binary",
+      "@stackage//:bytestring",
+      "@stackage//:containers",
+      "@stackage//:data-default",
+      "@stackage//:deepseq",
+      "@stackage//:Diff",
+      "@stackage//:directory",
+      "@stackage//:dlist",
+      "@stackage//:filepath",
+      "@stackage//:hashable",
+      "@stackage//:hslogger",
+      "@stackage//:lens",
+      "@stackage//:mtl",
+      "@stackage//:network-uri",
+      "@stackage//:rope-utf16-splay",
+      "@stackage//:scientific",
+      "@stackage//:some",
+      "@stackage//:dependent-sum-template",
+      "@stackage//:text",
+      "@stackage//:template-haskell",
+      "@stackage//:temporary",
+      "@stackage//:unordered-containers",
+    ],
+    visibility = ["//visibility:public"],
+)""".format(version = LSP_TYPES_VERSION),
+        patch_args = ["-p1"],
+        patches = ["@com_github_digital_asset_daml//bazel_tools:lsp-types.patch"],
+        sha256 = "637a85878d7b8c895311eb6878f19c43038ef93db1e4de4820b04fa7bc30b4ab",
+        strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
+        urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
+    )
 
     # ghc-lib based ghcide - injected into `@stackage` and used for DAML IDE.
     http_archive(
@@ -490,6 +535,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "deepseq",
             "dependent-map",
             "dependent-sum",
+            "dependent-sum-template",
+            "Diff",
             "digest",
             "directory",
             "dlist",
@@ -517,7 +564,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "hashable",
             "haskeline",
             "lsp",
-            "lsp-types",
             "haskell-src",
             "haskell-src-exts",
             "heaps",
@@ -644,6 +690,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "shake": "@shake//:shake",
             "xml-conduit": "@xml-conduit//:xml-conduit",
             "zip": "@zip//:zip",
+            "lsp-types": "@lsp-types//:lsp-types",
         },
     )
 

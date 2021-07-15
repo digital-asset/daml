@@ -1,0 +1,13 @@
+diff --git a/src/Language/LSP/Types/Uri.hs b/src/Language/LSP/Types/Uri.hs
+index 8970d37..0b3bc98 100644
+--- a/src/Language/LSP/Types/Uri.hs
++++ b/src/Language/LSP/Types/Uri.hs
+@@ -190,7 +190,7 @@ instance IsString NormalizedFilePath where
+ toNormalizedFilePath :: FilePath -> NormalizedFilePath
+ toNormalizedFilePath fp = NormalizedFilePath nuri nfp
+   where
+-      nfp = FP.normalise fp
++      nfp = FPP.normalise $ FPP.joinPath $ FP.splitDirectories fp
+       nuri = internalNormalizedFilePathToUri nfp
+ 
+ fromNormalizedFilePath :: NormalizedFilePath -> FilePath
