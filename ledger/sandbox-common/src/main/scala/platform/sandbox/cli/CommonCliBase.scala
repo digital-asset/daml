@@ -281,7 +281,7 @@ class CommonCliBase(name: LedgerName) {
           config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
         })
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${LedgerTimeModel.reasonableDefault.minSkew.getSeconds}."
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${LedgerTimeModel.reasonableDefault.maxSkew.getSeconds}."
         )
 
       opt[Duration]("management-service-timeout")
