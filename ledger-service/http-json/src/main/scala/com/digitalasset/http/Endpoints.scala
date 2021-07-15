@@ -15,7 +15,7 @@ import akka.http.scaladsl.model.headers.{
 }
 import akka.http.scaladsl.server
 import akka.http.scaladsl.server.Directives.extractClientIP
-import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
+import akka.http.scaladsl.server.{Directive0, PathMatcher, Route}
 import akka.http.scaladsl.server.RouteResult._
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
