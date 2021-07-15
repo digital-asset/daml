@@ -81,14 +81,17 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       logger.info("Running Flyway validation...")
 
       @tailrec
-      def flywayMigrationDone(retries: Int, needLessThan: Option[Int]): Either[String, Unit] = {
+      def flywayMigrationDone(
+          retries: Int,
+          needLessThan: Option[Int],
+      ): Unit = {
         val pendingMigrations = flyway.info().pending().length
         if (pendingMigrations == 0) {
-          Right(())
+          ()
         } else if (retries <= 0) {
-          Left(s"Ran out of retries with ${pendingMigrations} migrations remaining")
+          throw ExhaustedRetries(pendingMigrations)
         } else if (needLessThan.exists(pendingMigrations >= _)) {
-          Left(s"Stopped progressing with ${pendingMigrations} migrations")
+          throw StoppedProgressing(pendingMigrations)
         } else {
           logger.debug(
             s"Concurrent migration has reduced the pending migrations set to ${pendingMigrations}, waiting until pending set is empty.."
@@ -99,18 +102,12 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       }
 
       try {
-        flywayMigrationDone(10, None) match {
-          case Right(_) =>
-            logger.info("Flyway schema validation finished successfully.")
-            Future.unit
-          case Left(err) =>
-            val msg = s"Flyway schema validation failed: ${err}"
-            logger.error(msg)
-            Future.failed(new RuntimeException(msg))
-        }
+        flywayMigrationDone(10, None)
+        logger.info("Flyway schema validation finished successfully.")
+        Future.unit
       } catch {
-        case ex: FlywayException =>
-          logger.error("Failed to retrieve pending flyway migration info", ex)
+        case ex: RuntimeException =>
+          logger.error(s"Failed to validate and wait only: ${ex.getMessage}", ex)
           Future.failed(ex)
       }
     }
@@ -163,4 +160,9 @@ private[platform] object FlywayMigrations {
     Flyway
       .configure()
       .locations(locations(enableAppendOnlySchema, dbType): _*)
+
+  case class ExhaustedRetries(pendingMigrations: Int)
+      extends RuntimeException(s"Ran out of retries with ${pendingMigrations} migrations remaining")
+  case class StoppedProgressing(pendingMigrations: Int)
+      extends RuntimeException(s"Stopped progressing with ${pendingMigrations} migrations")
 }
