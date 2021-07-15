@@ -87,6 +87,8 @@ object ParallelIndexerFactory {
             )
             .map(
               HaCoordinator.databaseLockBasedHaCoordinator(
+                // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
+                // The life-cycle of such connections matches the life-cycle of a protectedExecution
                 dataSource = storageBackend.createDataSource(jdbcUrl),
                 storageBackend = storageBackend,
                 _,
@@ -148,6 +150,8 @@ object ParallelIndexerFactory {
 
           val completionFuture = DbDispatcher
             .owner(
+              // this is tha DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+              // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
               dataSource = storageBackend.createDataSource(
                 jdbcUrl = jdbcUrl,
                 dataSourceConfig = dataSourceConfig,
