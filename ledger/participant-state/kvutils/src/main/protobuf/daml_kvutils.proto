@@ -19,7 +19,7 @@ import "google/protobuf/timestamp.proto";
 import "com/daml/daml_lf_dev/daml_lf.proto";
 import "com/daml/lf/transaction.proto";
 import "com/daml/lf/value.proto";
-import "com/daml/ledger/participant/state/ledger_configuration.proto";
+import "com/daml/ledger/configuration/ledger_configuration.proto";
 
 // Envelope with which we wrap all kvutils messages that are sent over the network
 // or persisted on disk. The envelope specifies the kvutils version that defines how
@@ -276,7 +276,7 @@ message DamlConfigurationSubmission {
   google.protobuf.Timestamp maximum_record_time = 3;
 
   // The new configuration that replaces the current configuration.
-  com.daml.ledger.participant.state.LedgerConfiguration configuration = 4;
+  com.daml.ledger.configuration.LedgerConfiguration configuration = 4;
 }
 
 // A log entry describing a rejected configuration change.
@@ -289,7 +289,7 @@ message DamlConfigurationRejectionEntry {
   string participant_id = 2;
 
   // The new proposed configuration that was rejected.
-  com.daml.ledger.participant.state.LedgerConfiguration configuration = 3;
+  com.daml.ledger.configuration.LedgerConfiguration configuration = 3;
 
   oneof reason {
     ParticipantNotAuthorized participant_not_authorized = 4;
@@ -312,7 +312,7 @@ message DamlConfigurationEntry {
   string participant_id = 2;
 
   // The ledger configuration.
-  com.daml.ledger.participant.state.LedgerConfiguration configuration = 3;
+  com.daml.ledger.configuration.LedgerConfiguration configuration = 3;
 }
 
 // An allocation of party name and assignment of a party to a given

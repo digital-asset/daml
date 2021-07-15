@@ -11,10 +11,10 @@
 //
 
 syntax = "proto3";
-package com.daml.ledger.participant.state;
-option java_package = "com.daml.ledger.participant.state.protobuf";
+package com.daml.ledger.configuration;
+option java_package = "com.daml.ledger.configuration.protobuf";
 option java_multiple_files = true;
-option csharp_namespace = "Com.Daml.Ledger.Participant.State.Protobuf";
+option csharp_namespace = "Com.Daml.Ledger.Configuration.Protobuf";
 
 import "google/protobuf/duration.proto";
 

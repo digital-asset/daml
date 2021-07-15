@@ -4,7 +4,7 @@
 package com.daml.ledger.configuration
 
 import com.daml.ledger.configuration.ConfigurationSpec._
-import com.daml.ledger.participant.state.protobuf.{ledger_configuration => protobuf}
+import com.daml.ledger.configuration.protobuf.{ledger_configuration => protobuf}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
