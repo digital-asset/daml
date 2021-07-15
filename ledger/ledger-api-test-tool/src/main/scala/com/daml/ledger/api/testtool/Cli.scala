@@ -77,9 +77,14 @@ object Cli {
 
     arg[(String, Int)]("[endpoints...]")(endpointRead)
       .action((address, config) => config.copy(participants = config.participants :+ address))
-      .unbounded()
       .optional()
       .text("""Addresses of the participants to test, specified as `<host>:<port>`.""")
+
+    arg[Int]("max-connection-attempts")
+      .action((maxConnectionAttempts, config) => config.copy(maxConnectionAttempts = maxConnectionAttempts))
+      .unbounded()
+      .optional()
+      .text("Number of connection attempts to the participants. Applied to all endpoints.")
 
     // FIXME Make client_server_test more flexible and remove this deprecated option
     opt[String]("target-port")

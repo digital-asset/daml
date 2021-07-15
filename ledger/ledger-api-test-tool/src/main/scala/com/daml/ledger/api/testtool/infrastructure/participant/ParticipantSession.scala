@@ -58,6 +58,7 @@ object ParticipantSession {
   def apply(
       partyAllocation: PartyAllocationConfiguration,
       participants: Vector[Channel],
+      maxConnectionAttempts: Int,
       commandInterceptors: Seq[ClientInterceptor],
   )(implicit
       executionContext: ExecutionContext
@@ -67,7 +68,7 @@ object ParticipantSession {
       for {
         // Keep retrying for about a minute.
         ledgerId <- RetryStrategy
-          .exponentialBackoff(10, 100.millis) { (attempt, wait) =>
+          .exponentialBackoff(attempts = maxConnectionAttempts, 100.millis) { (attempt, wait) =>
             services.identity
               .getLedgerIdentity(new GetLedgerIdentityRequest)
               .map(_.ledgerId)
