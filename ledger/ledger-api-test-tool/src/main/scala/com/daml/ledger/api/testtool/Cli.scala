@@ -77,6 +77,7 @@ object Cli {
 
     arg[(String, Int)]("[endpoints...]")(endpointRead)
       .action((address, config) => config.copy(participants = config.participants :+ address))
+      .unbounded()
       .optional()
       .text("""Addresses of the participants to test, specified as `<host>:<port>`.""")
 
