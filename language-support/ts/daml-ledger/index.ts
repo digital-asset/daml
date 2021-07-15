@@ -444,10 +444,6 @@ class QueryStreamsManager {
       this.wsClosed = true;
     }
 
-    /**
-     * The queries have changed: close the web socket
-     *
-     */
     private handleQueriesChange() {
       if (this.ws !== null) {
           this.wsClosed = true;
