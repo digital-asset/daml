@@ -53,7 +53,7 @@ final class LedgerTestCasesRunner(
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
-      require(maxConnectionAttempts > 0, "The connection attempts must be strictly positive")
+      require(maxConnectionAttempts > 0, "The number of connection attempts must be strictly positive")
       require(timeoutScaleFactor > 0, "The timeout scale factor must be strictly positive")
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
