@@ -143,7 +143,7 @@ describe("streamSubmit", () => {
     expect(mockSend).toHaveBeenLastCalledWith([{templateIds: [Foo.templateId]}]);
     const restoreConsole = mockConsole();
     mockInstance.serverSend('mickey mouse');
-    expect(console.error).toHaveBeenCalledWith("QueryStreamsManager unknown message", "mickey mouse");
+    expect(console.error).toHaveBeenCalledWith("Ledger.streamQuery unknown message", "mickey mouse");
     restoreConsole();
   });
 
@@ -153,7 +153,7 @@ describe("streamSubmit", () => {
     stream.on("change", mockChange);
     const restoreConsole = mockConsole();
     mockInstance.serverSend({ warnings: ["oh oh"] });
-    expect(console.warn).toHaveBeenCalledWith("QueryStreamsManager warnings", {"warnings": ["oh oh"]});
+    expect(console.warn).toHaveBeenCalledWith("Ledger.streamQueries warnings", {"warnings": ["oh oh"]});
     restoreConsole();
   });
 

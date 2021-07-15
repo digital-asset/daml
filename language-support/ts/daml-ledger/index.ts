@@ -360,6 +360,7 @@ type StreamingQuery<T extends object, K, I extends string> = {
     stream: QueryResponseStream<T, K, I>,
     offset: string | typeof NoOffsetReceivedYet | typeof NullOffsetReceived,
     state: Map<ContractId<T>, CreateEvent<T, K, I>>, // all JavaScript Map iterators preserve insertion order
+    caller: string,
 }
 
 type StreamingQueryRequest = {
@@ -511,11 +512,17 @@ class QueryStreamsManager {
                   }
               }
           } else if (isRecordWith('warnings', json)) {
-              console.warn('QueryStreamsManager warnings', json);
+              for (const query of materialize(manager.queries.values())) {
+                  console.warn(`${query.caller} warnings`, json);
+              }
           } else if (isRecordWith('errors', json)) {
-              console.error('QueryStreamsManager errors', json);
+              for (const query of materialize(manager.queries.values())) {
+                console.warn(`${query.caller} errors`, json);
+              }
           } else {
-              console.error('QueryStreamsManager unknown message', json);
+              for (const query of materialize(manager.queries.values())) {
+                console.error(`${query.caller} unknown message`, json);
+              }
           }
         }
 
@@ -584,7 +591,8 @@ class QueryStreamsManager {
 
     streamSubmit<T extends object, K, I extends string>(
         template: Template<T, K, I>,
-        queries: Query<T>[]
+        queries: Query<T>[],
+        caller: string,
     ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
         const manager = this;
         const query: StreamingQuery<T, K, I> = {
@@ -598,6 +606,7 @@ class QueryStreamsManager {
             }),
             state: new Map(),
             offset: NoOffsetReceivedYet,
+            caller,
         }
         manager.queries.add(query as unknown as StreamingQuery<object, unknown, string>);
         manager.handleQueriesChange();
@@ -1056,9 +1065,9 @@ class Ledger {
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     if (query === undefined) {
-      return this.streamQueryCommon(template, []);
+      return this.streamQueryCommon(template, [], 'Ledger.streamQuery');
     } else {
-      return this.streamQueryCommon(template, [query]);
+      return this.streamQueryCommon(template, [query], 'Ledger.streamQuery');
     }
   }
 
@@ -1068,9 +1077,10 @@ class Ledger {
    */
   private streamQueryCommon<T extends object, K, I extends string>(
     template: Template<T, K, I>,
-    queries: Query<T>[]
+    queries: Query<T>[],
+    name: string,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    return this.queryStreamsManager.streamSubmit(template, queries);
+    return this.queryStreamsManager.streamSubmit(template, queries, name);
   }
 
   /**
@@ -1094,7 +1104,7 @@ class Ledger {
     template: Template<T, K, I>,
     queries: Query<T>[],
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    return this.streamQueryCommon(template, queries);
+    return this.streamQueryCommon(template, queries, "Ledger.streamQueries");
   }
 
   /**
