@@ -70,6 +70,7 @@ import Safe
 import System.Directory.Extra as Dir
 import System.Environment
 import System.FilePath
+import qualified System.FilePath.Posix as FPP
 import System.IO
 import System.IO.Error
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
@@ -1313,7 +1314,7 @@ discardInternalModules mbPackageName files = do
                           mbPackageName == Just unitId &&
                           moduleNameFile modName `isSuffixOf` fromNormalizedFilePath f)
                      $ Map.keys stablePackages)
-        moduleNameFile (LF.ModuleName segments) = joinPath (map T.unpack segments) <.> "daml"
+        moduleNameFile (LF.ModuleName segments) = FPP.joinPath (map T.unpack segments) <.> "daml"
 
 usesE' ::
        ( Eq k
@@ -1333,7 +1334,7 @@ usesE' k = fmap (map fst) . usesE k
 
 
 internalModules :: [FilePath]
-internalModules = map normalise
+internalModules = map FPP.normalise
   [ "Data/String.daml"
   , "GHC/CString.daml"
   , "GHC/Integer/Type.daml"
@@ -1341,13 +1342,6 @@ internalModules = map normalise
   , "GHC/Real.daml"
   , "GHC/Types.daml"
   ]
-
--- | Checks if a given module is internal, i.e. gets removed in the Core->LF
--- translation. TODO where should this live?
-modIsInternal :: Module -> Bool
-modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
-  -- TODO should we consider DA.Internal.* internal? Difference to GHC.*
-  -- modules is that these do not disappear in the LF conversion.
 
 
 damlRule :: Options -> Rules ()

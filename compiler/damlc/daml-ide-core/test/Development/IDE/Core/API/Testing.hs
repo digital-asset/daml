@@ -465,7 +465,7 @@ matchGoToDefinitionPattern = \case
         l' <- l
         let uri = D._uri l'
         fp <- D.uriToFilePath' uri
-        pure $ isSuffixOf (D.fromNormalizedFilePath $ moduleNameToFilePath m) (FilePath.normalise fp)
+        pure $ isSuffixOf (D.fromNormalizedFilePath $ moduleNameToFilePath m) (D.fromNormalizedFilePath $ D.toNormalizedFilePath' fp)
 
 -- | Expect "go to definition" to point us at a certain location or to fail.
 expectGoToDefinition :: CursorRange -> GoToDefinitionPattern -> ShakeTest ()
