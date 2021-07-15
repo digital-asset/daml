@@ -82,7 +82,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
       submissionId: SubmissionId,
   ): CompletionStage[PruningResult] =
     delegate
-      .prune(Offset(pruneUpToInclusive.bytes), submissionId)
+      .prune(pruneUpToInclusive, submissionId)
       .thenApply(adaptPruningResult)
 
   override def uploadPackages(

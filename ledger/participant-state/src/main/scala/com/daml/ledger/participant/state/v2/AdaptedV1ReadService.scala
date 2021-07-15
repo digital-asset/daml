@@ -26,7 +26,7 @@ class AdaptedV1ReadService(delegate: v1.ReadService) extends ReadService {
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     delegate
-      .stateUpdates(beginAfter.map(offset => Offset(offset.bytes)))
+      .stateUpdates(beginAfter)
       .map { case (offset, update) => Offset(offset.bytes) -> adaptUpdate(update) }
 
   override def currentHealth(): HealthStatus = delegate.currentHealth()
