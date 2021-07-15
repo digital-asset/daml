@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, Result, Error => LfError}
+import com.daml.lf.engine.{Engine, Result}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction.{
   DuplicateKeys,
@@ -29,17 +29,8 @@ import com.daml.lf.transaction.Transaction.{
   KeyInput,
   KeyInputError,
 }
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
-  ReplayNodeMismatch,
-  SubmittedTransaction,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -110,7 +101,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           .map(error =>
             rejections.buildRejectionStep(
               transactionEntry,
-              rejectionReasonForValidationError(error),
+              RejectionReasonV0.Disputed(error.msg),
               commitContext.recordTime,
             )
           )
@@ -131,6 +122,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
 
   // Helper to lookup contract instances. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
+  @throws[Err.MissingInputState]
   private[validation] def lookupContract(
       commitContext: CommitContext
   )(
@@ -236,59 +228,5 @@ private[transaction] object ModelConformanceValidator {
       RejectionReasonV0.Disputed(description),
       recordTime,
     )
-  }
-
-  def rejectionReasonForValidationError(
-      validationError: LfError
-  ): RejectionReasonV0 = {
-    def disputed: RejectionReasonV0 =
-      RejectionReasonV0.Disputed(validationError.msg)
-
-    def resultIsCreatedInTx(
-        tx: VersionedTransaction[NodeId, ContractId],
-        result: Option[Value.ContractId],
-    ): Boolean =
-      result.exists { contractId =>
-        tx.nodes.exists {
-          case (_, create: Node.NodeCreate[_]) => create.coid == contractId
-          case _ => false
-        }
-      }
-
-    validationError match {
-      case LfError.Validation(
-            LfError.Validation.ReplayMismatch(
-              ReplayNodeMismatch(recordedTx, recordedNodeId, replayedTx, replayedNodeId)
-            )
-          ) =>
-        // If the problem is that a key lookup has changed and the results do not involve contracts created in this transaction,
-        // then it's a consistency problem.
-
-        (recordedTx.nodes(recordedNodeId), replayedTx.nodes(replayedNodeId)) match {
-          case (
-                Node.NodeLookupByKey(
-                  recordedTemplateId,
-                  _,
-                  recordedKey,
-                  recordedResult,
-                  recordedVersion,
-                ),
-                Node.NodeLookupByKey(
-                  replayedTemplateId,
-                  _,
-                  replayedKey,
-                  replayedResult,
-                  replayedVersion,
-                ),
-              )
-              if recordedVersion == replayedVersion &&
-                recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
-                && !resultIsCreatedInTx(recordedTx, recordedResult)
-                && !resultIsCreatedInTx(replayedTx, replayedResult) =>
-            RejectionReasonV0.Inconsistent(validationError.msg)
-          case _ => disputed
-        }
-      case _ => disputed
-    }
   }
 }
