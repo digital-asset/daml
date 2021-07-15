@@ -10,6 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.compat.java8.DurationConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import org.scalatest.prop.TableDrivenPropertyChecks._
 
 class ConfigurationSpec extends AnyWordSpec with Matchers {
   "a ledger configuration" when {
@@ -99,26 +100,20 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
         )
       }
 
-      "reject a missing time model" in {
-        val configurationBytes = protobuf.LedgerConfiguration
-          .of(
+      val rejections = Table(
+        ("error message", "protobuf"),
+        (
+          "Missing time model",
+          protobuf.LedgerConfiguration.of(
             version = 2,
             generation = 4,
             timeModel = None,
             maxDeduplicationTime = Some(1.day.toProtobuf),
-          )
-          .toByteArray
-
-        val configuration = Configuration.decode(configurationBytes)
-
-        configuration should be(
-          Left("Missing time model")
-        )
-      }
-
-      "reject a missing max deduplication time" in {
-        val configurationBytes = protobuf.LedgerConfiguration
-          .of(
+          ),
+        ),
+        (
+          "Missing maximum command time to live",
+          protobuf.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
@@ -129,19 +124,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxDeduplicationTime = None,
-          )
-          .toByteArray
-
-        val configuration = Configuration.decode(configurationBytes)
-
-        configuration should be(
-          Left("Missing maximum command time to live")
-        )
-      }
-
-      "rejects a negative transaction latency in the time model" in {
-        val configurationBytes = protobuf.LedgerConfiguration
-          .of(
+          ),
+        ),
+        (
+          "decodeTimeModel: requirement failed: Negative average transaction latency",
+          protobuf.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
@@ -152,19 +139,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
-          )
-          .toByteArray
-
-        val configuration = Configuration.decode(configurationBytes)
-
-        configuration should be(
-          Left("decodeTimeModel: requirement failed: Negative average transaction latency")
-        )
-      }
-
-      "rejects a negative minimum skew in the time model" in {
-        val configurationBytes = protobuf.LedgerConfiguration
-          .of(
+          ),
+        ),
+        (
+          "decodeTimeModel: requirement failed: Negative min skew",
+          protobuf.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
@@ -175,19 +154,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
-          )
-          .toByteArray
-
-        val configuration = Configuration.decode(configurationBytes)
-
-        configuration should be(
-          Left("decodeTimeModel: requirement failed: Negative min skew")
-        )
-      }
-
-      "rejects a negative maximum skew in the time model" in {
-        val configurationBytes = protobuf.LedgerConfiguration
-          .of(
+          ),
+        ),
+        (
+          "decodeTimeModel: requirement failed: Negative max skew",
+          protobuf.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
@@ -198,19 +169,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxDeduplicationTime = Some(com.google.protobuf.duration.Duration.defaultInstance),
-          )
-          .toByteArray
-
-        val configuration = Configuration.decode(configurationBytes)
-
-        configuration should be(
-          Left("decodeTimeModel: requirement failed: Negative max skew")
-        )
-      }
-
-      "rejects a negative maximum deduplication time in the time model" in {
-        val configurationBytes = protobuf.LedgerConfiguration
-          .of(
+          ),
+        ),
+        (
+          "requirement failed: Negative maximum command time to live",
+          protobuf.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
@@ -221,14 +184,18 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxDeduplicationTime = Some((-1).day.toProtobuf),
-          )
-          .toByteArray
+          ),
+        ),
+      )
 
-        val configuration = Configuration.decode(configurationBytes)
+      "reject an invalid protobuf" in {
+        forAll(rejections) { (errorMessage, protobuf) =>
+          val configurationBytes = protobuf.toByteArray
 
-        configuration should be(
-          Left("requirement failed: Negative maximum command time to live")
-        )
+          val configuration = Configuration.decode(configurationBytes)
+
+          configuration should be(Left(errorMessage))
+        }
       }
     }
   }
