@@ -351,11 +351,14 @@ class StreamEventEmitter<T extends object, K, I extends string, State> extends E
 
 type QueryResponseStream<T extends object, K, I extends string> = StreamEventEmitter<T, K, I, readonly CreateEvent<T, K, I>[]>;
 
+const NoOffsetReceivedYet = Symbol('NoOffsetReceivedYet');
+const NullOffsetReceived = Symbol('NullOffsetReceived');
+
 type StreamingQuery<T extends object, K, I extends string> = {
     template: Template<T, K, I>,
     queries: Query<T>[],
     stream: QueryResponseStream<T, K, I>,
-    offset?: string | null, // undefined -> nothing has been received, null -> the JSON API returned a null offset
+    offset: string | typeof NoOffsetReceivedYet | typeof NullOffsetReceived,
     state: Map<ContractId<T>, CreateEvent<T, K, I>>, // all JavaScript Map iterators preserve insertion order
 }
 
@@ -426,7 +429,7 @@ class QueryStreamsManager {
         const request: StreamingQueryRequest[] = query.queries.length == 0 ?
             [{templateIds: [query.template.templateId]}]
             : query.queries.map(q => ({templateIds: [query.template.templateId], query: encodeQuery(query.template, q) as object}));
-        if (query.offset !== undefined && query.offset !== null) {
+        if (typeof query.offset === 'string') {
             for (const r of request) {
                 r.offset = query.offset;
             }
@@ -492,12 +495,16 @@ class QueryStreamsManager {
                   const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
                   let anyLiveEvent: boolean = false;
                   for (const consumer of materialize(manager.queries.values())) {
-                    if (consumer.offset === undefined) {
+                    if (!(typeof consumer.offset === 'string')) {
                       // Rebuilding the state array from scratch to make sure mutable state is not shared between the 'change' and 'live' event
                       consumer.stream.emit('live', Array.from(consumer.state.values()));
                       anyLiveEvent = true;
                     }
-                    consumer.offset = offset;
+                    if (typeof offset === 'string') {
+                      consumer.offset = offset;
+                    } else {
+                      consumer.offset = NullOffsetReceived;
+                    }
                   }
                   if (anyLiveEvent === true) {
                     manager.wsLiveSince = Date.now();
@@ -590,6 +597,7 @@ class QueryStreamsManager {
                 }
             }),
             state: new Map(),
+            offset: NoOffsetReceivedYet,
         }
         manager.queries.add(query as unknown as StreamingQuery<object, unknown, string>);
         manager.handleQueriesChange();
