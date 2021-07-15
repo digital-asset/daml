@@ -30,8 +30,7 @@ import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
@@ -48,6 +47,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Tag
+import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -70,7 +70,9 @@ class Server(
 
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory
-    val pkgMap = pkgs.map((Decode.readArchivePayload _).tupled).toMap
+    val pkgMap = pkgs.map { case (pkgId, payload) =>
+      Decode.decodeArchivePayload(Reader.readArchivePayload(pkgId, payload))
+    }.toMap
 
     // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.
     // So we need to use the entire `darMap` to complete each call to `addPackage`.
@@ -390,14 +392,14 @@ class Server(
               val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
               onSuccess(byteStringF) { byteString =>
                 val inputStream = new ByteArrayInputStream(byteString.toArray)
-                DarReader()
+                DarReader
                   .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                  case Failure(err) =>
+                  case Left(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                  case Success(dar) =>
+                  case Right(dar) =>
                     extractExecutionContext { implicit ec =>
-                      onComplete(addDar(dar)) {
-                        case Failure(err: ParseError) =>
+                      onComplete(addDar(dar.map(p => p.pkgId -> p.proto))) {
+                        case Failure(err: archive.Error) =>
                           complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
                         case Failure(exception) =>
                           complete(
@@ -405,7 +407,7 @@ class Server(
                           )
                         case Success(()) =>
                           val mainPackageId =
-                            JsObject(("mainPackageId", dar.main._1.name.toJson))
+                            JsObject(("mainPackageId", dar.main.pkgId.name.toJson))
                           complete(successResponse(mainPackageId))
                       }
                     }

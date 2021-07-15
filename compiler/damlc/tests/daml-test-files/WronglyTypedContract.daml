@@ -1,0 +1,31 @@
+-- @ERROR range=27:1-27:5; Attempt to fetch or exercise a wrongly typed contract.
+module WronglyTypedContract where
+
+template T1
+  with
+    p : Party
+  where
+    signatory p
+
+template T2
+  with
+    p : Party
+  where
+    signatory p
+
+template Fetcher
+  with
+    p : Party
+  where
+    signatory p
+    choice Fetch2 : T2
+      with
+        cid : ContractId T2
+      controller p
+      do fetch cid
+
+test = scenario do
+  p <- getParty "p"
+  cid <- submit p $ create (T1 p)
+  fetcher <- submit p $ createAndExercise (Fetcher p) (Fetch2 (coerceContractId cid))
+  pure ()

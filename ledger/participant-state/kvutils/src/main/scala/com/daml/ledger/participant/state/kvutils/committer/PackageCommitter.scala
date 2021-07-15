@@ -14,9 +14,10 @@ import com.daml.lf
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, VisibleByKey}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
+import com.daml.logging.entries.LoggingEntries
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
@@ -47,9 +48,7 @@ final private[kvutils] class PackageCommitter(
 
   override protected def extraLoggingContext(result: Result): LoggingEntries =
     LoggingEntries(
-      "packages" -> result.uploadEntry.getArchivesList.asScala
-        .map(_.getHash)
-        .mkString("[", ", ", "]")
+      "packages" -> result.uploadEntry.getArchivesList.asScala.view.map(_.getHash)
     )
 
   /** The initial internal state passed to first step. */
@@ -288,7 +287,7 @@ final private[kvutils] class PackageCommitter(
       val errors = packages.flatMap { case (pkgId, pkg) =>
         engine
           .preloadPackage(pkgId, pkg)
-          .consume(_ => None, packages.get, _ => None, _ => VisibleByKey.Visible)
+          .consume(_ => None, packages.get, _ => None)
           .fold(err => List(err.msg), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>

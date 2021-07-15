@@ -121,6 +121,20 @@
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
+- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.13
+  type: jar-deploy
+- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.14
+  type: jar-deploy
+- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.dev
+  type: jar-deploy
+- target: //ledger/ledger-configuration:ledger-configuration
+  type: jar-scala
+- target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_jar
+  type: jar-lib
+- target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_java
+  type: jar-proto
+- target: //ledger/ledger-offset:ledger-offset
+  type: jar-scala
 - target: //ledger/ledger-on-memory:ledger-on-memory
   type: jar-scala
 - target: //ledger/ledger-on-memory:ledger-on-memory-app
@@ -153,10 +167,6 @@
   type: jar-scala
 - target: //ledger/participant-state/kvutils/tools:tools
   type: jar-scala
-- target: //ledger/participant-state/protobuf:ledger_configuration_proto_jar
-  type: jar-lib
-- target: //ledger/participant-state/protobuf:ledger_configuration_proto_java
-  type: jar-proto
 - target: //ledger/participant-state-index:participant-state-index
   type: jar-scala
 - target: //ledger/participant-state-metrics:participant-state-metrics
@@ -202,6 +212,8 @@
 - target: //libs-scala/doobie-slf4j:doobie-slf4j
   type: jar-scala
 - target: //libs-scala/grpc-utils:grpc-utils
+  type: jar-scala
+- target: //libs-scala/logging-entries:logging-entries
   type: jar-scala
 - target: //libs-scala/ports:ports
   type: jar-scala

@@ -38,6 +38,7 @@ import io.grpc.Status
 import scalaz.Tag
 
 import scala.collection.compat._
+import scala.collection.immutable.Seq
 import scala.collection.mutable
 import scala.concurrent.Future
 
@@ -1084,6 +1085,31 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "TXnoSignatoryObservers",
+    "transactions' created events should not return overlapping signatories and observers",
+    allocate(TwoParties),
+  )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    for {
+      _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
+      flat <- ledger.flatTransactions(alice)
+      Seq(flatTx) = flat
+      Seq(flatWo) = createdEvents(flatTx)
+      tree <- ledger.transactionTrees(alice)
+      Seq(treeTx) = tree
+      Seq(treeWo) = createdEvents(treeTx)
+    } yield {
+      assert(
+        flatWo.observers == Seq(bob),
+        s"Expected observers to only contain $bob, but received ${flatWo.observers}",
+      )
+      assert(
+        treeWo.observers == Seq(bob),
+        s"Expected observers to only contain $bob, but received ${treeWo.observers}",
+      )
+    }
+  })
+
+  test(
     "TXFlatTransactionsWrongLedgerId",
     "The getTransactions endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
@@ -1383,6 +1409,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     "TXInvisibleTransactionTreeByEventId",
     "Do not expose an invisible transaction tree by event identifier",
     allocate(SingleParty, SingleParty),
+    timeoutScale = 2.0,
   )(implicit ec => { case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
     for {
       dummy <- alpha.create(party, Dummy(party))
@@ -1678,6 +1705,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     "TXFlatTransactionsVisibility",
     "Transactions in the flat transactions stream should be disclosed only to the stakeholders",
     allocate(Parties(3)),
+    timeoutScale = 2.0,
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       gbpIouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))

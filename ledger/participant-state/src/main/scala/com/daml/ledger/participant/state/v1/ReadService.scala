@@ -6,6 +6,8 @@ package com.daml.ledger.participant.state.v1
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.ledger.configuration.LedgerInitialConditions
+import com.daml.ledger.offset.Offset
 
 /** An interface for reading the state of a ledger participant.
   *
@@ -57,26 +59,26 @@ trait ReadService extends ReportsHealth {
     *
     * - *causal monotonicity*: given a [[Update.TransactionAccepted]] with an associated
     *   ledger time `lt_tx`, it holds that `lt_tx >= lt_c` for all `c`, where `c` is a
-    *   contract used by the transaction and `lt_c` the ledger time of the
-    *   [[Update.TransactionAccepted]] that created the contract.
-    *   The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
-    *   meta-data.
-    *   Note that the ledger time of unrelated updates is not necessarily monotonically
-    *   increasing.
+    * contract used by the transaction and `lt_c` the ledger time of the
+    * [[Update.TransactionAccepted]] that created the contract.
+    * The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
+    * meta-data.
+    * Note that the ledger time of unrelated updates is not necessarily monotonically
+    * increasing.
     *
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
-    *   ledger time `lt_tx` and a record time `rt_tx`, it holds that
-    *   `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
-    *   are parameters specified in the ledger [[TimeModel]].
+    * ledger time `lt_tx` and a record time `rt_tx`, it holds that
+    * `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
+    * are parameters specified in the ledger [[com.daml.ledger.configuration.LedgerTimeModel]].
     *
     * - *command deduplication*: if there is a [[Update.TransactionAccepted]] with
-    *   an associated [[SubmitterInfo]] `info1`, then for every later
-    *   transaction with [[SubmitterInfo]] `info2` that agrees with
-    *   `info1` on the `submitter` and `commandId` fields and
-    *   was submitted before `info1.deduplicateUntil`,
-    *   a transaction may be rejected without a corresponding update being issued.
-    *   I.e., transactions may be deduplicated on the `(submitter, commandId)` tuple,
-    *   but only until the time specified in [[SubmitterInfo.deduplicateUntil]].
+    * an associated [[SubmitterInfo]] `info1`, then for every later
+    * transaction with [[SubmitterInfo]] `info2` that agrees with
+    * `info1` on the `submitter` and `commandId` fields and
+    * was submitted before `info1.deduplicateUntil`,
+    * a transaction may be rejected without a corresponding update being issued.
+    * I.e., transactions may be deduplicated on the `(submitter, commandId)` tuple,
+    * but only until the time specified in [[SubmitterInfo.deduplicateUntil]].
     *
     *   TODO (SM): we would like to weaken this requirement to allow multiple
     *   [[Update.TransactionAccepted]] updates provided

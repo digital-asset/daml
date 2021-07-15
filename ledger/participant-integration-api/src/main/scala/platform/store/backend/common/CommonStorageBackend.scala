@@ -10,6 +10,8 @@ import java.util.Date
 import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, get, int, long, str}
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.store.Conversions.{
   contractId,
@@ -21,7 +23,6 @@ import com.daml.platform.store.Conversions.{
   offset,
   party,
 }
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.store.Conversions
@@ -45,60 +46,31 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Ingestion
 
-  private val preparedDeleteIngestionOverspillEntries: String =
-    """
-      |DELETE
-      |FROM configuration_entries
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM package_entries
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM packages
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM participant_command_completions
-      |WHERE completion_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_divulgence
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_create
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_non_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM parties
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM party_entries
-      |WHERE ledger_offset > ?;
-      |
-      |""".stripMargin
+  private val preparedDeleteIngestionOverspillEntries: List[String] =
+    List(
+      "DELETE FROM configuration_entries WHERE ledger_offset > ?",
+      "DELETE FROM package_entries WHERE ledger_offset > ?",
+      "DELETE FROM packages WHERE ledger_offset > ?",
+      "DELETE FROM participant_command_completions WHERE completion_offset > ?",
+      "DELETE FROM participant_events_divulgence WHERE event_offset > ?",
+      "DELETE FROM participant_events_create WHERE event_offset > ?",
+      "DELETE FROM participant_events_consuming_exercise WHERE event_offset > ?",
+      "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > ?",
+      "DELETE FROM parties WHERE ledger_offset > ?",
+      "DELETE FROM party_entries WHERE ledger_offset > ?",
+    )
 
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
     val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
 
     offset.foreach { existingOffset =>
-      val preparedStatement = connection.prepareStatement(preparedDeleteIngestionOverspillEntries)
-      List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).foreach(
-        preparedStatement.setString(_, existingOffset.toHexString)
-      )
-      preparedStatement.execute()
-      preparedStatement.close()
+      preparedDeleteIngestionOverspillEntries.foreach { preparedStatementString =>
+        val preparedStatement = connection.prepareStatement(preparedStatementString)
+        preparedStatement.setString(1, existingOffset.toHexString)
+        preparedStatement.execute()
+        preparedStatement.close()
+        ()
+      }
     }
 
     result
@@ -264,12 +236,13 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       |    configuration_entries,
       |    parameters
       |  where
-      |    ledger_offset > {startExclusive} and
+      |    ({startExclusive} is null or ledger_offset>{startExclusive}) and
       |    ledger_offset <= {endInclusive} and
       |    parameters.ledger_end >= ledger_offset
       |  order by ledger_offset asc
-      |  limit {pageSize}
-      |  offset {queryOffset}""".stripMargin
+      |  offset {queryOffset} rows
+      |  fetch next {pageSize} rows only
+      |  """.stripMargin
   )
 
   private val SQL_GET_LATEST_CONFIGURATION_ENTRY = SQL(
@@ -287,7 +260,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
        |    configuration_entries.typ = '$acceptType' and
        |    parameters.ledger_end >= ledger_offset
        |  order by ledger_offset desc
-       |  limit 1""".stripMargin
+       |  fetch next 1 row only""".stripMargin
   )
 
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
@@ -348,10 +321,15 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   // Parties
 
   private val SQL_GET_PARTY_ENTRIES = SQL(
-    "select * from party_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
+    """select * from party_entries
+      |where ({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+      |order by ledger_offset asc
+      |offset {queryOffset} rows
+      |fetch next {pageSize} rows only""".stripMargin
   )
 
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] =
+  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     (offset("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
@@ -396,6 +374,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
         case invalidRow =>
           sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
       }
+  }
 
   def partyEntries(
       startExclusive: Offset,
@@ -429,6 +408,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val PartyDataParser: RowParser[ParsedPartyData] = {
     import com.daml.platform.store.Conversions.columnToOffset
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     Macro.parser[ParsedPartyData](
       "party",
       "display_name",
@@ -463,7 +443,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val SQL_SELECT_PACKAGES =
     SQL(
-      """select packages.package_id, packages.source_description, packages.known_since, packages.size
+      """select packages.package_id, packages.source_description, packages.known_since, packages.package_size
         |from packages, parameters
         |where packages.ledger_offset <= parameters.ledger_end
         |""".stripMargin
@@ -480,7 +460,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     Macro.parser[ParsedPackageData](
       "package_id",
       "source_description",
-      "size",
+      "package_size",
       "known_since",
     )
 
@@ -513,7 +493,12 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   }
 
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
-    "select * from package_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
+    """select * from package_entries
+      |where ({startExclusive} is null or ledger_offset>{startExclusive})
+      |and ledger_offset<={endInclusive}
+      |order by ledger_offset asc
+      |offset {queryOffset} rows
+      |fetch next {pageSize} rows only""".stripMargin
   )
 
   private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
@@ -617,7 +602,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
             AND create_key_hash = ${key.hash}
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           ORDER BY event_sequential_id DESC
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        )
   SELECT contract_id
     FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
@@ -627,7 +612,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
            WHERE event_kind = 20 -- consuming exercise
              AND event_sequential_id <= parameters.ledger_end_sequential_id
              AND contract_id = last_contract_key_create.contract_id
-         );
+         )
        """
       .as(contractId("contract_id").singleOpt)(connection)
   }
@@ -659,7 +644,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           WHERE contract_id = $id
             AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT ledger_effective_time
@@ -667,7 +652,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           WHERE contract_id = $id
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
+          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT ledger_effective_time
@@ -678,7 +663,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        ),
        create_and_divulged_contracts AS (
          (SELECT * FROM create_event)   -- prefer create over divulgance events
@@ -688,7 +673,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   SELECT ledger_effective_time
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   LIMIT 1;
+   FETCH NEXT 1 ROW ONLY
                """.as(instant("ledger_effective_time").?.singleOpt)(connection)
       }
 
@@ -717,7 +702,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
                     AND create_key_hash = ${key.hash}
                     AND event_sequential_id <= $validAt
                   ORDER BY event_sequential_id DESC
-                  LIMIT 1
+                  FETCH NEXT 1 ROW ONLY
                )
           SELECT contract_id, flat_event_witnesses
             FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
@@ -727,7 +712,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
                    WHERE event_kind = 20 -- consuming exercise
                      AND event_sequential_id <= $validAt
                      AND contract_id = last_contract_key_create.contract_id
-         );
+         )
          """
       .as(
         (contractId("contract_id") ~ flatEventWitnessesColumn("flat_event_witnesses")).map {
@@ -764,7 +749,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
              AND event_sequential_id <= $before
              AND (event_kind = 10 OR event_kind = 20)
            ORDER BY event_sequential_id DESC
-           LIMIT 1;
+           FETCH NEXT 1 ROW ONLY
            """
       .as(fullDetailsContractRowParser.singleOpt)(connection)
   }
@@ -827,41 +812,44 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"""
+    List(
+      SQL"""
           -- Divulgence events (only for contracts archived before the specified offset)
-          delete from participant_events_divulgence as delete_events
+          delete from participant_events_divulgence delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive and
             exists (
-              SELECT 1 FROM participant_events_consuming_exercise as archive_events
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive AND
                 archive_events.contract_id = delete_events.contract_id
-            );
+            )""",
+      SQL"""
           -- Create events (only for contracts archived before the specified offset)
-          delete from participant_events_create as delete_events
+          delete from participant_events_create delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive and
             exists (
-              SELECT 1 FROM participant_events_consuming_exercise as archive_events
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive AND
                 archive_events.contract_id = delete_events.contract_id
-            );
+            )""",
+      SQL"""
           -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise as delete_events
+          delete from participant_events_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive;
+            delete_events.event_offset <= $pruneUpToInclusive""",
+      SQL"""
           -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise as delete_events
+          delete from participant_events_non_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive;
-       """
-      .execute()(connection)
-    ()
+            delete_events.event_offset <= $pruneUpToInclusive""",
+    ).foreach(_.execute()(connection))
   }
 
-  private val rawTransactionEventParser: RowParser[RawTransactionEvent] =
+  private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {
+    import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
     (int("event_kind") ~
       str("transaction_id") ~
       int("node_index") ~
@@ -880,7 +868,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       int("create_argument_compression").? ~
       array[String]("tree_event_witnesses") ~
       array[String]("flat_event_witnesses") ~
-      array[String]("submitters") ~
+      array[String]("submitters").? ~
       str("exercise_choice").? ~
       binaryStream("exercise_argument").? ~
       int("exercise_argument_compression").? ~
@@ -914,7 +902,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           createArgumentCompression,
           treeEventWitnesses.toSet,
           flatEventWitnesses.toSet,
-          submitters.toSet,
+          submitters.map(_.toSet).getOrElse(Set.empty),
           exerciseChoice,
           exerciseArgument,
           exerciseArgumentCompression,
@@ -926,6 +914,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           offset,
         )
     }
+  }
 
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
@@ -963,8 +952,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
        FROM
            participant_events
        WHERE
-           event_sequential_id > #$startExclusive
-           and event_sequential_id <= #$endInclusive
+           event_sequential_id > $startExclusive
+           and event_sequential_id <= $endInclusive
            and event_kind != 0
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)

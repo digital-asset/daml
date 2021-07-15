@@ -252,7 +252,7 @@ Developer Tools
      - Stable, Deprecated
      - 2020-04-09
    * - Daml Profiler ``daml sandbox --profile-dir``
-     - Alpha
+     - Stable
      -
    * - **Daml Compiler**
      -

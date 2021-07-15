@@ -7,12 +7,8 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{Row, SimpleSql}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  DivulgedContract,
-  Offset,
-  SubmitterInfo,
-}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract, SubmitterInfo}
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
@@ -47,6 +43,10 @@ private[platform] object TransactionsWriter {
 
       for (deleteContracts <- contractsTableExecutables.deleteContracts) {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
+      }
+
+      for (nullifyPastKeys <- contractsTableExecutables.nullifyPastKeys) {
+        Timed.value(nullifyPastKeysBatch, nullifyPastKeys.execute())
       }
 
       Timed.value(insertContractsBatch, contractsTableExecutables.insertContracts.execute())

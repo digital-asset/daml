@@ -5,8 +5,4 @@ package com.daml
 
 package object logging {
   type LoggingContextOf[+P] = LoggingContextOf.Module.Instance.T[P]
-
-  type LoggingKey = String
-  type LoggingValue = String
-  type LoggingEntry = (LoggingKey, LoggingValue)
 }

@@ -22,8 +22,8 @@ object Ref {
   val PackageVersion: IdString.PackageVersion.type = IdString.PackageVersion
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
-    *      underscore. We use them to represent [Party] literals. In this way, we avoid
-    *      empty identifiers, escaping problems, and other similar pitfalls.
+    * underscore. We use them to represent [Party] literals. In this way, we avoid
+    * empty identifiers, escaping problems, and other similar pitfalls.
     */
   type Party = IdString.Party
   val Party: IdString.Party.type = IdString.Party
@@ -96,8 +96,9 @@ object Ref {
     override def toString: String = dottedName
 
     override def compare(that: DottedName): Int = {
-      import scala.math.Ordering.Implicits._
       import Name.ordering
+
+      import scala.math.Ordering.Implicits._
 
       implicitly[Ordering[Seq[Name]]].compare(segments.toSeq, that.segments.toSeq)
     }
@@ -209,7 +210,6 @@ object Ref {
     @throws[IllegalArgumentException]
     def assertFromString(s: String): Identifier =
       assertRight(fromString(s))
-
   }
 
   /* Choice name in a template. */

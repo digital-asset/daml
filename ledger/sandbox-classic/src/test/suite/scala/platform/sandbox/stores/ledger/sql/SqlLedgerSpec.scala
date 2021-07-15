@@ -15,7 +15,7 @@ import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -39,7 +39,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
-import scala.util.{Success, Try}
 
 final class SqlLedgerSpec
     extends AsyncWordSpec
@@ -320,9 +319,6 @@ object SqlLedgerSpec {
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
-  private val Success(testDar) = {
-    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
-    val fileName = new File(rlocation(ModelTestDar.path))
-    reader.readArchiveFromFile(fileName)
-  }
+  private val testDar =
+    DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
 }

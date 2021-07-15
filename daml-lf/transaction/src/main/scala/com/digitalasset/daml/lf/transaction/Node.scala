@@ -300,8 +300,6 @@ object Node {
       override val version: TransactionVersion,
   ) extends GenActionNode[Nid, Cid]
       with ActionNodeInfo.Exercise {
-    @deprecated("use actingParties instead", since = "1.1.2")
-    private[daml] def controllers: actingParties.type = actingParties
 
     override private[lf] def updateVersion(
         version: TransactionVersion
@@ -343,10 +341,6 @@ object Node {
       extends CidContainer[KeyWithMaintainers[Val]] {
 
     override protected def self: this.type = this
-
-    @deprecated("Use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
-    def mapValue[Val1](f: Val => Val1): KeyWithMaintainers[Val1] =
-      KeyWithMaintainers.map1(f)(this)
 
     def foreach1(f: Val => Unit): Unit =
       KeyWithMaintainers.foreach1(f)(this)

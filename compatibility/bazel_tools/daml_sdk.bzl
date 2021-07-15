@@ -18,7 +18,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 """
 
 def _daml_sdk_impl(ctx):
-    # The DAML assistant will mark the installed SDK read-only.
+    # The Daml assistant will mark the installed SDK read-only.
     # This breaks Bazel horribly on Windows to the point where
     # even `bazel clean --expunge` fails because it cannot remove
     # the installed SDK. Therefore, we do not use the assistant to

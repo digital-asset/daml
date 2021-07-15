@@ -14,7 +14,8 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
+import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.participant.state.v1.{ParticipantId, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -34,7 +35,7 @@ import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContextExecutor}
+import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
 // Main entry point to start an index server that also hosts the ledger API.
@@ -152,9 +153,6 @@ final class StandaloneApiServer(
           packageContainer.getLfPackageSync,
           { _ =>
             sys.error("Unexpected request of contract key")
-          },
-          { _ =>
-            sys.error("Unexpected request of local contract key visibility")
           },
         )
       ()

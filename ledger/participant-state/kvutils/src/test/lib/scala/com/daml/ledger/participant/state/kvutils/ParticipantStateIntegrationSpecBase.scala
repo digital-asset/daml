@@ -11,6 +11,8 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{LedgerId, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
@@ -26,17 +28,17 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.platform.common.MismatchException
 import com.daml.platform.testing.TestDarReader
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.scalatest.Inside._
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import scala.collection.compat._
-import scala.collection.mutable
 import scala.collection.immutable.SortedSet
+import scala.collection.mutable
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
@@ -498,7 +500,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               submissionId = newSubmissionId(),
               config = lic.config.copy(
                 generation = lic.config.generation + 1,
-                timeModel = TimeModel(
+                timeModel = LedgerTimeModel(
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),

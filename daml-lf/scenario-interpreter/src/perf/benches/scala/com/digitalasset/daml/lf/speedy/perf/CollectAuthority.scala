@@ -6,7 +6,7 @@ package speedy
 package perf
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.scenario.ScenarioLedger
+import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -42,17 +42,14 @@ class CollectAuthorityState {
   @Setup(Level.Trial)
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
-    val packages = UniversalArchiveReader().readFile(darFile).get
-    val packagesMap = packages.all.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-    }.toMap
+    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     val compilerConfig =
       Compiler.Config.Default.copy(
         stacktracing = Compiler.NoStackTrace
       )
 
-    val compiledPackages = PureCompiledPackages.assertBuild(packagesMap, compilerConfig)
+    val compiledPackages = PureCompiledPackages.assertBuild(packages.all.toMap, compilerConfig)
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(
@@ -166,7 +163,7 @@ class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
       actAs: Set[Party],
       readAs: Set[Party],
       callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ): Either[SError.SError, Unit] = {
+  ): Either[scenario.Error, Unit] = {
     step += 1
     super.lookupContract(
       coid,
@@ -187,7 +184,7 @@ class CannedLedgerApi(
       actAs: Set[Party],
       readAs: Set[Party],
       callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ): Either[SError.SError, Unit] = {
+  ): Either[scenario.Error, Unit] = {
     step += 1
     val coinst = cachedContract(step)
     Right(callback(coinst))

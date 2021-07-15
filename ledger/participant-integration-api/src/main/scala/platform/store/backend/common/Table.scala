@@ -35,7 +35,11 @@ private[backend] object Table {
               val preparedStatement = connection.prepareStatement(insertStatement)
               data(0).indices.foreach { dataIndex =>
                 fields.indices.foreach { fieldIndex =>
-                  preparedStatement.setObject(fieldIndex + 1, data(fieldIndex)(dataIndex))
+                  fields(fieldIndex)._2.prepareData(
+                    preparedStatement,
+                    fieldIndex + 1,
+                    data(fieldIndex)(dataIndex),
+                  )
                 }
                 preparedStatement.addBatch()
               }
@@ -87,7 +91,7 @@ private[backend] object Table {
             ifNonEmpty(data) {
               val preparedStatement = connection.prepareStatement(deleteStatement)
               data(0).indices.foreach { i =>
-                preparedStatement.setObject(1, data(0)(i))
+                field._2.prepareData(preparedStatement, 1, data(0)(i))
                 preparedStatement.addBatch()
               }
               preparedStatement.executeBatch()

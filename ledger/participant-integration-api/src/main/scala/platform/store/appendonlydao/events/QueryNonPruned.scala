@@ -5,18 +5,13 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.backend.ParameterStorageBackend
 
 trait QueryNonPruned {
-  // TODO append-only: consider keeping the Throwing-one only for simplicity
   def executeSql[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(implicit
       conn: Connection
-  ): Either[Throwable, T]
-
-  def executeSqlOrThrow[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(
-      implicit conn: Connection
   ): T
 }
 
@@ -39,23 +34,18 @@ case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends Q
     */
   def executeSql[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(implicit
       conn: Connection
-  ): Either[Throwable, T] = {
+  ): T = {
     val result = query
 
-    storageBackend
-      .prunedUptoInclusive(conn)
-      .fold(Right(result): Either[Throwable, T])(pruningOffsetUpToInclusive =>
-        Either.cond(
-          minOffsetExclusive >= pruningOffsetUpToInclusive,
-          result,
-          ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive)),
-        )
-      )
+    storageBackend.prunedUptoInclusive(conn) match {
+      case None =>
+        result
+
+      case Some(pruningOffsetUpToInclusive) if minOffsetExclusive >= pruningOffsetUpToInclusive =>
+        result
+
+      case Some(pruningOffsetUpToInclusive) =>
+        throw ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))
+    }
   }
-
-  def executeSqlOrThrow[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(
-      implicit conn: Connection
-  ): T =
-    executeSql(query, minOffsetExclusive, error).fold(throw _, identity)
-
 }

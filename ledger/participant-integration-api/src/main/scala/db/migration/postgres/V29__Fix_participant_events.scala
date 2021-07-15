@@ -3,7 +3,7 @@
 
 package com.daml.platform.db.migration.postgres
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.db.migration.postgres.v29_fix_participant_events.V29TransactionsWriter
 import com.daml.platform.db.migration.translation.TransactionSerializer

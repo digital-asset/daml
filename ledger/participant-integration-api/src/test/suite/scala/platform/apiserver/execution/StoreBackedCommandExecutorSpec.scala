@@ -38,6 +38,7 @@ class StoreBackedCommandExecutorSpec
       when(
         mockEngine.submit(
           any[Set[Ref.Party]],
+          any[Set[Ref.Party]],
           any[com.daml.lf.command.Commands],
           any[ParticipantId],
           any[Hash],

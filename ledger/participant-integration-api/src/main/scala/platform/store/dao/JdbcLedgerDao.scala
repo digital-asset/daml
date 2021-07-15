@@ -4,7 +4,6 @@ package com.daml.platform.store.dao
 
 import java.sql.Connection
 import java.time.Instant
-
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -26,6 +25,8 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
@@ -35,12 +36,13 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.archive.Decode
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
@@ -59,13 +61,13 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import scalaz.syntax.tag._
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
-import spray.json._
-import spray.json.DefaultJsonProtocol._
 
 private final case class ParsedPartyData(
     party: String,
@@ -204,7 +206,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           implicit connection =>
             SQL(queries.SQL_GET_CONFIGURATION_ENTRIES)
@@ -413,7 +415,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries) { implicit connection =>
           SQL(queries.SQL_GET_PARTY_ENTRIES)
             .on(
@@ -691,7 +693,7 @@ private class JdbcLedgerDao(
           )
           .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
       }
-      .map(_.map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data))))(
+      .map(_.map(data => ArchiveParser.fromByteArray(data)))(
         servicesExecutionContext
       )
 
@@ -788,7 +790,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries) { implicit connection =>
           SQL(queries.SQL_GET_PACKAGE_ENTRIES)
             .on(
@@ -1003,12 +1005,11 @@ private class JdbcLedgerDao(
 private[platform] object JdbcLedgerDao {
 
   object Logging {
+    def submissionId(id: String): LoggingEntry =
+      "submissionId" -> id
 
-    def submissionId(id: String): (String, String) = "submissionId" -> id
-
-    def transactionId(id: TransactionId): (String, String) =
+    def transactionId(id: TransactionId): LoggingEntry =
       "transactionId" -> id
-
   }
 
   def readOwner(

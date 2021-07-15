@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites
 
 import java.util.regex.Pattern
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -12,13 +11,9 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.model.DA.Types.Tuple2
-import com.daml.ledger.test.model.Test.Delegated._
-import com.daml.ledger.test.model.Test.Delegation._
-import com.daml.ledger.test.model.Test.ShowDelegated._
-import com.daml.ledger.test.model.Test.TextKey._
-import com.daml.ledger.test.model.Test.TextKeyOperations._
-import com.daml.ledger.test.model.Test._
+import com.daml.ledger.test.model.Test
 import io.grpc.Status
 import scalaz.Tag
 
@@ -28,6 +23,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
+    import Test.{Delegated, Delegation, ShowDelegated}
     val key = alpha.nextKeyId()
     for {
       // create contracts to work with
@@ -70,6 +66,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     "Contract Keys should reject fetching an undisclosed contract",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
+    import Test.{Delegated, Delegation}
     val key = alpha.nextKeyId()
     for {
       // create contracts to work with
@@ -116,6 +113,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     "Contract keys should be scoped by maintainer",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    import Test.{TextKey, TextKeyOperations, MaintainerNotSignatory}
     val key1 = alpha.nextKeyId()
     val key2 = alpha.nextKeyId()
     val unknownKey = alpha.nextKeyId()
@@ -200,6 +198,7 @@ final class ContractKeysIT extends LedgerTestSuite {
 
   test("CKRecreate", "Contract keys can be recreated in single transaction", allocate(SingleParty))(
     implicit ec => { case Participants(Participant(ledger, owner)) =>
+      import Test.Delegated
       val key = ledger.nextKeyId()
       for {
         delegated1TxTree <- ledger
@@ -231,6 +230,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     "Contract keys created by transient contracts are properly archived",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, owner)) =>
+    import Test.{Delegated, Delegation}
     val key = ledger.nextKeyId()
     val key2 = ledger.nextKeyId()
 
@@ -258,6 +258,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     "The contract key should be exposed if the template specifies one",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    import Test.TextKey
     val expectedKey = ledger.nextKeyId()
     for {
       _ <- ledger.create(party, TextKey(party, expectedKey, List.empty))
@@ -280,6 +281,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     "Exercising by key should be possible only when the corresponding contract is available",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    import Test.TextKey
     val keyString = ledger.nextKeyId()
     val expectedKey = Value(
       Value.Sum.Record(
@@ -338,6 +340,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      import Test.LocalKeyVisibilityOperations
       for {
         ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
         _ <- synchronize(ledger1, ledger2)
@@ -362,4 +365,86 @@ final class ContractKeysIT extends LedgerTestSuite {
         assertGrpcError(failedFetch, Status.Code.INVALID_ARGUMENT, "not visible")
       }
   })
+
+  test(
+    "CKDisclosedContractKeyReusability",
+    "Subsequent disclosed contracts can use the same contract key",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      import Test.{WithKey, WithKeyCreator, WithKeyFetcher}
+      for {
+        // Create a helper contract and exercise a choice creating and disclosing a WithKey contract
+        creator1 <- ledger1.create(party1, WithKeyCreator(party1, party2))
+        withKey1 <- ledger1.exerciseAndGetContract[WithKey](
+          party1,
+          creator1.exerciseWithKeyCreator_DiscloseCreate(_, party1),
+        )
+
+        // Verify that the withKey1 contract is usable by the party2
+        fetcher <- ledger1.create(party1, WithKeyFetcher(party1, party2))
+
+        _ <- synchronize(ledger1, ledger2)
+
+        _ <- ledger2.exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
+
+        // Archive the disclosed contract
+        _ <- ledger1.exercise(party1, withKey1.exerciseArchive(_))
+
+        _ <- synchronize(ledger1, ledger2)
+
+        // Verify that fetching the contract is no longer possible after it was archived
+        _ <- ledger2
+          .exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
+          .mustFail("fetching an archived contract")
+
+        // Repeat the same steps for the second time
+        creator2 <- ledger1.create(party1, WithKeyCreator(party1, party2))
+        _ <- ledger1.exerciseAndGetContract[WithKey](
+          party1,
+          creator2.exerciseWithKeyCreator_DiscloseCreate(_, party1),
+        )
+
+        // Synchronize to verify that the second participant is working
+        _ <- synchronize(ledger1, ledger2)
+      } yield ()
+  })
+  import scalaz.syntax.tag._
+  test(
+    "CKDisclosedContractKeyReusabilityAsSubmitter",
+    "Subsequent disclosed contracts can use the same contract key (disclosure because of submitting)",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      import Test.{WithKey, WithKeyCreatorAlternative}
+      for {
+        // Create a helper contract and exercise a choice creating and disclosing a WithKey contract
+        creator1 <- ledger1.create(party1, WithKeyCreatorAlternative(party1, party2))
+
+        _ <- synchronize(ledger1, ledger2)
+
+        _ <- ledger2.exercise(
+          party2,
+          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(_),
+        )
+
+        _ <- synchronize(ledger1, ledger2)
+
+        Seq(withKey1Event) <- ledger1.activeContractsByTemplateId(List(WithKey.id.unwrap), party1)
+        withKey1 = ContractId.apply[WithKey](withKey1Event.contractId)
+        // Archive the disclosed contract
+        _ <- ledger1.exercise(party1, withKey1.exerciseArchive(_))
+
+        _ <- synchronize(ledger1, ledger2)
+
+        // Repeat the same steps for the second time
+        _ <- ledger2.exercise(
+          party2,
+          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(_),
+        )
+
+        _ <- synchronize(ledger1, ledger2)
+      } yield ()
+  })
+
 }

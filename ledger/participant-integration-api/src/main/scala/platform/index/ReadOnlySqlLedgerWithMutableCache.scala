@@ -10,7 +10,7 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.Timer
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -29,7 +29,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 private[index] object ReadOnlySqlLedgerWithMutableCache {
   final class Owner(
@@ -41,6 +41,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       maxContractKeyStateCacheSize: Long,
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
+      servicesExecutionContext: ExecutionContext,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedgerWithMutableCache] {
     private val logger = ContextualizedLogger.get(getClass)
@@ -67,7 +68,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           generalDispatcher,
           dispatcherLagMeter,
           ledgerEndOffset -> ledgerEndSequentialId,
-        )
+        ).acquire()
       } yield ledger
 
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
@@ -91,8 +92,6 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
         startExclusive: (Offset, Long),
-    )(implicit
-        resourceContext: ResourceContext
     ) =
       if (enableInMemoryFanOutForLedgerApi)
         ledgerWithMutableCacheAndInMemoryFanOut(
@@ -114,39 +113,37 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
         startExclusive: (Offset, Long),
-    )(implicit resourceContext: ResourceContext) =
+    ): ResourceOwner[ReadOnlySqlLedgerWithMutableCache] =
       for {
-        contractStore <- MutableCacheBackedContractStore
-          .ownerWithSubscription(
-            subscribeToContractStateEvents = maybeOffsetSeqId =>
-              cacheUpdatesDispatcher
-                .startingAt(
-                  maybeOffsetSeqId.getOrElse(startExclusive),
-                  RangeSource(
-                    ledgerDao.transactionsReader.getContractStateEvents(_, _)
-                  ),
-                )
-                .map(_._2),
-            contractsReader = ledgerDao.contractsReader,
-            signalNewLedgerHead = dispatcherLagMeter,
-            metrics = metrics,
-            maxContractsCacheSize = maxContractStateCacheSize,
-            maxKeyCacheSize = maxContractKeyStateCacheSize,
+        contractStore <- new MutableCacheBackedContractStore.OwnerWithSubscription(
+          subscribeToContractStateEvents = maybeOffsetSeqId =>
+            cacheUpdatesDispatcher
+              .startingAt(
+                maybeOffsetSeqId.getOrElse(startExclusive),
+                RangeSource(
+                  ledgerDao.transactionsReader.getContractStateEvents(_, _)
+                ),
+              )
+              .map(_._2),
+          contractsReader = ledgerDao.contractsReader,
+          signalNewLedgerHead = dispatcherLagMeter,
+          metrics = metrics,
+          maxContractsCacheSize = maxContractStateCacheSize,
+          maxKeyCacheSize = maxContractKeyStateCacheSize,
+          executionContext = servicesExecutionContext,
+        )
+        ledger <- ResourceOwner.forCloseable(() =>
+          new ReadOnlySqlLedgerWithMutableCache(
+            ledgerId,
+            ledgerDao,
+            ledgerDao.transactionsReader,
+            contractStore,
+            PruneBuffersNoOp,
+            cacheUpdatesDispatcher,
+            generalDispatcher,
+            dispatcherLagMeter,
           )
-        ledger <- ResourceOwner
-          .forCloseable(() =>
-            new ReadOnlySqlLedgerWithMutableCache(
-              ledgerId,
-              ledgerDao,
-              ledgerDao.transactionsReader,
-              contractStore,
-              PruneBuffersNoOp,
-              cacheUpdatesDispatcher,
-              generalDispatcher,
-              dispatcherLagMeter,
-            )
-          )
-          .acquire()
+        )
       } yield ledger
 
     private def ledgerWithMutableCacheAndInMemoryFanOut(
@@ -154,68 +151,70 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
         startExclusive: (Offset, Long),
-    )(implicit resourceContext: ResourceContext) = {
+    ): ResourceOwner[ReadOnlySqlLedgerWithMutableCache] = {
+
       val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",
         isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
       )
-      for {
-        contractStore <- MutableCacheBackedContractStore.owner(
-          contractsReader = ledgerDao.contractsReader,
-          signalNewLedgerHead = dispatcherLagMeter,
+
+      val contractStore = MutableCacheBackedContractStore(
+        ledgerDao.contractsReader,
+        dispatcherLagMeter,
+        metrics,
+        maxContractStateCacheSize,
+        maxContractKeyStateCacheSize,
+      )(servicesExecutionContext, loggingContext)
+
+      val bufferedTransactionsReader = BufferedTransactionsReader(
+        delegate = ledgerDao.transactionsReader,
+        transactionsBuffer = transactionsBuffer,
+        lfValueTranslation = new LfValueTranslation(
+          cache = LfValueTranslationCache.Cache.none,
           metrics = metrics,
-          maxContractsCacheSize = maxContractStateCacheSize,
-          maxKeyCacheSize = maxContractKeyStateCacheSize,
-        )
-        _ <- ResourceOwner
-          .forCloseable(() =>
-            BuffersUpdater(
-              subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
-                val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
-                  maybeOffsetSeqId.getOrElse(startExclusive)
-                logger.info(
-                  s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+          enricherO = Some(enricher),
+          loadPackage =
+            (packageId, loggingContext) => ledgerDao.getLfArchive(packageId)(loggingContext),
+        ),
+        metrics = metrics,
+      )(loggingContext, servicesExecutionContext)
+
+      for {
+        _ <- ResourceOwner.forCloseable(() =>
+          BuffersUpdater(
+            subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
+              val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
+                maybeOffsetSeqId.getOrElse(startExclusive)
+              logger.info(
+                s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+              )
+              cacheUpdatesDispatcher
+                .startingAt(
+                  subscriptionStartExclusive,
+                  RangeSource(
+                    ledgerDao.transactionsReader.getTransactionLogUpdates(_, _)
+                  ),
                 )
-                cacheUpdatesDispatcher
-                  .startingAt(
-                    subscriptionStartExclusive,
-                    RangeSource(
-                      ledgerDao.transactionsReader.getTransactionLogUpdates(_, _)
-                    ),
-                  )
-              },
-              updateTransactionsBuffer = transactionsBuffer.push,
-              updateMutableCache = contractStore.push,
-            )
+            },
+            updateTransactionsBuffer = transactionsBuffer.push,
+            updateMutableCache = contractStore.push,
+            executionContext = servicesExecutionContext,
           )
-          .acquire()
-        ledger <- ResourceOwner
-          .forCloseable(() =>
-            new ReadOnlySqlLedgerWithMutableCache(
-              ledgerId = ledgerId,
-              ledgerDao = ledgerDao,
-              ledgerDaoTransactionsReader = BufferedTransactionsReader(
-                delegate = ledgerDao.transactionsReader,
-                transactionsBuffer = transactionsBuffer,
-                lfValueTranslation = new LfValueTranslation(
-                  cache = LfValueTranslationCache.Cache.none,
-                  metrics = metrics,
-                  enricherO = Some(enricher),
-                  loadPackage =
-                    (packageId, loggingContext) => ledgerDao.getLfArchive(packageId)(loggingContext),
-                ),
-                metrics = metrics,
-              ),
-              pruneBuffers = transactionsBuffer.prune,
-              contractStore = contractStore,
-              contractStateEventsDispatcher = cacheUpdatesDispatcher,
-              dispatcher = generalDispatcher,
-              dispatcherLagger = dispatcherLagMeter,
-            )
+        )
+        ledger <- ResourceOwner.forCloseable(() =>
+          new ReadOnlySqlLedgerWithMutableCache(
+            ledgerId = ledgerId,
+            ledgerDao = ledgerDao,
+            ledgerDaoTransactionsReader = bufferedTransactionsReader,
+            pruneBuffers = transactionsBuffer.prune,
+            contractStore = contractStore,
+            contractStateEventsDispatcher = cacheUpdatesDispatcher,
+            dispatcher = generalDispatcher,
+            dispatcherLagger = dispatcherLagMeter,
           )
-          .acquire()
+        )
       } yield ledger
     }
   }

@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
-import java.util.UUID
 import java.util.zip.ZipInputStream
 
 import akka.stream.Materializer
@@ -18,8 +17,9 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexTransactionsService,
   LedgerEndService,
 }
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -42,7 +42,8 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesWrite: WritePackagesService,
     managementServiceTimeout: Duration,
     engine: Engine,
-    darReader: DarReader[Archive],
+    darReader: GenDarReader[Archive],
+    submissionIdGenerator: String => v1.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -87,10 +88,10 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
     for {
-      dar <- darReader.readArchive("package-upload", stream)
-      packages <- Try(dar.all.iterator.map(Decode.decodeArchive).toMap)
+      dar <- darReader.readArchive("package-upload", stream).toTry
+      packages <- Try(dar.all.map(Decode.decodeArchive(_)))
       _ <- engine
-        .validatePackages(packages)
+        .validatePackages(packages.toMap)
         .left
         .map(e => new IllegalArgumentException(e.msg))
         .toTry
@@ -104,12 +105,7 @@ private[apiserver] final class ApiPackageManagementService private (
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
 
-        val submissionId =
-          if (request.submissionId.isEmpty)
-            SubmissionId.assertFromString(UUID.randomUUID().toString)
-          else
-            SubmissionId.assertFromString(request.submissionId)
-
+        val submissionId = submissionIdGenerator(request.submissionId)
         val darInputStream = new ZipInputStream(request.darFile.newInput())
 
         val response = for {
@@ -136,17 +132,14 @@ private[apiserver] final class ApiPackageManagementService private (
 
 private[apiserver] object ApiPackageManagementService {
 
-  private lazy val DefaultDarReader = DarReader[Archive] { case (_, inputStream) =>
-    Try(Archive.parseFrom(inputStream))
-  }
-
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
-      darReader: DarReader[Archive] = DefaultDarReader,
+      darReader: GenDarReader[Archive] = DarParser,
+      submissionIdGenerator: String => SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -159,6 +152,7 @@ private[apiserver] object ApiPackageManagementService {
       managementServiceTimeout,
       engine,
       darReader,
+      submissionIdGenerator,
     )
 
   private final class SynchronousResponseStrategy(

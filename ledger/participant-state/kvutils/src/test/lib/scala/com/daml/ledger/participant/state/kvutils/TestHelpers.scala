@@ -7,12 +7,23 @@ import java.time.Duration
 import java.util.UUID
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.kvutils.committer.CommitContext
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntryId,
+  DamlSubmitterInfo,
+  DamlTransactionEntry,
+  DamlTransactionRejectionEntry,
+}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.DamlTransactionEntrySummary
+import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepResult, StepStop}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.google.protobuf.ByteString
+
+import scala.jdk.CollectionConverters._
 
 object TestHelpers {
   def name(value: String): Ref.Name = Ref.Name.assertFromString(value)
@@ -27,7 +38,7 @@ object TestHelpers {
   val theRecordTime: Timestamp = Timestamp.Epoch
   val theDefaultConfig: Configuration = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
 
@@ -48,4 +59,34 @@ object TestHelpers {
       participantId: Int = 0,
   ): CommitContext =
     CommitContext(inputs, recordTime, mkParticipantId(participantId))
+
+  def createEmptyTransactionEntry(submitters: List[String]): DamlTransactionEntry =
+    createTransactionEntry(submitters, TransactionBuilder.EmptySubmitted)
+
+  def createTransactionEntry(
+      submitters: List[String],
+      tx: SubmittedTransaction,
+  ): DamlTransactionEntry =
+    DamlTransactionEntry.newBuilder
+      .setTransaction(Conversions.encodeTransaction(tx))
+      .setSubmitterInfo(
+        DamlSubmitterInfo.newBuilder
+          .setCommandId("commandId")
+          .addAllSubmitters(submitters.asJava)
+      )
+      .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
+      .build
+
+  def getTransactionRejectionReason(
+      result: StepResult[DamlTransactionEntrySummary]
+  ): DamlTransactionRejectionEntry =
+    result
+      .asInstanceOf[StepStop]
+      .logEntry
+      .getTransactionRejectionEntry
+
+  def lfTuple(values: String*): TransactionBuilder.Value =
+    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
+      s"_$i" -> v
+    }: _*)
 }

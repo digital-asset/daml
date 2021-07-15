@@ -6,15 +6,16 @@ package com.daml.lf.testing.archive
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.{Dar, UniversalArchiveReader}
-import com.daml.lf.data.Ref.{DottedName, PackageId}
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.archive.{ArchivePayload, Dar, UniversalArchiveReader}
+import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.language.LanguageVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
+import scala.Ordering.Implicits.infixOrderingOps
 
 class DamlLfEncoderTest
     extends AnyWordSpec
@@ -65,10 +66,10 @@ class DamlLfEncoderTest
 
       forEvery(versions) { (version, expectedModules) =>
         val dar =
-          UniversalArchiveReader()
+          UniversalArchiveReader
             .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
-        dar shouldBe Symbol("success")
+        dar shouldBe a[Right[_, _]]
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
@@ -80,13 +81,10 @@ class DamlLfEncoderTest
 
   }
 
-  private val preInternalizationVersions = List.range(0, 7).map(_.toString).toSet
-
-  private def getNonEmptyModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
+  private def getNonEmptyModules(dar: Dar[ArchivePayload]) = {
     for {
-      pkgWithId <- dar.main +: dar.dependencies
-      (_, pkg) = pkgWithId
-      version = pkg.getMinor
+      payload <- dar.all
+      ArchivePayload(_, pkg, version) = payload
       internedStrings = pkg.getDamlLf1.getInternedStringsList.asScala.toArray
       dottedNames = pkg.getDamlLf1.getInternedDottedNamesList.asScala.map(
         _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
@@ -97,7 +95,7 @@ class DamlLfEncoderTest
               mod.getDataTypesCount != 0 ||
               mod.getValuesCount != 0 ||
               mod.getTemplatesCount != 0 =>
-          if (preInternalizationVersions(version))
+          if (version < LanguageVersion.Features.internedStrings)
             mod.getNameDname.getSegmentsList.asScala
           else
             dottedNames(mod.getNameInternedDname)

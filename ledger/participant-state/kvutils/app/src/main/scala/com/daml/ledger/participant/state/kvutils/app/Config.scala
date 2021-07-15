@@ -8,13 +8,14 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.MetricsReporter
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
 import com.daml.ports.Port
@@ -390,6 +391,10 @@ object Config {
           .text(
             s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}."
           )
+          .validate { pageSize =>
+            if (pageSize > 0) Right(())
+            else Left("events-page-size should be strictly positive")
+          }
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
         opt[Int]("buffers-prefetching-parallelism")
@@ -397,6 +402,10 @@ object Config {
           .text(
             s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
           )
+          .validate { buffersPrefetchingParallelism =>
+            if (buffersPrefetchingParallelism > 0) Right(())
+            else Left("buffers-prefetching-parallelism should be strictly positive")
+          }
           .action((eventsProcessingParallelism, config) =>
             config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
           )

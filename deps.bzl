@@ -269,9 +269,9 @@ def daml_deps():
     if "com_github_googleapis_googleapis" not in native.existing_rules():
         http_archive(
             name = "com_github_googleapis_googleapis",
-            strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
-            urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
-            sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
+            strip_prefix = "googleapis-a9d8182ce540d418af825e3b21558e8413f29e66",
+            urls = ["https://github.com/googleapis/googleapis/archive/a9d8182ce540d418af825e3b21558e8413f29e66.tar.gz"],
+            sha256 = "75fcdf65a2423ca81d8f76e039e57b432378c10aa11f2fae41ec39d9d777d2f2",
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():

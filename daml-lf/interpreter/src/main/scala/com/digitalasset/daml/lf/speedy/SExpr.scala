@@ -19,6 +19,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.nameof.NameOf
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -51,7 +52,10 @@ object SExpr {
     */
   final case class SEVar(index: Int) extends SExprAtomic {
     def lookupValue(machine: Machine): SValue = {
-      crash("unexpected SEVar, expected SELoc(S/A/F)")
+      throw SErrorCrash(
+        NameOf.qualifiedNameOfCurrentFunc,
+        "unexpected SEVar, expected SELoc(S/A/F)",
+      )
     }
   }
 
@@ -181,7 +185,7 @@ object SExpr {
     */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit =
-      crash("unexpected SEAbs, expected SEMakeClo")
+      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "unexpected SEAbs, expected SEMakeClo")
   }
 
   object SEAbs {
@@ -346,7 +350,7 @@ object SExpr {
     */
   final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit =
-      crash("not implemented")
+      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "not implemented")
   }
 
   /** Location annotation. When encountered the location is stored in the 'lastLocation'

@@ -4,6 +4,8 @@
 package com.daml.http
 
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.server.RouteResult.Complete
+import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.util.ByteString
 import com.daml.http.domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.json.SprayJson
@@ -104,10 +106,13 @@ object EndpointsCompanion {
       }
   }
 
-  lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case HttpRequest(method, uri, _, _, _) =>
-      Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
-  }
+  lazy val notFound: Route = (ctx: RequestContext) =>
+    ctx.request match {
+      case HttpRequest(method, uri, _, _, _) =>
+        Future.successful(
+          Complete(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
+        )
+    }
 
   private[http] def httpResponseError(error: Error): HttpResponse = {
     import com.daml.http.json.JsonProtocol._

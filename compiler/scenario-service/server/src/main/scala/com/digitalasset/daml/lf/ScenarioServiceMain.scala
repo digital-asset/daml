@@ -12,13 +12,12 @@ import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
 
-import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.archive
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
-import com.daml.lf.speedy.ScenarioRunner
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
@@ -137,6 +136,7 @@ class ScenarioService(implicit
                       error.ledger,
                       error.currentSubmission.map(_.ptx),
                       error.traceLog,
+                      error.warningLog,
                       error.currentSubmission.flatMap(_.commitLocation),
                       error.stackTrace,
                     )
@@ -151,6 +151,7 @@ class ScenarioService(implicit
                       success.ledger,
                       None,
                       success.traceLog,
+                      success.warningLog,
                       None,
                       ImmArray.empty,
                     )
@@ -290,8 +291,8 @@ class ScenarioService(implicit
           respObs.onCompleted()
 
         } catch {
-          case e: ParseError =>
-            respObs.onError(Status.INVALID_ARGUMENT.withDescription(e.error).asRuntimeException())
+          case e: archive.Error =>
+            respObs.onError(Status.INVALID_ARGUMENT.withDescription(e.msg).asRuntimeException())
           case NonFatal(e) =>
             respObs.onError(Status.INTERNAL.withDescription(e.toString).asRuntimeException())
         }

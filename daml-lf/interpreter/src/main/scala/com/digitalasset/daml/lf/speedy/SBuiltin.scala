@@ -22,6 +22,7 @@ import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value.ValueArithmeticError
+import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
@@ -37,6 +38,9 @@ import scala.collection.immutable.TreeSet
   *  Most builtins are pure, and so they extend `SBuiltinPure`
   */
 private[speedy] sealed abstract class SBuiltin(val arity: Int) {
+  protected def crash(msg: String): Nothing =
+    throw SErrorCrash(getClass.getCanonicalName, msg)
+
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
   private[lf] def apply(args: SExpr*): SExpr =
@@ -262,7 +266,7 @@ private[lf] object SBuiltin {
     private[speedy] def buildException(args: util.ArrayList[SValue]) =
       SArithmeticError(
         name,
-        args.iterator.asScala.map(litToText).to(ImmArray),
+        args.iterator.asScala.map(litToText(getClass.getCanonicalName, _)).to(ImmArray),
       )
 
     override private[speedy] def execute(
@@ -389,7 +393,7 @@ private[lf] object SBuiltin {
       SText(getSText(args, 0) + getSText(args, 1))
   }
 
-  private[this] def litToText(x: SValue): String =
+  private[this] def litToText(where: String, x: SValue): String =
     x match {
       case SBool(b) => b.toString
       case SInt64(i) => i.toString
@@ -403,12 +407,12 @@ private[lf] object SBuiltin {
       case STNat(n) => s"@$n"
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
           _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
-        crash(s"litToText: unexpected $x")
+        throw SErrorCrash(where, s"litToText: unexpected $x")
     }
 
   final case object SBToText extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(litToText(args.get(0)))
+      SText(litToText(NameOf.qualifiedNameOfCurrentFunc, args.get(0)))
   }
 
   final case object SBContractIdToText extends SBuiltin(1) {
@@ -908,9 +912,9 @@ private[lf] object SBuiltin {
       val createArg = args.get(0)
       val createArgValue = createArg.toValue
       val agreement = getSText(args, 1)
-      val sigs = extractParties(args.get(2))
-      val obs = extractParties(args.get(3))
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(4))
+      val sigs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
+      val obs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
+      val mbKey = extractOptionalKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
       mbKey.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
         if (maintainers.isEmpty)
           throw SErrorDamlException(
@@ -967,8 +971,8 @@ private[lf] object SBuiltin {
         onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
       val sigs = cached.signatories
       val templateObservers = cached.observers
-      val ctrls = extractParties(args.get(2))
-      val choiceObservers = extractParties(args.get(3))
+      val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
+      val choiceObservers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
 
       val mbKey = cached.key
       val auth = machine.auth
@@ -1112,7 +1116,8 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
-      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      val keyWithMaintainers =
+        extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1189,8 +1194,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[speedy] sealed abstract class SBUKeyBuiltin(operation: KeyOperation)
-      extends OnLedgerBuiltin(1) {
+  private[speedy] sealed abstract class SBUKeyBuiltin(
+      operation: KeyOperation
+  ) extends OnLedgerBuiltin(1) {
 
     private def cacheGlobalLookup(
         onLedger: OnLedger,
@@ -1210,7 +1216,8 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       import PartialTransaction.{KeyActive, KeyInactive}
-      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      val keyWithMaintainers =
+        extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
         throw SErrorDamlException(
           IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
@@ -1223,20 +1230,14 @@ private[lf] object SBuiltin {
           val cachedContract = onLedger.cachedContracts
             .getOrElse(coid, crash(s"Local contract $coid not in cachedContracts"))
           val stakeholders = cachedContract.signatories union cachedContract.observers
-          throw SpeedyHungry(
-            SResultNeedLocalKeyVisible(
-              stakeholders,
-              onLedger.committers,
-              {
-                case SVisibleByKey.Visible =>
-                  operation.handleActiveKey(machine, coid)
-                case SVisibleByKey.NotVisible(actAs, readAs) =>
-                  machine.ctrl = SEDamlException(
-                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                  )
-              },
-            )
-          )
+          onLedger.visibleToStakeholders(stakeholders) match {
+            case SVisibleToStakeholders.Visible =>
+              operation.handleActiveKey(machine, coid)
+            case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+              machine.ctrl = SEDamlException(
+                IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+              )
+          }
         case Some(keyMapping) =>
           operation.handleKnownInputKey(machine, gkey, keyMapping)
         case None =>
@@ -1303,7 +1304,7 @@ private[lf] object SBuiltin {
       checkToken(args, 2)
       throw SpeedyHungry(
         SResultScenarioSubmit(
-          committers = extractParties(args.get(0)),
+          committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
           commands = args.get(1),
           location = optLocation,
           mustFail = mustFail,
@@ -1598,17 +1599,18 @@ private[lf] object SBuiltin {
         ()
     }
 
-  private[this] def extractParties(v: SValue): TreeSet[Party] =
+  private[this] def extractParties(where: String, v: SValue): TreeSet[Party] =
     v match {
       case SList(vs) =>
         TreeSet.empty(Party.ordering) ++ vs.iterator.map {
           case SParty(p) => p
-          case x => crash(s"non-party value in list: $x")
+          case x =>
+            throw SErrorCrash(where, s"non-party value in list: $x")
         }
       case SParty(p) =>
         TreeSet(p)(Party.ordering)
       case _ =>
-        crash(s"value not a list of parties or party: $v")
+        throw SErrorCrash(where, s"value not a list of parties or party: $v")
     }
 
   private[this] val keyWithMaintainersStructFields: Struct[Unit] =
@@ -1618,28 +1620,32 @@ private[lf] object SBuiltin {
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
-      v: SValue
+      where: String,
+      v: SValue,
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
       case SStruct(_, vals) =>
-        vals.get(keyIdx).toValue.ensureNoCid match {
+        val key = vals.get(keyIdx).toValue
+        key.ensureNoCid match {
           case Right(keyVal) =>
             Node.KeyWithMaintainers(
               key = keyVal,
-              maintainers = extractParties(vals.get(maintainerIdx)),
+              maintainers =
+                extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
             )
-          case Left(coid) =>
-            crash(s"Contract IDs are not supported in contract keys: $coid")
+          case Left(_) =>
+            throw SErrorDamlException(IE.ContractIdInContractKey(key))
         }
-      case _ => crash(s"Invalid key with maintainers: $v")
+      case _ => throw SErrorCrash(where, s"Invalid key with maintainers: $v")
     }
 
   private[this] def extractOptionalKeyWithMaintainers(
-      optKey: SValue
+      where: String,
+      optKey: SValue,
   ): Option[Node.KeyWithMaintainers[V[Nothing]]] =
     optKey match {
-      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
-      case v => crash(s"Expected optional key with maintainers, got: $v")
+      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(where, _))
+      case v => throw SErrorCrash(where, s"Expected optional key with maintainers, got: $v")
     }
 
   private[this] val cachedContractStructFields = Struct.assertFromSeq(
@@ -1669,10 +1675,18 @@ private[lf] object SBuiltin {
         CachedContract(
           templateId = templateId,
           value = vals.get(cachedContractArgIdx),
-          signatories = extractParties(vals.get(cachedContractSignatoriesIdx)),
-          observers = extractParties(vals.get(cachedContractObserversIdx)),
-          key = extractOptionalKeyWithMaintainers(vals.get(cachedContractKeyIdx)),
+          signatories = extractParties(
+            NameOf.qualifiedNameOfCurrentFunc,
+            vals.get(cachedContractSignatoriesIdx),
+          ),
+          observers =
+            extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedContractObserversIdx)),
+          key = extractOptionalKeyWithMaintainers(
+            NameOf.qualifiedNameOfCurrentFunc,
+            vals.get(cachedContractKeyIdx),
+          ),
         )
-      case _ => crash(s"Invalid cached contract: $v")
+      case _ =>
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Invalid cached contract: $v")
     }
 }

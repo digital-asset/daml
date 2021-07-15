@@ -9,9 +9,11 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
-import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
+import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
@@ -28,6 +30,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
+
+  private val keepAliveMaxIdleDuration = FiniteDuration(200, "millis")
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -101,7 +105,22 @@ object ParallelIndexerFactory {
                   size = maxInputBufferSize,
                 )
                 .map(_ -> System.nanoTime())
-            ).map(_ => ())
+            )
+              .map(_ => ())
+              .keepAlive(
+                keepAliveMaxIdleDuration,
+                () =>
+                  if (dbDispatcher.currentHealth() == HealthStatus.healthy) {
+                    logger.debug("Indexer keep-alive: database connectivity OK")
+                    ()
+                  } else {
+                    logger
+                      .warn("Indexer keep-alive: database connectivity lost. Stopping indexing.")
+                    throw new Exception(
+                      "Connectivity issue to the index-database detected. Stopping indexing."
+                    )
+                  },
+              )
 
       def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =
         dbDispatcher
@@ -227,9 +246,7 @@ object ParallelIndexerFactory {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
-      LoggingContext.withEnrichedLoggingContext(
-        "updateOffsets" -> batch.offsets.view.map(_.toHexString).mkString("[", ", ", "]")
-      ) { implicit loggingContext =>
+      withEnrichedLoggingContext("updateOffsets" -> batch.offsets) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
           metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
           ingestFunction(connection, batch.batch)
@@ -256,22 +273,21 @@ object ParallelIndexerFactory {
         offsets = Vector.empty, // not used anymore
       )
 
+  def ledgerEndFrom(batch: Batch[_]): StorageBackend.Params =
+    StorageBackend.Params(
+      ledgerEnd = batch.lastOffset,
+      eventSeqId = batch.lastSeqEventId,
+    )
+
   def ingestTail[DB_BATCH](
       ingestTailFunction: StorageBackend.Params => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
-      LoggingContext.withEnrichedLoggingContext(
-        "updateOffset" -> batch.lastOffset.toHexString
-      ) { implicit loggingContext =>
+      withEnrichedLoggingContext("updateOffset" -> batch.lastOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
-          ingestTailFunction(
-            StorageBackend.Params(
-              ledgerEnd = batch.lastOffset,
-              eventSeqId = batch.lastSeqEventId,
-            )
-          )(connection)
+          ingestTailFunction(ledgerEndFrom(batch))(connection)
           metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
           metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch.lastRecordTime)
           metrics.daml.indexer.lastReceivedOffset.updateValue(batch.lastOffset.toHexString)

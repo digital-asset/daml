@@ -18,8 +18,6 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v1.SeedService
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
@@ -30,9 +28,10 @@ import com.daml.lf.transaction.{
   StandardTransactionCommitter,
   TransactionCommitter,
 }
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
@@ -50,9 +49,9 @@ import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 object SandboxServer {
@@ -106,7 +105,7 @@ object SandboxServer {
       config: SandboxConfig
   )(implicit resourceContext: ResourceContext): Future[Unit] = {
 
-    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
       new FlywayMigrations(config.jdbcUrl.get)
         .migrate(enableAppendOnlySchema = config.enableAppendOnlySchema)
@@ -185,7 +184,7 @@ final class SandboxServer(
     this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
-  private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
+  private val seedingService = SeedService(config.seeding.getOrElse(Seeding.Weak))
 
   // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
   // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
@@ -245,9 +244,6 @@ final class SandboxServer(
             packages = packageStore.getLfPackageSync,
             keys = { _ =>
               sys.error("Unexpected request of contract key")
-            },
-            localKeyVisible = { _ =>
-              sys.error("Unexpected request of local contract key visibility")
             },
           )
           .left
@@ -440,7 +436,7 @@ final class SandboxServer(
       if (config.seeding.isEmpty) {
         logger.withoutContext.warn(
           s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with the LF 1.11 languages or later.
-              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later. 
+              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later.
               |To make sure you can load LF 1.11, use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode.""".stripMargin
         )
       }
@@ -449,7 +445,7 @@ final class SandboxServer(
   }
 
   private def start(): Future[SandboxState] = {
-    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,

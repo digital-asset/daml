@@ -4,7 +4,7 @@
 package com.daml.platform.store
 
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.platform.PruneBuffers
 import com.daml.platform.store.dao.LedgerReadDao

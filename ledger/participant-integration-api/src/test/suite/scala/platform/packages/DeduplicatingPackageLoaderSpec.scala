@@ -13,7 +13,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.testing.LogCollector
 import org.scalatest.BeforeAndAfterEach
@@ -22,7 +22,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import scala.util.{Success, Try}
 
 class DeduplicatingPackageLoaderSpec
     extends AsyncWordSpec
@@ -35,10 +34,9 @@ class DeduplicatingPackageLoaderSpec
   private[this] val metricRegistry = new MetricRegistry
   private[this] val metric = metricRegistry.timer("test-metric")
 
-  private[this] val Success(dar) = {
-    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+  private[this] val dar = {
     val fileName = new File(rlocation(ModelTestDar.path))
-    reader.readArchiveFromFile(fileName)
+    DarParser.assertReadArchiveFromFile(fileName)
   }
 
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {

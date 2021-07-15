@@ -367,6 +367,9 @@ final class Metrics(val registry: MetricRegistry) {
       val transactionLogUpdatesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
 
+      val contractStateEventsBufferSize: Counter =
+        registry.counter(Prefix :+ "contract_state_events_buffer_size")
+
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"
@@ -453,6 +456,8 @@ final class Metrics(val registry: MetricRegistry) {
           val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
           val deleteContractsBatch: Timer = registry.timer(dbPrefix :+ "delete_contracts_batch")
+          val nullifyPastKeysBatch: Timer =
+            registry.timer(dbPrefix :+ "nullify_contract_keys_batch")
           val insertContractsBatch: Timer = registry.timer(dbPrefix :+ "insert_contracts_batch")
           val insertContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
@@ -681,6 +686,11 @@ final class Metrics(val registry: MetricRegistry) {
           registry.counter(Prefix :+ "transaction_trees_buffer_size")
         val flatTransactionsBufferSize: Counter =
           registry.counter(Prefix :+ "flat_transactions_buffer_size")
+
+        val getContractStateEventsChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
+        val getTransactionLogUpdatesChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {

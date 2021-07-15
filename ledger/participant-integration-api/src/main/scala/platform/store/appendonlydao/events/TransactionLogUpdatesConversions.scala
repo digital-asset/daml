@@ -216,59 +216,68 @@ private[events] object TransactionLogUpdatesConversions {
       val filteredForVisibility = tx.events
         .filter(TransactionTreePredicate(requestingParties))
 
-      val treeEvents = filteredForVisibility
-        .collect {
-          case createdEvent: TransactionLogUpdate.CreatedEvent =>
-            createdToTransactionTreeEvent(
-              requestingParties,
-              verbose,
-              lfValueTranslation,
-              createdEvent,
-            )
-          case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
-            exercisedToTransactionTreeEvent(
-              requestingParties,
-              verbose,
-              lfValueTranslation,
-              exercisedEvent,
-            )
-        }
-
-      if (treeEvents.isEmpty)
-        Future.successful(Option.empty)
+      if (filteredForVisibility.isEmpty) Future.successful(None)
       else
-        Future.traverse(treeEvents)(identity).map { treeEvents =>
-          val visible = treeEvents.map(_.eventId)
-          val visibleSet = visible.toSet
-          val eventsById = treeEvents.iterator
-            .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
-            .toMap
-
-          // All event identifiers that appear as a child of another item in this response
-          val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
-
-          // The roots for this request are all visible items
-          // that are not a child of some other visible item
-          val rootEventIds = visible.filterNot(children)
-
-          Some(
-            TransactionTree(
-              transactionId = tx.transactionId,
-              commandId = getCommandId(
-                filteredForVisibility,
-                requestingParties,
-              ),
-              workflowId = tx.workflowId,
-              effectiveAt = Some(instantToTimestamp(tx.effectiveAt)),
-              offset = ApiOffset.toApiString(tx.offset),
-              eventsById = eventsById,
-              rootEventIds = rootEventIds,
-              traceContext = None,
-            )
+        Future
+          .traverse(filteredForVisibility)(
+            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
           )
-        }
+          .map { treeEvents =>
+            val visible = treeEvents.map(_.eventId)
+            val visibleSet = visible.toSet
+            val eventsById = treeEvents.iterator
+              .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+              .toMap
+
+            // All event identifiers that appear as a child of another item in this response
+            val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+
+            // The roots for this request are all visible items
+            // that are not a child of some other visible item
+            val rootEventIds = visible.filterNot(children)
+
+            Some(
+              TransactionTree(
+                transactionId = tx.transactionId,
+                commandId = getCommandId(
+                  filteredForVisibility,
+                  requestingParties,
+                ),
+                workflowId = tx.workflowId,
+                effectiveAt = Some(instantToTimestamp(tx.effectiveAt)),
+                offset = ApiOffset.toApiString(tx.offset),
+                eventsById = eventsById,
+                rootEventIds = rootEventIds,
+                traceContext = None,
+              )
+            )
+          }
     }
 
+    private def toTransactionTreeEvent(
+        requestingParties: Set[Party],
+        verbose: Boolean,
+        lfValueTranslation: LfValueTranslation,
+    )(event: TransactionLogUpdate.Event)(implicit
+        loggingContext: LoggingContext,
+        executionContext: ExecutionContext,
+    ): Future[TreeEvent] =
+      event match {
+        case createdEvent: TransactionLogUpdate.CreatedEvent =>
+          createdToTransactionTreeEvent(
+            requestingParties,
+            verbose,
+            lfValueTranslation,
+            createdEvent,
+          )
+        case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
+          exercisedToTransactionTreeEvent(
+            requestingParties,
+            verbose,
+            lfValueTranslation,
+            exercisedEvent,
+          )
+      }
     private def exercisedToTransactionTreeEvent(
         requestingParties: Set[Party],
         verbose: Boolean,

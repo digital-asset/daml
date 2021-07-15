@@ -3,20 +3,20 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 
-/** Helper functions for generating 16 byte [[com.daml.ledger.participant.state.v1.Offset]]s from integers.
+/** Helper functions for generating 16 byte [[Offset]]s from integers.
   * The created offset will look as follows:
   * | highest index (64 bits) | middle index (32 bits) | lowest index (32 bits) |
   * Leading zeros will be retained when generating the resulting offset bytes.
   *
   * Example usage:
-  *  * If you have one record per block then just use [[OffsetBuilder.fromLong(<block-ID>)]]
-  *  * If you may have multiple records per block then use [[OffsetBuilder.fromLong(<block-ID>, <index>)]],
-  *  where <index> denotes the position or index of a given log entry in the block.
+  * * If you have one record per block then just use [[OffsetBuilder.fromLong(<block-ID>)]]
+  * * If you may have multiple records per block then use [[OffsetBuilder.fromLong(<block-ID>, <index>)]],
+  * where <index> denotes the position or index of a given log entry in the block.
   *
-  *  @see com.daml.ledger.participant.state.v1.Offset
-  *  @see com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader
+  * @see com.daml.ledger.offset.Offset
+  * @see com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader
   */
 object OffsetBuilder {
   private[kvutils] val highestStart = 0

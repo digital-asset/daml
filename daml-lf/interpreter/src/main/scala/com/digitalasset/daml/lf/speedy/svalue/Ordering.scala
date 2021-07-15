@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 package svalue
 
+import com.daml.nameof.NameOf
 import data.{Bytes, Utf8}
 import language.TypeOrdering
 import value.Value.ContractId
@@ -13,7 +14,7 @@ import scala.jdk.CollectionConverters._
 
 object Ordering extends scala.math.Ordering[SValue] {
 
-  @throws[SError.SErrorCrash]
+  @throws[SError.SError]
   // Ordering between two SValues of same type.
   // This follows the equality defined in the daml-lf spec.
   def compare(x: SValue, y: SValue): Int = {
@@ -84,10 +85,13 @@ object Ordering extends scala.math.Ordering[SValue] {
         case (STypeRep(xType), STypeRep(yType)) =>
           diff = TypeOrdering.compare(xType, yType)
         case (_: SPAP, _: SPAP) =>
-          throw SError.SErrorCrash("functions are not comparable")
+          throw SError.SErrorDamlException(interpretation.Error.NonComparableValues)
         // We should never hit this case at runtime.
         case _ =>
-          throw SError.SErrorCrash("BUG: comparison of incomparable values")
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"trying to compare value of different type:\n- $x\n- $y",
+          )
       }
 
     while (diff == 0 && stackX.nonEmpty) {
@@ -117,8 +121,11 @@ object Ordering extends scala.math.Ordering[SValue] {
         else if (suffix1.isEmpty == suffix2.isEmpty)
           Bytes.ordering.compare(suffix1, suffix2)
         else
+          // We crash here because we should have catch this beforehand
+          // when preprocessing or importing values.
           throw SError.SErrorCrash(
-            "Conflicting discriminators between a local and global contract id"
+            getClass.getCanonicalName + ".compare",
+            "Unexcpected contract ID freshness Error",
           )
     }
 

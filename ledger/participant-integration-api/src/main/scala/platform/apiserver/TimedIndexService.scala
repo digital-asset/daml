@@ -26,9 +26,11 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, PackageId, ParticipantId, Party}
+import com.daml.ledger.participant.state.v1.{PackageId, ParticipantId, Party}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import akka.actor.CoordinatedShutdown
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
@@ -14,6 +15,14 @@ import scala.concurrent.{ExecutionContext, Future}
 case class MetricsManager[T](collector: ActorRef[MetricsCollector.Message])(implicit
     system: ActorSystem[SpawnProtocol.Command]
 ) {
+  CoordinatedShutdown(system).addTask(
+    phase = CoordinatedShutdown.PhaseBeforeServiceUnbind,
+    taskName = "report-results",
+  ) { () =>
+    println(s"Coordinated shutdown in progress...")
+    result().map(_ => akka.Done)(system.executionContext)
+  }
+
   def sendNewValue(value: T): Unit =
     collector ! MetricsCollector.Message.NewValue(value)
 
@@ -28,6 +37,7 @@ object MetricsManager {
       streamName: String,
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
+      exposedMetrics: Option[ExposedMetrics[StreamElem]],
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
@@ -41,6 +51,7 @@ object MetricsManager {
           metrics = metrics,
           logInterval = logInterval,
           reporter = MetricReporter.Default,
+          exposedMetrics = exposedMetrics,
         ),
         name = s"${streamName}-collector",
         props = Props.empty,

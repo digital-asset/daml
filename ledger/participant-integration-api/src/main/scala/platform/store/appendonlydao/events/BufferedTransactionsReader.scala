@@ -14,7 +14,8 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.TransactionId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
@@ -155,20 +156,23 @@ private[platform] object BufferedTransactionsReader {
       outputStreamBufferSize: Int,
       bufferSizeCounter: Counter,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
-    def filterBuffered(
+    def bufferedSource(
         slice: Vector[(Offset, TransactionLogUpdate)]
-    ): Future[Iterator[(Offset, API_RESPONSE)]] =
-      Future
-        .traverse(
-          slice.iterator
-            .collect { case (offset, tx: TxUpdate) =>
-              toApiTx(tx, filter, verbose).map(offset -> _)
-            }
-        )(identity)
-        .map(_.collect { case (offset, Some(tx)) =>
+    ): Source[(Offset, API_RESPONSE), NotUsed] =
+      Source
+        .fromIterator(() => slice.iterator)
+        // Using collect + mapAsync as an alternative to the non-existent collectAsync
+        .collect { case (offset, tx: TxUpdate) =>
+          toApiTx(tx, filter, verbose).map(offset -> _)
+        }
+        // Note that it is safe to use high parallelism for mapAsync as long
+        // as the Futures executed within are running on a bounded thread pool
+        .mapAsync(32)(identity)
+        .async
+        .collect { case (offset, Some(tx)) =>
           resolvedFromBufferCounter.inc()
           offset -> apiResponseCtor(Seq(tx))
-        })
+        }
 
     val transactionsSource = Timed.source(
       sourceTimer, {
@@ -177,22 +181,16 @@ private[platform] object BufferedTransactionsReader {
           case BufferSlice.Empty =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          // TODO in-memory fan-out: Implement and use Offset.predecessor
           case BufferSlice.Prefix(slice) if slice.size <= 1 =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          // TODO in-memory fan-out: Implement and use Offset.predecessor
           case BufferSlice.Prefix((firstOffset: Offset, _) +: tl) =>
             fetchTransactions(startExclusive, firstOffset, filter, verbose)
-              .concat(
-                Source.futureSource(filterBuffered(tl).map(it => Source.fromIterator(() => it)))
-              )
+              .concat(bufferedSource(tl))
               .mapMaterializedValue(_ => NotUsed)
 
           case BufferSlice.Inclusive(slice) =>
-            Source
-              .futureSource(filterBuffered(slice).map(it => Source.fromIterator(() => it)))
-              .mapMaterializedValue(_ => NotUsed)
+            bufferedSource(slice).mapMaterializedValue(_ => NotUsed)
         }
       }.map(tx => {
         totalRetrievedCounter.inc()

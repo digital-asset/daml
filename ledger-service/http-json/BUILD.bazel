@@ -3,6 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
@@ -72,6 +73,7 @@ hj_scalacopts = lf_scalacopts + [
             "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
             "//libs-scala/doobie-slf4j",
+            "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
@@ -146,7 +148,10 @@ json_deps = {
 da_scala_binary(
     name = "http-json-binary",
     main_class = "com.daml.http.Main",
-    resources = [":src/main/resources/logback.xml"],
+    resources = [
+        ":src/main/resources/application.conf",
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [
@@ -160,7 +165,10 @@ da_scala_binary(
 da_scala_binary(
     name = "http-json-binary-ee",
     main_class = "com.daml.http.Main",
-    resources = [":src/main/resources/logback.xml"],
+    resources = [
+        ":src/main/resources/application.conf",
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [
@@ -427,3 +435,30 @@ alias(
 )
 
 exports_files(["src/main/resources/logback.xml"])
+
+da_scala_benchmark_jmh(
+    name = "contractdao-bench",
+    srcs = glob(["src/bench/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_tpolecat_doobie_core",
+        "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_effect",
+        "@maven//:org_typelevel_cats_free",
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_lihaoyi_sourcecode",
+    ],
+    deps = [
+        ":http-json",
+        "//language-support/scala/bindings",
+        "//ledger-service/db-backend",
+        "//libs-scala/doobie-slf4j",
+        "//libs-scala/oracle-testing",
+        "//libs-scala/ports",
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

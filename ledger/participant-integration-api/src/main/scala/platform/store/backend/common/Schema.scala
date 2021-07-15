@@ -190,7 +190,7 @@ private[backend] object AppendOnlySchema {
         "package_id" -> fieldStrategy.string(_.package_id),
         "upload_id" -> fieldStrategy.string(_.upload_id),
         "source_description" -> fieldStrategy.stringOptional(_.source_description),
-        "size" -> fieldStrategy.bigint(_.size),
+        "package_size" -> fieldStrategy.bigint(_.package_size),
         "known_since" -> fieldStrategy.timestamp(_.known_since),
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
         "package" -> fieldStrategy.bytea(_._package),

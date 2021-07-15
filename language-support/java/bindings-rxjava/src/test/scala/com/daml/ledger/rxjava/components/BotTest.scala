@@ -557,7 +557,7 @@ object BotTest {
       s"eid_$id",
       templateId,
       s"cid_$id",
-      new Record(List.empty[Record.Field].asJava),
+      new DamlRecord(List.empty[DamlRecord.Field].asJava),
       Optional.empty(),
       Optional.empty(),
       Collections.emptySet(),

@@ -8,15 +8,13 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.archive.Decode
-import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.archive
 import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
-import com.daml.lf.speedy.{Compiler, ScenarioRunner, SDefinition, SExpr, Speedy}
-import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.{Compiler, SDefinition, SExpr, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
@@ -79,19 +77,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     newCtx
   }
 
-  private[this] val dop: Decode.OfPackage[_] = Decode.decoders
-    .lift(languageVersion)
-    .getOrElse(
-      throw Context.ContextException(s"No decode support for LF ${languageVersion.pretty}")
-    )
-    .decoder
-
-  private def decodeModule(bytes: ByteString): Ast.Module = {
-    val lfScenarioModule = dop.protoScenarioModule(Decode.damlLfCodedInputStream(bytes.newInput))
-    dop.decodeScenarioModule(homePackageId, lfScenarioModule)
-  }
-
-  @throws[ParseError]
+  @throws[archive.Error]
   def update(
       unloadModules: Set[ModuleName],
       loadModules: collection.Seq[ProtoScenarioModule],
@@ -100,13 +86,15 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    val newModules = loadModules.map(module => decodeModule(module.getDamlLf1))
+    val newModules = loadModules.map(module =>
+      archive.moduleDecoder(languageVersion, homePackageId).fromByteString(module.getDamlLf1)
+    )
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 
     val newPackages =
-      loadPackages.map { archive =>
-        Decode.decodeArchiveFromInputStream(archive.newInput)
+      loadPackages.map { bytes =>
+        archive.Decode.decodeArchive(archive.ArchiveParser.fromByteString(bytes))
       }.toMap
 
     val modulesToCompile =
@@ -197,11 +185,12 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       ScriptTimeMode.Static,
     )
     val traceLog = Speedy.Machine.newTraceLog
-    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog)
+    val warningLog = Speedy.Machine.newWarningLog
+    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
-    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog)
+    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog, warningLog)
 
-    def handleFailure(e: SError) = {
+    def handleFailure(e: Error) =
       // SError are the errors that should be handled and displayed as
       // failed partial transactions.
       Success(
@@ -209,6 +198,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           ScenarioRunner.ScenarioError(
             ledgerClient.ledger,
             clientMachine.traceLog,
+            clientMachine.warningLog,
             ledgerClient.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.empty,
@@ -216,7 +206,6 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           )
         )
       )
-    }
 
     val dummyDuration: Double = 0
     val dummySteps: Int = 0
@@ -228,16 +217,18 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
             ScenarioRunner.ScenarioSuccess(
               ledgerClient.ledger,
               clientMachine.traceLog,
+              clientMachine.warningLog,
               dummyDuration,
               dummySteps,
               v,
             )
           )
         )
-      case Failure(e: SError) => handleFailure(e)
+      case Failure(e: Error) => handleFailure(e)
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {
-          case e: SError => handleFailure(e)
+          case e: Error => handleFailure(e)
+          case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
           case _ => Failure(e)
         }
       case Failure(e) => Failure(e)

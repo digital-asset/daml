@@ -27,12 +27,12 @@ import qualified DA.Service.Logger.Impl.Pure as Logger
 
 import Development.IDE.Core.IdeState.Daml
 import qualified Development.IDE.Core.Service as Service
+import qualified Development.IDE.Core.Shake as Service
 import qualified Development.IDE.Core.Rules     as Service
 import qualified Development.IDE.Core.Rules.Daml as Service
 import qualified Development.IDE.Core.RuleTypes.Daml as Service
 import qualified Development.IDE.Core.OfInterest as Service
 import Development.IDE.Types.Location
-import qualified Language.Haskell.LSP.Messages as LSP
 
 import "ghc-lib" GHC
 import "ghc-lib-parser" TyCon
@@ -59,7 +59,7 @@ import Data.Either
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
     ExtractOptions
-    -> (LSP.FromServerMessage -> IO ())
+    -> Service.NotificationHandler
     -> Options
     -> [NormalizedFilePath]
     -> MaybeT IO [ModuleDoc]
@@ -101,7 +101,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
 
-            md_adts = mapMaybe (filterTypeByExports dc_exports) adts
+            md_adts = mapMaybe (filterTypeByExports md_name dc_exports) adts
 
         in ModuleDoc {..}
 
@@ -180,7 +180,7 @@ buildDocCtx dc_extractOptions tcmod  =
 --
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
-haddockParse :: (LSP.FromServerMessage -> IO ()) ->
+haddockParse :: Service.NotificationHandler ->
                 Options ->
                 [NormalizedFilePath] ->
                 MaybeT IO [Service.TcModuleResult]

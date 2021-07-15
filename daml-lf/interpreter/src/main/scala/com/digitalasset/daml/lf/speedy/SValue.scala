@@ -9,9 +9,9 @@ import java.util
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
@@ -57,26 +57,21 @@ sealed trait SValue {
       case SMap(true, entries) =>
         V.ValueTextMap(SortedLookupList(entries.map {
           case (SText(t), v) => t -> v.toValue
-          case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
+          case (_, _) =>
+            throw SError.SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              "SValue.toValue: TextMap with non text key",
+            )
         }))
       case SMap(false, entries) =>
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SStruct(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SStruct")
-      case SAny(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAny")
-      case SBigNumeric(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
-      case STypeRep(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STypeRep")
-      case STNat(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STNat")
-      case _: SPAP =>
-        throw SErrorCrash("SValue.toValue: unexpected SPAP")
-      case SToken =>
-        throw SErrorCrash("SValue.toValue: unexpected SToken")
+      case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
+        throw SError.SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"SValue.toValue: unexpected ${getClass.getSimpleName}",
+        )
     }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
@@ -136,7 +131,10 @@ object SValue {
     */
   final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
     if (actuals.size >= arity) {
-      throw SErrorCrash(s"SPAP: unexpected actuals.size >= arity")
+      throw SError.SErrorCrash(
+        NameOf.qualifiedNameOfCurrentFunc,
+        s"SPAP: unexpected actuals.size >= arity",
+      )
     }
     override def toString: String =
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
@@ -179,7 +177,7 @@ object SValue {
   object SMap {
     implicit def `SMap Ordering`: Ordering[SValue] = svalue.Ordering
 
-    @throws[SErrorCrash]
+    @throws[SError.SError]
     // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
     def comparable(k: SValue): Unit = {
       `SMap Ordering`.compare(k, k)

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractId}

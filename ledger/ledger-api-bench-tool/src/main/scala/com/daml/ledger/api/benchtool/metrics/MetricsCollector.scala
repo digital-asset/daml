@@ -29,10 +29,11 @@ object MetricsCollector {
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
       reporter: MetricReporter,
+      exposedMetrics: Option[ExposedMetrics[T]] = None,
   ): Behavior[Message] =
     Behaviors.withTimers { timers =>
       val startTime: Instant = Instant.now()
-      new MetricsCollector[T](timers, streamName, logInterval, reporter, startTime)
+      new MetricsCollector[T](timers, streamName, logInterval, reporter, startTime, exposedMetrics)
         .handlingMessages(metrics, startTime)
     }
 
@@ -44,6 +45,7 @@ class MetricsCollector[T](
     logInterval: FiniteDuration,
     reporter: MetricReporter,
     startTime: Instant,
+    exposedMetrics: Option[ExposedMetrics[T]],
 ) {
   import MetricsCollector._
   import MetricsCollector.Message._
@@ -54,6 +56,7 @@ class MetricsCollector[T](
     Behaviors.receive { case (context, message) =>
       message match {
         case newValue: NewValue[T] =>
+          exposedMetrics.foreach(_.onNext(newValue.value))
           handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck)
 
         case _: PeriodicUpdateCommand =>

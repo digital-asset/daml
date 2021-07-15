@@ -7,6 +7,7 @@ import java.time.{Duration, Instant, ZoneOffset, ZonedDateTime}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationSubmission,
   DamlLogEntry,
@@ -15,8 +16,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmission,
   DamlSubmissionDedupKey,
 }
-import com.daml.ledger.participant.state.kvutils.`export`.WriteSet
-import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
+import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawPreExecutingCommitStrategySupportSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
@@ -84,9 +84,9 @@ class RawPreExecutingCommitStrategySupportSpec
         submissionId = "update-1",
         correlationId = "update-1",
         maximumRecordTime = baseTime.plusSeconds(60),
-        configuration = v1.Configuration(
+        configuration = Configuration(
           generation = 1,
-          timeModel = v1.TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = Duration.ofMinutes(1),
         ),
       )
@@ -96,9 +96,9 @@ class RawPreExecutingCommitStrategySupportSpec
         submissionId = "update-2",
         correlationId = "update-2",
         maximumRecordTime = baseTime.minusSeconds(60),
-        configuration = v1.Configuration(
+        configuration = Configuration(
           generation = 2,
-          timeModel = v1.TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = Duration.ofMinutes(1),
         ),
       )
@@ -178,7 +178,7 @@ object RawPreExecutingCommitStrategySupportSpec {
       submissionId: String,
       correlationId: String,
       maximumRecordTime: Instant,
-      configuration: v1.Configuration,
+      configuration: Configuration,
   ): SubmissionInfo = {
     val submissionInfo = SubmissionInfo(
       participantId = participantId,
@@ -199,7 +199,7 @@ object RawPreExecutingCommitStrategySupportSpec {
               .setSubmissionId(submissionId)
               .setParticipantId(participantId)
               .setMaximumRecordTime(toTimestamp(maximumRecordTime))
-              .setConfiguration(v1.Configuration.encode(configuration))
+              .setConfiguration(Configuration.encode(configuration))
           )
           .build()
       ),

@@ -47,11 +47,16 @@ steps:
         git_current_tree: "'"$(git rev-parse HEAD:./)"'",
       }'
       jq <job-md.json .
-      gcs "$GCRED" cp "job-md.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/job-md.json"
-      [[ -f "build-profile.json" ]] && gcs "$GCRED" cp "build-profile.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/build-profile.json" || echo "build-profile.json not found"
-      [[ -f "build-events.json" ]] && gcs "$GCRED" cp "build-events.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/build-events.json" || echo "build-events.json not found"
-      [[ -f "test-profile.json" ]] && gcs "$GCRED" cp "test-profile.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/test-profile.json" || echo "test-profile.json not found"
-      [[ -f "test-events.json" ]] && gcs "$GCRED" cp "test-events.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/test-events.json" || echo "test-events.json not found"
+      target_dir="$(Build.StagingDirectory)/$(pipeline_id)"
+      mkdir -p "$target_dir"
+      cp "job-md.json" "$target_dir/job-md.json"
+      for log_file in 'build-profile.json' 'build-events.json' 'test-profile.json' 'test-events.json'; do
+        [[ -f "$log_file" ]] && cp "$log_file" "$target_dir/$log_file" || echo "$log_file not found"
+      done
+      cd "$(Build.StagingDirectory)"
+      GZIP=-9 tar --force-local -c -z -f "build-event-logs.tar.gz" "$(pipeline_id)"
+      date="$(echo $(pipeline_id) | cut -c1-7)/$(echo $(pipeline_id) | cut -c9-10)"
+      gcs "$GCRED" cp "build-event-logs.tar.gz" "gs://daml-data/bazel-metrics/$date/$(pipeline_id).tar.gz"
     condition: succeededOrFailed()
     displayName: 'Upload Bazel metrics'
     env:

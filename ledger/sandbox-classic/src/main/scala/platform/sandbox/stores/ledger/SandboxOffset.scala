@@ -3,7 +3,7 @@
 
 package com.daml.platform.sandbox.stores.ledger
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 
 // Sandbox classic simply uses integral numbers starting from 1 for offsets.
 // This utility object makes sure that the offset representation is always

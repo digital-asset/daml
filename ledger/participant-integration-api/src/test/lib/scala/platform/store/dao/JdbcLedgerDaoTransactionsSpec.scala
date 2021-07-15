@@ -9,7 +9,7 @@ import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.daml.ledger.api.{v1 => lav1}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
@@ -514,6 +514,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  //TODO need to find out why this is so slow to execute on Oracle
   it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(

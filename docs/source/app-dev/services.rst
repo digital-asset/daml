@@ -159,6 +159,19 @@ Verbosity
 
 See :ref:`verbosity` above.
 
+.. note::
+
+  The RPCs exposed as part of the transaction and active contracts services make use of offsets.
+
+  An offset is an opaque string of bytes assigned by the participant to each transaction as they are received from the ledger.
+  Two offsets returned by the same participant are guaranteed to be lexicographically ordered: while interacting with a single participant, the offset of two transactions can be compared to tell which was committed earlier.
+  The state of a ledger (i.e. the set of active contracts) as exposed by the Ledger API is valid at a specific offset, which is why the last message your application receives when calling the ``ActiveContractsService`` is precisely that offset.
+  In this way, the client can keep track of the relevant state without needing to invoke the ``ActiveContractsService`` again, by starting to read transactions from the given offset.
+
+  Offsets are also useful to perform crash recovery and failover as documented more in depth in the :ref:`application architecture <dealing-with-failures>` page.
+
+  You can read more about offsets in the `protobuf documentation of the API <../app-dev/grpc/proto-docs.html#ledgeroffset>`__.
+
 .. _ledger-api-utility-services:
 
 Utility services

@@ -57,23 +57,23 @@ public class RecordTest {
             .collect(
                 DamlCollectors.toDamlList(
                     ns -> ns.stream().collect(DamlCollectors.toDamlList(Int64::new))));
-    Record nestedRecord = new Record(new Record.Field("value", new Int64(42)));
+    DamlRecord nestedRecord = new DamlRecord(new DamlRecord.Field("value", new Int64(42)));
     Variant nestedVariant = new Variant("Nested", new Int64(42));
-    ArrayList<Record.Field> fieldsList = new ArrayList<>(10);
-    fieldsList.add(new Record.Field("int_", int_));
-    fieldsList.add(new Record.Field("decimal", decimal));
-    fieldsList.add(new Record.Field("text", text));
-    fieldsList.add(new Record.Field("bool", bool));
-    fieldsList.add(new Record.Field("party", party));
-    fieldsList.add(new Record.Field("date", date));
-    fieldsList.add(new Record.Field("timestamp", timestamp));
-    fieldsList.add(new Record.Field("void", bool));
-    fieldsList.add(new Record.Field("list", list));
-    fieldsList.add(new Record.Field("nestedList", nestedList));
-    fieldsList.add(new Record.Field("unit", Unit.getInstance()));
-    fieldsList.add(new Record.Field("nestedRecord", nestedRecord));
-    fieldsList.add(new Record.Field("nestedVariant", nestedVariant));
-    Record myDataRecord = new Record(fieldsList);
+    ArrayList<DamlRecord.Field> fieldsList = new ArrayList<>(10);
+    fieldsList.add(new DamlRecord.Field("int_", int_));
+    fieldsList.add(new DamlRecord.Field("decimal", decimal));
+    fieldsList.add(new DamlRecord.Field("text", text));
+    fieldsList.add(new DamlRecord.Field("bool", bool));
+    fieldsList.add(new DamlRecord.Field("party", party));
+    fieldsList.add(new DamlRecord.Field("date", date));
+    fieldsList.add(new DamlRecord.Field("timestamp", timestamp));
+    fieldsList.add(new DamlRecord.Field("void", bool));
+    fieldsList.add(new DamlRecord.Field("list", list));
+    fieldsList.add(new DamlRecord.Field("nestedList", nestedList));
+    fieldsList.add(new DamlRecord.Field("unit", Unit.getInstance()));
+    fieldsList.add(new DamlRecord.Field("nestedRecord", nestedRecord));
+    fieldsList.add(new DamlRecord.Field("nestedVariant", nestedVariant));
+    DamlRecord myDataRecord = new DamlRecord(fieldsList);
     MyRecord myRecord = MyRecord.fromValue(myDataRecord);
     checkRecord(myRecord);
     assertTrue(
@@ -186,7 +186,7 @@ public class RecordTest {
                     .build())
             .build();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     OuterRecord<String, Boolean> fromValue =
         OuterRecord.fromValue(
             dataRecord, f -> f.asText().get().getValue(), f -> f.asBool().get().getValue());

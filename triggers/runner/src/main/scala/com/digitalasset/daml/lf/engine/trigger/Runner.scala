@@ -3,57 +3,57 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.NotUsed
-import akka.stream._
-import akka.stream.scaladsl._
-import com.google.rpc.status.Status
-import com.typesafe.scalalogging.StrictLogging
-import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
 
-import scalaz.{-\/, Functor, \/, \/-}
-import scalaz.std.option._
-import scalaz.syntax.bifunctor._
-import scalaz.syntax.functor._
-import scalaz.syntax.tag._
-import scalaz.syntax.std.boolean._
-import scalaz.syntax.std.option._
-
-import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration._
+import akka.NotUsed
+import akka.stream._
+import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
-import com.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.daml.lf.archive.Dar
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.ScalazEqual._
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.{CompiledPackages, PureCompiledPackages}
+import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
+import com.daml.logging.entries.{LoggingEntry, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.Converter.Implicits._
+import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.ConverterException
 import com.google.protobuf.empty.Empty
+import com.google.rpc.status.Status
+import com.typesafe.scalalogging.StrictLogging
+import io.grpc.StatusRuntimeException
+import scalaz.std.option._
+import scalaz.syntax.bifunctor._
+import scalaz.syntax.functor._
+import scalaz.syntax.std.boolean._
+import scalaz.syntax.std.option._
+import scalaz.syntax.tag._
+import scalaz.{-\/, Functor, \/, \/-}
+
+import scala.annotation.{nowarn, tailrec}
+import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait TriggerMsg
 final case class CompletionMsg(c: Completion) extends TriggerMsg
@@ -71,19 +71,23 @@ final case class Trigger(
     // party-specific.
     heartbeat: Option[FiniteDuration],
 ) {
+  @nowarn("msg=parameter value label .* is never used") // Proxy only
   private[trigger] final class withLoggingContext[P] private (
       label: label[Trigger with P],
-      kvs: Seq[(String, String)],
+      kvs: Seq[LoggingEntry],
   ) {
     def apply[T](f: LoggingContextOf[Trigger with P] => T): T =
-      newLoggingContext(label, kvs :+ "triggerDefinition" -> triggerDefinition.toString: _*)(f)
+      newLoggingContext(
+        label,
+        kvs :+ "triggerDefinition" -> LoggingValue.from(triggerDefinition.toString): _*
+      )(f)
   }
 
   private[trigger] object withLoggingContext {
     def apply[T](f: LoggingContextOf[Trigger] => T): T =
       newLoggingContext(label, "triggerDefinition" -> triggerDefinition.toString)(f)
 
-    def apply[P](kvs: (String, String)*) = new withLoggingContext(label[Trigger with P], kvs)
+    def labelled[P](kvs: LoggingEntry*) = new withLoggingContext(label[Trigger with P], kvs)
   }
 }
 
@@ -450,7 +454,7 @@ class Runner(
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
-    import UnfoldState.{toSourceOps, toSource, flatMapConcatNodeOps, flatMapConcatNode}
+    import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
     val runInitialState = toSource(freeTriggerSubmits(clientTime, initialStateFree))
 
@@ -576,7 +580,8 @@ class Runner(
         // any other error will cause the trigger's stream to fail
       }
     }
-    import io.grpc.Status.Code, Code.RESOURCE_EXHAUSTED
+    import io.grpc.Status.Code
+    import Code.RESOURCE_EXHAUSTED
     def retryableSubmit(req: SubmitRequest) =
       submit(req).map {
         case Some(SingleCommandFailure(_, s))

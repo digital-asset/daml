@@ -3,9 +3,7 @@
 
 package com.daml.lf.archive
 
-import java.io.FileInputStream
-import java.util.zip.ZipInputStream
-
+import java.io.File
 import com.daml.bazeltools.BazelRunfiles
 import org.scalatest.TryValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,23 +11,16 @@ import org.scalatest.matchers.should.Matchers
 
 final class ZipBombDetectionSpec extends AnyFlatSpec with Matchers with TryValues {
 
-  private def bomb: ZipInputStream =
-    new ZipInputStream(
-      new FileInputStream(BazelRunfiles.rlocation("daml-lf/archive/DarReaderTest.dar"))
-    )
+  private def bomb = new File(BazelRunfiles.rlocation("daml-lf/archive/DarReaderTest.dar"))
 
   "DarReader" should "reject a zip bomb with the proper error" in {
-    DarReader()
-      .readArchive("t", bomb, entrySizeThreshold = 1024)
-      .failure
-      .exception shouldBe a[Errors.ZipBomb]
+    DarReader
+      .readArchiveFromFile(bomb, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
 
   "UniversalArchiveReader" should "reject a zip bomb with the proper error" in {
-    UniversalArchiveReader(entrySizeThreshold = 1024)
-      .readDarStream("t", bomb)
-      .failure
-      .exception shouldBe a[Errors.ZipBomb]
+    UniversalArchiveReader
+      .readFile(bomb, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
 
 }

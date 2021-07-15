@@ -23,15 +23,13 @@ import scala.concurrent.Future
 
 trait TransactionService {
 
+  def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
+
   def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
 
   def getTransactionTrees(
       req: GetTransactionTreesRequest
   ): Source[GetTransactionTreesResponse, NotUsed]
-
-  def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
-
-  def offsetOrdering: Ordering[LedgerOffset.Absolute]
 
   def getTransactionById(req: GetTransactionByIdRequest): Future[GetTransactionResponse]
 

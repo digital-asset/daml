@@ -196,6 +196,7 @@ da_scala_test_suite(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/build-info",
+        "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",

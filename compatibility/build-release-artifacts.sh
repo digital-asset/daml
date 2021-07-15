@@ -19,8 +19,6 @@ HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
 git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
 
-# Temporary until all nodes have been reset
-rm -rf compiler/daml-extension/node_modules
 bazel build \
   //release:sdk-release-tarball \
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar

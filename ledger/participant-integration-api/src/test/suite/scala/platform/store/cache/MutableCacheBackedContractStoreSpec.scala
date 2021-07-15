@@ -12,7 +12,7 @@ import akka.stream.QueueOfferResult.Enqueued
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.GlobalKey
@@ -297,23 +297,33 @@ class MutableCacheBackedContractStoreSpec
       }
     }
 
-    "fail if one of the contract ids doesn't have an associated active contract" in {
-      recoverToSucceededIf[ContractNotFound] {
-        for {
-          store <- contractStore(cachesSize = 0L).asFuture
-          _ = store.cacheIndex.set(unusedOffset, 2L)
-          _ <- store.lookupMaximumLedgerTime(Set(cId_1, cId_2))
-        } yield succeed
-      }
+    "fail if one of the cached contract ids doesn't have an associated active contract" in {
+      for {
+        store <- contractStore(cachesSize = 1L).asFuture
+        _ = store.cacheIndex.set(unusedOffset, 2L)
+        // populate the cache
+        _ <- store.lookupActiveContract(Set(bob), cId_5)
+        assertion <- recoverToSucceededIf[ContractNotFound](
+          store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
+        )
+      } yield assertion
+    }
+
+    "fail if one of the fetched contract ids doesn't have an associated active contract" in {
+      for {
+        store <- contractStore(cachesSize = 0L).asFuture
+        _ = store.cacheIndex.set(unusedOffset, 2L)
+        assertion <- recoverToSucceededIf[IllegalArgumentException](
+          store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
+        )
+      } yield assertion
     }
 
     "fail if the requested contract id set is empty" in {
-      recoverToSucceededIf[EmptyContractIds] {
-        for {
-          store <- contractStore(cachesSize = 0L).asFuture
-          _ <- store.lookupMaximumLedgerTime(Set.empty)
-        } yield succeed
-      }
+      for {
+        store <- contractStore(cachesSize = 0L).asFuture
+        _ <- recoverToSucceededIf[EmptyContractIds](store.lookupMaximumLedgerTime(Set.empty))
+      } yield succeed
     }
   }
 
@@ -373,11 +383,11 @@ object MutableCacheBackedContractStoreSpec {
   private val unusedOffset = Offset.beforeBegin
   private val Seq(alice, bob, charlie) = Seq("alice", "bob", "charlie").map(party)
   private val (
-    Seq(cId_1, cId_2, cId_3, cId_4),
-    Seq(contract1, contract2, contract3, contract4),
-    Seq(t1, t2, t3, t4),
+    Seq(cId_1, cId_2, cId_3, cId_4, cId_5),
+    Seq(contract1, contract2, contract3, contract4, _),
+    Seq(t1, t2, t3, t4, _),
   ) =
-    (1 to 4).map { id =>
+    (1 to 5).map { id =>
       (contractId(id), contract(s"id$id"), Instant.ofEpochSecond(id.toLong))
     }.unzip3
 
@@ -389,26 +399,18 @@ object MutableCacheBackedContractStoreSpec {
       signalNewLedgerHead: Offset => Unit = _ => (),
       sourceSubscriber: Option[(Offset, EventSequentialId)] => Source[ContractStateEvent, NotUsed] =
         _ => Source.empty,
-  )(implicit loggingContext: LoggingContext, materializer: Materializer) = {
-
-    {
-      MutableCacheBackedContractStore.ownerWithSubscription(
-        subscribeToContractStateEvents = sourceSubscriber,
-        minBackoffStreamRestart = 10.millis,
-        contractsReader = readerFixture,
-        signalNewLedgerHead = signalNewLedgerHead,
-        metrics = new Metrics(new MetricRegistry),
-        maxContractsCacheSize = cachesSize,
-        maxKeyCacheSize = cachesSize,
-      )(
-        materializer,
-        loggingContext,
-        scala.concurrent.ExecutionContext.global,
-        ResourceContext(scala.concurrent.ExecutionContext.global),
-      )
-
-    }
-  }
+  )(implicit loggingContext: LoggingContext, materializer: Materializer) =
+    new MutableCacheBackedContractStore.OwnerWithSubscription(
+      subscribeToContractStateEvents = sourceSubscriber,
+      minBackoffStreamRestart = 10.millis,
+      contractsReader = readerFixture,
+      signalNewLedgerHead = signalNewLedgerHead,
+      metrics = new Metrics(new MetricRegistry),
+      maxContractsCacheSize = cachesSize,
+      maxKeyCacheSize = cachesSize,
+      executionContext = scala.concurrent.ExecutionContext.global,
+    )
+      .acquire()(ResourceContext(scala.concurrent.ExecutionContext.global))
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {
     override def lookupKeyState(key: Key, validAt: Long)(implicit
@@ -427,6 +429,7 @@ object MutableCacheBackedContractStoreSpec {
       case (`cId_2`, validAt) if validAt >= 1L => activeContract(contract2, Set(bob), t2)
       case (`cId_3`, _) => activeContract(contract3, Set(bob), t3)
       case (`cId_4`, _) => activeContract(contract4, Set(bob), t4)
+      case (`cId_5`, _) => archivedContract(Set(bob))
       case _ => Future.successful(Option.empty)
     }
 
@@ -437,7 +440,12 @@ object MutableCacheBackedContractStoreSpec {
         Future.successful(Some(t4))
       case set if set.isEmpty =>
         Future.failed(EmptyContractIds())
-      case _ => Future.failed(ContractNotFound(ids))
+      case _ =>
+        Future.failed(
+          new IllegalArgumentException(
+            s"The following contracts have not been found: ${ids.map(_.coid).mkString(", ")}"
+          )
+        )
     }
 
     override def lookupActiveContractAndLoadArgument(

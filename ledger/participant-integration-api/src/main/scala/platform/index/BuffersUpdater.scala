@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream._
 import akka.{Done, NotUsed}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.BuffersUpdater._
 import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
@@ -113,12 +113,12 @@ private[index] object BuffersUpdater {
       updateMutableCache: ContractStateEvent => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
+      executionContext: ExecutionContext,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
       sysExitWithCode: Int => Unit = sys.exit(_),
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-      executionContext: ExecutionContext,
   ): BuffersUpdater = new BuffersUpdater(
     subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
     updateCaches = (offset, transactionLogUpdate) => {
@@ -127,7 +127,7 @@ private[index] object BuffersUpdater {
     },
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,
-  )
+  )(mat, loggingContext, executionContext)
 
   private[index] def convertToContractStateEvents(
       tx: TransactionLogUpdate

@@ -55,8 +55,8 @@ final class RecordLikeMethodsSpec
     toValue.modifiers.asScala should contain only Modifier.PUBLIC
   }
 
-  it should "return a Record" in {
-    toValue.returnType shouldEqual ClassName.get(classOf[javaapi.data.Record])
+  it should "return a DamlRecord" in {
+    toValue.returnType shouldEqual ClassName.get(classOf[javaapi.data.DamlRecord])
   }
 
   it should "take no parameter" in {

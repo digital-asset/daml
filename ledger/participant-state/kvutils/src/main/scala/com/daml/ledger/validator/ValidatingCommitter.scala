@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext.newLoggingContextWith
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -49,7 +49,7 @@ class ValidatingCommitter[LogResult](
       envelope: Raw.Envelope,
       submittingParticipantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
+    newLoggingContextWith("correlationId" -> correlationId) { implicit loggingContext =>
       validator
         .validateAndCommitWithContext(
           envelope,

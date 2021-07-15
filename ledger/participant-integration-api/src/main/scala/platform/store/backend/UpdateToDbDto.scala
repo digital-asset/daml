@@ -6,7 +6,9 @@ package com.daml.platform.store.backend
 import java.util.UUID
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{ParticipantId, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
@@ -17,7 +19,7 @@ object UpdateToDbDto {
 
   def apply(
       participantId: ParticipantId,
-      translation: LfValueTranslation,
+      translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
   ): Offset => Update => Iterator[DbDto] = { offset =>
     {
@@ -107,7 +109,7 @@ object UpdateToDbDto {
             package_id = archive.getHash,
             upload_id = uploadId,
             source_description = u.sourceDescription,
-            size = archive.getPayload.size.toLong,
+            package_size = archive.getPayload.size.toLong,
             known_since = u.recordTime.toInstant,
             ledger_offset = offset.toHexString,
             _package = archive.toByteArray,

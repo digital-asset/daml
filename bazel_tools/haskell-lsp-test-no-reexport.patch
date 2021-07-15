@@ -5,8 +5,8 @@ index 1c8350a..4d96585 100644
 @@ -37,6 +37,7 @@ library
    default-language:    Haskell2010
    build-depends:       base >= 4.10 && < 5
-                      , haskell-lsp == 0.18.*
-+                     , haskell-lsp-types
+                      , lsp == 0.18.*
++                     , lsp-types
                       , aeson
                       , aeson-pretty
                       , ansi-terminal

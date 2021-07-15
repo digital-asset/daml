@@ -26,6 +26,7 @@ class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
     expr = null,
     globalCids = Set.empty,
     committers = Set.empty,
+    readAs = Set.empty,
   )
 
   @Setup

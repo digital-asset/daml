@@ -4,7 +4,6 @@
 package com.daml.cliopts
 
 import com.daml.metrics.MetricsReporter
-import scopt.OptionDef
 
 import scala.concurrent.duration.{Duration, FiniteDuration, NANOSECONDS}
 import scala.util.Try
@@ -34,28 +33,19 @@ object Metrics {
   def metricsReporterParse[C](parser: scopt.OptionParser[C])(
       metricsReporter: Setter[C, Option[MetricsReporter]],
       metricsReportingInterval: Setter[C, FiniteDuration],
-      hide: Boolean = false,
   ): Unit = {
     import parser.opt
 
-    def hideIfRequested[A](opt: OptionDef[A, C]): Unit =
-      if (hide) {
-        opt.hidden()
-        ()
-      }
+    opt[MetricsReporter]("metrics-reporter")
+      .action((reporter, config) => metricsReporter(_ => Some(reporter), config))
+      .optional()
+      .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
 
-    val optionMetricsReporter =
-      opt[MetricsReporter]("metrics-reporter")
-        .action((reporter, config) => metricsReporter(_ => Some(reporter), config))
-        .optional()
-        .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
-    hideIfRequested(optionMetricsReporter)
+    opt[DurationFormat]("metrics-reporting-interval")
+      .action((interval, config) => metricsReportingInterval(_ => interval.unwrap, config))
+      .optional()
+      .text("Set metric reporting interval.")
 
-    val optionMetricsReportingInterval =
-      opt[DurationFormat]("metrics-reporting-interval")
-        .action((interval, config) => metricsReportingInterval(_ => interval.unwrap, config))
-        .optional()
-        .text("Set metric reporting interval.")
-    hideIfRequested(optionMetricsReportingInterval)
+    ()
   }
 }

@@ -7,6 +7,7 @@ module DA.Daml.Doc.Tests(mkTestTree)
   where
 
 import DA.Bazel.Runfiles
+import DA.Daml.Compiler.Output (diagnosticsLogger)
 import DA.Daml.Options.Types
 
 import DA.Daml.Doc.Extract
@@ -15,16 +16,13 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
-import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Development.IDE.LSP.Protocol
 
 import Control.Monad
 import           Control.Monad.Trans.Maybe
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.List.Extra
 import qualified Data.Text          as T
-import qualified Data.Text.IO as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
@@ -256,14 +254,10 @@ runDamldoc testfile importPathM = do
           , optImportPath = maybeToList importPathM
           }
 
-    let diagLogger = \case
-            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath' fp,ShowDiag,) diags
-            _ -> pure ()
-
     -- run the doc generator on that file
     mbResult <- runMaybeT $ extractDocs
         defaultExtractOptions
-        diagLogger
+        diagnosticsLogger
         opts
         [toNormalizedFilePath' testfile]
 

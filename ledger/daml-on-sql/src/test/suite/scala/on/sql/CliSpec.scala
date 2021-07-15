@@ -4,14 +4,14 @@
 package com.daml.on.sql
 
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.on.sql.CliSpec._
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.CommonCliSpecBase
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
+import org.scalatest.BeforeAndAfterEach
 
 import scala.collection.mutable
-import CliSpec._
-import org.scalatest.BeforeAndAfterEach
 
 class CliSpec
     extends CommonCliSpecBase(

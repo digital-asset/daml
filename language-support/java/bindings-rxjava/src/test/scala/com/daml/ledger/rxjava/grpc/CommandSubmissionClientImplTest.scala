@@ -6,7 +6,7 @@ package com.daml.ledger.rxjava.grpc
 import java.util.Optional
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
+import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
@@ -85,7 +85,7 @@ class CommandSubmissionClientImplTest
 
   def submitDummyCommand(client: CommandSubmissionClient, accessToken: Option[String] = None) = {
     val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
-    val record = new Record(recordId, List.empty[Record.Field].asJava)
+    val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
     val command = new CreateCommand(new Identifier("a", "a", "b"), record)
     val commands = genCommands(List[Command](command), Option(someParty))
     accessToken

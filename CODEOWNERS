@@ -27,29 +27,18 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
-/daml-lf/ @remyhaemmerle-da
-/daml-lf/archive/da/ @cocreature
-/daml-lf/data-scalacheck/ @S11001001 @cocreature
-/daml-lf/engine/ @cocreature
-/daml-lf/governance.rst
-/daml-lf/interpreter/ @cocreature
-/daml-lf/kv-transaction-support/ @cocreature @gerolf-da @miklos-da
-/daml-lf/repl/ @cocreature
-/daml-lf/scenario-interpreter/  @cocreature
-/daml-lf/spec/daml-lf-1.rst @cocreature
-/daml-lf/spec/transaction.rst @cocreature
-/daml-lf/spec/value.rst @cocreature
-/daml-lf/transaction-test-lib/ @S11001001 @cocreature
-/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @cocreature
-/daml-lf/transaction/src/main/scala/com/daml/lf/value/ @cocreature
-/daml-lf/validation/ @cocreature
+/daml-lf/ @remyhaemmerle-da @cocreature
+/daml-lf/data-scalacheck/ @S11001001
+/daml-lf/governance.rst @sofiafaro-da
+/daml-lf/kv-transaction-support/ @gerolf-da @miklos-da
+/daml-lf/transaction-test-lib/ @S11001001
 
 /ledger-service/    @S11001001 @cocreature @stefanobaghino-da
 
 /ledger/      @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
 /ledger-api/  @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
 
-/ledger/participant-state/kvutils/ @fabiotudone-da @gerolf-da @miklos-da @SamirTalwar-DA
+/ledger/participant-state/kvutils/ @fabiotudone-da @gerolf-da @miklos-da @nicu-da @SamirTalwar-DA
 
 /runtime-components/    @stefanobaghino-da @cocreature
 

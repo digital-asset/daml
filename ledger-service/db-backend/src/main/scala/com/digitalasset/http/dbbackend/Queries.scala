@@ -628,14 +628,10 @@ private object OracleQueries extends Queries {
         ,${jsonColumn(sql"observers")}
         """
 
-  private[this] def stakeholdersPrep = DoMagicSetup(
-    sql"""CREATE MATERIALIZED VIEW LOG ON contract"""
-  )
-
   private[this] def stakeholdersView = CreateMaterializedView(
     "contract_stakeholders",
     sql"""CREATE MATERIALIZED VIEW contract_stakeholders
-          BUILD IMMEDIATE REFRESH FAST ON COMMIT AS
+          BUILD IMMEDIATE REFRESH FAST ON STATEMENT AS
           SELECT contract_id, stakeholder FROM contract,
                  json_table(json_array(signatories, observers), '$$[*][*]'
                     columns (stakeholder $partyType path '$$'))""",
@@ -646,7 +642,7 @@ private object OracleQueries extends Queries {
   )
 
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(stakeholdersPrep, stakeholdersView, stakeholdersIndex)
+    super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
   protected[this] type DBContractKey = JsValue
 

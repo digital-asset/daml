@@ -6,7 +6,7 @@ package engine
 
 import java.io.File
 
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -42,13 +42,8 @@ class ReinterpretTest
   private val party = Party.assertFromString("Party")
 
   private def loadPackage(resource: String): (PackageId, Map[PackageId, Package]) = {
-    val packages =
-      UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packagesMap = Map(packages.all.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-    }: _*)
-    val (mainPkgId, _) = packages.main
-    (mainPkgId, packagesMap)
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    (packages.main._1, packages.all.toMap)
   }
 
   private val (miniTestsPkgId, allPackages) = loadPackage(
@@ -98,7 +93,6 @@ class ReinterpretTest
         lookupContract,
         lookupPackage,
         lookupKey,
-        VisibleByKey.fromSubmitters(submitters),
       )
     res match {
       case Right((tx, _)) => Right(tx)
@@ -141,7 +135,7 @@ class ReinterpretTest
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
       val Left(err) = reinterpretCommand(theCommand)
-      assert(err.toString().contains("Error: CRASH: functions are not comparable"))
+      assert(err.msg.contains("Error: functions are not comparable"))
     }
 
     "rollback version 14 contract creation" in {

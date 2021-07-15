@@ -19,7 +19,8 @@ import com.daml.ledger.validator.{
   LedgerStateAccess,
   LedgerStateOperationsReaderAdapter,
 }
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.ContextualizedLogger
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
@@ -62,7 +63,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       exportRecordTime: Instant,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    LoggingContext.newLoggingContext(
+    newLoggingContextWith(
       "participantId" -> submittingParticipantId,
       "correlationId" -> correlationId,
     ) { implicit loggingContext =>

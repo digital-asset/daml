@@ -44,9 +44,6 @@ object ValueCoder {
     private[lf] def encode(contractId: Cid): proto.ContractId
   }
 
-  @deprecated("use CidEncoder", since = "1.1.2")
-  val AbsCidDecoder = CidEncoder
-
   object CidEncoder extends EncodeCid[ContractId] {
     private[lf] def encode(cid: ContractId): proto.ContractId =
       proto.ContractId.newBuilder.setContractId(cid.coid).build

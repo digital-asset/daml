@@ -5,9 +5,9 @@ package com.daml.platform.store.serialization
 
 import java.io.InputStream
 
-import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.google.protobuf.CodedInputStream
 
 private[platform] object ValueSerializer {
 
@@ -19,6 +19,14 @@ private[platform] object ValueSerializer {
       .encodeVersionedValue(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
 
+  private[this] val PROTOBUF_RECURSION_LIMIT = 1000
+
+  private[this] def lfValueCodedInputStream(stream: InputStream) = {
+    val cos = CodedInputStream.newInstance(stream)
+    cos.setRecursionLimit(PROTOBUF_RECURSION_LIMIT)
+    cos
+  }
+
   private def deserializeValueHelper(
       stream: InputStream,
       errorContext: => Option[String],
@@ -26,8 +34,7 @@ private[platform] object ValueSerializer {
     ValueCoder
       .decodeVersionedValue(
         ValueCoder.CidDecoder,
-        ValueOuterClass.VersionedValue
-          .parseFrom(Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)),
+        ValueOuterClass.VersionedValue.parseFrom(lfValueCodedInputStream(stream)),
       )
       .fold(
         error =>

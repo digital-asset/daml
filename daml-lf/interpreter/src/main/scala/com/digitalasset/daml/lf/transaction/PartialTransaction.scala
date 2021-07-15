@@ -40,8 +40,7 @@ private[lf] object PartialTransaction {
   private type ExerciseNode = Node.NodeExercises[NodeId, Value.ContractId]
 
   private final case class IncompleteTxImpl(
-      val transaction: TX,
-      val exerciseContextMaybe: Option[ExerciseNode],
+      val transaction: TX
   ) extends TxIncompleteTransaction
 
   sealed abstract class ContextInfo {
@@ -359,12 +358,13 @@ private[lf] case class PartialTransaction(
       case _: PartialTransaction.RootContextInfo => None
     }
 
+    val ptx = unwind
+
     IncompleteTxImpl(
       GenTransaction(
-        nodes,
-        ImmArray(context.children.toImmArray.toSeq.sortBy(_.index)),
-      ),
-      unwindToExercise(context.info).map(makeExNode(_)),
+        ptx.nodes,
+        ImmArray(ptx.context.children.toImmArray.toSeq.sortBy(_.index)),
+      )
     )
   }
 

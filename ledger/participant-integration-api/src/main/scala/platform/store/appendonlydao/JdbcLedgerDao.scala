@@ -11,6 +11,8 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
@@ -21,12 +23,13 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.archive.Decode
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
@@ -142,7 +145,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           storageBackend.configurationEntries(
             startExclusive = startExclusive,
@@ -207,23 +210,9 @@ private class JdbcLedgerDao(
             )
         }
 
-        val savepoint = conn.setSavepoint()
-
         val offset = validateOffsetStep(offsetStep, conn)
-        Try({
-          sequentialIndexer.store(conn, offset, Some(update))
-          PersistenceResponse.Ok
-        }).recover {
-          case NonFatal(e) if e.getMessage.contains(storageBackend.duplicateKeyError) =>
-            logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
-            conn.rollback(savepoint)
-            sequentialIndexer.store(
-              conn,
-              offset,
-              None,
-            ) // we bump the offset regardless of the fact of a duplicate
-            PersistenceResponse.Duplicate
-        }.get
+        sequentialIndexer.store(conn, offset, Some(update))
+        PersistenceResponse.Ok
       }
     }
 
@@ -285,7 +274,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
           storageBackend.partyEntries(
             startExclusive = startExclusive,
@@ -476,7 +465,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive)(storageBackend.lfArchive(packageId))
-      .map(_.map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data))))(
+      .map(_.map(data => ArchiveParser.fromByteArray(data)))(
         servicesExecutionContext
       )
 
@@ -547,7 +536,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries)(
           storageBackend.packageEntries(
             startExclusive = startExclusive,
@@ -647,7 +636,6 @@ private class JdbcLedgerDao(
       storageBackend,
       queryNonPruned,
       metrics,
-      servicesExecutionContext,
     )
 
   private val postCommitValidation =
@@ -731,12 +719,11 @@ private class JdbcLedgerDao(
 private[platform] object JdbcLedgerDao {
 
   object Logging {
+    def submissionId(id: String): LoggingEntry =
+      "submissionId" -> id
 
-    def submissionId(id: String): (String, String) = "submissionId" -> id
-
-    def transactionId(id: TransactionId): (String, String) =
+    def transactionId(id: TransactionId): LoggingEntry =
       "transactionId" -> id
-
   }
 
   def readOwner(

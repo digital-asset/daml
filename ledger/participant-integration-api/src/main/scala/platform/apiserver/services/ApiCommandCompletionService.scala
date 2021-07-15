@@ -16,6 +16,7 @@ import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
@@ -63,17 +64,14 @@ private[apiserver] final class ApiCommandCompletionService private (
   private def singleCompletionLoggable(
       commandId: String,
       statusCode: Option[Int],
-  ): Map[String, String] =
-    Map(
+  ): LoggingEntries =
+    LoggingEntries(
       logging.commandId(commandId),
-      "statusCode" -> statusCode.map(_.toString).getOrElse(""),
+      "statusCode" -> statusCode.fold("")(_.toString),
     )
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
-
-  override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
-    Ordering.by[LedgerOffset.Absolute, String](_.value)
 
 }
 

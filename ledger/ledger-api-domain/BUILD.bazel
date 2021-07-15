@@ -19,7 +19,8 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//ledger/participant-state",
+        "//ledger/ledger-configuration",
+        "//libs-scala/logging-entries",
         "@maven//:io_zipkin_brave_brave",
     ],
 )

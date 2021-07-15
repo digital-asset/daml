@@ -13,10 +13,10 @@ CREATE TABLE parameters
     -- the generated or configured id identifying the ledger
     ledger_id                          NVARCHAR2(1000) not null,
     -- stores the head offset, meant to change with every new ledger entry
-    ledger_end                         VARCHAR2(4000)  null,
+    ledger_end                         VARCHAR2(4000),
+    external_ledger_end                NVARCHAR2(1000),
     participant_id                     NVARCHAR2(1000),
     participant_pruned_up_to_inclusive VARCHAR2(4000),
-    external_ledger_end                NVARCHAR2(1000),
     configuration                      BLOB
 );
 
@@ -81,9 +81,8 @@ CREATE TABLE packages
 -- Table for storing a log of ledger configuration changes and rejections.
 CREATE TABLE configuration_entries
 (
-    ledger_offset    VARCHAR2(4000)  not null,
-    recorded_at      timestamp       not null, -- with time zone
-
+    ledger_offset    VARCHAR2(4000)  not null primary key,
+    recorded_at      timestamp       not null,
     submission_id    NVARCHAR2(1000) not null,
     -- The type of entry, one of 'accept' or 'reject'.
     typ              NVARCHAR2(1000) not null,
@@ -117,7 +116,7 @@ CREATE TABLE party_entries
 (
     -- The ledger end at the time when the party allocation was added
     -- cannot BLOB add as primary key with oracle
-    ledger_offset    VARCHAR2(4000)  not null,
+    ledger_offset    VARCHAR2(4000)  primary key not null,
     recorded_at      timestamp       not null, --with timezone
     -- SubmissionId for the party allocation
     submission_id    NVARCHAR2(1000),
@@ -154,8 +153,8 @@ CREATE UNIQUE INDEX idx_party_entries
 
 CREATE TABLE package_entries
 (
-    ledger_offset    VARCHAR2(4000)  not null,
-    recorded_at      timestamp       not null, --with timezone
+    ledger_offset    VARCHAR2(4000)  not null primary key,
+    recorded_at      timestamp       not null,
     -- SubmissionId for package to be uploaded
     submission_id    NVARCHAR2(1000),
     -- The type of entry, one of 'accept' or 'reject'
@@ -308,4 +307,3 @@ create table participant_contract_witnesses
     primary key (contract_id, contract_witness),
     foreign key (contract_id) references participant_contracts (contract_id)
 );
-

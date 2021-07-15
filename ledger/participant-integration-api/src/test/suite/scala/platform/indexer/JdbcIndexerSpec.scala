@@ -10,15 +10,10 @@ import akka.stream.scaladsl.{Flow, Source}
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  LedgerInitialConditions,
-  Offset,
-  ReadService,
-  TimeModel,
-  Update,
-}
+import com.daml.ledger.participant.state.v1.{ReadService, Update}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Bytes
 import com.daml.lf.data.Time.Timestamp
@@ -27,8 +22,8 @@ import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
-import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.store.dao.LedgerDao
+import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -59,7 +54,7 @@ final class JdbcIndexerSpec
             ledgerId = "ledger-id",
             config = Configuration(
               generation = 0,
-              timeModel = TimeModel.reasonableDefault,
+              timeModel = LedgerTimeModel.reasonableDefault,
               maxDeduplicationTime = Duration.ofDays(1),
             ),
             initialRecordTime = Timestamp.Epoch,

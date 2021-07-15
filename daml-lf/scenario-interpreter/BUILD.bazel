@@ -13,12 +13,15 @@ load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "scenario-interpreter",
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.daml.lf.speedy.Main",
+    scala_deps = ["@maven//:org_typelevel_paiges_core"],
     tags = ["maven_coordinates=com.daml:daml-lf-scenario-interpreter:__VERSION__"],
+    versioned_scala_deps = {"2.12": ["@maven//:org_scalaz_scalaz_core"]},
     visibility = [
         "//visibility:public",
     ],
@@ -28,6 +31,7 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//libs-scala/nameof",
     ],
 )
 

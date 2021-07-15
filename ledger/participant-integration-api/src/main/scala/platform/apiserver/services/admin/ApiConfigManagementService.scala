@@ -12,14 +12,9 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service._
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SubmissionId,
-  SubmissionResult,
-  WriteConfigService,
-}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WriteConfigService}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -27,8 +22,8 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.platform.server.api.{ValidationLogger, validation}
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.{ValidationLogger, validation}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -42,6 +37,7 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
+    submissionIdGenerator: String => SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -109,8 +105,11 @@ private[apiserver] final class ApiConfigManagementService private (
           _ <-
             if (request.configurationGeneration != expectedGeneration) {
               Future.failed(
-                ErrorFactories.invalidArgument(
-                  s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                ValidationLogger.logFailureWithContext(
+                  request,
+                  ErrorFactories.invalidArgument(
+                    s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                  ),
                 )
               )
             } else {
@@ -124,7 +123,7 @@ private[apiserver] final class ApiConfigManagementService private (
             .copy(timeModel = params.newTimeModel)
 
           // Submit configuration to the ledger, and start polling for the result.
-          submissionId = SubmissionId.assertFromString(request.submissionId)
+          augmentedSubmissionId = submissionIdGenerator(request.submissionId)
           synchronousResponse = new SynchronousResponse(
             new SynchronousResponseStrategy(
               writeService,
@@ -134,7 +133,7 @@ private[apiserver] final class ApiConfigManagementService private (
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
           )
           entry <- synchronousResponse.submitAndWait(
-            submissionId,
+            augmentedSubmissionId,
             (params.maximumRecordTime, newConfig),
           )
         } yield SetTimeModelResponse(entry.configuration.generation)
@@ -143,7 +142,7 @@ private[apiserver] final class ApiConfigManagementService private (
     }
 
   private case class SetTimeModelParameters(
-      newTimeModel: v1.TimeModel,
+      newTimeModel: LedgerTimeModel,
       maximumRecordTime: Time.Timestamp,
       timeToLive: FiniteDuration,
   )
@@ -160,7 +159,7 @@ private[apiserver] final class ApiConfigManagementService private (
       )
       pMinSkew <- requirePresence(pTimeModel.minSkew, "min_skew")
       pMaxSkew <- requirePresence(pTimeModel.maxSkew, "max_skew")
-      newTimeModel <- v1.TimeModel(
+      newTimeModel <- LedgerTimeModel(
         avgTransactionLatency = DurationConversion.fromProto(pAvgTransactionLatency),
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
@@ -191,6 +190,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration,
+      submissionIdGenerator: String => SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -201,6 +201,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend,
       timeProvider,
       ledgerConfiguration,
+      submissionIdGenerator,
     )
 
   private final class SynchronousResponseStrategy(

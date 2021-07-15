@@ -7,10 +7,9 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import com.daml.lf.archive.Reader
+import com.daml.lf.archive.ArchivePayloadParser
 import com.daml.lf.data.{Ref => DamlLfRef}
 import com.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.api.{v1 => V1}
@@ -302,10 +301,9 @@ class PlatformSubscriber(
   }
 
   private def decodePackage(res: GetPackageResponse) = {
-    val cos = Reader.damlLfCodedInputStream(res.archivePayload.newInput)
-    val payload = DamlLf.ArchivePayload.parseFrom(cos)
+    val payload = ArchivePayloadParser.fromByteString(res.archivePayload)
     val (errors, out) =
-      InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash) -> payload)
+      InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash), payload)
     if (!errors.equals(Errors.zeroErrors)) {
       log.error("Errors loading package {}: {}", res.hash, errors.toString)
     }

@@ -5,7 +5,7 @@ load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
@@ -277,6 +277,18 @@ excluded_test_tool_tests = [
                 "exclusions": [
                     "CommandServiceIT:CSCreateAndBadExerciseChoice",
                     "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0-snapshot.20210713.7343.1.1f35db17",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
+                "exclusions": [
+                    "ConfigManagementServiceIT:DuplicateSubmissionId",
+                    "PackageManagementServiceIT:DuplicateSubmissionId",
                 ],
             },
         ],
@@ -599,7 +611,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows else None
+    ) if is_linux else None
 
     client_server_test(
         name = name + "-classic-postgresql",
@@ -618,7 +630,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows else None
+    ) if is_linux else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(

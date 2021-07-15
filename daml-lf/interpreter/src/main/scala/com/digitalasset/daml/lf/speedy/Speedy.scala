@@ -23,6 +23,7 @@ import com.daml.lf.transaction.{
   TransactionVersion,
 }
 import com.daml.lf.value.{Value => V}
+import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -103,7 +104,9 @@ private[lf] object Speedy {
       signatories: Set[Party],
       observers: Set[Party],
       key: Option[Node.KeyWithMaintainers[V[Nothing]]],
-  )
+  ) {
+    private[lf] val stakeholders: Set[Party] = signatories union observers;
+  }
 
   private[lf] final case class OnLedger(
       val validating: Boolean,
@@ -112,6 +115,8 @@ private[lf] object Speedy {
       private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
       var committers: Set[Party],
+      /* Additional readers (besides committers) for visibility checks. */
+      var readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
@@ -120,7 +125,11 @@ private[lf] object Speedy {
       var globalDiscriminators: Set[crypto.Hash],
       var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode {
-
+    private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
+      if (validating) { _ => SVisibleToStakeholders.Visible }
+      else {
+        SVisibleToStakeholders.fromSubmitters(committers, readAs)
+      }
     private[lf] def finish: PartialTransaction.Result = ptx.finish
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction(): IncompleteTransaction = ptx.finishIncomplete
@@ -158,6 +167,8 @@ private[lf] object Speedy {
       var lastLocation: Option[Location],
       /* The trace log. */
       val traceLog: TraceLog,
+      /* Engine-generated warnings. */
+      val warningLog: WarningLog,
       /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
       /* Used when enableLightweightStepTracing is true */
@@ -179,10 +190,10 @@ private[lf] object Speedy {
     @inline
     private[speedy] def kontDepth(): Int = kontStack.size()
 
-    private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
+    private[lf] def withOnLedger[T](where: String)(f: OnLedger => T): T =
       ledgerMode match {
         case onLedger: OnLedger => f(onLedger)
-        case OffLedger => throw SRequiresOnLedger(op)
+        case OffLedger => throw SErrorCrash(where, "unexpected off-ledger machine")
       }
 
     @inline
@@ -234,7 +245,10 @@ private[lf] object Speedy {
       val oldBase = this.envBase
       val newBase = this.env.size
       if (newBase < oldBase) {
-        crash(s"markBase: $oldBase -> $newBase -- NOT AN INCREASE")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"markBase: $oldBase -> $newBase -- NOT AN INCREASE",
+        )
       }
       this.envBase = newBase
       oldBase
@@ -245,7 +259,10 @@ private[lf] object Speedy {
     @inline
     def restoreBase(envBase: Int): Unit = {
       if (this.envBase < envBase) {
-        crash(s"restoreBase: ${this.envBase} -> ${envBase} -- NOT A REDUCTION")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"restoreBase: ${this.envBase} -> ${envBase} -- NOT A REDUCTION",
+        )
       }
       this.envBase = envBase
     }
@@ -259,7 +276,10 @@ private[lf] object Speedy {
       val envSizeToBeRestored = this.envBase
       val count = env.size - envSizeToBeRestored
       if (count < 0) {
-        crash(s"popTempStackToBase: ${env.size} --> ${envSizeToBeRestored} -- WRONG DIRECTION")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"popTempStackToBase: ${env.size} --> ${envSizeToBeRestored} -- WRONG DIRECTION",
+        )
       }
       if (count > 0) {
         env.subList(envSizeToBeRestored, env.size).clear
@@ -341,7 +361,9 @@ private[lf] object Speedy {
         coid match {
           case V.ContractId.V1(discriminator, _)
               if onLedger.globalDiscriminators.contains(discriminator) =>
-            crash("Conflicting discriminators between a global and local contract ID.")
+            throw SErrorDamlException(
+              interpretation.Error.ContractIdFreshness(discriminator)
+            )
           case _ =>
             onLedger.cachedContracts = onLedger.cachedContracts.updated(
               coid,
@@ -355,7 +377,7 @@ private[lf] object Speedy {
         cid match {
           case V.ContractId.V1(discriminator, _) =>
             if (onLedger.ptx.localContracts.contains(V.ContractId.V1(discriminator)))
-              crash("Conflicting discriminators between a global and local contract ID.")
+              throw SErrorDamlException(interpretation.Error.ContractIdFreshness(discriminator))
             else
               onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
           case _ =>
@@ -413,7 +435,7 @@ private[lf] object Speedy {
         case serr: SError =>
           SResultError(serr)
         case ex: RuntimeException =>
-          SResultError(SErrorCrash(s"exception: $ex")) //stop
+          SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) //stop
       }
     }
 
@@ -437,8 +459,9 @@ private[lf] object Speedy {
               }
             case None =>
               if (compiledPackages.packageIds.contains(ref.packageId))
-                crash(
-                  s"definition $ref not found even after caller provided new set of packages"
+                throw SErrorCrash(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"definition $ref not found even after caller provided new set of packages",
                 )
               else
                 throw SpeedyHungry(
@@ -513,7 +536,7 @@ private[lf] object Speedy {
           }
 
         case _ =>
-          crash(s"Applying non-PAP: $vfun")
+          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
       }
     }
 
@@ -553,7 +576,7 @@ private[lf] object Speedy {
           this.evaluateArguments(actuals, newArgs, newArgsLimit)
 
         case _ =>
-          crash(s"Applying non-PAP: $vfun")
+          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
       }
     }
 
@@ -611,11 +634,14 @@ private[lf] object Speedy {
       def assertRight[X](x: Either[LookupError, X]) =
         x match {
           case Right(value) => value
-          case Left(error) => crash(error.pretty)
+          case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
         }
 
       def go(ty: Type, value: V[V.ContractId]): SValue = {
-        def typeMismatch = crash(s"mismatching type: $ty and value: $value")
+        def typeMismatch = throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"mismatching type: $ty and value: $value",
+        )
 
         val (tyFun, argTypes) = AstUtil.destructApp(ty)
         tyFun match {
@@ -721,13 +747,24 @@ private[lf] object Speedy {
       returnValue = go(typ0, value0)
     }
 
+    def checkContractVisibility(onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
+      onLedger.visibleToStakeholders(contract.stakeholders) match {
+        case SVisibleToStakeholders.Visible => ()
+        case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+          this.warningLog.add(
+            s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning"
+          )
+      }
+    }
   }
 
   object Machine {
 
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
+    private val damlWarnings = LoggerFactory.getLogger("daml.warnings")
 
     def newTraceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100)
+    def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
     def apply(
         compiledPackages: CompiledPackages,
@@ -736,8 +773,10 @@ private[lf] object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
+        readAs: Set[Party],
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     ): Machine = {
       val pkg2TxVersion =
@@ -758,6 +797,7 @@ private[lf] object Speedy {
           ptx = PartialTransaction
             .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
           committers = committers,
+          readAs = readAs,
           commitLocation = None,
           dependsOnTime = false,
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
@@ -767,6 +807,7 @@ private[lf] object Speedy {
           contractKeyUniqueness = contractKeyUniqueness,
         ),
         traceLog = traceLog,
+        warningLog = warningLog,
         compiledPackages = compiledPackages,
         steps = 0,
         track = Instrumentation(),
@@ -803,6 +844,7 @@ private[lf] object Speedy {
         expr = SEApp(updateSE, Array(SEValue.Token)),
         globalCids = Set.empty,
         committers = Set(committer),
+        readAs = Set.empty,
       )
     }
 
@@ -835,7 +877,8 @@ private[lf] object Speedy {
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
-        traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
+        traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
     ): Machine =
       new Machine(
         ctrl = expr,
@@ -848,6 +891,7 @@ private[lf] object Speedy {
         lastLocation = None,
         ledgerMode = OffLedger,
         traceLog = traceLog,
+        warningLog = warningLog,
         compiledPackages = compiledPackages,
         steps = 0,
         track = Instrumentation(),
@@ -1063,11 +1107,13 @@ private[lf] object Speedy {
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken =>
-        crash("Match on non-matchable value")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
     }
 
     machine.ctrl = altOpt
-      .getOrElse(crash(s"No match for $v in ${alts.toList}"))
+      .getOrElse(
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"No match for $v in ${alts.toList}")
+      )
       .body
   }
 
@@ -1245,6 +1291,7 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
+        machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value
       }

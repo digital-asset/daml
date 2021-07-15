@@ -6,25 +6,27 @@ package com.daml.platform.store.backend.h2
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SQL
-import anorm.SqlStringInterpolation
+import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import anorm.SqlParser.get
-import com.daml.ledger.{ApplicationId, TransactionId}
+import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
-import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
+import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
+import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
+  EventStorageBackendTemplate,
+  EventStrategy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
 
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
-    with CommonStorageBackend[AppendOnlySchema.Batch] {
+    with CommonStorageBackend[AppendOnlySchema.Batch]
+    with EventStorageBackendTemplate {
 
   override def reset(connection: Connection): Unit = {
     SQL("""set referential_integrity false;
@@ -114,338 +116,6 @@ private[backend] object H2StorageBackend
       key = key,
     )(connection)
 
-  def transactionsEventsSingleWildcardParty(
-      startExclusive: Long,
-      endInclusive: Long,
-      party: Ref.Party,
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.transactionsEventsSingleWildcardParty(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      party = party,
-      partyArrayContext = partyArrayContext,
-      witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def transactionsEventsSinglePartyWithTemplates(
-      startExclusive: Long,
-      endInclusive: Long,
-      party: Ref.Party,
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.transactionsEventsSinglePartyWithTemplates(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      party = party,
-      partyArrayContext = partyArrayContext,
-      witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
-      templateIds = templateIds,
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def transactionsEventsOnlyWildcardParties(
-      startExclusive: Long,
-      endInclusive: Long,
-      parties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.transactionsEventsOnlyWildcardParties(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      filteredWitnessesClause = arrayIntersectionValues("flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-      witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", parties),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def transactionsEventsSameTemplates(
-      startExclusive: Long,
-      endInclusive: Long,
-      parties: Set[Ref.Party],
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.transactionsEventsSameTemplates(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      filteredWitnessesClause = arrayIntersectionValues("flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-      witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", parties),
-      templateIds = templateIds,
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def transactionsEventsMixedTemplates(
-      startExclusive: Long,
-      endInclusive: Long,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
-    val parties = partiesAndTemplateIds.map(_._1)
-    TemplatedStorageBackend.transactionsEventsMixedTemplates(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      filteredWitnessesClause = arrayIntersectionValues("flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-      partiesAndTemplatesCondition =
-        formatPartiesAndTemplatesWhereClause("flat_event_witnesses", partiesAndTemplateIds),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-  }
-
-  def transactionsEventsMixedTemplatesWithWildcardParties(
-      startExclusive: Long,
-      endInclusive: Long,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      wildcardParties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
-    val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
-    TemplatedStorageBackend.transactionsEventsMixedTemplatesWithWildcardParties(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      filteredWitnessesClause = arrayIntersectionValues("flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-      witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", wildcardParties),
-      partiesAndTemplatesCondition =
-        formatPartiesAndTemplatesWhereClause("flat_event_witnesses", partiesAndTemplateIds),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-  }
-
-  def activeContractsEventsSingleWildcardParty(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      party: Ref.Party,
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.activeContractsEventsSingleWildcardParty(
-      startExclusive = startExclusive,
-      endInclusiveSeq = endInclusiveSeq,
-      endInclusiveOffset = endInclusiveOffset,
-      party = party,
-      partyArrayContext = partyArrayContext,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def activeContractsEventsSinglePartyWithTemplates(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      party: Ref.Party,
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.activeContractsEventsSinglePartyWithTemplates(
-      startExclusive = startExclusive,
-      endInclusiveSeq = endInclusiveSeq,
-      endInclusiveOffset = endInclusiveOffset,
-      party = party,
-      partyArrayContext = partyArrayContext,
-      templateIds = templateIds,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def activeContractsEventsOnlyWildcardParties(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      parties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.activeContractsEventsOnlyWildcardParties(
-      startExclusive = startExclusive,
-      endInclusiveSeq = endInclusiveSeq,
-      endInclusiveOffset = endInclusiveOffset,
-      filteredWitnessesClause = arrayIntersectionValues("active_cs.flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", parties),
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("active_cs.flat_event_witnesses", parties),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def activeContractsEventsSameTemplates(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      parties: Set[Ref.Party],
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.activeContractsEventsSameTemplates(
-      startExclusive = startExclusive,
-      endInclusiveSeq = endInclusiveSeq,
-      endInclusiveOffset = endInclusiveOffset,
-      templateIds = templateIds,
-      filteredWitnessesClause = arrayIntersectionValues("active_cs.flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", parties),
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("active_cs.flat_event_witnesses", parties),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def activeContractsEventsMixedTemplates(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
-    val parties = partiesAndTemplateIds.map(_._1)
-    TemplatedStorageBackend.activeContractsEventsMixedTemplates(
-      startExclusive = startExclusive,
-      endInclusiveSeq = endInclusiveSeq,
-      endInclusiveOffset = endInclusiveOffset,
-      filteredWitnessesClause = arrayIntersectionValues("active_cs.flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", parties),
-      partiesAndTemplatesCondition = formatPartiesAndTemplatesWhereClause(
-        "active_cs.flat_event_witnesses",
-        partiesAndTemplateIds,
-      ),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-  }
-
-  def activeContractsEventsMixedTemplatesWithWildcardParties(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      wildcardParties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
-    val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
-    TemplatedStorageBackend.activeContractsEventsMixedTemplatesWithWildcardParties(
-      startExclusive = startExclusive,
-      endInclusiveSeq = endInclusiveSeq,
-      endInclusiveOffset = endInclusiveOffset,
-      filteredWitnessesClause = arrayIntersectionValues("active_cs.flat_event_witnesses", parties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", parties),
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("active_cs.flat_event_witnesses", wildcardParties),
-      partiesAndTemplatesCondition = formatPartiesAndTemplatesWhereClause(
-        "active_cs.flat_event_witnesses",
-        partiesAndTemplateIds,
-      ),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-  }
-
-  def flatTransactionSingleParty(
-      transactionId: TransactionId,
-      requestingParty: Ref.Party,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.flatTransactionSingleParty(
-      transactionId = transactionId,
-      requestingParty = requestingParty,
-      partyArrayContext = partyArrayContext,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("flat_event_witnesses", Set(requestingParty)),
-    )(connection)
-
-  def flatTransactionMultiParty(
-      transactionId: TransactionId,
-      requestingParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] =
-    TemplatedStorageBackend.flatTransactionMultiParty(
-      transactionId = transactionId,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("flat_event_witnesses", requestingParties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
-    )(connection)
-
-  def transactionTreeSingleParty(
-      transactionId: TransactionId,
-      requestingParty: Ref.Party,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] =
-    TemplatedStorageBackend.transactionTreeSingleParty(
-      transactionId = transactionId,
-      requestingParty = requestingParty,
-      partyArrayContext = partyArrayContext,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
-    )(connection)
-
-  def transactionTreeMultiParty(
-      transactionId: TransactionId,
-      requestingParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] =
-    TemplatedStorageBackend.transactionTreeMultiParty(
-      transactionId = transactionId,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("tree_event_witnesses", requestingParties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
-      filteredWitnessesClause = arrayIntersectionValues("tree_event_witnesses", requestingParties),
-    )(connection)
-
-  def transactionTreeEventsSingleParty(
-      startExclusive: Long,
-      endInclusive: Long,
-      requestingParty: Ref.Party,
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] =
-    TemplatedStorageBackend.transactionTreeEventsSingleParty(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      requestingParty = requestingParty,
-      partyArrayContext = partyArrayContext,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
-  def transactionTreeEventsMultiParty(
-      startExclusive: Long,
-      endInclusive: Long,
-      requestingParties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] =
-    TemplatedStorageBackend.transactionTreeEventsMultiParty(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      witnessesWhereClause =
-        arrayIntersectionWhereClause("tree_event_witnesses", requestingParties),
-      filteredWitnessesClause = arrayIntersectionValues("tree_event_witnesses", requestingParties),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
-      limitExpr = limitClause(limit),
-      fetchSizeHint = fetchSizeHint,
-    )(connection)
-
   // TODO FIXME: this is for postgres not for H2
   def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
@@ -456,28 +126,62 @@ private[backend] object H2StorageBackend
       .as(get[Long](1).singleOpt)(connection)
   }
 
-  private def format(parties: Set[Party]): String = parties.view.map(p => s"'$p'").mkString(",")
+  object H2EventStrategy extends EventStrategy {
+    override def filteredEventWitnessesClause(
+        witnessesColumnName: String,
+        parties: Set[Ref.Party],
+    ): (String, List[NamedParameter]) =
+      (
+        s"array_intersection($witnessesColumnName, {partiesArrayfewc})",
+        List("partiesArrayfewc" -> parties.view.map(_.toString).toArray),
+      )
 
-  private def limitClause(to: Option[Int]): String = to.map(to => s"limit $to").getOrElse("")
+    override def submittersArePartiesClause(
+        submittersColumnName: String,
+        parties: Set[Ref.Party],
+    ): (String, List[NamedParameter]) =
+      (
+        s"(${arrayIntersectionWhereClause(submittersColumnName, parties)})",
+        Nil,
+      )
 
+    override def witnessesWhereClause(
+        witnessesColumnName: String,
+        filterParams: FilterParams,
+    ): (String, List[NamedParameter]) = {
+      val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
+        case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)
+        case wildCardParties =>
+          (
+            List(s"(${arrayIntersectionWhereClause(witnessesColumnName, wildCardParties)})"),
+            Nil,
+          )
+      }
+      val (partiesTemplatesClauses, partiesTemplatesParams) =
+        filterParams.partiesAndTemplates.iterator.zipWithIndex
+          .map { case ((parties, templateIds), index) =>
+            (
+              s"( (${arrayIntersectionWhereClause(witnessesColumnName, parties)}) AND (template_id = ANY({templateIdsArraywwc$index})) )",
+              List[NamedParameter](
+                s"templateIdsArraywwc$index" -> templateIds.view.map(_.toString).toArray
+              ),
+            )
+          }
+          .toList
+          .unzip
+      (
+        (wildCardClause ::: partiesTemplatesClauses).mkString("(", " OR ", ")"),
+        wildCardParams ::: partiesTemplatesParams.flatten,
+      )
+    }
+  }
+
+  override def eventStrategy: common.EventStrategy = H2EventStrategy
+
+  // TODO append-only: remove as part of ContractStorageBackend consolidation, use the data-driven one
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     if (parties.isEmpty)
       "false"
     else
       parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
-
-  private def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
-    s"array_intersection($arrayColumn, array[${format(parties)}])"
-
-  private def formatPartiesAndTemplatesWhereClause(
-      witnessesAggregationColumn: String,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-  ): String =
-    partiesAndTemplateIds.view
-      .map { case (p, i) =>
-        s"(${arrayIntersectionWhereClause(witnessesAggregationColumn, Set(p))} and template_id = '$i')"
-      }
-      .mkString("(", " or ", ")")
-
-  private val partyArrayContext = ("array[", "]")
 }

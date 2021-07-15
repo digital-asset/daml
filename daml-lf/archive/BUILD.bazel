@@ -111,6 +111,7 @@ da_scala_library(
         ":daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/nameof",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -198,9 +199,7 @@ da_scala_binary(
     main_class = "com.daml.lf.archive.DecodeMain",
     deps = [
         ":daml_lf_archive_reader",
-        ":daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

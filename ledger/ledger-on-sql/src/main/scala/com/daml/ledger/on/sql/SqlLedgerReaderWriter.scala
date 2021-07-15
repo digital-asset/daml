@@ -13,9 +13,10 @@ import com.daml.caching.Cache
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.api.{
   CommitMetadata,
   LedgerReader,
@@ -30,11 +31,10 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.telemetry.TelemetryContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.MismatchException
-import com.google.protobuf.ByteString
+import com.daml.telemetry.TelemetryContext
 
 import scala.util.{Failure, Success}
 import scala.{concurrent => sc}
@@ -94,9 +94,9 @@ object SqlLedgerReaderWriter {
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
+      logEntryIdAllocator: LogEntryIdAllocator,
       stateValueCache: StateValueCache = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      seedService: SeedService,
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
     override def acquire()(implicit context: ResourceContext): Resource[SqlLedgerReaderWriter] = {
@@ -113,8 +113,9 @@ object SqlLedgerReaderWriter {
         )
         dispatcher <- new DispatcherOwner(database).acquire()
         validator = SubmissionValidator.createForTimeMode(
-          new SqlLedgerStateAccess(database, metrics),
-          allocateNextLogEntryId = new LogEntryIdAllocator(seedService).allocate _,
+          ledgerStateAccess = new SqlLedgerStateAccess(database, metrics),
+          logEntryIdAllocator = logEntryIdAllocator,
+          checkForMissingInputs = false,
           stateValueCache = stateValueCache,
           engine = engine,
           metrics = metrics,
@@ -185,15 +186,6 @@ object SqlLedgerReaderWriter {
           )
           .acquire()
       } yield dispatcher
-  }
-
-  private final class LogEntryIdAllocator(seedService: SeedService) {
-    def allocate(): DamlLogEntryId = {
-      val seed = seedService.nextSeed().bytes.toByteArray
-      DamlLogEntryId.newBuilder
-        .setEntryId(ByteString.copyFromUtf8(UUID.nameUUIDFromBytes(seed).toString))
-        .build()
-    }
   }
 
   private final class SqlLedgerStateAccess(database: Database, metrics: Metrics)

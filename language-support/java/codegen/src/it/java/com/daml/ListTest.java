@@ -6,7 +6,10 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v1.ValueOuterClass;
-import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.DamlCollectors;
+import com.daml.ledger.javaapi.data.DamlRecord;
+import com.daml.ledger.javaapi.data.Text;
+import com.daml.ledger.javaapi.data.Unit;
 import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Collections;
@@ -16,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.listtest.*;
-import tests.listtest.Color;
 import tests.listtest.listitem.Node;
 
 @RunWith(JUnitPlatform.class)
@@ -80,7 +82,7 @@ public class ListTest {
                         .build()))
             .build();
 
-    Record record = Record.fromProto(protoListRecord);
+    DamlRecord record = DamlRecord.fromProto(protoListRecord);
     MyListRecord fromRecord = MyListRecord.fromValue(record);
 
     MyListRecord fromCodegen =
@@ -168,7 +170,7 @@ public class ListTest {
                         .build()))
             .build();
 
-    Record record = Record.fromProto(protoListRecord);
+    DamlRecord record = DamlRecord.fromProto(protoListRecord);
     MyListOfListRecord fromRecord = MyListOfListRecord.fromValue(record);
 
     MyListOfListRecord fromCodegen =
@@ -209,7 +211,7 @@ public class ListTest {
                         .build()))
             .build();
 
-    Record record = Record.fromProto(protoColorListRecord);
+    DamlRecord record = DamlRecord.fromProto(protoColorListRecord);
     ColorListRecord fromRecord = ColorListRecord.fromValue(record);
 
     ColorListRecord fromCodegen = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
@@ -242,7 +244,7 @@ public class ListTest {
                     .build())
             .build();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     ParameterizedListRecord<String> fromValue =
         ParameterizedListRecord.fromValue(dataRecord, f -> f.asText().get().getValue());
     ParameterizedListRecord<String> fromConstructor =
@@ -301,7 +303,7 @@ public class ListTest {
                     .build())
             .build();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     ParameterizedListRecord<List<String>> fromValue =
         ParameterizedListRecord.fromValue(
             dataRecord,

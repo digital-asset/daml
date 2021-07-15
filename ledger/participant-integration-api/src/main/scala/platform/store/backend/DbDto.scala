@@ -101,7 +101,7 @@ object DbDto {
       package_id: String,
       upload_id: String,
       source_description: Option[String],
-      size: Long,
+      package_size: Long,
       known_since: Instant,
       ledger_offset: String,
       _package: Array[Byte],
