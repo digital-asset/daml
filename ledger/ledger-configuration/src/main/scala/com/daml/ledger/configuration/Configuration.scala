@@ -57,7 +57,7 @@ object Configuration {
       case v => Left(s"Unknown version: $v")
     }
 
-  def decodeV1(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
+  private def decodeV1(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
     for {
       tm <-
         if (config.hasTimeModel) {
@@ -73,7 +73,7 @@ object Configuration {
       )
     }
 
-  def decodeV2(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
+  private def decodeV2(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
     for {
       tm <-
         if (config.hasTimeModel) {
