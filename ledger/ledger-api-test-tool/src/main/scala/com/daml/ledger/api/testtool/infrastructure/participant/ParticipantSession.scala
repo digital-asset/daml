@@ -66,7 +66,6 @@ object ParticipantSession {
     Future.traverse(participants) { participant =>
       val services = new LedgerServices(participant, commandInterceptors)
       for {
-        // Keep retrying for about a minute.
         ledgerId <- RetryStrategy
           .exponentialBackoff(attempts = maxConnectionAttempts, 100.millis) { (attempt, wait) =>
             services.identity
