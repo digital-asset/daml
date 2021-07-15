@@ -55,6 +55,7 @@ import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
 import Data.Typeable (Typeable())
+import qualified Data.Vector as V
 import Development.IDE.Core.Compile
 import Development.IDE.Core.OfInterest
 import Development.IDE.GHC.Error
@@ -904,19 +905,23 @@ toDiagnostic ::
     -> Range
     -> Either SS.Error SS.ScenarioResult
     -> Maybe FileDiagnostic
-toDiagnostic file world range (Left err) =
-    Just $
-    (file, ShowDiag, ) $
-    Diagnostic
+toDiagnostic file world range = \case
+    Right (SS.scenarioResultWarnings -> warnings)
+        | V.null warnings -> Nothing
+        | otherwise -> Just $
+            mkDiagnostic DsWarning (LF.prettyWarningMessages warnings)
+    Left err -> Just $
+        mkDiagnostic DsError (formatScenarioError world err)
+  where
+    mkDiagnostic severity pretty = (file, ShowDiag, ) $ Diagnostic
         { _range = range
-        , _severity = Just DsError
+        , _severity = Just severity
         , _source = Just "Script"
-        , _message = Pretty.renderPlain $ formatScenarioError world err
+        , _message = Pretty.renderPlain pretty
         , _code = Nothing
         , _tags = Nothing
         , _relatedInformation = Nothing
         }
-toDiagnostic _file _world _range (Right _) = Nothing
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
