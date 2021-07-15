@@ -83,7 +83,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def loadPackage(
       resource: String
   ): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
-    val packages = UniversalArchiveDecoder.readFile(new File(rlocation(resource))).get
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }

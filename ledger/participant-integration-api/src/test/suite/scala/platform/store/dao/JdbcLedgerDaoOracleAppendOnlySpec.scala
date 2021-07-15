@@ -12,14 +12,18 @@ class JdbcLedgerDaoOracleAppendOnlySpec
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendOracleAppendOnly
     with JdbcLedgerDaoPackagesSpec
-    with JdbcLedgerDaoPartiesSpec
-    with JdbcLedgerDaoConfigurationSpec
-    with JdbcLedgerDaoConfigurationAppendOnlySpec
     with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
+    with JdbcLedgerDaoConfigurationSpec
+    with JdbcLedgerDaoConfigurationAppendOnlySpec
     with JdbcLedgerDaoContractsSpec
+    with JdbcLedgerDaoContractsAppendOnlySpec
     with JdbcLedgerDaoDivulgenceSpec
+    with JdbcLedgerDaoExceptionSpec
+    with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
+    with JdbcLedgerDaoContractEventsStreamSpec
     with JdbcLedgerDaoTransactionsWriterSpec
+    with JdbcLedgerDaoTransactionLogUpdatesSpec
     with JdbcAppendOnlyTransactionInsertion

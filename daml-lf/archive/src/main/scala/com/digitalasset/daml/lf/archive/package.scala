@@ -8,7 +8,32 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.CodedInputStream
 
+import scala.util.Using
+import scala.util.Using.Releasable
+import scala.util.control.NonFatal
+
 package object archive {
+
+  @throws[Error]
+  private[archive] def assertRight[X](e: Either[Error, X]): X =
+    e match {
+      case Right(value) => value
+      case Left(error) => throw error
+    }
+
+  // like normal Using, but catches error when trying to open the resource
+  private[archive] def using[R, X](where: => String, open: () => R)(f: R => Either[Error, X])(
+      implicit releasable: Releasable[R]
+  ) =
+    attempt(where, open()).flatMap(Using.resource(_)(f))
+
+  private[archive] def attempt[X](where: => String, x: => X): Either[Error, X] =
+    try Right(x)
+    catch {
+      case error: java.io.IOException => Left(Error.IO(where, error))
+      case error: Error => Left(error)
+      case NonFatal(err) => Left(Error.Internal(where, s"Unhandled exception: ${err.getMessage}"))
+    }
 
   // This constant is introduced and used
   // to make serialization of nested data

@@ -28,7 +28,6 @@ import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
 import scala.collection.compat._
-import scala.util.{Failure, Success}
 import scala.util.matching.Regex
 
 object CodeGen {
@@ -106,8 +105,8 @@ object CodeGen {
 
   private def parseFile(f: File): String \/ Dar[ArchivePayload] =
     UniversalArchiveReader.readFile(f) match {
-      case Success(p) => \/.right(p)
-      case Failure(e) =>
+      case Right(p) => \/.right(p)
+      case Left(e) =>
         logger.error("Scala Codegen error", e)
         \/.left(e.getLocalizedMessage)
     }

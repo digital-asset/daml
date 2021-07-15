@@ -42,7 +42,7 @@ class CollectAuthorityState {
   @Setup(Level.Trial)
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
-    val packages = UniversalArchiveDecoder.readFile(darFile).get
+    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     val compilerConfig =
       Compiler.Config.Default.copy(

@@ -32,7 +32,7 @@ class DarReaderTest
 
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
 
-    val dar = DarReader.readArchiveFromFile(darFile).success.value
+    val Right(dar) = DarReader.readArchiveFromFile(darFile)
     val mainArchive = dar.main.proto
 
     forAll(dar.all) { case ArchivePayload(packageId, archive, ver) =>

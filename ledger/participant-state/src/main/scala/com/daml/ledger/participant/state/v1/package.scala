@@ -90,6 +90,7 @@ package object v1 {
   type PackageId = Ref.PackageId
 
   /** Identifiers for parties. */
+  val Party: Ref.Party.type = Ref.Party
   type Party = Ref.Party
 
   /** A transaction with contract IDs that may require suffixing.

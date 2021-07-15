@@ -18,7 +18,7 @@ object LoadDarFunction extends App {
 
   def load(darFile: File, base: String, funcName: String): (Long => Long) = {
 
-    val packages = UniversalArchiveDecoder.readFile(darFile).get
+    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     val compilerConfig =
       Compiler.Config.Default.copy(

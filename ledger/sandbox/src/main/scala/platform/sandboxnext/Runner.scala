@@ -296,7 +296,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     implicit telemetryContext =>
       val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future.fromTry(DarParser.readArchiveFromFile(from))
+        dar <- Future.fromTry(DarParser.readArchiveFromFile(from).toTry)
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }
