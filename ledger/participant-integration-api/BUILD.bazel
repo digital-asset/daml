@@ -62,7 +62,6 @@ compile_deps = [
     "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
-    # this oracle import is problematic for daml assistant build
     "@maven//:com_h2database_h2",
     "@maven//:org_postgresql_postgresql",
     "@maven//:com_oracle_database_jdbc_ojdbc8",
