@@ -10,7 +10,7 @@ import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import anorm.SqlParser.get
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams

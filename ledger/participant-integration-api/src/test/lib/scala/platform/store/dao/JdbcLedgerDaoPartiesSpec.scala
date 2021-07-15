@@ -8,7 +8,8 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.participant.state.v1.{Offset, SubmissionId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.SubmissionId
 import com.daml.lf.data.Ref
 import com.daml.platform.indexer.{IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError

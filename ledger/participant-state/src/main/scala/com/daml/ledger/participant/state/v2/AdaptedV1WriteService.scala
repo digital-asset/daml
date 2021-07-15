@@ -9,6 +9,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Time
 import com.daml.telemetry.TelemetryContext
@@ -81,7 +82,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
       submissionId: SubmissionId,
   ): CompletionStage[PruningResult] =
     delegate
-      .prune(v1.Offset(pruneUpToInclusive.bytes), submissionId)
+      .prune(pruneUpToInclusive, submissionId)
       .thenApply(adaptPruningResult)
 
   override def uploadPackages(

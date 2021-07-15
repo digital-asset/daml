@@ -3,8 +3,9 @@
 
 package com.daml.platform.indexer
 
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
-import com.daml.ledger.participant.state.v1.{Offset, Update}
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 
 sealed trait OffsetUpdate extends Product with Serializable {

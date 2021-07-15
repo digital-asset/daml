@@ -10,7 +10,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

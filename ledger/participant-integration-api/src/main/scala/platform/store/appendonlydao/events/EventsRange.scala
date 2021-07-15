@@ -4,7 +4,7 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 
 // (startExclusive, endInclusive]
 private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {

@@ -7,7 +7,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, SubmissionResult}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future

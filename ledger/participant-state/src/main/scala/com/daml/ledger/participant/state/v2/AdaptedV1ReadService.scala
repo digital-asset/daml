@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerInitialConditions
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v2.AdaptedV1ReadService._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
@@ -25,7 +26,7 @@ class AdaptedV1ReadService(delegate: v1.ReadService) extends ReadService {
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     delegate
-      .stateUpdates(beginAfter.map(offset => v1.Offset(offset.bytes)))
+      .stateUpdates(beginAfter)
       .map { case (offset, update) => Offset(offset.bytes) -> adaptUpdate(update) }
 
   override def currentHealth(): HealthStatus = delegate.currentHealth()

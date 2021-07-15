@@ -4,9 +4,9 @@
 package com.daml.platform.store.interfaces
 
 import java.time.Instant
-import com.daml.lf.value.{Value => LfValue}
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
+import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.appendonlydao.events
@@ -16,6 +16,7 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequen
 /** Generic ledger update event.
   *
   * Used as data source template for in-memory fan-out buffers for Ledger API streams serving.
+  *
   * @see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
   */
 sealed trait TransactionLogUpdate extends Product with Serializable

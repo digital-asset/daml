@@ -5,6 +5,7 @@ package com.daml.platform.indexer.parallel
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.Update.{
   CommandRejected,
   ConfigurationChangeRejected,
@@ -18,7 +19,6 @@ import com.daml.ledger.participant.state.v1.Update.{
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
-  Offset,
   ParticipantId,
   Party,
   SubmissionId,

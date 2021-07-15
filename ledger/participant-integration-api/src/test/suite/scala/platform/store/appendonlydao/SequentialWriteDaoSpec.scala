@@ -7,7 +7,8 @@ import java.sql.Connection
 import java.time.Instant
 
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
-import com.daml.ledger.participant.state.v1.{Offset, SubmissionId, Update}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{SubmissionId, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._

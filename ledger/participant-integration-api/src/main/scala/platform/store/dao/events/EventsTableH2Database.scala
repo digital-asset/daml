@@ -7,8 +7,9 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.{EventId, TransactionId}
-import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
+import com.daml.ledger.participant.state.v1.{SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.JdbcArrayConversions.StringArrayParameterMetadata
 

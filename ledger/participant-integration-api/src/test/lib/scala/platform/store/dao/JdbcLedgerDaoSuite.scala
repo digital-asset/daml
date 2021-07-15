@@ -12,9 +12,10 @@ import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{DivulgedContract, SubmitterInfo}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}

@@ -13,7 +13,8 @@ import com.codahale.metrics.{MetricRegistry, Snapshot}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
-import com.daml.ledger.participant.state.v1.{Offset, ReadService, Update}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext

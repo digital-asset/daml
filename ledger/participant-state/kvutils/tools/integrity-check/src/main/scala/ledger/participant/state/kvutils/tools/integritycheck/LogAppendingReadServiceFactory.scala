@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   LedgerReader,
@@ -15,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 }
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1.{Offset, Update}
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.metrics.Metrics
 
 import scala.collection.immutable

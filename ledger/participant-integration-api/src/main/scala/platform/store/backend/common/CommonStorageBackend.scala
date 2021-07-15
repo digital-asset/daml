@@ -11,6 +11,7 @@ import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, get
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.store.Conversions.{
   contractId,
@@ -22,7 +23,6 @@ import com.daml.platform.store.Conversions.{
   offset,
   party,
 }
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.store.Conversions

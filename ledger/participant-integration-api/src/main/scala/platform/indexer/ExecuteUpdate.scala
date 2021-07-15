@@ -10,13 +10,13 @@ import akka.stream.scaladsl.Flow
 import com.codahale.metrics.Timer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
-  Offset,
   ParticipantId,
   Party,
   SubmissionId,

@@ -12,7 +12,7 @@ import akka.stream.QueueOfferResult.Enqueued
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.GlobalKey

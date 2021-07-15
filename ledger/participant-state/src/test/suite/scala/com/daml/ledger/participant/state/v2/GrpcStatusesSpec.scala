@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.GrpcStatuses.{CompletionOffsetKey, DefiniteAnswerKey}
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo}

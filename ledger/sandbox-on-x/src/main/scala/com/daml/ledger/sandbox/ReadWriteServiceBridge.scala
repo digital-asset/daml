@@ -17,6 +17,7 @@ import com.daml.ledger.configuration.{
   LedgerInitialConditions,
   LedgerTimeModel,
 }
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
