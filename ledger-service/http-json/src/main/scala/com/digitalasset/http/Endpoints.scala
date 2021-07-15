@@ -10,10 +10,12 @@ import akka.http.scaladsl.model.headers.{
   ModeledCustomHeader,
   ModeledCustomHeaderCompanion,
   OAuth2BearerToken,
+  `Content-Type`,
   `X-Forwarded-Proto`,
 }
+import akka.http.scaladsl.server
 import akka.http.scaladsl.server.Directives.extractClientIP
-import akka.http.scaladsl.server.{Directive0, Route}
+import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
 import akka.http.scaladsl.server.RouteResult._
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -47,7 +49,6 @@ import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Directive
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -59,6 +60,7 @@ class Endpoints(
     healthService: HealthService,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
+    shouldLogHttpBodies: Boolean,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer) {
 
@@ -77,17 +79,116 @@ class Endpoints(
   private def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
     responseToRoute(httpResponse(res))
 
+  private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
+    s"Incoming ${request.method.value} request on ${request.uri} from $remoteAddress"
+
+  private def mkResponseLogMsg(response: HttpResponse) =
+    s"Responding to client with HTTP ${response.status}"
+
+  // Always put this directive after a path to ensure
+  // that you don't log request bodies multiple times (simply because a matching test was made multiple times).
+  // TL;DR JUST PUT THIS THING AFTER YOUR FINAL PATH MATCHING
+  private def logRequestResponseHelper(
+      logIncomingRequest: (HttpRequest, RemoteAddress) => Future[Unit],
+      logResponse: HttpResponse => Future[Unit],
+  ): Directive0 =
+    extractRequest & extractClientIP tflatMap { case (request, remoteAddress) =>
+      mapRouteResultFuture { responseF =>
+        for {
+          _ <- logIncomingRequest(request, remoteAddress)
+          response <- responseF
+          _ <- response match {
+            case Complete(httpResponse) => logResponse(httpResponse)
+            case _ =>
+              Future.failed(
+                new RuntimeException(
+                  """Logging the request & response should never happen on routes which get rejected.
+                    |Make sure to place the directive only at places where a match is guaranteed (e.g. after the path directive).""".stripMargin
+                )
+              )
+          }
+        } yield response
+      }
+    }
+
+  private def logJsonRequestAndResult(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Directive0 = {
+    def logWithHttpMessageBodyIfAvailable(
+        httpMessage: HttpMessage,
+        msg: String,
+        bodyKind: String,
+    ): Future[Unit] =
+      if (
+        httpMessage
+          .header[`Content-Type`]
+          .map(_.contentType)
+          .contains(ContentTypes.`application/json`)
+      )
+        httpMessage
+          .entity()
+          .toStrict(maxTimeToCollectRequest)
+          .map(it =>
+            withEnrichedLoggingContext(
+              LoggingContextOf.label[RequestEntity],
+              s"${bodyKind}_body" -> it.data.utf8String.parseJson,
+            )
+              .run(implicit lc => logger.info(msg))
+          )
+          .recover { case ex =>
+            logger.error("Failed to extract body for logging", ex)
+          }
+      else Future.successful(logger.info(msg))
+    logRequestResponseHelper(
+      (request, remoteAddress) =>
+        logWithHttpMessageBodyIfAvailable(
+          request,
+          mkRequestLogMsg(request, remoteAddress),
+          "request",
+        ),
+      httpResponse =>
+        logWithHttpMessageBodyIfAvailable(
+          httpResponse,
+          mkResponseLogMsg(httpResponse),
+          "response",
+        ),
+    )
+  }
+
+  def logRequestAndResultSimple(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Directive0 =
+    logRequestResponseHelper(
+      (request, remoteAddress) =>
+        Future.successful(logger.info(mkRequestLogMsg(request, remoteAddress))),
+      httpResponse => Future.successful(logger.info(mkResponseLogMsg(httpResponse))),
+    )
+
+  val logRequestAndResultFn: LoggingContextOf[InstanceUUID with RequestID] => Directive0 =
+    if (shouldLogHttpBodies) lc => logJsonRequestAndResult(lc)
+    else lc => logRequestAndResultSimple(lc)
+
+  def logRequestAndResult(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): Directive0 =
+    logRequestAndResultFn(lc)
+
   def all(implicit
       lc0: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): Route = extractClientIP & extractRequest apply { (remoteAddress, req) =>
+  ): Route = extractRequest apply { req =>
     implicit val lc: LoggingContextOf[InstanceUUID with RequestID] =
       extendWithRequestIdLogCtx(identity)(lc0)
     import metrics.daml.HttpJsonApi._
+    def path[L](pm: PathMatcher[L]) = server.Directives.path(pm) & logRequestAndResult
     def withTimer(timer: Timer) =
-      Directive[Unit] { (fn: Unit => Route) =>
-        logger.info(s"Incoming request on ${req.uri} from $remoteAddress")
-        fn(()).andThen(res => Timed.future(timer, res))
+      Directive { (fn: Unit => Route) =>
+        val t0 = System.nanoTime
+        metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
+        fn(()).andThen(res =>
+          for {
+            res <- Timed.future(timer, res)
+            _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+          } yield res
+        )
       }
     val withCmdSubmitTimer: Directive0 = withTimer(commandSubmissionTimer)
     val withFetchTimer: Directive0 = withTimer(fetchTimer)
