@@ -82,7 +82,6 @@ object Cli {
 
     arg[Int]("max-connection-attempts")
       .action((maxConnectionAttempts, config) => config.copy(maxConnectionAttempts = maxConnectionAttempts))
-      .unbounded()
       .optional()
       .text("Number of connection attempts to the participants. Applied to all endpoints.")
 
