@@ -29,23 +29,6 @@ supported_databases = [
         ],
     },
     {
-        "name": "h2-file",
-        "runtime_deps": [
-            "@maven//:com_h2database_h2",
-        ],
-        "conformance_test_tags": [
-            "manual",
-        ],
-        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:h2:%DIR/test",
-        ],
-        "conformance_test_tool_args": [
-            "--concurrent-test-runs=2",
-            "--timeout-scale-factor=4",
-        ],
-    },
-    {
         "name": "postgresql",
         "runtime_deps": [
             "@maven//:org_postgresql_postgresql",
@@ -59,16 +42,6 @@ supported_databases = [
         ],
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:sqlite:file:daml-on-sql-conformance-test?mode=memory&cache=shared",
-        ],
-    },
-    {
-        "name": "sqlite-file",
-        "runtime_deps": [
-            "@maven//:org_xerial_sqlite_jdbc",
-        ],
-        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite:%DIR/test.sqlite",
         ],
     },
 ]
@@ -183,7 +156,6 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
         "//ledger/metrics",
