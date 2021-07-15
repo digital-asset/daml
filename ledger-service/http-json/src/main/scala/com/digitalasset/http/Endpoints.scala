@@ -10,10 +10,12 @@ import akka.http.scaladsl.model.headers.{
   ModeledCustomHeader,
   ModeledCustomHeaderCompanion,
   OAuth2BearerToken,
+  `Content-Type`,
   `X-Forwarded-Proto`,
 }
+import akka.http.scaladsl.server
 import akka.http.scaladsl.server.Directives.extractClientIP
-import akka.http.scaladsl.server.{Directive0, Route}
+import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
 import akka.http.scaladsl.server.RouteResult._
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -77,17 +79,84 @@ class Endpoints(
   private def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
     responseToRoute(httpResponse(res))
 
+  // Always put this directive after a path to ensure
+  // that you don't log request bodies multiple times (simply because a matching test was made multiple times).
+  // TL;DR JUST PUT THIS THING AFTER YOUR FINAL PATH MATCHING
+  def logJsonRequestAndResult(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Directive0 =
+    extractRequest & extractClientIP tflatMap { case (request, remoteAddress) =>
+      def logWithHttpMessageBodyIfAvailable(
+          httpMessage: HttpMessage,
+          msg: String,
+          bodyKind: String,
+      ): Future[Unit] =
+        if (
+          httpMessage
+            .header[`Content-Type`]
+            .map(_.contentType)
+            .contains(ContentTypes.`application/json`)
+        )
+          httpMessage
+            .entity()
+            .toStrict(maxTimeToCollectRequest)
+            .map(_.data.utf8String)
+            .map(_.parseJson)
+            .map(body =>
+              withEnrichedLoggingContext(
+                LoggingContextOf.label[RequestEntity],
+                s"$bodyKind-body" -> body,
+              )
+                .run(implicit lc => logger.debug(msg))
+            )
+            .recover { case ex =>
+              logger.error("Failed to extract body for logging", ex)
+            }
+        else Future.successful(logger.debug(msg))
+      mapRouteResultFuture { responseF =>
+        for {
+          _ <- logWithHttpMessageBodyIfAvailable(
+            request,
+            s"Incoming ${request.method} request on ${request.uri} from $remoteAddress",
+            "request",
+          )
+          response <- responseF
+          _ <- response match {
+            case Complete(httpResponse) =>
+              logWithHttpMessageBodyIfAvailable(
+                httpResponse,
+                s"Responding to client with HTTP ${httpResponse.status}",
+                "response",
+              )
+            case _ =>
+              Future.failed _ apply
+                new RuntimeException(
+                  """Logging the request & response should never happen on routes which get rejected.
+                    |Make sure to place the directive only at places where a match is guaranteed (e.g. after the path directive).""".stripMargin
+                )
+          }
+        } yield response
+      }
+    }
+
   def all(implicit
       lc0: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): Route = extractClientIP & extractRequest apply { (remoteAddress, req) =>
+  ): Route = extractRequest apply { req =>
     implicit val lc: LoggingContextOf[InstanceUUID with RequestID] =
       extendWithRequestIdLogCtx(identity)(lc0)
     import metrics.daml.HttpJsonApi._
+    def path[L](pm: PathMatcher[L]) = server.Directives.path(pm) & logJsonRequestAndResult
     def withTimer(timer: Timer) =
-      Directive[Unit] { (fn: Unit => Route) =>
-        logger.info(s"Incoming request on ${req.uri} from $remoteAddress")
-        fn(()).andThen(res => Timed.future(timer, res))
+      Directive { (fn: Unit => Route) =>
+        val t0 = System.nanoTime
+        metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
+        fn(()).andThen(res =>
+          for {
+            res <- Timed.future(timer, res)
+            _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+          } yield res
+        )
       }
     val withCmdSubmitTimer: Directive0 = withTimer(commandSubmissionTimer)
     val withFetchTimer: Directive0 = withTimer(fetchTimer)

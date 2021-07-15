@@ -5,6 +5,17 @@ package com.daml.logging
 
 import com.daml.logging.entries.LoggingValue
 import com.fasterxml.jackson.core.JsonGenerator
+import spray.json.{
+  JsArray,
+  JsBoolean,
+  JsFalse,
+  JsNull,
+  JsNumber,
+  JsObject,
+  JsString,
+  JsTrue,
+  JsValue,
+}
 
 private[logging] object LoggingValueSerializer {
   def writeValue(value: LoggingValue, generator: JsonGenerator): Unit = {
@@ -25,6 +36,34 @@ private[logging] object LoggingValueSerializer {
         generator.writeStartArray()
         sequence.foreach(writeValue(_, generator))
         generator.writeEndArray()
+      case LoggingValue.OfJson(jsValue) =>
+        def write(jsValue: JsValue): Unit =
+          jsValue match {
+            case JsNull =>
+              generator.writeNull()
+            case JsTrue =>
+              generator.writeBoolean(true)
+            case JsFalse =>
+              generator.writeBoolean(false)
+            case JsBoolean(value) =>
+              generator.writeBoolean(value)
+            case JsNumber(value) =>
+              generator.writeNumber(value.bigDecimal)
+            case JsString(value) =>
+              generator.writeString(value)
+            case JsObject(fields) =>
+              generator.writeStartObject()
+              fields.foreach { case (key, value) =>
+                generator.writeFieldName(key)
+                write(value)
+              }
+              generator.writeEndObject()
+            case JsArray(elements) =>
+              generator.writeStartArray()
+              elements.foreach(value => write(value))
+              generator.writeEndArray()
+          }
+        write(jsValue)
       case LoggingValue.Nested(entries) =>
         generator.writeStartObject()
         new LoggingMarker(entries.contents).writeTo(generator)
