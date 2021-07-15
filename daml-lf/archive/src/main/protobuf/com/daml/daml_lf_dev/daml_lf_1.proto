@@ -1227,14 +1227,14 @@ message Update {
     Block block = 2;
     Create create = 3;
     Exercise exercise = 4;
-    ExerciseByKey exercise_by_key = 10;
+    ExerciseByKey exercise_by_key = 10; // *Available in versions >= 1.11*
     Fetch fetch = 5;
     Unit get_time = 6;
     RetrieveByKey lookup_by_key = 8;
     RetrieveByKey fetch_by_key = 9;
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
-    TryCatch try_catch = 11;
+    TryCatch try_catch = 11; // *Available in versions >= 1.14*
   }
 }
 
