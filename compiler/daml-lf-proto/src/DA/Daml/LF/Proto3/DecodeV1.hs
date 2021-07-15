@@ -414,7 +414,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTEXT_TO_INT64 -> BETextToInt64
   LF1.BuiltinFunctionTEXT_TO_DECIMAL -> BETextToDecimal
   LF1.BuiltinFunctionTEXT_TO_NUMERIC -> BETextToNumeric
-  LF1.BuiltinFunctionTEXT_TO_POINTS_CODE -> BETextToCodePoints
+  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> BETextToCodePoints
   LF1.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> BEPartyToQuotedText
 
   LF1.BuiltinFunctionADD_DECIMAL   -> BEAddDecimal

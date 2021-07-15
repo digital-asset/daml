@@ -488,7 +488,7 @@ encodeBuiltinExpr = \case
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
     BETextToDecimal-> builtin P.BuiltinFunctionTEXT_TO_DECIMAL
     BETextToNumeric-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
-    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_POINTS_CODE
+    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
