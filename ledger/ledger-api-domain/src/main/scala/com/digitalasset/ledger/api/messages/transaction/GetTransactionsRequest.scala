@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.messages.transaction
 
-import brave.propagation.TraceContext
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset, TransactionFilter}
 
 final case class GetTransactionsRequest(
@@ -12,5 +11,4 @@ final case class GetTransactionsRequest(
     endInclusive: Option[LedgerOffset],
     filter: TransactionFilter,
     verbose: Boolean,
-    traceContext: Option[TraceContext],
 )

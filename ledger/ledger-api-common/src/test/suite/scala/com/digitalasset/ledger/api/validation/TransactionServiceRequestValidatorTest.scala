@@ -6,7 +6,6 @@ package com.daml.ledger.api.validation
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
@@ -19,8 +18,6 @@ import io.grpc.Status.Code._
 import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTestUtils {
-
-  private val traceContext = TraceContext(traceIdHigh, traceId, spanId, parentSpanId, sampled)
 
   private val txReq = GetTransactionsRequest(
     expectedLedgerId,
@@ -47,7 +44,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       )
     ),
     verbose,
-    Some(traceContext),
   )
   private val txTreeReq = GetTransactionsRequest(
     expectedLedgerId,
@@ -55,16 +51,15 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
     Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
     verbose,
-    Some(traceContext),
   )
 
-  private val endReq = GetLedgerEndRequest(expectedLedgerId, Some(traceContext))
+  private val endReq = GetLedgerEndRequest(expectedLedgerId)
 
   private val txByEvIdReq =
-    GetTransactionByEventIdRequest(expectedLedgerId, eventId, Seq(party), Some(traceContext))
+    GetTransactionByEventIdRequest(expectedLedgerId, eventId, Seq(party))
 
   private val txByIdReq =
-    GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party), Some(traceContext))
+    GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party))
 
   val sut = new TransactionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
@@ -187,7 +182,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
           filtersByParty should have size 1
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
-          hasExpectedTraceContext(req)
         }
       }
 
@@ -210,7 +204,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
             filters shouldEqual domain.Filters(Some(domain.InclusiveFilters(Set())))
           }
           req.verbose shouldEqual verbose
-          hasExpectedTraceContext(req)
         }
       }
 
@@ -233,22 +226,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
             filters shouldEqual domain.Filters(None)
           }
           req.verbose shouldEqual verbose
-          hasExpectedTraceContext(req)
-        }
-      }
-
-      "tolerate missing traceContext" in {
-        inside(
-          sut.validate(txReq.update(_.optionalTraceContext := None), ledgerEnd)
-        ) { case Right(req) =>
-          req.ledgerId shouldEqual expectedLedgerId
-          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-          req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
-          val filtersByParty = req.filter.filtersByParty
-          filtersByParty should have size 1
-          hasExpectedFilters(req)
-          req.verbose shouldEqual verbose
-          req.traceContext shouldBe empty
         }
       }
 
@@ -259,7 +236,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
-          hasExpectedTraceContext(req)
         }
       }
     }
@@ -274,7 +250,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
           req.parties should have size 1
           req.parties.headOption.value shouldEqual party
           req.verbose shouldEqual verbose
-          isExpectedTraceContext(req.traceContext.value)
         }
       }
 
@@ -328,18 +303,9 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
         )
       }
 
-      "work with missing traceContext" in {
-        inside(sut.validateLedgerEnd(endReq.update(_.optionalTraceContext := None))) {
-          case Right(out) =>
-            out should have(Symbol("ledgerId")(expectedLedgerId))
-            out.traceContext shouldBe empty
-        }
-      }
-
-      "work with present traceContext" in {
+      "return passed ledger ID" in {
         inside(sut.validateLedgerEnd(endReq)) { case Right(out) =>
           out should have(Symbol("ledgerId")(expectedLedgerId))
-          isExpectedTraceContext(out.traceContext.value)
         }
       }
     }
@@ -370,18 +336,9 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
         )
       }
 
-      "work with missing traceContext" in {
-        inside(sut.validateTransactionById(txByIdReq.update(_.optionalTraceContext := None))) {
-          case Right(out) =>
-            out should have(Symbol("ledgerId")(expectedLedgerId))
-            out.traceContext shouldBe empty
-        }
-      }
-
-      "work with present TraceContext" in {
+      "return passed ledger ID" in {
         inside(sut.validateTransactionById(txByIdReq)) { case Right(out) =>
           out should have(Symbol("ledgerId")(expectedLedgerId))
-          isExpectedTraceContext(out.traceContext.value)
         }
       }
 
@@ -413,19 +370,11 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
         )
       }
 
-      "work with missing traceContext" in {
+      "return passed ledger ID" in {
         inside(
-          sut.validateTransactionByEventId(txByEvIdReq.update(_.optionalTraceContext := None))
+          sut.validateTransactionByEventId(txByEvIdReq)
         ) { case Right(out) =>
           out should have(Symbol("ledgerId")(expectedLedgerId))
-          out.traceContext shouldBe empty
-        }
-      }
-
-      "work with present TraceContext" in {
-        inside(sut.validateTransactionByEventId(txByEvIdReq)) { case Right(out) =>
-          out should have(Symbol("ledgerId")(expectedLedgerId))
-          isExpectedTraceContext(out.traceContext.value)
         }
       }
 

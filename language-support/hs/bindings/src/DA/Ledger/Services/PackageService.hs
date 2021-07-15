@@ -24,7 +24,7 @@ listPackages lid =
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceListPackages=rpc} = service
-        let request = ListPackagesRequest (unLedgerId lid) noTrace
+        let request = ListPackagesRequest (unLedgerId lid)
         response <- rpc (ClientNormalRequest request timeout mdm)
         ListPackagesResponse xs <- unwrap response
         return $ map PackageId $ Vector.toList xs
@@ -37,7 +37,7 @@ getPackage lid pid =
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackage=rpc} = service
-        let request = GetPackageRequest (unLedgerId lid) (unPackageId pid) noTrace
+        let request = GetPackageRequest (unLedgerId lid) (unPackageId pid)
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithNotFound
             >>= \case
@@ -52,7 +52,7 @@ getPackageStatus lid pid =
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackageStatus=rpc} = service
-        let request = GetPackageStatusRequest (unLedgerId lid) (unPackageId pid) noTrace
+        let request = GetPackageStatusRequest (unLedgerId lid) (unPackageId pid)
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \case

@@ -229,7 +229,6 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
               TrackingData(
                 commandId,
                 commandTimeout,
-                submitRequest.value.traceContext,
                 submitRequest.context,
               ))
           }
@@ -256,7 +255,6 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
                     Some(
                       com.google.rpc.status.Status(RpcStatus.ABORTED.getCode.value(), "Timeout")
                     ),
-                    traceContext = trackingData.traceContext,
                   ),
                 )
               )
@@ -291,7 +289,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
         pendingCommands
           .remove(commandId)
           .map { t =>
-            Ctx(t.context, Completion(commandId, Some(status), traceContext = t.traceContext))
+            Ctx(t.context, Completion(commandId, Some(status)))
           }
           .orElse {
             logger.trace("Platform signaled failure for unknown command {}", commandId)

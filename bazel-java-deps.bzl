@@ -141,8 +141,6 @@ def install_java_deps():
             # ---- end of grpc-protobuf-netty block
             "io.reactivex.rxjava2:rxjava:2.2.1",
             "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
-            "io.zipkin.brave:brave:4.6.0",
-            "io.zipkin.reporter:zipkin-sender-okhttp3:1.0.4",
             "javax.annotation:javax.annotation-api:1.2",
             "javax.ws.rs:javax.ws.rs-api:2.1",
             "junit:junit:4.12",

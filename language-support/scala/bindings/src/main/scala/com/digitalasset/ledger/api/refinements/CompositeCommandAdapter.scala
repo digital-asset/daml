@@ -23,7 +23,7 @@ class CompositeCommandAdapter(
       c.commands,
     )
 
-    SubmitRequest(Some(commands), c.traceContext)
+    SubmitRequest(Some(commands))
   }
 
 }

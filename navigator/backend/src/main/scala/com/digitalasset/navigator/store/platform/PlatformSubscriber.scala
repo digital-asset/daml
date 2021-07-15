@@ -333,7 +333,7 @@ class PlatformSubscriber(
 
           // Send command to ledger
           commandTracker
-            .offer(Ctx(command, V1.command_submission_service.SubmitRequest(Some(commands), None)))
+            .offer(Ctx(command, V1.command_submission_service.SubmitRequest(Some(commands))))
             .andThen {
               case Success(QOR.Dropped) =>
                 party.addCommandStatus(

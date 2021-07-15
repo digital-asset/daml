@@ -20,7 +20,6 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{
   Unrecognized,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
-import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.daml.ledger.api.v1.transaction_service._
@@ -132,7 +131,6 @@ object TransactionsServiceImpl {
       effectiveAt: Timestamp,
       events: Seq[Event],
       offset: String,
-      traceContext: Option[TraceContext],
   ) {
 
     def toTransaction =
@@ -143,7 +141,6 @@ object TransactionsServiceImpl {
         Some(effectiveAt),
         events,
         offset,
-        traceContext,
       )
   }
 
