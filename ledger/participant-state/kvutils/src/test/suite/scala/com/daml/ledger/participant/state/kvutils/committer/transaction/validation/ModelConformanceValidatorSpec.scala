@@ -181,7 +181,7 @@ class ModelConformanceValidatorSpec
             )
           ),
         )
-      )(Conversions.decodeContractId(inputContractId)) shouldBe a[Some[_]]
+      )(Conversions.decodeContractId(inputContractId)) shouldBe Some(aContractInst)
     }
 
     "throw if a contract does not exist in the current state" in {
@@ -214,7 +214,7 @@ class ModelConformanceValidatorSpec
   }
 
   "validateCausalMonotonicity" should {
-    "create StepContinue when causal monotonicity is held" in {
+    "create StepContinue when causal monotonicity holds" in {
       modelConformanceValidator
         .validateCausalMonotonicity(
           aTransactionEntry,
@@ -229,7 +229,7 @@ class ModelConformanceValidatorSpec
         ) shouldBe StepContinue(aTransactionEntry)
     }
 
-    "reject transaction when causal monotonicity is not held" in {
+    "reject transaction when causal monotonicity does not hold" in {
       val step = modelConformanceValidator
         .validateCausalMonotonicity(
           aTransactionEntry,
@@ -301,8 +301,8 @@ object ModelConformanceValidatorSpec {
                 ValueOuterClass.Identifier
                   .newBuilder()
                   .setPackageId("dummyPackage")
-                  .addModuleName("dummyModule")
-                  .addName("dummyName")
+                  .addModuleName("DummyModule")
+                  .addName("DummyTemplate")
               )
               .setArgVersioned(
                 ValueOuterClass.VersionedValue
@@ -315,6 +315,12 @@ object ModelConformanceValidatorSpec {
       )
       .build()
   }
+
+  private val aContractInst = Value.ContractInst(
+    Ref.TypeConName.assertFromString(aTemplateId),
+    Value.VersionedValue(TransactionVersion.VDev, ValueText("dummyValue")),
+    "",
+  )
 
   private def txBuilder = TransactionBuilder(TransactionVersion.VDev)
 

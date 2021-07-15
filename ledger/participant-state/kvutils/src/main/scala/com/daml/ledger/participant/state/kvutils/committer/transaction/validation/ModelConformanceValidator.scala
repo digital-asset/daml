@@ -177,6 +177,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       case _ => None
     }
 
+  // Checks that input contracts are still active at ledger effective time.
   private[validation] def validateCausalMonotonicity(
       transactionEntry: DamlTransactionEntrySummary,
       commitContext: CommitContext,
@@ -189,14 +190,13 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           Conversions.stateKeyToContractId(key) -> value.getContractState
       }
 
-    val isCasualMonotonicityHeld = transactionEntry.transaction.inputContracts.forall {
-      contractId =>
-        val inputContractState = inputContracts(contractId)
-        val activeAt = Option(inputContractState.getActiveAt).map(parseTimestamp)
-        activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
+    val isCasuallyMonotonic = transactionEntry.transaction.inputContracts.forall { contractId =>
+      val inputContractState = inputContracts(contractId)
+      val activeAt = Option(inputContractState.getActiveAt).map(parseTimestamp)
+      activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
     }
 
-    if (isCasualMonotonicityHeld)
+    if (isCasuallyMonotonic)
       StepContinue(transactionEntry)
     else
       rejections.buildRejectionStep(

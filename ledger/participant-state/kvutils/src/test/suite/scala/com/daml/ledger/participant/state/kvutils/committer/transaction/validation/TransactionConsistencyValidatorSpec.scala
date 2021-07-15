@@ -251,6 +251,11 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       val transaction = builder.buildSubmitted()
       val result = validate(context, transaction)
       result shouldBe a[StepStop]
+      result
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry
+        .hasInconsistent shouldBe true
     }
   }
 
