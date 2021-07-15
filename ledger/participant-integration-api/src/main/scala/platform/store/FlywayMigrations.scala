@@ -10,7 +10,7 @@ import com.daml.platform.store.FlywayMigrations._
 import com.daml.platform.store.dao.HikariConnection
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
-import org.flywaydb.core.api.{FlywayException, MigrationVersion}
+import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
 import scala.annotation.tailrec
