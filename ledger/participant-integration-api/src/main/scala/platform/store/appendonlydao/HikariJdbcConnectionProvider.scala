@@ -24,7 +24,6 @@ import scala.util.control.NonFatal
 private[platform] final class HikariDataSourceOwner(
     dataSource: DataSource,
     serverRole: ServerRole,
-    jdbcUrl: String,
     minimumIdle: Int,
     maxPoolSize: Int,
     connectionTimeout: FiniteDuration,
@@ -39,7 +38,6 @@ private[platform] final class HikariDataSourceOwner(
   override def acquire()(implicit context: ResourceContext): Resource[HikariDataSource] = {
     val config = new HikariConfig
     config.setDataSource(dataSource)
-    config.setJdbcUrl(jdbcUrl)
     config.setAutoCommit(false)
     config.setMaximumPoolSize(maxPoolSize)
     config.setMinimumIdle(minimumIdle)

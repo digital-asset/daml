@@ -864,7 +864,6 @@ private[platform] object JdbcLedgerDao {
       dbDispatcher <- DbDispatcher.owner(
         storageBackend.createDataSource(jdbcUrl),
         serverRole,
-        jdbcUrl,
         connectionPoolSize,
         connectionTimeout,
         metrics,

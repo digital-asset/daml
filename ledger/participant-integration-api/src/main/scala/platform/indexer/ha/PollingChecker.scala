@@ -11,7 +11,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import scala.util.{Failure, Success, Try}
 
 /** A simple host of checking.
-  * - This will ensure that check is accessed by only one caller at a time
+  * - This will ensure that checkBody is accessed by only one caller at a time
   * - Does periodic checking
   * - Exposes check() for on-demand checking from the outside
   * - If whatever check() fails, it uses killSwitch with an abort
@@ -42,11 +42,12 @@ class PollingChecker(
     periodMillis,
   )
 
-  // This is a cruel approach for ensuring single threaded usage of the mainConnection.
+  // This is a cruel approach for ensuring single threaded usage of checkBody.
   // In theory this could have been made much more efficient: not enqueueing for a check of it's own,
   // but collecting requests, and replying in batches.
-  // Although experiments show approx 1s until a full connection pool is initialized at first
-  // (the peak scenario) which should be enough, and which can leave this code very simple.
+  // Current usage of this class does not necessarily motivate further optimizations: used from HaCoordinator
+  // to check Indexer Main Lock seems to be sufficiently fast even in peak scenario: the initialization of the
+  // complete pool.
   def check(): Unit = synchronized {
     logger.debug(s"Checking...")
     Try(checkBody) match {
