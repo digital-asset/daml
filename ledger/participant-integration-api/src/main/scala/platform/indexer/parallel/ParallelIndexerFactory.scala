@@ -146,7 +146,7 @@ object ParallelIndexerFactory {
         implicit val ec: ExecutionContext = resourceContext.executionContext
         implicit val matImplicit: Materializer = mat
         haCoordinator.protectedExecution { connectionInitializer =>
-          val killSwitchCaptor = Promise[KillSwitch]()
+          val killSwitchPromise = Promise[KillSwitch]()
 
           val completionFuture = DbDispatcher
             .owner(
@@ -158,7 +158,6 @@ object ParallelIndexerFactory {
                 connectionInitHook = Some(connectionInitializer.initialize),
               ),
               serverRole = ServerRole.Indexer,
-              jdbcUrl = jdbcUrl,
               connectionPoolSize =
                 ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
               connectionTimeout = FiniteDuration(
@@ -181,12 +180,12 @@ object ParallelIndexerFactory {
                   // the tricky bit:
                   // the future in the completion handler will be this one
                   // but the future for signaling for the HaCoordinator, that the protected execution is initialized needs to complete precisely here
-                  killSwitchCaptor.success(killSwitch)
+                  killSwitchPromise.success(killSwitch)
                   completionFuture
                 }
             }
 
-          killSwitchCaptor.future
+          killSwitchPromise.future
             .map(Handle(completionFuture.map(_ => ()), _))
         }
       }

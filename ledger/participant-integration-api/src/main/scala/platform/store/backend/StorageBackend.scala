@@ -260,14 +260,6 @@ object DataSourceStorageBackend {
     case object RemoteWrite extends PgSynchronousCommitValue("remote_write")
     case object RemoteApply extends PgSynchronousCommitValue("remote_apply")
     case object Local extends PgSynchronousCommitValue("local")
-
-    def apply(s: String): PgSynchronousCommitValue = s.toLowerCase match {
-      case On.`pgSqlName` => On
-      case Off.`pgSqlName` => Off
-      case RemoteWrite.`pgSqlName` => RemoteWrite
-      case RemoteApply.`pgSqlName` => RemoteApply
-      case Local.`pgSqlName` => Local
-    }
   }
 }
 

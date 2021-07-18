@@ -85,7 +85,7 @@ private[backend] object PostgresStorageBackend
     ()
   }
 
-  val duplicateKeyError: String = "duplicate key"
+  override val duplicateKeyError: String = "duplicate key"
 
   override def commandCompletions(
       startExclusive: Offset,

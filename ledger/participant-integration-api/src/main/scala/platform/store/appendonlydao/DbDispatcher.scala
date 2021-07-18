@@ -84,7 +84,6 @@ private[platform] object DbDispatcher {
   def owner(
       dataSource: DataSource,
       serverRole: ServerRole,
-      jdbcUrl: String,
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
@@ -93,7 +92,6 @@ private[platform] object DbDispatcher {
       hikariDataSource <- new HikariDataSourceOwner(
         dataSource,
         serverRole,
-        jdbcUrl,
         connectionPoolSize,
         connectionPoolSize,
         connectionTimeout,
