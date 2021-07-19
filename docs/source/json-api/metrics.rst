@@ -67,7 +67,7 @@ all the following metrics are available unless you run the
 sandbox with a PostgreSQL backend.
 
 ``daml.http_json_api.command_submission_timing``
----------------------------------------
+------------------------------------------------
 
 A timer. Meters how long processing of a command submission request takes
 
@@ -77,12 +77,12 @@ A timer. Meters how long processing of a command submission request takes
 A timer. Meters how long processing of a query GET request takes
 
 ``daml.http_json_api.query_matching_timing``
----------------------------------------
+--------------------------------------------
 
 A timer. Meters how long processing of a query POST request takes
 
 ``daml.http_json_api.fetch_timing``
----------------------------------------
+-----------------------------------
 
 A timer. Meters how long processing of a fetch request takes
 
@@ -92,71 +92,71 @@ A timer. Meters how long processing of a fetch request takes
 A timer. Meters how long processing of a get party/parties request takes
 
 ``daml.http_json_api.allocate_party_timing``
----------------------------------------
+--------------------------------------------
 
 A timer. Meters how long processing of a party management request takes
 
 ``daml.http_json_api.download_package_timing``
----------------------------------------
+----------------------------------------------
 
 A timer. Meters how long processing of a package download request takes
 
 ``daml.http_json_api.upload_package_timing``
----------------------------------------
+--------------------------------------------
 
 A timer. Meters how long processing of a package upload request takes
 
 ``daml.http_json_api.incoming_json_parsing_and_validation_timing``
----------------------------------------
+------------------------------------------------------------------
 
 A timer. Meters how long parsing and decoding of an incoming json payload takes
 
 ``daml.http_json_api.response_creation_timing``
----------------------------------------
+-------------------------------------------------------
 
 A timer. Meters how long the construction of the response json payload takes
 
 ``daml.http_json_api.response_creation_timing``
----------------------------------------
+-------------------------------------------------------
 
 A timer. Meters how long the construction of the response json payload takes
 
 ``daml.http_json_api.db_find_by_contract_key_timing``
----------------------------------------
+-----------------------------------------------------
 
 A timer. Meters how long a find by contract key database operation takes
 
 ``daml.http_json_api.db_find_by_contract_id_timing``
----------------------------------------
+----------------------------------------------------
 
 A timer. Meters how long a find by contract id database operation takes
 
 ``daml.http_json_api.command_submission_ledger_timing``
----------------------------------------
+-------------------------------------------------------
 
 A timer. Meters how long processing of the command submission request takes on the ledger
 
 ``daml.http_json_api.http_request_throughput``
----------------------------------------
+----------------------------------------------
 
 A meter. Number of http requests
 
 ``daml.http_json_api.websocket_request_count``
----------------------------------------
+----------------------------------------------
 
 A Counter. Count of active websocket connections
 
 ``daml.http_json_api.command_submission_throughput``
----------------------------------------
+----------------------------------------------------
 
 A meter. Number of command submissions
 
 ``daml.http_json_api.upload_packages_throughput``
----------------------------------------
+-------------------------------------------------
 
 A meter. Number of package uploads
 
 ``daml.http_json_api.allocation_party_throughput``
----------------------------------------
+--------------------------------------------------
 
 A meter. Number of party allocations
