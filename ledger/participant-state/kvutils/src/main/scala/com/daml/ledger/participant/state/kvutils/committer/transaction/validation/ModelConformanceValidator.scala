@@ -154,7 +154,12 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           case DamlStateValue.ValueCase.ARCHIVE =>
             // NOTE(JM): Engine only looks up packages once, compiles and caches,
             // provided that the engine instance is persisted.
-            Some(archive.Decode.assertDecodeArchive(value.getArchive)._2)
+            archive.Decode.decodeArchive(value.getArchive) match {
+              case Right((_, pkg)) => pkg
+              case Left(err) =>
+                logger.warn("Decoding the archive failed.")
+                throw Err.DecodeError("Archive", err.getMessage)
+            }
 
           case _ =>
             val msg = "value is not a Daml-LF archive"
