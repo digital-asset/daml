@@ -539,7 +539,7 @@ object Config {
         )
 
         // TODO ha: remove after stable
-        opt[Unit]("experimental-index-ha")
+        opt[Unit]("index-ha-unsafe")
           .optional()
           .hidden()
           .text(
