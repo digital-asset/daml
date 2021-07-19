@@ -18,7 +18,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import scalaz.std.list._

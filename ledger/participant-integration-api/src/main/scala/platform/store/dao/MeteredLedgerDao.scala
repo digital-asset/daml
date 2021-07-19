@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.OffsetStep

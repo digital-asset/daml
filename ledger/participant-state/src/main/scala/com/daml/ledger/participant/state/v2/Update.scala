@@ -7,7 +7,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 
 /** An update to the (abstract) participant state.
   *

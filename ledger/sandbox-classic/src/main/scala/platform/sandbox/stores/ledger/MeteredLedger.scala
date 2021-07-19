@@ -10,6 +10,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.index.MeteredReadOnlyLedger

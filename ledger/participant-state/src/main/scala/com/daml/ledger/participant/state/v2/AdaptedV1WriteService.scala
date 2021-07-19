@@ -12,6 +12,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo

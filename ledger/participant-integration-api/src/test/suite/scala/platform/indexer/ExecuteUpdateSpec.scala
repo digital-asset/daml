@@ -17,7 +17,13 @@ import com.daml.ledger.participant.state.v1.Update.{
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionVersion, VersionedTransaction}
+import com.daml.lf.transaction.{
+  BlindingInfo,
+  CommittedTransaction,
+  NodeId,
+  TransactionVersion,
+  VersionedTransaction,
+}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
