@@ -52,6 +52,7 @@ object Tests {
     Vector(
       new ParticipantPruningIT,
       new MultiPartySubmissionIT,
+      new ValueNestingIT,
     )
 
   val retired: Vector[LedgerTestSuite] =
