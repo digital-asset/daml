@@ -725,7 +725,7 @@ private object OracleQueries extends Queries {
         // but this will probably necessitate the same PostgreSQL-side
         uniqueSets(queries.zipWithIndex.map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
           preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
-            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"tpid")
+            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"cst.tpid")
             queryByCondition[Int](tpid, preds.transform((_, predIx) => predIx._1).toVector)
         }
       case MatchedQueryMarker.Unused =>
