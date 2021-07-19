@@ -122,6 +122,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
 
   // Helper to lookup contract instances. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
+  // A contract may not be in the state only if it's an edge case around committer pruning.
   @throws[Err.MissingInputState]
   private[validation] def lookupContract(
       commitContext: CommitContext
