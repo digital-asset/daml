@@ -231,14 +231,12 @@ private[transaction] object ModelConformanceValidator {
           case (
                 Node.NodeLookupByKey(
                   recordedTemplateId,
-                  _,
                   recordedKey,
                   recordedResult,
                   recordedVersion,
                 ),
                 Node.NodeLookupByKey(
                   replayedTemplateId,
-                  _,
                   replayedKey,
                   replayedResult,
                   replayedVersion,

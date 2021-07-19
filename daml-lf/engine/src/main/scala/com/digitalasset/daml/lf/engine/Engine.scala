@@ -394,7 +394,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     }
 
     onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(tx, nodeSeeds) =>
+      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
           submissionTime = onLedger.ptxInternal.submissionTime,

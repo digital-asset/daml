@@ -228,7 +228,6 @@ class TransactionCoderSpec
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = ValueParty(Party.assertFromString("francesco")),
           agreementText = "agreement",
-          optLocation = None,
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           key = None,

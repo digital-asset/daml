@@ -170,6 +170,7 @@ object ScenarioLedger {
     */
   final case class LedgerNodeInfo(
       node: Node,
+      optLocation: Option[Location],
       transaction: TransactionId,
       effectiveAt: Time.Timestamp,
       disclosures: Map[Party, Disclosure],
@@ -240,13 +241,14 @@ object ScenarioLedger {
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
       tx: SubmittedTransaction,
+      locationInfo: Map[NodeId, Location],
       l: ScenarioLedger,
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
     val transactionId = l.scenarioStepId.id
     val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionId, tx)
-    processTransaction(l.scenarioStepId, richTr, l.ledgerData) match {
+    processTransaction(l.scenarioStepId, richTr, locationInfo, l.ledgerData) match {
       case Left(err) => Left(CommitError.UniqueKeyViolation(err))
       case Right(updatedCache) =>
         Right(
@@ -396,6 +398,7 @@ object ScenarioLedger {
   private def processTransaction(
       trId: TransactionId,
       richTr: RichTransaction,
+      locationInfo: Map[NodeId, Location],
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
 
@@ -444,6 +447,7 @@ object ScenarioLedger {
                 case Some(node) =>
                   val newLedgerNodeInfo = LedgerNodeInfo(
                     node = node,
+                    optLocation = locationInfo.get(nodeId),
                     transaction = trId,
                     effectiveAt = richTr.effectiveAt,
                     disclosures = Map.empty,
@@ -485,7 +489,7 @@ object ScenarioLedger {
                       }
                       processNodes(mbNewCache2, idsToProcess)
 
-                    case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _, _, _, _) =>
+                    case NodeFetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                           info.copy(referencedBy = info.referencedBy + eventId)

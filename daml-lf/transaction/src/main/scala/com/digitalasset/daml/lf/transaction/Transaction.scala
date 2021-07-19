@@ -454,11 +454,11 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     */
   final def inputContracts[Cid2 >: Cid]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid), _))) =>
+      case (acc, (_, Node.NodeLookupByKey(_, _, Some(coid), _))) =>
         acc + coid
       case (acc, _) => acc
     } -- localContracts.keySet
@@ -810,15 +810,15 @@ object GenTransaction extends value.CidContainer2[GenTransaction] {
 
     tx.fold(State(Set.empty, Set.empty)) { case (state, (_, node)) =>
       node match {
-        case Node.NodeCreate(_, tmplId, _, _, _, _, _, Some(key), _) =>
+        case Node.NodeCreate(_, tmplId, _, _, _, _, Some(key), _) =>
           state.created(globalKey(tmplId, key.key))
-        case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
+        case Node.NodeExercises(_, tmplId, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
           state.consumed(globalKey(tmplId, key.key))
-        case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
+        case Node.NodeExercises(_, tmplId, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
           state.referenced(globalKey(tmplId, key.key))
-        case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key), _, _) =>
+        case Node.NodeFetch(_, tmplId, _, _, _, Some(key), _, _) =>
           state.referenced(globalKey(tmplId, key.key))
-        case Node.NodeLookupByKey(tmplId, _, key, Some(_), _) =>
+        case Node.NodeLookupByKey(tmplId, key, Some(_), _) =>
           state.referenced(globalKey(tmplId, key.key))
         case _ =>
           state

@@ -197,7 +197,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       templateId = templateId,
       arg = contractArgument,
       agreementText = someAgreement,
-      optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
       key = key,
@@ -212,7 +211,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       targetCoid = targetCid,
       templateId = someTemplateId,
       choiceId = someChoiceName,
-      optLocation = None,
       consuming = true,
       actingParties = Set(alice),
       chosenValue = someChoiceArgument,
@@ -233,7 +231,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     NodeFetch(
       coid = contractId,
       templateId = someTemplateId,
-      optLocation = None,
       actingParties = Set(party),
       signatories = Set(party),
       stakeholders = Set(party),
@@ -368,7 +365,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         targetCoid = id,
         templateId = someTemplateId,
         choiceId = someChoiceName,
-        optLocation = None,
         consuming = false,
         actingParties = Set(alice),
         chosenValue = someChoiceArgument,
@@ -386,7 +382,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       NodeFetch(
         coid = id,
         templateId = someTemplateId,
-        optLocation = None,
         actingParties = divulgees,
         signatories = Set(alice),
         stakeholders = Set(alice),
@@ -720,7 +715,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         templateId = someTemplateId,
         arg = someContractArgument,
         agreementText = someAgreement,
-        optLocation = None,
         signatories = Set(party),
         stakeholders = Set(party),
         key = Some(KeyWithMaintainers(someContractKey(party, key), Set(party))),
@@ -753,7 +747,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         targetCoid = contractId,
         templateId = someTemplateId,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
-        optLocation = None,
         consuming = true,
         actingParties = Set(party),
         chosenValue = LfValue.ValueUnit,
@@ -790,7 +783,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val lookupByKeyNodeId = txBuilder.add(
       NodeLookupByKey(
         someTemplateId,
-        None,
         KeyWithMaintainers(someContractKey(party, key), Set(party)),
         result,
         version = TransactionVersion.minVersion,
@@ -818,7 +810,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       NodeFetch(
         coid = contractId,
         templateId = someTemplateId,
-        optLocation = None,
         actingParties = Set(party),
         signatories = Set(party),
         stakeholders = Set(party),

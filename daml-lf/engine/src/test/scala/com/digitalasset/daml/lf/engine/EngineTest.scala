@@ -1408,7 +1408,6 @@ class EngineTest
               coid,
               _,
               choice,
-              _,
               consuming,
               actingParties,
               _,
@@ -1504,7 +1503,7 @@ class EngineTest
 
     def actFetchActors[Nid, Cid](n: Node.GenNode[Nid, Cid]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _, _) => actingParties
+        case Node.NodeFetch(_, _, actingParties, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
@@ -1683,7 +1682,7 @@ class EngineTest
     def firstLookupNode[Nid, Cid](
         tx: GenTx[Nid, Cid]
     ): Option[(Nid, Node.NodeLookupByKey[Cid])] =
-      tx.nodes.collectFirst { case (nid, nl @ Node.NodeLookupByKey(_, _, _, _, _)) =>
+      tx.nodes.collectFirst { case (nid, nl @ Node.NodeLookupByKey(_, _, _, _)) =>
         nid -> nl
       }
 
@@ -1892,7 +1891,7 @@ class EngineTest
         )
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _, _)) =>
+        case Some(Node.NodeFetch(_, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -2102,7 +2101,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -2790,7 +2789,6 @@ object EngineTest {
                     _,
                     Node.NodeExercises(
                       targetCoid: ContractId,
-                      _,
                       _,
                       _,
                       consuming @ true,

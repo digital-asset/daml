@@ -202,7 +202,7 @@ class IdeLedgerClient(
           _currentSubmission = None
           _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
           seed = ScenarioRunner.nextSeed(
-            error.ptx.unwind.context.nextActionChildSeed
+            error.ptx.unwind().context.nextActionChildSeed
           )
           Right(())
       })
