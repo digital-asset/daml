@@ -81,7 +81,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                     tyConAlreadySeen0 + tyCon,
                     tmplsAlreadySeen0,
                   )
-                case Left(LookupError.Package(pkgId)) =>
+                case Left(LookupError.MissingPackage(pkgId)) =>
                   pullPackage(pkgId)
                 case Left(e) =>
                   ResultError(Error.Preprocessing.Lookup(e))
@@ -107,7 +107,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                     if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
                   val typs2 = template.key.fold(typs1)(_.typ :: typs1)
                   go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-                case Left(LookupError.Package(pkgId)) =>
+                case Left(LookupError.MissingPackage(pkgId)) =>
                   pullPackage(pkgId)
                 case Left(error) =>
                   ResultError(Error.Preprocessing.Lookup(error))

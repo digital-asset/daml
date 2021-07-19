@@ -314,8 +314,9 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      inside(res) { case Left(Error.Preprocessing(Error.Preprocessing.Lookup(error))) =>
-        error shouldBe a[language.LookupError.TemplateKey]
+      inside(res) {
+        case Left(Error.Preprocessing(Error.Preprocessing.Lookup(language.LookupError(ref, _)))) =>
+          ref shouldBe a[language.Reference.TemplateKey]
       }
     }
 
