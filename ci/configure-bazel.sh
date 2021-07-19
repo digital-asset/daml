@@ -53,6 +53,9 @@ CACHE_URL="https://storage.googleapis.com/daml-bazel-cache"
 if is_windows; then
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local
+  # Startup options can not depend on the config so we have to hack
+  # it in here to make it only apply on Windows.
+  echo "startup --windows_enable_symlinks" >> .bazelrc.local
 
   # Modify the output path to avoid shared action keys.
   # The issue appears to be that GCC produces absolute paths
