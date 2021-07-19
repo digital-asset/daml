@@ -181,17 +181,19 @@ class Endpoints(
     val markThroughputAndLogProcessingTime: Directive0 = Directive { (fn: Unit => Route) =>
       val t0 = System.nanoTime
       metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
-      fn(()).andThen(_.map { res =>
-        logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+      fn(()).andThen { res =>
+        res.onComplete(_ => logger.trace(s"Processed request after ${System.nanoTime() - t0}ns"))
         res
-      })
+      }
+    }
+    // As futures are eager it is best to start the timer rather sooner than later
+    // to get accurate timings. This also consistent with the implementation above which
+    // logs the processing time.
+    def withTimer(timer: Timer) = Directive { (fn: Unit => Route) => ctx =>
+      Timed.future(timer, fn(())(ctx))
     }
     def path[L](pm: PathMatcher[L]) =
       server.Directives.path(pm) & markThroughputAndLogProcessingTime & logRequestAndResult
-    def withTimer(timer: Timer) =
-      Directive { (fn: Unit => Route) =>
-        fn(()).andThen(res => Timed.future(timer, res))
-      }
     val withCmdSubmitTimer: Directive0 = withTimer(commandSubmissionTimer)
     val withFetchTimer: Directive0 = withTimer(fetchTimer)
     concat(
