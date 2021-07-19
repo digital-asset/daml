@@ -1,0 +1,86 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ValueNesting where
+
+data Nat = Z | S Nat
+  deriving (Eq, Show)
+
+construct: Int -> Nat -> Nat
+construct x acc | x <= 0 = acc
+construct x acc  = construct (x-1) (S acc)
+
+toNat : Int -> Nat
+toNat x = construct x Z
+
+destruct: Nat -> Int -> Int
+destruct Z acc = acc
+destruct (S n) acc = destruct n (acc + 1)
+
+toInt: Nat -> Int
+toInt x = destruct x 0
+
+template Contract
+  with
+    party: Party
+    n: Int
+    content: Nat
+  where
+    signatory party
+
+template ContractWithKey
+  with
+    party: Party
+    n: Int
+  where
+    signatory party
+    key (party, toNat n): (Party, Nat)
+    maintainer key._1
+
+template Handler
+  with
+    party : Party
+  where
+    signatory party
+    controller party can
+      nonconsuming Construct : Nat
+        with
+          n : Int
+        do
+          pure $ toNat n
+      nonconsuming Destruct : Int
+        with
+          n: Nat
+        do pure $ toInt n
+      nonconsuming Create: ContractId Contract
+        with
+          n : Int
+        do
+          create Contract with
+            party = party
+            n = n
+            content = toNat n
+      nonconsuming CreateKey: ContractId ContractWithKey
+        with
+          n : Int
+        do
+          create ContractWithKey with
+            party = party
+            n = n
+      nonconsuming Fetch: Contract
+        with
+          cid: ContractId Contract
+        do
+          fetch cid
+      nonconsuming FetchByKey: ContractId ContractWithKey
+        with
+          n: Int
+        do
+          (cid, _) <- fetchByKey @ContractWithKey (party, toNat n)
+          pure cid
+      nonconsuming LookupByKey: Optional (ContractId ContractWithKey)
+        with
+          n: Int
+        do
+          lookupByKey @ContractWithKey (party, toNat n)
+
