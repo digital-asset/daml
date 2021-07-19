@@ -728,7 +728,7 @@ final class Metrics(val registry: MetricRegistry) {
       val getPartyTimer: Timer = registry.timer(Prefix :+ "get_party_timing")
       // Meters how long processing of a party management request takes
       val allocatePartyTimer: Timer = registry.timer(Prefix :+ "allocate_party_timing")
-      // Meters how long processing of a package management request takes
+      // Meters how long processing of a package download request takes
       val downloadPackageTimer: Timer = registry.timer(Prefix :+ "download_package_timing")
       // Meters how long processing of a package upload request takes
       val uploadPackageTimer: Timer = registry.timer(Prefix :+ "upload_package_timing")

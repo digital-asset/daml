@@ -34,6 +34,7 @@ We welcome feedback about the JSON API on
 
    lf-value-specification
    search-query-language
+   metrics
 
 Running the JSON API
 ********************
