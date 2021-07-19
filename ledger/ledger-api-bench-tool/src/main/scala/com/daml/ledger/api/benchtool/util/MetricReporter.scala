@@ -28,55 +28,80 @@ object MetricReporter {
         metrics: List[Metric[_]],
         duration: Duration,
     ): String = {
-      def indented(str: String, spaces: Int = 4): String = s"${" " * spaces}$str"
-      val reports = metrics.map { metric =>
-        val finalValue = formattedValue(metric.finalValue(duration))
+      def valueFormat(info: String): String = s"""[$streamName][final-value] $info"""
+      def failureFormat(info: String): String = s"""[$streamName][failure] $info"""
+
+      val reports = metrics.flatMap { metric =>
+        val finalValue = metric.finalValue(duration)
+
+        val valueLog: Option[String] =
+          if (includeInFinalReport(metric))
+            Some(valueFormat(s"${metricName(metric)}: ${formattedValue(finalValue)}"))
+          else
+            None
 
         val violatedObjective: Option[String] = metric.violatedObjective
           .map { case (objective, value) =>
-            s"""!!! FAILURE
-               |!!! OBJECTIVE NOT MET: ${formattedObjective(objective)} (actual: ${formattedValue(
-              value
-            )})
-               |""".stripMargin
+            val info =
+              s"${objectiveName(objective)}: required: ${formattedObjectiveValue(objective)}, metered: ${formattedValue(value)}"
+            failureFormat(info)
           }
 
-        val all: String = (List(finalValue) ::: violatedObjective.toList)
-          .map(indented(_))
-          .mkString("\n")
-
-        s"""${metric.name}:
-           |$all""".stripMargin
+        valueLog.toList ::: violatedObjective.toList
       }
+
+      val durationLog =
+        s"""[$streamName][total-duration] ${duration.toMillis.toDouble / 1000} [s]"""
       val reportWidth = 80
       val bar = "=" * reportWidth
       s"""
          |$bar
-         |Stream: $streamName
-         |Total duration: ${duration.toMillis.toDouble / 1000} [s]
+         |$durationLog
          |${reports.mkString("\n")}
          |$bar""".stripMargin
     }
 
-    private def formattedValue(value: MetricValue): String = value match {
-      case v: ConsumptionSpeedMetric.Value =>
-        s"speed: ${v.relativeSpeed.map(rounded).getOrElse("-")} [-]"
-      case v: CountRateMetric.Value =>
-        s"rate: ${rounded(v.ratePerSecond)} [tx/s]"
-      case v: DelayMetric.Value =>
-        s"mean delay: ${v.meanDelaySeconds.getOrElse("-")} [s]"
-      case v: SizeMetric.Value =>
-        s"size rate: ${rounded(v.megabytesPerSecond)} [MB/s]"
-      case v: TotalCountMetric.Value =>
-        s"total count: ${v.totalCount} [tx]"
+    private def includeInFinalReport(metric: Metric[_]): Boolean = metric match {
+      case _: ConsumptionSpeedMetric[_] => false
+      case _: DelayMetric[_] => false
+      case _ => true
     }
 
-    private def formattedObjective(objective: ServiceLevelObjective[_]): String =
+    private def metricName(value: Metric[_]): String = value match {
+      case _: ConsumptionSpeedMetric[_] => "Consumption speed"
+      case _: CountRateMetric[_] => "Item rate"
+      case _: DelayMetric[_] => "Mean delay"
+      case _: SizeMetric[_] => "Size rate"
+      case _: TotalCountMetric[_] => "Total item count"
+    }
+
+    private def formattedValue(value: MetricValue): String = value match {
+      case v: ConsumptionSpeedMetric.Value =>
+        s"${v.relativeSpeed.map(rounded).getOrElse("-")} [-]"
+      case v: CountRateMetric.Value =>
+        s"${rounded(v.ratePerSecond)} [item/s]"
+      case v: DelayMetric.Value =>
+        s"${v.meanDelaySeconds.getOrElse("-")} [s]"
+      case v: SizeMetric.Value =>
+        s"${rounded(v.megabytesPerSecond)} [MB/s]"
+      case v: TotalCountMetric.Value =>
+        s"${v.totalCount} [item]"
+    }
+
+    private def objectiveName(objective: ServiceLevelObjective[_]): String =
+      objective match {
+        case _: MaxDelay =>
+          s"Maximum record time delay"
+        case _: MinConsumptionSpeed =>
+          s"Minimum consumption speed"
+      }
+
+    private def formattedObjectiveValue(objective: ServiceLevelObjective[_]): String =
       objective match {
         case obj: MaxDelay =>
-          s"max allowed mean period delay: ${obj.maxDelaySeconds} [s]"
+          s"${obj.maxDelaySeconds} [s]"
         case obj: MinConsumptionSpeed =>
-          s"min allowed period consumption speed: ${obj.minSpeed} [-]"
+          s"${obj.minSpeed} [-]"
       }
 
     private def rounded(value: Double): String = "%.2f".format(value)
