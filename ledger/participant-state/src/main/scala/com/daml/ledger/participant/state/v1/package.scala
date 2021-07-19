@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state
 
 import com.daml.lf.data.Ref
-import com.daml.lf.value.Value
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
@@ -74,9 +73,5 @@ package object v1 {
   /** Identifiers used to correlate admin submission with results. */
   val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
   type SubmissionId = Ref.LedgerString
-
-  /** A contract instance. */
-  type ContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.ContractId]]
 
 }

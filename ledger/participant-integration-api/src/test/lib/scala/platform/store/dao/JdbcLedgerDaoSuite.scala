@@ -23,10 +23,11 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText, VersionedValue}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
+import com.daml.platform.store.dao.JdbcLedgerDaoSuite._
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -657,7 +658,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
 
   protected final def store(
-      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      divulgedContracts: DivulgedContracts,
       blindingInfo: Option[BlindingInfo],
       offsetAndTx: (Offset, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] =
@@ -668,7 +669,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
 
   protected final def storeOffsetStepAndTx(
-      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      divulgedContracts: DivulgedContracts,
       blindingInfo: Option[BlindingInfo],
       offsetStepAndTx: (OffsetStep, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
@@ -894,16 +895,19 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
 object JdbcLedgerDaoSuite {
 
-  import scalaz.syntax.traverse._
-  import scalaz.{Free, Monad, NaturalTransformation, Traverse}
+  private type DivulgedContracts =
+    Map[(ContractId, ContractInst[VersionedValue[ContractId]]), Set[Party]]
 
   implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
+
+    import scalaz.syntax.traverse._
+    import scalaz.{Free, Monad, NaturalTransformation, Traverse}
 
     /** Like `traverse`, but guarantees that
       *
       *  - `f` is evaluated left-to-right, and
       *  - `B` from the preceding element is evaluated before `f` is invoked for
-      * the subsequent `A`.
+      *    the subsequent `A`.
       */
     def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
       self

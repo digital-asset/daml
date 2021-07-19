@@ -13,26 +13,25 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.daml.ledger.participant.state.v1.{ContractInst, TransactionId}
+import com.daml.ledger.api.domain.RejectionReason
+import com.daml.ledger.api.domain.RejectionReason._
+import com.daml.ledger.participant.state.v1.TransactionId
+import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.ledger.api.domain.RejectionReason
-import com.daml.ledger.api.domain.RejectionReason._
-import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.platform.store.Contract.ActiveContract
-import com.daml.platform.store.Conversions._
-import com.daml.platform.store.entries.LedgerEntry
-import com.daml.platform.store.serialization.KeyHasher
-import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
 import com.daml.platform.db.migration.translation.{
   ContractSerializer,
   TransactionSerializer,
   ValueSerializer,
 }
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.entries.LedgerEntry
+import com.daml.platform.store.serialization.KeyHasher
+import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
@@ -328,7 +327,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           override def divulgeAlreadyCommittedContracts(
               transactionId: TransactionId,
               global: Relation[ContractId, Party],
-              referencedContracts: List[(Value.ContractId, ContractInst)],
+              referencedContracts: ActiveLedgerState.ReferencedContracts,
           ) = {
             val divulgenceParams = global
               .flatMap { case (cid, parties) =>
