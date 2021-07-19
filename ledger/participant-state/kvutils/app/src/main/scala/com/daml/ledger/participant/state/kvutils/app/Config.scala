@@ -510,7 +510,7 @@ object Config {
           .optional()
           .hidden()
           .text(
-            "Experimental contract state cache for command execution. Should not be used in production."
+            "Experimental contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema-unsafe. Should not be used in production."
           )
           .action((_, config) => config.copy(enableMutableContractStateCache = true))
 
@@ -518,9 +518,23 @@ object Config {
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema-unsafe and mutable-contract-state-cache-unsafe. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
+
+        checkConfig(c =>
+          if (c.enableMutableContractStateCache && !c.enableAppendOnlySchema)
+            failure(
+              "mutable-contract-state-cache-unsafe must be enabled in conjunction with index-append-only-schema-unsafe."
+            )
+          else if (
+            c.enableInMemoryFanOutForLedgerApi && !(c.enableMutableContractStateCache && c.enableAppendOnlySchema)
+          )
+            failure(
+              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema-unsafe and mutable-contract-state-cache-unsafe."
+            )
+          else success
+        )
       }
     extraOptions(parser)
     parser
