@@ -19,6 +19,11 @@ To enable metrics and configure reporting, you can use the two following CLI opt
 
   - ``graphite://<server_host>[:<server_port>]``: sends captured metrics to a Graphite server. If the port
     is omitted, the default value ``2003`` will be used.
+  
+  - ``prometheus://<server_host>[:<server_port>]``: renders captured metrics
+    on a http endpoint in accordance with the prometheus protocol. If the port
+    is omitted, the default value ``55001`` will be used. The metrics will be
+    available under the address ``http://<server_host>:<server_port>/metrics``.
 
 - ``--metrics-reporting-interval``: metrics are pre-aggregated on the sandbox and sent to
   the reporter, this option allows the user to set the interval. The formats accepted are based
@@ -59,10 +64,8 @@ is milliseconds).
 List of metrics
 ===============
 
-The following is a non-exhaustive list of selected metrics
-that can be particularly important to track. Note that not
-all the following metrics are available unless you run the
-sandbox with a PostgreSQL backend.
+The following is an exhaustive list of selected metrics
+that can be particularly important to track.
 
 ``daml.http_json_api.command_submission_timing``
 ------------------------------------------------
