@@ -1,0 +1,22 @@
+diff --git a/src/Development/IDE/Core/Shake.hs b/src/Development/IDE/Core/Shake.hs
+index bf9ea77..1a7d2d8 100644
+--- a/src/Development/IDE/Core/Shake.hs
++++ b/src/Development/IDE/Core/Shake.hs
+@@ -89,6 +89,8 @@ import           Numeric.Extra
+ import           Language.LSP.Types
+ import           UnliftIO.Exception (bracket_)
+ 
++import Debug.Trace
++
+ -- Dummy config type for now, we might
+ -- want to add more fields in the future.
+ data Config = Config
+@@ -572,6 +574,8 @@ defineEarlyCutoff
+     => (k -> NormalizedFilePath -> Action (Maybe BS.ByteString, IdeResult v))
+     -> Rules ()
+ defineEarlyCutoff op = addBuiltinRule noLint noIdentity $ \(Q (key, file)) (old :: Maybe BS.ByteString) mode -> do
++    traceM "#### FILE ####"
++    traceShowM file
+     extras@ShakeExtras{state, inProgress} <- getShakeExtras
+     -- don't do progress for GetFileExists, as there are lots of non-nodes for just that one key
+     (if show key == "GetFileExists" then id else withProgress inProgress file) $ do
