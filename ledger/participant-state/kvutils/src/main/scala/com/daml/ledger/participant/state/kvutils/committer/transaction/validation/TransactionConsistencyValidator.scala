@@ -31,6 +31,7 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
 
   /** Validates consistency of contracts and contract keys against the current ledger state.
     * For contracts, checks whether all contracts used in the transaction are still active.
+    * For keys, checks whether they are consistent and there are no duplicates.
     *
     * @param rejections A helper object for creating rejection [[Step]]s.
     * @return A committer [[Step]] that performs validation.
