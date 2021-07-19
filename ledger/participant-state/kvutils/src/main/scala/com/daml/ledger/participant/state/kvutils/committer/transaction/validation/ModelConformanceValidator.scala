@@ -114,7 +114,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
         )
         rejections.buildRejectionStep(
           transactionEntry,
-          RejectionReasonV0.Disputed(err.getMessage),
+          RejectionReasonV0.Inconsistent(err.getMessage),
           commitContext.recordTime,
         )
     }
