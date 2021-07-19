@@ -19,55 +19,53 @@ object Reader {
 
   // Validate hash and version of a DamlLf.Archive
   @throws[Error.Parsing]
-  def readArchive(lf: DamlLf.Archive): ArchivePayload = {
+  def readArchive(lf: DamlLf.Archive): Either[Error, ArchivePayload] = {
     lf.getHashFunction match {
       case DamlLf.HashFunction.SHA256 =>
-        val payload = lf.getPayload
-        val theirHash = PackageId.fromString(lf.getHash) match {
-          case Right(hash) => hash
-          case Left(err) => throw Error.Parsing(s"Invalid hash: $err")
-        }
-        val ourHash =
-          PackageId.assertFromString(
-            MessageDigest
-              .getInstance("SHA-256")
-              .digest(payload.toByteArray)
-              .map("%02x" format _)
-              .mkString
+        for {
+          theirHash <- PackageId
+            .fromString(lf.getHash)
+            .left
+            .map(err => Error.Parsing("Invalid hash: " + err))
+          ourHash = MessageDigest
+            .getInstance("SHA-256")
+            .digest(lf.getPayload.toByteArray)
+            .map("%02x" format _)
+            .mkString
+          _ <- Either.cond(
+            theirHash == ourHash,
+            (),
+            Error.Parsing(s"Mismatching hashes! Expected $ourHash but got $theirHash"),
           )
-        if (ourHash != theirHash) {
-          throw Error.Parsing(s"Mismatching hashes! Expected $ourHash but got $theirHash")
-        }
-        readArchivePayload(ourHash, ArchivePayloadParser.fromByteString(payload))
+          proto <- ArchivePayloadParser.fromByteString(lf.getPayload)
+          payload <- readArchivePayload(theirHash, proto)
+
+        } yield payload
       case DamlLf.HashFunction.UNRECOGNIZED =>
-        throw Error.Parsing("Unrecognized hash function")
+        Left(Error.Parsing("Unrecognized hash function"))
     }
   }
 
   @throws[Error.Parsing]
-  private[this] def readArchiveVersion(lf: DamlLf.ArchivePayload): LanguageMajorVersion =
+  private[this] def readArchiveVersion(
+      lf: DamlLf.ArchivePayload
+  ): Either[Error, LanguageMajorVersion] =
     lf.getSumCase match {
-      case DamlLf.ArchivePayload.SumCase.DAML_LF_1 => LanguageMajorVersion.V1
+      case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
+        Right(LanguageMajorVersion.V1)
       case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
-        throw Error.Parsing("Unrecognized LF version")
+        Left(Error.Parsing("Unrecognized LF version"))
     }
 
   // Validate hash and version of a DamlLf.ArchivePayload
   @throws[Error.Parsing]
-  def readArchivePayload(hash: PackageId, lf: DamlLf.ArchivePayload): ArchivePayload = {
-    val majorVersion = readArchiveVersion(lf)
-    val minorVersion = lf.getMinor
-    val version =
-      LanguageVersion(majorVersion, LanguageVersion.Minor(minorVersion))
-    if (!(majorVersion supportsMinorVersion minorVersion)) {
-      val supportedVersions =
-        majorVersion.acceptedVersions.map(v => s"$majorVersion.${v.identifier}")
-      throw Error.Parsing(
-        s"LF $majorVersion.$minorVersion unsupported. Supported LF versions are ${supportedVersions
-          .mkString(",")}"
-      )
-    }
-    ArchivePayload(hash, lf, version)
-  }
+  def readArchivePayload(
+      hash: PackageId,
+      lf: DamlLf.ArchivePayload,
+  ): Either[Error, ArchivePayload] =
+    for {
+      majorVersion <- readArchiveVersion(lf)
+      version <- majorVersion.toVersion(lf.getMinor).left.map(Error.Parsing)
+    } yield ArchivePayload(hash, lf, version)
 
 }

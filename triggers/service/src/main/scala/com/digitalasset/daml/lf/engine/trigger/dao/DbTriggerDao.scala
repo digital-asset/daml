@@ -26,7 +26,7 @@ import com.daml.doobie.logging.Slf4jLogHandler
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 import scala.language.existentials
 import scala.util.control.NonFatal
 
@@ -182,10 +182,10 @@ abstract class DbTriggerDao protected (
   ): Either[String, (PackageId, DamlLf.ArchivePayload)] =
     for {
       pkgId <- PackageId.fromString(pkgIdString)
-      payload <- Try(ArchivePayloadParser.fromByteArray(pkgPayload)) match {
-        case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
-        case Success(pkg) => Right(pkg)
-      }
+      payload <- ArchivePayloadParser
+        .fromByteArray(pkgPayload)
+        .left
+        .map(err => s"Failed to parse package with id $pkgId.\n" + err.toString)
     } yield (pkgId, payload)
 
   private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {

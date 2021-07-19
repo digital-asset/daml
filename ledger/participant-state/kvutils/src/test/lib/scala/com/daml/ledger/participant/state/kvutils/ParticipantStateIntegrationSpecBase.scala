@@ -726,7 +726,7 @@ object ParticipantStateIntegrationSpecBase {
     archives
       .sortBy(_.getSerializedSize) // look at the smallest archives first to limit decoding work
       .iterator
-      .filter(Decode.decodeArchive(_)._2.directDeps.isEmpty)
+      .filter(Decode.assertDecodeArchive(_)._2.directDeps.isEmpty)
       .take(2)
       .toList
 

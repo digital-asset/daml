@@ -24,7 +24,7 @@ class SimplePackage(testDar: TestDar) {
     (Ref.PackageId.assertFromString(archive.getHash), archive)
   }.toMap
 
-  val packages: Map[Ref.PackageId, Ast.Package] = dar.all.map(Decode.decodeArchive(_)).toMap
+  val packages: Map[Ref.PackageId, Ast.Package] = dar.all.map(Decode.assertDecodeArchive(_)).toMap
 
   val mainArchive: DamlLf.Archive = dar.main
 

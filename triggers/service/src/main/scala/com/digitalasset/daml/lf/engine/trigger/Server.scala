@@ -71,7 +71,7 @@ class Server(
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory
     val pkgMap = pkgs.map { case (pkgId, payload) =>
-      Decode.decodeArchivePayload(Reader.readArchivePayload(pkgId, payload))
+      Decode.assertDecodeArchivePayload(Reader.readArchivePayload(pkgId, payload).toTry.get)
     }.toMap
 
     // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.

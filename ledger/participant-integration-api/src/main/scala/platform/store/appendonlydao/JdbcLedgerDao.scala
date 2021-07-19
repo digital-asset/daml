@@ -463,7 +463,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive)(storageBackend.lfArchive(packageId))
-      .map(_.map(data => ArchiveParser.fromByteArray(data)))(
+      .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
         servicesExecutionContext
       )
 
