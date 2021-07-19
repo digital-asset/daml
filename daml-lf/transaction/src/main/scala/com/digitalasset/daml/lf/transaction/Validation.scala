@@ -193,7 +193,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     templateId1,
                     arg1,
                     agreementText1,
-                    optLocation1 @ _,
                     signatories1,
                     stakeholders1,
                     key1,
@@ -204,7 +203,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     templateId2,
                     arg2,
                     agreementText2,
-                    optLocation2 @ _,
                     signatories2,
                     stakeholders2,
                     key2,
@@ -224,7 +222,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   Node.NodeFetch(
                     coid1,
                     templateId1,
-                    optLocation1 @ _,
                     actingParties1,
                     signatories1,
                     stakeholders1,
@@ -235,7 +232,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   Node.NodeFetch(
                     coid2,
                     templateId2,
-                    optLocation2 @ _,
                     actingParties2,
                     signatories2,
                     stakeholders2,
@@ -258,7 +254,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     targetCoid1,
                     templateId1,
                     choiceId1,
-                    optLocation1 @ _,
                     consuming1,
                     actingParties1,
                     chosenValue1,
@@ -275,7 +270,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     targetCoid2,
                     templateId2,
                     choiceId2,
-                    optLocation2 @ _,
                     consuming2,
                     actingParties2,
                     chosenValue2,
@@ -308,8 +302,8 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                 ExerciseEntry(Exercise(nid1, exe1, rest1), Exercise(nid2, exe2, rest2)) :: stack,
               )
             case (
-                  Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1, version1),
-                  Node.NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2, version2),
+                  Node.NodeLookupByKey(templateId1, key1, result1, version1),
+                  Node.NodeLookupByKey(templateId2, key2, result2, version2),
                 )
                 if version1 == version2 &&
                   templateId1 == templateId2 &&

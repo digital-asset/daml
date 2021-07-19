@@ -40,6 +40,7 @@ steps:
 
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
+    continueOnError: true
     inputs:
       pathtoPublish: '$(Build.StagingDirectory)/logs'
       artifactName: 'Bazel Logs'

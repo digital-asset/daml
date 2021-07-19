@@ -24,7 +24,7 @@ submitAndWait commands =
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
-        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
+        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\LL.SubmitAndWaitForTransactionIdResponse{} -> ())
@@ -35,7 +35,7 @@ submitAndWaitForTransactionId commands =
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
-        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
+        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (TransactionId . LL.submitAndWaitForTransactionIdResponseTransactionId)
@@ -46,7 +46,7 @@ submitAndWaitForTransaction commands =
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransaction=rpc} = service
-        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
+        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             >>= \case
@@ -66,7 +66,7 @@ submitAndWaitForTransactionTree commands =
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionTree=rpc} = service
-        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
+        let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             >>= \case

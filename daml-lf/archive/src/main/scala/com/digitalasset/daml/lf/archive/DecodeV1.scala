@@ -13,20 +13,19 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion => LV}
-import com.google.protobuf.CodedInputStream
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.compat._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Package] {
+private[archive] class DecodeV1(minor: LV.Minor) {
 
   import DecodeV1._
 
   private val languageVersion = LV(LV.Major.V1, minor)
 
-  override def decodePackage(
+  def decodePackage(
       packageId: PackageId,
       lfPackage: PLF.Package,
       onlySerializableDataDefs: Boolean,
@@ -91,13 +90,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   // each LF scenario module is wrapped in a distinct proto package
   type ProtoScenarioModule = PLF.Package
 
-  override def protoScenarioModule(cis: CodedInputStream): ProtoScenarioModule =
-    PLF.Package.parser().parseFrom(cis)
-
-  override def decodeScenarioModule(
-      packageId: PackageId,
-      lfScenarioModule: ProtoScenarioModule,
-  ): Module = {
+  def decodeScenarioModule(packageId: PackageId, lfScenarioModule: ProtoScenarioModule): Module = {
 
     val internedStrings =
       ImmArray(lfScenarioModule.getInternedStringsList.asScala).toSeq
@@ -1735,7 +1728,7 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
       ),
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(TEXT_POINTS_TO_CODE, BTextToCodePoints, minVersion = textPacking),
+      BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),

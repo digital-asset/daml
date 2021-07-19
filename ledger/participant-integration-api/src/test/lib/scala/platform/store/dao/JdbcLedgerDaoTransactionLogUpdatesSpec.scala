@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}

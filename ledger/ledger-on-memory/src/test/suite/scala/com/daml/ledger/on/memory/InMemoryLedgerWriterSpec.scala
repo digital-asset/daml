@@ -9,7 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.LedgerStateAccess
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
@@ -37,7 +37,7 @@ class InMemoryLedgerWriterSpec
       val mockCommitter = mock[InMemoryLedgerWriter.Committer]
       when(
         mockCommitter.commit(
-          any[ParticipantId],
+          any[Ref.ParticipantId],
           any[String],
           any[Raw.Envelope],
           any[Instant],

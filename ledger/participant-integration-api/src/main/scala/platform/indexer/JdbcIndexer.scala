@@ -10,6 +10,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantId
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref

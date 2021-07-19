@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.engine._
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -183,7 +183,7 @@ final class Runner[T <: ReadWriteService, Extra](
     implicit telemetryContext =>
       val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future.fromTry(RawDarReader.readArchiveFromFile(from.toFile))
+        dar <- Future.fromTry(DarParser.readArchiveFromFile(from.toFile).toTry)
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }

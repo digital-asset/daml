@@ -5,7 +5,8 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
@@ -30,7 +31,7 @@ final class InterpretationCostBasedLedgerWriterChooser(
 ) extends LedgerWriter {
   assert(cheapTransactionsDelegate.participantId == expensiveTransactionsDelegate.participantId)
 
-  override def participantId: ParticipantId = cheapTransactionsDelegate.participantId
+  override def participantId: Ref.ParticipantId = cheapTransactionsDelegate.participantId
 
   override def commit(
       correlationId: String,

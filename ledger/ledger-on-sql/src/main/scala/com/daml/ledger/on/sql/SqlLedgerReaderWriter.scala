@@ -13,6 +13,8 @@ import com.daml.caching.Cache
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.api.{
@@ -39,7 +41,7 @@ import scala.{concurrent => sc}
 
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    val participantId: ParticipantId,
+    val participantId: Ref.ParticipantId,
     metrics: Metrics,
     database: Database,
     dispatcher: Dispatcher[Index],
@@ -87,7 +89,7 @@ object SqlLedgerReaderWriter {
 
   final class Owner(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       metrics: Metrics,
       engine: Engine,
       jdbcUrl: String,

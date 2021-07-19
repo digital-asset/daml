@@ -3,11 +3,11 @@
 
 package com.daml.ledger.on.memory
 
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory.InMemoryLedgerStateOperations._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.BatchingLedgerStateOperations
 
 import scala.concurrent.{ExecutionContext, Future}

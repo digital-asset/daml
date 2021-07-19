@@ -279,7 +279,7 @@ object TransactionCoder {
 
           node match {
 
-            case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
+            case nc @ NodeCreate(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeCreate.newBuilder()
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
@@ -310,7 +310,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setCreate(builder).build()
 
-            case nf @ NodeFetch(_, _, _, _, _, _, _, _, _) =>
+            case nf @ NodeFetch(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
               builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId))
               nf.stakeholders.foreach(builder.addStakeholders)
@@ -329,7 +329,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setFetch(builder).build()
 
-            case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               builder.setContractIdStruct(encodeCid.encode(ne.targetCoid))
               builder.setChoice(ne.choiceId)
@@ -381,7 +381,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setExercise(builder).build()
 
-            case nlbk @ NodeLookupByKey(_, _, _, _, _) =>
+            case nlbk @ NodeLookupByKey(_, _, _, _) =>
               val builder = TransactionOuterClass.NodeLookupByKey.newBuilder()
               builder.setTemplateId(ValueCoder.encodeIdentifier(nlbk.templateId))
               nlbk.result.foreach(cid => builder.setContractIdStruct(encodeCid.encode(cid)))
@@ -516,7 +516,6 @@ object TransactionCoder {
           ci.template,
           ci.arg,
           ci.agreementText,
-          None,
           signatories,
           stakeholders,
           key,
@@ -543,7 +542,6 @@ object TransactionCoder {
         } yield ni -> NodeFetch(
           coid = c,
           templateId = templateId,
-          optLocation = None,
           actingParties = actingParties,
           signatories = signatories,
           stakeholders = stakeholders,
@@ -602,7 +600,6 @@ object TransactionCoder {
           targetCoid = targetCoid,
           templateId = templateId,
           choiceId = choiceName,
-          optLocation = None,
           consuming = protoExe.getConsuming,
           actingParties = actingParties,
           chosenValue = cv,
@@ -623,7 +620,7 @@ object TransactionCoder {
           key <-
             decodeKeyWithMaintainers(decodeCid, nodeVersion, protoLookupByKey.getKeyWithMaintainers)
           cid <- decodeCid.decodeOptional(protoLookupByKey.getContractIdStruct)
-        } yield ni -> NodeLookupByKey[Cid](templateId, None, key, cid, nodeVersion)
+        } yield ni -> NodeLookupByKey[Cid](templateId, key, cid, nodeVersion)
       case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
     }
   }
@@ -783,7 +780,6 @@ object TransactionCoder {
         case (Right(acc), s) =>
           decodeVersionedNode(decodeNid, decodeCid, txVersion, s).map(acc + _)
       }
-
     for {
       rs <- roots
       ns <- nodes

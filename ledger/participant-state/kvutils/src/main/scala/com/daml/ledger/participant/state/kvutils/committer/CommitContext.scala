@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
@@ -24,7 +24,7 @@ import scala.collection.mutable
 private[kvutils] case class CommitContext(
     private val inputs: DamlStateMap,
     recordTime: Option[Timestamp],
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
 ) {
   private[this] val logger = ContextualizedLogger.get(getClass)
 

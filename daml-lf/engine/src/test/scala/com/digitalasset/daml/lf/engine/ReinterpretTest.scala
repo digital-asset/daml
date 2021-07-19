@@ -6,7 +6,7 @@ package engine
 
 import java.io.File
 
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -42,9 +42,8 @@ class ReinterpretTest
   private val party = Party.assertFromString("Party")
 
   private def loadPackage(resource: String): (PackageId, Map[PackageId, Package]) = {
-    val payloads = UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packages = payloads.all.map(Decode.decode).toMap
-    (payloads.main.pkgId, packages)
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    (packages.main._1, packages.all.toMap)
   }
 
   private val (miniTestsPkgId, allPackages) = loadPackage(

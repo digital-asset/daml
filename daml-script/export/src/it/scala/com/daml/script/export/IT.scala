@@ -27,7 +27,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.testing.utils.TransactionEq
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.SdkVersion
@@ -153,8 +153,7 @@ final class IT
       tmpDir.resolve("export.dar").toString,
     ).! shouldBe 0
     // load DAR
-    encodedDar = DarReader.readArchiveFromFile(tmpDir.resolve("export.dar").toFile).get
-    dar = encodedDar.map(Decode.decode)
+    dar <- Future.fromTry(DarDecoder.readArchiveFromFile(tmpDir.resolve("export.dar").toFile).toTry)
   } yield dar
 
   private def runScriptExport(

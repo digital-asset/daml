@@ -7,7 +7,7 @@ package engine
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
@@ -49,6 +49,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
           effectiveAt = effectiveAt,
           optLocation = None,
           tx = tx,
+          locationInfo = Map.empty,
           l = ledger,
         )
         .fold(
@@ -83,10 +84,9 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def loadPackage(
       resource: String
   ): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
-    val payloads = UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packages = payloads.all.map(Decode.decode).toMap
-    val mainPkgId = payloads.main.pkgId
-    (mainPkgId, packages(mainPkgId), packages)
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val (mainPkgId, mainPkg) = packages.main
+    (mainPkgId, mainPkg, packages.all.toMap)
   }
 
   private[this] val (largeTxId, largeTxPkg, allPackages) = loadPackage(

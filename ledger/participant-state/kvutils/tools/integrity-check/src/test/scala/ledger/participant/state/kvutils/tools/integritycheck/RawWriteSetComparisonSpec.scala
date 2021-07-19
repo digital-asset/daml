@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import com.daml.ledger.configuration.protobuf.LedgerConfiguration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlLogEntry,
@@ -15,7 +16,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawWriteSetComparisonSpec._
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetComparison.rawHexString
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw, Version}
-import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.google.protobuf.{ByteString, Empty}
 import org.scalatest.Inside

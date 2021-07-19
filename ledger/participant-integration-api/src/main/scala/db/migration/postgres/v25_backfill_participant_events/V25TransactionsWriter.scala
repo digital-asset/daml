@@ -6,7 +6,7 @@ package com.daml.platform.db.migration.postgres.v25_backfill_participant_events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo

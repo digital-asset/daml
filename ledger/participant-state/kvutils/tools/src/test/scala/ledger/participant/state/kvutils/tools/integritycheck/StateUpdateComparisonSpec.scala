@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.v1.Update.{
   CommandRejected,
   ConfigurationChangeRejected,
@@ -98,8 +99,9 @@ final class StateUpdateComparisonSpec
   private lazy val aConfigurationChangeRejected = ConfigurationChangeRejected(
     recordTime = Time.Timestamp.now(),
     submissionId = SubmissionId.assertFromString("a submission ID"),
-    participantId = ParticipantId.assertFromString("a participant ID"),
-    proposedConfiguration = Configuration(1L, TimeModel.reasonableDefault, Duration.ofMinutes(1)),
+    participantId = Ref.ParticipantId.assertFromString("a participant ID"),
+    proposedConfiguration =
+      Configuration(1L, LedgerTimeModel.reasonableDefault, Duration.ofMinutes(1)),
     rejectionReason = "a rejection reason",
   )
   private lazy val aCommandRejectedUpdate = CommandRejected(

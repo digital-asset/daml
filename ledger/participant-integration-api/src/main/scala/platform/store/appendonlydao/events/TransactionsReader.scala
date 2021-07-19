@@ -18,7 +18,8 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.TransactionId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc

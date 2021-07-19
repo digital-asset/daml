@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   buildTimestamp,
   configDedupKey,
@@ -10,7 +11,6 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
-import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

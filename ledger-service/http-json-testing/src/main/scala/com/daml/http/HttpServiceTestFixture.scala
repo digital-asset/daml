@@ -5,6 +5,7 @@ package com.daml.http
 
 import java.io.File
 import java.time.Instant
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -29,15 +30,15 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.{value => v}
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
@@ -237,7 +238,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     for {
       dao <- Future(ContractDao(c.driver, c.url, c.user, c.password))
       _ <- {
-        import dao.{logHandler, jdbcDriver}
+        import dao.{jdbcDriver, logHandler}
         dao.transact(ContractDao.initialize).unsafeToFuture(): Future[Unit]
       }
     } yield dao

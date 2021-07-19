@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
@@ -340,7 +341,7 @@ object KeyValueConsumption {
           Update.ConfigurationChangeRejected(
             recordTime,
             SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
-            ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
+            Ref.ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
             Configuration.decode(configurationRejectionEntry.getConfiguration).toOption.get,
             reason,
           )

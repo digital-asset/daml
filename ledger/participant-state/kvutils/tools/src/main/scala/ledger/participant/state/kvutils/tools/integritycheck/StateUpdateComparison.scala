@@ -5,9 +5,10 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.normalize
-import com.daml.ledger.participant.state.v1.{Offset, Update}
+import com.daml.ledger.participant.state.v1.Update
 
 import scala.concurrent.{ExecutionContext, Future}
 

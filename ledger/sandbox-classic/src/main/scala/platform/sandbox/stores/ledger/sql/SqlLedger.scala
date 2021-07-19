@@ -16,6 +16,8 @@ import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -255,8 +257,7 @@ private[sandbox] object SqlLedger {
           lfValueTranslationCache = lfValueTranslationCache,
           validatePartyAllocation = validatePartyAllocation,
           enricher = Some(new ValueEnricher(engine)),
-          participantId = com.daml.ledger.participant.state.v1.ParticipantId
-            .assertFromString(participantId.toString),
+          participantId = Ref.ParticipantId.assertFromString(participantId.toString),
           compressionStrategy =
             if (enableCompression) CompressionStrategy.allGZIP(metrics)
             else CompressionStrategy.none(metrics),

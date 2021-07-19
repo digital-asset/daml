@@ -5,6 +5,8 @@ package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
@@ -12,7 +14,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{NodeId, TransactionCommitter}
 import com.daml.lf.value.Value.ContractId
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.ReadOnlyLedger
 

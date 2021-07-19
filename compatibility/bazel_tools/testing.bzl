@@ -281,6 +281,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "1.16.0-snapshot.20210713.7343.1.1f35db17",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
+                "exclusions": [
+                    "ConfigManagementServiceIT:DuplicateSubmissionId",
+                    "PackageManagementServiceIT:DuplicateSubmissionId",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

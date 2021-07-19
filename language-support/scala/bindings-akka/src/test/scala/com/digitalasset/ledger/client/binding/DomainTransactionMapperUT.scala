@@ -99,7 +99,6 @@ class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest 
       CommandId("cid"),
       time,
       events,
-      None,
     )
 
   "DomainTransactionMapper" should {

@@ -6,12 +6,12 @@ package speedy
 package perf
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
+import com.daml.lf.transaction.{NodeId, GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
@@ -42,16 +42,15 @@ class CollectAuthorityState {
   @Setup(Level.Trial)
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
-    val payloads = UniversalArchiveReader().readFile(darFile).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     val compilerConfig =
       Compiler.Config.Default.copy(
         stacktracing = Compiler.NoStackTrace
       )
 
-    val compiledPackages = PureCompiledPackages.assertBuild(packages, compilerConfig)
-    val expr = EVal(Identifier(payloads.main.pkgId, QualifiedName.assertFromString(scenario)))
+    val compiledPackages = PureCompiledPackages.assertBuild(packages.all.toMap, compilerConfig)
+    val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(
       compiledPackages,
@@ -205,5 +204,6 @@ class CannedLedgerApi(
       readAs: Set[Party],
       location: Option[Location],
       tx: SubmittedTransaction,
+      locationInfo: Map[NodeId, Location],
   ) = Right(())
 }

@@ -12,14 +12,9 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SubmissionId,
-  SubmissionResult,
-  WriteConfigService,
-}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WriteConfigService}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
@@ -53,6 +48,7 @@ class ApiConfigManagementServiceSpec
         TestWriteConfigService,
         TimeProvider.UTC,
         LedgerConfiguration.defaultLocalLedger,
+        _ => SubmissionId.assertFromString("aSubmission"),
       )
 
       val span = anEmptySpan()
@@ -106,7 +102,7 @@ object ApiConfigManagementServiceSpec {
       aSubmissionId,
       Configuration(
         aConfigurationGeneration,
-        v1.TimeModel.reasonableDefault,
+        LedgerTimeModel.reasonableDefault,
         jDuration.ZERO,
       ),
     )

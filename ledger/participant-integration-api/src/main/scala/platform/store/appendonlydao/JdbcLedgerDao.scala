@@ -11,18 +11,18 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.archive.Reader
-import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
@@ -77,7 +77,7 @@ private class JdbcLedgerDao(
     validatePartyAllocation: Boolean,
     enricher: Option[ValueEnricher],
     sequentialIndexer: SequentialWriteDao,
-    participantId: v1.ParticipantId,
+    participantId: Ref.ParticipantId,
     storageBackend: StorageBackend[_],
 ) extends LedgerDao {
 
@@ -193,7 +193,7 @@ private class JdbcLedgerDao(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
               submissionId = SubmissionId.assertFromString(submissionId),
               participantId =
-                v1.ParticipantId.assertFromString("1"), // not used for DbDto generation
+                Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
               newConfiguration = configuration,
             )
 
@@ -202,29 +202,15 @@ private class JdbcLedgerDao(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
               submissionId = SubmissionId.assertFromString(submissionId),
               participantId =
-                v1.ParticipantId.assertFromString("1"), // not used for DbDto generation
+                Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
               proposedConfiguration = configuration,
               rejectionReason = reason,
             )
         }
 
-        val savepoint = conn.setSavepoint()
-
         val offset = validateOffsetStep(offsetStep, conn)
-        Try({
-          sequentialIndexer.store(conn, offset, Some(update))
-          PersistenceResponse.Ok
-        }).recover {
-          case NonFatal(e) if e.getMessage.contains(storageBackend.duplicateKeyError) =>
-            logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
-            conn.rollback(savepoint)
-            sequentialIndexer.store(
-              conn,
-              offset,
-              None,
-            ) // we bump the offset regardless of the fact of a duplicate
-            PersistenceResponse.Duplicate
-        }.get
+        sequentialIndexer.store(conn, offset, Some(update))
+        PersistenceResponse.Ok
       }
     }
 
@@ -452,7 +438,7 @@ private class JdbcLedgerDao(
   private val PageSize = 100
 
   override def getParties(
-      parties: Seq[Party]
+      parties: Seq[Ref.Party]
   )(implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =
     if (parties.isEmpty)
       Future.successful(List.empty)
@@ -468,16 +454,16 @@ private class JdbcLedgerDao(
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Map[Ref.PackageId, PackageDetails]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadPackages)(storageBackend.lfPackages)
 
   override def getLfArchive(
-      packageId: PackageId
+      packageId: Ref.PackageId
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive)(storageBackend.lfArchive(packageId))
-      .map(_.map(data => Archive.parseFrom(Reader.damlLfCodedInputStreamFromBytes(data))))(
+      .map(_.map(data => ArchiveParser.fromByteArray(data)))(
         servicesExecutionContext
       )
 
@@ -593,7 +579,7 @@ private class JdbcLedgerDao(
 
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
-      submitters: List[Party],
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     val key = DeduplicationKeyMaker.make(commandId, submitters)
     dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDbMetrics)(
@@ -749,7 +735,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     owner(
       serverRole,
@@ -780,7 +766,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -814,7 +800,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
@@ -837,7 +823,7 @@ private[platform] object JdbcLedgerDao {
   }
 
   private def sequentialWriteDao(
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       metrics: Metrics,
       compressionStrategy: CompressionStrategy,
@@ -871,7 +857,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {

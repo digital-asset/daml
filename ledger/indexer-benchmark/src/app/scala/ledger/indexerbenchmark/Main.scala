@@ -13,14 +13,16 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.kvutils.`export`.ProtobufBasedLedgerDataImporter
+import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   LedgerReader,
   LedgerRecord,
 }
-import com.daml.ledger.participant.state.v1.{LedgerId, Offset, Update}
+import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
+import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.metrics.Metrics
 
 import scala.concurrent.Future

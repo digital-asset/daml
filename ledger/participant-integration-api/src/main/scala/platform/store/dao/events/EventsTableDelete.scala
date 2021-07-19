@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{Row, SimpleSql, SqlStringInterpolation}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.platform.store.Conversions.OffsetToStatement
 
 object EventsTableDelete {

@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.Timer
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
@@ -15,9 +16,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils._
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -83,7 +83,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   def run(
       recordTime: Option[Time.Timestamp],
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
@@ -94,7 +94,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   def runWithPreExecution(
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): PreExecutionResult =
     preExecutionRunTimer.time { () =>

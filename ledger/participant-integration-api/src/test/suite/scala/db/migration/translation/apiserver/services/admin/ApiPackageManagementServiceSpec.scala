@@ -35,7 +35,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
-import scala.util.Success
 
 class ApiPackageManagementServiceSpec
     extends AsyncWordSpec
@@ -70,7 +69,7 @@ class ApiPackageManagementServiceSpec
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
     val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
-      .thenReturn(Success(new Dar[Archive](anArchive, List.empty)))
+      .thenReturn(Right(new Dar[Archive](anArchive, List.empty)))
 
     val mockEngine = mock[Engine]
     when(
@@ -96,6 +95,7 @@ class ApiPackageManagementServiceSpec
       Duration.ZERO,
       mockEngine,
       mockDarReader,
+      _ => SubmissionId.assertFromString("aSubmission"),
     )
   }
 

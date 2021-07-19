@@ -7,6 +7,7 @@ import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.v1._
@@ -27,7 +28,7 @@ import scalaz.{Reader, State}
 import scala.jdk.CollectionConverters._
 
 final case class KVTestState(
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     recordTime: Timestamp,
     defaultConfig: Configuration,
     nextEntryId: Int,
@@ -84,7 +85,7 @@ object KVTest {
 
   def runTestWithPackage[A](
       simplePackage: SimplePackage,
-      parties: Party*
+      parties: Ref.Party*
   )(test: KVTest[A])(implicit loggingContext: LoggingContext): A =
     (for {
       _ <- uploadArchive(simplePackage)
@@ -93,7 +94,7 @@ object KVTest {
     } yield r).eval(initialTestState)
 
   def runTestWithSimplePackage[A](
-      parties: Party*
+      parties: Ref.Party*
   )(test: SimplePackage => KVTest[A])(implicit loggingContext: LoggingContext): A =
     runTestWithPackage(DefaultSimplePackage, parties: _*)(test(DefaultSimplePackage))
 
@@ -117,10 +118,10 @@ object KVTest {
       _ <- modify[KVTestState](s => s.copy(nextEntryId = s.nextEntryId + 1))
     } yield TestHelpers.mkEntryId(s.nextEntryId)
 
-  def setParticipantId(pid: ParticipantId): KVTest[Unit] =
+  def setParticipantId(pid: Ref.ParticipantId): KVTest[Unit] =
     modify(_.copy(participantId = pid))
 
-  def withParticipantId[A](pid: ParticipantId)(test: KVTest[A]): KVTest[A] =
+  def withParticipantId[A](pid: Ref.ParticipantId)(test: KVTest[A]): KVTest[A] =
     for {
       oldState <- get
       _ <- modify[KVTestState](_.copy(participantId = pid))
@@ -178,7 +179,7 @@ object KVTest {
     }
 
   def runCommand(
-      submitter: Party,
+      submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
@@ -214,14 +215,14 @@ object KVTest {
     }
 
   def runSimpleCommand(
-      submitter: Party,
+      submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, command)
 
   def submitTransaction(
-      submitter: Party,
+      submitter: Ref.Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
@@ -238,7 +239,7 @@ object KVTest {
     ).flatMap(submit)
 
   def preExecuteTransaction(
-      submitter: Party,
+      submitter: Ref.Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
@@ -255,7 +256,7 @@ object KVTest {
     ).flatMap(preExecute)
 
   def prepareTransactionSubmission(
-      submitter: Party,
+      submitter: Ref.Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
@@ -325,7 +326,7 @@ object KVTest {
   def submitPartyAllocation(
       subId: String,
       hint: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
     get[KVTestState]
       .flatMap(testState => submit(createPartySubmission(subId, hint, participantId, testState)))
@@ -334,7 +335,7 @@ object KVTest {
   def preExecutePartyAllocation(
       subId: String,
       hint: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
     get[KVTestState]
       .flatMap(testState =>
@@ -345,7 +346,7 @@ object KVTest {
   def allocateParty(
       subId: String,
       hint: String,
-  )(implicit loggingContext: LoggingContext): KVTest[Party] =
+  )(implicit loggingContext: LoggingContext): KVTest[Ref.Party] =
     for {
       testState <- get[KVTestState]
       result <- submitPartyAllocation(subId, hint, testState.participantId).map { logEntry =>
@@ -427,7 +428,7 @@ object KVTest {
   }
 
   private def createSubmitterInfo(
-      submitter: Party,
+      submitter: Ref.Party,
       commandId: CommandId,
       deduplicationTime: Duration,
       recordTime: Timestamp,
@@ -442,7 +443,7 @@ object KVTest {
   private[this] def createPartySubmission(
       subId: String,
       hint: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       testState: KVTestState,
   ): DamlSubmission =
     testState.keyValueSubmission.partyToSubmission(

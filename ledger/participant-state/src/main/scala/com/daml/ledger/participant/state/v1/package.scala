@@ -36,7 +36,7 @@ import com.daml.lf.value.Value
   * [[v1.Update]]s.
   *
   * We provide a reference implementation of a participant state in
-  * [[com.daml.ledger.api.server.damlonx.reference.v2.ReferenceServer]]. There we
+  * [[com.daml.ledger.on.memory.InMemoryLedgerReaderWriter]]. There we
   * model an in-memory ledger, which has by construction a single participant,
   * which hosts all parties. See its comments for details on how that is done,
   * and how its implementation can be used as a blueprint for implementing
@@ -55,13 +55,6 @@ import com.daml.lf.value.Value
   * versions on separate and appropriate timelines.
   */
 package object v1 {
-
-  /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerId = String
-
-  /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
-  val ParticipantId: Ref.ParticipantId.type = Ref.ParticipantId
-  type ParticipantId = Ref.ParticipantId
 
   /** Identifiers for transactions. */
   val TransactionId: Ref.LedgerString.type = Ref.LedgerString
@@ -85,12 +78,6 @@ package object v1 {
 
   /** Identifiers for nodes in a transaction. */
   type NodeId = transaction.NodeId
-
-  /** Identifiers for packages. */
-  type PackageId = Ref.PackageId
-
-  /** Identifiers for parties. */
-  type Party = Ref.Party
 
   /** A transaction with contract IDs that may require suffixing.
     *

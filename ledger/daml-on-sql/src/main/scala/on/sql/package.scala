@@ -3,7 +3,7 @@
 
 package com.daml.on
 
-import com.daml.ledger.participant.state.v1
+import com.daml.lf.data.Ref
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import scalaz.syntax.tag._
@@ -13,7 +13,7 @@ package object sql {
   private[sql] val Name = LedgerName("Daml-on-SQL")
 
   private[sql] val DefaultConfig = SandboxConfig.defaultConfig.copy(
-    participantId = v1.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
+    participantId = Ref.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     implicitPartyAllocation = false,
   )

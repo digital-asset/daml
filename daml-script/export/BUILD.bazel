@@ -105,7 +105,6 @@ da_scala_test(
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-script/export/transaction-eq",

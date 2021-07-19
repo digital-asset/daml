@@ -9,7 +9,8 @@ import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.participant.state.v1.{Offset, RejectionReasonV0, SubmitterInfo}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{RejectionReasonV0, SubmitterInfo}
 import com.daml.lf.data.Ref.Party
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._

@@ -4,6 +4,8 @@
 package com.daml.ledger.participant.state.v2
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.configuration.Configuration
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.BlindingInfo
 
@@ -30,7 +32,7 @@ object Update {
   final case class ConfigurationChanged(
       recordTime: Timestamp,
       submissionId: SubmissionId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       newConfiguration: Configuration,
   ) extends Update {
     override def description: String =
@@ -42,7 +44,7 @@ object Update {
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
       submissionId: SubmissionId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String,
   ) extends Update {
@@ -69,9 +71,9 @@ object Update {
     *   The submissionId of the command which requested party to be added.
     */
   final case class PartyAddedToParticipant(
-      party: Party,
+      party: Ref.Party,
       displayName: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       submissionId: Option[SubmissionId],
   ) extends Update {
@@ -96,7 +98,7 @@ object Update {
     */
   final case class PartyAllocationRejected(
       submissionId: SubmissionId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {
@@ -217,8 +219,6 @@ object Update {
   object CommandRejected {
 
     /** A template for generating gRPC status codes.
-      * The indexer server should provide some details
-      * before the [[FinalReason]] gives an actual gRPC status code.
       */
     sealed trait RejectionReasonTemplate {
 
@@ -238,29 +238,6 @@ object Update {
       override def message: String = status.message
       override def definiteAnswer: Boolean =
         GrpcStatuses.isDefiniteAnswer(status)
-    }
-
-    /** The indexer shall fill in a completion offset for the completion that corresponds to
-      * the `submissionId` by calling `createStatus` with the completion offset. If no completion
-      * offset for the `submissionId` can be provided, [[scala.None]] can be used instead,
-      * which may lead to less informative errors.
-      */
-    final class NeedCompletionOffsetForSubmissionId(
-        val submissionId: SubmissionId,
-        private val incompleteStatus: com.google.rpc.status.Status,
-    ) extends RejectionReasonTemplate {
-
-      override def message: String = incompleteStatus.message
-
-      override def definiteAnswer: Boolean =
-        GrpcStatuses.isDefiniteAnswer(incompleteStatus)
-
-      def createStatus(
-          completionOffsetForSubmissionId: Option[Offset]
-      ): com.google.rpc.status.Status =
-        completionOffsetForSubmissionId.fold(incompleteStatus)(
-          GrpcStatuses.completeWithOffset(incompleteStatus, _)
-        )
     }
   }
 }

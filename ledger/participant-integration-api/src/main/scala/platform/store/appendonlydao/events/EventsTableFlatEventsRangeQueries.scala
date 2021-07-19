@@ -86,7 +86,7 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
 
 private[events] object EventsTableFlatEventsRangeQueries {
 
-  import com.daml.ledger.participant.state.v1.Offset
+  import com.daml.ledger.offset.Offset
 
   private[EventsTableFlatEventsRangeQueries] sealed abstract class QueryParts
       extends Product

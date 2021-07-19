@@ -11,7 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
 import akka.stream.{Materializer, QueueOfferResult}
 import ch.qos.logback.classic.Level
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText, VersionedValue}

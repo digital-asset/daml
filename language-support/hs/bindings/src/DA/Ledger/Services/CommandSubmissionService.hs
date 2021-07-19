@@ -20,7 +20,7 @@ submit commands =
     withGRPCClient config $ \client -> do
         service <- commandSubmissionServiceClient client
         let CommandSubmissionService rpc = service
-        let request = SubmitRequest (Just (lowerCommands commands)) noTrace
+        let request = SubmitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\Empty{} -> ())

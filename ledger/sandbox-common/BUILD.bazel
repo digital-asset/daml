@@ -37,9 +37,9 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-configuration",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -63,8 +63,6 @@ da_scala_library(
     exports = [":sandbox-common"],
     deps = [
         ":sandbox-common",
-        "//ledger/ledger-api-common",
-        "//ledger/participant-state",
     ],
 )
 
@@ -83,7 +81,6 @@ da_scala_library(
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//libs-scala/ports",
     ],
 )
@@ -129,11 +126,11 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/ports",

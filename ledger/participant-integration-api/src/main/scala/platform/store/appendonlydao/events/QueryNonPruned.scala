@@ -5,7 +5,7 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.backend.ParameterStorageBackend
 

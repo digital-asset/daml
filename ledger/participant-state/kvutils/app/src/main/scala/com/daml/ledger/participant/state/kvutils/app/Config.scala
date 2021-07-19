@@ -8,13 +8,14 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
 import com.daml.ports.Port
@@ -171,8 +172,7 @@ object Config {
               "]"
           )
           .action((kv, config) => {
-            val participantId =
-              ParticipantId.assertFromString(kv("participant-id"))
+            val participantId = Ref.ParticipantId.assertFromString(kv("participant-id"))
             val port = Port(kv("port").toInt)
             val address = kv.get("address")
             val portFile = kv.get("port-file").map(new File(_).toPath)

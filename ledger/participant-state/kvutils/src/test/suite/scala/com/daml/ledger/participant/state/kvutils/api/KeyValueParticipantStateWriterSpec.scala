@@ -7,9 +7,9 @@ import java.time.{Clock, Duration}
 import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
@@ -139,7 +139,7 @@ object KeyValueParticipantStateWriterSpec {
 
   private val aConfiguration: Configuration = Configuration(
     generation = 1,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
 
@@ -160,7 +160,7 @@ object KeyValueParticipantStateWriterSpec {
       )
     )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
-    when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
+    when(writer.participantId).thenReturn(Ref.ParticipantId.assertFromString("test-participant"))
     writer
   }
 

@@ -5,9 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
-import "com/daml/ledger/api/v1/trace_context.proto";
 import "google/rpc/status.proto";
-
 
 option java_outer_classname = "CompletionOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -31,9 +29,4 @@ message Completion {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string transaction_id = 3;
-
-  // The trace context submitted with the command.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }

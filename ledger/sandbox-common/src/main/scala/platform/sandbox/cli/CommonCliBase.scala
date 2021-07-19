@@ -11,9 +11,9 @@ import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.sandbox.cli.CommonCliBase._
@@ -82,7 +82,7 @@ class CommonCliBase(name: LedgerName) {
 
       opt[String]("participant-id")
         .optional()
-        .action((id, c) => c.copy(participantId = v1.ParticipantId.assertFromString(id)))
+        .action((id, c) => c.copy(participantId = Ref.ParticipantId.assertFromString(id)))
         .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
       // TODO remove in next major release.
@@ -280,7 +280,7 @@ class CommonCliBase(name: LedgerName) {
           config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
         })
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}."
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${LedgerTimeModel.reasonableDefault.maxSkew.getSeconds}."
         )
 
       opt[Duration]("management-service-timeout")

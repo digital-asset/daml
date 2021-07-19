@@ -15,6 +15,7 @@ import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationNew,
   IndexConfigManagementService,
@@ -23,6 +24,7 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.TestResourceContext
+import com.daml.lf
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
@@ -30,12 +32,12 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.LookupError
-import com.daml.lf
-import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayNodeMismatch}
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayNodeMismatch}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.store.ErrorCause
@@ -93,7 +95,7 @@ class ApiSubmissionServiceSpec
 
   before {
     when(
-      writeService.allocateParty(any[Option[Party]], any[Option[Party]], any[SubmissionId])(
+      writeService.allocateParty(any[Option[Ref.Party]], any[Option[Ref.Party]], any[SubmissionId])(
         any[TelemetryContext]
       )
     )
@@ -103,7 +105,7 @@ class ApiSubmissionServiceSpec
   behavior of "allocateMissingInformees"
 
   it should "allocate missing informees" in {
-    val argCaptor = ArgCaptor[Seq[Party]]
+    val argCaptor = ArgCaptor[Seq[Ref.Party]]
 
     when(partyManagementService.getParties(argCaptor.capture)(any[LoggingContext])).thenAnswer(
       Future.successful(
@@ -135,7 +137,7 @@ class ApiSubmissionServiceSpec
   }
 
   it should "not allocate if all parties are already known" in {
-    val argCaptor = ArgCaptor[Seq[Party]]
+    val argCaptor = ArgCaptor[Seq[Ref.Party]]
     when(partyManagementService.getParties(argCaptor.capture)(any[LoggingContext])).thenAnswer(
       Future.successful(argCaptor.value.map(PartyDetails(_, Option.empty, isLocal = true)).toList)
     )
@@ -258,8 +260,7 @@ class ApiSubmissionServiceSpec
             submittedAt = Instant.MIN,
             deduplicateUntil = Instant.MIN,
             commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
-          ),
-          None,
+          )
         )
         when(
           mockCommandExecutor.execute(eqTo(submitRequest.commands), any[Hash])(
@@ -294,7 +295,7 @@ class ApiSubmissionServiceSpec
     val mockMetricRegistry = mock[MetricRegistry]
     val mockIndexSubmissionService = mock[IndexSubmissionService]
     val mockConfigManagementService = mock[IndexConfigManagementService]
-    val configuration = Configuration(0L, TimeModel.reasonableDefault, Duration.ZERO)
+    val configuration = Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ZERO)
     when(mockMetricRegistry.meter(any[String])).thenReturn(new Meter())
     when(
       mockIndexSubmissionService.deduplicateCommand(

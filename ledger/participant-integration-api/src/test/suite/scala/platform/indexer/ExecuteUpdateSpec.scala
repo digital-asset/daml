@@ -9,13 +9,14 @@ import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.Update.{
   PublicPackageUploadRejected,
   TransactionAccepted,
 }
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.lf.data.{Bytes, ImmArray, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionVersion, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
@@ -53,7 +54,7 @@ final class ExecuteUpdateSpec
     VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.empty)
   )
   private val someMetrics = new Metrics(new MetricRegistry)
-  private val someParticipantId = ParticipantId.assertFromString("some-participant")
+  private val someParticipantId = Ref.ParticipantId.assertFromString("some-participant")
   private val prepareUpdateParallelism = 2
   private val ledgerEffectiveTime = Instant.EPOCH
 
@@ -137,7 +138,7 @@ final class ExecuteUpdateSpec
 
   private class ExecuteUpdateMock(
       val ledgerDao: LedgerDao,
-      val participantId: ParticipantId,
+      val participantId: Ref.ParticipantId,
       val metrics: Metrics,
       val loggingContext: LoggingContext,
       val executionContext: ExecutionContext,

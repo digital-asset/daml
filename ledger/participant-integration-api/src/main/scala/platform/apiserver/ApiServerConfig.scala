@@ -6,16 +6,17 @@ package com.daml.platform.apiserver
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.ports.Port
 
 import scala.concurrent.duration.FiniteDuration
 
 case class ApiServerConfig(
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     archiveFiles: List[File],
     port: Port,
     address: Option[String], // This defaults to "localhost" when set to `None`.

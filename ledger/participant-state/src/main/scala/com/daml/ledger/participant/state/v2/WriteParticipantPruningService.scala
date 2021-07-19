@@ -5,6 +5,8 @@ package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
 
+import com.daml.ledger.offset.Offset
+
 /** An interface to prune participant ledger updates to manage participant ledger space and enable GDPR-style
   * right-to-be-forgotten support.
   */

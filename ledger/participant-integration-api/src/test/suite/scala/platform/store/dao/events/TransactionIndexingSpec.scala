@@ -6,8 +6,7 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import com.daml.ledger
-// import com.daml.ledger.api.domain.LedgerOffset
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.ImmArray
 import com.daml.lf.ledger.BlindingTransaction
 import com.daml.lf.transaction.BlindingInfo

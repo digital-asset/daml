@@ -8,7 +8,7 @@ import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
 import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 
 import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
@@ -40,7 +40,7 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
   private def parseSubmissionInfo(entry: LedgerExportEntry): SubmissionInfo = {
     val entrySubmissionInfo = entry.getSubmissionInfo
     SubmissionInfo(
-      ParticipantId.assertFromString(entrySubmissionInfo.getParticipantId),
+      Ref.ParticipantId.assertFromString(entrySubmissionInfo.getParticipantId),
       entrySubmissionInfo.getCorrelationId,
       Raw.Envelope(entrySubmissionInfo.getSubmissionEnvelope),
       Conversions.parseInstant(entrySubmissionInfo.getRecordTime),

@@ -132,7 +132,6 @@ final class TransactionBuilder(
       templateId = templateId,
       arg = argument,
       agreementText = "",
-      optLocation = None,
       signatories = signatories.map(Ref.Party.assertFromString).toSet,
       stakeholders = signatories.toSet.union(observers.toSet).map(Ref.Party.assertFromString),
       key = key.map(keyWithMaintainers(maintainers = maintainers, _)),
@@ -155,7 +154,6 @@ final class TransactionBuilder(
       targetCoid = contract.coid,
       templateId = contract.coinst.template,
       choiceId = Ref.ChoiceName.assertFromString(choice),
-      optLocation = None,
       consuming = consuming,
       actingParties = actingParties.map(Ref.Party.assertFromString),
       chosenValue = argument,
@@ -181,7 +179,6 @@ final class TransactionBuilder(
     Fetch(
       coid = contract.coid,
       templateId = contract.coinst.template,
-      optLocation = None,
       actingParties = contract.signatories.map(Ref.Party.assertFromString),
       signatories = contract.signatories,
       stakeholders = contract.stakeholders,
@@ -196,7 +193,6 @@ final class TransactionBuilder(
   def lookupByKey(contract: Create, found: Boolean): LookupByKey =
     LookupByKey(
       templateId = contract.coinst.template,
-      optLocation = None,
       key = contract.key.get,
       result = if (found) Some(contract.coid) else None,
       version = pkgTxVersion(contract.coinst.template.packageId),

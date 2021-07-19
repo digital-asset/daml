@@ -6,10 +6,10 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.{CorrelationId, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 
 case class SubmissionInfo(
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     correlationId: CorrelationId,
     submissionEnvelope: Raw.Envelope,
     recordTimeInstant: Instant,

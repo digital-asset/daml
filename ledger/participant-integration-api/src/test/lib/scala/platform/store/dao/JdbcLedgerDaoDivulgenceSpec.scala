@@ -31,7 +31,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           templateId = someTemplateId,
           arg = someContractArgument,
           agreementText = someAgreement,
-          optLocation = None,
           signatories = Set(alice),
           stakeholders = Set(alice),
           key = None,
@@ -49,7 +48,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           someTemplateId,
           someContractArgument,
           someAgreement,
-          optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
@@ -67,7 +65,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           targetCoid = create1,
           templateId = someTemplateId,
           choiceId = someChoiceName,
-          optLocation = None,
           consuming = true,
           actingParties = Set(bob),
           chosenValue = someChoiceArgument,
@@ -87,7 +84,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeFetch(
           coid = create2,
           templateId = someTemplateId,
-          optLocation = None,
           actingParties = Set(bob),
           signatories = Set(bob),
           stakeholders = Set(bob),
@@ -104,7 +100,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           targetCoid = create2,
           templateId = someTemplateId,
           choiceId = someChoiceName,
-          optLocation = None,
           consuming = true,
           actingParties = Set(bob),
           chosenValue = someChoiceArgument,
@@ -127,7 +122,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           someTemplateId,
           someContractArgument,
           someAgreement,
-          optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(alice, bob),
           key = Some(
