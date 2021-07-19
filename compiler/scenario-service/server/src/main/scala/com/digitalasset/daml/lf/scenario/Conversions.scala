@@ -439,7 +439,7 @@ final class Conversions(
     val tx = incomplete.transaction
 
     val builder = proto.PartialTransaction.newBuilder
-      .addAllNodes(tx.nodes.map(convertIncompleteNode(incomplete.locationInfo)).asJava)
+      .addAllNodes(tx.nodes.map(convertIncompleteTransactionNode(incomplete.locationInfo)).asJava)
       .addAllRoots(tx.roots.toList.map(convertTxNodeId).asJava)
 
     builder.build
@@ -553,7 +553,7 @@ final class Conversions(
       .build()
   }
 
-  def convertIncompleteNode(
+  def convertIncompleteTransactionNode(
       locationInfo: Map[NodeId, Ref.Location]
   )(nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId])): proto.Node = {
     val (nodeId, node) = nodeWithId
