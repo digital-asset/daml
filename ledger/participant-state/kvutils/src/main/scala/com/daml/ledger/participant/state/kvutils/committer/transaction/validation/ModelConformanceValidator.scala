@@ -140,33 +140,29 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   // the Daml state entry at `DamlStateKey(packageId = pkgId)`.
   private def lookupPackage(
       commitContext: CommitContext
-  )(pkgId: PackageId)(implicit loggingContext: LoggingContext): Option[Ast.Package] =
+  )(pkgId: PackageId)(implicit loggingContext: LoggingContext): Some[Ast.Package] =
     withEnrichedLoggingContext("packageId" -> pkgId) { implicit loggingContext =>
       val stateKey = packageStateKey(pkgId)
-      for {
-        value <- commitContext
-          .read(stateKey)
-          .orElse {
-            logger.warn("Package lookup failed, package not found.")
-            throw Err.MissingInputState(stateKey)
+      val value = commitContext.read(stateKey).getOrElse {
+        logger.warn("Package lookup failed, package not found.")
+        throw Err.MissingInputState(stateKey)
+      }
+      value.getValueCase match {
+        case DamlStateValue.ValueCase.ARCHIVE =>
+          // NOTE(JM): Engine only looks up packages once, compiles and caches,
+          // provided that the engine instance is persisted.
+          archive.Decode.decodeArchive(value.getArchive) match {
+            case Right((_, pkg)) => Some(pkg)
+            case Left(err) =>
+              logger.warn("Decoding the archive failed.")
+              throw Err.DecodeError("Archive", err.getMessage)
           }
-        pkg <- value.getValueCase match {
-          case DamlStateValue.ValueCase.ARCHIVE =>
-            // NOTE(JM): Engine only looks up packages once, compiles and caches,
-            // provided that the engine instance is persisted.
-            archive.Decode.decodeArchive(value.getArchive) match {
-              case Right((_, pkg)) => pkg
-              case Left(err) =>
-                logger.warn("Decoding the archive failed.")
-                throw Err.DecodeError("Archive", err.getMessage)
-            }
 
-          case _ =>
-            val msg = "value is not a Daml-LF archive"
-            logger.warn(s"Package lookup failed, $msg.")
-            throw Err.DecodeError("Archive", msg)
-        }
-      } yield pkg
+        case _ =>
+          val msg = "value is not a Daml-LF archive"
+          logger.warn(s"Package lookup failed, $msg.")
+          throw Err.DecodeError("Archive", msg)
+      }
     }
 
   private def lookupKey(
