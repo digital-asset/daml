@@ -7,8 +7,6 @@ Metrics
 Enable and configure reporting
 ==============================
 
-*Note: This is identical for the sandbox*
--------------------------------------------
 
 To enable metrics and configure reporting, you can use the two following CLI options:
 
