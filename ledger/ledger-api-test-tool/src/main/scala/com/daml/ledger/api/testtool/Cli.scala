@@ -81,7 +81,7 @@ object Cli {
       .optional()
       .text("""Addresses of the participants to test, specified as `<host>:<port>`.""")
 
-    arg[Int]("max-connection-attempts")
+    opt[Int]("max-connection-attempts")
       .action((maxConnectionAttempts, config) =>
         config.copy(maxConnectionAttempts = maxConnectionAttempts)
       )
