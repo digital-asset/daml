@@ -192,6 +192,7 @@ haskell_library(
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
+            "@com_github_digital_asset_daml//bazel_tools:daml_ghcide_debug.patch",
         ],
         sha256 = GHCIDE_SHA256,
         strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
