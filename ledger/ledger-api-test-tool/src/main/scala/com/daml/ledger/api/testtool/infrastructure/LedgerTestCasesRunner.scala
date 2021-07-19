@@ -42,6 +42,7 @@ object LedgerTestCasesRunner {
 final class LedgerTestCasesRunner(
     testCases: Vector[LedgerTestCase],
     participants: Vector[Channel],
+    maxConnectionAttempts: Int = 10,
     partyAllocation: PartyAllocationConfiguration = ClosedWorldWaitingForAllParticipants,
     shuffleParticipants: Boolean = false,
     timeoutScaleFactor: Double = 1.0,
@@ -52,6 +53,10 @@ final class LedgerTestCasesRunner(
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
+      require(
+        maxConnectionAttempts > 0,
+        "The number of connection attempts must be strictly positive",
+      )
       require(timeoutScaleFactor > 0, "The timeout scale factor must be strictly positive")
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
@@ -189,7 +194,7 @@ final class LedgerTestCasesRunner(
       executionContext: ExecutionContext,
   ): Future[Vector[LedgerTestSummary]] = {
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
-    ParticipantSession(partyAllocation, participants, commandInterceptors)
+    ParticipantSession(partyAllocation, participants, maxConnectionAttempts, commandInterceptors)
       .flatMap { sessions =>
         val ledgerSession = LedgerSession(sessions, shuffleParticipants)
         val testResults =
