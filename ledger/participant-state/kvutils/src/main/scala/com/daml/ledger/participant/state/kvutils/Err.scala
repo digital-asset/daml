@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.PackageId
+import com.daml.lf.data.Ref
 
 /** Errors thrown by kvutils.
   *
@@ -24,7 +24,7 @@ object Err {
       s"Missing input state for key $key. Hint: the referenced contract might have been archived."
   }
 
-  final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err {
+  final case class ArchiveDecodingFailed(packageId: Ref.PackageId, reason: String) extends Err {
     override def getMessage: String = s"Decoding of Daml-LF archive $packageId failed: $reason"
   }
 

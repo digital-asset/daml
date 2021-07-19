@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.v2
 
 import com.daml.ledger.configuration.Configuration
+import com.daml.lf.data.Ref
 
 /** Collects context information the submission.
   *
@@ -25,7 +26,7 @@ import com.daml.ledger.configuration.Configuration
   * @param ledgerConfiguration The ledger configuration used during interpretation
   */
 final case class SubmitterInfo(
-    actAs: List[Party],
+    actAs: List[Ref.Party],
     applicationId: ApplicationId,
     commandId: CommandId,
     deduplicationPeriod: DeduplicationPeriod,
@@ -44,5 +45,5 @@ final case class SubmitterInfo(
 final case class ChangeId(
     private val applicationId: ApplicationId,
     private val commandId: CommandId,
-    private val actAs: Set[Party],
+    private val actAs: Set[Ref.Party],
 )

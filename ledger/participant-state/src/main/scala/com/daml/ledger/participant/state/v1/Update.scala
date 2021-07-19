@@ -72,7 +72,7 @@ object Update {
     *   The submissionId of the command which requested party to be added.
     */
   final case class PartyAddedToParticipant(
-      party: Party,
+      party: Ref.Party,
       displayName: String,
       participantId: Ref.ParticipantId,
       recordTime: Timestamp,

@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
-  Party,
   SubmissionId,
   TransactionId,
   Update,
@@ -325,7 +324,7 @@ trait ExecuteUpdate {
     def commandId(id: CommandId): LoggingEntry =
       "commandId" -> id
 
-    def party(party: Party): LoggingEntry =
+    def party(party: Ref.Party): LoggingEntry =
       "party" -> party
 
     def transactionId(id: TransactionId): LoggingEntry =
@@ -361,7 +360,7 @@ trait ExecuteUpdate {
     def sourceDescriptionOpt(description: Option[String]): LoggingEntry =
       "sourceDescription" -> description
 
-    def submitter(parties: List[Party]): LoggingEntry =
+    def submitter(parties: List[Ref.Party]): LoggingEntry =
       "submitter" -> parties
   }
 }

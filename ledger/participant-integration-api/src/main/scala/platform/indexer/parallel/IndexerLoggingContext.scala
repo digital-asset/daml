@@ -19,7 +19,6 @@ import com.daml.ledger.participant.state.v1.Update.{
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
-  Party,
   SubmissionId,
   TransactionId,
   Update,
@@ -123,7 +122,7 @@ object IndexerLoggingContext {
     def commandId(id: CommandId): LoggingEntry =
       "commandId" -> id
 
-    def party(party: Party): LoggingEntry =
+    def party(party: Ref.Party): LoggingEntry =
       "party" -> party
 
     def transactionId(id: TransactionId): LoggingEntry =
@@ -159,7 +158,7 @@ object IndexerLoggingContext {
     def sourceDescriptionOpt(description: Option[String]): LoggingEntry =
       "sourceDescription" -> description
 
-    def submitter(parties: List[Party]): LoggingEntry =
+    def submitter(parties: List[Ref.Party]): LoggingEntry =
       "submitter" -> parties
   }
 

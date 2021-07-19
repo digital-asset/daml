@@ -79,13 +79,6 @@ package object v1 {
   /** Identifiers for nodes in a transaction. */
   type NodeId = transaction.NodeId
 
-  /** Identifiers for packages. */
-  type PackageId = Ref.PackageId
-
-  /** Identifiers for parties. */
-  val Party: Ref.Party.type = Ref.Party
-  type Party = Ref.Party
-
   /** A transaction with contract IDs that may require suffixing.
     *
     * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst

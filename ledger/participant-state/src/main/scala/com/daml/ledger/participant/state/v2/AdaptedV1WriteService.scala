@@ -11,7 +11,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Ref, Time}
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
@@ -60,7 +60,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
     )
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =

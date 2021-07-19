@@ -70,7 +70,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   }
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {

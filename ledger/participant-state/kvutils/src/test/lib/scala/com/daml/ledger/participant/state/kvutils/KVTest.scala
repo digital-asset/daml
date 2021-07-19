@@ -85,7 +85,7 @@ object KVTest {
 
   def runTestWithPackage[A](
       simplePackage: SimplePackage,
-      parties: Party*
+      parties: Ref.Party*
   )(test: KVTest[A])(implicit loggingContext: LoggingContext): A =
     (for {
       _ <- uploadArchive(simplePackage)
@@ -94,7 +94,7 @@ object KVTest {
     } yield r).eval(initialTestState)
 
   def runTestWithSimplePackage[A](
-      parties: Party*
+      parties: Ref.Party*
   )(test: SimplePackage => KVTest[A])(implicit loggingContext: LoggingContext): A =
     runTestWithPackage(DefaultSimplePackage, parties: _*)(test(DefaultSimplePackage))
 
@@ -179,7 +179,7 @@ object KVTest {
     }
 
   def runCommand(
-      submitter: Party,
+      submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
@@ -215,14 +215,14 @@ object KVTest {
     }
 
   def runSimpleCommand(
-      submitter: Party,
+      submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, command)
 
   def submitTransaction(
-      submitter: Party,
+      submitter: Ref.Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
@@ -239,7 +239,7 @@ object KVTest {
     ).flatMap(submit)
 
   def preExecuteTransaction(
-      submitter: Party,
+      submitter: Ref.Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
@@ -256,7 +256,7 @@ object KVTest {
     ).flatMap(preExecute)
 
   def prepareTransactionSubmission(
-      submitter: Party,
+      submitter: Ref.Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
@@ -346,7 +346,7 @@ object KVTest {
   def allocateParty(
       subId: String,
       hint: String,
-  )(implicit loggingContext: LoggingContext): KVTest[Party] =
+  )(implicit loggingContext: LoggingContext): KVTest[Ref.Party] =
     for {
       testState <- get[KVTestState]
       result <- submitPartyAllocation(subId, hint, testState.participantId).map { logEntry =>
@@ -428,7 +428,7 @@ object KVTest {
   }
 
   private def createSubmitterInfo(
-      submitter: Party,
+      submitter: Ref.Party,
       commandId: CommandId,
       deduplicationTime: Duration,
       recordTime: Timestamp,

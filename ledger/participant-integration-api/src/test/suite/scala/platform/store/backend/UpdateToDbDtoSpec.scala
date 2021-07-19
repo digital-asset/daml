@@ -14,7 +14,6 @@ import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
   DivulgedContract,
-  Party,
   RejectionReasonV0,
   SubmissionId,
   SubmitterInfo,
@@ -996,8 +995,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         divulgedContracts = List(DivulgedContract(createNode.coid, createNode.versionedCoinst)),
         blindingInfo = Some(
           BlindingInfo(
-            disclosure = Map(exerciseNodeId -> Set(Party.assertFromString("disclosee"))),
-            divulgence = Map(createNode.coid -> Set(Party.assertFromString("divulgee"))),
+            disclosure = Map(exerciseNodeId -> Set(Ref.Party.assertFromString("disclosee"))),
+            divulgence = Map(createNode.coid -> Set(Ref.Party.assertFromString("divulgee"))),
           )
         ),
       )
@@ -1246,7 +1245,7 @@ object UpdateToDbDtoSpec {
   private val someWorkflowId = WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
   private val someConfiguration =
     Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
-  private val someParty = Party.assertFromString("UpdateToDbDtoSpecParty")
+  private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
   private val someArchive1 = DamlLf.Archive.newBuilder

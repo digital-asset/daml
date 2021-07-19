@@ -42,7 +42,7 @@ class KeyValueSubmission(metrics: Metrics) {
   private def submissionParties(
       submitterInfo: SubmitterInfo,
       tx: SubmittedTransaction,
-  ): Set[Party] =
+  ): Set[Ref.Party] =
     tx.informees ++ submitterInfo.actAs
 
   /** Prepare a transaction submission. */
