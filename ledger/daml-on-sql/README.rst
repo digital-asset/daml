@@ -382,6 +382,11 @@ command-line interface options:
     value ``2003`` will be used. A ``metric_prefix`` can be specified, causing
     all metrics to be reported with the specified prefix.
 
+  - ``prometheus://<server_host>[:<server_port>]``: renders captured metrics
+    on a http endpoint in accordance with the prometheus protocol. If the port
+    is omitted, the default value ``55001`` will be used. The metrics will be
+    available under the address ``http://<server_host>:<server_port>/metrics``.
+
 - ``--metrics-reporting-interval``: metrics are pre-aggregated within the *Daml
   for PostgreSQL* server and sent to the reporter, this option allows the user
   to set the interval. The formats accepted are based on the ISO-8601 duration
