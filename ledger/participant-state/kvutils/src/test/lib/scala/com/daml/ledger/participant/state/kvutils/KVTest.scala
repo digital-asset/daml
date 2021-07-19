@@ -28,7 +28,7 @@ import scalaz.{Reader, State}
 import scala.jdk.CollectionConverters._
 
 final case class KVTestState(
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     recordTime: Timestamp,
     defaultConfig: Configuration,
     nextEntryId: Int,
@@ -118,10 +118,10 @@ object KVTest {
       _ <- modify[KVTestState](s => s.copy(nextEntryId = s.nextEntryId + 1))
     } yield TestHelpers.mkEntryId(s.nextEntryId)
 
-  def setParticipantId(pid: ParticipantId): KVTest[Unit] =
+  def setParticipantId(pid: Ref.ParticipantId): KVTest[Unit] =
     modify(_.copy(participantId = pid))
 
-  def withParticipantId[A](pid: ParticipantId)(test: KVTest[A]): KVTest[A] =
+  def withParticipantId[A](pid: Ref.ParticipantId)(test: KVTest[A]): KVTest[A] =
     for {
       oldState <- get
       _ <- modify[KVTestState](_.copy(participantId = pid))
@@ -326,7 +326,7 @@ object KVTest {
   def submitPartyAllocation(
       subId: String,
       hint: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
     get[KVTestState]
       .flatMap(testState => submit(createPartySubmission(subId, hint, participantId, testState)))
@@ -335,7 +335,7 @@ object KVTest {
   def preExecutePartyAllocation(
       subId: String,
       hint: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
     get[KVTestState]
       .flatMap(testState =>
@@ -443,7 +443,7 @@ object KVTest {
   private[this] def createPartySubmission(
       subId: String,
       hint: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       testState: KVTestState,
   ): DamlSubmission =
     testState.keyValueSubmission.partyToSubmission(

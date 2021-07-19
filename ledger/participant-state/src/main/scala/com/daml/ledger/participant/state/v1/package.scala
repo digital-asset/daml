@@ -56,10 +56,6 @@ import com.daml.lf.value.Value
   */
 package object v1 {
 
-  /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
-  val ParticipantId: Ref.ParticipantId.type = Ref.ParticipantId
-  type ParticipantId = Ref.ParticipantId
-
   /** Identifiers for transactions. */
   val TransactionId: Ref.LedgerString.type = Ref.LedgerString
   type TransactionId = Ref.LedgerString

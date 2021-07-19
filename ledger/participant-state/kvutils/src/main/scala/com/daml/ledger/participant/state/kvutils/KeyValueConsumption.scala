@@ -341,7 +341,7 @@ object KeyValueConsumption {
           Update.ConfigurationChangeRejected(
             recordTime,
             SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
-            ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
+            Ref.ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
             Configuration.decode(configurationRejectionEntry.getConfiguration).toOption.get,
             reason,
           )

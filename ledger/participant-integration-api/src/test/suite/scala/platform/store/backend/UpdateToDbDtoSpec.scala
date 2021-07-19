@@ -14,7 +14,6 @@ import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
   DivulgedContract,
-  ParticipantId,
   Party,
   RejectionReasonV0,
   SubmissionId,
@@ -1194,11 +1193,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 }
 
 object UpdateToDbDtoSpec {
-  val emptyArray = Array.emptyByteArray
+  private val emptyArray = Array.emptyByteArray
 
   // These tests do not check the correctness of the LF value serialization.
   // All LF values are serialized into empty arrays in this suite.
-  val valueSerialization = new LfValueSerialization {
+  private val valueSerialization = new LfValueSerialization {
     override def serialize(
         contractId: ContractId,
         contractArgument: Value.VersionedValue[ContractId],
@@ -1218,6 +1217,7 @@ object UpdateToDbDtoSpec {
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))
+
     override def deserialize(raw: TreeEvent.Exercised, verbose: Boolean)(implicit
         ec: ExecutionContext,
         loggingContext: LoggingContext,
@@ -1226,46 +1226,46 @@ object UpdateToDbDtoSpec {
 
   // These test do not check the correctness of compression.
   // All values are compressed using a dummy (identity) algorithm in this suite.
-  val compressionAlgorithmId = Some(123)
-  val compressionStrategy: CompressionStrategy = {
+  private val compressionAlgorithmId = Some(123)
+  private val compressionStrategy: CompressionStrategy = {
     val noCompression = new FieldCompressionStrategy(compressionAlgorithmId, x => x)
     CompressionStrategy(noCompression, noCompression, noCompression, noCompression)
   }
 
-  val someParticipantId =
-    ParticipantId.assertFromString("UpdateToDbDtoSpecParticipant")
-  val otherParticipantId =
-    ParticipantId.assertFromString("UpdateToDbDtoSpecRemoteParticipant")
-  val someOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
-  val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
-  val someApplicationId =
+  private val someParticipantId =
+    Ref.ParticipantId.assertFromString("UpdateToDbDtoSpecParticipant")
+  private val otherParticipantId =
+    Ref.ParticipantId.assertFromString("UpdateToDbDtoSpecRemoteParticipant")
+  private val someOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
+  private val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
+  private val someApplicationId =
     ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")
-  val someCommandId = CommandId.assertFromString("UpdateToDbDtoSpecCommandId")
-  val someSubmissionId =
+  private val someCommandId = CommandId.assertFromString("UpdateToDbDtoSpecCommandId")
+  private val someSubmissionId =
     SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
-  val someWorkflowId = WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
-  val someConfiguration =
+  private val someWorkflowId = WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
+  private val someConfiguration =
     Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
-  val someParty = Party.assertFromString("UpdateToDbDtoSpecParty")
-  val someHash =
+  private val someParty = Party.assertFromString("UpdateToDbDtoSpecParty")
+  private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
-  val someArchive1 = DamlLf.Archive.newBuilder
+  private val someArchive1 = DamlLf.Archive.newBuilder
     .setHash("00001")
     .setHashFunction(DamlLf.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 1"))
     .build
-  val someArchive2 = DamlLf.Archive.newBuilder
+  private val someArchive2 = DamlLf.Archive.newBuilder
     .setHash("00002")
     .setHashFunction(DamlLf.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 2 (longer than the other payload)"))
     .build
-  val someSubmitterInfo = SubmitterInfo(
+  private val someSubmitterInfo = SubmitterInfo(
     actAs = List(someParty),
     someApplicationId,
     someCommandId,
     Instant.ofEpochMilli(1),
   )
-  val someTransactionMeta = TransactionMeta(
+  private val someTransactionMeta = TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
     workflowId = Some(someWorkflowId),
     submissionTime = Time.Timestamp.assertFromLong(3),
@@ -1278,7 +1278,7 @@ object UpdateToDbDtoSpec {
   // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
   // because this representation can efficiently be passed to Jdbc.
   // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
-  implicit val DbDtoEq: org.scalactic.Equality[DbDto] = {
+  private implicit val DbDtoEq: org.scalactic.Equality[DbDto] = {
     case (a: DbDto, b: DbDto) =>
       (a.productPrefix === b.productPrefix) &&
         (a.productArity == b.productArity) &&

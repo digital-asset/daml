@@ -36,7 +36,6 @@ import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 
-import scala.collection.compat._
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.compat.java8.FutureConverters._
@@ -68,7 +67,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
   protected def participantStateFactory(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       testId: String,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState]
@@ -715,7 +714,8 @@ object ParticipantStateIntegrationSpecBase {
   private val IdleTimeout: FiniteDuration = 15.seconds
   private val DefaultInterpretationCost = 0L
 
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
+  private val participantId: Ref.ParticipantId =
+    Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
   private val archives = TestDarReader.readCommonTestDar(ModelTestDar).get.all

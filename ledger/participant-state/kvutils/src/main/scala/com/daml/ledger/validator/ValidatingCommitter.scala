@@ -6,8 +6,9 @@ package com.daml.ledger.validator
 import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.newLoggingContextWith
 
@@ -47,7 +48,7 @@ class ValidatingCommitter[LogResult](
   def commit(
       correlationId: String,
       envelope: Raw.Envelope,
-      submittingParticipantId: ParticipantId,
+      submittingParticipantId: Ref.ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     newLoggingContextWith("correlationId" -> correlationId) { implicit loggingContext =>
       validator

@@ -151,7 +151,9 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     delegate.getLedgerId()
 
-  override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =
+  override def getParticipantId()(implicit
+      loggingContext: LoggingContext
+  ): Future[Ref.ParticipantId] =
     delegate.getParticipantId()
 
   override def getParties(parties: Seq[Party])(implicit

@@ -63,7 +63,6 @@ da_scala_test(
         "//ledger/ledger-api-test-tool:ledger-api-test-tool-stable-tests",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox-common",
         "//libs-scala/doobie-slf4j",

@@ -12,10 +12,9 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{ReadService, Update}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.lf.data.Bytes
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -174,7 +173,7 @@ final class JdbcIndexerSpec
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit,
   ): Future[ResourceOwner[Indexer]] = {
     val config = IndexerConfig(
-      participantId = v1.ParticipantId.assertFromString(participantId),
+      participantId = Ref.ParticipantId.assertFromString(participantId),
       jdbcUrl = postgresDatabase.url,
       startupMode = IndexerStartupMode.MigrateAndStart,
       asyncCommitMode = jdbcAsyncCommitMode,
@@ -195,7 +194,7 @@ final class JdbcIndexerSpec
 
   private def mockedUpdateFlowOwnerBuilder(
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed],
   ): ExecuteUpdate.FlowOwnerBuilder = {
     val mocked = mock[ExecuteUpdate.FlowOwnerBuilder]

@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionInfo,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, DamlKvutils => Proto}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.crypto
 import com.daml.lf.data._
@@ -29,13 +28,12 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
 
-import scala.collection.compat._
 import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
 final case class TxEntry(
     tx: SubmittedTransaction,
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     submitters: List[Ref.Party],
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,

@@ -10,13 +10,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategy.{InputState, ReadSet}
 import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
   StateSerializationStrategy,
   inParallel,
 }
+import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,7 +41,7 @@ final class RawPreExecutingCommitStrategy(
     }.toMap
 
   override def generateWriteSets(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       logEntryId: DamlLogEntryId,
       inputState: InputState,
       preExecutionResult: KeyValueCommitting.PreExecutionResult,

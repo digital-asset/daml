@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawPreExecutingCommitStrategySupportSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1
+import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Empty, Timestamp}
 import org.scalatest.matchers.should.Matchers
@@ -35,7 +35,7 @@ class RawPreExecutingCommitStrategySupportSpec
       val baseTime = ZonedDateTime.of(2021, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
       val support = new RawPreExecutingCommitStrategySupport(metrics)
 
-      val participantId = v1.ParticipantId.assertFromString("participant")
+      val participantId = Ref.ParticipantId.assertFromString("participant")
       val allocateAlice = newPartySubmission(
         recordTime = baseTime.plusSeconds(1),
         participantId = participantId,
@@ -77,7 +77,7 @@ class RawPreExecutingCommitStrategySupportSpec
       val baseTime = ZonedDateTime.of(2021, 2, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
       val support = new RawPreExecutingCommitStrategySupport(metrics)
 
-      val participantId = v1.ParticipantId.assertFromString("participant")
+      val participantId = Ref.ParticipantId.assertFromString("participant")
       val updateConfiguration = newConfigurationSubmission(
         recordTime = baseTime,
         participantId = participantId,
@@ -139,7 +139,7 @@ object RawPreExecutingCommitStrategySupportSpec {
 
   private def newPartySubmission(
       recordTime: Instant,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       submissionId: String,
       correlationId: String,
       partyId: String,
@@ -174,7 +174,7 @@ object RawPreExecutingCommitStrategySupportSpec {
 
   private def newConfigurationSubmission(
       recordTime: Instant,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       submissionId: String,
       correlationId: String,
       maximumRecordTime: Instant,

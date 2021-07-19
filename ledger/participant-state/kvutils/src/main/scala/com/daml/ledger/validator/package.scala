@@ -6,12 +6,12 @@ package com.daml.ledger
 import com.daml.caching.ConcurrentCache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
 package object validator {
-  type SubmittingParticipantId = ParticipantId
+  type SubmittingParticipantId = Ref.ParticipantId
 
   type StateValueCache = ConcurrentCache[Raw.Envelope, DamlStateValue]
 

@@ -99,7 +99,7 @@ final class StateUpdateComparisonSpec
   private lazy val aConfigurationChangeRejected = ConfigurationChangeRejected(
     recordTime = Time.Timestamp.now(),
     submissionId = SubmissionId.assertFromString("a submission ID"),
-    participantId = ParticipantId.assertFromString("a participant ID"),
+    participantId = Ref.ParticipantId.assertFromString("a participant ID"),
     proposedConfiguration =
       Configuration(1L, LedgerTimeModel.reasonableDefault, Duration.ofMinutes(1)),
     rejectionReason = "a rejection reason",

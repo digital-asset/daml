@@ -6,6 +6,7 @@ package participant.state.v1
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.BlindingInfo
 
@@ -32,7 +33,7 @@ object Update {
   final case class ConfigurationChanged(
       recordTime: Timestamp,
       submissionId: SubmissionId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       newConfiguration: Configuration,
   ) extends Update {
     override def description: String =
@@ -44,7 +45,7 @@ object Update {
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
       submissionId: SubmissionId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String,
   ) extends Update {
@@ -73,7 +74,7 @@ object Update {
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       submissionId: Option[SubmissionId],
   ) extends Update {
@@ -105,7 +106,7 @@ object Update {
     */
   final case class PartyAllocationRejected(
       submissionId: SubmissionId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {

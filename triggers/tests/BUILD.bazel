@@ -160,7 +160,6 @@ da_scala_library(
             "//ledger/ledger-api-domain",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
-            "//ledger/participant-state",
             "//ledger/sandbox-classic",
             "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
             "//ledger/sandbox-common",

@@ -12,10 +12,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.CommitStrategy
 import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.caching.CachingCommitStrategySpec._
+import com.daml.lf.data.Ref
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -67,7 +67,7 @@ object CachingCommitStrategySpec {
     val mockCommitStrategy = mock[CommitStrategy[Unit]]
     when(
       mockCommitStrategy.commit(
-        any[ParticipantId],
+        any[Ref.ParticipantId],
         any[String],
         any[DamlLogEntryId],
         any[DamlLogEntry],

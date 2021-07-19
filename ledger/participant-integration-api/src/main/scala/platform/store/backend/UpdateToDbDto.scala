@@ -8,7 +8,8 @@ import java.util.UUID
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{ParticipantId, Update}
+import com.daml.ledger.participant.state.v1.Update
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
@@ -18,7 +19,7 @@ import com.daml.platform.store.dao.DeduplicationKeyMaker
 object UpdateToDbDto {
 
   def apply(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
   ): Offset => Update => Iterator[DbDto] = { offset =>

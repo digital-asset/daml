@@ -155,7 +155,6 @@ da_scala_test(
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
         "//ledger/sandbox-common",

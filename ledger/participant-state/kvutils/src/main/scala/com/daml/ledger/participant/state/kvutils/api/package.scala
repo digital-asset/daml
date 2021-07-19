@@ -8,7 +8,8 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
@@ -65,7 +66,7 @@ package object api {
       override def currentHealth(): HealthStatus =
         reader.currentHealth().and(writer.currentHealth())
 
-      override def participantId: ParticipantId = writer.participantId
+      override def participantId: Ref.ParticipantId = writer.participantId
 
       override def commit(
           correlationId: String,

@@ -5,7 +5,8 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
@@ -19,7 +20,7 @@ trait LedgerWriter extends ReportsHealth {
 
   /** @return participant ID of the participant on which this LedgerWriter instance runs
     */
-  def participantId: ParticipantId
+  def participantId: Ref.ParticipantId
 
   /** Sends a submission to be committed to the ledger.
     *

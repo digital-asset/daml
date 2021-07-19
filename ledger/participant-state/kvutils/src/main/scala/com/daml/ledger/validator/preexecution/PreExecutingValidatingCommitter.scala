@@ -12,13 +12,14 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionAggregatorWriteOperations,
   SubmissionInfo,
 }
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.reading.{LedgerStateReader, StateReader}
 import com.daml.ledger.validator.{
   CombinedLedgerStateWriteOperations,
   LedgerStateAccess,
   LedgerStateOperationsReaderAdapter,
 }
+import com.daml.lf.data.Ref
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.timer.RetryStrategy
@@ -57,7 +58,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
   /** Pre-executes and then commits a submission.
     */
   def commit(
-      submittingParticipantId: ParticipantId,
+      submittingParticipantId: Ref.ParticipantId,
       correlationId: String,
       submissionEnvelope: Raw.Envelope,
       exportRecordTime: Instant,

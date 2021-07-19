@@ -12,12 +12,10 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
-  ParticipantId,
   Party,
   SubmissionId,
   TransactionId,
@@ -25,6 +23,7 @@ import com.daml.ledger.participant.state.v1.{
   WorkflowId,
 }
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
@@ -46,7 +45,7 @@ object ExecuteUpdate {
         DbType,
         LedgerWriteDao,
         Metrics,
-        v1.ParticipantId,
+        Ref.ParticipantId,
         Int,
         ExecutionContext,
         LoggingContext,
@@ -56,7 +55,7 @@ object ExecuteUpdate {
       dbType: DbType,
       ledgerDao: LedgerWriteDao,
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -89,7 +88,7 @@ trait ExecuteUpdate {
   private[indexer] implicit val loggingContext: LoggingContext
   private[indexer] implicit val executionContext: ExecutionContext
 
-  private[indexer] def participantId: v1.ParticipantId
+  private[indexer] def participantId: Ref.ParticipantId
 
   private[indexer] def ledgerDao: LedgerWriteDao
 
@@ -320,7 +319,7 @@ trait ExecuteUpdate {
     def submissionIdOpt(id: Option[SubmissionId]): LoggingEntry =
       "submissionId" -> id
 
-    def participantId(id: ParticipantId): LoggingEntry =
+    def participantId(id: Ref.ParticipantId): LoggingEntry =
       "participantId" -> id
 
     def commandId(id: CommandId): LoggingEntry =
@@ -370,7 +369,7 @@ trait ExecuteUpdate {
 class PipelinedExecuteUpdate(
     private[indexer] val ledgerDao: LedgerWriteDao,
     private[indexer] val metrics: Metrics,
-    private[indexer] val participantId: v1.ParticipantId,
+    private[indexer] val participantId: Ref.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
@@ -461,7 +460,7 @@ object PipelinedExecuteUpdate {
   def owner(
       ledgerDao: LedgerWriteDao,
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -483,7 +482,7 @@ object PipelinedExecuteUpdate {
 class AtomicExecuteUpdate(
     private[indexer] val ledgerDao: LedgerWriteDao,
     private[indexer] val metrics: Metrics,
-    private[indexer] val participantId: v1.ParticipantId,
+    private[indexer] val participantId: Ref.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
 )(
     private[indexer] implicit val loggingContext: LoggingContext,
@@ -543,7 +542,7 @@ object AtomicExecuteUpdate {
   def owner(
       ledgerDao: LedgerWriteDao,
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,

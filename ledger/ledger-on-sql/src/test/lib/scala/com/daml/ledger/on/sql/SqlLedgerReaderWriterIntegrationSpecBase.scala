@@ -7,8 +7,8 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -21,7 +21,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
 
   override protected final def participantStateFactory(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       testId: String,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
