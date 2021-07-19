@@ -10,6 +10,31 @@ steps:
     exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)
     exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [err]: $line"; done >&2)
 
+    ## START temp debug
+    UNAME=$(uname)
+
+    case "$UNAME" in
+    Darwin)
+      MPS="/var/tmp/_bazel_vsts /Users/vsts/.bazel-cache"
+      ;;
+    Linux)
+      MPS="/home/vsts/.cache/bazel /home/vsts/.bazel-cache"
+      ;;
+    *)
+      echo "Unexpected uname: $UNAME"
+      MPS=
+      ;;
+    esac
+
+    for path in $MPS; do
+      if ! (mount | grep $path); then
+        echo "$path is not a mount point, aborting"
+        echo "Please ping @gary on Slack."
+        exit 1
+      fi
+    done
+    ## END temp debug
+
     df -h .
     if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
         echo "Disk full, cleaning up..."
