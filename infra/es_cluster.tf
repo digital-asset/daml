@@ -12,13 +12,13 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 5,
+      size           = 0,
       init           = "[]",
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 5,
       init           = "[]",
     },
     {
