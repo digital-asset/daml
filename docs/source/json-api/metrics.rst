@@ -11,7 +11,8 @@ Enable and configure reporting
 To enable metrics and configure reporting, you can use the two following CLI options:
 
 - ``--metrics-reporter``: passing a legal value will enable reporting; the accepted values
-  are ``console``, ``csv:</path/to/metrics.csv>`` and ``graphite:<local_server_port>``.
+  are ``console``, ``csv:</path/to/metrics.csv>`` and ``graphite:<graphite_server_url>``
+  and ``prometheus:<metrics_endpoint>``.
 
   - ``console``: prints captured metrics on the standard output
 
