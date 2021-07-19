@@ -16,9 +16,11 @@ steps:
     case "$UNAME" in
     Darwin)
       MPS="/var/tmp/_bazel_vsts /Users/vsts/.bazel-cache"
+      CMD="hdiutil info"
       ;;
     Linux)
       MPS="/home/vsts/.cache/bazel /home/vsts/.bazel-cache"
+      CMD="mount"
       ;;
     *)
       echo "Unexpected uname: $UNAME"
@@ -27,7 +29,7 @@ steps:
     esac
 
     for path in $MPS; do
-      if ! (mount | grep $path); then
+      if ! ($CMD | grep -F "$path"); then
         echo "$path is not a mount point, aborting"
         echo "Please ping @gary on Slack."
         exit 1
