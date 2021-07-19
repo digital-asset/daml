@@ -3,6 +3,8 @@
 
 module User where
 
+import Daml.Script
+
 -- MAIN_TEMPLATE_BEGIN
 template User with
     username: Party
