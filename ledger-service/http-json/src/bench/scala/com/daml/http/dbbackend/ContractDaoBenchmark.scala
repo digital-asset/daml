@@ -21,9 +21,7 @@ abstract class ContractDaoBenchmark extends OracleAround {
   private var user: User = _
 
   protected var dao: ContractDao = _
-  protected var surrogateTpId: SurrogateTpId = _
 
-  protected val tpid = TemplateId("pkg", "M", "T")
   protected implicit val ec: ExecutionContext = ExecutionContext.global
   protected implicit val logger: LogHandler = Slf4jLogHandler(getClass)
 
@@ -40,13 +38,6 @@ abstract class ContractDaoBenchmark extends OracleAround {
     import oracleDao.jdbcDriver
 
     dao.transact(ContractDao.initialize).unsafeRunSync()
-
-    surrogateTpId = dao
-      .transact(
-        oracleDao.jdbcDriver.queries
-          .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
-      )
-      .unsafeRunSync()
   }
 
   @TearDown(Level.Trial)
@@ -56,9 +47,10 @@ abstract class ContractDaoBenchmark extends OracleAround {
   protected def contract(
       id: Int,
       signatory: String,
+      tpid: SurrogateTpId,
   ): DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]] = DBContract(
     contractId = s"#$id",
-    templateId = surrogateTpId,
+    templateId = tpid,
     key = JsNull,
     payload = JsObject(),
     signatories = Seq(signatory),
@@ -66,13 +58,22 @@ abstract class ContractDaoBenchmark extends OracleAround {
     agreementText = "",
   )
 
-  protected def insertBatch(signatory: String, offset: Int) = {
+  protected def insertTemplate(tpid: TemplateId.RequiredPkg): SurrogateTpId = {
+    dao
+      .transact(
+        dao.jdbcDriver.queries
+          .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+      )
+      .unsafeRunSync()
+  }
+
+  protected def insertBatch(signatory: String, tpid: SurrogateTpId, offset: Int) = {
     val driver = dao.jdbcDriver
     import driver._
     val contracts: List[DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]]] =
       (0 until batchSize).map { i =>
         val n = offset + i
-        contract(n, signatory)
+        contract(n, signatory, tpid)
       }.toList
     val inserted = dao
       .transact(driver.queries.insertContracts[List, JsValue, JsValue](contracts))
