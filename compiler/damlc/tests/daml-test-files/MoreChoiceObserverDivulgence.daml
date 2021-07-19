@@ -30,6 +30,7 @@ template Divulger with
         _ <- fetch id
         pure ()
 
+-- @WARN range=35:1-35:5; Use of divulged contracts is deprecated
 test : Scenario ()
 test = scenario do
     alice <- getParty "Alice"

@@ -7,6 +7,7 @@ module DA.Daml.LF.PrettyScenario
   ( prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
+  , prettyWarningMessages
   , renderScenarioResult
   , renderScenarioError
   , lookupDefLocation
@@ -124,6 +125,11 @@ parseNodeId =
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
 
+prettyWarningMessages
+  :: V.Vector WarningMessage -> Doc SyntaxClass
+prettyWarningMessages warnings
+  = vcat (map prettyWarningMessage (V.toList warnings))
+
 prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
 prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog warnings) =
@@ -136,7 +142,7 @@ prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime trace
         $ filter isActive (V.toList nodes)
 
       ppTrace = vcat $ map prettyTraceMessage (V.toList traceLog)
-      ppWarnings = vcat $ map prettyWarningMessage (V.toList warnings)
+      ppWarnings = prettyWarningMessages warnings
   in vsep
     [ label_ "Transactions: " ppSteps
     , label_ "Active contracts: " ppActive
