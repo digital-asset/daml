@@ -10,7 +10,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1._
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Ref, Time}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.telemetry.TelemetryContext
 
@@ -44,7 +44,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
     )
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =

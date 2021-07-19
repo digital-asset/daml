@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 import com.google.protobuf.ByteString
 import org.mockito.{Mockito, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -16,7 +16,7 @@ final class InMemorySubmissionAggregatorSpec extends AnyWordSpec with Matchers w
   "InMemorySubmissionAggregator" should {
     "aggregate data" in {
       val submissionInfo = SubmissionInfo(
-        ParticipantId.assertFromString("participant-id"),
+        Ref.ParticipantId.assertFromString("participant-id"),
         "correlation ID",
         Raw.Envelope(ByteString.copyFromUtf8("the envelope")),
         Instant.now(),

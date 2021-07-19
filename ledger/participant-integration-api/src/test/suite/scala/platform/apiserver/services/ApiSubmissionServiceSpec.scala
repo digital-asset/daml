@@ -95,7 +95,7 @@ class ApiSubmissionServiceSpec
 
   before {
     when(
-      writeService.allocateParty(any[Option[Party]], any[Option[Party]], any[SubmissionId])(
+      writeService.allocateParty(any[Option[Ref.Party]], any[Option[Ref.Party]], any[SubmissionId])(
         any[TelemetryContext]
       )
     )
@@ -105,7 +105,7 @@ class ApiSubmissionServiceSpec
   behavior of "allocateMissingInformees"
 
   it should "allocate missing informees" in {
-    val argCaptor = ArgCaptor[Seq[Party]]
+    val argCaptor = ArgCaptor[Seq[Ref.Party]]
 
     when(partyManagementService.getParties(argCaptor.capture)(any[LoggingContext])).thenAnswer(
       Future.successful(
@@ -137,7 +137,7 @@ class ApiSubmissionServiceSpec
   }
 
   it should "not allocate if all parties are already known" in {
-    val argCaptor = ArgCaptor[Seq[Party]]
+    val argCaptor = ArgCaptor[Seq[Ref.Party]]
     when(partyManagementService.getParties(argCaptor.capture)(any[LoggingContext])).thenAnswer(
       Future.successful(argCaptor.value.map(PartyDetails(_, Option.empty, isLocal = true)).toList)
     )

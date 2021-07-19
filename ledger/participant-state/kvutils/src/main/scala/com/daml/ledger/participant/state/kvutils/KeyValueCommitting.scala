@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   PartyAllocationCommitter,
   SubmissionExecutor,
 }
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}
@@ -74,7 +74,7 @@ class KeyValueCommitting private[daml] (
       recordTime: Timestamp,
       defaultConfig: Configuration,
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     metrics.daml.kvutils.committer.processing.inc()
@@ -109,7 +109,7 @@ class KeyValueCommitting private[daml] (
   def preExecuteSubmission(
       defaultConfig: Configuration,
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): PreExecutionResult =
     createCommitter(engine, defaultConfig, submission).runWithPreExecution(

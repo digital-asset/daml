@@ -21,7 +21,6 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -195,8 +194,8 @@ class RecoveringIndexerIntegrationSpec
       newParticipantState: ParticipantStateFactory,
       restartDelay: FiniteDuration = 100.millis,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] = {
-    val ledgerId = LedgerString.assertFromString(s"ledger-$testId")
-    val participantId = ParticipantId.assertFromString(s"participant-$testId")
+    val ledgerId = Ref.LedgerString.assertFromString(s"ledger-$testId")
+    val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
     for {
@@ -249,14 +248,14 @@ object RecoveringIndexerIntegrationSpec {
     SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
-    def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+    def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState]
   }
 
   private object SimpleParticipantState extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+    override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
@@ -281,7 +280,7 @@ object RecoveringIndexerIntegrationSpec {
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+    override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =

@@ -3,7 +3,7 @@
 
 package com.daml.platform.indexer
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerConfig._
 import com.daml.platform.store.DbType
@@ -11,7 +11,7 @@ import com.daml.platform.store.DbType
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     jdbcUrl: String,
     startupMode: IndexerStartupMode,
     databaseConnectionPoolSize: Int = DefaultDatabaseConnectionPoolSize,

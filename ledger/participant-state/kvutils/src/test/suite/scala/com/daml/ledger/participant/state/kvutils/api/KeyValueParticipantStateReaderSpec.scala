@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader.offsetForUpdate
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1.{ParticipantId, Update}
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
@@ -247,7 +247,7 @@ object KeyValueParticipantStateReaderSpec {
       Update.PartyAddedToParticipant(
         Ref.Party.assertFromString("aParty"),
         "a party",
-        ParticipantId.assertFromString("aParticipant"),
+        Ref.ParticipantId.assertFromString("aParticipant"),
         Timestamp.now(),
         submissionId = None,
       )

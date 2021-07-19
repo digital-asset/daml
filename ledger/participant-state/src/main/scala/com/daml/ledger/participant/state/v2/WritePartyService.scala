@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
 
+import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 
 /** An interface for on-boarding parties via a participant. */
@@ -32,7 +33,7 @@ trait WritePartyService {
     * @return an async result of a SubmissionResult
     */
   def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]

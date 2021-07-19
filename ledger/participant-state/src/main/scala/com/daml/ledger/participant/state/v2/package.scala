@@ -49,10 +49,6 @@ import com.daml.lf.value.Value
   */
 package object v2 {
 
-  /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
-  val ParticipantId: Ref.ParticipantId.type = Ref.ParticipantId
-  type ParticipantId = Ref.ParticipantId
-
   /** Identifiers for transactions. */
   val TransactionId: Ref.LedgerString.type = Ref.LedgerString
   type TransactionId = Ref.LedgerString
@@ -75,12 +71,6 @@ package object v2 {
 
   /** Identifiers for nodes in a transaction. */
   type NodeId = transaction.NodeId
-
-  /** Identifiers for packages. */
-  type PackageId = Ref.PackageId
-
-  /** Identifiers for parties. */
-  type Party = Ref.Party
 
   /** A transaction with contract IDs that may require suffixing.
     *

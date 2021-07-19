@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionInfo,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, DamlKvutils => Proto}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.crypto
 import com.daml.lf.data._
@@ -35,7 +34,7 @@ import scala.jdk.CollectionConverters._
 
 final case class TxEntry(
     tx: SubmittedTransaction,
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     submitters: List[Ref.Party],
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,

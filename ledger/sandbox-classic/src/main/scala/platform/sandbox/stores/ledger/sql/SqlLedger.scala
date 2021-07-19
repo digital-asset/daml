@@ -257,8 +257,7 @@ private[sandbox] object SqlLedger {
           lfValueTranslationCache = lfValueTranslationCache,
           validatePartyAllocation = validatePartyAllocation,
           enricher = Some(new ValueEnricher(engine)),
-          participantId = com.daml.ledger.participant.state.v1.ParticipantId
-            .assertFromString(participantId.toString),
+          participantId = Ref.ParticipantId.assertFromString(participantId.toString),
           compressionStrategy =
             if (enableCompression) CompressionStrategy.allGZIP(metrics)
             else CompressionStrategy.none(metrics),

@@ -19,13 +19,12 @@ import com.daml.ledger.participant.state.v1.Update.{
 import com.daml.ledger.participant.state.v1.{
   ApplicationId,
   CommandId,
-  ParticipantId,
-  Party,
   SubmissionId,
   TransactionId,
   Update,
   WorkflowId,
 }
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
 
@@ -117,13 +116,13 @@ object IndexerLoggingContext {
     def submissionIdOpt(id: Option[SubmissionId]): LoggingEntry =
       "submissionId" -> id
 
-    def participantId(id: ParticipantId): LoggingEntry =
+    def participantId(id: Ref.ParticipantId): LoggingEntry =
       "participantId" -> id
 
     def commandId(id: CommandId): LoggingEntry =
       "commandId" -> id
 
-    def party(party: Party): LoggingEntry =
+    def party(party: Ref.Party): LoggingEntry =
       "party" -> party
 
     def transactionId(id: TransactionId): LoggingEntry =
@@ -159,7 +158,7 @@ object IndexerLoggingContext {
     def sourceDescriptionOpt(description: Option[String]): LoggingEntry =
       "sourceDescription" -> description
 
-    def submitter(parties: List[Party]): LoggingEntry =
+    def submitter(parties: List[Ref.Party]): LoggingEntry =
       "submitter" -> parties
   }
 

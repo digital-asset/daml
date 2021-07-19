@@ -4,7 +4,6 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
     "lf_scalacopts",
     "silencer_plugin",
 )
@@ -57,7 +56,6 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/ledger-api-common",
             "//ledger/metrics",
             "//ledger/participant-integration-api",
-            "//ledger/participant-state",
             "//ledger/sandbox-classic",
             "//ledger/sandbox-common",
             "//libs-scala/auth-utils",
