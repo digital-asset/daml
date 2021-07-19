@@ -95,8 +95,8 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
       eventualUpdate: Future[V],
       validAt: Long,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
-    eventualUpdate.transform[Unit](
-      (value: V) =>
+    eventualUpdate
+      .map { (value: V) =>
         pendingUpdates.synchronized {
           pendingUpdates
             .get(key)
@@ -107,13 +107,14 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
               removeFromPending(key)
             }
             .getOrElse(logger.error(s"Pending updates tracker for $key not registered "))
-        },
-      (err: Throwable) => {
-        removeFromPending(key)
+        }
+      }
+      .recover { case err =>
+        pendingUpdates.synchronized {
+          removeFromPending(key)
+        }
         logger.warn(s"Failure in pending cache update for key $key", err)
-        err
-      },
-    )
+      }
 
   private def removeFromPending(key: K)(implicit loggingContext: LoggingContext): Unit =
     discard(

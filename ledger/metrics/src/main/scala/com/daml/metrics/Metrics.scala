@@ -84,6 +84,14 @@ final class Metrics(val registry: MetricRegistry) {
 
         val dispatcherLag: Timer = registry.timer(Prefix :+ "dispatcher_lag")
 
+        val resolveDivulgenceLookup: Counter =
+          registry.counter(Prefix :+ "resolve_divulgence_lookup")
+
+        val resolveFullLookup: Counter =
+          registry.counter(Prefix :+ "resolve_full_lookup")
+
+        val readThroughNotFound: Counter = registry.counter(Prefix :+ "read_through_not_found")
+
         val indexSequentialId = new VarGauge[Long](0L)
         registry.register(
           Prefix :+ "index_sequential_id",
