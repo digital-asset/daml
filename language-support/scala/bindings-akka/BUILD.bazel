@@ -66,6 +66,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_typesafe_config",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_tcnative_boringssl_static",
@@ -83,6 +84,7 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
@@ -102,5 +104,7 @@ da_scala_test_suite(
         "//ledger/metrics",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_typesafe_config",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_reactivestreams_reactive_streams",
     ],
 )

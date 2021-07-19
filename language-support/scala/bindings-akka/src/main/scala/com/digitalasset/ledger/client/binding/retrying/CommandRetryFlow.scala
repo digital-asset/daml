@@ -6,14 +6,16 @@ package com.daml.ledger.client.binding.retrying
 import java.time.temporal.TemporalAmount
 
 import akka.NotUsed
-import akka.stream.FlowShape
-import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Partition}
+import akka.stream.{FlowShape, OverflowStrategy}
+import akka.stream.scaladsl.{Flow, GraphDSL, MergePreferred, Partition}
+import com.codahale.metrics.Counter
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandClient
 import com.daml.util.Ctx
+import com.daml.util.akkastreams.MaxInFlight
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import scalaz.syntax.tag._
@@ -38,10 +40,21 @@ object CommandRetryFlow {
       createRetry: CreateRetryFn[C],
   )(implicit ec: ExecutionContext): Future[SubmissionFlowType[C]] =
     for {
-      submissionFlow <- commandClient.trackCommands[RetryInfo[C]](List(party.unwrap))
+      submissionFlow <- commandClient.trackCommandsUnbounded[RetryInfo[C]](List(party.unwrap))
       submissionFlowWithoutMat = submissionFlow.mapMaterializedValue(_ => NotUsed)
-      graph = createGraph(submissionFlowWithoutMat, timeProvider, maxRetryTime, createRetry)
-    } yield wrapGraph(graph, timeProvider)
+      maxInFlight = MaxInFlight[In[C], Out[C]](
+        commandClient.config.maxCommandsInFlight,
+        new Counter,
+        new Counter,
+      )
+      graph = createGraph(
+        submissionFlowWithoutMat,
+        timeProvider,
+        maxRetryTime,
+        commandClient.config.maxCommandsInFlight,
+        createRetry,
+      )
+    } yield maxInFlight.join(wrapGraph(graph, timeProvider))
 
   def wrapGraph[C](
       graph: SubmissionFlowType[RetryInfo[C]],
@@ -56,13 +69,15 @@ object CommandRetryFlow {
       commandSubmissionFlow: SubmissionFlowType[RetryInfo[C]],
       timeProvider: TimeProvider,
       maxRetryTime: TemporalAmount,
+      retryBufferSize: Int,
       createRetry: CreateRetryFn[C],
   ): SubmissionFlowType[RetryInfo[C]] =
     Flow
       .fromGraph(GraphDSL.create(commandSubmissionFlow) { implicit b => commandSubmission =>
         import GraphDSL.Implicits._
 
-        val merge = b.add(Merge[In[RetryInfo[C]]](inputPorts = 2, eagerComplete = true))
+        val mergeRetriesPreferred =
+          b.add(MergePreferred[In[RetryInfo[C]]](secondaryPorts = 1, eagerComplete = true))
 
         val retryDecider = b.add(
           Partition[Out[RetryInfo[C]]](
@@ -98,12 +113,18 @@ object CommandRetryFlow {
             Ctx(retryInfo.newRetry, createRetry(retryInfo, failedCompletion), telemetryContext)
         })
 
+        // This buffer, together with the mergePreferred flow, is important to break the cycle around commandSubmission.
+        // Without this setup, mergeRetriesPreferred would backpressure all the way to retryDecider, effectively
+        // stopping the entire flow, i.e. command processing.
+        val buffer =
+          b.add(Flow[Out[RetryInfo[C]]].buffer(retryBufferSize, OverflowStrategy.backpressure))
+
         // format: off
-        merge.out            ~> commandSubmission ~> retryDecider.in
-        merge.in(RETRY_PORT) <~  convertToRetry   <~ retryDecider.out(RETRY_PORT)
+        mergeRetriesPreferred.out ~> commandSubmission ~> retryDecider.in
+        mergeRetriesPreferred.in(RETRY_PORT) <~ convertToRetry <~ buffer <~ retryDecider.out(RETRY_PORT)
         // format: on
 
-        FlowShape(merge.in(PROPAGATE_PORT), retryDecider.out(PROPAGATE_PORT))
+        FlowShape(mergeRetriesPreferred.in(PROPAGATE_PORT), retryDecider.out(PROPAGATE_PORT))
       })
 
   private[retrying] val RETRYABLE_ERROR_CODES =

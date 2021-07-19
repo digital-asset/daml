@@ -46,7 +46,7 @@ final class CommandClient(
     commandCompletionService: CommandCompletionServiceStub,
     ledgerId: LedgerId,
     applicationId: String,
-    config: CommandClientConfiguration,
+    val config: CommandClientConfiguration,
     logger: Logger = LoggerFactory.getLogger(getClass),
 )(implicit esf: ExecutionSequencerFactory) {
 
