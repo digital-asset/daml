@@ -17,7 +17,7 @@ import com.daml.lf.transaction.CommittedTransaction
   *
   * Post-commit validation is relevant for three reasons:
   * - keys can be referenced by two concurrent interpretations, potentially leading to
-  * either create nodes with duplicate active keys or lookup-by-key nodes referring to
+  *   either create nodes with duplicate active keys or lookup-by-key nodes referring to
   *   inactive keys
   * - contracts may have been consumed by a concurrent interpretation, potentially leading
   *   to double spends

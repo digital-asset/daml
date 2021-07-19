@@ -62,7 +62,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
 
     def result: Either[Set[RejectionReason], ALS] = {
       if (rollbackStates.nonEmpty) {
-        sys.error(s"IMPOSSIBLE finished transaction but rollback states is not empty")
+        sys.error("IMPOSSIBLE finished transaction but rollback states is not empty")
       }
       currentState.als match {
         case None =>
