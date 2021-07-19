@@ -28,6 +28,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
 
+import scala.collection.compat._
 import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
