@@ -128,7 +128,9 @@ private[platform] class MutableCacheBackedContractStore(
         eventualValue = eventualValue.transformWith {
           case Success(NotFound) =>
             metrics.daml.execution.cache.readThroughNotFound.inc()
-            // Don't cache negative lookups
+            // We must not cache negative lookups by contract-id, as they can be invalidated by later divulgence events.
+            // This is OK from a performance perspective, as we do not expect uses-cases that require
+            // caching of contract absence or the results of looking up divulged contracts.
             Future.failed(ContractReadThroughNotFound(contractId))
           case result => Future.fromTry(result)
         },
@@ -161,11 +163,6 @@ private[platform] class MutableCacheBackedContractStore(
         // (the contract might have been divulged to the readers)
         // OR the contract was not found in the index
         //
-        // NOTE: The current implementation of mutable contract state cache provides an optimization aimed at performance-critical
-        //       applications that do not exercise this flow frequently (i.e. no negative contract lookups in command interpretation
-        //       or use of divulgence)
-        // TODO: Implement caching of divulged contracts for alleviating performance degradation in applications that
-        //       make use of divulgence OR applications that cause high numbers of negative contract lookups
         logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
         resolveDivulgenceLookup(contractStateValue, contractId, readers)
     }
@@ -390,7 +387,7 @@ private[platform] object MutableCacheBackedContractStore {
 
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
     override def getMessage: String =
-      s"Contract not found for contract id $contractId. This is likely due to a race condition."
+      s"Contract not found for contract id $contractId. Hint: this could be due racing with a concurrent archival."
   }
 
   private[cache] class CacheIndex {
