@@ -22,7 +22,7 @@ import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeP
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.oracle.OracleStorageBackend
-import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
+import com.daml.platform.store.backend.postgresql.{PostgresDataSourceConfig, PostgresStorageBackend}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
@@ -249,18 +249,12 @@ trait DataSourceStorageBackend {
 }
 
 object DataSourceStorageBackend {
-  case class DataSourceConfig(
-      pgSynchronousCommit: Option[PgSynchronousCommitValue] = None
-  )
 
-  sealed abstract class PgSynchronousCommitValue(val pgSqlName: String)
-  object PgSynchronousCommitValue {
-    case object On extends PgSynchronousCommitValue("on")
-    case object Off extends PgSynchronousCommitValue("off")
-    case object RemoteWrite extends PgSynchronousCommitValue("remote_write")
-    case object RemoteApply extends PgSynchronousCommitValue("remote_apply")
-    case object Local extends PgSynchronousCommitValue("local")
-  }
+  /** @param postgresConfig configurations which apply only for the PostgresSQL backend
+    */
+  case class DataSourceConfig(
+      postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig()
+  )
 }
 
 trait DBLockStorageBackend {

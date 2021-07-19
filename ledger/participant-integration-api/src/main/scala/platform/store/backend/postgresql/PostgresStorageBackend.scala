@@ -209,7 +209,7 @@ private[backend] object PostgresStorageBackend
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
     val hookFunctions = List(
-      dataSourceConfig.pgSynchronousCommit.toList
+      dataSourceConfig.postgresConfig.synchronousCommit.toList
         .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
       connectionInitHook.toList,
     ).flatten
