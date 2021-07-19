@@ -14,7 +14,7 @@ class PackageSpec extends AsyncWordSpec with Matchers {
     "succeed on multiple threads in parallel for the same metric name" in {
       val registry = new MetricRegistry
       implicit val executionContext: ExecutionContext = ExecutionContext.global
-      val metricName = MetricName.DAML :+ "a" :+ "test"
+      val metricName = MetricName.Daml :+ "a" :+ "test"
       val instances =
         (1 to 1000).map(_ => Future(registerGauge(metricName, () => () => 1.0, registry)))
       Future.sequence(instances).map { _ =>
