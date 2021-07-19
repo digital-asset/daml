@@ -157,6 +157,15 @@ private[platform] class MutableCacheBackedContractStore(
       case Archived(stakeholders) if nonEmptyIntersection(stakeholders, readers) =>
         Future.successful(Option.empty)
       case contractStateValue =>
+        // This flow is exercised when the readers are not stakeholders of the contract
+        // (the contract might have been divulged to the readers)
+        // OR the contract was not found in the index
+        //
+        // NOTE: The current implementation of mutable contract state cache provides an optimization aimed at performance-critical
+        //       applications that do not exercise this flow frequently (i.e. no negative contract lookups in command interpretation
+        //       or use of divulgence)
+        // TODO: Implement caching of divulged contracts for alleviating performance degradation in applications that
+        //       make use of divulgence OR applications that cause high numbers of negative contract lookups
         logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
         resolveDivulgenceLookup(contractStateValue, contractId, readers)
     }
