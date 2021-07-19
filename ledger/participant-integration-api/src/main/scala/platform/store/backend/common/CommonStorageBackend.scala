@@ -957,4 +957,14 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
            and event_kind != 0
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)
+
+  protected def exe(statement: String): Connection => Unit = { connection =>
+    val stmnt = connection.createStatement()
+    try {
+      stmnt.execute(statement)
+      ()
+    } finally {
+      stmnt.close()
+    }
+  }
 }

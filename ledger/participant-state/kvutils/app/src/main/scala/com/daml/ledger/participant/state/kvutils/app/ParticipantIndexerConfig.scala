@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import com.daml.platform.indexer.IndexerConfig
+import com.daml.platform.indexer.ha.HaConfig
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -25,6 +26,7 @@ final case class ParticipantIndexerConfig(
     tailingRateLimitPerSecond: Int = ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = ParticipantIndexerConfig.DefaultBatchWithinMillis,
     enableCompression: Boolean = ParticipantIndexerConfig.DefaultEnableCompression,
+    haConfig: HaConfig = HaConfig(),
 )
 
 object ParticipantIndexerConfig {
