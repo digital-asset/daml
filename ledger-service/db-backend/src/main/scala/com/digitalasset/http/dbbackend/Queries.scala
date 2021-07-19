@@ -478,7 +478,7 @@ private object PostgresQueries extends Queries {
     """)
 
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls :+ indexContractsTable :+ indexContractsKeys
+    super.initDatabaseDdls ++ Seq(indexContractsTable, indexContractsKeys)
 
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
