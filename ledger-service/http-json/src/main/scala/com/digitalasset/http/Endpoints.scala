@@ -178,17 +178,19 @@ class Endpoints(
     implicit val lc: LoggingContextOf[InstanceUUID with RequestID] =
       extendWithRequestIdLogCtx(identity)(lc0)
     import metrics.daml.HttpJsonApi._
-    def path[L](pm: PathMatcher[L]) = server.Directives.path(pm) & logRequestAndResult
+    val markThroughputAndLogProcessingTime: Directive0 = Directive { (fn: Unit => Route) =>
+      val t0 = System.nanoTime
+      metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
+      fn(()).andThen(_.map { res =>
+        logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+        res
+      })
+    }
+    def path[L](pm: PathMatcher[L]) =
+      server.Directives.path(pm) & markThroughputAndLogProcessingTime & logRequestAndResult
     def withTimer(timer: Timer) =
       Directive { (fn: Unit => Route) =>
-        val t0 = System.nanoTime
-        metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
-        fn(()).andThen(res =>
-          for {
-            res <- Timed.future(timer, res)
-            _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-          } yield res
-        )
+        fn(()).andThen(res => Timed.future(timer, res))
       }
     val withCmdSubmitTimer: Directive0 = withTimer(commandSubmissionTimer)
     val withFetchTimer: Directive0 = withTimer(fetchTimer)
