@@ -97,7 +97,7 @@ const fooCreateEvent = (
 };
 
 const fooEvent = (coid: number): Event<Foo, string, "foo-id"> => {
-  return { created: fooCreateEvent(coid) };
+  return { created: fooCreateEvent(coid), matchedQueries: [0] };
 };
 
 
@@ -400,7 +400,7 @@ describe("streamFetchByKeys", () => {
   });
 
   test("watch multiple keys", () => {
-    const create = (cid: number, key: string): Event<Foo> => ({created: fooCreateEvent(cid, key)});
+    const create = (cid: number, key: string): Event<Foo> => ({created: fooCreateEvent(cid, key), matchedQueries: [0]});
     const archive = fooArchiveEvent;
     const send = (events: Event<Foo>[]): void => mockInstance.serverSend({events});
     const expectCids = (expected: (number | null)[]): void => expect(mockChange) .toHaveBeenCalledWith( expected.map((cid: number | null, idx) => cid ? fooCreateEvent(cid, 'key' + (idx + 1)) : null));

@@ -83,8 +83,12 @@ export type ArchiveEvent<T extends object, I extends string = string> = {
  * @typeparam I The contract id type.
  */
 export type Event<T extends object, K = unknown, I extends string = string> =
-  | { created: CreateEvent<T, K, I> }
-  | { archived: ArchiveEvent<T, I> }
+  | { created: CreateEvent<T, K, I>, matchedQueries: number[] }
+  | { archived: ArchiveEvent<T, I> };
+
+function isCreate<T extends object, K = unknown, I extends string = string>(event: Event<T, K, I>): event is { created: CreateEvent<T, K, I>, matchedQueries: number[] } {
+    return isRecordWith('created', event);
+}
 
 /**
  * Decoder for a [[CreateEvent]].
@@ -127,7 +131,7 @@ const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> =
  * Decoder for an [[Event]].
  */
 const decodeEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<Event<T, K, I>> => jtv.oneOf<Event<T, K, I>>(
-  jtv.object({created: decodeCreateEvent(template)}),
+  jtv.object({created: decodeCreateEvent(template), matchedQueries: jtv.array(jtv.number())}),
   jtv.object({archived: decodeArchiveEvent(template)}),
 );
 
@@ -135,7 +139,7 @@ const decodeEvent = <T extends object, K, I extends string>(template: Template<T
  * Decoder for an [[Event]] with unknown contract template.
  */
 const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
-  jtv.object({created: decodeCreateEventUnknown}),
+  jtv.object({created: decodeCreateEventUnknown, matchedQueries: jtv.array(jtv.number())}),
   jtv.object({archived: decodeArchiveEventUnknown}),
 );
 
@@ -196,9 +200,7 @@ export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
  * queries. As long as that restriction stays, there is no need for any kind of
  * encoding here.
  */
-function encodeQuery<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): unknown {
-  // I could not get the "unused" warning silenced, but this seems to count as "used"
-  [template];
+function encodeQuery<T extends object, K, I extends string>(_template: Template<T, K, I>, query?: Query<T>): unknown {
   return query;
 }
 
@@ -329,6 +331,292 @@ type LedgerOptions = {
   reconnectThreshold?: number;
 }
 
+class StreamEventEmitter<T extends object, K, I extends string, State> extends EventEmitter implements Stream<T, K, I, State> {
+
+    /** Passed at construction time, called _before_ the 'close' event is emitted */
+    private readonly beforeClosing: () => void;
+
+    constructor({beforeClosing}: { beforeClosing: () => void }) {
+        super();
+        this.beforeClosing = beforeClosing;
+    }
+
+    close(): void {
+        this.beforeClosing();
+        this.emit('close', { code: 4000, reason: "called .close()" });
+        this.removeAllListeners();
+    }
+
+}
+
+type QueryResponseStream<T extends object, K, I extends string> = StreamEventEmitter<T, K, I, readonly CreateEvent<T, K, I>[]>;
+
+const NoOffsetReceivedYet = Symbol('NoOffsetReceivedYet');
+const NullOffsetReceived = Symbol('NullOffsetReceived');
+
+type StreamingQuery<T extends object, K, I extends string> = {
+    template: Template<T, K, I>,
+    queries: Query<T>[],
+    stream: QueryResponseStream<T, K, I>,
+    offset: string | typeof NoOffsetReceivedYet | typeof NullOffsetReceived,
+    state: Map<ContractId<T>, CreateEvent<T, K, I>>, // all JavaScript Map iterators preserve insertion order
+    caller: string,
+}
+
+type StreamingQueryRequest = {
+    templateIds: string[],
+    query?: object,
+    offset?: string,
+};
+
+function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+    if (map.has(key)) {
+        map.get(key)!.push(value);
+    } else {
+        map.set(key, [value]);
+    }
+}
+
+/**
+ * @deprecated All usages of this function should be replaced by just
+ *             iterating over the iterator. For this to happen, the TS
+ *             compiler requires the --downlevelIteration flag, which
+ *             however does not play nicely with Jest when running the
+ *             tests.
+ *
+ * TODO Moving the compilation target to ES6 probably would solve this, investigate.
+ */
+function materialize<A>(iterator: IterableIterator<A>): Array<A> {
+  return Array.from(iterator);
+}
+
+/**
+ * @internal
+ *
+ * A special handler for stream requests to the /v1/stream/query endpoint.
+ * The query endpoint supports providing offsets on a per-query basis.
+ * This class leverages this feature by multiplexing virtual streaming requests to a single web socket.
+ */
+class QueryStreamsManager {
+
+    private static readonly ENDPOINT: string = 'v1/stream/query';
+
+    // Mutable state BEGIN
+
+    // Ongoing streaming queries that will be the downstream consumers of web socket messages
+    private readonly queries: Set<StreamingQuery<object, unknown, string>> = new Set();
+
+    // Lookup tables used to route events to the relevant consumers:
+    //  - consumers for create events can be looked up based on their match index
+    //    - store the offset by which a match indexes needs to be shifted before the event is passed to the consumer
+    //  - archive events can be lookup up by template identifier
+    //    - this causes the consumer to observe what is known as "phantom archives", which are known and documented
+    private matchIndexLookupTable: [StreamingQuery<object, unknown, string>, number][] = [];
+    private templateIdsLookupTable: {[templateId: string]: Set<StreamingQuery<object, unknown, string>>} = {};
+
+    // Accumulates each query in a flattened form to be sent as a single request to the JSON API
+    private request: StreamingQueryRequest[] = [];
+
+    // web socket handle and associated properties
+    private ws?: WebSocket;
+    private wsLiveSince?: number;
+    private wsClosed: boolean = true;
+
+    // Mutable state END
+
+    private readonly protocols: string[];
+    private readonly url: string;
+    private readonly reconnectThresholdMs: number;
+
+    private static toRequest(query: StreamingQuery<object, unknown, string>): StreamingQueryRequest[] {
+        const request: StreamingQueryRequest[] = query.queries.length == 0 ?
+            [{templateIds: [query.template.templateId]}]
+            : query.queries.map(q => ({templateIds: [query.template.templateId], query: encodeQuery(query.template, q) as object}));
+        if (typeof query.offset === 'string') {
+            for (const r of request) {
+                r.offset = query.offset;
+            }
+        }
+        return request;
+    }
+
+    private resetAllState(): void {
+      this.queries.clear();
+      this.matchIndexLookupTable = [];
+      this.templateIdsLookupTable = {};
+      this.request = [];
+      this.ws = undefined;
+      this.wsLiveSince = undefined;
+      this.wsClosed = true;
+    }
+
+    private handleQueriesChange() {
+      if (this.ws !== undefined) {
+          this.wsClosed = true;
+          this.wsLiveSince = undefined;
+          this.ws.close();
+          this.ws = undefined;
+      }
+      if (this.queries.size > 0) {
+        const manager = this; // stable self-reference for callbacks
+        const onWsMessage = ({data}: {data: any}): void => {
+          const json: unknown = JSON.parse(data.toString());
+          if (isRecordWith('events', json)) {
+              const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
+              const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
+              for (const event of events) {
+                  if (isCreate<object>(event)) {
+                      const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
+                      for (const matchIndex of event.matchedQueries) {
+                        const [consumer, matchIndexOffset] = manager.matchIndexLookupTable[matchIndex];
+                        append(consumersToMatchedQueries, consumer, matchIndex - matchIndexOffset);
+                      }
+                      for (const [consumer, matchedQueries] of materialize(consumersToMatchedQueries.entries())) {
+                          // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
+                          append(multiplexer, consumer, {...event, matchedQueries });
+                      }
+                  } else {
+                      const consumers = manager.templateIdsLookupTable[event.archived.templateId];
+                      for (const consumer of materialize(consumers.values())) {
+                          // Create a new copy of the event for each consumer to avoid sharing mutable state
+                          append(multiplexer, consumer, {...event});
+                      }
+                  }
+              }
+              for (const [consumer, events] of materialize(multiplexer.entries())) {
+                  for (const event of events) {
+                      if (isCreate<object>(event)) {
+                          consumer.state.set(event.created.contractId, event.created);
+                      } else {
+                          consumer.state.delete(event.archived.contractId);
+                      }
+                  }
+                  consumer.stream.emit('change', Array.from(consumer.state.values()), events);
+              }
+
+              if (isRecordWith('offset', json)) {
+                  const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
+                  let anyLiveEvent: boolean = false;
+                  for (const consumer of materialize(manager.queries.values())) {
+                    if (!(typeof consumer.offset === 'string')) {
+                      // Rebuilding the state array from scratch to make sure mutable state is not shared between the 'change' and 'live' event
+                      consumer.stream.emit('live', Array.from(consumer.state.values()));
+                      anyLiveEvent = true;
+                    }
+                    if (typeof offset === 'string') {
+                      consumer.offset = offset;
+                    } else {
+                      consumer.offset = NullOffsetReceived;
+                    }
+                  }
+                  if (anyLiveEvent === true) {
+                    manager.wsLiveSince = Date.now();
+                  }
+              }
+          } else if (isRecordWith('warnings', json)) {
+              for (const query of materialize(manager.queries.values())) {
+                  console.warn(`${query.caller} warnings`, json);
+              }
+          } else if (isRecordWith('errors', json)) {
+              for (const query of materialize(manager.queries.values())) {
+                console.warn(`${query.caller} errors`, json);
+              }
+          } else {
+              for (const query of materialize(manager.queries.values())) {
+                console.error(`${query.caller} unknown message`, json);
+              }
+          }
+        }
+
+        const onWsClose = (): void => {
+          if (manager.wsClosed === false) {
+            // The web socket has been closed due to an error
+            // If the conditions are met, attempt to reconnect and/or inform downstream consumers
+            if (manager.wsLiveSince !== undefined && Date.now() - manager.wsLiveSince >= manager.reconnectThresholdMs) {
+              manager.wsLiveSince = undefined;
+              manager.wsClosed = true;
+              manager.ws = new WebSocket(manager.url, manager.protocols);
+              manager.ws.addEventListener('open', onWsOpen);
+              manager.ws.addEventListener('message', onWsMessage);
+              manager.ws.addEventListener('close', onWsClose);
+            } else {
+              // ws has closed too quickly / never managed to connect: we give up
+              for (const consumer of materialize(manager.queries.values())) {
+                consumer.stream.emit('close', { code: 4001, reason: 'ws connection failed' });
+                consumer.stream.removeAllListeners();
+              }
+              manager.resetAllState();
+            }
+          }
+        }
+
+        const onWsOpen = (): void => {
+          manager.wsClosed = false;
+
+          for (const query of materialize(manager.queries.values())) {
+              const request = QueryStreamsManager.toRequest(query);
+
+              // Add entries to the lookup table for create events
+              const matchIndexOffset = manager.matchIndexLookupTable.length;
+              const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
+              manager.matchIndexLookupTable = manager.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
+
+              // Add entries to the lookup table for archive events
+              for (const {templateIds} of request) {
+                  for (const templateId of templateIds) {
+                      manager.templateIdsLookupTable[templateId] = manager.templateIdsLookupTable[templateId] || new Set();
+                      manager.templateIdsLookupTable[templateId].add(query);
+                  }
+              }
+
+              manager.request = manager.request.concat(request);
+          }
+
+          // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
+
+          manager.ws!.send(JSON.stringify(manager.request));
+        };
+        manager.ws = new WebSocket(manager.url, manager.protocols);
+        manager.ws.addEventListener('open', onWsOpen);
+        manager.ws.addEventListener('message', onWsMessage);
+        manager.ws.addEventListener('close', onWsClose);
+      }
+
+
+    }
+
+    constructor({token, wsBaseUrl, reconnectThreshold}: { token: string, wsBaseUrl: string, reconnectThreshold: number }) {
+        this.protocols = ['jwt.token.' + token, 'daml.ws.auth'];
+        this.url = wsBaseUrl + QueryStreamsManager.ENDPOINT;
+        this.reconnectThresholdMs = reconnectThreshold;
+    }
+
+    streamSubmit<T extends object, K, I extends string>(
+        template: Template<T, K, I>,
+        queries: Query<T>[],
+        caller: string,
+    ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
+        const manager = this;
+        const query: StreamingQuery<T, K, I> = {
+            template,
+            queries,
+            stream: new StreamEventEmitter({
+                beforeClosing(): void {
+                    manager.queries.delete(query as unknown as StreamingQuery<object, unknown, string>);
+                    manager.handleQueriesChange();
+                }
+            }),
+            state: new Map(),
+            offset: NoOffsetReceivedYet,
+            caller,
+        }
+        manager.queries.add(query as unknown as StreamingQuery<object, unknown, string>);
+        manager.handleQueriesChange();
+        return query.stream;
+    }
+
+}
+
 /**
  * An object of type `Ledger` represents a handle to a Daml ledger.
  */
@@ -337,6 +625,7 @@ class Ledger {
   private readonly httpBaseUrl: string;
   private readonly wsBaseUrl: string;
   private readonly reconnectThreshold: number;
+  private readonly queryStreamsManager: QueryStreamsManager;
 
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
@@ -365,6 +654,7 @@ class Ledger {
     this.httpBaseUrl = httpBaseUrl;
     this.wsBaseUrl = wsBaseUrl;
     this.reconnectThreshold = reconnectThreshold;
+    this.queryStreamsManager = new QueryStreamsManager({token, wsBaseUrl, reconnectThreshold});
   }
 
   /**
@@ -530,7 +820,7 @@ class Ledger {
    * Exercse a choice on a newly-created contract, in a single transaction.
    *
    * @param choice The choice to exercise.
-   * @param init The template arguments for the newly-created contract.
+   * @param payload The template arguments for the newly-created contract.
    * @param argument The choice arguments.
    *
    * @typeparam T The contract template type.
@@ -568,7 +858,7 @@ class Ledger {
    * contract id.
    *
    * @param choice The choice to exercise.
-   * @param contractId The contract id of the contract to exercise.
+   * @param key The key of the contract to exercise.
    * @param argument The choice arguments.
    *
    * @typeparam T The contract template type.
@@ -777,9 +1067,9 @@ class Ledger {
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     if (query === undefined) {
-      return this.streamQueryCommon(template, [], "streamQuery");
+      return this.streamQueryCommon(template, [], 'Ledger.streamQuery');
     } else {
-      return this.streamQueryCommon(template, [query], "streamQuery");
+      return this.streamQueryCommon(template, [query], 'Ledger.streamQuery');
     }
   }
 
@@ -792,25 +1082,7 @@ class Ledger {
     queries: Query<T>[],
     name: string,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    const request = queries.length == 0 ?
-        [{templateIds: [template.templateId]}]
-        : queries.map(q => ({templateIds: [template.templateId], query: encodeQuery(template, q)}));
-    const reconnectRequest = (): object[] => request;
-    const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]): CreateEvent<T, K, I>[] => {
-      const archiveEvents: Set<ContractId<T>> = new Set();
-      const createEvents: CreateEvent<T, K, I>[] = [];
-      for (const event of events) {
-        if ('created' in event) {
-          createEvents.push(event.created);
-        } else { // i.e. 'archived' in event
-          archiveEvents.add(event.archived.contractId);
-        }
-      }
-      return contracts
-        .concat(createEvents)
-        .filter(contract => !archiveEvents.has(contract.contractId));
-    };
-    return this.streamSubmit(name, template, 'v1/stream/query', request, reconnectRequest, [], change);
+    return this.queryStreamsManager.streamSubmit(template, queries, name);
   }
 
   /**
@@ -824,7 +1096,7 @@ class Ledger {
    * description of the query language.
    *
    * @param template The contract template to match contracts against.
-   * @param query A query to match contracts against.
+   * @param queries A query to match contracts against.
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
@@ -834,7 +1106,7 @@ class Ledger {
     template: Template<T, K, I>,
     queries: Query<T>[],
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    return this.streamQueryCommon(template, queries, "streamQueries");
+    return this.streamQueryCommon(template, queries, "Ledger.streamQueries");
   }
 
   /**
