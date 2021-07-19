@@ -4,7 +4,7 @@
 package com.daml.ledger.configuration
 
 import com.daml.ledger.configuration.ConfigurationSpec._
-import com.daml.ledger.participant.state.protobuf.{ledger_configuration => protobuf}
+import com.daml.ledger.configuration.protobuf.{ledger_configuration => proto}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -16,12 +16,12 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
   "a ledger configuration" when {
     "decoding a v1 protobuf" should {
       "decode a valid protobuf" in {
-        val configurationBytes = protobuf.LedgerConfiguration
+        val configurationBytes = proto.LedgerConfiguration
           .of(
             version = 1,
             generation = 7,
             timeModel = Some(
-              protobuf.LedgerTimeModel.of(
+              proto.LedgerTimeModel.of(
                 avgTransactionLatency = Some(1.minute.toProtobuf),
                 minSkew = Some(30.seconds.toProtobuf),
                 maxSkew = Some(2.minutes.toProtobuf),
@@ -49,7 +49,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
       }
 
       "reject a missing time model" in {
-        val configurationBytes = protobuf.LedgerConfiguration
+        val configurationBytes = proto.LedgerConfiguration
           .of(
             version = 1,
             generation = 2,
@@ -66,12 +66,12 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
 
     "decoding a v2 protobuf" should {
       "decode a valid protobuf" in {
-        val configurationBytes = protobuf.LedgerConfiguration
+        val configurationBytes = proto.LedgerConfiguration
           .of(
             version = 2,
             generation = 3,
             timeModel = Some(
-              protobuf.LedgerTimeModel.of(
+              proto.LedgerTimeModel.of(
                 avgTransactionLatency = Some(30.seconds.toProtobuf),
                 minSkew = Some(20.seconds.toProtobuf),
                 maxSkew = Some(5.minutes.toProtobuf),
@@ -102,7 +102,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
         ("error message", "protobuf"),
         (
           "Missing time model",
-          protobuf.LedgerConfiguration.of(
+          proto.LedgerConfiguration.of(
             version = 2,
             generation = 4,
             timeModel = None,
@@ -111,11 +111,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
         ),
         (
           "Missing maximum command time to live",
-          protobuf.LedgerConfiguration.of(
+          proto.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
-              protobuf.LedgerTimeModel.of(
+              proto.LedgerTimeModel.of(
                 avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
@@ -126,11 +126,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
         ),
         (
           "decodeTimeModel: requirement failed: Negative average transaction latency",
-          protobuf.LedgerConfiguration.of(
+          proto.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
-              protobuf.LedgerTimeModel.of(
+              proto.LedgerTimeModel.of(
                 avgTransactionLatency = Some((-5).seconds.toProtobuf),
                 minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
@@ -141,11 +141,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
         ),
         (
           "decodeTimeModel: requirement failed: Negative min skew",
-          protobuf.LedgerConfiguration.of(
+          proto.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
-              protobuf.LedgerTimeModel.of(
+              proto.LedgerTimeModel.of(
                 avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 minSkew = Some((-30).seconds.toProtobuf),
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
@@ -156,11 +156,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
         ),
         (
           "decodeTimeModel: requirement failed: Negative max skew",
-          protobuf.LedgerConfiguration.of(
+          proto.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
-              protobuf.LedgerTimeModel.of(
+              proto.LedgerTimeModel.of(
                 avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 maxSkew = Some((-10).seconds.toProtobuf),
@@ -171,11 +171,11 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
         ),
         (
           "requirement failed: Negative maximum command time to live",
-          protobuf.LedgerConfiguration.of(
+          proto.LedgerConfiguration.of(
             version = 2,
             generation = 1,
             timeModel = Some(
-              protobuf.LedgerTimeModel.of(
+              proto.LedgerTimeModel.of(
                 avgTransactionLatency = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 minSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
                 maxSkew = Some(com.google.protobuf.duration.Duration.defaultInstance),
@@ -199,7 +199,7 @@ class ConfigurationSpec extends AnyWordSpec with Matchers {
 
     "decoding a protobuf with an invalid version" should {
       "reject the protobuf" in {
-        val configurationBytes = protobuf.LedgerConfiguration
+        val configurationBytes = proto.LedgerConfiguration
           .of(
             version = 3,
             generation = 0,

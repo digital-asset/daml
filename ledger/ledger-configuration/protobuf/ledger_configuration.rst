@@ -19,9 +19,6 @@ The canonical specification compliant implementation for encoding and
 decoding ledger configurations is part of the ledger-configuration
 package in ``ledger/ledger-configuration``.
 
-For historical reasons, we have kept the package name as
-``com.daml.ledger.participant.state``.
-
 Version history
 ^^^^^^^^^^^^^^^
 
