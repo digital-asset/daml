@@ -256,6 +256,9 @@ private[lf] object PartialTransaction {
   *   same key might have been created since. This is updated on creates with keys with KeyInactive
   *   (implying that no key must have been active at the beginning of the transaction)
   *   and on failing and successful lookup and fetch by key.
+  *
+  *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
+  *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
@@ -642,7 +645,8 @@ private[lf] case class PartialTransaction(
           context =
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
-          actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
+          actionNodeSeeds =
+            actionNodeSeeds :+ actionNodeSeed, //(NC) pushed by 'beginExercises'; why push again?
         )
       case _ => throw new RuntimeException("abortExercises called in non-exercise context")
     }
