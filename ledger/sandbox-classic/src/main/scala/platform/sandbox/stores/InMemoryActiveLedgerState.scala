@@ -6,13 +6,10 @@ package com.daml.platform.sandbox.stores
 import java.time.Instant
 
 import com.daml.ledger.api.domain.{PartyDetails, RejectionReason}
-import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.{CommittedTransaction, NodeId}
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.daml.platform.store._
@@ -100,7 +97,7 @@ private[sandbox] case class InMemoryActiveLedgerState(
   override def divulgeAlreadyCommittedContracts(
       transactionId: TransactionId,
       global: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)],
+      referencedContracts: ActiveLedgerState.ReferencedContracts,
   ): InMemoryActiveLedgerState =
     if (global.nonEmpty) {
       val referencedContractsM = referencedContracts.toMap
@@ -158,7 +155,7 @@ private[sandbox] case class InMemoryActiveLedgerState(
       transaction: CommittedTransaction,
       disclosure: Relation[NodeId, Party],
       divulgence: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)],
+      referencedContracts: ActiveLedgerState.ReferencedContracts,
   ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,

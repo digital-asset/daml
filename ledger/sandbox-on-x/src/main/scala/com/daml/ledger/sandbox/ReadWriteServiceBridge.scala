@@ -20,8 +20,9 @@ import com.daml.ledger.configuration.{
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs

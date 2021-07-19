@@ -25,7 +25,7 @@ import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

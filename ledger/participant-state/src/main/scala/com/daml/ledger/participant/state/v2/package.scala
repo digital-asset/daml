@@ -4,8 +4,6 @@
 package com.daml.ledger.participant.state
 
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction
-import com.daml.lf.value.Value
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
@@ -68,25 +66,5 @@ package object v2 {
   /** Identifiers used to correlate submissions with results. */
   val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
   type SubmissionId = Ref.LedgerString
-
-  /** Identifiers for nodes in a transaction. */
-  type NodeId = transaction.NodeId
-
-  /** A transaction with contract IDs that may require suffixing.
-    *
-    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
-    */
-  type SubmittedTransaction = transaction.SubmittedTransaction
-
-  /** A transaction with globally unique contract IDs.
-    *
-    * Used to communicate transactions that have been accepted to the ledger.
-    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
-    */
-  type CommittedTransaction = transaction.CommittedTransaction
-
-  /** A contract instance. */
-  type ContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.ContractId]]
 
 }

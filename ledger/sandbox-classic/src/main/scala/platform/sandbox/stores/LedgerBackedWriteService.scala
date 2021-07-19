@@ -14,13 +14,13 @@ import com.daml.ledger.participant.state.v1.{
   PruningResult,
   SubmissionId,
   SubmissionResult,
-  SubmittedTransaction,
   SubmitterInfo,
   TransactionMeta,
   WriteService,
 }
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}

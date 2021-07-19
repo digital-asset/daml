@@ -44,7 +44,7 @@ import com.daml.ledger.participant.state.v1.{ApplicationId => _, TransactionId =
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, TransactionCommitter}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

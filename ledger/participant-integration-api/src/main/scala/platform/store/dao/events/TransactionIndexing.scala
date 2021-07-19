@@ -6,10 +6,10 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{DivulgedContract, SubmitterInfo}
 import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract, SubmitterInfo}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.platform.store.serialization.Compression
 
 import scala.collection.compat._
