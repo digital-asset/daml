@@ -18,6 +18,7 @@ import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
+import scalaz.syntax.std.string._
 import scalaz.std.stream.unfold
 import scalaz.std.AllInstances._
 import spray.json._
@@ -292,6 +293,10 @@ object Queries {
   val SurrogateTpId = Tag.of[SurrogateTpIdTag]
   type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) above
 
+  sealed trait MatchedQueriesTag
+  val MatchedQueries = Tag.of[MatchedQueriesTag]
+  type MatchedQueries = NonEmpty[ISeq[Int]] @@ MatchedQueriesTag
+
   // NB: #, order of arguments must match createContractsTable
   final case class DBContract[+TpId, +CK, +PL, +Prt](
       contractId: String,
@@ -400,8 +405,8 @@ object Queries {
       case _ => None
     }
 
-  private[dbbackend] def caseLookup[SelEq: Put, Then: Put](
-      m: Map[SelEq, Then],
+  private[this] def caseLookupFragment[SelEq: Put](
+      m: Map[SelEq, Fragment],
       selector: Fragment,
   ): Fragment =
     fr"CASE" ++ {
@@ -411,6 +416,58 @@ object Queries {
       }.toVector
       concatFragment(OneAnd(when, whens))
     } ++ fr"ELSE NULL END"
+
+  private[dbbackend] def caseLookup[SelEq: Put, Then: Put](
+      m: Map[SelEq, Then],
+      selector: Fragment,
+  ): Fragment =
+    caseLookupFragment(m transform { (_, e) => fr"$e" }, selector)
+
+  // an expression that yields a comma-terminated/separated list of SQL-side
+  // string conversions of `Ix`es indicating which tpid/query pairs matched
+  private[dbbackend] def projectedIndex[Ix: Put](
+      queries: ISeq[((SurrogateTpId, Fragment), Ix)],
+      tpidSelector: Fragment,
+  ): Fragment = {
+    import Implicits._
+    caseLookupFragment(
+      queries.groupBy1(_._1._1).transform {
+        case (_, (_, ix) +-: ISeq()) => fr"${ix: Ix}||''"
+        case (_, tqixes) =>
+          concatFragment(
+            intersperse(
+              tqixes.toVector.toOneAnd.map { case ((_, q), ix) =>
+                fr"(CASE WHEN ($q) THEN ${ix: Ix}||',' ELSE '' END)"
+              },
+              fr"||",
+            )
+          )
+      },
+      selector = tpidSelector,
+    )
+  }
+
+  import doobie.util.invariant.InvalidValue
+
+  @throws[InvalidValue[_, _]]
+  private[this] def assertReadProjectedIndex(from: Option[String]): NonEmpty[ISeq[Int]] = {
+    def invalid(reason: String) = {
+      import cats.instances.option._, cats.instances.string._
+      throw InvalidValue[Option[String], ISeq[Int]](from, reason = reason)
+    }
+    (from.cata(
+      { s =>
+        val matches = s split ',' collect {
+          case e if e.nonEmpty => e.parseInt.fold(err => invalid(err.getMessage), identity)
+        }
+        matches.toSeq
+      },
+      ISeq.empty,
+    )) match {
+      case NonEmpty(matches) => matches
+      case _ => invalid("matched row, but no matching index found; this indicates a query bug")
+    }
+  }
 
   private[http] val Postgres: Aux[SqlInterpolation.StringArray] = PostgresQueries
   private[http] val Oracle: Aux[SqlInterpolation.Unused] = OracleQueries
@@ -426,6 +483,9 @@ object Queries {
 
     implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
       SurrogateTpId subst Meta[Long]
+
+    implicit val `MatchedQueries get`: Read[MatchedQueries] =
+      MatchedQueries subst (Read[Option[String]] map assertReadProjectedIndex)
   }
 
   private[dbbackend] object CompatImplicits {
