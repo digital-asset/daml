@@ -14,8 +14,9 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WriteConfigService}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteConfigService}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
@@ -142,7 +143,7 @@ private[apiserver] final class LedgerConfigProvider private (
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet
     // This method therefore does not try to re-submit the initial configuration in case of failure.
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID.toString)
+    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID.toString)
     logger.info(s"No ledger configuration found, submitting an initial configuration $submissionId")
     DefaultTelemetry.runFutureInSpan(
       SpanName.LedgerConfigProviderInitialConfig,

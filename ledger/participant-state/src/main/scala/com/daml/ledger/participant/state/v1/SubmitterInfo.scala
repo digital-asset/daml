@@ -30,7 +30,7 @@ import com.daml.lf.data.Ref
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
-    applicationId: ApplicationId,
-    commandId: CommandId,
+    applicationId: Ref.ApplicationId,
+    commandId: Ref.CommandId,
     deduplicateUntil: Instant,
 )

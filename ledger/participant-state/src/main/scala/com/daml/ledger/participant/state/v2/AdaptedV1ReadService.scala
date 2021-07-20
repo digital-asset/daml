@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v2.AdaptedV1ReadService._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReasonTemplate
+import com.daml.lf.data.Ref
 
 /** Adapts a [[com.daml.ledger.participant.state.v1.ReadService]] implementation to the
   * [[com.daml.ledger.participant.state.v2.ReadService]] API.
@@ -143,7 +144,7 @@ private[v2] object AdaptedV1ReadService {
       applicationId = submitterInfo.applicationId,
       commandId = submitterInfo.commandId,
       optDeduplicationPeriod = None, // We cannot infer the deduplication period used.
-      submissionId = SubmissionId.assertFromString(s"submission-${UUID.randomUUID()}"),
+      submissionId = Ref.SubmissionId.assertFromString(s"submission-${UUID.randomUUID()}"),
     )
 
   private def adaptRejectionReason(reason: v1.RejectionReason): RejectionReasonTemplate = {

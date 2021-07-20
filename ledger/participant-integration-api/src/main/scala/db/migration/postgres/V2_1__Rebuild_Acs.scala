@@ -15,7 +15,6 @@ import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
-import com.daml.ledger.participant.state.v1.TransactionId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
@@ -324,7 +323,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           }
 
           override def divulgeAlreadyCommittedContracts(
-              transactionId: TransactionId,
+              transactionId: Ref.TransactionId,
               global: Relation[ContractId, Ref.Party],
               referencedContracts: ActiveLedgerState.ReferencedContracts,
           ) = {
@@ -401,7 +400,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   case class ParsedEntry(
       typ: String,
-      transactionId: Option[TransactionId],
+      transactionId: Option[Ref.TransactionId],
       commandId: Option[Ref.CommandId],
       applicationId: Option[Ref.ApplicationId],
       submitter: Option[Ref.Party],

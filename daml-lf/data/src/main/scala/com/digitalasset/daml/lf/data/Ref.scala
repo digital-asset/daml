@@ -49,6 +49,10 @@ object Ref {
   type CommandId = LedgerString
   val CommandId: LedgerString.type = LedgerString
 
+  /** Identifiers used to correlate an admin submission with results. */
+  type SubmissionId = LedgerString
+  val SubmissionId: LedgerString.type = LedgerString
+
   /** Uniquely identifies a transaction. */
   type TransactionId = LedgerString
   val TransactionId: LedgerString.type = LedgerString
