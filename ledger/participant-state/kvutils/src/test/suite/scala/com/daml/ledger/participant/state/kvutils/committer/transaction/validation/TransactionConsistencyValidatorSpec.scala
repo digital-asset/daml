@@ -39,6 +39,7 @@ import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.Timestamp
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{forAll, _}
 import org.scalatest.wordspec.AnyWordSpec
@@ -250,12 +251,9 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       builder.add(archive(globalCreate, Set("Alice")))
       val transaction = builder.buildSubmitted()
       val result = validate(context, transaction)
-      result shouldBe a[StepStop]
-      result
-        .asInstanceOf[StepStop]
-        .logEntry
-        .getTransactionRejectionEntry
-        .hasInconsistent shouldBe true
+      inside(result) { case StepStop(logEntry) =>
+        logEntry.getTransactionRejectionEntry.hasInconsistent shouldBe true
+      }
     }
   }
 
