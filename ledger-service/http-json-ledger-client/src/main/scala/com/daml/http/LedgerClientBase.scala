@@ -7,10 +7,11 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.util.ExceptionOps._
 import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
-import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz._
 import Scalaz._
+import com.daml.http.util.Logging.InstanceUUID
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -23,7 +24,9 @@ object LedgerClientBase {
 
 }
 
-trait LedgerClientBase extends StrictLogging {
+trait LedgerClientBase {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   protected def channelBuilder(
       ledgerHost: String,
@@ -55,6 +58,7 @@ trait LedgerClientBase extends StrictLogging {
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[LedgerClientBase.Error \/ DamlLedgerClient] =
     RetryStrategy
       .constant(maxInitialConnectRetryAttempts, 1.seconds) { (i, _) =>
