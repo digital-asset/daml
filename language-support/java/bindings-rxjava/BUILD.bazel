@@ -156,7 +156,6 @@ da_scala_test(
         "//language-support/java/bindings:bindings-java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
         "//libs-scala/grpc-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
