@@ -965,12 +965,12 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.LET =>
           val lfLet = lfExpr.getLet
-          val bindings = lfLet.getBindingsList.asScala
-          assertNonEmpty(bindings, "bindings")
-          (bindings foldRight decodeExpr(lfLet.getBody, definition))((binding, e) => {
+          val bindings = lfLet.getBindingsList.asScala.map { binding =>
             val (v, t) = decodeBinder(binding.getBinder)
-            ELet(Binding(Some(v), t, decodeExpr(binding.getBound, definition)), e)
-          })
+            Binding(Some(v), t, decodeExpr(binding.getBound, definition))
+          }
+          assertNonEmpty(bindings, "bindings")
+          ELet(bindings.toList, decodeExpr(lfLet.getBody, definition))
 
         case PLF.Expr.SumCase.NIL =>
           ENil(decodeType(lfExpr.getNil.getType))

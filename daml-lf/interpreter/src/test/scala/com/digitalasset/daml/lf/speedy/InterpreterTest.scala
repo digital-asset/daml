@@ -47,35 +47,37 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
         EAbs(
           ("xss", TApp(TBuiltin(BTList), int64List)),
           ELet(
-            Binding(
-              Some("work"),
-              TFun(int64List, TFun(int64List, int64List)),
-              EAbs(
-                ("xs", int64List),
+            List(
+              Binding(
+                Some("work"),
+                TFun(int64List, TFun(int64List, int64List)),
                 EAbs(
-                  ("acc", int64List),
-                  EApp(
+                  ("xs", int64List),
+                  EAbs(
+                    ("acc", int64List),
                     EApp(
                       EApp(
-                        EBuiltin(BFoldr),
-                        EAbs(
-                          ("x", int64),
+                        EApp(
+                          EBuiltin(BFoldr),
                           EAbs(
-                            ("accInner", int64List),
-                            ECons(int64, ImmArray(EVar("x")), EVar("accInner")),
+                            ("x", int64),
+                            EAbs(
+                              ("accInner", int64List),
+                              ECons(int64, ImmArray(EVar("x")), EVar("accInner")),
+                              None,
+                            ),
                             None,
                           ),
-                          None,
                         ),
+                        EVar("acc"),
                       ),
-                      EVar("acc"),
+                      EVar("xs"),
                     ),
-                    EVar("xs"),
+                    None,
                   ),
                   None,
                 ),
-                None,
-              ),
+              )
             ),
             EApp(EApp(EApp(EBuiltin(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
           ),

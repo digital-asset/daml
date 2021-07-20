@@ -42,8 +42,8 @@ private[validation] object ExprIterable {
         Iterator(body)
       case ECase(scrut, alts) =>
         Iterator(scrut) ++ alts.iterator.map(_.expr)
-      case ELet(binding, body) =>
-        Iterator(binding.bound, body)
+      case ELet(bindings, body) =>
+        bindings.iterator.map(_.bound) ++ Iterator(body)
       case ENil(_) => Iterator.empty
       case ECons(typ @ _, front, tail) =>
         front.iterator ++ Iterator(tail)

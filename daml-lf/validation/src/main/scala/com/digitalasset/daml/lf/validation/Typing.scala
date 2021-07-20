@@ -763,14 +763,17 @@ private[validation] object Typing {
       }
     }
 
-    private def typeOfLet(binding: Binding, body: Expr): Type = binding match {
-      case Binding(Some(vName), typ0, expr) =>
-        checkType(typ0, KStar)
-        val typ1 = checkExpr(expr, typ0)
-        introExprVar(vName, typ1).typeOf(body)
-      case Binding(_, _, bound @ _) =>
-        typeOf(body)
-    }
+    private def typeOfLet(bindings: List[Binding], body: Expr): Type =
+      bindings match {
+        case Binding(Some(vName), typ0, expr) :: tail =>
+          checkType(typ0, KStar)
+          val typ1 = checkExpr(expr, typ0)
+          introExprVar(vName, typ1).typeOfLet(tail, body)
+        case Binding(_, _, bound @ _) :: tail =>
+          typeOfLet(tail, body)
+        case Nil =>
+          typeOf(body)
+      }
 
     private def checkCons(elemType: Type, front: ImmArray[Expr], tailExpr: Expr): Unit = {
       checkType(elemType, KStar)
@@ -1001,8 +1004,8 @@ private[validation] object Typing {
         typeofTyLam(vName, kind, body)
       case ECase(scruct, alts) =>
         typeOfCase(scruct, alts)
-      case ELet(binding, body) =>
-        typeOfLet(binding, body)
+      case ELet(bindings, body) =>
+        typeOfLet(bindings, body)
       case ENil(typ) =>
         checkType(typ, KStar)
         TList(typ)
