@@ -18,11 +18,26 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
 
     val cases = Table(
       ("map", "projection"),
-      (Seq((SurrogateTpId(55L), fr"foo") -> 0),
-        sql"CASE WHEN ( tpid = ${55L}) THEN ${0}||''  ELSE NULL END "),
+      (
+        Seq((SurrogateTpId(55L), fr"foo") -> 0),
+        sql"CASE WHEN ( tpid = ${55L}) THEN ${0}||''  ELSE NULL END ",
+      ),
+      (
+        Seq((SurrogateTpId(55L), fr"foo") -> 0, (SurrogateTpId(66L), fr"foo") -> 1),
+        sql"CASE WHEN ( tpid = ${66L}) THEN ${1}||''  WHEN ( tpid = ${55L}) THEN ${0}||''  ELSE NULL END ",
+      ),
+      (
+        Seq(
+          (SurrogateTpId(55L), fr"foo") -> 0,
+          (SurrogateTpId(55L), fr"bar") -> 1,
+          (SurrogateTpId(66L), fr"baz") -> 2,
+        ),
+        sql"CASE WHEN ( tpid = ${66L}) THEN ${2}||''  WHEN ( tpid = ${55L}) THEN " ++
+          sql"(CASE WHEN (foo ) THEN ${0}||',' ELSE '' END) || (CASE WHEN (bar ) THEN ${1}||',' ELSE '' END)  ELSE NULL END ",
+      ),
     )
 
-    "yield expected expressions for sample inputs" in forEvery(cases) {(map, projection) =>
+    "yield expected expressions for sample inputs" in forEvery(cases) { (map, projection) =>
       val frag = projectedIndex(map, sql"tpid")
       frag.toString should ===(projection.toString)
       fragmentElems(frag) should ===(fragmentElems(projection))
