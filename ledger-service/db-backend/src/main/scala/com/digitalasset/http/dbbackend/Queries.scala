@@ -14,7 +14,6 @@ import scala.annotation.nowarn
 import scala.collection.immutable.{Iterable, Seq => ISeq}
 import scalaz.{@@, Cord, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
-import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
@@ -232,22 +231,17 @@ sealed abstract class Queries {
     selectContractsMultiTemplate(parties, ISeq((tpid, predicate)), MatchedQueryMarker.Unused)
       .map(_ copy (templateId = ()))
 
-  /** Make the smallest number of queries from `queries` that still indicates
+  /** Make a query that may indicate
     * which query or queries produced each contract.
-    *
-    * A contract cannot be produced more than once from a given resulting query,
-    * but may be produced more than once from different queries.  In each case, the
-    * `templateId` of the resulting [[DBContract]] is actually the 0-based index
-    * into the `queries` argument that produced the contract.
     */
-  private[http] def selectContractsMultiTemplate[T[_], Mark](
+  private[http] def selectContractsMultiTemplate[Mark](
       parties: OneAnd[Set, String],
       queries: ISeq[(SurrogateTpId, Fragment)],
-      trackMatchIndices: MatchedQueryMarker[T, Mark],
+      trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler,
       ipol: SqlInterpol,
-  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]]
+  ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]
 
   private[http] final def fetchById(
       parties: OneAnd[Set, String],
@@ -338,18 +332,14 @@ object Queries {
     final case class DoMagicSetup(create: Fragment) extends InitDdl
   }
 
-  /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
-    * and whether it may compute >1 query to run.
+  /** Whether selectContractsMultiTemplate computes a matchedQueries marker.
     *
-    * @tparam T The traversable of queries that result.
-    * @tparam Mark The "marker" indicating which query matched.
+    * @tparam Mark The "marker" indicating which queries matched.
     */
-  private[http] sealed abstract class MatchedQueryMarker[T[_], Mark]
-      extends Product
-      with Serializable
+  private[http] sealed abstract class MatchedQueryMarker[Mark] extends Product with Serializable
   private[http] object MatchedQueryMarker {
-    case object ByInt extends MatchedQueryMarker[Seq, Int]
-    case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
+    case object ByInt extends MatchedQueryMarker[MatchedQueries]
+    case object Unused extends MatchedQueryMarker[SurrogateTpId]
   }
 
   /** Path to a location in a JSON tree. */
@@ -560,30 +550,32 @@ private object PostgresQueries extends Queries {
     ).updateMany(dbcs)
   }
 
-  private[http] override def selectContractsMultiTemplate[T[_], Mark](
+  private[http] override def selectContractsMultiTemplate[Mark](
       parties: OneAnd[Set, String],
       queries: ISeq[(SurrogateTpId, Fragment)],
-      trackMatchIndices: MatchedQueryMarker[T, Mark],
+      trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler,
       ipol: SqlInterpol,
-  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+  ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
-    def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
+    @nowarn("msg=parameter value evidence.* is never used")
+    def query[Mark0: Read](preds: OneAnd[Vector, (SurrogateTpId, Fragment)], tpid: Fragment) = {
       val assocedPreds = preds.map { case (tpid, predicate) =>
         sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
       }
       val unionPred = joinFragment(assocedPreds, sql" OR ")
       import ipol.{gas, pas}
-      val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
+      val q =
+        sql"""SELECT contract_id, $tpid tpid, key, payload, signatories, observers, agreement_text
                       FROM contract AS c
                       WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
                        AND (""" ++ unionPred ++ sql")"
-      q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
+      q.query[(String, Mark0, JsValue, JsValue, Vector[String], Vector[String], String)]
         .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
           DBContract(
             contractId = cid,
-            templateId = findMark(tpid),
+            templateId = tpid,
             key = key,
             payload = payload,
             signatories = signatories,
@@ -595,19 +587,15 @@ private object PostgresQueries extends Queries {
 
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt =>
-        type Ix = Int
-        uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
-          preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
-            val predHd +-: predTl = preds.toVector
-            val predsList = OneAnd(predHd, predTl).map { case (tpid, (predicate, _)) =>
-              (tpid, predicate)
-            }
-            query(predsList, tpid => preds(tpid)._2)
-        }
+        val NonEmpty(nequeries) = queries.toVector
+        query[MatchedQueries](
+          nequeries.toOneAnd,
+          tpid = projectedIndex(queries.zipWithIndex, tpidSelector = fr"tpid"),
+        )
 
       case MatchedQueryMarker.Unused =>
-        val predHd +: predTl = queries.toVector
-        query(OneAnd(predHd, predTl), identity)
+        val NonEmpty(nequeries) = queries.toVector
+        query[SurrogateTpId](nequeries.toOneAnd, tpid = fr"tpid")
     }
   }
 
@@ -720,19 +708,19 @@ private object OracleQueries extends Queries {
     )
   }
 
-  private[http] override def selectContractsMultiTemplate[T[_], Mark](
+  private[http] override def selectContractsMultiTemplate[Mark](
       parties: OneAnd[Set, String],
       queries: ISeq[(SurrogateTpId, Fragment)],
-      trackMatchIndices: MatchedQueryMarker[T, Mark],
+      trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler,
       ipol: SqlInterpol,
-  ): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+  ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
 
     // we effectively shadow Mark because Scala 2.12 doesn't quite get
     // that it should use the GADT type equality otherwise
     @nowarn("msg=parameter value evidence.* is never used")
-    def queryByCondition[Mark0: Get](
+    def queryByCondition[Mark0: Read](
         tpid: Fragment,
         queryConditions: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
     ): Query0[DBContract[Mark0, JsValue, JsValue, Vector[String]]] = {
@@ -776,14 +764,9 @@ private object OracleQueries extends Queries {
 
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt =>
-        type Ix = Int
-        // TODO we may UNION the resulting queries and aggregate the Ixes SQL-side,
-        // but this will probably necessitate the same PostgreSQL-side
-        uniqueSets(queries.zipWithIndex.map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
-          preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
-            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"cst.tpid")
-            queryByCondition[Int](tpid, preds.transform((_, predIx) => predIx._1).toVector)
-        }
+        val tpid = projectedIndex(queries.zipWithIndex, tpidSelector = fr"cst.tpid")
+        val NonEmpty(nequeries) = queries
+        queryByCondition[MatchedQueries](tpid, nequeries)
       case MatchedQueryMarker.Unused =>
         val NonEmpty(nequeries) = queries
         queryByCondition[SurrogateTpId](fr"cst.tpid", nequeries)
