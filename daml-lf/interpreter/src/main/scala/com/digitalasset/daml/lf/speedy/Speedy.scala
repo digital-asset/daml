@@ -752,7 +752,11 @@ private[lf] object Speedy {
         case SVisibleToStakeholders.Visible => ()
         case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
           this.warningLog.add(
-            s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning"
+            Warning(
+              commitLocation = onLedger.commitLocation,
+              message =
+                s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning",
+            )
           )
       }
     }
@@ -778,6 +782,7 @@ private[lf] object Speedy {
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+        commitLocation: Option[Location] = None,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.interface.packageLanguageVersion.andThen(
@@ -798,7 +803,7 @@ private[lf] object Speedy {
             .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
           committers = committers,
           readAs = readAs,
-          commitLocation = None,
+          commitLocation = commitLocation,
           dependsOnTime = false,
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
             discriminator
