@@ -114,11 +114,11 @@ private[lf] object Speedy {
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
-      var committers: Set[Party],
+      val committers: Set[Party],
       /* Additional readers (besides committers) for visibility checks. */
-      var readAs: Set[Party],
+      val readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
-      var commitLocation: Option[Location],
+      val commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
       // global contract discriminators, that are discriminators from contract created in previous transactions
