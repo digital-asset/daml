@@ -13,7 +13,6 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
@@ -22,6 +21,7 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_tpolecat_typename",
     ],
     scala_runtime_deps = [
         "@maven//:org_tpolecat_doobie_postgres",
