@@ -383,7 +383,7 @@ command-line interface options:
     all metrics to be reported with the specified prefix.
 
   - ``prometheus://<server_host>[:<server_port>]``: renders captured metrics
-    on a http endpoint in accordance with the prometheus protocol. If the port
+    on an HTTP endpoint in accordance with the prometheus protocol. If the port
     is omitted, the default value ``55001`` will be used. The metrics will be
     available under the address ``http://<server_host>:<server_port>/metrics``.
 
@@ -511,8 +511,8 @@ A meter. Number of deduplicated commands.
 A meter. Number of delayed submissions (submission who have been evaluated to
 transaction with a ledger time farther in the future than the expected latency).
 
-``daml.commands.failed_command_interpretation``
------------------------------------------------
+``daml.commands.failed_command_interpretations``
+------------------------------------------------
 
 A meter. Number of commands that have been deemed unacceptable by the
 interpreter and thus rejected (e.g. double spends)
