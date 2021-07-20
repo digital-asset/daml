@@ -394,7 +394,7 @@ message DamlStateValue {
 
 message DamlCommandDedupKey {
   repeated string submitters = 1;
-  reserved 2; // was application_id
+  string application_id = 2;
   string command_id = 3;
 }
 
