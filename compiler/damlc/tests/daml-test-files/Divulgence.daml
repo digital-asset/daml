@@ -44,8 +44,8 @@ template DisclosureDelegation
         do
           fetch secretCid -- actor will divulge secretCid to p
 
--- @WARN range=49:1-49:5; Use of divulged contracts is deprecated
--- @WARN range=49:1-49:5; Use of divulged contracts is deprecated
+-- @WARN range=84:3-85:20; Use of divulged contracts is deprecated
+-- @WARN range=88:3-89:46; Use of divulged contracts is deprecated
 main = scenario do
   me <- getParty "Me"
   spy <- getParty "Spy"
