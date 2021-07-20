@@ -721,7 +721,7 @@ private object OracleQueries extends Queries {
                      signatories, observers, agreement_text,
                      row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber
                 FROM contract c
-                     LEFT JOIN contract_stakeholders cst ON (c.contract_id = cst.contract_id)
+                     JOIN contract_stakeholders cst ON (c.contract_id = cst.contract_id)
                 WHERE (${Fragments.in(fr"cst.stakeholder", parties)})
                       AND ($queriesCondition)"""
       val q = sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1"
