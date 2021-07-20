@@ -30,7 +30,6 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -61,7 +60,6 @@ da_scala_library(
         ":indexer-benchmark",
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",

@@ -34,12 +34,28 @@ object Ref {
   type PackageId = IdString.PackageId
   val PackageId: IdString.PackageId.type = IdString.PackageId
 
-  /** Identifiers for a contractIds */
+  /** Identifiers for contract IDs. */
   type ContractIdString = IdString.ContractIdString
   val ContractIdString: IdString.ContractIdString.type = IdString.ContractIdString
 
   type LedgerString = IdString.LedgerString
   val LedgerString: IdString.LedgerString.type = IdString.LedgerString
+
+  /** Identifiers for submitting client applications. */
+  type ApplicationId = LedgerString
+  val ApplicationId: LedgerString.type = LedgerString
+
+  /** Identifiers used to correlate submission with results. */
+  type CommandId = LedgerString
+  val CommandId: LedgerString.type = LedgerString
+
+  /** Uniquely identifies a transaction. */
+  type TransactionId = LedgerString
+  val TransactionId: LedgerString.type = LedgerString
+
+  /** Identifiers used for correlating submission with a workflow. */
+  type WorkflowId = LedgerString
+  val WorkflowId: LedgerString.type = LedgerString
 
   type ParticipantId = IdString.ParticipantId
   val ParticipantId: IdString.ParticipantId.type = IdString.ParticipantId

@@ -6,13 +6,12 @@ package com.daml.platform.store.dao
 import java.time.Instant
 
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
-import com.daml.platform.store.Conversions.{offset, _}
+import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.SqlFunctions
 import com.google.rpc.status.Status
 
@@ -46,7 +45,7 @@ private[platform] object CommandCompletionsTable {
   def prepareGet(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
       sqlFunctions: SqlFunctions,
   ): SimpleSql[Row] = {

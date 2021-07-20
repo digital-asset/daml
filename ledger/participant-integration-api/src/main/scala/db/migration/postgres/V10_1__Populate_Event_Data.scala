@@ -8,12 +8,12 @@ package com.daml.platform.db.migration.postgres
 import java.sql.Connection
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.transaction.Node.NodeCreate
-import com.daml.ledger.EventId
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions._
+import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.platform.db.migration.translation.TransactionSerializer
+import com.daml.platform.store.Conversions._
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] class V10_1__Populate_Event_Data extends BaseJavaMigration {

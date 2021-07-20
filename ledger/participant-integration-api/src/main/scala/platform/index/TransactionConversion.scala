@@ -10,7 +10,6 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{CommittedTransaction, NodeId, Transaction => Tx}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf
-import com.daml.ledger.{CommandId, EventId, TransactionId}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -18,6 +17,7 @@ import com.daml.ledger.api.v1.transaction.{
   Transaction => ApiTransaction,
   TransactionTree => ApiTransactionTree,
 }
+import com.daml.lf.ledger.EventId
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
@@ -54,14 +54,14 @@ private[platform] object TransactionConversion {
   }
 
   private def maskCommandId(
-      commandId: Option[CommandId],
+      commandId: Option[Ref.CommandId],
       actAs: List[Ref.Party],
       requestingParties: Set[Ref.Party],
   ): String =
     commandId.filter(_ => actAs.exists(requestingParties)).getOrElse("")
 
   private def toFlatEvent(
-      trId: TransactionId,
+      trId: Ref.TransactionId,
       verbose: Boolean,
   ): PartialFunction[(NodeId, Node), Event] = {
     case (nodeId, node: Create) =>

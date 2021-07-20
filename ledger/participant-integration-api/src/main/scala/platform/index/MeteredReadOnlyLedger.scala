@@ -8,7 +8,6 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -23,7 +22,6 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -45,7 +43,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   override def flatTransactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      filter: Map[Party, Set[Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     ledger.flatTransactions(startExclusive, endInclusive, filter, verbose)
@@ -53,7 +51,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   override def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -66,12 +64,12 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
     ledger.completions(startExclusive, endInclusive, applicationId, parties)
 
   override def activeContracts(
-      filter: Map[Party, Set[Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -80,20 +78,20 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def lookupContract(
       contractId: Value.ContractId,
-      forParties: Set[Party],
+      forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Timed.future(metrics.daml.index.lookupContract, ledger.lookupContract(contractId, forParties))
 
-  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+  override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, forParties))
 
   override def lookupFlatTransactionById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     Timed.future(
       metrics.daml.index.lookupFlatTransactionById,
@@ -101,8 +99,8 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     )
 
   override def lookupTransactionTreeById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     Timed.future(
       metrics.daml.index.lookupTransactionTreeById,
@@ -117,7 +115,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       ledger.lookupMaximumLedgerTime(contractIds),
     )
 
-  override def getParties(parties: Seq[Party])(implicit
+  override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     Timed.future(metrics.daml.index.getParties, ledger.getParties(parties))
@@ -134,15 +132,15 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Map[Ref.PackageId, PackageDetails]] =
     Timed.future(metrics.daml.index.listLfPackages, ledger.listLfPackages())
 
-  override def getLfArchive(packageId: PackageId)(implicit
+  override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     Timed.future(metrics.daml.index.getLfArchive, ledger.getLfArchive(packageId))
 
-  override def getLfPackage(packageId: PackageId)(implicit
+  override def getLfPackage(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     Timed.future(metrics.daml.index.getLfPackage, ledger.getLfPackage(packageId))

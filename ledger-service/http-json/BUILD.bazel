@@ -350,7 +350,6 @@ alias(
             "//ledger-service/jwt",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
-            "//ledger/ledger-api-common",
             "//libs-scala/auth-utils",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ports",

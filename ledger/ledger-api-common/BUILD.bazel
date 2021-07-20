@@ -64,7 +64,6 @@ da_scala_library(
     ],
     visibility = ["//ledger:__subpackages__"],
     deps = [
-        ":ledger-api-common",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
