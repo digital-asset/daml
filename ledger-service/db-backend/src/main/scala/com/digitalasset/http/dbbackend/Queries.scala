@@ -54,10 +54,6 @@ sealed abstract class Queries {
 
   protected[this] def contractsTableSignatoriesObservers: Fragment
 
-  private[this] val indexContractsTable = CreateIndex(sql"""
-      CREATE INDEX contract_tpid_idx ON contract (tpid)
-    """)
-
   private[this] val createOffsetTable = CreateTable(
     "ledger_offset",
     sql"""
@@ -110,7 +106,6 @@ sealed abstract class Queries {
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
-      indexContractsTable,
     )
 
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
@@ -478,7 +473,12 @@ private object PostgresQueries extends Queries {
       CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
   """)
 
-  protected[this] override def initDatabaseDdls = super.initDatabaseDdls :+ indexContractsKeys
+  private[this] val indexContractsTable = CreateIndex(sql"""
+      CREATE INDEX contract_tpid_idx ON contract (tpid)
+    """)
+
+  protected[this] override def initDatabaseDdls =
+    super.initDatabaseDdls ++ Seq(indexContractsTable, indexContractsKeys)
 
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
@@ -631,13 +631,13 @@ private object OracleQueries extends Queries {
     "contract_stakeholders",
     sql"""CREATE MATERIALIZED VIEW contract_stakeholders
           BUILD IMMEDIATE REFRESH FAST ON STATEMENT AS
-          SELECT contract_id, stakeholder FROM contract,
+          SELECT contract_id, tpid, stakeholder FROM contract,
                  json_table(json_array(signatories, observers), '$$[*][*]'
                     columns (stakeholder $partyType path '$$'))""",
   )
 
   private[this] def stakeholdersIndex = CreateIndex(
-    sql"""CREATE INDEX stakeholder_idx ON contract_stakeholders (stakeholder)"""
+    sql"""CREATE INDEX stakeholder_idx ON contract_stakeholders (tpid, stakeholder)"""
   )
 
   protected[this] override def initDatabaseDdls =
@@ -684,7 +684,7 @@ private object OracleQueries extends Queries {
         case q +-: qs =>
           joinFragment(
             OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
-              fr"($tpid = tpid AND (" ++ predicate ++ fr"))"
+              fr"($tpid = cst.tpid AND (" ++ predicate ++ fr"))"
             },
             fr" OR ",
           )
@@ -725,12 +725,12 @@ private object OracleQueries extends Queries {
         // but this will probably necessitate the same PostgreSQL-side
         uniqueSets(queries.zipWithIndex.map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
           preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
-            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"tpid")
+            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"cst.tpid")
             queryByCondition[Int](tpid, preds.transform((_, predIx) => predIx._1).toVector)
         }
       case MatchedQueryMarker.Unused =>
         val NonEmpty(nequeries) = queries
-        queryByCondition[SurrogateTpId](fr"tpid", nequeries)
+        queryByCondition[SurrogateTpId](fr"cst.tpid", nequeries)
     }
   }
 
