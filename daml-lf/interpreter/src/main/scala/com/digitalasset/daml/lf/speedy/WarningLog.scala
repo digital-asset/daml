@@ -8,10 +8,10 @@ import scala.collection.mutable.ArrayBuffer
 import com.daml.lf.data.Ref.Location
 
 private[lf] final case class Warning(
-  commitLocation: Option[Location],
-  message: String
+    commitLocation: Option[Location],
+    message: String,
 ) {
-  def messageWithLocation : String =
+  def messageWithLocation: String =
     s"${Pretty.prettyLoc(commitLocation).renderWideStream.mkString}: $message"
 }
 

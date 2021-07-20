@@ -754,7 +754,8 @@ private[lf] object Speedy {
           this.warningLog.add(
             Warning(
               commitLocation = onLedger.commitLocation,
-              message = s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning"
+              message =
+                s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning",
             )
           )
       }
