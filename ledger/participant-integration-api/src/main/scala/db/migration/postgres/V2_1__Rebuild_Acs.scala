@@ -16,8 +16,7 @@ import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.ledger.participant.state.v1.TransactionId
-import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.GlobalKey
@@ -281,7 +280,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def updateActiveContractSet(
       offset: Long,
       tx: LedgerEntry.Transaction,
-      divulgence: Relation[ContractId, Party],
+      divulgence: Relation[ContractId, Ref.Party],
   )(implicit connection: Connection): Unit =
     tx match {
       case LedgerEntry.Transaction(
@@ -296,7 +295,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             explicitDisclosure,
           ) =>
         val mappedDisclosure = explicitDisclosure.view
-          .mapValues(parties => parties.map(Party.assertFromString))
+          .mapValues(parties => parties.map(Ref.Party.assertFromString))
           .toMap
 
         final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
@@ -319,14 +318,14 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             this
           }
 
-          override def addParties(parties: Set[Party]): AcsStoreAcc = {
+          override def addParties(parties: Set[Ref.Party]): AcsStoreAcc = {
             // Implemented in a future migration
             this
           }
 
           override def divulgeAlreadyCommittedContracts(
               transactionId: TransactionId,
-              global: Relation[ContractId, Party],
+              global: Relation[ContractId, Ref.Party],
               referencedContracts: ActiveLedgerState.ReferencedContracts,
           ) = {
             val divulgenceParams = global
@@ -403,10 +402,10 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
   case class ParsedEntry(
       typ: String,
       transactionId: Option[TransactionId],
-      commandId: Option[CommandId],
-      applicationId: Option[ApplicationId],
-      submitter: Option[Party],
-      workflowId: Option[WorkflowId],
+      commandId: Option[Ref.CommandId],
+      applicationId: Option[Ref.ApplicationId],
+      submitter: Option[Ref.Party],
+      workflowId: Option[Ref.WorkflowId],
       effectiveAt: Option[Date],
       recordedAt: Option[Date],
       transaction: Option[InputStream],

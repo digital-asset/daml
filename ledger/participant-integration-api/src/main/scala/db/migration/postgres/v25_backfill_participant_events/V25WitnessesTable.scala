@@ -4,7 +4,7 @@
 package com.daml.platform.db.migration.postgres.v25_backfill_participant_events
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.EventId
+import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 
 // Copied here to make it safe against future refactoring

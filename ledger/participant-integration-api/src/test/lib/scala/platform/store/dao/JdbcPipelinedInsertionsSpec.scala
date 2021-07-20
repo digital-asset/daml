@@ -3,8 +3,8 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.ledger.EventId
 import com.daml.ledger.offset.Offset
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.ApiOffset

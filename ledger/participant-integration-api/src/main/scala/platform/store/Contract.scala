@@ -5,12 +5,11 @@ package com.daml.platform.store
 
 import java.time.Instant
 
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
-import com.daml.ledger.{TransactionId, WorkflowId}
 
 /** A contract that is part of the [[ActiveLedgerState]].
   * Depending on where the contract came from, other metadata may be available.
@@ -21,13 +20,13 @@ private[platform] sealed abstract class Contract {
   def contract: ContractInst[VersionedValue[ContractId]]
 
   /** For each party, the transaction id at which the contract was divulged */
-  def divulgences: Map[Party, TransactionId]
+  def divulgences: Map[Ref.Party, Ref.TransactionId]
 
   /** Returns the new divulgences after the contract has been divulged to the given parties at the given transaction */
   def divulgeTo(
-      parties: Set[Party],
-      transactionId: TransactionId,
-  ): Map[Party, TransactionId] =
+      parties: Set[Ref.Party],
+      transactionId: Ref.TransactionId,
+  ): Map[Ref.Party, Ref.TransactionId] =
     parties.foldLeft(divulgences)((m, e) => if (m.contains(e)) m else m + (e -> transactionId))
 }
 
@@ -41,7 +40,7 @@ private[platform] object Contract {
   final case class DivulgedContract(
       id: Value.ContractId,
       contract: ContractInst[VersionedValue[ContractId]],
-      divulgences: Map[Party, TransactionId],
+      divulgences: Map[Ref.Party, Ref.TransactionId],
   ) extends Contract
 
   /** For active contracts, we know all metadata.
@@ -49,18 +48,18 @@ private[platform] object Contract {
   final case class ActiveContract(
       id: Value.ContractId,
       let: Instant, // time when the contract was committed
-      transactionId: TransactionId, // transaction id where the contract originates
+      transactionId: Ref.TransactionId, // transaction id where the contract originates
       nodeId: NodeId,
-      workflowId: Option[WorkflowId], // workflow id from where the contract originates
+      workflowId: Option[Ref.WorkflowId], // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[ContractId]],
-      witnesses: Set[Party],
+      witnesses: Set[Ref.Party],
       divulgences: Map[
-        Party,
-        TransactionId,
+        Ref.Party,
+        Ref.TransactionId,
       ], // for each party, the transaction id at which the contract was divulged
       key: Option[KeyWithMaintainers[VersionedValue[Nothing]]],
-      signatories: Set[Party],
-      observers: Set[Party],
+      signatories: Set[Ref.Party],
+      observers: Set[Ref.Party],
       agreementText: String,
   ) extends Contract
 

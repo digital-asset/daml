@@ -43,6 +43,10 @@ package object events {
   private[events] val ModuleName = lfdata.Ref.ModuleName
   private[events] type LedgerString = lfdata.Ref.LedgerString
   private[events] val LedgerString = lfdata.Ref.LedgerString
+  private[events] type TransactionId = lfdata.Ref.LedgerString
+  private[events] val TransactionId = lfdata.Ref.LedgerString
+  private[events] type WorkflowId = lfdata.Ref.LedgerString
+  private[events] val WorkflowId = lfdata.Ref.LedgerString
   private[events] type ChoiceName = lfdata.Ref.ChoiceName
   private[events] val ChoiceName = lfdata.Ref.ChoiceName
   private[events] type PackageId = lfdata.Ref.PackageId

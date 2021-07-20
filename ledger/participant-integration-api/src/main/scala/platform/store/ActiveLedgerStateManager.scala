@@ -7,8 +7,7 @@ import java.time.Instant
 
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason.{Inconsistent, InvalidLedgerTime}
-import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId, Node => N}
 import com.daml.lf.value.Value.ContractId
@@ -54,7 +53,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
       currentState: RollbackState,
       rollbackStates: List[RollbackState],
       errs: Set[RejectionReason],
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   ) {
 
     def mapAcs(f: ALS => ALS): AddTransactionState =
@@ -95,12 +94,12 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
     */
   def addTransaction(
       let: Instant,
-      transactionId: TransactionId,
-      workflowId: Option[WorkflowId],
-      actAs: List[Party],
+      transactionId: Ref.TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      actAs: List[Ref.Party],
       transaction: CommittedTransaction,
-      disclosure: Relation[NodeId, Party],
-      divulgence: Relation[ContractId, Party],
+      disclosure: Relation[NodeId, Ref.Party],
+      divulgence: Relation[ContractId, Ref.Party],
       divulgedContracts: ActiveLedgerState.ReferencedContracts,
   ): Either[Set[RejectionReason], ALS] = {
     // If some node requires a contract, check that we have that contract, and check that that contract is not

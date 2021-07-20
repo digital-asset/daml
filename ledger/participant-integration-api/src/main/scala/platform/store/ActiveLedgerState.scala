@@ -5,8 +5,7 @@ package com.daml.platform.store
 
 import java.time.Instant
 
-import com.daml.ledger.TransactionId
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -58,7 +57,7 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
     * As the sandbox has an open world of parties, any party name mentioned in a transaction
     * will implicitly add that name to the list of known parties.
     */
-  def addParties(parties: Set[Party]): ALS
+  def addParties(parties: Set[Ref.Party]): ALS
 
   /** Note that this method is about divulging contracts _that have already been
     * committed_. Implementors of [[ActiveLedgerState]] must take care to also store
@@ -66,8 +65,8 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
     * method.
     */
   def divulgeAlreadyCommittedContracts(
-      transactionId: TransactionId,
-      global: Relation[ContractId, Party],
+      transactionId: Ref.TransactionId,
+      global: Relation[ContractId, Ref.Party],
       referencedContracts: ReferencedContracts,
   ): ALS
 
