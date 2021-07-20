@@ -84,7 +84,6 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_lihaoyi_fansi",
         "@maven//:com_lihaoyi_pprint",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -152,7 +151,6 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -164,6 +162,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_tpolecat_typename",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
@@ -223,7 +222,6 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:com_github_scopt_scopt",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",

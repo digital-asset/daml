@@ -14,7 +14,6 @@ da_scala_library(
     resources = glob(["src/main/resources/com/daml/nonrepudiation/postgresql/*"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
         "@maven//:org_tpolecat_doobie_hikari",
