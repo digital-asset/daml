@@ -45,7 +45,7 @@ object Ref {
   type ApplicationId = LedgerString
   val ApplicationId: LedgerString.type = LedgerString
 
-  /** Identifiers used to correlate a command submission with ts result. */
+  /** Identifiers used to correlate a command submission with its result. */
   type CommandId = LedgerString
   val CommandId: LedgerString.type = LedgerString
 
