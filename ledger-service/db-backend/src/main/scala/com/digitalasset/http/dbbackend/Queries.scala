@@ -11,14 +11,13 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
-import scala.collection.immutable.{Iterable, Seq => ISeq}
+import scala.collection.immutable.{Seq => ISeq}
 import scalaz.{@@, Cord, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
-import scalaz.std.stream.unfold
 import scalaz.std.AllInstances._
 import spray.json._
 import cats.instances.list._
@@ -375,25 +374,6 @@ object Queries {
 
   private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
     OneAnd(oaa.head, oaa.tail.flatMap(Vector(a, _)))
-
-  // Like groupBy but split into n maps where n is the longest list under groupBy.
-  private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[NonEmpty[Map[A, B]]] =
-    unfold(
-      iter
-        .groupBy1(_._1)
-        .transform((_, i) => i.toList): Map[A, NonEmpty[List[(_, B)]]]
-    ) {
-      case NonEmpty(m) =>
-        Some {
-          val hd = m transform { (_, abs) =>
-            val (_, b) +-: _ = abs
-            b
-          }
-          val tl = m collect { case (a, _ +-: NonEmpty(tl)) => (a, tl) }
-          (hd, tl)
-        }
-      case _ => None
-    }
 
   private[this] def caseLookupFragment[SelEq: Put](
       m: Map[SelEq, Fragment],
