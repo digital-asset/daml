@@ -7,10 +7,11 @@ module DA.Daml.LF.PrettyScenario
   ( prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
-  , prettyWarningMessages
+  , prettyWarningMessage
   , renderScenarioResult
   , renderScenarioError
   , lookupDefLocation
+  , lookupLocationModule
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
   , ModuleRef
@@ -117,6 +118,11 @@ lookupModule world mbPkgId modName = do
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
 
+lookupLocationModule :: LF.World -> Location -> Maybe LF.Module
+lookupLocationModule world Location{..} =
+    lookupModule world locationPackage $
+        unmangleModuleName (TL.toStrict locationModule)
+
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
     fmap (fromMaybe 0 . readMaybe . dropHash . TL.unpack)
@@ -124,11 +130,6 @@ parseNodeId =
   . nodeIdId
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
-
-prettyWarningMessages
-  :: V.Vector WarningMessage -> Doc SyntaxClass
-prettyWarningMessages warnings
-  = vcat (map prettyWarningMessage (V.toList warnings))
 
 prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
@@ -142,7 +143,7 @@ prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime trace
         $ filter isActive (V.toList nodes)
 
       ppTrace = vcat $ map prettyTraceMessage (V.toList traceLog)
-      ppWarnings = prettyWarningMessages warnings
+      ppWarnings = vcat $ map prettyWarningMessage (V.toList warnings)
   in vsep
     [ label_ "Transactions: " ppSteps
     , label_ "Active contracts: " ppActive

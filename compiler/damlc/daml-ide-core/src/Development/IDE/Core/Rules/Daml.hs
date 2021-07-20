@@ -821,9 +821,9 @@ runScenariosRule =
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
-              pure (toDiagnostic file world range res , (vr, res))
+              pure (toDiagnostics world file range res, (vr, res))
       let (diags, results) = unzip scenarioResults
-      pure (catMaybes diags, Just results)
+      pure (concat diags, Just results)
 
 runScriptsRule :: Options -> Rules ()
 runScriptsRule opts =
@@ -840,9 +840,9 @@ runScriptsRule opts =
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
-              pure (toDiagnostic file world range res, (vr, res))
+              pure (toDiagnostics world file range res, (vr, res))
       let (diags, results) = unzip scenarioResults
-      pure (catMaybes diags, Just results)
+      pure (concat diags, Just results)
 
 runScenariosScriptsPkg ::
        NormalizedFilePath
@@ -872,11 +872,11 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
                       ctxId
                       script
           pure $
-              [ (toDiagnostic pkgName' world noRange res, (vr, res))
+              [ (toDiagnostics world pkgName' noRange res, (vr, res))
               | (vr, res) <- scenarioResults ++ scriptResults
               ]
     let (diags, results) = unzip rs
-    pure (catMaybes diags, Just results)
+    pure (concat diags, Just results)
   where
     pkg = LF.extPackagePkg extPkg
     pkgId = LF.extPackageId extPkg
@@ -899,20 +899,23 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
             , LF.moduleName mod /= LF.ModuleName ["Daml", "Script"]
             ]
 
-toDiagnostic ::
-       NormalizedFilePath
-    -> LF.World
+toDiagnostics ::
+       LF.World
+    -> NormalizedFilePath
     -> Range
     -> Either SS.Error SS.ScenarioResult
-    -> Maybe FileDiagnostic
-toDiagnostic file world range = \case
-    Left err -> Just $ mkDiagnostic DsError $ formatScenarioError world err
-    Right SS.ScenarioResult{..}
-        | V.null scenarioResultWarnings -> Nothing
-        | otherwise -> Just $ mkDiagnostic DsWarning $
-            LF.prettyWarningMessages scenarioResultWarnings
+    -> [FileDiagnostic]
+toDiagnostics world scenarioFile scenarioRange = \case
+    Left err -> pure $ mkDiagnostic DsError (scenarioFile, scenarioRange) $
+        formatScenarioError world err
+    Right SS.ScenarioResult{..} ->
+        [ mkDiagnostic DsWarning fileRange (LF.prettyWarningMessage warning)
+        | warning <- V.toList scenarioResultWarnings
+        , let fileRange = fileRangeFromMaybeLocation $
+                SS.warningMessageCommitLocation warning
+        ]
   where
-    mkDiagnostic severity pretty = (file, ShowDiag, ) $ Diagnostic
+    mkDiagnostic severity (file, range) pretty = (file, ShowDiag, ) $ Diagnostic
         { _range = range
         , _severity = Just severity
         , _source = Just "Script"
@@ -920,6 +923,26 @@ toDiagnostic file world range = \case
         , _code = Nothing
         , _tags = Nothing
         , _relatedInformation = Nothing
+        }
+
+    fileRangeFromMaybeLocation :: Maybe SS.Location -> (NormalizedFilePath, Range)
+    fileRangeFromMaybeLocation mbLocation =
+        fromMaybe (scenarioFile, scenarioRange) $ do
+            location <- mbLocation
+            lfModule <- LF.lookupLocationModule world location
+            filePath <- LF.moduleSource lfModule
+            Just (toNormalizedFilePath' filePath, rangeFromLocation location)
+
+    rangeFromLocation :: SS.Location -> LSP.Range
+    rangeFromLocation SS.Location{..} = Range
+        { _start = LSP.Position
+            { _line = fromIntegral locationStartLine
+            , _character = fromIntegral locationStartCol
+            }
+        , _end = LSP.Position
+            { _line = fromIntegral locationEndLine
+            , _character = fromIntegral locationEndCol
+            }
         }
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)

@@ -22,6 +22,8 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , runScenario
   , runScript
   , SS.ScenarioResult(..)
+  , SS.WarningMessage(..)
+  , SS.Location(..)
   , encodeScenarioModule
   , ScenarioServiceException(..)
   ) where
