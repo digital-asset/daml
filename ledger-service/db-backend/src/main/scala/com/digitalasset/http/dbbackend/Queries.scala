@@ -560,8 +560,8 @@ private object PostgresQueries extends Queries {
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
     @nowarn("msg=parameter value evidence.* is never used")
-    def query[Mark0: Read](preds: OneAnd[Vector, (SurrogateTpId, Fragment)], tpid: Fragment) = {
-      val assocedPreds = preds.map { case (tpid, predicate) =>
+    def query[Mark0: Read](tpid: Fragment, preds: NonEmpty[Vector[(SurrogateTpId, Fragment)]]) = {
+      val assocedPreds = preds.toOneAnd.map { case (tpid, predicate) =>
         sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
       }
       val unionPred = joinFragment(assocedPreds, sql" OR ")
@@ -585,17 +585,16 @@ private object PostgresQueries extends Queries {
         }
     }
 
+    val NonEmpty(nequeries) = queries.toVector
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt =>
-        val NonEmpty(nequeries) = queries.toVector
         query[MatchedQueries](
-          nequeries.toOneAnd,
           tpid = projectedIndex(queries.zipWithIndex, tpidSelector = fr"tpid"),
+          nequeries,
         )
 
       case MatchedQueryMarker.Unused =>
-        val NonEmpty(nequeries) = queries.toVector
-        query[SurrogateTpId](nequeries.toOneAnd, tpid = fr"tpid")
+        query[SurrogateTpId](tpid = fr"tpid", nequeries)
     }
   }
 
@@ -762,13 +761,12 @@ private object OracleQueries extends Queries {
       }
     }
 
+    val NonEmpty(nequeries) = queries
     trackMatchIndices match {
       case MatchedQueryMarker.ByInt =>
         val tpid = projectedIndex(queries.zipWithIndex, tpidSelector = fr"cst.tpid")
-        val NonEmpty(nequeries) = queries
         queryByCondition[MatchedQueries](tpid, nequeries)
       case MatchedQueryMarker.Unused =>
-        val NonEmpty(nequeries) = queries
         queryByCondition[SurrogateTpId](fr"cst.tpid", nequeries)
     }
   }
