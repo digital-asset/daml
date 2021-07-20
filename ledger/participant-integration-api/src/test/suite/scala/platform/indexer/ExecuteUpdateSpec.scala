@@ -7,7 +7,6 @@ import java.time.Instant
 
 import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.Update.{
@@ -354,7 +353,7 @@ final class ExecuteUpdateSpec
 
   private def transactionAccepted(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
+      workflowId: Option[Ref.WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,

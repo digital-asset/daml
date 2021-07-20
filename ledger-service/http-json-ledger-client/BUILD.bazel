@@ -19,7 +19,6 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/http-json-cli:base",
         "//ledger-service/utils",
-        "//ledger/ledger-api-common",
         "//libs-scala/timer-utils",
     ],
 )
@@ -44,7 +43,6 @@ deps = {
         deps = deps.get(edition) + [
             ":base",
             "//ledger/ledger-api-client",
-            "//ledger/ledger-api-common",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/http-json-cli:{}".format(edition),
             "@maven//:io_grpc_grpc_api",

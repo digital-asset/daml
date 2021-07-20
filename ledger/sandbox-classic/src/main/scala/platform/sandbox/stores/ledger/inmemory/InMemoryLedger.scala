@@ -10,7 +10,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger
 import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -44,6 +43,7 @@ import com.daml.ledger.participant.state.v1.{ApplicationId => _, TransactionId =
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, TransactionCommitter}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
@@ -202,7 +202,7 @@ private[sandbox] final class InMemoryLedger(
             workflowId = contract.workflowId.getOrElse(""),
             activeContracts = List(
               CreatedEvent(
-                ledger.EventId(contract.transactionId, contract.nodeId).toLedgerString,
+                EventId(contract.transactionId, contract.nodeId).toLedgerString,
                 contract.id.coid,
                 Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
                 contractKey = contract.key.map(ck =>
@@ -376,7 +376,7 @@ private[sandbox] final class InMemoryLedger(
     TransactionFilter(requestingParties.map(p => p -> Filters.noFilter).toMap)
 
   private def lookupTransactionEntry(
-      id: ledger.TransactionId
+      id: Ref.TransactionId
   ): Option[(Offset, LedgerEntry.Transaction)] =
     entries.items
       .collectFirst {
@@ -385,7 +385,7 @@ private[sandbox] final class InMemoryLedger(
       }
 
   override def lookupFlatTransactionById(
-      transactionId: ledger.TransactionId,
+      transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     Future.successful {
@@ -402,7 +402,7 @@ private[sandbox] final class InMemoryLedger(
     }
 
   override def lookupTransactionTreeById(
-      transactionId: ledger.TransactionId,
+      transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     Future.successful {

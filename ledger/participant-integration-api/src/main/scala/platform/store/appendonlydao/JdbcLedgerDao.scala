@@ -21,7 +21,6 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
@@ -287,8 +286,8 @@ private class JdbcLedgerDao(
 
   override def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
@@ -316,7 +315,7 @@ private class JdbcLedgerDao(
 
   override def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -327,7 +326,7 @@ private class JdbcLedgerDao(
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
@@ -647,8 +646,8 @@ private class JdbcLedgerDao(
     */
   override def storeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
@@ -720,7 +719,7 @@ private[platform] object JdbcLedgerDao {
     def submissionId(id: String): LoggingEntry =
       "submissionId" -> id
 
-    def transactionId(id: TransactionId): LoggingEntry =
+    def transactionId(id: Ref.TransactionId): LoggingEntry =
       "transactionId" -> id
   }
 

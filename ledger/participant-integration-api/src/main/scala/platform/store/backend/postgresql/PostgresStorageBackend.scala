@@ -8,7 +8,6 @@ import java.time.Instant
 
 import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import anorm.SqlParser.get
-import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -91,7 +90,7 @@ private[backend] object PostgresStorageBackend
   override def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(connection: Connection): List[CompletionStreamResponse] =
     TemplatedStorageBackend.commandCompletions(

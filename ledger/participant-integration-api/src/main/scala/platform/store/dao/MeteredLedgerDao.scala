@@ -14,9 +14,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
@@ -66,7 +64,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def contractsReader: LedgerDaoContractsReader = ledgerDao.contractsReader
 
-  override def getParties(parties: Seq[Party])(implicit
+  override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     Timed.future(metrics.daml.index.db.getParties, ledgerDao.getParties(parties))
@@ -84,10 +82,10 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Map[Ref.PackageId, PackageDetails]] =
     Timed.future(metrics.daml.index.db.listLfPackages, ledgerDao.listLfPackages())
 
-  override def getLfArchive(packageId: PackageId)(implicit
+  override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     Timed.future(metrics.daml.index.db.getLfArchive, ledgerDao.getLfArchive(packageId))
@@ -135,7 +133,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.removeExpiredDeduplicationData(currentTime),
     )
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(implicit
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     Timed.future(
@@ -158,7 +156,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
@@ -181,8 +179,8 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
@@ -282,7 +280,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   override def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -293,8 +291,8 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     */
   override def storeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: OffsetStep,
       transaction: CommittedTransaction,

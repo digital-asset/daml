@@ -5,9 +5,8 @@ package com.daml.platform.store.dao.events
 
 import java.time.Instant
 
-import com.daml.ledger
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.ledger.BlindingTransaction
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -17,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
   val anOffset = Offset.fromByteArray(Array.emptyByteArray)
-  val aTransactionId = ledger.TransactionId.assertFromString("0")
+  val aTransactionId = Ref.TransactionId.assertFromString("0")
   val anInstant = Instant.EPOCH
 
   "TransactionIndexing" should {

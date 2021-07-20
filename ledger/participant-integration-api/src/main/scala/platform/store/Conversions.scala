@@ -11,14 +11,13 @@ import java.util.stream.Collectors
 
 import anorm.Column.nonNull
 import anorm._
-import com.daml.ledger.EventId
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.ledger.participant.state.v1.RejectionReasonV0._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import io.grpc.Status.Code
 import spray.json.DefaultJsonProtocol._
@@ -29,12 +28,12 @@ import scala.language.implicitConversions
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 
 private[platform] object OracleArrayConversions {
-  implicit object PartyJsonFormat extends RootJsonFormat[Party] {
-    def write(c: Party) =
+  implicit object PartyJsonFormat extends RootJsonFormat[Ref.Party] {
+    def write(c: Ref.Party) =
       JsString(c)
 
     def read(value: JsValue) = value match {
-      case JsString(s) => s.asInstanceOf[Party]
+      case JsString(s) => s.asInstanceOf[Ref.Party]
       case _ => deserializationError("Party expected")
     }
   }
@@ -265,10 +264,10 @@ private[platform] object Conversions {
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
 
-  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Party]] =
+  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Ref.Party]] =
     SqlParser
       .get[Array[String]](columnName)(ArrayColumnToStringArray.arrayColumnToStringArray)
-      .map(_.iterator.map(Party.assertFromString).toSet)
+      .map(_.iterator.map(Ref.Party.assertFromString).toSet)
 
   // ContractIdString
 
