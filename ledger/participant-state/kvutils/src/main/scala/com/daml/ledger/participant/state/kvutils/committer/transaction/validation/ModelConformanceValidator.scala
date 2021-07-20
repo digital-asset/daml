@@ -124,10 +124,10 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   // Helper to lookup contract instances. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
   //
-  // Note that a contract may not be in the state only if it was archived and pruned on the committer.
-  // Then, the participant is able to produce such a transaction only by using a divulged contract that
-  // appeared as active, because it didn't learn about the archival. On the other hand, using divulged
-  // contracts for interpretation is deprecated.
+  // Note that for an honest participant, a contract may not be in the state only if it was archived and pruned
+  // on the committer. Then, an honest participant is able to produce such a transaction only by using
+  // a divulged contract that appeared as active, because it didn't learn about the archival.
+  // On the other hand, using divulged contracts for interpretation is deprecated so we turn it into Inconsistent.
   @throws[Err.MissingInputState]
   private[validation] def lookupContract(
       commitContext: CommitContext
@@ -185,7 +185,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       case _ => None
     }
 
-  // Checks that input contracts are still active at ledger effective time.
+  // Checks that input contracts have been created before or at the current ledger effective time.
   private[validation] def validateCausalMonotonicity(
       transactionEntry: DamlTransactionEntrySummary,
       commitContext: CommitContext,
