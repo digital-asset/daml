@@ -522,13 +522,13 @@ object Config {
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
 
-        checkConfig(c =>
-          if (c.enableMutableContractStateCache && !c.enableAppendOnlySchema)
+        checkConfig(config =>
+          if (config.enableMutableContractStateCache && !config.enableAppendOnlySchema)
             failure(
               "mutable-contract-state-cache-unsafe must be enabled in conjunction with index-append-only-schema-unsafe."
             )
           else if (
-            c.enableInMemoryFanOutForLedgerApi && !(c.enableMutableContractStateCache && c.enableAppendOnlySchema)
+            config.enableInMemoryFanOutForLedgerApi && !(config.enableMutableContractStateCache && config.enableAppendOnlySchema)
           )
             failure(
               "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema-unsafe and mutable-contract-state-cache-unsafe."
