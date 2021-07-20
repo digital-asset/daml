@@ -104,6 +104,7 @@ private[v2] object AdaptedV1WriteService {
   def adaptSubmitterInfo(submitterInfo: SubmitterInfo): v1.SubmitterInfo = {
     val deduplicateUntil = submitterInfo.deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(duration) => Instant.now().plus(duration)
+      case DeduplicationPeriod.DeduplicationOffset(_) => throw new NotImplementedError("DeduplicationOffset not supported")
     }
     v1.SubmitterInfo(
       actAs = submitterInfo.actAs,
