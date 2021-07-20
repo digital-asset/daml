@@ -6,9 +6,11 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction.validati
 import java.time.{Instant, ZoneOffset, ZonedDateTime}
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractState,
   DamlLogEntry,
+  DamlStateKey,
   DamlStateValue,
   DamlSubmitterInfo,
   DamlTransactionEntry,
@@ -23,11 +25,14 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
+import com.daml.lf.archive.testing.Encode
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{Engine, Result, ResultError, Error => LfError}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.Expr
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.lf.transaction.TransactionOuterClass.ContractInstance
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
@@ -43,14 +48,17 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 class ModelConformanceValidatorSpec
     extends AnyWordSpec
     with Matchers
     with MockitoSugar
-    with ArgumentMatchersSugar {
+    with ArgumentMatchersSugar
+    with TableDrivenPropertyChecks {
   import ModelConformanceValidatorSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -161,31 +169,67 @@ class ModelConformanceValidatorSpec
           ),
           aTransactionEntry,
         )
-      step shouldBe a[StepStop]
-      step
-        .asInstanceOf[StepStop]
-        .logEntry
-        .getTransactionRejectionEntry
-        .hasDisputed shouldBe true
+      inside(step) { case StepStop(logEntry) =>
+        logEntry.getTransactionRejectionEntry.hasDisputed shouldBe true
+      }
+    }
+
+    "create StepStop in case of missing input" in {
+      val mockValidationResult = mock[Result[Unit]]
+      when(
+        mockValidationResult.consume(
+          any[Value.ContractId => Option[
+            Value.ContractInst[Value.VersionedValue[Value.ContractId]]
+          ]],
+          any[Ref.PackageId => Option[Ast.Package]],
+          any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
+        )
+      ).thenThrow(Err.MissingInputState(inputContractIdStateKey))
+      when(
+        mockEngine.validate(
+          any[Set[Ref.Party]],
+          any[SubmittedTransaction],
+          any[Timestamp],
+          any[Ref.ParticipantId],
+          any[Timestamp],
+          any[Hash],
+        )
+      ).thenReturn(mockValidationResult)
+
+      val step = modelConformanceValidator
+        .createValidationStep(rejections)(
+          createCommitContext(
+            None,
+            Map.empty,
+          ),
+          aTransactionEntry,
+        )
+      inside(step) { case StepStop(logEntry) =>
+        logEntry.getTransactionRejectionEntry.hasInconsistent shouldBe true
+      }
     }
   }
 
   "lookupContract" should {
     "return Some when a contract is present in the current state" in {
-      modelConformanceValidator.lookupContract(
-        createCommitContext(
-          None,
-          Map(
-            inputContractIdStateKey -> Some(
-              aContractIdStateValue
-            )
-          ),
-        )
-      )(Conversions.decodeContractId(inputContractId)) shouldBe Some(aContractInst)
+      val commitContext = createCommitContext(
+        None,
+        Map(
+          inputContractIdStateKey -> Some(
+            aContractIdStateValue
+          )
+        ),
+      )
+
+      val contractInstance = modelConformanceValidator.lookupContract(commitContext)(
+        Conversions.decodeContractId(inputContractId)
+      )
+
+      contractInstance shouldBe Some(aContractInst)
     }
 
     "throw if a contract does not exist in the current state" in {
-      a[Err.MissingInputState] should be thrownBy modelConformanceValidator.lookupContract(
+      an[Err.MissingInputState] should be thrownBy modelConformanceValidator.lookupContract(
         createCommitContext(
           None,
           Map.empty,
@@ -210,6 +254,53 @@ class ModelConformanceValidatorSpec
       modelConformanceValidator.lookupKey(contractKeyInputs)(
         aGlobalKeyWithMaintainers("nonexistentKey", "nonexistentMaintainer")
       ) shouldBe None
+    }
+  }
+
+  "lookupPackage" should {
+    "return the package" in {
+      val stateKey = DamlStateKey.newBuilder().setPackageId("aPackage").build()
+      val stateValue = DamlStateValue
+        .newBuilder()
+        .setArchive(anArchive)
+        .build()
+      val commitContext = createCommitContext(
+        None,
+        Map(stateKey -> Some(stateValue)),
+      )
+
+      val maybePackage = modelConformanceValidator
+        .lookupPackage(commitContext)(Ref.PackageId.assertFromString("aPackage"))
+
+      maybePackage shouldBe a[Some[_]]
+    }
+
+    "fail when the package is missing" in {
+      an[Err.MissingInputState] should be thrownBy modelConformanceValidator.lookupPackage(
+        createCommitContext(
+          None,
+          Map.empty,
+        )
+      )(Ref.PackageId.assertFromString("nonexistentPackageId"))
+    }
+
+    "fail when the archive is invalid" in {
+      val stateKey = DamlStateKey.newBuilder().setPackageId("invalidPackage").build()
+
+      val stateValues = Table(
+        "state values",
+        DamlStateValue.newBuilder.build(),
+        DamlStateValue.newBuilder.setArchive(DamlLf.Archive.newBuilder()).build(),
+      )
+
+      forAll(stateValues) { stateValue =>
+        an[Err.DecodeError] should be thrownBy modelConformanceValidator.lookupPackage(
+          createCommitContext(
+            None,
+            Map(stateKey -> Some(stateValue)),
+          )
+        )(Ref.PackageId.assertFromString("invalidPackage"))
+      }
     }
   }
 
@@ -321,6 +412,24 @@ object ModelConformanceValidatorSpec {
     Value.VersionedValue(TransactionVersion.VDev, ValueText("dummyValue")),
     "",
   )
+
+  private val anArchive: DamlLf.Archive = {
+    val pkg = Ast.GenPackage[Expr](
+      Map.empty,
+      Set.empty,
+      LanguageVersion.default,
+      Some(
+        Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("aPackage"),
+          Ref.PackageVersion.assertFromString("0.0.0"),
+        )
+      ),
+    )
+    Encode.encodeArchive(
+      defaultParserParameters.defaultPackageId -> pkg,
+      defaultParserParameters.languageVersion,
+    )
+  }
 
   private def txBuilder = TransactionBuilder(TransactionVersion.VDev)
 

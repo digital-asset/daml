@@ -108,9 +108,10 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       } yield ()
       stepResult.fold(identity, _ => StepContinue(transactionEntry))
     } catch {
-      case err: Err.MissingInputState =>
-        logger.warn(
-          "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant)."
+      case err: Err =>
+        logger.error(
+          "Model conformance validation failed most likely due to invalid state on the participant.",
+          err,
         )
         rejections.buildRejectionStep(
           transactionEntry,
@@ -142,7 +143,9 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   // Helper to lookup package from the state. The package contents
   // are stored in the [[DamlLogEntry]], which we find by looking up
   // the Daml state entry at `DamlStateKey(packageId = pkgId)`.
-  private def lookupPackage(
+  @throws[Err.MissingInputState]
+  @throws[Err.DecodeError]
+  private[validation] def lookupPackage(
       commitContext: CommitContext
   )(pkgId: PackageId)(implicit loggingContext: LoggingContext): Option[Ast.Package] =
     withEnrichedLoggingContext("packageId" -> pkgId) { implicit loggingContext =>
