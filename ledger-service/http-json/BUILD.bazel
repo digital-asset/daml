@@ -361,9 +361,9 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "integration-tests",
-    actual = "integration-tests-ce",
+    tests = ["integration-tests-ce"],
 )
 
 [
@@ -423,9 +423,9 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "failure-tests",
-    actual = "failure-tests-ce",
+    tests = ["failure-tests-ce"],
 )
 
 exports_files(["src/main/resources/logback.xml"])

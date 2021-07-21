@@ -4,6 +4,8 @@
 
 module Account where
 
+import DA.Foldable
+
 data AccountStatus = Enabled Time | Disabled Time
   deriving (Eq, Show)
 
@@ -43,3 +45,21 @@ template KeyedByVariantAndRecord with
     signatory party
     key (party, fooVariant, bazRecord): (Party, Foo, BazRecord)
     maintainer key._1
+
+template Helper
+  with
+    owner : Party
+  where
+    signatory owner
+    choice CreateN : [ContractId Account]
+      with
+        n : Int
+      controller owner
+      do t <- getTime
+         mapA (\i -> create (Account owner (show i) (Enabled t))) [1 .. n]
+
+    choice ArchiveAll : ()
+      with
+        cids : [ContractId Account]
+      controller owner
+      do mapA_ archive cids
