@@ -51,30 +51,6 @@ message Envelope {
   bytes message = 4;
 }
 
-// A submission to the ledger: a payload and its inputs if any.
-// Produced by [[KeyValueSubmission]].
-// Transformed into `DamlLogEntry` when committed.
-message DamlSubmission {
-  repeated DamlStateKey input_daml_state = 1;
-  oneof payload {
-    DamlTransactionEntry transaction_entry = 2;
-    DamlPackageUploadEntry package_upload_entry = 3;
-    DamlConfigurationSubmission configuration_submission = 4;
-    DamlPartyAllocationEntry party_allocation_entry = 5;
-  }
-  bytes submission_seed = 6;
-}
-
-// A batch of enveloped [[DamlSubmission]]'s.
-message DamlSubmissionBatch {
-  message CorrelatedSubmission {
-    bytes submission = 1;
-    string correlation_id = 2;
-  }
-
-  repeated CorrelatedSubmission submissions = 2;
-}
-
 // A log entry for a committed Daml submission.
 // Produced by [[KeyValueCommitting]] from the `DamlSubmission` message.
 // Each entry can be converted into a participant state `Update` event
