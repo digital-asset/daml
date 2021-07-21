@@ -11,10 +11,15 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.test.semantic.ValueNesting._
 import io.grpc.Status
 
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 final class ValueNestingIT extends LedgerTestSuite {
+
+  @tailrec
+  private def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
+    if (i == 0) acc else toNat(i - 1, Nat.S(acc))
 
   private[this] def toEither[X](future: Future[X])(implicit
       ec: ExecutionContext
@@ -60,6 +65,19 @@ final class ValueNestingIT extends LedgerTestSuite {
             fail("Unexpected " + otherwise.fold(err => s"failure: $err", _ => "success"))
         }
       })
+
+    test("create command") { implicit ec => (alpha, party) =>
+      toEither(alpha.create(party, Contract(party, nContract, toNat(nContract))))
+    }
+
+    test("exercise command") { implicit ec => (alpha, party) =>
+      for {
+        handler <- alpha.create(party, Handler(party))
+        result <- toEither(
+          alpha.exercise(party, handler.exerciseDestruct(_, toNat(nChoiceArgument)))
+        )
+      } yield result
+    }
 
     test("exercise argument") { implicit ec => (alpha, party) =>
       for {
