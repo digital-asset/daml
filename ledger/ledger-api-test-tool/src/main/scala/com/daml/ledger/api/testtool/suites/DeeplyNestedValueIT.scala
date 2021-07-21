@@ -29,11 +29,11 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
   private[this] def camlCase(s: String) =
     s.split(" ").iterator.map(_.capitalize).mkString("")
 
-  List[Long](30, 100, 101, 200).foreach { nesting =>
+  List[Long](46, 100, 101, 200).foreach { nesting =>
     val accepted = nesting <= 100
     val result = if (accepted) "Accept" else "Reject"
 
-    // Once converted to Nat, `n` will have nesting `nesting`.
+    // Once converted to Nat, `n` will have a nesting `nesting`.
     // Note that Nat.Z(()) has depth 2.
     val n = nesting - 1
 
@@ -54,7 +54,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
     ) =
       super.test(
         result + camlCase(description) + nesting.toString,
-        s"${result.toLowerCase}s $description with nesting of $nesting",
+        s"${result.toLowerCase}s $description with a nesting of $nesting",
         allocate(SingleParty),
       )(implicit ec => { case Participants(Participant(alpha, party)) =>
         update(ec)(alpha, party).map {
