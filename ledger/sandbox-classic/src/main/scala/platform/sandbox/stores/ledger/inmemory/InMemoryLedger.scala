@@ -53,7 +53,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
-import com.daml.platform.sandbox.stores.ledger.{Ledger, TimeModelError}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.entries.{
@@ -289,14 +289,11 @@ private[sandbox] final class InMemoryLedger(
   private def checkTimeModel(
       ledgerTime: Instant,
       recordTime: Instant,
-  ): Either[TimeModelError, Unit] =
+  ): Either[Rejection, Unit] =
     ledgerConfiguration
-      .toRight(TimeModelError.NoLedgerConfiguration)
+      .toRight(Rejection.NoLedgerConfiguration)
       .flatMap(config =>
-        config.timeModel
-          .checkTime(ledgerTime, recordTime)
-          .left
-          .map(TimeModelError.InvalidLedgerTime)
+        config.timeModel.checkTime(ledgerTime, recordTime).left.map(Rejection.InvalidLedgerTime)
       )
 
   private def handleSuccessfulTx(
@@ -309,7 +306,7 @@ private[sandbox] final class InMemoryLedger(
     val recordTime = timeProvider.getCurrentTime
     checkTimeModel(ledgerTime, recordTime)
       .fold(
-        error => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(error.message)),
+        rejection => handleError(submitterInfo, rejection.toDomainRejectionReason),
         _ => {
           val (committedTransaction, disclosureForIndex, divulgence) =
             Ledger
