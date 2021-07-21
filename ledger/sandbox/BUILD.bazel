@@ -307,3 +307,28 @@ server_conformance_test(
         "--include=ClosedWorldIT",
     ],
 )
+
+server_conformance_test(
+    name = "conformance-test-nesting",
+    lf_versions = ["stable"],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--include=" + ",".join([
+            "DeeplyNestedValueIT:AcceptCreateCommand30",
+            "DeeplyNestedValueIT:AcceptExerciseCommand30",
+            "DeeplyNestedValueIT:AcceptCreateArgumentInCreateAndExerciseCommand30",
+            "DeeplyNestedValueIT:AcceptChoiceArgumentInCreateAndExerciseCommand30",
+            "DeeplyNestedValueIT:AcceptExerciseArgument30",
+            "DeeplyNestedValueIT:AcceptExerciseOutput30",
+            "DeeplyNestedValueIT:AcceptCreateArgument30",
+            "DeeplyNestedValueIT:AcceptContractKey30",
+            "DeeplyNestedValueIT:AcceptFetchByKey30",
+            "DeeplyNestedValueIT:AcceptFailingLookupByKey30",
+            "DeeplyNestedValueIT:AcceptSuccessfulLookupByKey30",
+            "DeeplyNestedValueIT:RejectCreateCommand",
+            "DeeplyNestedValueIT:RejectExerciseCommand",
+            "DeeplyNestedValueIT:RejectCreateArgumentInCreateAndExerciseCommand",
+            "DeeplyNestedValueIT:RejectChoiceArgumentInCreateAndExerciseCommand",
+        ]),
+    ],
+)

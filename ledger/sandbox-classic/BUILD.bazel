@@ -342,24 +342,6 @@ server_conformance_test(
     ],
 )
 
-server_conformance_test(
-    name = "conformance-test-nesting",
-    lf_versions = ["stable"],
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--include=" + ",".join([
-            "DeeplyNestedValueIT:Accept",
-            "DeeplyNestedValueIT:RejectCreateCommand",
-            "DeeplyNestedValueIT:RejectExerciseCommand",
-            "DeeplyNestedValueIT:RejectCreateArgumentInCreateAndExerciseCommand",
-            "DeeplyNestedValueIT:RejectChoiceArgumentInCreateAndExerciseCommand",
-        ]),
-    ],
-)
-
 # TODO append-only: only for temporary testing
 server_conformance_test(
     name = "conformance-test-static-time-append-only",
@@ -450,5 +432,23 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-nesting",
+    lf_versions = ["stable"],
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--include=" + ",".join([
+            "DeeplyNestedValueIT:Accept",
+            "DeeplyNestedValueIT:RejectCreateCommand",
+            "DeeplyNestedValueIT:RejectExerciseCommand",
+            "DeeplyNestedValueIT:RejectCreateArgumentInCreateAndExerciseCommand",
+            "DeeplyNestedValueIT:RejectChoiceArgumentInCreateAndExerciseCommand",
+        ]),
     ],
 )
