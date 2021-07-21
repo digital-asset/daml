@@ -592,11 +592,11 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
         case ECase(scrut, alts) =>
           builder.setCase(PLF.Case.newBuilder().setScrut(scrut).accumulateLeft(alts)(_ addAlts _))
-        case ELet(bindings, body) =>
+        case ELet(binding, body) =>
           builder.setLet(
             PLF.Block
               .newBuilder()
-              .accumulateLeft(bindings)(_ addBindings _)
+              .accumulateLeft(List(binding))(_ addBindings _)
               .setBody(body)
           )
         case ENil(typ) =>

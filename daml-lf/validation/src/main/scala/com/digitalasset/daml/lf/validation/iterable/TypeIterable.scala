@@ -46,7 +46,7 @@ private[validation] object TypeIterable {
       case EAbs((boundVarName @ _, boundVarType), body, ref @ _) =>
         Iterator(boundVarType) ++ iterator(body)
       case ELet(binding, body) =>
-        binding.foldRight(iterator(body)) { case (binding, acc) => iterator(binding) ++ acc }
+        iterator(binding) ++ iterator(body)
       case EEnumCon(tyConName, _) =>
         Iterator(TTyCon(tyConName))
       case EToAny(typ, expr) =>

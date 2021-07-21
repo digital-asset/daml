@@ -189,12 +189,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eLet: Parser[Expr] =
     `let` ~>! binding(`=`) ~ (`in` ~> expr) ^^ { case b ~ body =>
-      body match {
-        case ELet(bindings, body) =>
-          ELet(b :: bindings, body)
-        case otherwise =>
-          ELet(List(b), otherwise)
-      }
+      ELet(b, body)
     }
 
   private lazy val eToAny: Parser[Expr] =

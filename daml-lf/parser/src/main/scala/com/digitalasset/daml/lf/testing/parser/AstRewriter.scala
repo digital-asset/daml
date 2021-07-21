@@ -100,8 +100,8 @@ private[daml] class AstRewriter(
           ETyAbs(binder, apply(body))
         case ECase(scrut, alts) =>
           ECase(apply(scrut), alts.map(apply))
-        case ELet(bindings, body) =>
-          ELet(bindings.map(apply), apply(body))
+        case ELet(binding, body) =>
+          ELet(apply(binding), apply(body))
         case ENil(typ) =>
           ENil(apply(typ))
         case ECons(typ, front, tail) =>

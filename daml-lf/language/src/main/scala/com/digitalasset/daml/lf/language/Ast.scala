@@ -116,7 +116,7 @@ object Ast {
   final case class ECase(scrut: Expr, alts: ImmArray[CaseAlt]) extends Expr
 
   /** Let binding. */
-  final case class ELet(bindings: List[Binding], body: Expr) extends Expr
+  final case class ELet(binding: Binding, body: Expr) extends Expr
 
   /** Empty list constructor. */
   final case class ENil(typ: Type) extends Expr

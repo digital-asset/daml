@@ -738,18 +738,10 @@ private[lf] final class Compiler(
   private[this] def compileELet(elet: ELet) =
     withEnv { _ =>
       elet match {
-        case ELet(bindings, body) =>
-          val bounds = bindings.map { case Binding(optBinder, _, bound) =>
-            val se = withOptLabel(optBinder, compile(bound))
-            val p = nextPosition()
-            optBinder.foreach(addExprVar(_, p))
-            se
-          }
-          compile(body) match {
-            case SELet(bounds1, body1) =>
-              SELet(bounds ++ bounds1, body1)
-            case otherwise =>
-              SELet(bounds, otherwise)
+        case ELet(Binding(optBinder, _, bound), body) =>
+          let(withOptLabel(optBinder, compile(bound))) { boundPos =>
+            optBinder.foreach(addExprVar(_, boundPos))
+            compile(body)
           }
       }
     }
