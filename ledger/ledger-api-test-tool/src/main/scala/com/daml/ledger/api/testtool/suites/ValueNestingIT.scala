@@ -21,6 +21,9 @@ final class ValueNestingIT extends LedgerTestSuite {
   ): Future[Either[Throwable, X]] =
     future.transform(x => Success(x.toEither))
 
+  private[this] def camlCase(s: String) =
+    s.split(" ").iterator.map(_.capitalize).mkString("")
+
   List[Long](30, 100, 101, 110, 200).foreach { depth =>
     val accepted = depth <= 100
     val result = if (accepted) "Accept" else "Reject"
@@ -45,8 +48,8 @@ final class ValueNestingIT extends LedgerTestSuite {
         ) => Future[Either[Throwable, T]]
     ) =
       super.test(
-        s"${result}$description$depth",
-        s"${result.toLowerCase}s $description with of $depth",
+        result + camlCase(description) + depth.toString,
+        s"${result.toLowerCase}s $description with depth of $depth",
         allocate(SingleParty),
       )(implicit ec => { case Participants(Participant(alpha, party)) =>
         update(ec)(alpha, party).map {
@@ -58,7 +61,7 @@ final class ValueNestingIT extends LedgerTestSuite {
         }
       })
 
-    test("ExerciseArgument") { implicit ec => (alpha, party) =>
+    test("exercise argument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
         result <- toEither(
@@ -67,21 +70,21 @@ final class ValueNestingIT extends LedgerTestSuite {
       } yield result
     }
 
-    test("ExerciseOutput") { implicit ec => (alpha, party) =>
+    test("exercise output") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
         result <- toEither(alpha.exercise(party, handler.exerciseConstruct(_, n)))
       } yield result
     }
 
-    test("CreateArgument") { implicit ec => (alpha, party) =>
+    test("create argument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
         result <- toEither(alpha.exercise(party, handler.exerciseCreate(_, nContract)))
       } yield result
     }
 
-    test("CreateKey") { implicit ec => (alpha, party) =>
+    test("contract key") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
         result <- toEither(alpha.exercise(party, handler.exerciseCreateKey(_, nKey)))
@@ -91,7 +94,7 @@ final class ValueNestingIT extends LedgerTestSuite {
     if (accepted) {
       // Because we cannot create contracts with depth > 100,
       // it does not make sense to test fetch of those kinds of contracts.
-      test("FetchByKey") { implicit ec => (alpha, party) =>
+      test("fetch by key") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
@@ -100,7 +103,7 @@ final class ValueNestingIT extends LedgerTestSuite {
       }
     }
 
-    test("FailingLookupByKey") { implicit ec => (alpha, party) =>
+    test("failing lookup by key") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
         result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, nKey)))
@@ -110,7 +113,7 @@ final class ValueNestingIT extends LedgerTestSuite {
     if (accepted) {
       // Because we cannot create contracts with key depth > 100,
       // it does not make sens to test successful lookup of key with depth > 100.
-      test("SuccessfulLookupByKey") { implicit ec => (alpha, party) =>
+      test("successful lookup by key") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
