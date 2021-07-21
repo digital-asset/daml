@@ -54,8 +54,7 @@ template Handler
         with
           i: Int
         do
-          n <- exercise self Construct with i = i
-          exercise self Destruct with n = n
+          exercise self Destruct with n = toNat i
       nonconsuming Create: ContractId Contract
         with
           i : Int
