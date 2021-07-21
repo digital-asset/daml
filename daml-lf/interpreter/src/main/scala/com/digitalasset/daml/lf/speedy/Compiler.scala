@@ -8,7 +8,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Interface, LanguageVersion, LookupError}
+import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
