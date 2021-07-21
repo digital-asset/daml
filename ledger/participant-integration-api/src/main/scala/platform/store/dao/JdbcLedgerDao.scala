@@ -33,7 +33,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{DivulgedContract, RejectionReason, SubmitterInfo}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -522,14 +522,16 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-  )(implicit connection: Connection) =
+  )(implicit connection: Connection): Option[RejectionReason] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
-      postCommitValidation.validate(
-        transaction = transaction,
-        transactionLedgerEffectiveTime = ledgerEffectiveTime,
-        divulged = divulged.iterator.map(_.contractId).toSet,
-      ),
+      postCommitValidation
+        .validate(
+          transaction = transaction,
+          transactionLedgerEffectiveTime = ledgerEffectiveTime,
+          divulged = divulged.iterator.map(_.contractId).toSet,
+        )
+        .map(_.toStateV1RejectionReason),
     )
 
   private def insertCompletions(
@@ -604,7 +606,7 @@ private class JdbcLedgerDao(
                   submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
-                  reason = reason,
+                  reason = reason.toParticipantStateRejectionReason,
                 )
                 .execute()
           }
