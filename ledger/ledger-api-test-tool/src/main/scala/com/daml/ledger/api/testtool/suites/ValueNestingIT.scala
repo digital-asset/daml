@@ -18,7 +18,7 @@ import scala.util.Success
 final class ValueNestingIT extends LedgerTestSuite {
 
   @tailrec
-  private def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
+  private[this] def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
     if (i == 0) acc else toNat(i - 1, Nat.S(acc))
 
   private[this] def toEither[X](future: Future[X])(implicit
