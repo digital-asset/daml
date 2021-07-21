@@ -295,7 +295,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     )
 
     val arg =
-      v.Record(fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Bob"))))))
+      recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
     val choice = lar.Choice("Iou_Transfer")
 
     domain.CreateAndExerciseCommand(
@@ -309,11 +309,11 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def multiPartyCreateCommand(ps: List[String], value: String) = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
-    val psv = v.Value(v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p))))))
-    val payload = v.Record(
-      fields = List(
-        v.RecordField("parties", Some(psv)),
-        v.RecordField("value", Some(v.Value(v.Value.Sum.Text(value)))),
+    val psv = v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p)))))
+    val payload = recordFromFields(
+      ShRecord(
+        parties = psv,
+        value = v.Value.Sum.Text(value),
       )
     )
     domain.CreateCommand(
@@ -325,14 +325,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
-    val psv = v.Value(v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p))))))
-    val argument = v.Value(
-      v.Value.Sum.Record(
-        v.Record(
-          fields = List(v.RecordField("newParties", Some(psv)))
-        )
-      )
-    )
+    val psv = v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p)))))
+    val argument = v.Value(v.Value.Sum.Record(recordFromFields(ShRecord(newParties = psv))))
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(templateId), cid),
       argument = argument,
@@ -349,15 +343,10 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
     val argument = v.Value(
       v.Value.Sum.Record(
-        v.Record(
-          fields = List(
-            v.RecordField("cid", Some(v.Value(v.Value.Sum.ContractId(fetchedCid.unwrap)))),
-            v.RecordField(
-              "actors",
-              Some(
-                v.Value(v.Value.Sum.List(v.List(actors.map(p => v.Value(v.Value.Sum.Party(p))))))
-              ),
-            ),
+        recordFromFields(
+          ShRecord(
+            cid = v.Value.Sum.ContractId(fetchedCid.unwrap),
+            actors = v.Value.Sum.List(v.List(actors.map(p => v.Value(v.Value.Sum.Party(p))))),
           )
         )
       )
