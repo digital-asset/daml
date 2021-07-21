@@ -263,4 +263,66 @@ final class DivulgenceIT extends LedgerTestSuite {
       _ <- synchronize(alpha, beta)
     } yield ()
   })
+
+  test(
+    "DivulgeToAnotherParticipant",
+    "Divulging to another participant",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    import Test.{Witnesses, DivulgeWitnesses}
+    for {
+      witnesses <- alpha.create[Witnesses](alice, Witnesses(alice, alice, bob))
+      divulgeWitness <- beta.create(bob, DivulgeWitnesses(alice, bob))
+      _ <- synchronize(alpha, beta)
+      _ <- alpha.exercise(alice, divulgeWitness.exerciseDivulge(_, witnesses))
+
+    } yield ()
+  })
+
+  test(
+    "DiscloseToAnotherParticipant",
+    "Disclose to another participant",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    import Test.Witnesses
+    for {
+      witnesses <- beta.create[Witnesses](bob, Witnesses(bob, alice, alice))
+      _ <- synchronize(alpha, beta)
+      _ <- alpha.exercise(alice, witnesses.exerciseWitnessesCreateNewWitnesses(_))
+
+    } yield ()
+  })
+
+  test(
+    "DivulgeTwiceToAnotherParticipant",
+    "Divulging to another participant twice",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    import Test.{Witnesses, DivulgeWitnesses}
+    for {
+      witnesses <- alpha.create[Witnesses](alice, Witnesses(alice, alice, bob))
+      divulgeWitness1 <- beta.create(bob, DivulgeWitnesses(alice, bob))
+      divulgeWitness2 <- beta.create(bob, DivulgeWitnesses(alice, bob))
+      _ <- synchronize(alpha, beta)
+      _ <- alpha.exercise(alice, divulgeWitness1.exerciseDivulge(_, witnesses))
+      _ <- alpha.exercise(alice, divulgeWitness2.exerciseDivulge(_, witnesses))
+
+    } yield ()
+  })
+
+  test(
+    "DivulgeToAnotherParticipantAfterDisclose",
+    "Divulging to another participant twice",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    import Test.{Witnesses, DivulgeWitnesses}
+    for {
+      witnesses <- beta.create[Witnesses](bob, Witnesses(bob, alice, alice))
+      divulgeWitness <- beta.create(bob, DivulgeWitnesses(alice, bob))
+      _ <- synchronize(alpha, beta)
+      newWitnesses <- alpha.exerciseAndGetContract(alice, witnesses.exerciseWitnessesCreateNewWitnesses(_))
+      _ <- alpha.exercise(alice, divulgeWitness.exerciseDivulge(_, newWitnesses))
+
+    } yield ()
+  })
 }
