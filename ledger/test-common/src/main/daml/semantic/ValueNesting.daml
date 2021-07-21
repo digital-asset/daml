@@ -50,7 +50,7 @@ template Handler
       nonconsuming Destruct : Int
         with n: Nat
         do pure $ toInt n
-      nonconsuming ContructThenDestruct : Int
+      nonconsuming ConstructThenDestruct : Int
         with
           i: Int
         do

@@ -65,7 +65,7 @@ final class ValueNestingIT extends LedgerTestSuite {
       for {
         handler <- alpha.create(party, Handler(party))
         result <- toEither(
-          alpha.exercise(party, handler.exerciseContructThenDestruct(_, nChoiceArgument))
+          alpha.exercise(party, handler.exerciseConstructThenDestruct(_, nChoiceArgument))
         )
       } yield result
     }
