@@ -4,6 +4,7 @@
 syntax = "proto3";
 package com.daml.ledger.participant.state.kvutils;
 option java_package = "com.daml.ledger.participant.state.kvutils";
+option java_outer_classname = "WireFormat";
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
 import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
