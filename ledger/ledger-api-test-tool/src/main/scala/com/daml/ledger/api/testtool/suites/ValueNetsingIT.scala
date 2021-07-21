@@ -18,22 +18,28 @@ import scala.util.Success
 final class ValueNestingIT extends LedgerTestSuite {
 
   @tailrec
-  def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
+  private[this] def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
     if (i == 0) acc else toNat(i - 1, Nat.S(acc))
 
   @tailrec
-  def toLong(n: Nat, acc: Long = 0): Int =
+  private[this] def toLong(n: Nat, acc: Long = 0): Int =
     n match {
       case Nat.Z(_) => 0
       case Nat.S(n) => toLong(n, acc + 1)
     }
 
-  def toEither[X](future: Future[X])(implicit ec: ExecutionContext): Future[Either[Throwable, X]] =
+  private[this] def toEither[X](future: Future[X])(implicit
+      ec: ExecutionContext
+  ): Future[Either[Throwable, X]] =
     future.transform(x => Success(x.toEither))
 
   List[Long](30, 100, 101, 110, 200).foreach { depth =>
     val accepted = depth <= 100
     val result = if (accepted) "Accept" else "Reject"
+
+    // Once converted to Nat, n will have depth `depth`.
+    // Note that Nat.Z has depth 2.
+    val n = depth - 2
 
     def test[T](description: String)(
         update: ExecutionContext => (
@@ -55,62 +61,67 @@ final class ValueNestingIT extends LedgerTestSuite {
       })
 
     test("CreateArgument") { implicit ec => (alpha, party) =>
-      toEither(alpha.create(party, Contract(party, depth, toNat(depth - 2))))
-
+      toEither(alpha.create(party, Contract(party, depth, toNat(n))))
     }
 
     test("ExerciseArgument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseDestruct(_, toNat(depth - 2))))
+        result <- toEither(alpha.exercise(party, handler.exerciseDestruct(_, toNat(n))))
       } yield result
     }
 
     test("ExerciseOutput") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseConstruct(_, depth - 2)))
+        result <- toEither(alpha.exercise(party, handler.exerciseConstruct(_, n)))
       } yield result
     }
 
     test("Create") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseCreate(_, depth - 2)))
+        result <- toEither(alpha.exercise(party, handler.exerciseCreate(_, n)))
       } yield result
     }
 
     test("CreateKey") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseCreateKey(_, depth - 2)))
+        result <- toEither(alpha.exercise(party, handler.exerciseCreateKey(_, n)))
       } yield result
     }
 
-    if (accepted)
+    if (accepted) {
+      // Because we cannot create contracts with depth > 100,
+      // it does not make sens to test fetch of those kinds of contracts.
       test("FetchByKey") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
-          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, depth - 2))
-          result <- toEither(alpha.exercise(party, handler.exerciseFetchByKey(_, depth - 2)))
+          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, n))
+          result <- toEither(alpha.exercise(party, handler.exerciseFetchByKey(_, n)))
         } yield result
       }
+    }
 
     test("FailingLookupByKey") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, depth - 2)))
+        result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, n)))
       } yield result
     }
 
-    if (accepted)
+    if (accepted) {
+      // Because we cannot create contracts with key depth > 100,
+      // it does not make sens to test successful lookup of key with depth > 100.
       test("SuccessfulLookupByKey") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
-          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, depth - 2))
-          result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, depth - 2)))
+          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, n))
+          result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, n)))
         } yield result
       }
+    }
 
   }
 }
