@@ -127,7 +127,7 @@ object ParallelIndexerFactory {
                 .map(_ -> System.nanoTime())
             )
               .map(_ => ())
-              .keepAlive( // TODO ha: remove as stable. This keepAlive approach was introduced for safety with async commit. This is still needed until HA is mandatory for Postgres to ensure safety with async commit.
+              .keepAlive( // TODO ha: remove as stable. This keepAlive approach was introduced for safety with async commit. This is still needed until HA is mandatory for Postgres to ensure safety with async commit. This will not needed anymore if HA is enabled by default, since the Ha mutual exclusion implementation with advisory locks makes impossible to let a db-shutdown go undetected.
                 keepAliveMaxIdleDuration,
                 () =>
                   if (dbDispatcher.currentHealth() == HealthStatus.healthy) {

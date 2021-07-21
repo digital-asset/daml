@@ -126,8 +126,9 @@ object PreemptableSequence {
         go(body).transformWith {
           // since we check countdown to 0, starting from negative means unlimited retries
           case Failure(ex) if maxAmountOfRetries == 0 =>
-            logger.info(
-              s"Maximum amount of retries reached ($maxAmountOfRetries) failing permanently. (${ex.getMessage})"
+            logger.warn(
+              s"Maximum amount of retries reached ($maxAmountOfRetries) failing permanently.",
+              ex,
             )
             Future.failed(ex)
           case Success(t) => Future.successful(t)
