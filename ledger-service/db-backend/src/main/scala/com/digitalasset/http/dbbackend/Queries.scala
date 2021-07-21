@@ -11,6 +11,7 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
+import scala.collection.compat._
 import scala.collection.immutable.{Seq => ISeq}
 import scalaz.{@@, Cord, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
@@ -425,15 +426,15 @@ object Queries {
       import cats.instances.option._, cats.instances.string._
       throw InvalidValue[Option[String], ISeq[Int]](from, reason = reason)
     }
-    (from.cata(
+    from.cata(
       { s =>
         val matches = s split ',' collect {
           case e if e.nonEmpty => e.parseInt.fold(err => invalid(err.getMessage), identity)
         }
-        matches.toSeq
+        matches.to(ISeq)
       },
       ISeq.empty,
-    )) match {
+    ) match {
       case NonEmpty(matches) => matches
       case _ => invalid("matched row, but no matching index found; this indicates a query bug")
     }
