@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-final class ValueNestingIT extends LedgerTestSuite {
+final class DeeplyNestedValueIT extends LedgerTestSuite {
 
   @tailrec
   private[this] def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
@@ -29,21 +29,21 @@ final class ValueNestingIT extends LedgerTestSuite {
   private[this] def camlCase(s: String) =
     s.split(" ").iterator.map(_.capitalize).mkString("")
 
-  List[Long](30, 100, 101, 110, 200).foreach { depth =>
-    val accepted = depth <= 100
+  List[Long](30, 100, 101, 200).foreach { nesting =>
+    val accepted = nesting <= 100
     val result = if (accepted) "Accept" else "Reject"
 
-    // Once converted to Nat, `n` will have depth `depth`.
+    // Once converted to Nat, `n` will have nesting `nesting`.
     // Note that Nat.Z(()) has depth 2.
-    val n = depth - 2
+    val n = nesting - 1
 
     // Choice argument are always wrapped in a record
     val nChoiceArgument = n - 1
 
-    // The depth of the payload of a `Contract` is one more than the nat it contains
+    // The nesting of the payload of a `Contract` is one more than the nat it contains
     val nContract = n - 1
 
-    // The depth of the key of a `ContractWithKey` is one more than the nat it contains
+    // The nesting of the key of a `ContractWithKey` is one more than the nat it contains
     val nKey = n - 1
 
     def test[T](description: String)(
@@ -53,8 +53,8 @@ final class ValueNestingIT extends LedgerTestSuite {
         ) => Future[Either[Throwable, T]]
     ) =
       super.test(
-        result + camlCase(description) + depth.toString,
-        s"${result.toLowerCase}s $description with depth of $depth",
+        result + camlCase(description) + nesting.toString,
+        s"${result.toLowerCase}s $description with nesting of $nesting",
         allocate(SingleParty),
       )(implicit ec => { case Participants(Participant(alpha, party)) =>
         update(ec)(alpha, party).map {
@@ -138,7 +138,7 @@ final class ValueNestingIT extends LedgerTestSuite {
     }
 
     if (accepted) {
-      // Because we cannot create contracts with depth > 100,
+      // Because we cannot create contracts with nesting > 100,
       // it does not make sense to test fetch of those kinds of contracts.
       test("fetch by key") { implicit ec => (alpha, party) =>
         for {
@@ -157,8 +157,8 @@ final class ValueNestingIT extends LedgerTestSuite {
     }
 
     if (accepted) {
-      // Because we cannot create contracts with key depth > 100,
-      // it does not make sens to test successful lookup of key with depth > 100.
+      // Because we cannot create contracts with key nesting > 100,
+      // it does not make sens to test successful lookup for those keys.
       test("successful lookup by key") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
