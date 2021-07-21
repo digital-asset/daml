@@ -10,11 +10,8 @@ import com.daml.ledger.participant.state.v1.{
   CommandId,
   TransactionMeta,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlStateKey,
-  DamlSubmission,
-  DamlCommandDedupKey,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlCommandDedupKey}
+import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.data.Ref.{Party, Identifier}

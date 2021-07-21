@@ -7,9 +7,10 @@ import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.WireFormat.{DamlSubmission, DamlSubmissionBatch}
+import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.{
   DamlStateMap,
   Envelope,

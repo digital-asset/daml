@@ -13,9 +13,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationEntry,
   DamlStateKey,
-  DamlSubmission,
   DamlSubmissionDedupKey,
 }
+import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawPreExecutingCommitStrategySupportSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}

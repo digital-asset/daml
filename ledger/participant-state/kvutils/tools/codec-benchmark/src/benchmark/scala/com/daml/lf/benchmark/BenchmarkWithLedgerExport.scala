@@ -6,7 +6,7 @@ package com.daml.lf.benchmark
 import java.nio.file.{Files, Paths}
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.`export`.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.archive.Decode

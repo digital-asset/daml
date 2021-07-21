@@ -8,7 +8,7 @@ import java.util.UUID
 
 import akka.stream.Materializer
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
+import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.lf.data.Ref
