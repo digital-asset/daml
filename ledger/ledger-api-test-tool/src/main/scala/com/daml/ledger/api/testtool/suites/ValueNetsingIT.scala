@@ -11,22 +11,10 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.test.semantic.ValueNesting._
 import io.grpc.Status
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 final class ValueNestingIT extends LedgerTestSuite {
-
-  @tailrec
-  private[this] def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
-    if (i == 0) acc else toNat(i - 1, Nat.S(acc))
-
-  @tailrec
-  private[this] def toLong(n: Nat, acc: Long = 0): Int =
-    n match {
-      case Nat.Z(_) => 0
-      case Nat.S(n) => toLong(n, acc + 1)
-    }
 
   private[this] def toEither[X](future: Future[X])(implicit
       ec: ExecutionContext
@@ -37,9 +25,18 @@ final class ValueNestingIT extends LedgerTestSuite {
     val accepted = depth <= 100
     val result = if (accepted) "Accept" else "Reject"
 
-    // Once converted to Nat, n will have depth `depth`.
+    // Once converted to Nat, `depthNat` will have depth `depth`.
     // Note that Nat.Z has depth 2.
     val n = depth - 2
+
+    // Choice argument are always wrapped in a record
+    val nChoiceArgument = n - 1
+
+    // The depth of the payload of a `Contract` is one more than the nat it contains
+    val nContract = n - 1
+
+    // The depth of the key of a `ContractWithKey` is one more than the nat it contains
+    val nKey = n - 1
 
     def test[T](description: String)(
         update: ExecutionContext => (
@@ -56,18 +53,17 @@ final class ValueNestingIT extends LedgerTestSuite {
           case Right(_) if accepted => ()
           case Left(err: Throwable) if !accepted =>
             assertGrpcError(err, Status.Code.INVALID_ARGUMENT, None)
-          case otherwise => fail("Unexpected " + otherwise.fold(_ => "success", _ => "failure"))
+          case otherwise =>
+            fail("Unexpected " + otherwise.fold(err => s"failure: $err", _ => "success"))
         }
       })
-
-    test("CreateArgument") { implicit ec => (alpha, party) =>
-      toEither(alpha.create(party, Contract(party, depth, toNat(n))))
-    }
 
     test("ExerciseArgument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseDestruct(_, toNat(n))))
+        result <- toEither(
+          alpha.exercise(party, handler.exerciseContructThenDestruct(_, nChoiceArgument))
+        )
       } yield result
     }
 
@@ -78,17 +74,17 @@ final class ValueNestingIT extends LedgerTestSuite {
       } yield result
     }
 
-    test("Create") { implicit ec => (alpha, party) =>
+    test("CreateArgument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseCreate(_, n)))
+        result <- toEither(alpha.exercise(party, handler.exerciseCreate(_, nContract)))
       } yield result
     }
 
     test("CreateKey") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseCreateKey(_, n)))
+        result <- toEither(alpha.exercise(party, handler.exerciseCreateKey(_, nKey)))
       } yield result
     }
 
@@ -98,8 +94,8 @@ final class ValueNestingIT extends LedgerTestSuite {
       test("FetchByKey") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
-          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, n))
-          result <- toEither(alpha.exercise(party, handler.exerciseFetchByKey(_, n)))
+          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
+          result <- toEither(alpha.exercise(party, handler.exerciseFetchByKey(_, nKey)))
         } yield result
       }
     }
@@ -107,7 +103,7 @@ final class ValueNestingIT extends LedgerTestSuite {
     test("FailingLookupByKey") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, n)))
+        result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, nKey)))
       } yield result
     }
 
@@ -117,8 +113,8 @@ final class ValueNestingIT extends LedgerTestSuite {
       test("SuccessfulLookupByKey") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
-          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, n))
-          result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, n)))
+          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
+          result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, nKey)))
         } yield result
       }
     }

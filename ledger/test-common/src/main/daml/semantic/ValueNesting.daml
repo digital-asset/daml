@@ -23,18 +23,18 @@ toInt x = destruct x 0
 template Contract
   with
     party: Party
-    n: Int
-    content: Nat
+    i: Int
+    n: Nat
   where
     signatory party
 
 template ContractWithKey
   with
     party: Party
-    n: Int
+    i: Int
   where
     signatory party
-    key (party, toNat n): (Party, Nat)
+    key (party, toNat i): (Party, Nat)
     maintainer key._1
 
 template Handler
@@ -44,43 +44,46 @@ template Handler
     signatory party
     controller party can
       nonconsuming Construct : Nat
-        with
-          n : Int
+        with i : Int
         do
-          pure $ toNat n
+          pure $ toNat i
       nonconsuming Destruct : Int
-        with
-          n: Nat
+        with n: Nat
         do pure $ toInt n
+      nonconsuming ContructThenDestruct : Int
+        with
+          i: Int
+        do
+          n <- exercise self Construct with i = i
+          exercise self Destruct with n = n
       nonconsuming Create: ContractId Contract
         with
-          n : Int
+          i : Int
         do
           create Contract with
             party = party
-            n = n
-            content = toNat n
+            i = i
+            n = toNat i
       nonconsuming CreateKey: ContractId ContractWithKey
         with
-          n : Int
+          i : Int
         do
           create ContractWithKey with
             party = party
-            n = n
+            i = i
       nonconsuming Fetch: Contract
-        with
-          cid: ContractId Contract
+        with cid: ContractId Contract
         do
           fetch cid
       nonconsuming FetchByKey: ContractId ContractWithKey
         with
-          n: Int
+          i: Int
         do
-          (cid, _) <- fetchByKey @ContractWithKey (party, toNat n)
+          (cid, _) <- fetchByKey @ContractWithKey (party, toNat i)
           pure cid
       nonconsuming LookupByKey: Optional (ContractId ContractWithKey)
         with
-          n: Int
+          i: Int
         do
-          lookupByKey @ContractWithKey (party, toNat n)
+          lookupByKey @ContractWithKey (party, toNat i)
 
