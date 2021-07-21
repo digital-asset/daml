@@ -156,7 +156,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   // Note that there is no committer pruning of packages, so MissingInputState can only arise from a malicious
   // or buggy participant.
   @throws[Err.MissingInputState]
-  @throws[Err.DecodeError]
+  @throws[Err.ArchiveDecodingFailed]
   private[validation] def lookupPackage(
       commitContext: CommitContext
   )(pkgId: PackageId)(implicit loggingContext: LoggingContext): Option[Ast.Package] =
@@ -178,13 +178,13 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
             } catch {
               case err: archive.Error =>
                 logger.warn("Decoding the archive failed.")
-                throw Err.DecodeError("Archive", err.getMessage)
+                throw Err.ArchiveDecodingFailed(pkgId, err.getMessage)
             }
 
           case _ =>
             val msg = "value is not a Daml-LF archive"
             logger.warn(s"Package lookup failed, $msg.")
-            throw Err.DecodeError("Archive", msg)
+            throw Err.ArchiveDecodingFailed(pkgId, msg)
         }
       } yield pkg
     }

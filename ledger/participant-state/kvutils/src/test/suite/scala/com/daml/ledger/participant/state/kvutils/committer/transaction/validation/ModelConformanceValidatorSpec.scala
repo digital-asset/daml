@@ -196,7 +196,8 @@ class ModelConformanceValidatorSpec
     }
 
     "create StepStop in case of decode error" in {
-      val validator = createThrowingValidator(Err.DecodeError("'test kind'", "'test message'"))
+      val validator =
+        createThrowingValidator(Err.ArchiveDecodingFailed(aPackageId, "'test message'"))
 
       val step = validator
         .createValidationStep(rejections)(
@@ -205,7 +206,9 @@ class ModelConformanceValidatorSpec
         )
       inside(step) { case StepStop(logEntry) =>
         logEntry.getTransactionRejectionEntry.hasDisputed shouldBe true
-        logEntry.getTransactionRejectionEntry.getDisputed.getDetails shouldBe "Decoding 'test kind' failed: 'test message'"
+        logEntry.getTransactionRejectionEntry.getDisputed.getDetails should be(
+          "Decoding of Daml-LF archive aPackage failed: 'test message'"
+        )
       }
     }
 
@@ -297,8 +300,7 @@ class ModelConformanceValidatorSpec
         Map(stateKey -> Some(stateValue)),
       )
 
-      val maybePackage = defaultValidator
-        .lookupPackage(commitContext)(Ref.PackageId.assertFromString("aPackage"))
+      val maybePackage = defaultValidator.lookupPackage(commitContext)(aPackageId)
 
       maybePackage shouldBe a[Some[_]]
     }
@@ -322,7 +324,7 @@ class ModelConformanceValidatorSpec
       )
 
       forAll(stateValues) { stateValue =>
-        an[Err.DecodeError] should be thrownBy defaultValidator.lookupPackage(
+        an[Err.ArchiveDecodingFailed] should be thrownBy defaultValidator.lookupPackage(
           createCommitContext(
             None,
             Map(stateKey -> Some(stateValue)),
@@ -403,6 +405,7 @@ object ModelConformanceValidatorSpec {
   private val aKeyMaintainer = "maintainer"
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
   private val aTemplateId = "dummyPackage:DummyModule:DummyTemplate"
+  private val aPackageId = Ref.PackageId.assertFromString("aPackage")
 
   private val aSubmissionSeed = ByteString.copyFromUtf8("a" * 32)
   private val ledgerEffectiveTime =
