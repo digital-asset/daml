@@ -222,11 +222,9 @@ sealed abstract class Queries {
         free.connection.pure(0)
       case Some(cids) =>
         val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
-        for {
-          deleted <- chunks.traverse(chunk =>
+        chunks.foldA(chunk =>
             (fr"DELETE FROM contract WHERE " ++ Fragments.in(fr"contract_id", chunk)).update.run
           )
-        } yield deleted.sum
     }
   }
 
