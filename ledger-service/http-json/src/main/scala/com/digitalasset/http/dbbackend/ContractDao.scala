@@ -17,10 +17,20 @@ import scalaz.{NonEmptyList, OneAnd}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
-import java.util.concurrent.Executors
+import java.io.{Closeable, IOException}
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
+import scala.language.existentials
+import scala.util.Try
 
-class ContractDao private(xa: ConnectionPool.T)(implicit val jdbcDriver: SupportedJdbcDriver) {
+class ContractDao private (
+    ds: DataSource with Closeable,
+    xa: ConnectionPool.T,
+    dbAccessPool: ExecutorService,
+)(implicit
+    val jdbcDriver: SupportedJdbcDriver
+) extends Closeable {
 
   implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[ContractDao])
 
@@ -29,6 +39,27 @@ class ContractDao private(xa: ConnectionPool.T)(implicit val jdbcDriver: Support
 
   def isValid(timeoutSeconds: Int): IO[Boolean] =
     fconn.isValid(timeoutSeconds).transact(xa)
+
+  def shutdown(): Try[Unit] = {
+    for {
+      _ <- Try {
+        dbAccessPool.shutdown()
+        dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
+      }
+      _ <- Try { ds.close() }
+    } yield ()
+  }
+
+  @throws[IOException]
+  override def close(): Unit = {
+    shutdown().fold(
+      {
+        case e: IOException => throw e
+        case e => throw new IOException(e)
+      },
+      identity,
+    )
+  }
 }
 
 object ContractDao {
@@ -40,7 +71,9 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(cfg: JdbcConfig)(implicit ec: ExecutionContext): ContractDao = {
+  def apply(cfg: JdbcConfig, poolSize: Int = ConnectionPool.PoolSize)(implicit
+      ec: ExecutionContext
+  ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     implicit val sjd: SupportedJdbcDriver = supportedJdbcDrivers.getOrElse(
       cfg.driver,
@@ -48,8 +81,10 @@ object ContractDao {
         s"JDBC driver ${cfg.driver} is not one of ${supportedJdbcDrivers.keySet}"
       ),
     )
-    val ectx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(ConnectionPool.PoolSize))
-    new ContractDao(ConnectionPool.connect(cfg, ConnectionPool.PoolSize)(ectx, cs))
+    //pool for connections awaiting database access
+    val es = Executors.newWorkStealingPool(poolSize)
+    val (ds, conn) = ConnectionPool.connect(cfg, poolSize)(ExecutionContext.fromExecutor(es), cs)
+    new ContractDao(ds, conn, es)
   }
 
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] =

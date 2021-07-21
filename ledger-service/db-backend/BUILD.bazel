@@ -36,8 +36,8 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
-        "//libs-scala/scala-utils",
         "//ledger-service/http-json-cli:base",
+        "//libs-scala/scala-utils",
         "@maven//:com_zaxxer_HikariCP",
     ],
 )

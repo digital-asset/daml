@@ -17,11 +17,14 @@ object Connection {
 
   type T = Transactor.Aux[IO, Unit]
 
-  def connect(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
+  def connect(cfg: JdbcConfig)(implicit
       cs: ContextShift[IO]
   ): T =
     Transactor
-      .fromDriverManager[IO](jdbcDriver, jdbcUrl, username, password)(IO.ioConcurrentEffect(cs), cs)
+      .fromDriverManager[IO](cfg.driver, cfg.url, cfg.user, cfg.password)(
+        IO.ioConcurrentEffect(cs),
+        cs,
+      )
 }
 
 object ConnectionPool {
@@ -31,20 +34,22 @@ object ConnectionPool {
   final val IdleTimeout = 10000
   final val PoolSize = 10
 
-
   type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
- def connect(cfg: JdbcConfig, poolSize: Int)(implicit
-                                                 ec: ExecutionContext,
-                                                 cs: ContextShift[IO],
-  ): T = {
+  def connect(cfg: JdbcConfig, poolSize: Int)(implicit
+      ec: ExecutionContext,
+      cs: ContextShift[IO],
+  ): (DataSource with Closeable, T) = {
     val ds = dataSource(cfg, poolSize)
-    Transactor
+    (
+      ds,
+      Transactor
         .fromDataSource[IO](
           ds,
           connectEC = ec,
           blocker = Blocker liftExecutorService newWorkStealingPool(poolSize),
-        )(IO.ioConcurrentEffect(cs), cs)
+        )(IO.ioConcurrentEffect(cs), cs),
+    )
   }
 
   def dataSource(cfg: JdbcConfig, poolSize: Int) = {

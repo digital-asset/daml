@@ -43,8 +43,10 @@ abstract class ContractDaoBenchmark extends OracleAround {
   }
 
   @TearDown(Level.Trial)
-  def teardown(): Unit =
+  def teardown(): Unit = {
+    dao.shutdown()
     dropUser(user.name)
+  }
 
   protected def contract(
       id: Int,
