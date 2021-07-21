@@ -65,8 +65,7 @@ class ModelConformanceValidatorSpec
 
   private val metrics = new Metrics(new MetricRegistry)
 
-  private val mockEngine = mock[Engine]
-  private val modelConformanceValidator = new ModelConformanceValidator(mockEngine, metrics)
+  private val defaultValidator = new ModelConformanceValidator(mock[Engine], metrics)
   private val rejections = new Rejections(metrics)
 
   private val inputCreate = create(
@@ -107,6 +106,7 @@ class ModelConformanceValidatorSpec
 
   "createValidationStep" should {
     "create StepContinue in case of correct input" in {
+      val mockEngine = mock[Engine]
       val mockValidationResult = mock[Result[Unit]]
       when(
         mockValidationResult.consume(
@@ -128,7 +128,9 @@ class ModelConformanceValidatorSpec
         )
       ).thenReturn(mockValidationResult)
 
-      modelConformanceValidator.createValidationStep(rejections)(
+      val validator = new ModelConformanceValidator(mockEngine, metrics)
+
+      validator.createValidationStep(rejections)(
         createCommitContext(
           None,
           Map(
@@ -141,6 +143,7 @@ class ModelConformanceValidatorSpec
     }
 
     "create StepStop in case of validation error" in {
+      val mockEngine = mock[Engine]
       when(
         mockEngine.validate(
           any[Set[Ref.Party]],
@@ -158,7 +161,9 @@ class ModelConformanceValidatorSpec
         )
       )
 
-      val step = modelConformanceValidator
+      val validator = new ModelConformanceValidator(mockEngine, metrics)
+
+      val step = validator
         .createValidationStep(rejections)(
           createCommitContext(
             None,
@@ -175,7 +180,39 @@ class ModelConformanceValidatorSpec
     }
 
     "create StepStop in case of missing input" in {
+      val validator = createThrowingValidator(Err.MissingInputState(inputContractIdStateKey))
+
+      val step = validator
+        .createValidationStep(rejections)(
+          createCommitContext(None),
+          aTransactionEntry,
+        )
+      inside(step) { case StepStop(logEntry) =>
+        logEntry.getTransactionRejectionEntry.hasInconsistent shouldBe true
+        logEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
+          "Missing input state for key contract_id: \"#inputContractId\""
+        )
+      }
+    }
+
+    "create StepStop in case of decode error" in {
+      val validator = createThrowingValidator(Err.DecodeError("'test kind'", "'test message'"))
+
+      val step = validator
+        .createValidationStep(rejections)(
+          createCommitContext(None),
+          aTransactionEntry,
+        )
+      inside(step) { case StepStop(logEntry) =>
+        logEntry.getTransactionRejectionEntry.hasDisputed shouldBe true
+        logEntry.getTransactionRejectionEntry.getDisputed.getDetails shouldBe "Decoding 'test kind' failed: 'test message'"
+      }
+    }
+
+    def createThrowingValidator(consumeError: Err): ModelConformanceValidator = {
+      val mockEngine = mock[Engine]
       val mockValidationResult = mock[Result[Unit]]
+
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
@@ -184,7 +221,8 @@ class ModelConformanceValidatorSpec
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
         )
-      ).thenThrow(Err.MissingInputState(inputContractIdStateKey))
+      ).thenThrow(consumeError)
+
       when(
         mockEngine.validate(
           any[Set[Ref.Party]],
@@ -196,17 +234,7 @@ class ModelConformanceValidatorSpec
         )
       ).thenReturn(mockValidationResult)
 
-      val step = modelConformanceValidator
-        .createValidationStep(rejections)(
-          createCommitContext(
-            None,
-            Map.empty,
-          ),
-          aTransactionEntry,
-        )
-      inside(step) { case StepStop(logEntry) =>
-        logEntry.getTransactionRejectionEntry.hasInconsistent shouldBe true
-      }
+      new ModelConformanceValidator(mockEngine, metrics)
     }
   }
 
@@ -221,7 +249,7 @@ class ModelConformanceValidatorSpec
         ),
       )
 
-      val contractInstance = modelConformanceValidator.lookupContract(commitContext)(
+      val contractInstance = defaultValidator.lookupContract(commitContext)(
         Conversions.decodeContractId(inputContractId)
       )
 
@@ -229,7 +257,7 @@ class ModelConformanceValidatorSpec
     }
 
     "throw if a contract does not exist in the current state" in {
-      an[Err.MissingInputState] should be thrownBy modelConformanceValidator.lookupContract(
+      an[Err.MissingInputState] should be thrownBy defaultValidator.lookupContract(
         createCommitContext(
           None,
           Map.empty,
@@ -245,13 +273,13 @@ class ModelConformanceValidatorSpec
     }
 
     "return Some when mapping exists" in {
-      modelConformanceValidator.lookupKey(contractKeyInputs)(
+      defaultValidator.lookupKey(contractKeyInputs)(
         aGlobalKeyWithMaintainers(inputContractKey, inputContractKeyMaintainer)
       ) shouldBe Some(Conversions.decodeContractId(inputContractId))
     }
 
     "return None when mapping does not exist" in {
-      modelConformanceValidator.lookupKey(contractKeyInputs)(
+      defaultValidator.lookupKey(contractKeyInputs)(
         aGlobalKeyWithMaintainers("nonexistentKey", "nonexistentMaintainer")
       ) shouldBe None
     }
@@ -269,14 +297,14 @@ class ModelConformanceValidatorSpec
         Map(stateKey -> Some(stateValue)),
       )
 
-      val maybePackage = modelConformanceValidator
+      val maybePackage = defaultValidator
         .lookupPackage(commitContext)(Ref.PackageId.assertFromString("aPackage"))
 
       maybePackage shouldBe a[Some[_]]
     }
 
     "fail when the package is missing" in {
-      an[Err.MissingInputState] should be thrownBy modelConformanceValidator.lookupPackage(
+      an[Err.MissingInputState] should be thrownBy defaultValidator.lookupPackage(
         createCommitContext(
           None,
           Map.empty,
@@ -294,7 +322,7 @@ class ModelConformanceValidatorSpec
       )
 
       forAll(stateValues) { stateValue =>
-        an[Err.DecodeError] should be thrownBy modelConformanceValidator.lookupPackage(
+        an[Err.DecodeError] should be thrownBy defaultValidator.lookupPackage(
           createCommitContext(
             None,
             Map(stateKey -> Some(stateValue)),
@@ -306,7 +334,7 @@ class ModelConformanceValidatorSpec
 
   "validateCausalMonotonicity" should {
     "create StepContinue when causal monotonicity holds" in {
-      modelConformanceValidator
+      defaultValidator
         .validateCausalMonotonicity(
           aTransactionEntry,
           createCommitContext(
@@ -321,7 +349,7 @@ class ModelConformanceValidatorSpec
     }
 
     "reject transaction when causal monotonicity does not hold" in {
-      val step = modelConformanceValidator
+      val step = defaultValidator
         .validateCausalMonotonicity(
           aTransactionEntry,
           createCommitContext(

@@ -108,6 +108,16 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       } yield ()
       stepResult.fold(identity, _ => StepContinue(transactionEntry))
     } catch {
+      case missingInputErr: Err.MissingInputState =>
+        logger.error(
+          "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant).",
+          missingInputErr,
+        )
+        rejections.buildRejectionStep(
+          transactionEntry,
+          RejectionReasonV0.Inconsistent(missingInputErr.getMessage),
+          commitContext.recordTime,
+        )
       case err: Err =>
         logger.error(
           "Model conformance validation failed most likely due to invalid state on the participant.",
@@ -115,7 +125,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
         )
         rejections.buildRejectionStep(
           transactionEntry,
-          RejectionReasonV0.Inconsistent(err.getMessage),
+          RejectionReasonV0.Disputed(err.getMessage),
           commitContext.recordTime,
         )
     }
