@@ -75,16 +75,6 @@ genrule(
                     cp "$$SRC/default-$$f" "$$OUT/$$d/.$$f"
                 fi
             done
-            # We avoid introducing infix syntax in the GSG so we disable
-            # the lint there.
-            if [ "$$d" = "create-daml-app" ]; then
-              cat >> $$OUT/$$d/.dlint.yaml <<EOF
-
-# This rule is enabled by default but we avoid
-# infix syntax here to keep things simple.
-- ignore: {name: Use infix }
-EOF
-            fi
         done
 
         ## special cases we should work to remove

@@ -209,7 +209,7 @@ da_scala_dar_resources_library(
 
 proto_jars(
     name = "daml_kvutils_proto",
-    srcs = ["src/main/protobuf/daml_kvutils.proto"],
+    srcs = glob(["src/main/protobuf/**/*.proto"]),
     maven_artifact_prefix = "participant-state-kvutils",
     maven_group = "com.daml",
     proto_deps = [

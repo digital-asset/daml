@@ -490,37 +490,6 @@ message DamlContractKeyState {
   google.protobuf.Timestamp active_at = 2;
 }
 
-// A v3 export of a KV ledger. Used by the integrity checker to test that a new version of
-// kvutils can process older ledgers.
-message LedgerExportEntry {
-  // Information about the submission.
-  message SubmissionInfo {
-    // The submitting participant ID.
-    string participant_id = 1;
-
-    // The correlation ID of the batch.
-    string correlation_id = 2;
-
-    // The submission to the ledger, wrapped in an envelope.
-    bytes submission_envelope = 3;
-
-    // the record time of the submission.
-    google.protobuf.Timestamp record_time = 4;
-  }
-
-  // A single entry, either to the log or to the state.
-  // Both key and value are serialized first.
-  message WriteEntry {
-    bytes key = 1;
-
-    bytes value = 2;
-  }
-
-  SubmissionInfo submission_info = 1;
-
-  repeated WriteEntry write_set = 2;
-}
-
 // Errors
 
 // The transaction relied on contracts or keys being active that were no longer active.
