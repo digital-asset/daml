@@ -168,10 +168,8 @@ sealed abstract class Queries {
       parties.toList.partition(p => lastOffsets.contains(p))
     }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
-    val insert = Update[(String, SurrogateTpId, String)](
-      """INSERT INTO ledger_offset VALUES(?, ?, ?)""",
-      logHandler0 = log,
-    )
+    val insert =
+      Update[(String, SurrogateTpId, String)]("""INSERT INTO ledger_offset VALUES(?, ?, ?)""")
     // If a concurrent transaction updated the offset for an existing party, we will get
     // fewer rows and throw a StaleOffsetException in the caller.
     val update = existingParties match {
@@ -498,8 +496,7 @@ private object PostgresQueries extends Queries {
         INSERT INTO contract
         VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
         ON CONFLICT (contract_id) DO NOTHING
-      """,
-      logHandler0 = log,
+      """
     ).updateMany(dbcs)
   }
 
@@ -657,8 +654,7 @@ private object OracleQueries extends Queries {
         INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
         INTO contract (contract_id, tpid, key, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      """,
-      logHandler0 = log,
+      """
     ).updateMany(
       dbcs.map(_.mapKeyPayloadParties(identity, identity, _.toJson))
     )

@@ -404,6 +404,7 @@ object ScenarioRunner {
       readAs = readAs,
       traceLog = traceLog,
       warningLog = warningLog,
+      commitLocation = location,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     @tailrec

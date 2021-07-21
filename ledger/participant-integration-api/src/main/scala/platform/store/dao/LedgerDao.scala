@@ -21,7 +21,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{DivulgedContract, RejectionReason, SubmitterInfo}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
@@ -47,7 +47,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
@@ -77,7 +77,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   def lookupTransactionTreeById(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
@@ -91,8 +91,6 @@ private[platform] trait LedgerDaoTransactionsReader {
     *
     * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id)
     * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id)
-    * @param loggingContext
-    * @return
     */
   def getContractStateEvents(
       startExclusive: (Offset, Long),
@@ -248,7 +246,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[Ref.WorkflowId],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
@@ -260,7 +258,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
@@ -281,7 +279,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   // TODO append-only: cleanup
   def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
@@ -343,7 +341,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def storeTransaction(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[Ref.WorkflowId],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: OffsetStep,
       transaction: CommittedTransaction,

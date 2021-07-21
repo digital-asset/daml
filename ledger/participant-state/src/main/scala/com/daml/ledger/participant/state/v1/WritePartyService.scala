@@ -35,6 +35,6 @@ trait WritePartyService {
   def allocateParty(
       hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

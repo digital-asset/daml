@@ -7,7 +7,7 @@ package scenario
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, TraceLog, WarningLog}
+import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
 import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
@@ -275,9 +275,10 @@ final class Conversions(
     builder.setMessage(msgAndLoc._1).build
   }
 
-  private[this] def convertSWarningMessage(msg: String): proto.WarningMessage = {
+  private[this] def convertSWarningMessage(warning: Warning): proto.WarningMessage = {
     val builder = proto.WarningMessage.newBuilder
-    builder.setMessage(msg).build
+    warning.commitLocation.map(loc => builder.setCommitLocation(convertLocation(loc)))
+    builder.setMessage(warning.message).build
   }
 
   def convertFailedAuthorization(

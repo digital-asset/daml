@@ -31,7 +31,7 @@ object Update {
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
       recordTime: Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       participantId: Ref.ParticipantId,
       newConfiguration: Configuration,
   ) extends Update {
@@ -43,7 +43,7 @@ object Update {
     */
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       participantId: Ref.ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String,
@@ -75,7 +75,7 @@ object Update {
       displayName: String,
       participantId: Ref.ParticipantId,
       recordTime: Timestamp,
-      submissionId: Option[SubmissionId],
+      submissionId: Option[Ref.SubmissionId],
   ) extends Update {
     override def description: String =
       s"Add party '$party' to participant"
@@ -97,7 +97,7 @@ object Update {
     *   Reason for rejection of the party allocation entry.
     */
   final case class PartyAllocationRejected(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       rejectionReason: String,
@@ -121,7 +121,7 @@ object Update {
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
       recordTime: Timestamp,
-      submissionId: Option[SubmissionId],
+      submissionId: Option[Ref.SubmissionId],
   ) extends Update {
     override def description: String =
       s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
@@ -137,7 +137,7 @@ object Update {
     *   Reason why the upload was rejected.
     */
   final case class PublicPackageUploadRejected(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {
@@ -185,7 +185,7 @@ object Update {
       optCompletionInfo: Option[CompletionInfo],
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Timestamp,
       divulgedContracts: List[DivulgedContract],
       blindingInfo: Option[BlindingInfo],

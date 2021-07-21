@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexSubmissionService,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteService}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf
 import com.daml.lf.command.{Commands => LfCommands}
@@ -95,11 +95,12 @@ class ApiSubmissionServiceSpec
 
   before {
     when(
-      writeService.allocateParty(any[Option[Ref.Party]], any[Option[Ref.Party]], any[SubmissionId])(
-        any[TelemetryContext]
-      )
-    )
-      .thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
+      writeService.allocateParty(
+        any[Option[Ref.Party]],
+        any[Option[Ref.Party]],
+        any[Ref.SubmissionId],
+      )(any[TelemetryContext])
+    ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
   }
 
   behavior of "allocateMissingInformees"
@@ -128,7 +129,7 @@ class ApiSubmissionServiceSpec
         verify(writeService).allocateParty(
           eqTo(Some(Ref.Party.assertFromString(party))),
           eqTo(Some(Ref.Party.assertFromString(party))),
-          any[SubmissionId],
+          any[Ref.SubmissionId],
         )(any[TelemetryContext])
       )
       verifyNoMoreInteractions(writeService)
@@ -165,9 +166,11 @@ class ApiSubmissionServiceSpec
     val typedParty = Ref.Party.assertFromString(party)
     val submissionFailure = SubmissionResult.InternalError(s"failed to allocate $party")
     when(
-      writeService.allocateParty(eqTo(Some(typedParty)), eqTo(Some(party)), any[SubmissionId])(
-        any[TelemetryContext]
-      )
+      writeService.allocateParty(
+        eqTo(Some(typedParty)),
+        eqTo(Some(party)),
+        any[Ref.SubmissionId],
+      )(any[TelemetryContext])
     ).thenReturn(CompletableFuture.completedFuture(submissionFailure))
     when(partyManagementService.getParties(eqTo(Seq(typedParty)))(any[LoggingContext])).thenAnswer(
       Future(List.empty[PartyDetails])

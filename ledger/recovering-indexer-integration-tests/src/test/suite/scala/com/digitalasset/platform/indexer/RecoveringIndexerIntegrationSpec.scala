@@ -17,7 +17,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
@@ -244,8 +244,8 @@ object RecoveringIndexerIntegrationSpec {
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  private def randomSubmissionId(): SubmissionId =
-    SubmissionId.assertFromString(UUID.randomUUID().toString)
+  private def randomSubmissionId() =
+    Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
     def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit

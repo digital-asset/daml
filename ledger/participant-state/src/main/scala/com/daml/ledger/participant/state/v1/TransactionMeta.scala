@@ -35,7 +35,7 @@ import com.daml.lf.transaction.NodeId
   */
 final case class TransactionMeta(
     ledgerEffectiveTime: Time.Timestamp,
-    workflowId: Option[WorkflowId],
+    workflowId: Option[Ref.WorkflowId],
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
     optUsedPackages: Option[Set[Ref.PackageId]],

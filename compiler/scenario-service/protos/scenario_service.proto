@@ -388,7 +388,8 @@ message TraceMessage {
 }
 
 message WarningMessage {
-  string message = 1;
+  Location commitLocation = 1; // optional
+  string message = 2;
 }
 
 // The scenario interpretation result.

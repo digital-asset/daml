@@ -24,6 +24,8 @@ da_scala_library(
         "//daml-lf/interface",
         "//daml-lf/language",
         "//language-support/scala/bindings-akka",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
     ],
 )
 
