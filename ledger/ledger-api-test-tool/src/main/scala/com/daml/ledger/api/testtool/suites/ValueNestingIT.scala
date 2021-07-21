@@ -90,7 +90,7 @@ final class ValueNestingIT extends LedgerTestSuite {
 
     if (accepted) {
       // Because we cannot create contracts with depth > 100,
-      // it does not make sens to test fetch of those kinds of contracts.
+      // it does not make sense to test fetch of those kinds of contracts.
       test("FetchByKey") { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
