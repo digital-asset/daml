@@ -27,6 +27,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
 
   private val alice = Ref.Party.assertFromString("Alice")
   private val commandId = Ref.CommandId.assertFromString("cmdid")
+  private val applicationId = Ref.ApplicationId.assertFromString("appid")
 
   private def toSubmission(tx: SubmittedTransaction): DamlSubmission = {
     val timestamp = Time.Timestamp.Epoch
@@ -41,7 +42,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     )
     val submitterInfo = SubmitterInfo(
       actAs = List(alice),
-      applicationId = Ref.ApplicationId.assertFromString("appid"),
+      applicationId = applicationId,
       commandId = commandId,
       deduplicateUntil = Instant.EPOCH,
     )
@@ -57,7 +58,11 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
 
   private val dedupKey = DamlStateKey.newBuilder
     .setCommandDedup(
-      DamlCommandDedupKey.newBuilder.addSubmitters(alice).setCommandId(commandId).build
+      DamlCommandDedupKey.newBuilder
+        .addSubmitters(alice)
+        .setApplicationId(applicationId)
+        .setCommandId(commandId)
+        .build
     )
     .build
 
