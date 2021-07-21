@@ -40,7 +40,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
 
@@ -99,10 +99,10 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   }
 
   def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd = {
-    val queryStatement = connection.createStatement()
-    val params = fetch(
-      queryStatement.executeQuery(
-        """
+    val params = Using.resource(connection.createStatement()) { queryStatement =>
+      fetch(
+        queryStatement.executeQuery(
+          """
           |SELECT
           |  ledger_end,
           |  ledger_end_sequential_id
@@ -110,16 +110,16 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           |  parameters
           |
           |""".stripMargin
+        )
+      )(rs =>
+        StorageBackend.LedgerEnd(
+          lastOffset =
+            if (rs.getString(1) == null) None
+            else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
+          lastEventSeqId = Option(rs.getLong(2)),
+        )
       )
-    )(rs =>
-      StorageBackend.LedgerEnd(
-        lastOffset =
-          if (rs.getString(1) == null) None
-          else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
-        lastEventSeqId = Option(rs.getLong(2)),
-      )
-    )
-    queryStatement.close()
+    }
     assert(params.size == 1)
     params.head
   }
