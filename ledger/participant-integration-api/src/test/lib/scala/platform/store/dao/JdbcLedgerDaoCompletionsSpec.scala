@@ -161,7 +161,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
 
   it should "return the expected status for each rejection reason" in {
     val reasons = List[RejectionReasonV0](
-      RejectionReasonV0.Disputed(""),
+      RejectionReasonV0.Disputed((0 to 1000).map(_ => " ").mkString("")),
       RejectionReasonV0.Inconsistent(""),
       RejectionReasonV0.InvalidLedgerTime(""),
       RejectionReasonV0.ResourcesExhausted(""),
