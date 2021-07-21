@@ -87,9 +87,9 @@ private[state] object Conversions {
     DamlStateKey.newBuilder
       .setCommandDedup(
         DamlCommandDedupKey.newBuilder
-          .setCommandId(subInfo.getCommandId)
-          .setApplicationId(subInfo.getApplicationId)
           .addAllSubmitters(sortedUniqueSubmitters)
+          .setApplicationId(subInfo.getApplicationId)
+          .setCommandId(subInfo.getCommandId)
           .build
       )
       .build
