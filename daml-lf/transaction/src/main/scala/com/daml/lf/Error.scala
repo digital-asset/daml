@@ -104,4 +104,6 @@ object Error {
 
   final case class ContractIdInContractKey(key: Value[ContractId]) extends Error
 
+  final case object TooDeepValue extends Error
+
 }

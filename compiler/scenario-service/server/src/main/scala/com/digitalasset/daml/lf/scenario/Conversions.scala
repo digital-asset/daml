@@ -180,6 +180,8 @@ final class Conversions(
                 builder.setCrash(s"Contract Id freshness Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
+              case TooDeepValue =>
+                builder.setTooDeepValueError(proto.Empty.newBuilder)
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
