@@ -16,7 +16,15 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  ReadService,
+  RejectionReasonV0,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+  WriteService,
+}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.Decode
@@ -735,7 +743,7 @@ object ParticipantStateIntegrationSpecBase {
   private def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
-  private def newSubmissionId(): SubmissionId =
+  private def newSubmissionId(): Ref.SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def transactionMeta(let: Timestamp) =
@@ -753,7 +761,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchPackageUpload(
       update: Update,
-      expectedSubmissionId: SubmissionId,
+      expectedSubmissionId: Ref.SubmissionId,
       expectedArchives: List[DamlLf.Archive],
   ): Assertion =
     inside(update) {

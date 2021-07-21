@@ -45,15 +45,19 @@ object Ref {
   type ApplicationId = LedgerString
   val ApplicationId: LedgerString.type = LedgerString
 
-  /** Identifiers used to correlate submission with results. */
+  /** Identifiers used to correlate a command submission with its result. */
   type CommandId = LedgerString
   val CommandId: LedgerString.type = LedgerString
+
+  /** Identifiers used to correlate a submission with its result. */
+  type SubmissionId = LedgerString
+  val SubmissionId: LedgerString.type = LedgerString
 
   /** Uniquely identifies a transaction. */
   type TransactionId = LedgerString
   val TransactionId: LedgerString.type = LedgerString
 
-  /** Identifiers used for correlating submission with a workflow. */
+  /** Identifiers used for correlating a submission with a workflow. */
   type WorkflowId = LedgerString
   val WorkflowId: LedgerString.type = LedgerString
 

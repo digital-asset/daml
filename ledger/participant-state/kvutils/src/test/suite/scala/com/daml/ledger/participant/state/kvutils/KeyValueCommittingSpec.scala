@@ -3,36 +3,30 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.time.Instant
+
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{
-  SubmitterInfo,
-  ApplicationId,
-  CommandId,
-  TransactionMeta,
-}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlCommandDedupKey,
   DamlStateKey,
   DamlSubmission,
-  DamlCommandDedupKey,
 }
+import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
-import com.daml.lf.data.Time
-import com.daml.lf.data.Ref.{Party, Identifier}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.metrics.Metrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import java.time.Instant
 
 class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
   private val metrics: Metrics = new Metrics(new MetricRegistry)
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
-  private val alice = Party.assertFromString("Alice")
-  private val commandId = CommandId.assertFromString("cmdid")
+  private val alice = Ref.Party.assertFromString("Alice")
+  private val commandId = Ref.CommandId.assertFromString("cmdid")
 
   private def toSubmission(tx: SubmittedTransaction): DamlSubmission = {
     val timestamp = Time.Timestamp.Epoch
@@ -47,7 +41,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     )
     val submitterInfo = SubmitterInfo(
       actAs = List(alice),
-      applicationId = ApplicationId.assertFromString("appid"),
+      applicationId = Ref.ApplicationId.assertFromString("appid"),
       commandId = commandId,
       deduplicateUntil = Instant.EPOCH,
     )
@@ -58,17 +52,17 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     )
   }
 
-  def toSubmission(builder: TransactionBuilder): DamlSubmission =
+  private def toSubmission(builder: TransactionBuilder): DamlSubmission =
     this.toSubmission(builder.buildSubmitted())
 
-  val dedupKey = DamlStateKey.newBuilder
+  private val dedupKey = DamlStateKey.newBuilder
     .setCommandDedup(
       DamlCommandDedupKey.newBuilder.addSubmitters(alice).setCommandId(commandId).build
     )
     .build
 
   private val keyValue = Value.ValueUnit
-  private val templateId = Identifier.assertFromString("pkg:M:T")
+  private val templateId = Ref.Identifier.assertFromString("pkg:M:T")
 
   private def create(builder: TransactionBuilder, id: String, hasKey: Boolean = false) =
     builder.create(

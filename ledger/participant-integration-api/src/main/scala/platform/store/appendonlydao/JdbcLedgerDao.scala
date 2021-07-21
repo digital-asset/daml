@@ -19,7 +19,13 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  DivulgedContract,
+  RejectionReason,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.{Ref, Time}
@@ -190,7 +196,7 @@ private class JdbcLedgerDao(
           case None =>
             Update.ConfigurationChanged(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
-              submissionId = SubmissionId.assertFromString(submissionId),
+              submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
               newConfiguration = configuration,
@@ -199,7 +205,7 @@ private class JdbcLedgerDao(
           case Some(reason) =>
             Update.ConfigurationChangeRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
-              submissionId = SubmissionId.assertFromString(submissionId),
+              submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
               proposedConfiguration = configuration,

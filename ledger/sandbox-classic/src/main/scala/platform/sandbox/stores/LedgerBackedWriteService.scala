@@ -12,14 +12,12 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.{
   PruningResult,
-  SubmissionId,
   SubmissionResult,
   SubmitterInfo,
   TransactionMeta,
   WriteService,
 }
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -56,9 +54,9 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
     }
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
     withEnrichedLoggingContext(
@@ -71,7 +69,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
 
   // WritePackagesService
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       payload: List[DamlLf.Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
@@ -88,7 +86,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   // WriteConfigService
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
@@ -103,7 +101,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   // WriteParticipantPruningService - not supported by sandbox-classic
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   ): CompletionStage[PruningResult] =
     CompletableFuture.completedFuture(PruningResult.NotPruned(Status.UNIMPLEMENTED))
 }

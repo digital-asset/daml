@@ -27,10 +27,10 @@ import com.daml.lf.data.Ref
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
-    applicationId: ApplicationId,
-    commandId: CommandId,
+    applicationId: Ref.ApplicationId,
+    commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
-    submissionId: SubmissionId,
+    submissionId: Ref.SubmissionId,
     ledgerConfiguration: Configuration,
 ) {
 
@@ -43,7 +43,7 @@ final case class SubmitterInfo(
   * @see ReadService.stateUpdates for the command deduplication guarantee
   */
 final case class ChangeId(
-    private val applicationId: ApplicationId,
-    private val commandId: CommandId,
+    private val applicationId: Ref.ApplicationId,
+    private val commandId: Ref.CommandId,
     private val actAs: Set[Ref.Party],
 )
