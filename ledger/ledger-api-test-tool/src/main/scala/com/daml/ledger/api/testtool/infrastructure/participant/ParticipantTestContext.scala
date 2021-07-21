@@ -126,6 +126,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private[this] val nextPartyHintId: () => String = nextId("party")
   private[this] val nextCommandId: () => String = nextId("command")
   private[this] val nextSubmissionId: () => String = nextId("submission")
+  private[this] val workflowId: String = s"$applicationId-$identifierSuffix"
   val nextKeyId: () => String = nextId("key")
 
   override def toString: String = s"participant $endpointId"
@@ -549,6 +550,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           actAs = Party.unsubst(actAs),
           readAs = Party.unsubst(readAs),
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
@@ -562,6 +564,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           commandId = nextCommandId(),
           party = party.unwrap,
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
@@ -580,6 +583,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           actAs = Party.unsubst(actAs),
           readAs = Party.unsubst(readAs),
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
@@ -593,6 +597,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           commandId = nextCommandId(),
           party = party.unwrap,
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
