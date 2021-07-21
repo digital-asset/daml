@@ -9,7 +9,6 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlCommandDedupKey,
   DamlStateKey,
-  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
