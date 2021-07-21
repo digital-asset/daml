@@ -31,7 +31,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.lf.language.LookupError
+import com.daml.lf.language.{LookupError, Reference}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayNodeMismatch}
 import com.daml.lf.value.Value
@@ -268,7 +268,10 @@ class ApiSubmissionServiceSpec
       ErrorCause.DamlLf(
         LfError.Preprocessing(
           LfError.Preprocessing.Lookup(
-            LookupError.Package(Ref.PackageId.assertFromString("-pkgId"))
+            LookupError(
+              Reference.Package(Ref.PackageId.assertFromString("-pkgId")),
+              Reference.Package(Ref.PackageId.assertFromString("-pkgId")),
+            )
           )
         )
       ) -> Status.INVALID_ARGUMENT,
