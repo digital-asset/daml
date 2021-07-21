@@ -5,11 +5,10 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
+import com.daml.lf.language.{Interface, LanguageVersion, LookupError}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
@@ -20,6 +19,7 @@ import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.{nowarn, tailrec}
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
@@ -463,7 +463,7 @@ private[lf] final class Compiler(
         ).rank
         SBVariantCon(tapp.tycon, variant, rank)(compile(arg))
       case let: ELet =>
-        compileELet(let)
+        withEnv(_ => compileELet(let))
       case EUpdate(upd) =>
         compileEUpdate(upd)
       case ELocation(loc, EScenario(scen)) =>
@@ -734,17 +734,21 @@ private[lf] final class Compiler(
       },
     )
 
-  @inline
-  private[this] def compileELet(elet: ELet) =
-    withEnv { _ =>
-      elet match {
-        case ELet(Binding(optBinder, _, bound), body) =>
-          let(withOptLabel(optBinder, compile(bound))) { boundPos =>
-            optBinder.foreach(addExprVar(_, boundPos))
-            compile(body)
-          }
-      }
+  // Compile nested lets using constant stack.
+  @tailrec
+  private[this] def compileELet(
+      eLet0: ELet,
+      bindings: mutable.Builder[SExpr, List[SExpr]] = List.newBuilder,
+  ): SELet = {
+    val binding = eLet0.binding
+    bindings += withOptLabel(binding.binder, compile(binding.bound))
+    val boundPos = nextPosition()
+    binding.binder.foreach(addExprVar(_, boundPos))
+    eLet0.body match {
+      case eLet1: ELet => compileELet(eLet1, bindings)
+      case otherwise => SELet(bindings.result(), compile(otherwise))
     }
+  }
 
   @inline
   private[this] def compileEUpdate(update: Update): SExpr =
