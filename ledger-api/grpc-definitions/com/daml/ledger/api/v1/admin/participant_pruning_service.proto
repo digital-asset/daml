@@ -53,7 +53,7 @@ message PruneRequest {
   //
   // Application developers SHOULD write their Daml applications
   // such that they do not rely on divulged contracts; i.e., no warnings from
-  // using divulged contracts are emitted.
+  // using divulged contracts as inputs to transactions are emitted.
   //
   // Participant node operators SHOULD set this flag to avoid leaking
   // storage due to accumulating unarchived divulged contracts PROVIDED no
