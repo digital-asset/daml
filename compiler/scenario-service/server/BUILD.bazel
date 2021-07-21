@@ -30,7 +30,6 @@ da_scala_binary(
     deps = [
         "//compiler/scenario-service/protos:scenario_service_java_proto",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",

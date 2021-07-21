@@ -12,15 +12,8 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId,
-  CommandId,
-  SubmissionId,
-  TransactionId,
-  Update,
-  WorkflowId,
-}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -312,28 +305,28 @@ trait ExecuteUpdate {
   private object Logging {
     import com.daml.lf.data.logging._
 
-    def submissionId(id: SubmissionId): LoggingEntry =
+    def submissionId(id: Ref.SubmissionId): LoggingEntry =
       "submissionId" -> id
 
-    def submissionIdOpt(id: Option[SubmissionId]): LoggingEntry =
+    def submissionIdOpt(id: Option[Ref.SubmissionId]): LoggingEntry =
       "submissionId" -> id
 
     def participantId(id: Ref.ParticipantId): LoggingEntry =
       "participantId" -> id
 
-    def commandId(id: CommandId): LoggingEntry =
+    def commandId(id: Ref.CommandId): LoggingEntry =
       "commandId" -> id
 
     def party(party: Ref.Party): LoggingEntry =
       "party" -> party
 
-    def transactionId(id: TransactionId): LoggingEntry =
+    def transactionId(id: Ref.TransactionId): LoggingEntry =
       "transactionId" -> id
 
-    def applicationId(id: ApplicationId): LoggingEntry =
+    def applicationId(id: Ref.ApplicationId): LoggingEntry =
       "applicationId" -> id
 
-    def workflowIdOpt(id: Option[WorkflowId]): LoggingEntry =
+    def workflowIdOpt(id: Option[Ref.WorkflowId]): LoggingEntry =
       "workflowId" -> id
 
     def ledgerTime(time: Timestamp): LoggingEntry =

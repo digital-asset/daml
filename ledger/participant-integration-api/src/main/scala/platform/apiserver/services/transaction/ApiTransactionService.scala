@@ -7,8 +7,13 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger
-import com.daml.ledger.api.domain._
+import com.daml.ledger.api.domain.{
+  Filters,
+  LedgerId,
+  LedgerOffset,
+  TransactionFilter,
+  TransactionId,
+}
 import com.daml.ledger.api.messages.transaction._
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -19,6 +24,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -126,9 +132,9 @@ private[apiserver] final class ApiTransactionService private (
       logger.info("Received request for transaction by event ID.")
     }
     logger.trace(s"Transaction by event ID request: $request")
-    ledger.EventId
+    LfEventId
       .fromString(request.eventId.unwrap)
-      .map { case ledger.EventId(transactionId, _) =>
+      .map { case LfEventId(transactionId, _) =>
         lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
       .getOrElse(
@@ -167,7 +173,7 @@ private[apiserver] final class ApiTransactionService private (
       logger.info("Received request for flat transaction by event ID.")
     }
     logger.trace(s"Flat transaction by event ID request: $request")
-    ledger.EventId
+    LfEventId
       .fromString(request.eventId.unwrap)
       .fold(
         err =>

@@ -7,11 +7,10 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.{RejectionReasonV0, SubmitterInfo}
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -236,12 +235,11 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
 
 private[dao] object JdbcLedgerDaoCompletionsSpec {
 
-  private val applicationId: ApplicationId =
-    "JdbcLedgerDaoCompletionsSpec".asInstanceOf[ApplicationId]
-  private val party1: Party = "JdbcLedgerDaoCompletionsSpec1".asInstanceOf[Party]
-  private val party2: Party = "JdbcLedgerDaoCompletionsSpec2".asInstanceOf[Party]
-  private val party3: Party = "JdbcLedgerDaoCompletionsSpec3".asInstanceOf[Party]
-  private val parties: Set[Party] = Set(party1, party2, party3)
+  private val applicationId = Ref.ApplicationId.assertFromString("JdbcLedgerDaoCompletionsSpec")
+  private val party1 = Ref.Party.assertFromString("JdbcLedgerDaoCompletionsSpec1")
+  private val party2 = Ref.Party.assertFromString("JdbcLedgerDaoCompletionsSpec2")
+  private val party3 = Ref.Party.assertFromString("JdbcLedgerDaoCompletionsSpec3")
+  private val parties = Set(party1, party2, party3)
 
   private def offsetOf(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.value.absolute.get)

@@ -12,20 +12,26 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 5,
       init           = "[]",
+      type           = "n2-highmem-2",
+      xmx            = "12g",
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 5,
+      size           = 0,
       init           = "[]",
+      type           = "e2-standard-2",
+      xmx            = "6g",
     },
     {
       suffix         = "-init",
       ubuntu_version = "2004",
       size           = 0,
       init           = "[\"$(hostname)\"]",
+      type           = "e2-standard-2",
+      xmx            = "6g",
     },
   ]
 
@@ -117,7 +123,7 @@ resource "google_project_iam_member" "es-discovery" {
 resource "google_compute_instance_template" "es" {
   count        = length(local.es_clusters)
   name_prefix  = "es${local.es_clusters[count.index].suffix}-"
-  machine_type = "e2-standard-2"
+  machine_type = local.es_clusters[count.index].type
   tags         = ["es"]
   labels       = local.machine-labels
 
@@ -181,7 +187,7 @@ docker run -d \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
-           -e ES_JAVA_OPTS="-Xmx6g -Xms6g" \
+           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
            es
 
 docker run -d \

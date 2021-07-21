@@ -19,13 +19,18 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  DivulgedContract,
+  RejectionReason,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -191,7 +196,7 @@ private class JdbcLedgerDao(
           case None =>
             Update.ConfigurationChanged(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
-              submissionId = SubmissionId.assertFromString(submissionId),
+              submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
               newConfiguration = configuration,
@@ -200,7 +205,7 @@ private class JdbcLedgerDao(
           case Some(reason) =>
             Update.ConfigurationChangeRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
-              submissionId = SubmissionId.assertFromString(submissionId),
+              submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
               proposedConfiguration = configuration,
@@ -287,8 +292,8 @@ private class JdbcLedgerDao(
 
   override def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
@@ -316,7 +321,7 @@ private class JdbcLedgerDao(
 
   override def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -327,7 +332,7 @@ private class JdbcLedgerDao(
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
@@ -463,7 +468,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive)(storageBackend.lfArchive(packageId))
-      .map(_.map(data => ArchiveParser.fromByteArray(data)))(
+      .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
         servicesExecutionContext
       )
 
@@ -647,8 +652,8 @@ private class JdbcLedgerDao(
     */
   override def storeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
@@ -720,7 +725,7 @@ private[platform] object JdbcLedgerDao {
     def submissionId(id: String): LoggingEntry =
       "submissionId" -> id
 
-    def transactionId(id: TransactionId): LoggingEntry =
+    def transactionId(id: Ref.TransactionId): LoggingEntry =
       "transactionId" -> id
   }
 

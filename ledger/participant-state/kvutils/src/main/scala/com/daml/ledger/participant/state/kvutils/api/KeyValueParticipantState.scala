@@ -11,8 +11,17 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  PruningResult,
+  ReadService,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+  WriteService,
+}
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
@@ -59,13 +68,13 @@ class KeyValueParticipantState(
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.submitConfiguration(maxRecordTime, submissionId, config)
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
@@ -74,13 +83,13 @@ class KeyValueParticipantState(
   override def allocateParty(
       hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.allocateParty(hint, displayName, submissionId)
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   ): CompletionStage[PruningResult] =
     writerAdapter.prune(pruneUpToInclusive, submissionId)
 

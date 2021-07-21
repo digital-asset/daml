@@ -4,7 +4,7 @@
 package com.daml.platform.store
 
 import com.daml.caching
-import com.daml.ledger.EventId
+import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.metrics.Metrics
 

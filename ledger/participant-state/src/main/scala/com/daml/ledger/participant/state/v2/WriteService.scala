@@ -7,6 +7,7 @@ import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.lf.data.Time
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.telemetry.TelemetryContext
 
 /** An interface to change a ledger via a participant.

@@ -3,10 +3,6 @@
 
 package com.daml.ledger.participant.state
 
-import com.daml.lf.data.Ref
-import com.daml.lf.transaction
-import com.daml.lf.value.Value
-
 /** Interfaces to read from and write to an (abstract) participant state.
   *
   * A Daml ledger participant is code that allows to actively participate in
@@ -47,46 +43,4 @@ import com.daml.lf.value.Value
   * participant state APIs at the same time. We plan to deprecate and drop old
   * versions on separate and appropriate timelines.
   */
-package object v2 {
-
-  /** Identifiers for transactions. */
-  val TransactionId: Ref.LedgerString.type = Ref.LedgerString
-  type TransactionId = Ref.LedgerString
-
-  /** Identifiers used to correlate commands with results. */
-  val CommandId: Ref.LedgerString.type = Ref.LedgerString
-  type CommandId = Ref.LedgerString
-
-  /** Identifiers used for correlating submission with a workflow. */
-  val WorkflowId: Ref.LedgerString.type = Ref.LedgerString
-  type WorkflowId = Ref.LedgerString
-
-  /** Identifiers for submitting client applications. */
-  val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
-  type ApplicationId = Ref.LedgerString
-
-  /** Identifiers used to correlate submissions with results. */
-  val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
-  type SubmissionId = Ref.LedgerString
-
-  /** Identifiers for nodes in a transaction. */
-  type NodeId = transaction.NodeId
-
-  /** A transaction with contract IDs that may require suffixing.
-    *
-    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
-    */
-  type SubmittedTransaction = transaction.SubmittedTransaction
-
-  /** A transaction with globally unique contract IDs.
-    *
-    * Used to communicate transactions that have been accepted to the ledger.
-    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
-    */
-  type CommittedTransaction = transaction.CommittedTransaction
-
-  /** A contract instance. */
-  type ContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.ContractId]]
-
-}
+package object v2

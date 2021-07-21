@@ -4,8 +4,6 @@
 package com.daml.lf
 package archive
 
-import com.daml.nameof.NameOf
-
 import java.io.File
 
 /** Can parse DARs and DALFs.
@@ -23,7 +21,7 @@ final class GenUniversalArchiveReader[A](
       case SupportedFileType.DarFile =>
         GenDarReader(reader).readArchiveFromFile(file, entrySizeThreshold)
       case SupportedFileType.DalfFile =>
-        attempt(NameOf.qualifiedNameOfCurrentFunc, Dar(reader.fromFile(file), List.empty))
+        reader.fromFile(file).map(Dar(_, List.empty))
     }
 
   @throws[Error]

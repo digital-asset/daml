@@ -18,10 +18,18 @@ import com.daml.ledger.configuration.{
   LedgerTimeModel,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1._
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{Ref, Time}
+import com.daml.ledger.participant.state.v1.{
+  PruningResult,
+  ReadService,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+  WriteService,
+}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs
@@ -56,7 +64,7 @@ case class ReadWriteServiceBridge(
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
@@ -70,9 +78,9 @@ case class ReadWriteServiceBridge(
   override def currentHealth(): HealthStatus = HealthStatus.healthy
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.AllocateParty(
@@ -83,7 +91,7 @@ case class ReadWriteServiceBridge(
     )
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
@@ -97,7 +105,7 @@ case class ReadWriteServiceBridge(
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   ): CompletionStage[PruningResult] =
     CompletableFuture.completedFuture(
       PruningResult.ParticipantPruned
@@ -169,17 +177,17 @@ object ReadWriteServiceBridge {
     ) extends Submission
     case class Config(
         maxRecordTime: Time.Timestamp,
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         config: Configuration,
     ) extends Submission
     case class AllocateParty(
-        hint: Option[Party],
+        hint: Option[Ref.Party],
         displayName: Option[String],
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
     ) extends Submission
 
     case class UploadPackages(
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         archives: List[Archive],
         sourceDescription: Option[String],
     ) extends Submission
@@ -192,7 +200,7 @@ object ReadWriteServiceBridge {
       case s: Submission.AllocateParty =>
         val party = s.hint.getOrElse(UUID.randomUUID().toString)
         Update.PartyAddedToParticipant(
-          party = Party.assertFromString(party),
+          party = Ref.Party.assertFromString(party),
           displayName = s.displayName.getOrElse(party),
           participantId = participantId,
           recordTime = Time.Timestamp.now(),
@@ -220,7 +228,7 @@ object ReadWriteServiceBridge {
           optSubmitterInfo = Some(s.submitterInfo),
           transactionMeta = s.transactionMeta,
           transaction = s.transaction.asInstanceOf[CommittedTransaction],
-          transactionId = TransactionId.assertFromString(index.toString),
+          transactionId = Ref.TransactionId.assertFromString(index.toString),
           recordTime = Time.Timestamp.now(),
           divulgedContracts = Nil,
           blindingInfo = None,

@@ -6,7 +6,8 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReasonV0}
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
+import com.daml.lf.transaction.CommittedTransaction
 
 /** Performs post-commit validation on transactions for Sandbox Classic.
   * This is intended exclusively as a temporary replacement for

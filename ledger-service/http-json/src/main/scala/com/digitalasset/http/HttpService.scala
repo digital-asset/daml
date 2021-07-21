@@ -44,6 +44,7 @@ import scalaz._
 import java.nio.file.Path
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import ch.qos.logback.classic.{Level => LogLevel}
 
 object HttpService {
 
@@ -179,6 +180,7 @@ object HttpService {
         healthService,
         encoder,
         decoder,
+        logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO)), // Everything below DEBUG enables this
       )
 
       websocketService = new WebSocketService(
@@ -342,6 +344,7 @@ object HttpService {
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ DamlLedgerClient] =
     LedgerClient
       .fromRetried(

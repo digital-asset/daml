@@ -29,10 +29,8 @@ hj_scalacopts = lf_scalacopts + [
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_github_scopt_scopt",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http",
             "@maven//:com_typesafe_akka_akka_http_core",
-            "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalaz_scalaz_core",
@@ -95,7 +93,6 @@ alias(
 json_scala_deps = [
     "@maven//:com_chuusai_shapeless",
     "@maven//:com_github_scopt_scopt",
-    "@maven//:com_lihaoyi_sourcecode",
     "@maven//:com_typesafe_akka_akka_http",
     "@maven//:com_typesafe_akka_akka_http_core",
     "@maven//:com_typesafe_akka_akka_http_spray_json",
@@ -196,7 +193,6 @@ daml_compile(
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -319,7 +315,6 @@ alias(
         resources = glob(["src/it/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
@@ -350,7 +345,6 @@ alias(
             "//ledger-service/jwt",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
-            "//ledger/ledger-api-common",
             "//libs-scala/auth-utils",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ports",
@@ -448,7 +442,6 @@ da_scala_benchmark_jmh(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
     ],
     deps = [
         ":http-json",

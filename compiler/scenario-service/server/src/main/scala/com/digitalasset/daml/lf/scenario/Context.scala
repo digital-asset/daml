@@ -87,15 +87,13 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   ): Unit = synchronized {
 
     val newModules = loadModules.map(module =>
-      archive.moduleDecoder(languageVersion, homePackageId).fromByteString(module.getDamlLf1)
+      archive.moduleDecoder(languageVersion, homePackageId).assertFromByteString(module.getDamlLf1)
     )
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 
     val newPackages =
-      loadPackages.map { bytes =>
-        archive.Decode.decodeArchive(archive.ArchiveParser.fromByteString(bytes))
-      }.toMap
+      loadPackages.map(archive.ArchiveDecoder.assertFromByteString).toMap
 
     val modulesToCompile =
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {

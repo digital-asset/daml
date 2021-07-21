@@ -27,10 +27,10 @@ import com.daml.lf.data.Ref
   */
 case class CompletionInfo(
     actAs: List[Ref.Party],
-    applicationId: ApplicationId,
-    commandId: CommandId,
+    applicationId: Ref.ApplicationId,
+    commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
-    submissionId: SubmissionId,
+    submissionId: Ref.SubmissionId,
 ) {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }

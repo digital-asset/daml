@@ -7,17 +7,27 @@ import java.time.Instant
 
 import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.Update.{
   PublicPackageUploadRejected,
   TransactionAccepted,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  DivulgedContract,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionVersion, VersionedTransaction}
+import com.daml.lf.transaction.{
+  BlindingInfo,
+  CommittedTransaction,
+  NodeId,
+  TransactionVersion,
+  VersionedTransaction,
+}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
@@ -49,7 +59,7 @@ final class ExecuteUpdateSpec
 
   private val mockedPreparedInsert = mock[TransactionsWriter.PreparedInsert]
   private val offset = Offset(Bytes.assertFromString("01"))
-  private val txId = TransactionId.fromInt(1)
+  private val txId = Ref.TransactionId.fromInt(1)
   private val txMock = transaction.CommittedTransaction(
     VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.empty)
   )
@@ -59,7 +69,7 @@ final class ExecuteUpdateSpec
   private val ledgerEffectiveTime = Instant.EPOCH
 
   private val packageUploadRejectionReason = "some rejection reason"
-  private val submissionId = SubmissionId.assertFromString("s1")
+  private val submissionId = Ref.SubmissionId.assertFromString("s1")
   private val packageUploadRejectedEntry = PackageLedgerEntry.PackageUploadRejected(
     submissionId,
     ledgerEffectiveTime,
@@ -348,8 +358,8 @@ final class ExecuteUpdateSpec
 
   private def transactionAccepted(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
       divulgedContracts: List[DivulgedContract],

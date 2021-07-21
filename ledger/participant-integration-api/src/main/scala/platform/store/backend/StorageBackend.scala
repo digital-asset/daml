@@ -7,14 +7,12 @@ import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.{ApplicationId, TransactionId}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.ledger.EventId
 import com.daml.platform
 import com.daml.platform.store.DbType
@@ -134,8 +132,10 @@ trait PartyStorageBackend {
 }
 
 trait PackageStorageBackend {
-  def lfPackages(connection: Connection): Map[PackageId, PackageDetails]
-  def lfArchive(packageId: PackageId)(connection: Connection): Option[Array[Byte]]
+  def lfPackages(connection: Connection): Map[Ref.PackageId, PackageDetails]
+
+  def lfArchive(packageId: Ref.PackageId)(connection: Connection): Option[Array[Byte]]
+
   def packageEntries(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -159,7 +159,7 @@ trait CompletionStorageBackend {
   def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(connection: Connection): List[CompletionStreamResponse]
 
@@ -205,7 +205,7 @@ trait EventStorageBackend {
       endInclusiveOffset: Offset,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def flatTransaction(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def transactionTreeEvents(
@@ -213,7 +213,7 @@ trait EventStorageBackend {
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
   def transactionTree(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
   def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long]

@@ -11,16 +11,11 @@ import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.{
-  ApplicationId,
-  CommandId,
   DivulgedContract,
   RejectionReasonV0,
-  SubmissionId,
   SubmitterInfo,
-  TransactionId,
   TransactionMeta,
   Update,
-  WorkflowId,
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
@@ -312,7 +307,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -379,7 +374,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -456,7 +451,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -535,7 +530,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -640,7 +635,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -778,7 +773,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -874,7 +869,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -990,7 +985,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List(DivulgedContract(createNode.coid, createNode.versionedCoinst)),
         blindingInfo = Some(
@@ -1095,7 +1090,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -1151,7 +1146,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optSubmitterInfo = None,
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = TransactionId.assertFromString("TransactionId"),
+        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -1238,11 +1233,11 @@ object UpdateToDbDtoSpec {
   private val someOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
   private val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
   private val someApplicationId =
-    ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")
-  private val someCommandId = CommandId.assertFromString("UpdateToDbDtoSpecCommandId")
+    Ref.ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")
+  private val someCommandId = Ref.CommandId.assertFromString("UpdateToDbDtoSpecCommandId")
   private val someSubmissionId =
-    SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
-  private val someWorkflowId = WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
+    Ref.SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
+  private val someWorkflowId = Ref.WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
   private val someConfiguration =
     Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
   private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")

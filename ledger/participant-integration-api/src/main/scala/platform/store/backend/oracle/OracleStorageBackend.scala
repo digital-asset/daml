@@ -6,7 +6,6 @@ package com.daml.platform.store.backend.oracle
 import anorm.SqlParser.get
 import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.ApplicationId
 import com.daml.lf.data.Ref
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.{
@@ -80,7 +79,7 @@ private[backend] object OracleStorageBackend
   def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(connection: Connection): List[CompletionStreamResponse] =
     TemplatedStorageBackend.commandCompletions(

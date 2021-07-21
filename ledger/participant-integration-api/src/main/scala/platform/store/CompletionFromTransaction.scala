@@ -6,7 +6,6 @@ package com.daml.platform.store
 import java.time.Instant
 
 import com.daml.api.util.TimestampConversion.fromInstant
-import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.{Checkpoint, CompletionStreamResponse}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -36,7 +35,7 @@ private[platform] object CompletionFromTransaction {
   // transactions that originated from some other api server. These transactions don't contain the submitter information,
   // and therefore we don't emit CommandAccepted completions for those
   def apply(
-      appId: ApplicationId,
+      appId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   ): PartialFunction[(Offset, LedgerEntry), (Offset, CompletionStreamResponse)] = {
     case (
