@@ -25,8 +25,8 @@ final class ValueNestingIT extends LedgerTestSuite {
     val accepted = depth <= 100
     val result = if (accepted) "Accept" else "Reject"
 
-    // Once converted to Nat, `depthNat` will have depth `depth`.
-    // Note that Nat.Z has depth 2.
+    // Once converted to Nat, `n` will have depth `depth`.
+    // Note that Nat.Z(()) has depth 2.
     val n = depth - 2
 
     // Choice argument are always wrapped in a record
