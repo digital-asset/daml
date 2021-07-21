@@ -120,11 +120,6 @@ class ApiSubmissionServiceSpec
     } yield {
       results should have size 100
       all(results) should be(SubmissionResult.Acknowledged)
-      verify(writeService).submitConfiguration(
-        any[Timestamp],
-        any[Ref.SubmissionId],
-        any[Configuration],
-      )(any[TelemetryContext])
       missingParties.foreach { party =>
         verify(writeService).allocateParty(
           eqTo(Some(Ref.Party.assertFromString(party))),
@@ -343,13 +338,6 @@ class ApiSubmissionServiceSpec
       .thenReturn(Future.successful(Some((offset, configuration))))
     when(configManagementService.configurationEntries(Some(offset)))
       .thenReturn(Source.empty)
-    when(
-      writeService.submitConfiguration(
-        any[Timestamp],
-        any[Ref.SubmissionId],
-        eqTo(configuration),
-      )(any[TelemetryContext])
-    ).thenReturn(completedFuture(SubmissionResult.Acknowledged))
 
     val indexSubmissionService = mock[IndexSubmissionService]
     when(
@@ -370,7 +358,7 @@ class ApiSubmissionServiceSpec
     val configProviderResource = LedgerConfigProvider
       .owner(
         configManagementService,
-        optWriteService = Some(writeService),
+        optWriteService = None,
         timeProvider = TimeProvider.Constant(Instant.EPOCH),
         config = LedgerConfiguration(
           initialConfiguration = configuration,
