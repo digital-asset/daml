@@ -19,7 +19,6 @@ import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.{nowarn, tailrec}
-import scala.collection.mutable
 import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
@@ -738,15 +737,22 @@ private[lf] final class Compiler(
   @tailrec
   private[this] def compileELet(
       eLet0: ELet,
-      bindings: mutable.Builder[SExpr, List[SExpr]] = List.newBuilder,
+      bounds0: List[SExpr] = List.empty,
   ): SELet = {
     val binding = eLet0.binding
-    bindings += withOptLabel(binding.binder, compile(binding.bound))
+    val bounds = withOptLabel(binding.binder, compile(binding.bound)) :: bounds0
     val boundPos = nextPosition()
     binding.binder.foreach(addExprVar(_, boundPos))
     eLet0.body match {
-      case eLet1: ELet => compileELet(eLet1, bindings)
-      case otherwise => SELet(bindings.result(), compile(otherwise))
+      case eLet1: ELet =>
+        compileELet(eLet1, bounds)
+      case body0 =>
+        compile(body0) match {
+          case SELet(bounds1, body1) =>
+            SELet(bounds.foldLeft(bounds1)((acc, b) => b :: acc), body1)
+          case otherwise =>
+            SELet(bounds.reverse, otherwise)
+        }
     }
   }
 
