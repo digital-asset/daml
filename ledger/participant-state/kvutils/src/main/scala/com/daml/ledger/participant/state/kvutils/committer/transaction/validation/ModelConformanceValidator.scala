@@ -180,7 +180,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
         case _ =>
           val msg = "value is not a Daml-LF archive"
           logger.warn(s"Package lookup failed, $msg.")
-          throw Err.ArchiveDecodingFailed(pkgId, err.getMessage)
+          throw Err.ArchiveDecodingFailed(pkgId, msg)
       }
     }
 
