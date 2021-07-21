@@ -54,6 +54,11 @@ if is_windows; then
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local
 
+  # Use symlinks to avoid copying. We control the environments we build in and
+  # can therefore ensure symlinks are available
+  # (Startup options don't support --config flags.)
+  echo "startup --windows_enable_symlinks" >> .bazelrc.local
+
   # Modify the output path to avoid shared action keys.
   # The issue appears to be that GCC produces absolute paths
   # to system includes in .d files. These files are cached
