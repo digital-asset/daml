@@ -8,7 +8,8 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.test.semantic.ValueNesting._
+import com.daml.ledger.test.semantic.DeeplyNestedValue._
+import com.daml.ledger.client.binding.Primitive
 import io.grpc.Status
 
 import scala.annotation.tailrec
@@ -21,20 +22,28 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
   private[this] def toNat(i: Long, acc: Nat = Nat.Z(())): Nat =
     if (i == 0) acc else toNat(i - 1, Nat.S(acc))
 
-  private[this] def toEither[X](future: Future[X])(implicit
+  private[this] def waitForTransactionId(
+      alpha: ParticipantTestContext,
+      party: Party,
+      command: Primitive.Update[_],
+  )(implicit
       ec: ExecutionContext
-  ): Future[Either[Throwable, X]] =
-    future.transform(x => Success(x.toEither))
+  ): Future[Either[Throwable, String]] =
+    alpha
+      .submitAndWaitForTransactionId(
+        alpha.submitAndWaitRequest(party, command.command)
+      )
+      .transform(x => Success(x.toEither))
 
   private[this] def camlCase(s: String) =
     s.split(" ").iterator.map(_.capitalize).mkString("")
 
-  List[Long](46, 100, 101, 200).foreach { nesting =>
+  List[Long](46, 100, 101, 110, 200).foreach { nesting =>
     val accepted = nesting <= 100
     val result = if (accepted) "Accept" else "Reject"
 
     // Once converted to Nat, `n` will have a nesting `nesting`.
-    // Note that Nat.Z(()) has depth 2.
+    // Note that Nat.Z(()) has nesting 1.
     val n = nesting - 1
 
     // Choice argument are always wrapped in a record
@@ -67,73 +76,68 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       })
 
     test("create command") { implicit ec => (alpha, party) =>
-      toEither(alpha.create(party, Contract(party, nContract, toNat(nContract))))
+      waitForTransactionId(alpha, party, Contract(party, nContract, toNat(nContract)).create)
     }
 
     test("exercise command") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(
-          alpha.exercise(party, handler.exerciseDestruct(_, toNat(nChoiceArgument)))
+        result <- waitForTransactionId(
+          alpha,
+          party,
+          handler.exerciseDestruct(party, toNat(nChoiceArgument)),
         )
       } yield result
     }
 
     test("create argument in CreateAndExercise command") { implicit ec => (alpha, party) =>
-      toEither(
-        alpha
-          .submitAndWaitForTransactionTree(
-            alpha
-              .submitAndWaitRequest(
-                party,
-                Contract(party, nContract, toNat(nContract)).createAnd
-                  .exerciseArchive(party)
-                  .command,
-              )
-          )
+      waitForTransactionId(
+        alpha,
+        party,
+        Contract(party, nContract, toNat(nContract)).createAnd
+          .exerciseArchive(party),
       )
     }
 
     test("choice argument in CreateAndExercise command") { implicit ec => (alpha, party) =>
-      toEither(
-        alpha
-          .submitAndWaitForTransactionTree(
-            alpha
-              .submitAndWaitRequest(
-                party,
-                Handler(party).createAnd.exerciseDestruct(party, toNat(nChoiceArgument)).command,
-              )
-          )
+      waitForTransactionId(
+        alpha,
+        party,
+        Handler(party).createAnd.exerciseDestruct(party, toNat(nChoiceArgument)),
       )
     }
 
     test("exercise argument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(
-          alpha.exercise(party, handler.exerciseConstructThenDestruct(_, nChoiceArgument))
-        )
+        result <-
+          waitForTransactionId(
+            alpha,
+            party,
+            handler.exerciseConstructThenDestruct(party, nChoiceArgument),
+          )
       } yield result
     }
 
     test("exercise output") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseConstruct(_, n)))
+        result <-
+          waitForTransactionId(alpha, party, handler.exerciseConstruct(party, n))
       } yield result
     }
 
     test("create argument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseCreate(_, nContract)))
+        result <- waitForTransactionId(alpha, party, handler.exerciseCreate(party, nContract))
       } yield result
     }
 
     test("contract key") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseCreateKey(_, nKey)))
+        result <- waitForTransactionId(alpha, party, handler.exerciseCreateKey(party, nKey))
       } yield result
     }
 
@@ -144,7 +148,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         for {
           handler <- alpha.create(party, Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
-          result <- toEither(alpha.exercise(party, handler.exerciseFetchByKey(_, nKey)))
+          result <- waitForTransactionId(alpha, party, handler.exerciseFetchByKey(party, nKey))
         } yield result
       }
     }
@@ -152,7 +156,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
     test("failing lookup by key") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, nKey)))
+        result <- waitForTransactionId(alpha, party, handler.exerciseLookupByKey(party, nKey))
       } yield result
     }
 
@@ -163,7 +167,8 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         for {
           handler <- alpha.create(party, Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
-          result <- toEither(alpha.exercise(party, handler.exerciseLookupByKey(_, nKey)))
+          result <-
+            waitForTransactionId(alpha, party, handler.exerciseLookupByKey(party, nKey))
         } yield result
       }
     }
