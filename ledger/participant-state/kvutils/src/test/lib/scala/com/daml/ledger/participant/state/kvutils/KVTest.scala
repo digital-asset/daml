@@ -11,7 +11,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.test.SimplePackagePartyTestDar
 import com.daml.lf.command.{ApiCommand, Commands}
 import com.daml.lf.crypto
@@ -227,7 +227,7 @@ object KVTest {
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
-      commandId: CommandId = randomLedgerString,
+      commandId: Ref.CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1),
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     prepareTransactionSubmission(
@@ -244,7 +244,7 @@ object KVTest {
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
-      commandId: CommandId = randomLedgerString,
+      commandId: Ref.CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1),
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     prepareTransactionSubmission(
@@ -261,7 +261,7 @@ object KVTest {
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
-      commandId: CommandId = randomLedgerString,
+      commandId: Ref.CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1),
   ): KVTest[DamlSubmission] = KVReader { testState =>
     val (tx, txMetaData) = transaction
@@ -288,7 +288,7 @@ object KVTest {
 
   def submitConfig(
       configModify: Configuration => Configuration,
-      submissionId: SubmissionId = randomLedgerString,
+      submissionId: Ref.SubmissionId = randomLedgerString,
       minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
   )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
     for {
@@ -307,7 +307,7 @@ object KVTest {
 
   def preExecuteConfig(
       configModify: Configuration => Configuration,
-      submissionId: SubmissionId = randomLedgerString,
+      submissionId: Ref.SubmissionId = randomLedgerString,
       minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
   )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
     for {
@@ -430,7 +430,7 @@ object KVTest {
 
   private def createSubmitterInfo(
       submitter: Ref.Party,
-      commandId: CommandId,
+      commandId: Ref.CommandId,
       deduplicationTime: Duration,
       recordTime: Timestamp,
   ): SubmitterInfo =
@@ -456,7 +456,7 @@ object KVTest {
 
   private[this] def createConfigurationSubmission(
       configModify: Configuration => Configuration,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       minMaxRecordTimeDelta: Duration,
       testState: KVTestState,
       oldConf: Configuration,

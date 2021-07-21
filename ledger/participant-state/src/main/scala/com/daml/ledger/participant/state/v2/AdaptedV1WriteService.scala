@@ -63,7 +63,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
   override def allocateParty(
       hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     delegate
       .allocateParty(hint, displayName, submissionId)
@@ -71,7 +71,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     delegate
@@ -80,14 +80,14 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   ): CompletionStage[PruningResult] =
     delegate
       .prune(pruneUpToInclusive, submissionId)
       .thenApply(adaptPruningResult)
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =

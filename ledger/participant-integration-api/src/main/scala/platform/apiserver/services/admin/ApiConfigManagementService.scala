@@ -14,8 +14,8 @@ import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementSe
 import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WriteConfigService}
-import com.daml.lf.data.Time
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteConfigService}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -37,7 +37,7 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
-    submissionIdGenerator: String => SubmissionId,
+    submissionIdGenerator: String => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -190,7 +190,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration,
-      submissionIdGenerator: String => SubmissionId = augmentSubmissionId,
+      submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -219,7 +219,7 @@ private[apiserver] object ApiConfigManagementService {
       Future.successful(ledgerEnd)
 
     override def submit(
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         input: (Time.Timestamp, Configuration),
     )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
       val (maximumRecordTime, newConfiguration) = input
@@ -232,14 +232,14 @@ private[apiserver] object ApiConfigManagementService {
       configManagementService.configurationEntries(offset).map(_._2)
 
     override def accept(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, ConfigurationEntry.Accepted] = {
       case entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _) =>
         entry
     }
 
     override def reject(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
         ErrorFactories.aborted(reason)

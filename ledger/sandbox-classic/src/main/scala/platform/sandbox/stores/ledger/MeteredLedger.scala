@@ -7,9 +7,9 @@ import java.time.Instant
 
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
@@ -32,7 +32,7 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
     )
 
   def publishPartyAllocation(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       party: Party,
       displayName: Option[String],
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
@@ -42,7 +42,7 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
     )
 
   def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],

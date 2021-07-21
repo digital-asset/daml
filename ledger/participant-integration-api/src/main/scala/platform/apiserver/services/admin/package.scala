@@ -5,9 +5,9 @@ package com.daml.platform.apiserver.services
 
 import java.util.UUID
 
-import com.daml.ledger.participant.state.v1.SubmissionId
+import com.daml.lf.data.Ref
 
 package object admin {
-  private[admin] def augmentSubmissionId(submissionId: String): SubmissionId =
-    SubmissionId.assertFromString(s"$submissionId-${UUID.randomUUID().toString}")
+  private[admin] def augmentSubmissionId(submissionId: String): Ref.SubmissionId =
+    Ref.SubmissionId.assertFromString(s"$submissionId-${UUID.randomUUID().toString}")
 }
