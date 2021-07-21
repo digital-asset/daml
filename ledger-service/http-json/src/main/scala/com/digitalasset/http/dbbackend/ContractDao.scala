@@ -6,7 +6,7 @@ package com.daml.http.dbbackend
 import cats.effect._
 import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
-import com.daml.http.domain
+import com.daml.http.{JdbcConfig, domain}
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
@@ -17,9 +17,10 @@ import scalaz.{NonEmptyList, OneAnd}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
-class ContractDao private (xa: Connection.T)(implicit val jdbcDriver: SupportedJdbcDriver) {
+class ContractDao private(xa: ConnectionPool.T)(implicit val jdbcDriver: SupportedJdbcDriver) {
 
   implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[ContractDao])
 
@@ -39,17 +40,16 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
-      ec: ExecutionContext
-  ): ContractDao = {
+  def apply(cfg: JdbcConfig)(implicit ec: ExecutionContext): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     implicit val sjd: SupportedJdbcDriver = supportedJdbcDrivers.getOrElse(
-      jdbcDriver,
+      cfg.driver,
       throw new IllegalArgumentException(
-        s"JDBC driver $jdbcDriver is not one of ${supportedJdbcDrivers.keySet}"
+        s"JDBC driver ${cfg.driver} is not one of ${supportedJdbcDrivers.keySet}"
       ),
     )
-    new ContractDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
+    val ectx = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(ConnectionPool.PoolSize))
+    new ContractDao(ConnectionPool.connect(cfg, ConnectionPool.PoolSize)(ectx, cs))
   }
 
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] =

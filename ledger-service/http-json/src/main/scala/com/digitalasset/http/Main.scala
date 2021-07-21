@@ -107,7 +107,7 @@ object Main {
       Await.result(asys.terminate(), 10.seconds)
     }
 
-    val contractDao = config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
+    val contractDao = config.jdbcConfig.map(c => ContractDao(c))
 
     (contractDao, config.jdbcConfig) match {
       case (Some(dao), Some(c)) if c.createSchema =>

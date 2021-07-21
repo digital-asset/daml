@@ -236,7 +236,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   private def initializeDb(c: JdbcConfig)(implicit ec: ExecutionContext): Future[ContractDao] =
     for {
-      dao <- Future(ContractDao(c.driver, c.url, c.user, c.password))
+      dao <- Future(ContractDao(c))
       _ <- {
         import dao.{jdbcDriver, logHandler}
         dao.transact(ContractDao.initialize).unsafeToFuture(): Future[Unit]
