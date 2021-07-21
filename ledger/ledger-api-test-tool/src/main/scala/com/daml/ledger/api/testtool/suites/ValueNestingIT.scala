@@ -79,6 +79,34 @@ final class ValueNestingIT extends LedgerTestSuite {
       } yield result
     }
 
+    test("create argument in CreateAndExercise command") { implicit ec => (alpha, party) =>
+      toEither(
+        alpha
+          .submitAndWaitForTransactionTree(
+            alpha
+              .submitAndWaitRequest(
+                party,
+                Contract(party, nContract, toNat(nContract)).createAnd
+                  .exerciseArchive(party)
+                  .command,
+              )
+          )
+      )
+    }
+
+    test("choice argument in CreateAndExercise command") { implicit ec => (alpha, party) =>
+      toEither(
+        alpha
+          .submitAndWaitForTransactionTree(
+            alpha
+              .submitAndWaitRequest(
+                party,
+                Handler(party).createAnd.exerciseDestruct(party, toNat(nChoiceArgument)).command,
+              )
+          )
+      )
+    }
+
     test("exercise argument") { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
