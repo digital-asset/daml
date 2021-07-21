@@ -19,12 +19,7 @@ class HttpServiceWithPostgresIntTest
   override def wsConfig: Option[WebsocketConfig] = None
 
   // has to be lazy because jdbcConfig_ is NOT initialized yet
-  private lazy val dao = dbbackend.ContractDao(
-    jdbcDriver = jdbcConfig_.driver,
-    jdbcUrl = jdbcConfig_.url,
-    username = jdbcConfig_.user,
-    password = jdbcConfig_.password,
-  )
+  private lazy val dao = dbbackend.ContractDao( jdbcConfig_)
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
     searchExpectOk(

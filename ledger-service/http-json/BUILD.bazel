@@ -447,6 +447,7 @@ da_scala_benchmark_jmh(
         ":http-json",
         "//language-support/scala/bindings",
         "//ledger-service/db-backend",
+        "//ledger-service/http-json-cli:base",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",

@@ -6,6 +6,7 @@ package com.daml.http.dbbackend
 import cats.instances.list._
 import doobie.util.log.LogHandler
 import com.daml.doobie.logging.Slf4jLogHandler
+import com.daml.http.JdbcConfig
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.testing.oracle, oracle.{OracleAround, User}
@@ -32,7 +33,8 @@ abstract class ContractDaoBenchmark extends OracleAround {
   def setup(): Unit = {
     connectToOracle()
     user = createNewRandomUser()
-    val oracleDao = ContractDao("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+    val cfg = new JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+    val oracleDao = ContractDao(cfg)
     dao = oracleDao
 
     import oracleDao.jdbcDriver
