@@ -7,7 +7,8 @@ import java.time.Instant
 
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.Timestamp
@@ -34,14 +35,14 @@ private[sandbox] trait Ledger extends ReadOnlyLedger {
 
   // Party management
   def publishPartyAllocation(
-      submissionId: SubmissionId,
-      party: Party,
+      submissionId: Ref.SubmissionId,
+      party: Ref.Party,
       displayName: Option[String],
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult]
 
   // Package management
   def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
@@ -62,7 +63,7 @@ private[sandbox] object Ledger {
 
   def convertToCommittedTransaction(
       committer: TransactionCommitter,
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       transaction: SubmittedTransaction,
   ): (CommittedTransaction, Relation[NodeId, Party], Divulgence) = {
 

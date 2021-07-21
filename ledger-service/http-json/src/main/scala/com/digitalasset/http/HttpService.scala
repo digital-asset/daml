@@ -344,6 +344,7 @@ object HttpService {
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ DamlLedgerClient] =
     LedgerClient
       .fromRetried(

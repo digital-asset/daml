@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.io.{BufferedInputStream, Closeable, InputStream}
 import java.nio.file.{Files, Path}
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
+import com.daml.ledger.participant.state.kvutils.export.LedgerExport.LedgerExportEntry
 import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.lf.data.Ref
 

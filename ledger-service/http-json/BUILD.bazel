@@ -31,7 +31,6 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:com_github_scopt_scopt",
             "@maven//:com_typesafe_akka_akka_http",
             "@maven//:com_typesafe_akka_akka_http_core",
-            "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalaz_scalaz_core",

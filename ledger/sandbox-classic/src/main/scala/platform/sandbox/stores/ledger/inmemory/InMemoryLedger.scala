@@ -39,8 +39,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1.{ApplicationId => _, TransactionId => _, _}
-import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
@@ -103,7 +102,7 @@ private[sandbox] final class InMemoryLedger(
   override def flatTransactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      filter: Map[Party, Set[Ref.Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     entries
@@ -132,7 +131,7 @@ private[sandbox] final class InMemoryLedger(
   override def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -166,7 +165,7 @@ private[sandbox] final class InMemoryLedger(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
@@ -178,7 +177,7 @@ private[sandbox] final class InMemoryLedger(
   override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = entries.ledgerEnd
 
   override def activeContracts(
-      filter: Map[Party, Set[Ref.Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -233,7 +232,7 @@ private[sandbox] final class InMemoryLedger(
 
   override def lookupContract(
       contractId: ContractId,
-      forParties: Set[Party],
+      forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
@@ -244,7 +243,7 @@ private[sandbox] final class InMemoryLedger(
         .map(_.contract)
     })
 
-  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+  override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     Future.successful(this.synchronized {
@@ -295,7 +294,7 @@ private[sandbox] final class InMemoryLedger(
   }
 
   private def handleSuccessfulTx(
-      transactionId: LedgerString,
+      transactionId: Ref.LedgerString,
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
@@ -372,7 +371,7 @@ private[sandbox] final class InMemoryLedger(
 
   override def close(): Unit = ()
 
-  private def filterFor(requestingParties: Set[Party]): TransactionFilter =
+  private def filterFor(requestingParties: Set[Ref.Party]): TransactionFilter =
     TransactionFilter(requestingParties.map(p => p -> Filters.noFilter).toMap)
 
   private def lookupTransactionEntry(
@@ -386,7 +385,7 @@ private[sandbox] final class InMemoryLedger(
 
   override def lookupFlatTransactionById(
       transactionId: Ref.TransactionId,
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     Future.successful {
       lookupTransactionEntry(transactionId).flatMap { case (offset, entry) =>
@@ -403,7 +402,7 @@ private[sandbox] final class InMemoryLedger(
 
   override def lookupTransactionTreeById(
       transactionId: Ref.TransactionId,
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     Future.successful {
       lookupTransactionEntry(transactionId).flatMap { case (offset, entry) =>
@@ -418,7 +417,7 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def getParties(parties: Seq[Party])(implicit
+  override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     Future.successful(this.synchronized {
@@ -433,8 +432,8 @@ private[sandbox] final class InMemoryLedger(
     })
 
   override def publishPartyAllocation(
-      submissionId: SubmissionId,
-      party: Party,
+      submissionId: Ref.SubmissionId,
+      party: Ref.Party,
       displayName: Option[String],
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Future.successful(this.synchronized[SubmissionResult] {
@@ -474,15 +473,15 @@ private[sandbox] final class InMemoryLedger(
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Map[Ref.PackageId, PackageDetails]] =
     packageStoreRef.get.listLfPackages()
 
-  override def getLfArchive(packageId: PackageId)(implicit
+  override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     packageStoreRef.get.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(implicit
+  override def getLfPackage(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
@@ -495,7 +494,7 @@ private[sandbox] final class InMemoryLedger(
     }
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
@@ -637,7 +636,7 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(implicit
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     Future.successful {
