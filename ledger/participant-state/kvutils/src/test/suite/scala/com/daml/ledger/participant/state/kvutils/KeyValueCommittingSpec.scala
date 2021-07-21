@@ -66,6 +66,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     .setCommandDedup(
       DamlCommandDedupKey.newBuilder
         .addSubmitters(alice)
+        .setApplicationId(applicationId)
         .setCommandId(commandId)
         .setApplicationId(applicationId)
         .build
