@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractKey,
   DamlContractKeyState,
+  DamlContractState,
   DamlStateKey,
   DamlStateValue,
 }
@@ -29,6 +30,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   StepResult,
   StepStop,
 }
+import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -36,12 +38,14 @@ import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.google.protobuf.Timestamp
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{forAll, _}
 import org.scalatest.wordspec.AnyWordSpec
 
-class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
-  import ContractKeysValidatorSpec._
+class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
+  import TransactionConsistencyValidatorSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -121,7 +125,13 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
     "succeeds when a global contract gets archived before a local contract gets created" in {
       val globalCid = s"#$freshContractId"
       val globalCreate = newCreateNodeWithFixedKey(globalCid)
-      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid))
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = Map(
+          makeContractIdStateKey(globalCid) -> Some(makeContractIdStateValue()),
+          contractStateKey(conflictingKey) -> Some(contractKeyStateValue(globalCid)),
+        ),
+      )
       val builder = TransactionBuilder()
       builder.add(archive(globalCreate, Set("Alice")))
       builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
@@ -221,6 +231,30 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
         getTransactionRejectionReason(result).getInconsistent.getDetails
       rejectionReason should startWith("InconsistentKeys")
     }
+
+    "fail if a contract is not active anymore" in {
+      val globalCid = s"#$freshContractId"
+      val globalCreate = newCreateNodeWithFixedKey(globalCid)
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = Map(
+          makeContractIdStateKey(globalCid) -> Some(
+            makeContractIdStateValue().toBuilder
+              .setContractState(
+                DamlContractState.newBuilder().setArchivedAt(Timestamp.getDefaultInstance)
+              )
+              .build()
+          )
+        ),
+      )
+      val builder = TransactionBuilder()
+      builder.add(archive(globalCreate, Set("Alice")))
+      val transaction = builder.buildSubmitted()
+      val result = validate(context, transaction)
+      inside(result) { case StepStop(logEntry) =>
+        logEntry.getTransactionRejectionEntry.hasInconsistent shouldBe true
+      }
+    }
   }
 
   private def newLookupByKeySubmittedTransaction(
@@ -274,14 +308,14 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
       ctx: CommitContext,
       transaction: SubmittedTransaction,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-    ContractKeysValidator.createValidationStep(rejections)(
+    TransactionConsistencyValidator.createValidationStep(rejections)(
       ctx,
       DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
     )
   }
 }
 
-object ContractKeysValidatorSpec {
+object TransactionConsistencyValidatorSpec {
   private val aKeyMaintainer = "maintainer"
   private val aKey = "key"
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
