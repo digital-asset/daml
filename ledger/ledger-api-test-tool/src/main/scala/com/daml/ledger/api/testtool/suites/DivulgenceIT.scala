@@ -311,8 +311,8 @@ final class DivulgenceIT extends LedgerTestSuite {
   })
 
   test(
-    "DivulgeToAnotherParticipantAfterDisclose",
-    "Divulging to another participant twice",
+    "DiscloseThenDivulgeToAnotherParticipant",
+    "Divulging to another participant after disclosure",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     import Test.{Witnesses, DivulgeWitnesses}
@@ -320,7 +320,10 @@ final class DivulgenceIT extends LedgerTestSuite {
       witnesses <- beta.create[Witnesses](bob, Witnesses(bob, alice, alice))
       divulgeWitness <- beta.create(bob, DivulgeWitnesses(alice, bob))
       _ <- synchronize(alpha, beta)
-      newWitnesses <- alpha.exerciseAndGetContract(alice, witnesses.exerciseWitnessesCreateNewWitnesses(_))
+      newWitnesses <- alpha.exerciseAndGetContract(
+        alice,
+        witnesses.exerciseWitnessesCreateNewWitnesses(_),
+      )
       _ <- alpha.exercise(alice, divulgeWitness.exerciseDivulge(_, newWitnesses))
 
     } yield ()
