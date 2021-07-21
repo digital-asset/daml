@@ -216,7 +216,8 @@ sealed abstract class Queries {
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     import cats.data.NonEmptyVector
     import cats.instances.vector._
-    import cats.syntax.traverse._
+    import cats.instances.int._
+    import cats.syntax.foldable._
     NonEmptyVector.fromVector(cids.toVector) match {
       case None =>
         free.connection.pure(0)
