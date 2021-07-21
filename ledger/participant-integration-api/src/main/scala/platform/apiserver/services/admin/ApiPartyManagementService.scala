@@ -16,8 +16,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexTransactionsService,
   LedgerEndService,
 }
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -37,7 +36,7 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     managementServiceTimeout: Duration,
-    submissionIdGenerator: Option[Ref.Party] => v1.SubmissionId,
+    submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -142,7 +141,7 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
       managementServiceTimeout: Duration,
-      submissionIdGenerator: Option[Ref.Party] => v1.SubmissionId = CreateSubmissionId.withPrefix,
+      submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -161,10 +160,11 @@ private[apiserver] object ApiPartyManagementService {
     private val SuffixLength: Int = 1 + UUID.randomUUID().toString.length
     private val MaxLength: Int = 255
     private val PrefixMaxLength: Int = MaxLength - SuffixLength
-    def withPrefix(maybeParty: Option[Ref.Party]): v1.SubmissionId = {
+
+    def withPrefix(maybeParty: Option[Ref.Party]): Ref.SubmissionId = {
       val uuid = UUID.randomUUID().toString
       val raw = maybeParty.fold(uuid)(party => s"${party.take(PrefixMaxLength)}-$uuid")
-      v1.SubmissionId.assertFromString(raw)
+      Ref.SubmissionId.assertFromString(raw)
     }
   }
 
@@ -183,7 +183,7 @@ private[apiserver] object ApiPartyManagementService {
       ledgerEndService.currentLedgerEnd().map(Some(_))
 
     override def submit(
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         input: (Option[Ref.Party], Option[String]),
     )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
       val (party, displayName) = input
@@ -194,13 +194,13 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementService.partyEntries(offset)
 
     override def accept(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, PartyEntry.AllocationAccepted] = {
       case entry @ PartyEntry.AllocationAccepted(Some(`submissionId`), _) => entry
     }
 
     override def reject(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
         ErrorFactories.invalidArgument(reason)
