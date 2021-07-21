@@ -58,7 +58,7 @@ message PruneRequest {
   // Participant node operators SHOULD set this flag to avoid leaking
   // storage due to accumulating unarchived divulged contracts PROVIDED no
   // application using this participant node relies on divulgence.
-  bool prune_all_divulged_contracts = 2;
+  bool prune_all_divulged_contracts = 3;
 
   // Unique submission identifier.
   // Optional, defaults to a random identifier, used for logging.
