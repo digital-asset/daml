@@ -69,7 +69,6 @@ sealed abstract class Queries {
 
   protected[this] def bigIntType: Fragment // must match bigserial
   protected[this] def bigSerialType: Fragment
-  protected[this] def textType: Fragment
   protected[this] def packageIdType: Fragment
   protected[this] def partyOffsetContractIdType: Fragment
   protected[this] final def partyType = partyOffsetContractIdType
@@ -459,7 +458,7 @@ private object PostgresQueries extends Queries {
 
   protected[this] override def bigIntType = sql"BIGINT"
   protected[this] override def bigSerialType = sql"BIGSERIAL"
-  protected[this] override def textType = sql"TEXT"
+  private[this] def textType: Fragment = sql"TEXT"
   protected[this] override def packageIdType = textType
   protected[this] override def partyOffsetContractIdType = textType
   protected[this] override def nameType = textType
@@ -608,7 +607,6 @@ private object OracleQueries extends Queries {
   protected[this] override def bigIntType = sql"NUMBER(19,0)"
   protected[this] override def bigSerialType =
     bigIntType ++ sql" GENERATED ALWAYS AS IDENTITY"
-  protected[this] override def textType = sql"NVARCHAR2(100)"
   protected[this] override def packageIdType = sql"NVARCHAR2(64)"
   protected[this] override def partyOffsetContractIdType = sql"VARCHAR2(255)"
   // if >=1578: ORA-01450: maximum key length (6398) exceeded
