@@ -213,7 +213,6 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.RESOURCE_EXHAUSTED.value)),
-            traceContext = submitRequest.value.traceContext,
           )
 
         results.expectNext(Ctx(context, failureCompletion))
@@ -235,7 +234,6 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.ABORTED.value)),
-            traceContext = submitRequest.value.traceContext,
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
         results.requestNext().value shouldEqual completion
@@ -255,7 +253,6 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.ABORTED.value)),
-            traceContext = submitRequest.value.traceContext,
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
         results.requestNext().value shouldEqual completion
@@ -392,7 +389,6 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.INVALID_ARGUMENT.value)),
-            traceContext = submitRequest.value.traceContext,
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(failureCompletion))
 
@@ -423,7 +419,7 @@ class CommandTrackerFlowTest
 
         results.expectNextUnorderedN(commandIds.map { commandId =>
           val successCompletion =
-            Completion(commandId, Some(Status()), traceContext = submitRequest.value.traceContext)
+            Completion(commandId, Some(Status()))
           Ctx(context, successCompletion)
         })
         succeed
@@ -457,7 +453,6 @@ class CommandTrackerFlowTest
                 Completion(
                   commandId,
                   Some(Status()),
-                  traceContext = submitRequest.value.traceContext,
                 ),
               )
             )

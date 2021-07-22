@@ -12,10 +12,10 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -30,6 +30,7 @@ import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Failure
 
 private[platform] object ReadOnlySqlLedger {
 
@@ -55,7 +56,7 @@ private[platform] object ReadOnlySqlLedger {
       enableMutableContractStateCache: Boolean,
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
@@ -67,19 +68,23 @@ private[platform] object ReadOnlySqlLedger {
       } yield ledger
 
     private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
-      if (enableMutableContractStateCache)
-        new ReadOnlySqlLedgerWithMutableCache.Owner(
-          ledgerDao,
-          enricher,
-          ledgerId,
-          metrics,
-          maxContractStateCacheSize,
-          maxContractKeyStateCacheSize,
-          maxTransactionsInMemoryFanOutBufferSize,
-          enableInMemoryFanOutForLedgerApi,
-          servicesExecutionContext = servicesExecutionContext,
-        )
-      else
+      if (enableMutableContractStateCache) {
+        if (!enableAppendOnlySchema) {
+          failAppendOnlyNotEnabled()
+        } else {
+          new ReadOnlySqlLedgerWithMutableCache.Owner(
+            ledgerDao,
+            enricher,
+            ledgerId,
+            metrics,
+            maxContractStateCacheSize,
+            maxContractKeyStateCacheSize,
+            maxTransactionsInMemoryFanOutBufferSize,
+            enableInMemoryFanOutForLedgerApi,
+            servicesExecutionContext = servicesExecutionContext,
+          )
+        }
+      } else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
           ledgerDao,
           ledgerId,
@@ -156,6 +161,15 @@ private[platform] object ReadOnlySqlLedger {
           Some(enricher),
         )
   }
+
+  private def failAppendOnlyNotEnabled() =
+    ResourceOwner.forTry(() =>
+      Failure[ReadOnlySqlLedger](
+        new IllegalArgumentException(
+          "Mutable contract state cache must be enabled in conjunction with append-only schema"
+        )
+      )
+    )
 }
 
 private[index] abstract class ReadOnlySqlLedger(

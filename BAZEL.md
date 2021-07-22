@@ -418,6 +418,9 @@ detailed information.
     bazel test //ledger/sandbox:sandbox-scala-tests --test_output=streamed
     ```
 
+    Test outputs are also available in log files underneath the convenience
+    symlink `bazel-testlogs` or `bazel-out/*/testlogs`.
+
 - Do not cache test results
 
     ```

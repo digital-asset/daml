@@ -10,7 +10,7 @@ import cats.effect.{Blocker, ContextShift, IO}
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.{Dar, Reader}
+import com.daml.lf.archive.{ArchivePayloadParser, Dar}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -26,7 +26,7 @@ import com.daml.doobie.logging.Slf4jLogHandler
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 import scala.language.existentials
 import scala.util.control.NonFatal
 
@@ -182,11 +182,10 @@ abstract class DbTriggerDao protected (
   ): Either[String, (PackageId, DamlLf.ArchivePayload)] =
     for {
       pkgId <- PackageId.fromString(pkgIdString)
-      cos = Reader.damlLfCodedInputStreamFromBytes(pkgPayload)
-      payload <- Try(DamlLf.ArchivePayload.parseFrom(cos)) match {
-        case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
-        case Success(pkg) => Right(pkg)
-      }
+      payload <- ArchivePayloadParser
+        .fromByteArray(pkgPayload)
+        .left
+        .map(err => s"Failed to parse package with id $pkgId.\n" + err.toString)
     } yield (pkgId, payload)
 
   private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {

@@ -10,6 +10,8 @@ import java.util.Date
 import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, get, int, long, str}
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.store.Conversions.{
   contractId,
@@ -21,7 +23,6 @@ import com.daml.platform.store.Conversions.{
   offset,
   party,
 }
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.store.Conversions
@@ -833,7 +834,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     ).foreach(_.execute()(connection))
   }
 
-  private val rawTransactionEventParser: RowParser[RawTransactionEvent] =
+  private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {
+    import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
     (int("event_kind") ~
       str("transaction_id") ~
       int("node_index") ~
@@ -898,6 +900,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           offset,
         )
     }
+  }
 
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
@@ -940,4 +943,14 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
            and event_kind != 0
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)
+
+  protected def exe(statement: String): Connection => Unit = { connection =>
+    val stmnt = connection.createStatement()
+    try {
+      stmnt.execute(statement)
+      ()
+    } finally {
+      stmnt.close()
+    }
+  }
 }

@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.stores.ledger.sql
 import java.io.File
 import java.time.Instant
 
-import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
@@ -15,7 +14,7 @@ import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -39,7 +38,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
-import scala.util.Success
 
 // TODO append-only: Remove this class once the mutating schema is removed
 final class SqlLedgerSpecAppendOnly
@@ -212,23 +210,6 @@ final class SqlLedgerSpecAppendOnly
         ledger.currentHealth() should be(Healthy)
       }
     }
-
-    /** Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
-      * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
-      *
-      * NOTE: This is needed for ensuring durability guarantees of Daml-on-SQL.
-      */
-    "does not use async commit when building JdbcLedgerDao" in {
-      for {
-        _ <- createSqlLedger(validatePartyAllocation = false)
-      } yield {
-        val hikariDataSourceLogs =
-          LogCollector.read[this.type]("com.daml.platform.store.appendonlydao.HikariConnection")
-        hikariDataSourceLogs should contain(
-          Level.INFO -> "Creating Hikari connections with synchronous commit ON"
-        )
-      }
-    }
   }
 
   private def createSqlLedger(validatePartyAllocation: Boolean): Future[Ledger] =
@@ -322,8 +303,6 @@ object SqlLedgerSpecAppendOnly {
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
-  private val Success(testDar) = {
-    val fileName = new File(rlocation(ModelTestDar.path))
-    RawDarReader.readArchiveFromFile(fileName)
-  }
+  private val testDar =
+    DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
 }

@@ -5,10 +5,11 @@ package com.daml.ledger.on.memory
 
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.api._
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.StateKeySerializationStrategy
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -19,7 +20,7 @@ object InMemoryLedgerReaderWriter {
 
   final class Owner(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       keySerializationStrategy: StateKeySerializationStrategy,
       metrics: Metrics,
       timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,

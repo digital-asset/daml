@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future

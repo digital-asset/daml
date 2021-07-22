@@ -4,7 +4,7 @@
 package com.daml.lf.archive
 
 import java.math.BigDecimal
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.data.{Decimal, Numeric, Ref}
@@ -622,11 +622,9 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(testCases) { string =>
-          decoder.decodeExpr(toDecimalProto(string), "test") match {
+          inside(decoder.decodeExpr(toDecimalProto(string), "test")) {
             case Ast.EPrimLit(Ast.PLNumeric(num)) =>
               num shouldBe new BigDecimal(string).setScale(10)
-            case _ =>
-              throw new Error("")
           }
         }
       }
@@ -682,11 +680,9 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
         forEvery(testCases) { (id, string) =>
-          decoder.decodeExpr(toNumericProto(id), "test") match {
+          inside(decoder.decodeExpr(toNumericProto(id), "test")) {
             case Ast.EPrimLit(Ast.PLNumeric(num)) =>
               num shouldBe new BigDecimal(string)
-            case _ =>
-              throw new Error("")
           }
         }
       }
@@ -919,12 +915,8 @@ class DecodeV1Spec
 
   "decodeModuleRef" should {
 
-    lazy val ArchivePayload(pkgId, dalfProto, version) = {
-      val dalfFile =
-        Files.newInputStream(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
-      try Reader.readArchive(dalfFile)
-      finally dalfFile.close()
-    }
+    lazy val Right(ArchivePayload(pkgId, dalfProto, version)) =
+      ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
       val dalf1 = dalfProto.getDamlLf1
@@ -958,14 +950,16 @@ class DecodeV1Spec
     }
 
     "decode resolving the interned package ID" in {
-      val decoder = Decode.decoders(version)
-      inside(
-        decoder.decoder
-          .decodePackage(pkgId, decoder.extract(dalfProto))
-          .modules(Ref.DottedName.assertFromString("DarReaderTest"))
-          .definitions(Ref.DottedName.assertFromString("reverseCopy"))
-      ) { case Ast.DValue(_, _, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
-        (resolvedExtId: String) should ===(extId: String)
+      val decoder = new DecodeV1(version.minor)
+      inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf1, false)) { case Right(pkg) =>
+        inside(
+          pkg
+            .modules(Ref.DottedName.assertFromString("DarReaderTest"))
+            .definitions(Ref.DottedName.assertFromString("reverseCopy"))
+        ) {
+          case Ast.DValue(_, _, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
+            (resolvedExtId: String) should ===(extId: String)
+        }
       }
     }
   }
@@ -1051,7 +1045,9 @@ class DecodeV1Spec
           .addInternedStrings("0.0.0")
           .setMetadata(metadata)
           .build()
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodePackage(pkgId, pkg, false))
+        inside(decoder.decodePackage(pkgId, pkg, false)) { case Left(err) =>
+          err shouldBe an[Error.Parsing]
+        }
       }
     }
 
@@ -1061,9 +1057,9 @@ class DecodeV1Spec
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
-        an[Error.Parsing] shouldBe thrownBy(
-          decoder.decodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false)
-        )
+        inside(decoder.decodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false)) {
+          case Left(err) => err shouldBe an[Error.Parsing]
+        }
       }
     }
 
@@ -1084,12 +1080,14 @@ class DecodeV1Spec
           .addInternedStrings("0.0.0")
           .setMetadata(metadata)
           .build()
-        decoder.decodePackage(pkgId, pkg, false).metadata shouldBe Some(
-          Ast.PackageMetadata(
-            Ref.PackageName.assertFromString("foobar"),
-            Ref.PackageVersion.assertFromString("0.0.0"),
+        inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
+          pkg.metadata shouldBe Some(
+            Ast.PackageMetadata(
+              Ref.PackageName.assertFromString("foobar"),
+              Ref.PackageVersion.assertFromString("0.0.0"),
+            )
           )
-        )
+        }
       }
     }
   }

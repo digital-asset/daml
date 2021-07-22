@@ -42,7 +42,7 @@ abstract class BenchmarkWithLedgerExport {
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
           for (archive <- submission.getPackageUploadEntry.getArchivesList.asScala) {
-            builder += Decode.decode(archive)
+            builder += Decode.assertDecodeArchive(archive)
           }
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>

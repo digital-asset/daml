@@ -7,13 +7,13 @@ import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.{
   CommitStrategy,
   LedgerStateOperations,
   LogAppendingCommitStrategy,
   StateKeySerializationStrategy,
 }
+import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -24,7 +24,7 @@ final class CachingCommitStrategy[Result](
 )(implicit executionContext: ExecutionContext)
     extends CommitStrategy[Result] {
   override def commit(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       correlationId: String,
       entryId: DamlKvutils.DamlLogEntryId,
       entry: DamlKvutils.DamlLogEntry,

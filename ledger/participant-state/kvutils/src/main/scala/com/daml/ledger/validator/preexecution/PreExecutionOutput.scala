@@ -5,7 +5,7 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 
 sealed case class PreExecutionOutput[+ReadSet, +WriteSet](
     minRecordTime: Option[Instant],
@@ -13,5 +13,5 @@ sealed case class PreExecutionOutput[+ReadSet, +WriteSet](
     successWriteSet: WriteSet,
     outOfTimeBoundsWriteSet: WriteSet,
     readSet: ReadSet,
-    involvedParticipants: Set[ParticipantId],
+    involvedParticipants: Set[Ref.ParticipantId],
 )

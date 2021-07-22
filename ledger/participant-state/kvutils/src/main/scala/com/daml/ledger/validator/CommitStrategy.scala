@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 
 import scala.concurrent.Future
 
@@ -22,7 +22,7 @@ import scala.concurrent.Future
   */
 trait CommitStrategy[Result] {
   def commit(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       correlationId: String,
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,

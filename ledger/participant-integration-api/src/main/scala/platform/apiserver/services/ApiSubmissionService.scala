@@ -9,37 +9,26 @@ import java.util.UUID
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SubmissionResult.{
-  Acknowledged,
-  InternalError,
-  NotSupported,
-  Overloaded,
-  SynchronousReject,
-}
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SeedService,
-  SubmissionResult,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteService}
 import com.daml.lf.crypto
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => InterpretationError}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.telemetry.TelemetryContext
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.ErrorCause
+import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import io.grpc.Status
 
@@ -154,30 +143,33 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def handleSubmissionResult(result: Try[SubmissionResult])(implicit
       loggingContext: LoggingContext
-  ): Try[Unit] = result match {
-    case Success(Acknowledged) =>
-      logger.debug("Success")
-      Success(())
+  ): Try[Unit] = {
+    import SubmissionResult._
+    result match {
+      case Success(Acknowledged) =>
+        logger.debug("Success")
+        Success(())
 
-    case Success(Overloaded) =>
-      logger.info("Back-pressure")
-      Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+      case Success(Overloaded) =>
+        logger.info("Back-pressure")
+        Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
 
-    case Success(NotSupported) =>
-      logger.warn("Not supported")
-      Failure(Status.INVALID_ARGUMENT.asRuntimeException)
+      case Success(NotSupported) =>
+        logger.warn("Not supported")
+        Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
-    case Success(InternalError(reason)) =>
-      logger.error(s"Internal error: $reason")
-      Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
+      case Success(InternalError(reason)) =>
+        logger.error(s"Internal error: $reason")
+        Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
 
-    case Success(SynchronousReject(failure)) =>
-      logger.info(s"Rejected: ${failure.getStatus}")
-      Failure(failure)
+      case Success(SynchronousReject(failure)) =>
+        logger.info(s"Rejected: ${failure.getStatus}")
+        Failure(failure)
 
-    case Failure(error) =>
-      logger.info(s"Rejected: ${error.getMessage}")
-      Failure(error)
+      case Failure(error) =>
+        logger.info(s"Rejected: ${error.getMessage}")
+        Failure(error)
+    }
   }
 
   private def handleCommandExecutionResult(
@@ -224,9 +216,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
     } else Future.successful(Seq.empty)
 
   private def allocateParty(
-      name: Party
+      name: Ref.Party
   )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
-    val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
     withEnrichedLoggingContext(logging.party(name), logging.submissionId(submissionId)) {
       implicit loggingContext =>
         logger.info("Implicit party allocation")

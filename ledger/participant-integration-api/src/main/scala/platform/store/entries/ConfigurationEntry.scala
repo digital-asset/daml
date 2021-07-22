@@ -4,7 +4,7 @@
 package com.daml.platform.store.entries
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.configuration.Configuration
 
 private[platform] sealed abstract class ConfigurationEntry extends Product with Serializable {
   def toDomain: domain.ConfigurationEntry

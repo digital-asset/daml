@@ -22,6 +22,8 @@ module DA.Daml.LF.ScenarioServiceClient
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
   , LowLevel.ScenarioResult(..)
+  , LowLevel.WarningMessage(..)
+  , LowLevel.Location(..)
   , Hash
   , encodeModule
   ) where

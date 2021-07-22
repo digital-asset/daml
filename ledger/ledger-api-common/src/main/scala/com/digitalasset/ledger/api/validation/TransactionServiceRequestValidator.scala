@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.validation
 
-import brave.propagation.TraceContext
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
@@ -18,7 +17,6 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.server.api.validation.FieldValidations._
-import com.daml.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
 
 object TransactionServiceRequestValidator {
@@ -42,7 +40,6 @@ class TransactionServiceRequestValidator(
       begin: domain.LedgerOffset,
       end: Option[domain.LedgerOffset],
       knownParties: Set[Ref.Party],
-      traceContext: Option[TraceContext],
   )
 
   private def commonValidations(req: GetTransactionsRequest): Result[PartialValidation] = {
@@ -59,7 +56,6 @@ class TransactionServiceRequestValidator(
       convertedBegin,
       convertedEnd,
       knownParties,
-      req.traceContext.map(toBrave),
     )
 
   }
@@ -89,7 +85,6 @@ class TransactionServiceRequestValidator(
         partial.end,
         convertedFilter,
         req.verbose,
-        req.traceContext.map(toBrave),
       )
     }
   }
@@ -119,7 +114,6 @@ class TransactionServiceRequestValidator(
         partial.end,
         convertedFilter,
         req.verbose,
-        req.traceContext.map(toBrave),
       )
     }
   }
@@ -128,7 +122,7 @@ class TransactionServiceRequestValidator(
     for {
       ledgerId <- matchId(LedgerId(req.ledgerId))
     } yield {
-      transaction.GetLedgerEndRequest(ledgerId, req.traceContext.map(toBrave))
+      transaction.GetLedgerEndRequest(ledgerId)
     }
   }
 
@@ -146,7 +140,6 @@ class TransactionServiceRequestValidator(
         ledgerId,
         domain.TransactionId(trId),
         parties,
-        req.traceContext.map(toBrave),
       )
     }
   }
@@ -164,7 +157,6 @@ class TransactionServiceRequestValidator(
         ledgerId,
         domain.EventId(eventId),
         parties,
-        req.traceContext.map(toBrave),
       )
     }
   }

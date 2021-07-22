@@ -7,13 +7,9 @@ import java.time.Instant
 
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason.{Inconsistent, InvalidLedgerTime}
-import com.daml.ledger.participant.state.v1.ContractInst
-import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.{CommittedTransaction, NodeId, Node => N}
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId, Node => N}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
 
@@ -57,15 +53,15 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
       currentState: RollbackState,
       rollbackStates: List[RollbackState],
       errs: Set[RejectionReason],
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   ) {
 
     def mapAcs(f: ALS => ALS): AddTransactionState =
       copy(currentState = currentState.mapAcs(f), rollbackStates = rollbackStates.map(_.mapAcs(f)))
 
     def result: Either[Set[RejectionReason], ALS] = {
-      if (!rollbackStates.isEmpty) {
-        sys.error(s"IMPOSSIBLE finished transaction but rollback states is not empty")
+      if (rollbackStates.nonEmpty) {
+        sys.error("IMPOSSIBLE finished transaction but rollback states is not empty")
       }
       currentState.als match {
         case None =>
@@ -98,13 +94,13 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
     */
   def addTransaction(
       let: Instant,
-      transactionId: TransactionId,
-      workflowId: Option[WorkflowId],
-      actAs: List[Party],
+      transactionId: Ref.TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      actAs: List[Ref.Party],
       transaction: CommittedTransaction,
-      disclosure: Relation[NodeId, Party],
-      divulgence: Relation[ContractId, Party],
-      divulgedContracts: List[(Value.ContractId, ContractInst)],
+      disclosure: Relation[NodeId, Ref.Party],
+      divulgence: Relation[ContractId, Ref.Party],
+      divulgedContracts: ActiveLedgerState.ReferencedContracts,
   ): Either[Set[RejectionReason], ALS] = {
     // If some node requires a contract, check that we have that contract, and check that that contract is not
     // created after the current let.
@@ -217,7 +213,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 } else {
                   state.copy(
                     errs = state.errs + Inconsistent(
-                      s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]"
+                      s"Contract key lookup with different results: expected [${nlkup.result}], actual [$currentResult]"
                     )
                   )
                 }

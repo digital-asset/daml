@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   UploadDarFileRequest,
 }
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePackagesService}
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.archive.{Dar, GenDarReader}
 import com.daml.lf.data.Ref
@@ -35,7 +35,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
-import scala.util.Success
 
 class ApiPackageManagementServiceSpec
     extends AsyncWordSpec
@@ -70,7 +69,7 @@ class ApiPackageManagementServiceSpec
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
     val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
-      .thenReturn(Success(new Dar[Archive](anArchive, List.empty)))
+      .thenReturn(Right(new Dar[Archive](anArchive, List.empty)))
 
     val mockEngine = mock[Engine]
     when(
@@ -96,12 +95,13 @@ class ApiPackageManagementServiceSpec
       Duration.ZERO,
       mockEngine,
       mockDarReader,
+      _ => Ref.SubmissionId.assertFromString("aSubmission"),
     )
   }
 
   private object TestWritePackagesService extends WritePackagesService {
     override def uploadPackages(
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         archives: List[DamlLf.Archive],
         sourceDescription: Option[String],
     )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {

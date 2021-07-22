@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
+import com.daml.lf.transaction.{NodeId, GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SResult._
@@ -101,7 +101,7 @@ final case class ScenarioRunner(
                 currentSubmission = None
                 // TODO (MK) This is gross, we need to unwind the transaction to
                 // get the right root context to derived the seed for the next transaction.
-                val rootCtx = err.ptx.unwind.context
+                val rootCtx = err.ptx.unwind().context
                 seed = nextSeed(
                   rootCtx.nextActionChildSeed
                 )
@@ -238,6 +238,7 @@ object ScenarioRunner {
         readAs: Set[Party],
         location: Option[Location],
         tx: SubmittedTransaction,
+        locationInfo: Map[NodeId, Location],
     ): Either[Error, R]
   }
 
@@ -364,6 +365,7 @@ object ScenarioRunner {
         readAs: Set[Party],
         location: Option[Location],
         tx: SubmittedTransaction,
+        locationInfo: Map[NodeId, Location],
     ): Either[Error, ScenarioLedger.CommitResult] =
       ScenarioLedger.commitTransaction(
         actAs = committers,
@@ -371,6 +373,7 @@ object ScenarioRunner {
         effectiveAt = ledger.currentTime,
         optLocation = location,
         tx = tx,
+        locationInfo = locationInfo,
         l = ledger,
       ) match {
         case Left(fas) =>
@@ -401,6 +404,7 @@ object ScenarioRunner {
       readAs = readAs,
       traceLog = traceLog,
       warningLog = warningLog,
+      commitLocation = location,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     @tailrec
@@ -408,8 +412,8 @@ object ScenarioRunner {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
-            case PartialTransaction.CompleteTransaction(tx, _) =>
-              ledger.commit(committers, readAs, location, tx) match {
+            case PartialTransaction.CompleteTransaction(tx, locationInfo, _) =>
+              ledger.commit(committers, readAs, location, tx, locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, onLedger.ptxInternal)
                 case Right(r) =>

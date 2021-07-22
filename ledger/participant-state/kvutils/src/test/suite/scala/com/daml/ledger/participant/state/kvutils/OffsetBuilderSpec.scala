@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

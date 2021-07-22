@@ -16,13 +16,12 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionInfo,
 }
 import com.daml.ledger.participant.state.kvutils.{CorrelationId, Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator
 import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
 import com.daml.ledger.validator._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
@@ -99,7 +98,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       submissionEnvelope: Raw.Envelope,
       correlationId: CorrelationId,
       recordTimeInstant: Instant,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       ledgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult],
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
@@ -239,7 +238,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     * processing pipeline.
     */
   private def processBatch(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       indexedSubmissions: Source[Inputs, NotUsed],
       damlLedgerStateReader: DamlLedgerStateReader,
@@ -335,7 +334,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   }
 
   private def validateSubmission(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
@@ -401,7 +400,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   }
 
   private def commitResult(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
       logEntryAndState: LogEntryAndState,

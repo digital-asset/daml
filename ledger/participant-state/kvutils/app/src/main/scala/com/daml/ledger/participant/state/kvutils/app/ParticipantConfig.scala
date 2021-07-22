@@ -3,17 +3,16 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import com.daml.ledger.participant.state.kvutils.app.ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout
-
 import java.nio.file.Path
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ports.Port
-
 import java.time.Duration
+
+import com.daml.ledger.participant.state.kvutils.app.ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout
+import com.daml.lf.data.Ref
+import com.daml.ports.Port
 
 final case class ParticipantConfig(
     mode: ParticipantRunMode,
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     // A name of the participant shard in a horizontally scaled participant.
     shardName: Option[String],
     address: Option[String],
@@ -32,7 +31,7 @@ final case class ParticipantConfig(
 )
 
 object ParticipantConfig {
-  def defaultIndexJdbcUrl(participantId: ParticipantId): String =
+  def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
   val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
@@ -44,5 +43,5 @@ object ParticipantConfig {
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
 
-  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 1000L
+  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 10000L
 }

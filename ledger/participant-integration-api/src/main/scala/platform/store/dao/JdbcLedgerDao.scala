@@ -25,6 +25,8 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
@@ -33,12 +35,10 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.archive.Reader
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -430,8 +430,8 @@ private class JdbcLedgerDao(
 
   override def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
@@ -480,7 +480,7 @@ private class JdbcLedgerDao(
 
   override def completeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -494,7 +494,7 @@ private class JdbcLedgerDao(
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
@@ -534,7 +534,7 @@ private class JdbcLedgerDao(
 
   private def insertCompletions(
       submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit connection: Connection): Unit =
@@ -617,7 +617,7 @@ private class JdbcLedgerDao(
     SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
 
   override def getParties(
-      parties: Seq[Party]
+      parties: Seq[Ref.Party]
   )(implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =
     if (parties.isEmpty)
       Future.successful(List.empty)
@@ -664,7 +664,7 @@ private class JdbcLedgerDao(
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Map[Ref.PackageId, PackageDetails]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadPackages) { implicit conn =>
         SQL_SELECT_PACKAGES
@@ -672,7 +672,7 @@ private class JdbcLedgerDao(
       }
       .map(
         _.map(d =>
-          PackageId.assertFromString(d.packageId) -> PackageDetails(
+          Ref.PackageId.assertFromString(d.packageId) -> PackageDetails(
             d.size,
             d.knownSince.toInstant,
             d.sourceDescription,
@@ -681,7 +681,7 @@ private class JdbcLedgerDao(
       )(servicesExecutionContext)
 
   override def getLfArchive(
-      packageId: PackageId
+      packageId: Ref.PackageId
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive) { implicit conn =>
@@ -691,7 +691,7 @@ private class JdbcLedgerDao(
           )
           .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
       }
-      .map(_.map(data => Archive.parseFrom(Reader.damlLfCodedInputStreamFromBytes(data))))(
+      .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
         servicesExecutionContext
       )
 
@@ -866,7 +866,7 @@ private class JdbcLedgerDao(
 
   private[this] def stopDeduplicatingCommandSync(
       commandId: domain.CommandId,
-      submitters: List[Party],
+      submitters: List[Ref.Party],
   )(implicit conn: Connection): Unit = {
     val key = DeduplicationKeyMaker.make(commandId, submitters)
     SQL_DELETE_COMMAND
@@ -877,7 +877,7 @@ private class JdbcLedgerDao(
 
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
-      submitters: List[Party],
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDbMetrics) {
       implicit conn =>
@@ -968,8 +968,8 @@ private class JdbcLedgerDao(
     */
   override def storeTransaction(
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: OffsetStep,
       transaction: CommittedTransaction,
@@ -1006,7 +1006,7 @@ private[platform] object JdbcLedgerDao {
     def submissionId(id: String): LoggingEntry =
       "submissionId" -> id
 
-    def transactionId(id: TransactionId): LoggingEntry =
+    def transactionId(id: Ref.TransactionId): LoggingEntry =
       "transactionId" -> id
   }
 
@@ -1096,14 +1096,14 @@ private[platform] object JdbcLedgerDao {
   }
 
   private[dao] def selectParties(
-      parties: Seq[Party]
+      parties: Seq[Ref.Party]
   )(implicit connection: Connection): List[ParsedPartyData] =
     SQL_SELECT_MULTIPLE_PARTIES
       .on("parties" -> parties)
       .as(PartyDataParser.*)
 
   private[dao] def constructPartyDetails(data: ParsedPartyData): PartyDetails =
-    PartyDetails(Party.assertFromString(data.party), data.displayName, data.isLocal)
+    PartyDetails(Ref.Party.assertFromString(data.party), data.displayName, data.isLocal)
 
   private val SQL_SELECT_MULTIPLE_PARTIES =
     SQL(
@@ -1190,7 +1190,7 @@ private[platform] object JdbcLedgerDao {
     protected[JdbcLedgerDao] def prepareCompletionInsert(
         submitterInfo: SubmitterInfo,
         offset: Offset,
-        transactionId: TransactionId,
+        transactionId: Ref.TransactionId,
         recordTime: Instant,
     ): SimpleSql[Row] = {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
@@ -1378,7 +1378,7 @@ private[platform] object JdbcLedgerDao {
     override protected[JdbcLedgerDao] def prepareCompletionInsert(
         submitterInfo: SubmitterInfo,
         offset: Offset,
-        transactionId: TransactionId,
+        transactionId: Ref.TransactionId,
         recordTime: Instant,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._

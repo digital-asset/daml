@@ -14,7 +14,7 @@ import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExportSpecBase._
-import com.daml.ledger.participant.state.v1
+import com.daml.lf.data.Ref
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -78,7 +78,7 @@ abstract class LedgerDataExportSpecBase(name: String) extends AnyWordSpec with M
 
 object LedgerDataExportSpecBase {
   private def someSubmissionInfo(): SubmissionInfo = SubmissionInfo(
-    participantId = v1.ParticipantId.assertFromString("id"),
+    participantId = Ref.ParticipantId.assertFromString("id"),
     correlationId = "parent",
     submissionEnvelope = Raw.Envelope(ByteString.copyFromUtf8("an envelope")),
     recordTimeInstant = Instant.ofEpochSecond(123456, 123456789),

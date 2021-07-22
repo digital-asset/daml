@@ -480,7 +480,6 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
         com.google.protobuf.timestamp.Timestamp.defaultInstance,
         Seq(),
         offset,
-        None,
       )
     val getTransactionsResponses = Observable.defer[TransactionsServiceImpl.LedgerItem](() =>
       Observable.fromArray(

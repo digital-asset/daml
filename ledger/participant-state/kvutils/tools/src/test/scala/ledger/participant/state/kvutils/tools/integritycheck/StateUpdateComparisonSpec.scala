@@ -5,12 +5,13 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.v1.Update.{
   CommandRejected,
   ConfigurationChangeRejected,
   TransactionAccepted,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{RejectionReasonV0, SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
@@ -97,17 +98,18 @@ final class StateUpdateComparisonSpec
   private lazy val aRecordTime = Time.Timestamp.now()
   private lazy val aConfigurationChangeRejected = ConfigurationChangeRejected(
     recordTime = Time.Timestamp.now(),
-    submissionId = SubmissionId.assertFromString("a submission ID"),
-    participantId = ParticipantId.assertFromString("a participant ID"),
-    proposedConfiguration = Configuration(1L, TimeModel.reasonableDefault, Duration.ofMinutes(1)),
+    submissionId = Ref.SubmissionId.assertFromString("a submission ID"),
+    participantId = Ref.ParticipantId.assertFromString("a participant ID"),
+    proposedConfiguration =
+      Configuration(1L, LedgerTimeModel.reasonableDefault, Duration.ofMinutes(1)),
     rejectionReason = "a rejection reason",
   )
   private lazy val aCommandRejectedUpdate = CommandRejected(
     recordTime = Time.Timestamp.now(),
     submitterInfo = SubmitterInfo(
       actAs = List.empty,
-      applicationId = ApplicationId.assertFromString("an application ID"),
-      commandId = CommandId.assertFromString("a command ID"),
+      applicationId = Ref.ApplicationId.assertFromString("an application ID"),
+      commandId = Ref.CommandId.assertFromString("a command ID"),
       deduplicateUntil = Instant.now(),
     ),
     reason = RejectionReasonV0.Disputed("a rejection reason"),
@@ -125,7 +127,7 @@ final class StateUpdateComparisonSpec
         optByKeyNodes = None,
       ),
       transaction = TransactionBuilder.EmptyCommitted,
-      transactionId = TransactionId.assertFromString("anID"),
+      transactionId = Ref.TransactionId.assertFromString("anID"),
       recordTime = aRecordTime,
       divulgedContracts = List.empty,
       blindingInfo = None,

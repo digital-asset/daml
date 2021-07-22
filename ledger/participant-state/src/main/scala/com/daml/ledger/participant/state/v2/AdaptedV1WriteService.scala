@@ -8,8 +8,11 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
-import com.daml.lf.data.Time
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
@@ -18,6 +21,10 @@ import io.grpc.{Metadata, StatusRuntimeException}
 
 import scala.jdk.CollectionConverters._
 
+/** Adapts a [[com.daml.ledger.participant.state.v1.WriteService]] implementation to the
+  * [[com.daml.ledger.participant.state.v2.WriteService]] API.
+  * Please note that this adaptor is not a fully faithful implementation of the v2 API.
+  */
 class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
   import AdaptedV1WriteService._
 
@@ -54,9 +61,9 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
     )
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     delegate
       .allocateParty(hint, displayName, submissionId)
@@ -64,23 +71,23 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     delegate
-      .submitConfiguration(maxRecordTime, submissionId, adaptLedgerConfiguration(config))
+      .submitConfiguration(maxRecordTime, submissionId, config)
       .thenApply(adaptSubmissionResult)
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   ): CompletionStage[PruningResult] =
     delegate
-      .prune(v1.Offset(pruneUpToInclusive.bytes), submissionId)
+      .prune(pruneUpToInclusive, submissionId)
       .thenApply(adaptPruningResult)
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
@@ -97,6 +104,8 @@ private[v2] object AdaptedV1WriteService {
   def adaptSubmitterInfo(submitterInfo: SubmitterInfo): v1.SubmitterInfo = {
     val deduplicateUntil = submitterInfo.deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(duration) => Instant.now().plus(duration)
+      case DeduplicationPeriod.DeduplicationOffset(_) =>
+        throw new NotImplementedError("Deduplication offset not supported as deduplication period")
     }
     v1.SubmitterInfo(
       actAs = submitterInfo.actAs,
@@ -159,18 +168,4 @@ private[v2] object AdaptedV1WriteService {
     val errorInfo = ErrorInfo.of(failure.getLocalizedMessage, "Synchronous rejection", metadata)
     Seq(com.google.protobuf.any.Any.pack(errorInfo))
   }
-
-  def adaptLedgerConfiguration(config: Configuration): v1.Configuration =
-    v1.Configuration(
-      generation = config.generation,
-      timeModel = adaptTimeModel(config.timeModel),
-      maxDeduplicationTime = config.maxDeduplicationTime,
-    )
-
-  private def adaptTimeModel(timeModel: TimeModel): v1.TimeModel =
-    v1.TimeModel(
-      avgTransactionLatency = timeModel.avgTransactionLatency,
-      minSkew = timeModel.minSkew,
-      maxSkew = timeModel.maxSkew,
-    ).get
 }

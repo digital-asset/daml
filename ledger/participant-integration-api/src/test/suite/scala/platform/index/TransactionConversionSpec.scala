@@ -3,21 +3,21 @@
 
 package com.daml.platform.index
 
-import com.daml.lf.data.ImmArray
+import java.time.Instant
+
+import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref.{LedgerString, Party}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
-import com.daml.ledger.TransactionId
-import com.daml.ledger.api.domain.LedgerOffset
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.platform.index.TransactionConversion.removeTransient
 import com.daml.platform.store.entries.LedgerEntry
-import java.time.Instant
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.{value => v}
 
 final class TransactionConversionSpec extends AnyWordSpec with Matchers {
 
@@ -117,7 +117,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
     def toEntry(transaction: CommittedTransaction) =
       LedgerEntry.Transaction(
         commandId = None,
-        transactionId = TransactionId.assertFromString("transactionId"),
+        transactionId = Ref.TransactionId.assertFromString("transactionId"),
         applicationId = None,
         actAs = List(party),
         workflowId = None,

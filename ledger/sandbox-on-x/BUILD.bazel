@@ -33,6 +33,8 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -102,7 +104,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
         "//ledger/participant-state",

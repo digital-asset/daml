@@ -7,9 +7,11 @@ module DA.Daml.LF.PrettyScenario
   ( prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
+  , prettyWarningMessage
   , renderScenarioResult
   , renderScenarioError
   , lookupDefLocation
+  , lookupLocationModule
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
   , ModuleRef
@@ -115,6 +117,11 @@ lookupModule world mbPkgId modName = do
          LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
+
+lookupLocationModule :: LF.World -> Location -> Maybe LF.Module
+lookupLocationModule world Location{..} =
+    lookupModule world locationPackage $
+        unmangleModuleName (TL.toStrict locationModule)
 
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =

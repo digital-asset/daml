@@ -12,7 +12,7 @@ import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
 import scala.collection.immutable.{Iterable, Seq => ISeq}
-import scalaz.{@@, Cord, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
+import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
@@ -54,10 +54,6 @@ sealed abstract class Queries {
 
   protected[this] def contractsTableSignatoriesObservers: Fragment
 
-  private[this] val indexContractsTable = CreateIndex(sql"""
-      CREATE INDEX contract_tpid_idx ON contract (tpid)
-    """)
-
   private[this] val createOffsetTable = CreateTable(
     "ledger_offset",
     sql"""
@@ -73,7 +69,6 @@ sealed abstract class Queries {
 
   protected[this] def bigIntType: Fragment // must match bigserial
   protected[this] def bigSerialType: Fragment
-  protected[this] def textType: Fragment
   protected[this] def packageIdType: Fragment
   protected[this] def partyOffsetContractIdType: Fragment
   protected[this] final def partyType = partyOffsetContractIdType
@@ -81,6 +76,9 @@ sealed abstract class Queries {
   protected[this] final def contractIdType = partyOffsetContractIdType
   protected[this] def nameType: Fragment // Name in daml-lf-1.rst
   protected[this] def agreementTextType: Fragment
+
+  // The max list size that can be used in `IN` clauses
+  protected[this] def maxListSize: Option[Int]
 
   protected[this] def jsonColumn(name: Fragment): Fragment
 
@@ -110,7 +108,6 @@ sealed abstract class Queries {
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
-      indexContractsTable,
     )
 
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
@@ -173,10 +170,8 @@ sealed abstract class Queries {
       parties.toList.partition(p => lastOffsets.contains(p))
     }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
-    val insert = Update[(String, SurrogateTpId, String)](
-      """INSERT INTO ledger_offset VALUES(?, ?, ?)""",
-      logHandler0 = log,
-    )
+    val insert =
+      Update[(String, SurrogateTpId, String)]("""INSERT INTO ledger_offset VALUES(?, ?, ?)""")
     // If a concurrent transaction updated the offset for an existing party, we will get
     // fewer rows and throw a StaleOffsetException in the caller.
     val update = existingParties match {
@@ -215,15 +210,23 @@ sealed abstract class Queries {
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int]
 
-  final def deleteContracts[F[_]: Foldable](
-      cids: F[String]
+  final def deleteContracts(
+      cids: Set[String]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    cids.toVector match {
-      case Vector(hd, tl @ _*) =>
-        (sql"DELETE FROM contract WHERE contract_id IN ("
-          ++ concatFragment(OneAnd(sql"$hd", tl.toIndexedSeq map (cid => sql", $cid")))
-          ++ sql")").update.run
-      case _ => free.connection.pure(0)
+    import cats.data.NonEmptyVector
+    import cats.instances.vector._
+    import cats.instances.int._
+    import cats.syntax.foldable._
+    NonEmptyVector.fromVector(cids.toVector) match {
+      case None =>
+        free.connection.pure(0)
+      case Some(cids) =>
+        val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
+        chunks
+          .map(chunk =>
+            (fr"DELETE FROM contract WHERE " ++ Fragments.in(fr"contract_id", chunk)).update.run
+          )
+          .foldA
     }
   }
 
@@ -466,7 +469,7 @@ private object PostgresQueries extends Queries {
 
   protected[this] override def bigIntType = sql"BIGINT"
   protected[this] override def bigSerialType = sql"BIGSERIAL"
-  protected[this] override def textType = sql"TEXT"
+  private[this] def textType: Fragment = sql"TEXT"
   protected[this] override def packageIdType = textType
   protected[this] override def partyOffsetContractIdType = textType
   protected[this] override def nameType = textType
@@ -474,11 +477,18 @@ private object PostgresQueries extends Queries {
 
   protected[this] override def jsonColumn(name: Fragment) = name ++ sql" JSONB NOT NULL"
 
+  protected[this] override val maxListSize = None
+
   private[this] val indexContractsKeys = CreateIndex(sql"""
       CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
   """)
 
-  protected[this] override def initDatabaseDdls = super.initDatabaseDdls :+ indexContractsKeys
+  private[this] val indexContractsTable = CreateIndex(sql"""
+      CREATE INDEX contract_tpid_idx ON contract (tpid)
+    """)
+
+  protected[this] override def initDatabaseDdls =
+    super.initDatabaseDdls ++ Seq(indexContractsTable, indexContractsKeys)
 
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
@@ -498,8 +508,7 @@ private object PostgresQueries extends Queries {
         INSERT INTO contract
         VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
         ON CONFLICT (contract_id) DO NOTHING
-      """,
-      logHandler0 = log,
+      """
     ).updateMany(dbcs)
   }
 
@@ -611,7 +620,6 @@ private object OracleQueries extends Queries {
   protected[this] override def bigIntType = sql"NUMBER(19,0)"
   protected[this] override def bigSerialType =
     bigIntType ++ sql" GENERATED ALWAYS AS IDENTITY"
-  protected[this] override def textType = sql"NVARCHAR2(100)"
   protected[this] override def packageIdType = sql"NVARCHAR2(64)"
   protected[this] override def partyOffsetContractIdType = sql"VARCHAR2(255)"
   // if >=1578: ORA-01450: maximum key length (6398) exceeded
@@ -621,31 +629,30 @@ private object OracleQueries extends Queries {
   protected[this] override def jsonColumn(name: Fragment) =
     name ++ sql" CLOB NOT NULL CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
 
+  // See http://www.dba-oracle.com/t_ora_01795_maximum_number_of_expressions_in_a_list_is_1000.htm
+  protected[this] override def maxListSize = Some(1000)
+
   protected[this] override def contractsTableSignatoriesObservers =
     sql"""
         ,${jsonColumn(sql"signatories")}
         ,${jsonColumn(sql"observers")}
         """
 
-  private[this] def stakeholdersPrep = DoMagicSetup(
-    sql"""CREATE MATERIALIZED VIEW LOG ON contract"""
-  )
-
   private[this] def stakeholdersView = CreateMaterializedView(
     "contract_stakeholders",
     sql"""CREATE MATERIALIZED VIEW contract_stakeholders
-          BUILD IMMEDIATE REFRESH FAST ON COMMIT AS
-          SELECT contract_id, stakeholder FROM contract,
+          BUILD IMMEDIATE REFRESH FAST ON STATEMENT AS
+          SELECT contract_id, tpid, stakeholder FROM contract,
                  json_table(json_array(signatories, observers), '$$[*][*]'
                     columns (stakeholder $partyType path '$$'))""",
   )
 
   private[this] def stakeholdersIndex = CreateIndex(
-    sql"""CREATE INDEX stakeholder_idx ON contract_stakeholders (stakeholder)"""
+    sql"""CREATE INDEX stakeholder_idx ON contract_stakeholders (tpid, stakeholder)"""
   )
 
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(stakeholdersPrep, stakeholdersView, stakeholdersIndex)
+    super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
   protected[this] type DBContractKey = JsValue
 
@@ -661,8 +668,7 @@ private object OracleQueries extends Queries {
         INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
         INTO contract (contract_id, tpid, key, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      """,
-      logHandler0 = log,
+      """
     ).updateMany(
       dbcs.map(_.mapKeyPayloadParties(identity, identity, _.toJson))
     )
@@ -688,7 +694,7 @@ private object OracleQueries extends Queries {
         case q +-: qs =>
           joinFragment(
             OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
-              fr"($tpid = tpid AND (" ++ predicate ++ fr"))"
+              fr"($tpid = cst.tpid AND (" ++ predicate ++ fr"))"
             },
             fr" OR ",
           )
@@ -729,12 +735,12 @@ private object OracleQueries extends Queries {
         // but this will probably necessitate the same PostgreSQL-side
         uniqueSets(queries.zipWithIndex.map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
           preds: NonEmpty[Map[SurrogateTpId, (Fragment, Ix)]] =>
-            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"tpid")
+            val tpid = caseLookup(preds.transform((_, predIx) => predIx._2), fr"cst.tpid")
             queryByCondition[Int](tpid, preds.transform((_, predIx) => predIx._1).toVector)
         }
       case MatchedQueryMarker.Unused =>
         val NonEmpty(nequeries) = queries
-        queryByCondition[SurrogateTpId](fr"tpid", nequeries)
+        queryByCondition[SurrogateTpId](fr"cst.tpid", nequeries)
     }
   }
 

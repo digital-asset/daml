@@ -224,22 +224,6 @@ class TransactionSpec
         na should not be nb
       }
     }
-
-    "ignores location" in forAll(genEmptyNode) { n =>
-      val withoutLocation = {
-        val nodeWithoutLocation = n match {
-          case nr: Node.NodeRollback[Nothing] => nr
-          case nc: Node.NodeCreate[V.ContractId] => nc copy (optLocation = None)
-          case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
-          case ne: Node.NodeExercises[Nothing, V.ContractId] =>
-            ne copy (optLocation = None)
-          case nl: Node.NodeLookupByKey[V.ContractId] => nl copy (optLocation = None)
-        }
-        nodeWithoutLocation
-      }
-      isReplayedBy(withoutLocation, n) shouldBe Right(())
-      isReplayedBy(n, withoutLocation) shouldBe Right(())
-    }
   }
 
   "suffixCid" - {
@@ -699,7 +683,6 @@ object TransactionSpec {
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
       ),
       choiceId = "dummyChoice",
-      optLocation = None,
       consuming = true,
       actingParties = Set.empty,
       chosenValue = V.ValueUnit,
@@ -724,7 +707,6 @@ object TransactionSpec {
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueContractId(dummyCid),
       agreementText = "dummyAgreement",
-      optLocation = None,
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,

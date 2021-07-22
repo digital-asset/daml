@@ -57,7 +57,7 @@ class ClientUtil(
       party = P.Party.unwrap(party),
       commands = seq.map(_.command),
     )
-    SubmitRequest(Some(commands), None)
+    SubmitRequest(Some(commands))
   }
 
   def nextTransaction(party: P.Party, offset: LedgerOffset)(implicit

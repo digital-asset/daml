@@ -50,6 +50,7 @@ alias(
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
+            "//ledger/ledger-configuration",
             "//ledger/ledger-on-sql",
             "//ledger/ledger-resources",
             "//ledger/metrics",
@@ -128,7 +129,6 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
@@ -198,6 +198,8 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
+            "//ledger/ledger-configuration",
+            "//ledger/ledger-offset",
             "//ledger/ledger-resources",
             "//ledger/ledger-resources:ledger-resources-test-lib",
             "//ledger/metrics",
@@ -303,5 +305,30 @@ server_conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-nesting",
+    lf_versions = ["stable"],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--include=" + ",".join([
+            "DeeplyNestedValueIT:AcceptCreateCommand46",
+            "DeeplyNestedValueIT:AcceptExerciseCommand46",
+            "DeeplyNestedValueIT:AcceptCreateArgumentInCreateAndExerciseCommand46",
+            "DeeplyNestedValueIT:AcceptChoiceArgumentInCreateAndExerciseCommand46",
+            "DeeplyNestedValueIT:AcceptExerciseArgument46",
+            "DeeplyNestedValueIT:AcceptExerciseOutput46",
+            "DeeplyNestedValueIT:AcceptCreateArgument46",
+            "DeeplyNestedValueIT:AcceptContractKey46",
+            "DeeplyNestedValueIT:AcceptFetchByKey46",
+            "DeeplyNestedValueIT:AcceptFailingLookupByKey46",
+            "DeeplyNestedValueIT:AcceptSuccessfulLookupByKey46",
+            "DeeplyNestedValueIT:RejectCreateCommand",
+            "DeeplyNestedValueIT:RejectExerciseCommand",
+            "DeeplyNestedValueIT:RejectCreateArgumentInCreateAndExerciseCommand",
+            "DeeplyNestedValueIT:RejectChoiceArgumentInCreateAndExerciseCommand",
+        ]),
     ],
 )

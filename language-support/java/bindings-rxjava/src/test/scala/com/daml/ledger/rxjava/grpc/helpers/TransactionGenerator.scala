@@ -281,7 +281,7 @@ object TransactionGenerator {
     (scalaEvents, javaEvents) <- eventsGen
     offset <- Gen.numStr
   } yield (
-    LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, None),
+    LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset),
     new data.Transaction(transactionId, commandId, workflowId, javaTimestamp, javaEvents, offset),
   )
 
@@ -293,7 +293,7 @@ object TransactionGenerator {
     (scalaEvents, javaEvents) <- eventsGen
     offset <- Gen.numStr
   } yield (
-    LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, None),
+    LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset),
     new data.TransactionTree(
       transactionId,
       commandId,

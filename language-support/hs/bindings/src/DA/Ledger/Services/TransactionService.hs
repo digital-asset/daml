@@ -123,7 +123,7 @@ ledgerEnd lid =
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetLedgerEnd=rpc} = service
-        let request = LL.GetLedgerEndRequest (unLedgerId lid) noTrace
+        let request = LL.GetLedgerEndRequest (unLedgerId lid)
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \case
@@ -157,8 +157,7 @@ lowerRequest = \case
         getTransactionsRequestBegin = Just (lowerLedgerOffset begin),
         getTransactionsRequestEnd = fmap lowerLedgerOffset end,
         getTransactionsRequestFilter = Just filter,
-        getTransactionsRequestVerbose = unVerbosity verbose,
-        getTransactionsRequestTraceContext = noTrace
+        getTransactionsRequestVerbose = unVerbosity verbose
         }
 
 mkByEventIdRequest :: LedgerId -> EventId -> [Party] -> LL.GetTransactionByEventIdRequest
@@ -167,7 +166,6 @@ mkByEventIdRequest lid eid parties =
     (unLedgerId lid)
     (unEventId eid)
     (Vector.fromList $ map unParty parties)
-    noTrace
 
 mkByIdRequest :: LedgerId -> TransactionId -> [Party] -> LL.GetTransactionByIdRequest
 mkByIdRequest lid trid parties =
@@ -175,4 +173,3 @@ mkByIdRequest lid trid parties =
     (unLedgerId lid)
     (unTransactionId trid)
     (Vector.fromList $ map unParty parties)
-    noTrace

@@ -5,27 +5,22 @@ package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.net.InetAddress
-import java.time.{Clock, Duration => JDuration, Instant, LocalDateTime, ZoneId}
-import java.util.{Date, UUID}
+import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
+import java.util.{Date, UUID}
 
-import io.grpc.Channel
-import com.daml.auth.middleware.api.{Client => AuthClient}
-import com.daml.ledger.api.testing.utils.OwnedResource
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.resources.FutureResourceOwner
-import com.daml.scalautil.Statement.discard
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
 import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
+import com.daml.auth.middleware.api.{Client => AuthClient}
+import com.daml.auth.middleware.oauth2.{Config => MiddlewareConfig, Server => MiddlewareServer}
+import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.clock.AdjustableClock
 import com.daml.daml_lf_dev.DamlLf
@@ -36,30 +31,34 @@ import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
-import com.daml.auth.middleware.oauth2.{Config => MiddlewareConfig, Server => MiddlewareServer}
-import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
+import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.resources.FutureResourceOwner
+import com.daml.scalautil.Statement.discard
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
+import io.grpc.Channel
 import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
 

@@ -6,13 +6,9 @@ package com.daml.platform.sandbox.stores
 import java.time.Instant
 
 import com.daml.ledger.api.domain.{PartyDetails, RejectionReason}
-import com.daml.ledger.participant.state.v1.ContractInst
-import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.{CommittedTransaction, NodeId}
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.daml.platform.store._
@@ -23,15 +19,15 @@ private[sandbox] case class InMemoryActiveLedgerState(
     divulgedContracts: Map[ContractId, DivulgedContract],
     keys: Map[GlobalKey, ContractId],
     reverseKeys: Map[ContractId, GlobalKey],
-    parties: Map[Party, PartyDetails],
+    parties: Map[Ref.Party, PartyDetails],
 ) extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
-  def isVisibleForDivulgees(contractId: ContractId, forParties: Set[Party]): Boolean =
+  def isVisibleForDivulgees(contractId: ContractId, forParties: Set[Ref.Party]): Boolean =
     activeContracts
       .get(contractId)
       .exists(ac => forParties.exists(p => ac.witnesses.contains(p) || ac.divulgences.contains(p)))
 
-  def isVisibleForStakeholders(contractId: ContractId, forParties: Set[Party]): Boolean =
+  def isVisibleForStakeholders(contractId: ContractId, forParties: Set[Ref.Party]): Boolean =
     activeContracts
       .get(contractId)
       .exists(ac =>
@@ -94,13 +90,13 @@ private[sandbox] case class InMemoryActiveLedgerState(
     )
   }
 
-  override def addParties(newParties: Set[Party]): InMemoryActiveLedgerState =
+  override def addParties(newParties: Set[Ref.Party]): InMemoryActiveLedgerState =
     copy(parties = newParties.map(p => p -> PartyDetails(p, None, isLocal = true)).toMap ++ parties)
 
   override def divulgeAlreadyCommittedContracts(
-      transactionId: TransactionId,
-      global: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)],
+      transactionId: Ref.TransactionId,
+      global: Relation[ContractId, Ref.Party],
+      referencedContracts: ActiveLedgerState.ReferencedContracts,
   ): InMemoryActiveLedgerState =
     if (global.nonEmpty) {
       val referencedContractsM = referencedContracts.toMap
@@ -152,13 +148,13 @@ private[sandbox] case class InMemoryActiveLedgerState(
     */
   def addTransaction(
       let: Instant,
-      transactionId: TransactionId,
-      workflowId: Option[WorkflowId],
-      actAs: List[Party],
+      transactionId: Ref.TransactionId,
+      workflowId: Option[Ref.WorkflowId],
+      actAs: List[Ref.Party],
       transaction: CommittedTransaction,
-      disclosure: Relation[NodeId, Party],
-      divulgence: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)],
+      disclosure: Relation[NodeId, Ref.Party],
+      divulgence: Relation[ContractId, Ref.Party],
+      referencedContracts: ActiveLedgerState.ReferencedContracts,
   ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,

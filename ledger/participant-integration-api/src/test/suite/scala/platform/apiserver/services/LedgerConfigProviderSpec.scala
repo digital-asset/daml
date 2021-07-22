@@ -12,14 +12,9 @@ import akka.stream.{Materializer, OverflowStrategy}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SubmissionId,
-  SubmissionResult,
-  TimeModel,
-  WriteConfigService,
-}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteConfigService}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -144,7 +139,7 @@ object LedgerConfigProviderSpec {
   }
 
   private def configurationWith(generation: Long): Configuration = {
-    Configuration(generation, TimeModel.reasonableDefault, Duration.ofDays(1))
+    Configuration(generation, LedgerTimeModel.reasonableDefault, Duration.ofDays(1))
   }
 
   private final class FakeWriteConfigService(
@@ -161,7 +156,7 @@ object LedgerConfigProviderSpec {
 
     override def submitConfiguration(
         maxRecordTime: Timestamp,
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         config: Configuration,
     )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
       CompletableFuture.supplyAsync { () =>

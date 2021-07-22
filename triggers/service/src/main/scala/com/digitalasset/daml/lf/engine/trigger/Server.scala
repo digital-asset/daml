@@ -71,7 +71,7 @@ class Server(
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory
     val pkgMap = pkgs.map { case (pkgId, payload) =>
-      Decode.decode(Reader.readArchivePayload(pkgId, payload))
+      Decode.assertDecodeArchivePayload(Reader.readArchivePayload(pkgId, payload).toTry.get)
     }.toMap
 
     // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.
@@ -394,9 +394,9 @@ class Server(
                 val inputStream = new ByteArrayInputStream(byteString.toArray)
                 DarReader
                   .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                  case Failure(err) =>
+                  case Left(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                  case Success(dar) =>
+                  case Right(dar) =>
                     extractExecutionContext { implicit ec =>
                       onComplete(addDar(dar.map(p => p.pkgId -> p.proto))) {
                         case Failure(err: archive.Error) =>

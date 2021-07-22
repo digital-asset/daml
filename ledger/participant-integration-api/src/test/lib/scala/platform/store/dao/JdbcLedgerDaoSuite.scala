@@ -11,20 +11,23 @@ import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{DivulgedContract, SubmitterInfo}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction._
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText, VersionedValue}
 import com.daml.lf.value.{Value => LfValue}
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.logging.LoggingContext
-import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
+import com.daml.platform.store.dao.JdbcLedgerDaoSuite._
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -53,10 +56,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
-  private[this] val Success(dar) = {
-    val fileName = new File(rlocation(ModelTestDar.path))
-    RawDarReader.readArchiveFromFile(fileName)
-  }
+  private[this] val dar =
+    DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
 
   private val now = Instant.now()
 
@@ -157,9 +158,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     ),
   )
 
-  protected final val defaultConfig = v1.Configuration(
+  protected final val defaultConfig = Configuration(
     generation = 0,
-    timeModel = v1.TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     Duration.ofDays(1),
   )
 
@@ -197,7 +198,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       templateId = templateId,
       arg = contractArgument,
       agreementText = someAgreement,
-      optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
       key = key,
@@ -212,7 +212,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       targetCoid = targetCid,
       templateId = someTemplateId,
       choiceId = someChoiceName,
-      optLocation = None,
       consuming = true,
       actingParties = Set(alice),
       chosenValue = someChoiceArgument,
@@ -233,7 +232,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     NodeFetch(
       coid = contractId,
       templateId = someTemplateId,
-      optLocation = None,
       actingParties = Set(party),
       signatories = Set(party),
       stakeholders = Set(party),
@@ -368,7 +366,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         targetCoid = id,
         templateId = someTemplateId,
         choiceId = someChoiceName,
-        optLocation = None,
         consuming = false,
         actingParties = Set(alice),
         chosenValue = someChoiceArgument,
@@ -386,7 +383,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       NodeFetch(
         coid = id,
         templateId = someTemplateId,
-        optLocation = None,
         actingParties = divulgees,
         signatories = Set(alice),
         stakeholders = Set(alice),
@@ -657,7 +653,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
 
   protected final def store(
-      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      divulgedContracts: DivulgedContracts,
       blindingInfo: Option[BlindingInfo],
       offsetAndTx: (Offset, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] =
@@ -668,7 +664,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
 
   protected final def storeOffsetStepAndTx(
-      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      divulgedContracts: DivulgedContracts,
       blindingInfo: Option[BlindingInfo],
       offsetStepAndTx: (OffsetStep, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
@@ -720,7 +716,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         templateId = someTemplateId,
         arg = someContractArgument,
         agreementText = someAgreement,
-        optLocation = None,
         signatories = Set(party),
         stakeholders = Set(party),
         key = Some(KeyWithMaintainers(someContractKey(party, key), Set(party))),
@@ -753,7 +748,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         targetCoid = contractId,
         templateId = someTemplateId,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
-        optLocation = None,
         consuming = true,
         actingParties = Set(party),
         chosenValue = LfValue.ValueUnit,
@@ -790,7 +784,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val lookupByKeyNodeId = txBuilder.add(
       NodeLookupByKey(
         someTemplateId,
-        None,
         KeyWithMaintainers(someContractKey(party, key), Set(party)),
         result,
         version = TransactionVersion.minVersion,
@@ -818,7 +811,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       NodeFetch(
         coid = contractId,
         templateId = someTemplateId,
-        optLocation = None,
         actingParties = Set(party),
         signatories = Set(party),
         stakeholders = Set(party),
@@ -868,20 +860,45 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   def nextOffsetStep(offset: Offset): OffsetStep =
     OffsetStep(previousOffset.getAndSet(Some(offset)), offset)
+
+  protected def storeConfigurationEntry(
+      offset: Offset,
+      submissionId: String,
+      lastConfig: Configuration,
+      rejectionReason: Option[String] = None,
+      maybePreviousOffset: Option[Offset] = Option.empty,
+  ): Future[PersistenceResponse] =
+    ledgerDao
+      .storeConfigurationEntry(
+        offsetStep = maybePreviousOffset
+          .orElse(previousOffset.get())
+          .map(IncrementalOffsetStep(_, offset))
+          .getOrElse(CurrentOffset(offset)),
+        Instant.EPOCH,
+        submissionId,
+        lastConfig,
+        rejectionReason,
+      )
+      .andThen { case Success(_) =>
+        previousOffset.set(Some(offset))
+      }
 }
 
 object JdbcLedgerDaoSuite {
 
-  import scalaz.syntax.traverse._
-  import scalaz.{Free, Monad, NaturalTransformation, Traverse}
+  private type DivulgedContracts =
+    Map[(ContractId, ContractInst[VersionedValue[ContractId]]), Set[Party]]
 
   implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
+
+    import scalaz.syntax.traverse._
+    import scalaz.{Free, Monad, NaturalTransformation, Traverse}
 
     /** Like `traverse`, but guarantees that
       *
       *  - `f` is evaluated left-to-right, and
       *  - `B` from the preceding element is evaluated before `f` is invoked for
-      * the subsequent `A`.
+      *    the subsequent `A`.
       */
     def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
       self

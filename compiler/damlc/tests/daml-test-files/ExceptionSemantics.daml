@@ -2,9 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_EXCEPTIONS
--- @ERROR range=130:1-130:23; Unhandled exception: ExceptionSemantics:E
--- @ERROR range=145:1-145:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
--- @ERROR range=182:1-182:11; Attempt to exercise a consumed contract
+-- @ERROR range=131:1-131:23; Unhandled exception: ExceptionSemantics:E
+-- @ERROR range=146:1-146:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
+-- @WARN range=180:3-180:43; Use of divulged contracts is deprecated
+-- @ERROR range=183:1-183:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
 
 import DA.Exception

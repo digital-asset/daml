@@ -29,23 +29,6 @@ supported_databases = [
         ],
     },
     {
-        "name": "h2-file",
-        "runtime_deps": [
-            "@maven//:com_h2database_h2",
-        ],
-        "conformance_test_tags": [
-            "manual",
-        ],
-        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:h2:%DIR/test",
-        ],
-        "conformance_test_tool_args": [
-            "--concurrent-test-runs=2",
-            "--timeout-scale-factor=4",
-        ],
-    },
-    {
         "name": "postgresql",
         "runtime_deps": [
             "@maven//:org_postgresql_postgresql",
@@ -59,16 +42,6 @@ supported_databases = [
         ],
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:sqlite:file:daml-on-sql-conformance-test?mode=memory&cache=shared",
-        ],
-    },
-    {
-        "name": "sqlite-file",
-        "runtime_deps": [
-            "@maven//:org_xerial_sqlite_jdbc",
-        ],
-        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite:%DIR/test.sqlite",
         ],
     },
 ]
@@ -97,12 +70,13 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-state",
@@ -137,6 +111,7 @@ da_scala_library(
         "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -184,8 +159,8 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -228,6 +203,7 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
@@ -405,7 +381,7 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-append-only-in-memory-fan-out",
+    name = "conformance-test-append-only-in-memory-fan-out-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
@@ -416,6 +392,23 @@ conformance_test(
         "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [],
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-in-memory-fan-out-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+        "--buffered-ledger-api-streams-unsafe",
+    ],
+    tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
     ],
@@ -464,9 +457,10 @@ conformance_test(
     server = ":conformance-test-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
         "--index-append-only-schema-unsafe",
         "--mutable-contract-state-cache-unsafe",
+        "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
@@ -533,9 +527,10 @@ conformance_test(
     server = ":conformance-test-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
         "--index-append-only-schema-unsafe",
         "--mutable-contract-state-cache-unsafe",
+        "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [

@@ -70,7 +70,7 @@ object CommandRetryFlow {
             {
               case Ctx(
                     RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
-                    Completion(_, Some(status: Status), _, _),
+                    Completion(_, Some(status: Status), _),
                     _,
                   ) =>
                 if (status.code == Code.OK_VALUE) {
@@ -87,7 +87,7 @@ object CommandRetryFlow {
                   RetryLogger.logFatal(request, status, nrOfRetries)
                   PROPAGATE_PORT
                 }
-              case Ctx(_, Completion(commandId, _, _, _), _) =>
+              case Ctx(_, Completion(commandId, _, _), _) =>
                 statusNotFoundError(commandId)
             },
           )

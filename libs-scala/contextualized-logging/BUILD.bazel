@@ -13,6 +13,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
     ],
     scalacopts = ["-Xsource:2.13"],
     tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],

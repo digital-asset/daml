@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.messages.transaction
 
-import brave.propagation.TraceContext
 import com.daml.lf.data.Ref.Party
 import com.daml.ledger.api.domain.{EventId, LedgerId}
 
@@ -11,5 +10,4 @@ final case class GetTransactionByEventIdRequest(
     ledgerId: LedgerId,
     eventId: EventId,
     requestingParties: Set[Party],
-    traceContext: Option[TraceContext],
 )

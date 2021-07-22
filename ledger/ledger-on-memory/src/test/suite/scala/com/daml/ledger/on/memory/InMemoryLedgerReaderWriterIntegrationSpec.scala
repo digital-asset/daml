@@ -5,12 +5,13 @@ package com.daml.ledger.on.memory
 
 import java.util.concurrent.Executors
 
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.StateKeySerializationStrategy
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -24,7 +25,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
 
   override def participantStateFactory(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       testId: String,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =

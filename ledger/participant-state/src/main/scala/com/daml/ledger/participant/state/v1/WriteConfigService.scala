@@ -5,6 +5,8 @@ package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
+import com.daml.ledger.configuration.Configuration
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.telemetry.TelemetryContext
 
@@ -29,7 +31,7 @@ trait WriteConfigService {
     */
   def submitConfiguration(
       maxRecordTime: Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

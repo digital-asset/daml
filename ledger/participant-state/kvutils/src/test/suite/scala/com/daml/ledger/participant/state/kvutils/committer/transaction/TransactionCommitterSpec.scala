@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
@@ -25,80 +26,89 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.jdk.CollectionConverters._
 
 class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
+  import TransactionCommitterSpec._
+
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val txBuilder = TransactionBuilder()
   private val metrics = new Metrics(new MetricRegistry)
   private val transactionCommitter =
     createTransactionCommitter() // Stateless, can be shared between tests
-  private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
-  private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
-  private val aRecordTime = Timestamp(100)
-  private val aDedupKey = Conversions
-    .commandDedupKey(aTransactionEntrySummary.submitterInfo)
-  private val aRichTransactionTreeSummary = {
-    val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
-    val nodes: Seq[TransactionOuterClass.Node] = Seq(
-      createNode("Fetch-1")(_.setFetch(fetchNodeBuilder)),
-      createNode("LookupByKey-1")(_.setLookupByKey(lookupByKeyNodeBuilder)),
-      createNode("Create-1")(_.setCreate(createNodeBuilder)),
-      createNode("LookupByKey-2")(_.setLookupByKey(lookupByKeyNodeBuilder)),
-      createNode("Fetch-2")(_.setFetch(fetchNodeBuilder)),
-      createNode("Create-2")(_.setCreate(createNodeBuilder)),
-      createNode("Fetch-3")(_.setFetch(fetchNodeBuilder)),
-      createNode("Create-3")(_.setCreate(createNodeBuilder)),
-      createNode("LookupByKey-3")(_.setLookupByKey(lookupByKeyNodeBuilder)),
-      createNode("Exercise-2")(
-        _.setExercise(
-          exerciseNodeBuilder.addAllChildren(
-            Seq("Fetch-3", "Create-3", "LookupByKey-3").asJava
-          )
-        )
-      ),
-      createNode("Exercise-1")(
-        _.setExercise(
-          exerciseNodeBuilder.addAllChildren(
-            Seq("LookupByKey-2", "Fetch-2", "Create-2", "Exercise-2").asJava
-          )
-        )
-      ),
-      createNode("Rollback-1")(
-        _.setRollback(
-          rollbackNodeBuilder.addAllChildren(Seq("RollbackChild-1", "RollbackChild-2").asJava)
-        )
-      ),
-      createNode("RollbackChild-1")(_.setCreate(createNodeBuilder)),
-      createNode("RollbackChild-2")(_.setFetch(fetchNodeBuilder)),
-    )
-    val tx = TransactionOuterClass.Transaction
-      .newBuilder()
-      .addAllRoots(roots.asJava)
-      .addAllNodes(nodes.asJava)
-      .build()
-    val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
-    DamlTransactionEntrySummary(outTx)
+
+  "authorizeSubmitters" should {
+    "reject a submission when any of the submitters keys is not present in the input state" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> Some(hostedParty(Bob)),
+        ),
+        participantId = ParticipantId,
+      )
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob, Emma)))
+
+      a[MissingInputState] should be thrownBy transactionCommitter.authorizeSubmitters(
+        context,
+        tx,
+      )
+    }
+
+    "reject a submission when any of the submitters is not known" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> None,
+        ),
+        participantId = ParticipantId,
+      )
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob)))
+
+      val result = transactionCommitter.authorizeSubmitters(context, tx)
+      result shouldBe a[StepStop]
+
+      val rejectionReason =
+        getTransactionRejectionReason(result).getPartyNotKnownOnLedger.getDetails
+      rejectionReason should fullyMatch regex """Submitting party .+ not known"""
+    }
+
+    "reject a submission when any of the submitters' participant id is incorrect" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> Some(notHostedParty(Bob)),
+        ),
+        participantId = ParticipantId,
+      )
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob)))
+
+      val result = transactionCommitter.authorizeSubmitters(context, tx)
+      result shouldBe a[StepStop]
+
+      val rejectionReason =
+        getTransactionRejectionReason(result).getSubmitterCannotActViaParticipant.getDetails
+      rejectionReason should fullyMatch regex s"""Party .+ not hosted by participant ${mkParticipantId(
+        ParticipantId
+      )}"""
+    }
+
+    "allow a submission when all of the submitters are hosted on the participant" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> Some(hostedParty(Bob)),
+          Emma -> Some(hostedParty(Emma)),
+        ),
+        participantId = ParticipantId,
+      )
+      val tx = DamlTransactionEntrySummary(createEmptyTransactionEntry(List(Alice, Bob, Emma)))
+
+      val result = transactionCommitter.authorizeSubmitters(context, tx)
+      result shouldBe a[StepContinue[_]]
+    }
   }
-  private val aDummyValue = TransactionBuilder.record("field" -> "value")
-  private val aKey = "key"
-  private val aKeyMaintainer = "maintainer"
-
-  private def createNode(nodeId: String)(
-      nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder
-  ) =
-    nodeImpl(TransactionOuterClass.Node.newBuilder().setNodeId(nodeId)).build()
-
-  private def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
-
-  private def exerciseNodeBuilder =
-    TransactionOuterClass.NodeExercise.newBuilder()
-
-  private def rollbackNodeBuilder =
-    TransactionOuterClass.NodeRollback.newBuilder()
-
-  private def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
-
-  private def lookupByKeyNodeBuilder =
-    TransactionOuterClass.NodeLookupByKey.newBuilder()
 
   "trimUnnecessaryNodes" should {
     "remove `Fetch`, `LookupByKey`, and `Rollback` nodes from the transaction tree" in {
@@ -301,4 +311,101 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
   def archive(contractId: String, actingParties: Set[String]): Exercise =
     archive(create(contractId), actingParties)
+}
+
+object TransactionCommitterSpec {
+  private val Alice = "alice"
+  private val Bob = "bob"
+  private val Emma = "emma"
+  private val ParticipantId = 0
+  private val OtherParticipantId = 1
+  private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
+  private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
+  private val aRecordTime = Timestamp(100)
+  private val aDedupKey = Conversions
+    .commandDedupKey(aTransactionEntrySummary.submitterInfo)
+  private val aDummyValue = TransactionBuilder.record("field" -> "value")
+  private val aKey = "key"
+  private val aKeyMaintainer = "maintainer"
+  private val aRichTransactionTreeSummary = {
+    val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
+    val nodes: Seq[TransactionOuterClass.Node] = Seq(
+      createNode("Fetch-1")(_.setFetch(fetchNodeBuilder)),
+      createNode("LookupByKey-1")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Create-1")(_.setCreate(createNodeBuilder)),
+      createNode("LookupByKey-2")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Fetch-2")(_.setFetch(fetchNodeBuilder)),
+      createNode("Create-2")(_.setCreate(createNodeBuilder)),
+      createNode("Fetch-3")(_.setFetch(fetchNodeBuilder)),
+      createNode("Create-3")(_.setCreate(createNodeBuilder)),
+      createNode("LookupByKey-3")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Exercise-2")(
+        _.setExercise(
+          exerciseNodeBuilder.addAllChildren(
+            Seq("Fetch-3", "Create-3", "LookupByKey-3").asJava
+          )
+        )
+      ),
+      createNode("Exercise-1")(
+        _.setExercise(
+          exerciseNodeBuilder.addAllChildren(
+            Seq("LookupByKey-2", "Fetch-2", "Create-2", "Exercise-2").asJava
+          )
+        )
+      ),
+      createNode("Rollback-1")(
+        _.setRollback(
+          rollbackNodeBuilder.addAllChildren(Seq("RollbackChild-1", "RollbackChild-2").asJava)
+        )
+      ),
+      createNode("RollbackChild-1")(_.setCreate(createNodeBuilder)),
+      createNode("RollbackChild-2")(_.setFetch(fetchNodeBuilder)),
+    )
+    val tx = TransactionOuterClass.Transaction
+      .newBuilder()
+      .addAllRoots(roots.asJava)
+      .addAllNodes(nodes.asJava)
+      .build()
+    val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
+    DamlTransactionEntrySummary(outTx)
+  }
+
+  private def createInputs(
+      inputs: (String, Option[DamlPartyAllocation])*
+  ): Map[DamlStateKey, Option[DamlStateValue]] =
+    inputs.map { case (party, partyAllocation) =>
+      DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation
+        .map(
+          DamlStateValue.newBuilder().setParty(_).build()
+        )
+    }.toMap
+
+  private def hostedParty(party: String): DamlPartyAllocation =
+    partyAllocation(party, ParticipantId)
+  private def notHostedParty(party: String): DamlPartyAllocation =
+    partyAllocation(party, OtherParticipantId)
+  private def partyAllocation(party: String, participantId: Int): DamlPartyAllocation =
+    DamlPartyAllocation
+      .newBuilder()
+      .setParticipantId(mkParticipantId(participantId))
+      .setDisplayName(party)
+      .build()
+
+  private def createNode(nodeId: String)(
+      nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder
+  ) =
+    nodeImpl(TransactionOuterClass.Node.newBuilder().setNodeId(nodeId)).build()
+
+  private def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
+
+  private def exerciseNodeBuilder =
+    TransactionOuterClass.NodeExercise.newBuilder()
+
+  private def rollbackNodeBuilder =
+    TransactionOuterClass.NodeRollback.newBuilder()
+
+  private def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
+
+  private def lookupByKeyNodeBuilder =
+    TransactionOuterClass.NodeLookupByKey.newBuilder()
 }

@@ -6,14 +6,14 @@ package com.daml.platform.indexer.parallel
 import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{Offset, SubmissionId, Update}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.ParallelIndexerFactory.Batch
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
-import com.daml.platform.store.backend.DbDto.{EventCreate, EventDivulgence, EventExercise}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -32,7 +32,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   private val someTime = Instant.now
 
   private val somePackageUploadRejected = Update.PublicPackageUploadRejected(
-    submissionId = SubmissionId.assertFromString("abc"),
+    submissionId = Ref.SubmissionId.assertFromString("abc"),
     recordTime = Timestamp.assertFromInstant(someTime),
     rejectionReason = "reason",
   )
@@ -155,7 +155,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
       averageStartTime = 1000000001,
       offsets = Vector("00", "01", "02").map(offset),
     )
-    actual.copy(batch = Vector.empty) shouldBe expected.copy(batch = Vector.empty)
+    actual shouldBe expected
   }
 
   behavior of "seqMapperZero"
@@ -197,9 +197,9 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
     )
     result.lastSeqEventId shouldBe 18
     result.averageStartTime should be > System.nanoTime() - 1000000000
-    result.batch(1).asInstanceOf[EventDivulgence].event_sequential_id shouldBe 16
-    result.batch(3).asInstanceOf[EventCreate].event_sequential_id shouldBe 17
-    result.batch(5).asInstanceOf[EventExercise].event_sequential_id shouldBe 18
+    result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
+    result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
+    result.batch(5).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 18
   }
 
   it should "preserve sequence id if nothing to assign" in {

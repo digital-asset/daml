@@ -8,10 +8,10 @@ import java.time.Instant
 
 import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import anorm.SqlParser.get
-import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key, Party}
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.{
@@ -19,9 +19,18 @@ import com.daml.platform.store.backend.common.{
   CommonStorageBackend,
   EventStorageBackendTemplate,
   EventStrategy,
+  InitHookDataSourceProxy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
+import com.daml.platform.store.backend.{
+  DBLockStorageBackend,
+  DataSourceStorageBackend,
+  DbDto,
+  StorageBackend,
+  common,
+}
+import javax.sql.DataSource
+import org.postgresql.ds.PGSimpleDataSource
 
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -75,23 +84,12 @@ private[backend] object PostgresStorageBackend
     ()
   }
 
-  override def enforceSynchronousCommit(connnection: Connection): Unit = {
-    val statement =
-      connnection.prepareStatement("SET LOCAL synchronous_commit = 'on'")
-    try {
-      statement.execute()
-      ()
-    } finally {
-      statement.close()
-    }
-  }
-
   override val duplicateKeyError: String = "duplicate key"
 
   override def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(connection: Connection): List[CompletionStreamResponse] =
     TemplatedStorageBackend.commandCompletions(
@@ -202,4 +200,58 @@ private[backend] object PostgresStorageBackend
   // TODO append-only: remove as part of ContractStorageBackend consolidation
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     s"$arrayColumn::text[] && array[${format(parties)}]::text[]"
+
+  override def createDataSource(
+      jdbcUrl: String,
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
+      connectionInitHook: Option[Connection => Unit],
+  )(implicit loggingContext: LoggingContext): DataSource = {
+    val pgSimpleDataSource = new PGSimpleDataSource()
+    pgSimpleDataSource.setUrl(jdbcUrl)
+    val hookFunctions = List(
+      dataSourceConfig.postgresConfig.synchronousCommit.toList
+        .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
+      connectionInitHook.toList,
+    ).flatten
+    InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions)
+  }
+
+  override def tryAcquire(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock] = {
+    val lockFunction = lockMode match {
+      case DBLockStorageBackend.LockMode.Exclusive => "pg_try_advisory_lock"
+      case DBLockStorageBackend.LockMode.Shared => "pg_try_advisory_lock_shared"
+    }
+    SQL"SELECT #$lockFunction(${pgBigintLockId(lockId)})"
+      .as(get[Boolean](1).single)(connection) match {
+      case true => Some(DBLockStorageBackend.Lock(lockId, lockMode))
+      case false => None
+    }
+  }
+
+  override def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean = {
+    val lockFunction = lock.lockMode match {
+      case DBLockStorageBackend.LockMode.Exclusive => "pg_advisory_unlock"
+      case DBLockStorageBackend.LockMode.Shared => "pg_advisory_unlock_shared"
+    }
+    SQL"SELECT #$lockFunction(${pgBigintLockId(lock.lockId)})"
+      .as(get[Boolean](1).single)(connection)
+  }
+
+  case class PGLockId(id: Long) extends DBLockStorageBackend.LockId
+
+  private def pgBigintLockId(lockId: DBLockStorageBackend.LockId): Long =
+    lockId match {
+      case PGLockId(id) => id
+      case unknown =>
+        throw new Exception(
+          s"LockId $unknown not supported. Probable cause: LockId was created by a different StorageBackend"
+        )
+    }
+
+  override def lock(id: Int): DBLockStorageBackend.LockId = PGLockId(id.toLong)
+
+  override def dbLockSupported: Boolean = true
 }

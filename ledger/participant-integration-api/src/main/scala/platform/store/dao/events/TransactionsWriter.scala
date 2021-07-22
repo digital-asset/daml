@@ -7,15 +7,10 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{Row, SimpleSql}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  DivulgedContract,
-  Offset,
-  SubmitterInfo,
-}
-import com.daml.ledger.{TransactionId, WorkflowId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.{DivulgedContract, SubmitterInfo}
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.DbType
 

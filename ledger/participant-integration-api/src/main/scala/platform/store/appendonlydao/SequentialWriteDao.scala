@@ -5,7 +5,8 @@ package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 
-import com.daml.ledger.participant.state.v1.{Offset, Update}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.platform.store.backend.{
   DbDto,
   IngestionStorageBackend,

@@ -17,7 +17,6 @@ import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.ListPackagesResponse
-import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
@@ -71,7 +70,6 @@ class ScalaCodeGenIT
   private val ledgerId = this.getClass.getSimpleName
   private val applicationId = ledgerId + "-client"
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef
-  private val traceContext = TraceContext(1L, 2L, 3L, Some(4L))
 
   private val alice = P.Party("Alice")
   private val bob = P.Party("Bob")
@@ -462,7 +460,7 @@ class ScalaCodeGenIT
       party = P.Party.unwrap(party),
       commands = seq.map(_.command),
     )
-    SubmitRequest(Some(commands), Some(traceContext))
+    SubmitRequest(Some(commands))
   }
 
   private def send[A](context: A, requests: SubmitRequest*)(

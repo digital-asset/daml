@@ -6,13 +6,13 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.time.{Duration, Instant}
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.protobuf.LedgerConfiguration
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
 import com.daml.ledger.participant.state.kvutils.committer.CommitterSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
-import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
-import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.logging.entries.LoggingEntries
@@ -277,7 +277,7 @@ object CommitterSpec {
     .build
   private val aConfig: Configuration = Configuration(
     generation = 1,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofMinutes(1),
   )
 

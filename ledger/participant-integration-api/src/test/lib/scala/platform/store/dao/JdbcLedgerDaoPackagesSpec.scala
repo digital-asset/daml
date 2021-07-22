@@ -10,8 +10,8 @@ import akka.stream.scaladsl.Sink
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.indexer.IncrementalOffsetStep
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.entries.PackageLedgerEntry

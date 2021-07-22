@@ -28,7 +28,6 @@ import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
 import scala.collection.compat._
-import scala.util.{Failure, Success}
 import scala.util.matching.Regex
 
 object CodeGen {
@@ -101,15 +100,13 @@ object CodeGen {
   private def decodeInterfaces(
       files: NonEmptyList[File]
   ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
-    val reader = UniversalArchiveReader()
-    val parse: File => String \/ Dar[ArchivePayload] = parseFile(reader)
-    files.traverse(f => decodeInterface(parse)(f).validationNel)
+    files.traverse(f => decodeInterface(parseFile(_))(f).validationNel)
   }
 
-  private def parseFile(reader: UniversalArchiveReader)(f: File): String \/ Dar[ArchivePayload] =
-    reader.readFile(f) match {
-      case Success(p) => \/.right(p)
-      case Failure(e) =>
+  private def parseFile(f: File): String \/ Dar[ArchivePayload] =
+    UniversalArchiveReader.readFile(f) match {
+      case Right(p) => \/.right(p)
+      case Left(e) =>
         logger.error("Scala Codegen error", e)
         \/.left(e.getLocalizedMessage)
     }

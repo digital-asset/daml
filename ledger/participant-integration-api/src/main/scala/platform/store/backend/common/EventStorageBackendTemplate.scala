@@ -9,8 +9,7 @@ import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{NamedParameter, RowParser, SQL, ~}
-import com.daml.ledger.TransactionId
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{identifier, instant, offset}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -354,7 +353,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
   }
 
   override def flatTransaction(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
@@ -408,7 +407,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
   }
 
   override def transactionTree(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement

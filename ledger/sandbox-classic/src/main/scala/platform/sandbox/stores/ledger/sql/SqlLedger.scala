@@ -16,13 +16,19 @@ import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  RejectionReasonV0,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher}
-import com.daml.lf.transaction.TransactionCommitter
+import com.daml.lf.transaction.{SubmittedTransaction, TransactionCommitter}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
@@ -255,8 +261,7 @@ private[sandbox] object SqlLedger {
           lfValueTranslationCache = lfValueTranslationCache,
           validatePartyAllocation = validatePartyAllocation,
           enricher = Some(new ValueEnricher(engine)),
-          participantId = com.daml.ledger.participant.state.v1.ParticipantId
-            .assertFromString(participantId.toString),
+          participantId = Ref.ParticipantId.assertFromString(participantId.toString),
           compressionStrategy =
             if (enableCompression) CompressionStrategy.allGZIP(metrics)
             else CompressionStrategy.none(metrics),
@@ -465,8 +470,8 @@ private final class SqlLedger(
       }(DEC)
 
   override def publishPartyAllocation(
-      submissionId: SubmissionId,
-      party: Party,
+      submissionId: Ref.SubmissionId,
+      party: Ref.Party,
       displayName: Option[String],
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
     enqueue { offset =>
@@ -489,7 +494,7 @@ private final class SqlLedger(
   }
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],

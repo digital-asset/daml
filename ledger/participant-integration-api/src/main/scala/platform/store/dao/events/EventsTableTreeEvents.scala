@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
-import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions.ledgerStringToStatement
 
 import scala.collection.compat.immutable.ArraySeq

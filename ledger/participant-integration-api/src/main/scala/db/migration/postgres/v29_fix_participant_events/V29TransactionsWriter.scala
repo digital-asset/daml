@@ -6,15 +6,16 @@ package com.daml.platform.db.migration.postgres.v29_fix_participant_events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Blinding
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
 
 private[migration] object V29TransactionsWriter extends V29TransactionsWriter {
 
   private def computeDisclosureForFlatTransaction(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       transaction: Transaction,
   ): WitnessRelation[EventId] =
     transaction.nodes.collect {
@@ -25,7 +26,7 @@ private[migration] object V29TransactionsWriter extends V29TransactionsWriter {
     }
 
   private def computeDisclosureForTransactionTree(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       transaction: Transaction,
       blinding: BlindingInfo,
   ): WitnessRelation[EventId] = {
@@ -41,10 +42,10 @@ private[migration] object V29TransactionsWriter extends V29TransactionsWriter {
   }
 
   def apply(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      commandId: Option[CommandId],
+      applicationId: Option[Ref.ApplicationId],
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
+      commandId: Option[Ref.CommandId],
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Instant,
@@ -108,10 +109,10 @@ private[migration] object V29TransactionsWriter extends V29TransactionsWriter {
 private[migration] trait V29TransactionsWriter {
 
   def apply(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      commandId: Option[CommandId],
+      applicationId: Option[Ref.ApplicationId],
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
+      commandId: Option[Ref.CommandId],
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Instant,

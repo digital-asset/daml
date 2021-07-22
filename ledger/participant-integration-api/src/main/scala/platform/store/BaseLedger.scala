@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
 import com.daml.ledger.api.health.HealthStatus
@@ -21,12 +20,12 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -55,7 +54,7 @@ private[platform] abstract class BaseLedger(
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+  override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     contractStore.lookupContractKey(forParties, key)
@@ -63,7 +62,7 @@ private[platform] abstract class BaseLedger(
   override def flatTransactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      filter: Map[Party, Set[Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
@@ -75,7 +74,7 @@ private[platform] abstract class BaseLedger(
   override def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -94,7 +93,7 @@ private[platform] abstract class BaseLedger(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
@@ -103,7 +102,7 @@ private[platform] abstract class BaseLedger(
     )
 
   override def activeContracts(
-      filter: Map[Party, Set[Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -114,21 +113,21 @@ private[platform] abstract class BaseLedger(
 
   override def lookupContract(
       contractId: ContractId,
-      forParties: Set[Party],
+      forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
   override def lookupFlatTransactionById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     ledgerDao.transactionsReader.lookupFlatTransactionById(transactionId, requestingParties)
 
   override def lookupTransactionTreeById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
 
@@ -137,7 +136,7 @@ private[platform] abstract class BaseLedger(
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
     contractStore.lookupMaximumLedgerTime(contractIds)
 
-  override def getParties(parties: Seq[Party])(implicit
+  override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[domain.PartyDetails]] =
     ledgerDao.getParties(parties)
@@ -154,20 +153,22 @@ private[platform] abstract class BaseLedger(
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, v2.PackageDetails]] =
+  ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
     ledgerDao.listLfPackages()
 
-  override def getLfArchive(packageId: PackageId)(implicit
+  override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
     ledgerDao.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(implicit
+  override def getLfPackage(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     ledgerDao
       .getLfArchive(packageId)
-      .flatMap(archiveO => Future.fromTry(Try(archiveO.map(archive => Decode.decode(archive)._2))))(
+      .flatMap(archiveO =>
+        Future.fromTry(Try(archiveO.map(archive => Decode.assertDecodeArchive(archive)._2)))
+      )(
         DEC
       )
 
@@ -199,7 +200,7 @@ private[platform] abstract class BaseLedger(
   ): Future[Unit] =
     ledgerDao.removeExpiredDeduplicationData(currentTime)
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(implicit
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     ledgerDao.stopDeduplicatingCommand(commandId, submitters)

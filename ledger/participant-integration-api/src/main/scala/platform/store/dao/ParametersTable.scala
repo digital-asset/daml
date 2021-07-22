@@ -8,7 +8,8 @@ import java.sql.Connection
 import anorm.SqlParser.byteArray
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions.{OffsetToStatement, ledgerString, offset, participantId}
 import com.daml.scalautil.Statement.discard

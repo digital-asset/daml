@@ -13,6 +13,7 @@ class JdbcLedgerDaoOracleDatabaseSpec
     with JdbcLedgerDaoBackendOracle
     with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoConfigurationSpec
+    with JdbcLedgerDaoConfigurationMutatingSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec

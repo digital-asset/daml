@@ -8,8 +8,8 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.protobuf.ByteString
@@ -130,7 +130,7 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
       )
     )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
-    when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
+    when(writer.participantId).thenReturn(Ref.ParticipantId.assertFromString("test-participant"))
     when(writer.currentHealth()).thenReturn(HealthStatus.healthy)
     writer
   }

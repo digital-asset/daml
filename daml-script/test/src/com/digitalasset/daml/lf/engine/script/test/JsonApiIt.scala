@@ -29,7 +29,7 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.{
@@ -194,7 +194,7 @@ final class JsonApiIt
     with TryValues {
 
   private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
-    val dar = DarReader.readArchiveFromFile(file).get.map(Decode.decode)
+    val dar = DarDecoder.assertReadArchiveFromFile(file)
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
     val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
     (dar, envIface)

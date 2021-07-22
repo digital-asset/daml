@@ -12,7 +12,7 @@ import akka.stream.QueueOfferResult.Enqueued
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.GlobalKey
@@ -34,7 +34,11 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
 }
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{KeyAssigned, KeyUnassigned}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
+  ContractState,
+  KeyAssigned,
+  KeyUnassigned,
+}
 import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
@@ -200,6 +204,37 @@ class MutableCacheBackedContractStoreSpec
         verify(spyContractsReader).lookupContractState(cId_2, 1L)
         verify(spyContractsReader).lookupContractState(cId_3, 2L)
         verify(spyContractsReader).lookupContractState(nonExistentCId, 3L)
+        succeed
+      }
+    }
+
+    "read-through the cache without storing negative lookups" in {
+      val spyContractsReader = spy(ContractsReaderFixture())
+      for {
+        store <- contractStore(cachesSize = 1L, spyContractsReader).asFuture
+        _ = store.cacheIndex.set(unusedOffset, 1L)
+        negativeLookup_cId6 <- store.lookupActiveContract(Set(alice), cId_6)
+        positiveLookup_cId6 <- store.lookupActiveContract(Set(alice), cId_6)
+      } yield {
+        negativeLookup_cId6 shouldBe Option.empty
+        positiveLookup_cId6 shouldBe Some(contract6)
+
+        verify(spyContractsReader, times(wantedNumberOfInvocations = 2))
+          .lookupContractState(cId_6, 1L)
+        succeed
+      }
+    }
+
+    "resort to resolveDivulgenceLookup on not found" in {
+      val spyContractsReader = spy(ContractsReaderFixture())
+      for {
+        store <- contractStore(cachesSize = 1L, spyContractsReader).asFuture
+        _ = store.cacheIndex.set(unusedOffset, 1L)
+        resolvedLookup_cId7 <- store.lookupActiveContract(Set(bob), cId_7)
+      } yield {
+        resolvedLookup_cId7 shouldBe Some(contract7)
+
+        verify(spyContractsReader).lookupActiveContractAndLoadArgument(Set(bob), cId_7)
         succeed
       }
     }
@@ -383,11 +418,11 @@ object MutableCacheBackedContractStoreSpec {
   private val unusedOffset = Offset.beforeBegin
   private val Seq(alice, bob, charlie) = Seq("alice", "bob", "charlie").map(party)
   private val (
-    Seq(cId_1, cId_2, cId_3, cId_4, cId_5),
-    Seq(contract1, contract2, contract3, contract4, _),
-    Seq(t1, t2, t3, t4, _),
+    Seq(cId_1, cId_2, cId_3, cId_4, cId_5, cId_6, cId_7),
+    Seq(contract1, contract2, contract3, contract4, _, contract6, contract7),
+    Seq(t1, t2, t3, t4, _, t6, _),
   ) =
-    (1 to 5).map { id =>
+    (1 to 7).map { id =>
       (contractId(id), contract(s"id$id"), Instant.ofEpochSecond(id.toLong))
     }.unzip3
 
@@ -413,6 +448,8 @@ object MutableCacheBackedContractStoreSpec {
       .acquire()(ResourceContext(scala.concurrent.ExecutionContext.global))
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {
+    @volatile private var initialResultForCid6 = Future.successful(Option.empty[ContractState])
+
     override def lookupKeyState(key: Key, validAt: Long)(implicit
         loggingContext: LoggingContext
     ): Future[LedgerDaoContractsReader.KeyState] = (key, validAt) match {
@@ -423,14 +460,21 @@ object MutableCacheBackedContractStoreSpec {
 
     override def lookupContractState(contractId: ContractId, validAt: Long)(implicit
         loggingContext: LoggingContext
-    ): Future[Option[LedgerDaoContractsReader.ContractState]] = (contractId, validAt) match {
-      case (`cId_1`, 0L) => activeContract(contract1, Set(alice), t1)
-      case (`cId_1`, validAt) if validAt > 0L => archivedContract(Set(alice))
-      case (`cId_2`, validAt) if validAt >= 1L => activeContract(contract2, Set(bob), t2)
-      case (`cId_3`, _) => activeContract(contract3, Set(bob), t3)
-      case (`cId_4`, _) => activeContract(contract4, Set(bob), t4)
-      case (`cId_5`, _) => archivedContract(Set(bob))
-      case _ => Future.successful(Option.empty)
+    ): Future[Option[LedgerDaoContractsReader.ContractState]] = {
+      (contractId, validAt) match {
+        case (`cId_1`, 0L) => activeContract(contract1, Set(alice), t1)
+        case (`cId_1`, validAt) if validAt > 0L => archivedContract(Set(alice))
+        case (`cId_2`, validAt) if validAt >= 1L => activeContract(contract2, Set(bob), t2)
+        case (`cId_3`, _) => activeContract(contract3, Set(bob), t3)
+        case (`cId_4`, _) => activeContract(contract4, Set(bob), t4)
+        case (`cId_5`, _) => archivedContract(Set(bob))
+        case (`cId_6`, _) =>
+          // Simulate store being populated from one query to another
+          val result = initialResultForCid6
+          initialResultForCid6 = activeContract(contract6, Set(alice), t6)
+          result
+        case _ => Future.successful(Option.empty)
+      }
     }
 
     override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
@@ -459,6 +503,7 @@ object MutableCacheBackedContractStoreSpec {
           Future.successful(Some(contract3))
         case (`cId_1`, parties) if parties.contains(charlie) =>
           Future.successful(Some(contract1))
+        case (`cId_7`, parties) if parties == Set(bob) => Future.successful(Some(contract7))
         case _ => Future.successful(Option.empty)
       }
 

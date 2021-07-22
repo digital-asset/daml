@@ -14,7 +14,8 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
@@ -81,13 +82,13 @@ private[events] class BufferedTransactionsReader(
     )
 
   override def lookupFlatTransactionById(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     delegate.lookupFlatTransactionById(transactionId, requestingParties)
 
   override def lookupTransactionTreeById(
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     delegate.lookupTransactionTreeById(transactionId, requestingParties)

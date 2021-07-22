@@ -13,6 +13,7 @@ import scala.concurrent.duration.FiniteDuration
 
 final case class Config(
     participants: Vector[(String, Int)],
+    maxConnectionAttempts: Int,
     darPackages: List[File],
     mustFail: Boolean,
     verbose: Boolean,
@@ -35,6 +36,7 @@ final case class Config(
 object Config {
   val default: Config = Config(
     participants = Vector.empty,
+    maxConnectionAttempts = 10,
     darPackages = Nil,
     mustFail = false,
     verbose = false,

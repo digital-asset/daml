@@ -4,6 +4,7 @@
 module DiscloseViaChoiceObserver where
 
 -- @SINCE-LF 1.11
+-- @WARN range=37:15-37:67; Use of divulged contracts is deprecated
 
 -- This example demonstrates the canonical use of choice-observers to achieve disclosure.
 

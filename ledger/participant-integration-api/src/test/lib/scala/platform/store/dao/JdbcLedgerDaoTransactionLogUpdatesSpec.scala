@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
@@ -129,7 +129,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualCreated.submitters should contain theSameElementsAs expected.actAs
             .map(_.toString)
             .toSet
-          ledger.CommandId.fromString(actualCreated.commandId).toOption shouldBe expected.commandId
+          Ref.CommandId.fromString(actualCreated.commandId).toOption shouldBe expected.commandId
           actualCreated.treeEventWitnesses shouldBe nodeCreate.informeesOfNode
           actualCreated.flatEventWitnesses shouldBe nodeCreate.stakeholders
           actualCreated.createSignatories shouldBe nodeCreate.signatories
@@ -148,7 +148,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualExercised.submitters should contain theSameElementsAs expected.actAs
             .map(_.toString)
             .toSet
-          ledger.CommandId
+          Ref.CommandId
             .fromString(actualExercised.commandId)
             .toOption shouldBe expected.commandId
           if (actualExercised.consuming)

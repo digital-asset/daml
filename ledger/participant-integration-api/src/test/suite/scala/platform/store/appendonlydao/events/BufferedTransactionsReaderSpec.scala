@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.FetchTransactions
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReaderSpec.{

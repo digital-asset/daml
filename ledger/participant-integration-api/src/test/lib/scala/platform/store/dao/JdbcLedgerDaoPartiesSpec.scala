@@ -8,7 +8,7 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.participant.state.v1.{Offset, SubmissionId}
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.indexer.{IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
@@ -205,7 +205,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
   private def storePartyEntry(
       partyDetails: PartyDetails,
       offset: Offset,
-      submissionIdOpt: Option[SubmissionId] = Some(UUID.randomUUID().toString),
+      submissionIdOpt: Option[Ref.SubmissionId] = Some(UUID.randomUUID().toString),
       recordTime: Instant = Instant.now(),
   ) =
     ledgerDao
@@ -221,7 +221,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
   private def storeRejectedPartyEntry(
       reason: String,
       offset: Offset,
-      submissionIdOpt: SubmissionId,
+      submissionIdOpt: Ref.SubmissionId,
       recordTime: Instant,
   ): Future[PersistenceResponse] =
     ledgerDao

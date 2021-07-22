@@ -15,8 +15,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
 }
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
@@ -58,7 +57,7 @@ class ApiPartyManagementServiceSpec
         mockIndexTransactionsService,
         TestWritePartyService,
         Duration.ZERO,
-        _ => SubmissionId.assertFromString("aSubmission"),
+        _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
       val span = anEmptySpan()
@@ -77,9 +76,9 @@ class ApiPartyManagementServiceSpec
 
   private object TestWritePartyService extends WritePartyService {
     override def allocateParty(
-        hint: Option[v1.Party],
+        hint: Option[Ref.Party],
         displayName: Option[String],
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
     )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,

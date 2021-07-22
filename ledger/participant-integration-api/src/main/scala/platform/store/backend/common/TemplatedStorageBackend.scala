@@ -8,10 +8,10 @@ import java.time.Instant
 
 import anorm.SqlParser.{binaryStream, int, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
 import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
 import com.daml.platform.store.Conversions.{contractId, instant, offset}
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
@@ -47,7 +47,7 @@ private[backend] object TemplatedStorageBackend {
   def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       submittersInPartiesClause: String,
   )(connection: Connection): List[CompletionStreamResponse] = {
     import com.daml.platform.store.Conversions.OffsetToStatement

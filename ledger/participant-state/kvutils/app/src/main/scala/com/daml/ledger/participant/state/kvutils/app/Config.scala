@@ -8,13 +8,14 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
 import com.daml.ports.Port
@@ -43,6 +44,7 @@ final case class Config[Extra](
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
+    enableHa: Boolean, // TODO ha: remove after stable
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -75,6 +77,7 @@ object Config {
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
+      enableHa = false,
       extra = extra,
     )
 
@@ -171,8 +174,7 @@ object Config {
               "]"
           )
           .action((kv, config) => {
-            val participantId =
-              ParticipantId.assertFromString(kv("participant-id"))
+            val participantId = Ref.ParticipantId.assertFromString(kv("participant-id"))
             val port = Port(kv("port").toInt)
             val address = kv.get("address")
             val portFile = kv.get("port-file").map(new File(_).toPath)
@@ -510,7 +512,7 @@ object Config {
           .optional()
           .hidden()
           .text(
-            "Experimental contract state cache for command execution. Should not be used in production."
+            "Experimental contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema-unsafe. Should not be used in production."
           )
           .action((_, config) => config.copy(enableMutableContractStateCache = true))
 
@@ -518,9 +520,32 @@ object Config {
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema-unsafe and mutable-contract-state-cache-unsafe. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
+
+        checkConfig(config =>
+          if (config.enableMutableContractStateCache && !config.enableAppendOnlySchema)
+            failure(
+              "mutable-contract-state-cache-unsafe must be enabled in conjunction with index-append-only-schema-unsafe."
+            )
+          else if (
+            config.enableInMemoryFanOutForLedgerApi && !(config.enableMutableContractStateCache && config.enableAppendOnlySchema)
+          )
+            failure(
+              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema-unsafe and mutable-contract-state-cache-unsafe."
+            )
+          else success
+        )
+
+        // TODO ha: remove after stable
+        opt[Unit]("index-ha-unsafe")
+          .optional()
+          .hidden()
+          .text(
+            s"Use the experimental High Availability feature with the indexer. Should not be used in production."
+          )
+          .action((_, config) => config.copy(enableHa = true))
       }
     extraOptions(parser)
     parser

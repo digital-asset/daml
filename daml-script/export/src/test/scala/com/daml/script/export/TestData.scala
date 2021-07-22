@@ -125,7 +125,6 @@ object TestData {
         offset = "",
         eventsById = eventsById,
         rootEventIds = rootEventIds,
-        traceContext = None,
       )
     }
     def toCommands: (Seq[Command], TransactionTree) = {

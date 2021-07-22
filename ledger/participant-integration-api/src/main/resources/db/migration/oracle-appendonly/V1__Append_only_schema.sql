@@ -70,7 +70,7 @@ CREATE TABLE configuration_entries
                 (typ = 'reject' and rejection_reason is not null))
 );
 
-CREATE UNIQUE INDEX idx_configuration_submission ON configuration_entries (submission_id);
+CREATE INDEX idx_configuration_submission ON configuration_entries (submission_id);
 
 CREATE TABLE package_entries
 (
@@ -92,7 +92,7 @@ CREATE TABLE package_entries
 );
 
 -- Index for retrieving the package entry by submission id
-CREATE UNIQUE INDEX idx_package_entries ON package_entries (submission_id);
+CREATE INDEX idx_package_entries ON package_entries (submission_id);
 
 CREATE TABLE party_entries
 (
@@ -120,7 +120,7 @@ CREATE TABLE party_entries
                 (typ = 'reject' and rejection_reason is not null)
             )
 );
-CREATE UNIQUE INDEX idx_party_entries ON party_entries(submission_id);
+CREATE INDEX idx_party_entries ON party_entries(submission_id);
 
 CREATE TABLE participant_command_completions
 (
@@ -427,11 +427,11 @@ SELECT cast(0 as SMALLINT)          AS event_kind,
        to_clob('[]')                AS create_signatories,
        to_clob('[]')                AS create_observers,
        cast(NULL as VARCHAR2(4000)) AS create_agreement_text,
-       EMPTY_BLOB()                 AS create_key_value,
+       NULL                 AS create_key_value,
        cast(NULL as VARCHAR2(4000)) AS create_key_hash,
        cast(NULL as VARCHAR2(4000)) AS exercise_choice,
-       EMPTY_BLOB()                 AS exercise_argument,
-       EMPTY_BLOB()                 AS exercise_result,
+       NULL AS exercise_argument,
+       NULL AS exercise_result,
        to_clob('[]')                AS exercise_actors,
        to_clob('[]')                AS exercise_child_event_ids,
        participant_events_divulgence.create_argument_compression,
@@ -462,8 +462,8 @@ SELECT (10)                         AS event_kind,
        participant_events_create.create_key_value,
        participant_events_create.create_key_hash,
        cast(NULL as VARCHAR2(4000)) AS exercise_choice,
-       EMPTY_BLOB()                 AS exercise_argument,
-       EMPTY_BLOB()                 AS exercise_result,
+       NULL AS exercise_argument,
+       NULL AS exercise_result,
        to_clob('[]')                AS exercise_actors,
        to_clob('[]')                AS exercise_child_event_ids,
        participant_events_create.create_argument_compression,

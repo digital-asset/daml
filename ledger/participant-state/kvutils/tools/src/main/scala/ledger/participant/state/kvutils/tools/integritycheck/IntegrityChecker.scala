@@ -15,8 +15,9 @@ import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
 }
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
+import com.daml.ledger.participant.state.v1.ReadService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -313,7 +314,7 @@ object IntegrityChecker {
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
     IndexerConfig(
-      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
+      participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl(config),
       startupMode = IndexerStartupMode.MigrateAndStart,
     )
