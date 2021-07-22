@@ -349,7 +349,9 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     interface.lookupPackage(pkgId) match {
-      case Right(pkg) if !config.allowedStablePackages.contains(pkgId) && !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+      case Right(pkg)
+          if !config.allowedStablePackages.contains(pkgId) && !config.allowedLanguageVersions
+            .contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }

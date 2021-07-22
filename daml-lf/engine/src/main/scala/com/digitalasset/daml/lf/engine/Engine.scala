@@ -50,7 +50,9 @@ import com.daml.nameof.NameOf
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableVersions, StablePackages.ids)) {
+class Engine(
+    val config: EngineConfig = new EngineConfig(LanguageVersion.StableVersions, StablePackages.ids)
+) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
@@ -452,7 +454,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     for {
       _ <- pkgs
         .collectFirst {
-          case (pkgId, pkg) if !config.allowedStablePackages.contains(pkgId) && !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+          case (pkgId, pkg)
+              if !config.allowedStablePackages.contains(pkgId) && !config.allowedLanguageVersions
+                .contains(pkg.languageVersion) =>
             Error.Package.AllowedLanguageVersion(
               pkgId,
               pkg.languageVersion,
@@ -512,7 +516,9 @@ object Engine {
     }
   }
 
-  def DevEngine(): Engine = new Engine(new EngineConfig(LanguageVersion.DevVersions, StablePackages.ids))
+  def DevEngine(): Engine = new Engine(
+    new EngineConfig(LanguageVersion.DevVersions, StablePackages.ids)
+  )
 
   def StableEngine(): Engine = new Engine()
 
