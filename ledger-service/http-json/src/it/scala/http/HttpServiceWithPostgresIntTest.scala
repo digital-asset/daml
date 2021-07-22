@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
 import spray.json.{JsString, JsValue}
@@ -19,7 +20,7 @@ class HttpServiceWithPostgresIntTest
   override def wsConfig: Option[WebsocketConfig] = None
 
   // has to be lazy because jdbcConfig_ is NOT initialized yet
-  private lazy val dao = dbbackend.ContractDao(jdbcConfig_)
+  private lazy val dao = dbbackend.ContractDao(jdbcConfig_, poolSize = PoolSize.Integration)
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
     searchExpectOk(

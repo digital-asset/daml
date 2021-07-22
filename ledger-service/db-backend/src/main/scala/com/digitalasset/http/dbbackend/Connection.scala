@@ -32,11 +32,16 @@ object ConnectionPool {
   // below values are hardcoded for now, can be passed as props later.
   final val MinIdle = 8
   final val IdleTimeout = 10000
-  final val PoolSize = 10
+
+  type PoolSize = Int
+  object PoolSize {
+    val Production = 10
+    val Integration = 2
+  }
 
   type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
-  def connect(cfg: JdbcConfig, poolSize: Int)(implicit
+  def connect(cfg: JdbcConfig, poolSize: PoolSize)(implicit
       ec: ExecutionContext,
       cs: ContextShift[IO],
   ): (DataSource with Closeable, T) = {
@@ -52,7 +57,7 @@ object ConnectionPool {
     )
   }
 
-  def dataSource(cfg: JdbcConfig, poolSize: Int) = {
+  def dataSource(cfg: JdbcConfig, poolSize: PoolSize) = {
 
     val c = new HikariConfig()
     c.setJdbcUrl(cfg.url)

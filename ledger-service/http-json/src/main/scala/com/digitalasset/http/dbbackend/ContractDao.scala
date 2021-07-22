@@ -63,6 +63,7 @@ class ContractDao private (
 }
 
 object ContractDao {
+  import ConnectionPool.PoolSize
   private[this] val supportedJdbcDrivers = Map(
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
@@ -71,7 +72,7 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(cfg: JdbcConfig, poolSize: Int = ConnectionPool.PoolSize)(implicit
+  def apply(cfg: JdbcConfig, poolSize: PoolSize = PoolSize.Production)(implicit
       ec: ExecutionContext
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)

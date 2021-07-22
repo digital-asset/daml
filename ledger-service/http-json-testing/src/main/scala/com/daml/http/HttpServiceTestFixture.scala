@@ -5,7 +5,6 @@ package com.daml.http
 
 import java.io.File
 import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -17,6 +16,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
+import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
@@ -236,7 +236,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   private def initializeDb(c: JdbcConfig)(implicit ec: ExecutionContext): Future[ContractDao] =
     for {
-      dao <- Future(ContractDao(c))
+      dao <- Future(ContractDao(c, poolSize = PoolSize.Integration))
       _ <- {
         import dao.{jdbcDriver, logHandler}
         dao.transact(ContractDao.initialize).unsafeToFuture(): Future[Unit]
