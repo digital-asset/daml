@@ -30,7 +30,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
   implicit val defaultParserParameters: ParserParameters[this.type] = {
     ParserParameters(
-      defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
+      defaultPackageId = Ref.PackageId.assertFromString("pkgId"),
       languageVersion = LanguageVersion.v1_dev,
     )
   }

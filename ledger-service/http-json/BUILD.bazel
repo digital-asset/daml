@@ -263,6 +263,7 @@ alias(
             "//daml-lf/data",
             "//daml-lf/interface",
             "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/http-json-cli:{}".format(edition),
@@ -337,6 +338,7 @@ alias(
             "//daml-lf/data",
             "//daml-lf/interface",
             "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/db-backend",
@@ -360,9 +362,9 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "integration-tests",
-    actual = "integration-tests-ce",
+    tests = ["integration-tests-ce"],
 )
 
 [
@@ -422,9 +424,9 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "failure-tests",
-    actual = "failure-tests-ce",
+    tests = ["failure-tests-ce"],
 )
 
 exports_files(["src/main/resources/logback.xml"])

@@ -204,6 +204,8 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     "reject too long string" in {
       Party.fromString("p" * 255) shouldBe a[Right[_, _]]
       Party.fromString("p" * 256) shouldBe a[Left[_, _]]
+      PackageId.fromString("p" * 64) shouldBe a[Right[_, _]]
+      PackageId.fromString("p" * 65) shouldBe a[Left[_, _]]
     }
   }
 

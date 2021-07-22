@@ -1,0 +1,88 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DeeplyNestedValue where
+
+data Nat = Z | S Nat
+  deriving (Eq, Show)
+
+construct: Int -> Nat -> Nat
+construct x acc | x <= 0 = acc
+construct x acc  = construct (x-1) (S acc)
+
+toNat : Int -> Nat
+toNat x = construct x Z
+
+destruct: Nat -> Int -> Int
+destruct Z acc = acc
+destruct (S n) acc = destruct n (acc + 1)
+
+toInt: Nat -> Int
+toInt x = destruct x 0
+
+template Contract
+  with
+    party: Party
+    i: Int
+    n: Nat
+  where
+    signatory party
+
+template ContractWithKey
+  with
+    party: Party
+    i: Int
+  where
+    signatory party
+    key (party, toNat i): (Party, Nat)
+    maintainer key._1
+
+template Handler
+  with
+    party : Party
+  where
+    signatory party
+    controller party can
+      nonconsuming Construct : Nat
+        with i : Int
+        do
+          pure $ toNat i
+      nonconsuming Destruct : Int
+        with n: Nat
+        do pure $ toInt n
+      nonconsuming ConstructThenDestruct : Int
+        with
+          i: Int
+        do
+          exercise self Destruct with n = toNat i
+      nonconsuming Create: ContractId Contract
+        with
+          i : Int
+        do
+          create Contract with
+            party = party
+            i = i
+            n = toNat i
+      nonconsuming CreateKey: ContractId ContractWithKey
+        with
+          i : Int
+        do
+          create ContractWithKey with
+            party = party
+            i = i
+      nonconsuming Fetch: Contract
+        with cid: ContractId Contract
+        do
+          fetch cid
+      nonconsuming FetchByKey: ContractId ContractWithKey
+        with
+          i: Int
+        do
+          (cid, _) <- fetchByKey @ContractWithKey (party, toNat i)
+          pure cid
+      nonconsuming LookupByKey: Optional (ContractId ContractWithKey)
+        with
+          i: Int
+        do
+          lookupByKey @ContractWithKey (party, toNat i)
+

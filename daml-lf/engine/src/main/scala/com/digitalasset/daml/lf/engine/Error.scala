@@ -91,11 +91,9 @@ object Error {
     }
 
     private[engine] object MissingPackage {
-      def apply(pkgId: Ref.PackageId): Lookup =
-        Lookup(language.LookupError.Package(pkgId))
       def unapply(error: Lookup): Option[Ref.PackageId] =
         error.lookupError match {
-          case language.LookupError.Package(packageId) => Some(packageId)
+          case language.LookupError(language.Reference.Package(packageId), _) => Some(packageId)
           case _ => None
         }
     }

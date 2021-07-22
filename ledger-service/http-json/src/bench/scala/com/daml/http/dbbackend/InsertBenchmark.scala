@@ -20,7 +20,7 @@ class InsertBenchmark extends ContractDaoBenchmark {
 
   private var contracts: List[DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]]] = _
 
-  private var contractCids: List[String] = _
+  private var contractCids: Set[String] = _
 
   private var tpid: SurrogateTpId = _
 
@@ -33,7 +33,7 @@ class InsertBenchmark extends ContractDaoBenchmark {
       contract(-i, "Alice", tpid)
     }.toList
 
-    contractCids = contracts.map(_.contractId)
+    contractCids = contracts.view.map(_.contractId).toSet
 
     (0 until batches).foreach { batch =>
       insertBatch("Alice", tpid, batch * batchSize)

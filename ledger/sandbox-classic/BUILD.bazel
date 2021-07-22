@@ -434,3 +434,11 @@ server_conformance_test(
         "--exclude=ClosedWorldIT",
     ],
 )
+
+server_conformance_test(
+    name = "conformance-test-nesting",
+    lf_versions = ["stable"],
+    server_args = ["--contract-id-seeding=testing-weak"],
+    servers = SERVERS,
+    test_tool_args = ["--include=DeeplyNestedValueIT"],
+)
