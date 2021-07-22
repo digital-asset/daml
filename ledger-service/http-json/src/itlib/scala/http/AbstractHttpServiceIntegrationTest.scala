@@ -29,7 +29,7 @@ import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.MetadataReader
 import com.daml.ledger.test.ModelTestDar
-import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.http.util.Logging.{instanceUUIDLogCtx}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
@@ -225,18 +225,57 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def removePackageId(tmplId: domain.TemplateId.RequiredPkg): OptionalPkg =
     tmplId.copy(packageId = None)
 
+  import com.daml.lf.data.{Numeric => LfNumeric}
+  import com.daml.lf.value.Value.{ContractId => LfContractId}
+  import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
+  import shapeless.HList, shapeless.record.{Record => ShRecord}
+
+  private[this] object RecordFromFields extends shapeless.Poly1 {
+    import shapeless.Witness, shapeless.labelled.{FieldType => :->>:}
+    implicit def elem[V, K <: Symbol](implicit
+        fn: Witness.Aux[K]
+    ): Case.Aux[K :->>: V, (String, V)] =
+      at[K :->>: V]((fn.value.name, _))
+  }
+
+  private[this] def recordFromFields[L <: HList, I <: HList](hlist: L)(implicit
+      mapper: shapeless.ops.hlist.Mapper.Aux[RecordFromFields.type, L, I],
+      lister: shapeless.ops.hlist.ToTraversable.Aux[I, Seq, (String, v.Value.Sum)],
+  ): v.Record = v.Record(fields = hlist.map(RecordFromFields).to[Seq].map { case (n, vs) =>
+    v.RecordField(n, Some(v.Value(vs)))
+  })
+
+  private[this] def argToApi(va: VA)(arg: va.Inj[LfContractId]): v.Record =
+    lfToApi(va.inj(arg)) match {
+      case v.Value(v.Value.Sum.Record(r)) => removeRecordId(r)
+      case _ => fail(s"${va.t} isn't a record type")
+    }
+
+  private[this] val (_, iouVA) = {
+    import com.daml.lf.value.test.TypedValueGenerators.RNil
+    import shapeless.syntax.singleton._, com.daml.lf.data.Numeric.Scale
+    val iouT = Symbol("issuer") ->> VA.party ::
+      Symbol("owner") ->> VA.party ::
+      Symbol("currency") ->> VA.text ::
+      Symbol("amount") ->> VA.numeric(Scale assertFromInt 10) ::
+      Symbol("observers") ->> VA.list(VA.party) ::
+      RNil
+    VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
+  }
+
   protected def iouCreateCommand(
       amount: String = "999.9900000000",
       currency: String = "USD",
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-    val arg = v.Record(
-      fields = List(
-        v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
-        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
-        v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List())))),
+    val alice = Ref.Party assertFromString "Alice"
+    val arg = argToApi(iouVA)(
+      ShRecord(
+        issuer = alice,
+        owner = alice,
+        currency = currency,
+        amount = LfNumeric assertFromString amount,
+        observers = Vector.empty,
       )
     )
 
@@ -249,7 +288,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     val templateId = domain.TemplateId(None, "Iou", "Iou")
     val reference = domain.EnrichedContractId(Some(templateId), contractId)
     val arg =
-      v.Record(fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Bob"))))))
+      recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
     val choice = lar.Choice("Iou_Transfer")
 
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
@@ -260,18 +299,19 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       currency: String = "USD",
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-    val payload = v.Record(
-      fields = List(
-        v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
-        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
-        v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List())))),
+    val alice = Ref.Party assertFromString "Alice"
+    val payload = argToApi(iouVA)(
+      ShRecord(
+        issuer = alice,
+        owner = alice,
+        currency = currency,
+        amount = LfNumeric assertFromString amount,
+        observers = Vector.empty,
       )
     )
 
     val arg =
-      v.Record(fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Bob"))))))
+      recordFromFields(ShRecord(newOwner = v.Value.Sum.Party("Bob")))
     val choice = lar.Choice("Iou_Transfer")
 
     domain.CreateAndExerciseCommand(
@@ -285,11 +325,11 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def multiPartyCreateCommand(ps: List[String], value: String) = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
-    val psv = v.Value(v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p))))))
-    val payload = v.Record(
-      fields = List(
-        v.RecordField("parties", Some(psv)),
-        v.RecordField("value", Some(v.Value(v.Value.Sum.Text(value)))),
+    val psv = v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p)))))
+    val payload = recordFromFields(
+      ShRecord(
+        parties = psv,
+        value = v.Value.Sum.Text(value),
       )
     )
     domain.CreateCommand(
@@ -301,14 +341,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
-    val psv = v.Value(v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p))))))
-    val argument = v.Value(
-      v.Value.Sum.Record(
-        v.Record(
-          fields = List(v.RecordField("newParties", Some(psv)))
-        )
-      )
-    )
+    val psv = v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p)))))
+    val argument = v.Value(v.Value.Sum.Record(recordFromFields(ShRecord(newParties = psv))))
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(templateId), cid),
       argument = argument,
@@ -325,15 +359,10 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
     val argument = v.Value(
       v.Value.Sum.Record(
-        v.Record(
-          fields = List(
-            v.RecordField("cid", Some(v.Value(v.Value.Sum.ContractId(fetchedCid.unwrap)))),
-            v.RecordField(
-              "actors",
-              Some(
-                v.Value(v.Value.Sum.List(v.List(actors.map(p => v.Value(v.Value.Sum.Party(p))))))
-              ),
-            ),
+        recordFromFields(
+          ShRecord(
+            cid = v.Value.Sum.ContractId(fetchedCid.unwrap),
+            actors = v.Value.Sum.List(v.List(actors.map(p => v.Value(v.Value.Sum.Party(p))))),
           )
         )
       )
@@ -414,7 +443,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     }
 
   protected def lfToApi(lfVal: domain.LfValue): v.Value =
-    LfEngineToApi.lfValueToApiValue(verbose = true, lfVal).fold(e => fail(e), identity)
+    lfValueToApiValue(verbose = true, lfVal).fold(e => fail(e), identity)
 
   protected def assertActiveContract(
       decoder: DomainJsonDecoder,
