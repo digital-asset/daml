@@ -41,19 +41,18 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
 
     def insertCreate_ : PartialTransaction =
-      ptx.insertCreate(
-        Authorize(Set(party)),
-        templateId,
-        Value.ValueUnit,
-        "agreement",
-        None,
-        Set(party),
-        Set.empty,
-        None,
-      ) match {
-        case Right((_, newPtx)) => newPtx
-        case Left(_) => sys.error("unexpected error")
-      }
+      ptx
+        .insertCreate(
+          Authorize(Set(party)),
+          templateId,
+          Value.ValueUnit,
+          "agreement",
+          None,
+          Set(party),
+          Set.empty,
+          None,
+        )
+        ._2
 
     def beginExercises_ : PartialTransaction =
       ptx.beginExercises(
@@ -70,11 +69,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         mbKey = None,
         byKey = false,
         chosenValue = Value.ValueUnit,
-      ) match {
-        case Right(value) => value
-        case Left(_) =>
-          sys.error("unexpected failing beginExercises")
-      }
+      )
 
     def endExercises_ : PartialTransaction =
       ptx.endExercises(Value.ValueUnit)
