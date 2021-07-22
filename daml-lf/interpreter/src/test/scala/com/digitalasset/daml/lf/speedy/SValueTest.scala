@@ -6,7 +6,6 @@ package speedy
 
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
-import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
