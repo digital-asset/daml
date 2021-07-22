@@ -38,8 +38,9 @@ case class LedgerTimeModel private (
     val upperBound = maxLedgerTime(recordTime)
     if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound)) {
       Left(OutOfRange(ledgerTime, lowerBound, upperBound))
-    } else
+    } else {
       Right(())
+    }
   }
 
   private[ledger] def minLedgerTime(recordTime: Instant): Instant =
