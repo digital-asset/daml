@@ -24,71 +24,101 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
   "Ledger time model" when {
     "checking ledger time" should {
       "succeed if the ledger time equals the record time" in {
-        timeModel.checkTime(referenceTime, referenceTime).isRight shouldEqual true
+        val result = timeModel.checkTime(referenceTime, referenceTime)
+
+        result should be(Right(()))
       }
 
       "succeed if the ledger time is higher than the record time and is within tolerance limit" in {
-        timeModel.checkTime(referenceTime.plus(epsilon), referenceTime).isRight shouldEqual true
+        val result = timeModel.checkTime(referenceTime.plus(epsilon), referenceTime)
+
+        result should be(Right(()))
       }
 
       "succeed if the ledger time is equal to the high boundary" in {
-        timeModel
-          .checkTime(referenceTime.plus(timeModel.maxSkew), referenceTime)
-          .isRight shouldEqual true
+        val result = timeModel.checkTime(referenceTime.plus(timeModel.maxSkew), referenceTime)
+
+        result should be(Right(()))
       }
 
       "fail if the ledger time is higher than the high boundary" in {
-        timeModel
-          .checkTime(referenceTime.plus(timeModel.maxSkew).plus(epsilon), referenceTime)
-          .isRight shouldEqual false
+        val result = timeModel.checkTime(
+          referenceTime.plus(timeModel.maxSkew).plus(epsilon),
+          referenceTime,
+        )
+
+        result should be(
+          Left(
+            "Ledger time 1970-01-01T00:00:30.010Z outside of range [1969-12-31T23:59:30Z, 1970-01-01T00:00:30Z]"
+          )
+        )
       }
 
       "succeed if the ledger time is lower than the record time and is within tolerance limit" in {
-        timeModel.checkTime(referenceTime.minus(epsilon), referenceTime).isRight shouldEqual true
+        val result = timeModel.checkTime(referenceTime.minus(epsilon), referenceTime)
+
+        result should be(Right(()))
       }
 
       "succeed if the ledger time is equal to the low boundary" in {
-        timeModel
-          .checkTime(referenceTime.minus(timeModel.minSkew), referenceTime)
-          .isRight shouldEqual true
+        val result = timeModel.checkTime(referenceTime.minus(timeModel.minSkew), referenceTime)
+
+        result should be(Right(()))
       }
 
       "fail if the ledger time is lower than the low boundary" in {
-        timeModel
-          .checkTime(referenceTime.minus(timeModel.minSkew).minus(epsilon), referenceTime)
-          .isRight shouldEqual false
+        val result = timeModel.checkTime(
+          referenceTime.minus(timeModel.minSkew).minus(epsilon),
+          referenceTime,
+        )
+
+        result should be(
+          Left(
+            "Ledger time 1969-12-31T23:59:29.990Z outside of range [1969-12-31T23:59:30Z, 1970-01-01T00:00:30Z]"
+          )
+        )
       }
 
       "succeed if the ledger time is equal to the high boundary (asymmetric case)" in {
         val instance = createAsymmetricTimeModel(largeSkew, smallSkew)
 
-        instance
-          .checkTime(referenceTime.plus(instance.maxSkew), referenceTime)
-          .isRight shouldEqual true
+        val result = instance.checkTime(referenceTime.plus(instance.maxSkew), referenceTime)
+
+        result should be(Right(()))
       }
 
       "succeed if the ledger time is equal to the low boundary (asymmetric case)" in {
         val instance = createAsymmetricTimeModel(smallSkew, largeSkew)
 
-        instance
-          .checkTime(referenceTime.minus(instance.minSkew), referenceTime)
-          .isRight shouldEqual true
+        val result = instance.checkTime(referenceTime.minus(instance.minSkew), referenceTime)
+
+        result should be(Right(()))
       }
 
       "fail if the ledger time is higher than the high boundary (asymmetric case)" in {
         val instance = createAsymmetricTimeModel(largeSkew, smallSkew)
 
-        instance
-          .checkTime(referenceTime.plus(instance.maxSkew).plus(epsilon), referenceTime)
-          .isLeft shouldEqual true
+        val result =
+          instance.checkTime(referenceTime.plus(instance.maxSkew).plus(epsilon), referenceTime)
+
+        result should be(
+          Left(
+            "Ledger time 1970-01-01T00:00:01.010Z outside of range [1969-12-31T23:00:00Z, 1970-01-01T00:00:01Z]"
+          )
+        )
       }
 
       "fail if the ledger time is lower than the low boundary (asymmetric case)" in {
         val instance = createAsymmetricTimeModel(smallSkew, largeSkew)
 
-        instance
+        val result = instance
           .checkTime(referenceTime.minus(instance.minSkew).minus(epsilon), referenceTime)
-          .isLeft shouldEqual true
+
+        result should be(
+          Left(
+            "Ledger time 1969-12-31T23:59:58.990Z outside of range [1969-12-31T23:59:59Z, 1970-01-01T01:00:00Z]"
+          )
+        )
       }
 
       "produce a valid error message" in {
@@ -101,11 +131,11 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
         val recordTime = "2000-01-01T12:30:00Z"
         val lowerBound = "2000-01-01T12:29:50Z"
         val upperBound = "2000-01-01T12:30:20Z"
-        val expectedMessage = s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]"
+        val result = timeModel
+          .checkTime(Instant.parse(ledgerTime), Instant.parse(recordTime))
 
-        timeModel
-          .checkTime(Instant.parse(ledgerTime), Instant.parse(recordTime)) shouldEqual Left(
-          expectedMessage
+        result should be(
+          Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
         )
       }
     }
