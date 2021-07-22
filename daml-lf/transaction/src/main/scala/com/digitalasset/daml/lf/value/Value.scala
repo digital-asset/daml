@@ -11,7 +11,6 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.TransactionVersion
 import data.ScalazEqual._
 
-import scala.annotation.tailrec
 import scalaz.{@@, Equal, Order, Tag}
 import scalaz.Ordering.EQ
 import scalaz.std.option._
@@ -22,7 +21,6 @@ import scalaz.syntax.std.option._
 
 /** Values */
 sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product with Serializable {
-  import Value._
 
   final override protected def self: this.type = this
 
@@ -31,107 +29,6 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
 
   private[lf] final def map1[Cid2](f: Cid => Cid2): Value[Cid2] =
     Value.map1(f)(this)
-
-  /** returns a list of validation errors: if the result is non-empty the value is
-    * _not_ serializable.
-    *
-    * note that this does not check the validity of the [[Identifier]]s, it just checks
-    * that the shape of the value is serializable.
-    */
-  def serializable(): ImmArray[String] = {
-    @tailrec
-    def go(
-        exceededNesting: Boolean,
-        errs: BackStack[String],
-        vs0: FrontStack[(Value[Cid], Int)],
-    ): BackStack[String] = vs0 match {
-      case FrontStack() => errs
-
-      case FrontStackCons((v, nesting), vs) =>
-        // we cannot define helper functions because otherwise go is not tail recursive. fun!
-        val exceedsNestingErr = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
-        val newNesting = nesting + 1
-
-        v match {
-          case ValueRecord(_, flds) =>
-            if (newNesting > MAXIMUM_NESTING) {
-              if (exceededNesting) {
-                // we already exceeded the nesting, do not output again
-                go(exceededNesting, errs, vs)
-              } else {
-                go(true, errs :+ exceedsNestingErr, vs)
-              }
-            } else {
-              go(exceededNesting, errs, flds.map(v => (v._2, newNesting)) ++: vs)
-            }
-
-          case ValueList(values) =>
-            if (newNesting > MAXIMUM_NESTING) {
-              if (exceededNesting) {
-                // we already exceeded the nesting, do not output again
-                go(exceededNesting, errs, vs)
-              } else {
-                go(true, errs :+ exceedsNestingErr, vs)
-              }
-            } else {
-              go(exceededNesting, errs, values.toImmArray.map(v => (v, newNesting)) ++: vs)
-            }
-
-          case ValueVariant(_, _, value) =>
-            if (newNesting > MAXIMUM_NESTING) {
-              if (exceededNesting) {
-                // we already exceeded the nesting, do not output again
-                go(exceededNesting, errs, vs)
-              } else {
-                go(true, errs :+ exceedsNestingErr, vs)
-              }
-            } else {
-              go(exceededNesting, errs, (value, newNesting) +: vs)
-            }
-
-          case _: ValueCidlessLeaf | _: ValueContractId[Cid] =>
-            go(exceededNesting, errs, vs)
-          case ValueOptional(x) =>
-            if (newNesting > MAXIMUM_NESTING) {
-              if (exceededNesting) {
-                // we already exceeded nesting, do not output again
-                go(exceededNesting, errs, vs)
-              } else {
-                go(true, errs :+ exceedsNestingErr, vs)
-              }
-            } else {
-              go(exceededNesting, errs, ImmArray(x.toList.map(v => (v, newNesting))) ++: vs)
-            }
-          case ValueTextMap(value) =>
-            if (newNesting > MAXIMUM_NESTING) {
-              if (exceededNesting) {
-                // we already exceeded the nesting, do not output again
-                go(exceededNesting, errs, vs)
-              } else {
-                go(true, errs :+ exceedsNestingErr, vs)
-              }
-            } else {
-              go(exceededNesting, errs, value.values.map(v => (v, newNesting)) ++: vs)
-            }
-          case ValueGenMap(entries) =>
-            if (newNesting > MAXIMUM_NESTING) {
-              if (exceededNesting) {
-                // we already exceeded the nesting, do not output again
-                go(exceededNesting, errs, vs)
-              } else {
-                go(true, errs :+ exceedsNestingErr, vs)
-              }
-            } else {
-              val vs1 = entries.foldLeft(vs) { case (acc, (k, v)) =>
-                (k -> newNesting) +: (v -> newNesting) +: acc
-              }
-              go(exceededNesting, errs, vs1)
-            }
-        }
-    }
-
-    go(false, BackStack.empty, FrontStack((this, 0))).toImmArray
-  }
 
   def foreach1(f: Cid => Unit) =
     Value.foreach1(f)(this)
