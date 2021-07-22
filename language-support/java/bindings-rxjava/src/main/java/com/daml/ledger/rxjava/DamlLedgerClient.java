@@ -68,13 +68,13 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
-    public DamlLedgerClient.Builder withDeadline(@NonNull Deadline deadline) {
-      this.deadline = Optional.of(deadline);;
+    public Builder withDeadline(@NonNull Deadline deadline) {
+      this.deadline = Optional.of(deadline);
       return this;
     }
 
     public DamlLedgerClient build() {
-      return new DamlLedgerClient(this.builder, this.expectedLedgerId, this.accessToken);
+      return new DamlLedgerClient(this.builder, this.expectedLedgerId, this.accessToken, this.deadline);
     }
   }
 
@@ -114,7 +114,7 @@ public final class DamlLedgerClient implements LedgerClient {
    *     unsecured plaintext connection will be used. Must be an SslContext created for client
    *     applications via {@link GrpcSslContexts#forClient()}.
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or even better
    *     either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
@@ -133,7 +133,7 @@ public final class DamlLedgerClient implements LedgerClient {
    * ledger-id automatically discovered instead of provided.
    *
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or even better
    *     either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
