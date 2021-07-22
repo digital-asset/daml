@@ -621,8 +621,8 @@ Jetty :: Websocket :: Client 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse 
 Jetty :: Websocket :: Common 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
 Jetty :: Websocket :: Server 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
 Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
+Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 jgm/zip-archive 0.4.1 : BSD 3-clause "New" or "Revised" License
 JLine 3.7.1 : BSD 3-clause "New" or "Revised" License
 JMESPath Core 0.5.0 : BSD 3-clause "New" or "Revised" License
