@@ -16,7 +16,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
-import com.daml.lf.language.{Interface, LanguageVersion => LV}
+import com.daml.lf.language.{Interface, LanguageVersion => LV, StablePackages}
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
@@ -83,6 +83,7 @@ object Repl {
   val defaultCompilerConfig: Compiler.Config =
     Compiler.Config(
       allowedLanguageVersions = LV.StableVersions,
+      allowedStablePackages = StablePackages.ids,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
