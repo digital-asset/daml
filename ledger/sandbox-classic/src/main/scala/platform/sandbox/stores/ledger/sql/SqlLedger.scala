@@ -42,7 +42,7 @@ import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
-import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset, TimeModelError}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
@@ -398,14 +398,12 @@ private final class SqlLedger(
   ): Either[RejectionReasonV0, Unit] = {
     currentConfiguration
       .get()
-      .fold[Either[RejectionReasonV0, Unit]](
-        Left(
-          RejectionReasonV0
-            .InvalidLedgerTime("No ledger configuration available, cannot validate ledger time")
-        )
-      )(
-        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReasonV0.InvalidLedgerTime)
+      .toRight(TimeModelError.NoLedgerConfiguration)
+      .flatMap(
+        _.timeModel.checkTime(ledgerTime, recordTime).left.map(TimeModelError.InvalidLedgerTime)
       )
+      .left
+      .map(error => RejectionReasonV0.InvalidLedgerTime(error.message))
   }
 
   override def publishTransaction(

@@ -39,10 +39,10 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
             timeModel
               .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
               .fold(
-                reason =>
+                outOfRange =>
                   rejections.buildRejectionStep(
                     transactionEntry,
-                    RejectionReasonV0.InvalidLedgerTime(reason),
+                    RejectionReasonV0.InvalidLedgerTime(outOfRange.message),
                     commitContext.recordTime,
                   ),
                 _ => StepContinue(transactionEntry),

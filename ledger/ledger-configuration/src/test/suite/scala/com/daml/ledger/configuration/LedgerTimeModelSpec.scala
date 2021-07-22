@@ -50,7 +50,7 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
 
         val result = timeModel.checkTime(ledgerTime, referenceTime)
 
-        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime)))
       }
 
       "succeed if the ledger time is lower than the record time and is within tolerance limit" in {
@@ -72,7 +72,7 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
 
         val result = timeModel.checkTime(ledgerTime, referenceTime)
 
-        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime)))
       }
 
       "succeed if the ledger time is equal to the high boundary (asymmetric case)" in {
@@ -100,7 +100,7 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
 
         val result = instance.checkTime(ledgerTime, referenceTime)
 
-        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime)))
       }
 
       "fail if the ledger time is lower than the low boundary (asymmetric case)" in {
@@ -112,7 +112,7 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
 
         val result = instance.checkTime(ledgerTime, referenceTime)
 
-        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime)))
       }
 
       "produce a valid error message" in {
@@ -129,7 +129,7 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
 
         val result = timeModel.checkTime(ledgerTime, recordTime)
 
-        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime)))
       }
     }
   }
