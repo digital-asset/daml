@@ -29,7 +29,7 @@ private[daml] object DamlLfEncoder extends App {
     throw new Error("You should not get this error")
   }
 
-  private val pkgId = Ref.PackageId.assertFromString("-self-")
+  private val pkgId = Ref.PackageId.assertFromString("self")
 
   private def main() =
     try {
