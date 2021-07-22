@@ -29,9 +29,16 @@ object Connection {
 
 object ConnectionPool {
 
-  // below values are hardcoded for now, can be passed as props later.
+  /*
+  TODO:
+   - The ConnectionPool and JDBCConfig objects are duplicated w.r.t trigger service, this needs to be refactored to a
+   generic library in libs-scala
+   - below values are hardcoded for now, refactor to be picked up as cli flags/ props later.
+   */
+
   final val MinIdle = 8
   final val IdleTimeout = 10000
+  final val ConnectionTimeout = 5000
 
   type PoolSize = Int
   object PoolSize {
@@ -65,6 +72,7 @@ object ConnectionPool {
     c.setPassword(cfg.password)
     c.setMinimumIdle(MinIdle)
     c.setPoolName("json-api-jdbc-pool")
+    c.setConnectionTimeout(ConnectionTimeout)
     c.setMaximumPoolSize(poolSize)
     c.setIdleTimeout(IdleTimeout) // ms, minimum according to log, defaults to 600s
     c.setMaximumPoolSize(poolSize)

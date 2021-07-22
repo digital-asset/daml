@@ -85,7 +85,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
-    val httpServiceF: Future[ServerBinding] = for {
+    val httpServiceF: Future[(ServerBinding, Option[ContractDao])] = for {
       contractDao <- contractDaoF
       config = Config(
         ledgerHost = "localhost",
@@ -123,7 +123,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield codecs
 
     val fa: Future[A] = for {
-      httpService <- httpServiceF
+      (httpService, _) <- httpServiceF
       address = httpService.localAddress
       uri = Uri.from(scheme = "http", host = address.getHostName, port = address.getPort)
       (encoder, decoder) <- codecsF
@@ -132,7 +132,14 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield a
 
     fa.transformWith { ta =>
-      httpServiceF.flatMap(_.unbind()).fallbackTo(Future.unit).transform(_ => ta)
+      httpServiceF
+        .flatMap { case (serv, dao) =>
+          logger.info("Shutting down http service")
+          dao.foreach(_.close())
+          serv.unbind()
+        }
+        .fallbackTo(Future.unit)
+        .transform(_ => ta)
     }
   }
 
@@ -225,8 +232,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   private def stripLeft(
-      fa: Future[HttpService.Error \/ ServerBinding]
-  )(implicit ec: ExecutionContext): Future[ServerBinding] =
+      fa: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])]
+  )(implicit ec: ExecutionContext): Future[(ServerBinding, Option[ContractDao])] =
     fa.flatMap {
       case -\/(e) =>
         Future.failed(new IllegalStateException(s"Cannot start HTTP Service: ${e.message}"))

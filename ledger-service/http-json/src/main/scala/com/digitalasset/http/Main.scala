@@ -126,7 +126,7 @@ object Main {
       case _ =>
     }
 
-    val serviceF: Future[HttpService.Error \/ ServerBinding] = {
+    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] = {
       metricsResource.asFuture.flatMap(implicit metrics =>
         HttpService.start(
           startSettings = config,
