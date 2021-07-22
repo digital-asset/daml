@@ -26,11 +26,11 @@ private[transaction] class Rejections(metrics: Metrics) {
 
   def buildRejectionStep[A](
       transactionEntry: DamlTransactionEntrySummary,
-      reason: RejectionReasonV0,
+      rejection: Rejection,
       recordTime: Option[Timestamp],
   )(implicit loggingContext: LoggingContext): StepResult[A] = {
     buildRejectionStep(
-      buildRejectionEntry(transactionEntry, reason),
+      buildRejectionEntry(transactionEntry, rejection),
       recordTime,
     )
   }
@@ -50,15 +50,15 @@ private[transaction] class Rejections(metrics: Metrics) {
 
   def buildRejectionEntry(
       transactionEntry: DamlTransactionEntrySummary,
-      reason: RejectionReasonV0,
+      rejection: Rejection,
   )(implicit loggingContext: LoggingContext): DamlTransactionRejectionEntry.Builder = {
-    logger.trace(s"Transaction rejected, ${reason.description}.")
+    logger.trace(s"Transaction rejected, ${rejection.description}.")
 
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
       .setSubmitterInfo(transactionEntry.submitterInfo)
 
-    reason match {
+    rejection.toStateV1RejectionReason match {
       case RejectionReasonV0.Inconsistent(reason) =>
         builder.setInconsistent(Inconsistent.newBuilder.setDetails(reason))
       case RejectionReasonV0.Disputed(reason) =>
@@ -69,8 +69,7 @@ private[transaction] class Rejections(metrics: Metrics) {
         builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(reason))
       case RejectionReasonV0.SubmitterCannotActViaParticipant(details) =>
         builder.setSubmitterCannotActViaParticipant(
-          SubmitterCannotActViaParticipant.newBuilder
-            .setDetails(details)
+          SubmitterCannotActViaParticipant.newBuilder.setDetails(details)
         )
       case RejectionReasonV0.InvalidLedgerTime(reason) =>
         builder.setInvalidLedgerTime(InvalidLedgerTime.newBuilder.setDetails(reason))
