@@ -2041,7 +2041,7 @@ Value nesting
 ~~~~~~~~~~~~~
 
   A value is serializable if it lives inside serializable type and its
-  nesting is lower or equal to 100. Formally, testing of a
+  nesting is lower or equal to 100. Formally, the nesting of a
   serializable value ``v`` is noted ``|v|`` and is defined recursively
   on ``v`` as follows (we omit values that do not have serialized type)::
 
