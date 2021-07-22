@@ -19,7 +19,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
-import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -399,10 +399,10 @@ private final class SqlLedger(
       )
 
   override def publishTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
+      submitterInfo: state.SubmitterInfo,
+      transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toApiString
 
@@ -445,14 +445,14 @@ private final class SqlLedger(
 
     }
 
-  private def enqueue(persist: Offset => Future[Unit]): Future[SubmissionResult] =
+  private def enqueue(persist: Offset => Future[Unit]): Future[state.SubmissionResult] =
     persistenceQueue
       .offer(persist)
       .transform {
         case Success(Enqueued) =>
-          Success(SubmissionResult.Acknowledged)
+          Success(state.SubmissionResult.Acknowledged)
         case Success(Dropped) =>
-          Success(SubmissionResult.Overloaded)
+          Success(state.SubmissionResult.Overloaded)
         case Success(QueueClosed) =>
           Failure(new IllegalStateException("queue closed"))
         case Success(QueueOfferResult.Failure(e)) => Failure(e)
@@ -463,7 +463,7 @@ private final class SqlLedger(
       submissionId: Ref.SubmissionId,
       party: Ref.Party,
       displayName: Option[String],
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
     enqueue { offset =>
       ledgerDao
         .storePartyEntry(
@@ -488,7 +488,7 @@ private final class SqlLedger(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription))
     )
@@ -512,7 +512,7 @@ private final class SqlLedger(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     enqueue { offset =>
       val recordTime = timeProvider.getCurrentTime
       val mrt = maxRecordTime.toInstant
