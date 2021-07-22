@@ -181,7 +181,7 @@ final class Conversions(
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueExceedsMaxNesting =>
-                builder.setTooDeepValueError(proto.Empty.newBuilder)
+                builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
