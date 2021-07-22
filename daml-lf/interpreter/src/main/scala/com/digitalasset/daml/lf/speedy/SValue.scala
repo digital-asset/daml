@@ -64,7 +64,7 @@ object SValue {
 
   def toValue(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V[V.ContractId] = {
     if (maxNesting < 0)
-      throw SError.SErrorDamlException(interpretation.Error.TooDeepValue)
+      throw SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting)
     val nextMaxNesting = maxNesting - 1
     v match {
       case SInt64(x) => V.ValueInt64(x)

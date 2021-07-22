@@ -180,7 +180,7 @@ final class Conversions(
                 builder.setCrash(s"Contract Id freshness Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
-              case TooDeepValue =>
+              case ValueExceedsMaxNesting =>
                 builder.setTooDeepValueError(proto.Empty.newBuilder)
             }
         }

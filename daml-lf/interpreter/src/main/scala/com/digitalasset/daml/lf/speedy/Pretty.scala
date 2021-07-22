@@ -117,8 +117,8 @@ private[lf] object Pretty {
         text(
           s"Contract IDs are not supported in contract keys: ${key.ensureNoCid.left.toOption.get}"
         )
-      case TooDeepValue =>
-        text(s"exceeds maximum nesting value of ${Value.MAXIMUM_NESTING}")
+      case ValueExceedsMaxNesting =>
+        text(s"Value exceeds maximum nesting value of 100")
     }
   }
 

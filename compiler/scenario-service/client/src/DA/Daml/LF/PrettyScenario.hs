@@ -410,8 +410,8 @@ prettyScenarioErrorError (Just err) =  do
           scenarioError_ContractIdInContractKeyKey
     ScenarioErrorErrorComparableValueError _ ->
       pure "Attend to compare incomparable values"
-    ScenarioErrorErrorTooDeepValueError _ ->
-          pure "Exceed maximum nesting value"
+    ScenarioErrorErrorValueExceedsMaxNesting _ ->
+          pure "Value exceeds maximum nesting value of 100"
 
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

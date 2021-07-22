@@ -278,7 +278,7 @@ message ScenarioError {
     WronglyTypedContract wronglyTypedContract = 28;
     Empty ComparableValueError = 29;
     ContractIdInContractKey contract_id_in_contract_key = 30;
-    Empty TooDeepValueError = 31;
+    Empty ValueExceedsMaxNesting = 31;
   }
 }
 

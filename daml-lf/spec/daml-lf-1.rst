@@ -2867,6 +2867,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr4
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
+
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
         'signatories' eₛ, 'observers' eₒ, …, 'no_key' }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
