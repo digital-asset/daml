@@ -21,7 +21,7 @@ import com.daml.lf.language.LanguageVersion
   *     to load a language version that is not included in this range.
   * @param allowedStablePackages The set of stable packages that are
   *     allowed regardless of the allowed language version. This set
-  *     bypasses the language version check.
+  *     of packages bypass the language version checks.
   * @param stackTraceMode The flag enables the runtime support for
   *     stack trace.
   * @param profileDir The optional specifies the directory where to

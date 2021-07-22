@@ -452,7 +452,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     for {
       _ <- pkgs
         .collectFirst {
-          case (pkgId, pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+          case (pkgId, pkg) if !config.allowedStablePackages.contains(pkgId) && !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
             Error.Package.AllowedLanguageVersion(
               pkgId,
               pkg.languageVersion,
