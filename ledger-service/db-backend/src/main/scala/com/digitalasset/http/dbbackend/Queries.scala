@@ -10,7 +10,7 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.collection.immutable.{Iterable, Seq => ISeq}
-import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
+import scalaz.{@@, Functor, OneAnd, Tag}
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -71,6 +71,9 @@ sealed abstract class Queries {
   protected[this] def bigSerialType: Fragment
   protected[this] def textType: Fragment
   protected[this] def agreementTextType: Fragment
+
+  // The max list size that can be used in `IN` clauses
+  protected[this] def maxListSize: Option[Int]
 
   protected[this] def jsonColumn(name: Fragment): Fragment
 
@@ -214,15 +217,23 @@ sealed abstract class Queries {
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler, pas: Put[Array[String]]): ConnectionIO[Int]
 
-  final def deleteContracts[F[_]: Foldable](
-      cids: F[String]
+  final def deleteContracts(
+      cids: Set[String]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    cids.toVector match {
-      case Vector(hd, tl @ _*) =>
-        (sql"DELETE FROM contract WHERE contract_id IN ("
-          ++ concatFragment(OneAnd(sql"$hd", tl.toIndexedSeq map (cid => sql", $cid")))
-          ++ sql")").update.run
-      case _ => free.connection.pure(0)
+    import cats.data.NonEmptyVector
+    import cats.instances.vector._
+    import cats.instances.int._
+    import cats.syntax.foldable._
+    NonEmptyVector.fromVector(cids.toVector) match {
+      case None =>
+        free.connection.pure(0)
+      case Some(cids) =>
+        val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
+        chunks
+          .map(chunk =>
+            (fr"DELETE FROM contract WHERE " ++ Fragments.in(fr"contract_id", chunk)).update.run
+          )
+          .foldA
     }
   }
 
@@ -394,6 +405,8 @@ private object PostgresQueries extends Queries {
 
   protected[this] override def jsonColumn(name: Fragment) = name ++ sql" JSONB NOT NULL"
 
+  protected[this] override val maxListSize = None
+
   private[this] val indexContractsKeys = CreateIndex(sql"""
       CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
   """)
@@ -495,6 +508,9 @@ private object OracleQueries extends Queries {
 
   protected[this] override def jsonColumn(name: Fragment) =
     name ++ sql" CLOB NOT NULL CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
+
+  // See http://www.dba-oracle.com/t_ora_01795_maximum_number_of_expressions_in_a_list_is_1000.htm
+  protected[this] override def maxListSize = Some(1000)
 
   protected[this] override def contractsTableSignatoriesObservers = sql""
 

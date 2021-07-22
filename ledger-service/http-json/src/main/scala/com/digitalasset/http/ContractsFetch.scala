@@ -486,7 +486,7 @@ private[http] object ContractsFetch {
   )(implicit log: doobie.LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
-      import cats.syntax.apply._, cats.instances.vector._, scalaz.std.set._
+      import cats.syntax.apply._, cats.instances.vector._
       import json.JsonProtocol._
       import sjd._
       (queries.deleteContracts(step.deletes.keySet) *>

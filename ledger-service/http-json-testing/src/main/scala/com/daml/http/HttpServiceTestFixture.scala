@@ -66,6 +66,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       jdbcConfig: Option[JdbcConfig],
       staticContentConfig: Option[StaticContentConfig],
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
+      maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
       useTls: UseTls = UseTls.NoTls,
       wsConfig: Option[WebsocketConfig] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(implicit
@@ -90,6 +91,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
         wsConfig = wsConfig,
         accessTokenFile = None,
+        maxInboundMessageSize = maxInboundMessageSize,
         allowNonHttps = leakPasswords,
         staticContentConfig = staticContentConfig,
         packageReloadInterval = doNotReloadPackages,
