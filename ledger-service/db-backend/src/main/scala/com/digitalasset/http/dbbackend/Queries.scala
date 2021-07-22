@@ -12,7 +12,7 @@ import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
 import scala.collection.compat._
-import scala.collection.immutable.{Seq => ISeq}
+import scala.collection.immutable.{Seq => ISeq, SortedMap}
 import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
@@ -412,7 +412,9 @@ object Queries {
   ): Fragment = {
     import Implicits._
     caseLookupFragment(
-      queries.groupBy1(_._1._1).transform {
+      // SortedMap is only used so the tests are consistent; the SQL semantics
+      // don't care what order this map is in
+      SortedMap.from(queries.groupBy1(_._1._1)).transform {
         case (_, (_, ix) +-: ISeq()) => fr"${ix: Ix}||''"
         case (_, tqixes) =>
           concatFragment(
@@ -464,6 +466,9 @@ object Queries {
 
     implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
       SurrogateTpId subst Meta[Long]
+
+    implicit val `SurrogateTpId ordering`: Ordering[SurrogateTpId] =
+      SurrogateTpId subst implicitly[Ordering[Long]]
 
     implicit val `MatchedQueries get`: Read[MatchedQueries] =
       MatchedQueries subst (Read[Option[String]] map assertReadProjectedIndex)
