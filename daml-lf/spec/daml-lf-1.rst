@@ -2971,7 +2971,7 @@ as described by the ledger model::
      eₘ vₖ  ⇓  Ok vₘ
      |vₜ| ≤ 100
      |vₖ| > 100
-   —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyNestingKetErr
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyNestingKeyErr
      'create' @Mod:T vₜ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
