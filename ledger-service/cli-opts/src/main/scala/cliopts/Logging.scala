@@ -30,7 +30,6 @@ object Logging {
             System.err.println(
               s"reconfigured failed using url $path: $je"
             )
-            je.printStackTrace(System.err)
         } finally stream.close()
       }
     System.getProperty("logback.configurationFile") match {

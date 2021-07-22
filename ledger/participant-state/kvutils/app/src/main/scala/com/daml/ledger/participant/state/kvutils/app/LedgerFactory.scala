@@ -51,6 +51,7 @@ trait ConfigProvider[ExtraConfig] {
       tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
       batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,
       enableCompression = participantConfig.indexerConfig.enableCompression,
+      haConfig = participantConfig.indexerConfig.haConfig.copy(enable = config.enableHa),
     )
 
   def apiServerConfig(

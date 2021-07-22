@@ -77,7 +77,7 @@ object ValueGenerators {
 
   // generate a junk identifier
   val idGen: Gen[Identifier] = for {
-    n <- Gen.choose(1, 200)
+    n <- Gen.choose(1, 64)
     packageId <- Gen
       .listOfN(n, Gen.alphaNumChar)
       .map(s => PackageId.assertFromString(s.mkString))

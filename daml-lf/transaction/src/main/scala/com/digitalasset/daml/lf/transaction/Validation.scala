@@ -243,7 +243,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                 if version1 == version2 &&
                   coid1 === coid2 &&
                   templateId1 == templateId2 &&
-                  (actingParties1.isEmpty || actingParties1 == actingParties2) &&
+                  actingParties1 == actingParties2 &&
                   signatories1 == signatories2 &&
                   stakeholders1 == stakeholders2 &&
                   (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&

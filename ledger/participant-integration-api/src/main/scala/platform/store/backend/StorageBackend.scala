@@ -14,6 +14,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
+import com.daml.logging.LoggingContext
 import com.daml.platform
 import com.daml.platform.store.DbType
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
@@ -21,10 +22,11 @@ import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeP
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.oracle.OracleStorageBackend
-import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
+import com.daml.platform.store.backend.postgresql.{PostgresDataSourceConfig, PostgresStorageBackend}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
+import javax.sql.DataSource
 
 import scala.util.Try
 
@@ -44,9 +46,10 @@ trait StorageBackend[DB_BATCH]
     with DeduplicationStorageBackend
     with CompletionStorageBackend
     with ContractStorageBackend
-    with EventStorageBackend {
+    with EventStorageBackend
+    with DataSourceStorageBackend
+    with DBLockStorageBackend {
   def reset(connection: Connection): Unit
-  def enforceSynchronousCommit(connection: Connection): Unit
   def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
 
@@ -234,6 +237,49 @@ object EventStorageBackend {
       wildCardParties: Set[Ref.Party],
       partiesAndTemplates: Set[(Set[Ref.Party], Set[Ref.Identifier])],
   )
+}
+
+trait DataSourceStorageBackend {
+  def createDataSource(
+      jdbcUrl: String,
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
+        DataSourceStorageBackend.DataSourceConfig(),
+      connectionInitHook: Option[Connection => Unit] = None,
+  )(implicit loggingContext: LoggingContext): DataSource
+}
+
+object DataSourceStorageBackend {
+
+  /** @param postgresConfig configurations which apply only for the PostgresSQL backend
+    */
+  case class DataSourceConfig(
+      postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig()
+  )
+}
+
+trait DBLockStorageBackend {
+  def tryAcquire(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock]
+
+  def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean
+
+  def lock(id: Int): DBLockStorageBackend.LockId
+
+  def dbLockSupported: Boolean
+}
+
+object DBLockStorageBackend {
+  case class Lock(lockId: LockId, lockMode: LockMode)
+
+  trait LockId
+
+  trait LockMode
+  object LockMode {
+    case object Exclusive extends LockMode
+    case object Shared extends LockMode
+  }
 }
 
 object StorageBackend {
