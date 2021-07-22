@@ -39,7 +39,7 @@ abstract class ContractDaoBenchmark extends OracleAround {
 
     import oracleDao.jdbcDriver
 
-    dao.transact(ContractDao.initialize).unsafeRunSync()
+    dao.transact(ContractDao.initialize(checkIfExists = false)).unsafeRunSync()
   }
 
   @TearDown(Level.Trial)

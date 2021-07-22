@@ -53,7 +53,7 @@ object Main {
     config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
   }
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     instanceUUIDLogCtx(implicit lc =>
       Cli.parseConfig(
         args,
@@ -67,7 +67,6 @@ object Main {
           sys.exit(ErrorCodes.InvalidUsage)
       }
     )
-  }
 
   private def main(config: Config)(implicit lc: LoggingContextOf[InstanceUUID]): Unit = {
     logger.info(
@@ -113,11 +112,14 @@ object Main {
       case (Some(dao), Some(c)) if c.createSchema =>
         logger.info("Creating DB schema...")
         import dao.{logHandler, jdbcDriver}
-        Try(dao.transact(ContractDao.initialize).unsafeRunSync()) match {
+        Try(dao.transact(ContractDao.initialize(c.checkIfExists)).unsafeRunSync()) match {
           case Success(()) =>
-            logger.info("DB schema created. Terminating process...")
-            terminate()
-            System.exit(ErrorCodes.Ok)
+            logger.info("DB schema created...")
+            if (!c.continueAfterSchemaCreation) {
+              logger.info("Terminating process...")
+              terminate()
+              System.exit(ErrorCodes.Ok)
+            }
           case Failure(e) =>
             logger.error("Failed creating DB schema", e)
             terminate()
@@ -145,7 +147,6 @@ object Main {
           contractDao = contractDao,
         )
       )
-    }
 
     discard {
       sys.addShutdownHook {

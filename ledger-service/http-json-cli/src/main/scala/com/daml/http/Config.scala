@@ -114,6 +114,8 @@ private[http] final case class JdbcConfig(
     user: String,
     password: String,
     createSchema: Boolean = false,
+    checkIfExists: Boolean = false,
+    continueAfterSchemaCreation: Boolean = false,
 )
 
 private[http] object JdbcConfig
@@ -129,12 +131,16 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
-      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
+      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately if the continueAfterSchemaCreation flag was not set.\n" +
+      s"${indent}checkIfExists -- boolean flag, if set to true, the process will check during re-creating the database schema if the schema already exists & leave it untouched.\n" +
+      s"${indent}continueAfterSchemaCreation -- boolean flag, if set to true, the process won't terminate after the database schema was created.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
+        "false",
+        "false",
         "false",
       )
 
@@ -143,6 +149,8 @@ private[http] object JdbcConfig
     "<JDBC connection url>",
     "<user>",
     "<password>",
+    "<true|false>",
+    "<true|false>",
     "<true|false>",
   )
 
@@ -161,12 +169,16 @@ private[http] object JdbcConfig
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
       createSchema <- optionalBooleanField(x)("createSchema")
+      checkIfExists <- optionalBooleanField(x)("checkIfExists")
+      continueAfterSchemaCreation <- optionalBooleanField(x)("continueAfterSchemaCreation")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
       createSchema = createSchema.getOrElse(false),
+      checkIfExists = checkIfExists.getOrElse(false),
+      continueAfterSchemaCreation = continueAfterSchemaCreation.getOrElse(false),
     )
 
   private def helpString(
@@ -175,8 +187,10 @@ private[http] object JdbcConfig
       user: String,
       password: String,
       createSchema: String,
+      checkIfExists: String,
+      continueAfterSchemaCreation: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema,checkIfExists=$checkIfExists,continueAfterSchemaCreation=$continueAfterSchemaCreation\""""
 }
 
 // It is public for Daml Hub
