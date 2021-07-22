@@ -162,7 +162,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "allow arbitrarily large rejection reasons" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      _ <- storeMultiPartyRejection(RejectionReasonV0.Inconsistent((0 to 10000).map(_ => " ").mkString("")))
+      _ <- storeMultiPartyRejection(
+        RejectionReasonV0.Inconsistent((0 to 10000).map(_ => " ").mkString(""))
+      )
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
