@@ -101,7 +101,7 @@ trait ExecuteUpdate {
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
           Future {
             val preparedInsert = ledgerDao.prepareTransactionInsert(
-              submitterInfo = tx.optSubmitterInfo,
+              completionInfo = tx.optSubmitterInfo.map(_.toCompletionInfo),
               workflowId = tx.transactionMeta.workflowId,
               transactionId = tx.transactionId,
               ledgerEffectiveTime = tx.transactionMeta.ledgerEffectiveTime.toInstant,
@@ -195,7 +195,12 @@ trait ExecuteUpdate {
         )
 
       case CommandRejected(recordTime, submitterInfo, reason) =>
-        ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offsetStep, reason)
+        ledgerDao.storeRejection(
+          Some(submitterInfo.toCompletionInfo),
+          recordTime.toInstant,
+          offsetStep,
+          reason,
+        )
       case update: TransactionAccepted =>
         import update._
         logger.warn(
@@ -204,7 +209,7 @@ trait ExecuteUpdate {
         )
         ledgerDao.storeTransaction(
           preparedInsert = ledgerDao.prepareTransactionInsert(
-            submitterInfo = optSubmitterInfo,
+            completionInfo = optSubmitterInfo.map(_.toCompletionInfo),
             workflowId = transactionMeta.workflowId,
             transactionId = transactionId,
             ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -213,7 +218,7 @@ trait ExecuteUpdate {
             divulgedContracts = divulgedContracts,
             blindingInfo = blindingInfo,
           ),
-          submitterInfo = optSubmitterInfo,
+          completionInfo = optSubmitterInfo.map(_.toCompletionInfo),
           transactionId = transactionId,
           recordTime = recordTime.toInstant,
           ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -426,7 +431,7 @@ class PipelinedExecuteUpdate(
       .future(
         metrics.daml.index.db.storeTransactionCompletion,
         ledgerDao.completeTransaction(
-          submitterInfo = tx.optSubmitterInfo,
+          completionInfo = tx.optSubmitterInfo.map(_.toCompletionInfo),
           transactionId = tx.transactionId,
           recordTime = tx.recordTime.toInstant,
           offsetStep = offsetStep,
@@ -520,7 +525,7 @@ class AtomicExecuteUpdate(
           metrics.daml.index.db.storeTransaction,
           ledgerDao.storeTransaction(
             preparedInsert,
-            submitterInfo = optSubmitterInfo,
+            completionInfo = optSubmitterInfo.map(_.toCompletionInfo),
             transactionId = transactionId,
             recordTime = recordTime.toInstant,
             ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,

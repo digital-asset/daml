@@ -12,13 +12,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.transaction.{
-  BlindingInfo,
-  CommittedTransaction,
-  NodeId,
-  TransactionVersion,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.{NodeId, TransactionVersion, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
@@ -67,12 +61,20 @@ final class ExecuteUpdateSpec
     packageUploadRejectionReason,
   )
 
-  private val txAccepted = transactionAccepted(
-    submitterInfo = None,
-    workflowId = None,
-    transactionId = txId,
-    ledgerEffectiveTime = Instant.EPOCH,
+  private val txAccepted = state.Update.TransactionAccepted(
+    optSubmitterInfo = None,
+    transactionMeta = state.TransactionMeta(
+      ledgerEffectiveTime = Time.Timestamp.Epoch,
+      workflowId = None,
+      submissionTime = Time.Timestamp.Epoch,
+      submissionSeed = crypto.Hash.hashPrivateKey("dummy"),
+      optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    ),
     transaction = txMock,
+    transactionId = txId,
+    recordTime = Time.Timestamp.Epoch,
     divulgedContracts = List.empty,
     blindingInfo = None,
   )
@@ -91,7 +93,7 @@ final class ExecuteUpdateSpec
 
     when(
       dao.prepareTransactionInsert(
-        submitterInfo = None,
+        completionInfo = None,
         workflowId = None,
         transactionId = txId,
         ledgerEffectiveTime = ledgerEffectiveTime,
@@ -108,7 +110,7 @@ final class ExecuteUpdateSpec
       .thenReturn(Future.successful(PersistenceResponse.Ok))
     when(
       dao.completeTransaction(
-        eqTo(Option.empty[state.SubmitterInfo]),
+        eqTo(None),
         eqTo(txId),
         eqTo(ledgerEffectiveTime),
         eqTo(CurrentOffset(offset)),
@@ -125,7 +127,7 @@ final class ExecuteUpdateSpec
     when(
       dao.storeTransaction(
         preparedInsert = eqTo(mockedPreparedInsert),
-        submitterInfo = eqTo(Option.empty[state.SubmitterInfo]),
+        completionInfo = eqTo(None),
         transactionId = eqTo(txId),
         recordTime = eqTo(ledgerEffectiveTime),
         ledgerEffectiveTime = eqTo(ledgerEffectiveTime),
@@ -246,7 +248,7 @@ final class ExecuteUpdateSpec
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .prepareTransactionInsert(
-                    submitterInfo = None,
+                    completionInfo = None,
                     workflowId = None,
                     transactionId = txId,
                     ledgerEffectiveTime = ledgerEffectiveTime,
@@ -264,7 +266,7 @@ final class ExecuteUpdateSpec
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .completeTransaction(
-                    eqTo(Option.empty[state.SubmitterInfo]),
+                    eqTo(None),
                     eqTo(txId),
                     eqTo(ledgerEffectiveTime),
                     eqTo(CurrentOffset(offset)),
@@ -309,7 +311,7 @@ final class ExecuteUpdateSpec
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .prepareTransactionInsert(
-                    submitterInfo = None,
+                    completionInfo = None,
                     workflowId = None,
                     transactionId = txId,
                     ledgerEffectiveTime = ledgerEffectiveTime,
@@ -322,7 +324,7 @@ final class ExecuteUpdateSpec
                   .verify(ledgerDaoMock)
                   .storeTransaction(
                     preparedInsert = eqTo(mockedPreparedInsert),
-                    submitterInfo = eqTo(Option.empty[state.SubmitterInfo]),
+                    completionInfo = eqTo(None),
                     transactionId = eqTo(txId),
                     recordTime = eqTo(ledgerEffectiveTime),
                     ledgerEffectiveTime = eqTo(ledgerEffectiveTime),
@@ -345,34 +347,5 @@ final class ExecuteUpdateSpec
           }
       }
     }
-  }
-
-  private def transactionAccepted(
-      submitterInfo: Option[state.SubmitterInfo],
-      workflowId: Option[Ref.WorkflowId],
-      transactionId: Ref.TransactionId,
-      ledgerEffectiveTime: Instant,
-      transaction: CommittedTransaction,
-      divulgedContracts: List[state.DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-  ): state.Update.TransactionAccepted = {
-    val ledgerTimestamp = Time.Timestamp(ledgerEffectiveTime.toEpochMilli)
-    state.Update.TransactionAccepted(
-      optSubmitterInfo = submitterInfo,
-      transactionMeta = state.TransactionMeta(
-        ledgerEffectiveTime = ledgerTimestamp,
-        workflowId = workflowId,
-        submissionTime = ledgerTimestamp,
-        submissionSeed = crypto.Hash.hashPrivateKey("dummy"),
-        optUsedPackages = None,
-        optNodeSeeds = None,
-        optByKeyNodes = None,
-      ),
-      transaction = transaction,
-      transactionId = transactionId,
-      recordTime = ledgerTimestamp,
-      divulgedContracts = divulgedContracts,
-      blindingInfo = blindingInfo,
-    )
   }
 }

@@ -15,8 +15,8 @@ import scala.concurrent.Future
 trait JdbcAppendOnlyTransactionInsertion {
   self: JdbcLedgerDaoSuite with AsyncTestSuite =>
 
-  private[dao] def store(
-      submitterInfo: Option[state.SubmitterInfo],
+  private[dao] override def store(
+      completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
       divulgedContracts: List[state.DivulgedContract],
@@ -24,7 +24,7 @@ trait JdbcAppendOnlyTransactionInsertion {
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     for {
       _ <- ledgerDao.storeTransaction(
-        submitterInfo = submitterInfo,
+        completionInfo = completionInfo,
         workflowId = tx.workflowId,
         transactionId = tx.transactionId,
         ledgerEffectiveTime = tx.ledgerEffectiveTime,

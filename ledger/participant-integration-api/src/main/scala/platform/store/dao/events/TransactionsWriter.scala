@@ -76,7 +76,7 @@ private[platform] final class TransactionsWriter(
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
   def prepare(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
@@ -94,7 +94,7 @@ private[platform] final class TransactionsWriter(
     val indexing =
       TransactionIndexing.from(
         blinding,
-        submitterInfo,
+        completionInfo,
         workflowId,
         transactionId,
         ledgerEffectiveTime,

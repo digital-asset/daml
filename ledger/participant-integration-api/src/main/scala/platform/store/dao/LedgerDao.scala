@@ -244,7 +244,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   // TODO append-only: cleanup
   def prepareTransactionInsert(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -257,7 +257,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   // TODO append-only: cleanup
   def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -278,14 +278,14 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   // TODO append-only: cleanup
   def completeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   def storeRejection(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
       reason: state.RejectionReason,
@@ -339,7 +339,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   def storeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,

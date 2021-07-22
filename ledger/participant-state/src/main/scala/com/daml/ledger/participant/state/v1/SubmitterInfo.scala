@@ -33,4 +33,7 @@ final case class SubmitterInfo(
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
     deduplicateUntil: Instant,
-)
+) {
+  def toCompletionInfo: CompletionInfo =
+    CompletionInfo(actAs, applicationId, commandId, deduplicateUntil)
+}

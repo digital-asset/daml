@@ -15,15 +15,15 @@ import scala.concurrent.Future
 trait JdbcAtomicTransactionInsertion {
   self: JdbcLedgerDaoSuite with AsyncTestSuite =>
 
-  private[dao] def store(
-      submitterInfo: Option[state.SubmitterInfo],
+  private[dao] override def store(
+      completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
       divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
-      submitterInfo,
+      completionInfo,
       tx.workflowId,
       tx.transactionId,
       tx.ledgerEffectiveTime,
@@ -35,7 +35,7 @@ trait JdbcAtomicTransactionInsertion {
     for {
       _ <- ledgerDao.storeTransaction(
         preparedTransactionInsert,
-        submitterInfo = submitterInfo,
+        completionInfo = completionInfo,
         transactionId = tx.transactionId,
         transaction = tx.transaction,
         recordTime = tx.recordedAt,

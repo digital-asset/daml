@@ -283,7 +283,7 @@ private class JdbcLedgerDao(
   }
 
   override def prepareTransactionInsert(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -312,7 +312,7 @@ private class JdbcLedgerDao(
     ) // TODO append-only: cleanup
 
   override def completeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
@@ -323,7 +323,7 @@ private class JdbcLedgerDao(
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -350,7 +350,7 @@ private class JdbcLedgerDao(
     )
 
   override def storeRejection(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
       reason: state.RejectionReason,
@@ -361,10 +361,10 @@ private class JdbcLedgerDao(
         sequentialIndexer.store(
           conn,
           offset,
-          submitterInfo.map(someSubmitterInfo =>
+          completionInfo.map(info =>
             state.Update.CommandRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
-              submitterInfo = someSubmitterInfo,
+              submitterInfo = info.toSubmitterInfo,
               reason = reason,
             )
           ),
@@ -382,19 +382,19 @@ private class JdbcLedgerDao(
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
-              val submitterInfo =
+              val completionInfo =
                 for (
                   appId <- tx.applicationId;
                   actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs);
                   cmdId <- tx.commandId
-                ) yield state.SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
+                ) yield state.CompletionInfo(actAs, appId, cmdId, Instant.EPOCH)
 
               sequentialIndexer.store(
                 connection,
                 offset,
                 Some(
                   state.Update.TransactionAccepted(
-                    optSubmitterInfo = submitterInfo,
+                    optSubmitterInfo = completionInfo.map(_.toSubmitterInfo),
                     transactionMeta = state.TransactionMeta(
                       ledgerEffectiveTime =
                         Time.Timestamp.assertFromInstant(tx.ledgerEffectiveTime),
@@ -643,7 +643,7 @@ private class JdbcLedgerDao(
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   override def storeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -663,7 +663,7 @@ private class JdbcLedgerDao(
             case None =>
               Some(
                 state.Update.TransactionAccepted(
-                  optSubmitterInfo = submitterInfo,
+                  optSubmitterInfo = completionInfo.map(_.toSubmitterInfo),
                   transactionMeta = state.TransactionMeta(
                     ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerEffectiveTime),
                     workflowId = workflowId,
@@ -682,10 +682,10 @@ private class JdbcLedgerDao(
               )
 
             case Some(reason) =>
-              submitterInfo.map(someSubmitterInfo =>
+              completionInfo.map(info =>
                 state.Update.CommandRejected(
                   recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                  submitterInfo = someSubmitterInfo,
+                  submitterInfo = info.toSubmitterInfo,
                   reason = reason.toStateV1RejectionReason,
                 )
               )

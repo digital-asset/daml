@@ -197,8 +197,14 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     val offset = nextOffset()
     ledgerDao
       .storeRejection(
-        submitterInfo =
-          Some(state.SubmitterInfo(List(party1), applicationId, commandId, Instant.EPOCH)),
+        completionInfo = Some(
+          state.CompletionInfo(
+            actAs = List(party1),
+            applicationId = applicationId,
+            commandId = commandId,
+            deduplicateUntil = Instant.EPOCH,
+          )
+        ),
         recordTime = Instant.now,
         offsetStep = nextOffsetStep(offset),
         reason = reason,
@@ -213,8 +219,13 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     lazy val offset = nextOffset()
     ledgerDao
       .storeRejection(
-        submitterInfo = Some(
-          state.SubmitterInfo(List(party1, party2, party3), applicationId, commandId, Instant.EPOCH)
+        completionInfo = Some(
+          state.CompletionInfo(
+            actAs = List(party1, party2, party3),
+            applicationId = applicationId,
+            commandId = commandId,
+            deduplicateUntil = Instant.EPOCH,
+          )
         ),
         recordTime = Instant.now,
         offsetStep = nextOffsetStep(offset),

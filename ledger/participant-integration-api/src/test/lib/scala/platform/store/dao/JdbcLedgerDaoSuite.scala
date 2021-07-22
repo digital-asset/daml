@@ -164,7 +164,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   )
 
   private[dao] def store(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
       divulgedContracts: List[state.DivulgedContract],
@@ -634,14 +634,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   }
 
   protected final def prepareInsert(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
       divulgedContracts: List[state.DivulgedContract] = List.empty,
       blindingInfo: Option[BlindingInfo] = None,
   ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
-      submitterInfo,
+      completionInfo,
       tx.workflowId,
       tx.transactionId,
       tx.ledgerEffectiveTime,
@@ -668,18 +668,19 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       offsetStepAndTx: (OffsetStep, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offsetStep, entry) = offsetStepAndTx
-    val maybeSubmitterInfo = submitterInfo(entry)
+    val info = completionInfoFrom(entry)
     val divulged =
       divulgedContracts.keysIterator.map(c => state.DivulgedContract(c._1, c._2)).toList
 
-    store(maybeSubmitterInfo, entry, offsetStep, divulged, blindingInfo)
+    store(info, entry, offsetStep, divulged, blindingInfo)
   }
 
-  protected def submitterInfo(entry: LedgerEntry.Transaction) =
-    for (
-      actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
+  protected def completionInfoFrom(entry: LedgerEntry.Transaction): Option[state.CompletionInfo] =
+    for {
+      actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs)
+      app <- entry.applicationId
       cmd <- entry.commandId
-    ) yield state.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
+    } yield state.CompletionInfo(actAs, app, cmd, Instant.EPOCH)
 
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction)

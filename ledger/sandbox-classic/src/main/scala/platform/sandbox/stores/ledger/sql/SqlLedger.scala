@@ -413,10 +413,10 @@ private final class SqlLedger(
         .fold(
           reason =>
             ledgerDao.storeRejection(
-              Some(submitterInfo),
-              recordTime,
-              CurrentOffset(offset),
-              reason.toStateV1RejectionReason,
+              completionInfo = Some(submitterInfo.toCompletionInfo),
+              recordTime = recordTime,
+              offsetStep = CurrentOffset(offset),
+              reason = reason.toStateV1RejectionReason,
             ),
           _ => {
             val divulgedContracts = Nil
@@ -425,7 +425,7 @@ private final class SqlLedger(
             val blindingInfo = None
 
             ledgerDao.storeTransaction(
-              submitterInfo = Some(submitterInfo),
+              completionInfo = Some(submitterInfo.toCompletionInfo),
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
