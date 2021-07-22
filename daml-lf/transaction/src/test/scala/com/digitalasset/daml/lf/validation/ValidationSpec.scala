@@ -310,13 +310,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakFetchTemplateId = Tweak.single[Node] { case nf: Node.NodeFetch[_] =>
     nf.copy(templateId = changeTemplateId(nf.templateId))
   }
-  private val tweakFetchActingPartiesEmpty = Tweak[Node] {
-    case nf: Node.NodeFetch[_] if nf.actingParties.isEmpty => //insig
-      tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
-  }
-  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] {
-    case nf: Node.NodeFetch[_] if nf.actingParties.nonEmpty => //sig
-      tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
+  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] { case nf: Node.NodeFetch[_] =>
+    tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
   }
   private val tweakFetchSignatories = Tweak[Node] { case nf: Node.NodeFetch[_] =>
     tweakPartySet.run(nf.signatories).map { x => nf.copy(signatories = x) }
@@ -340,7 +335,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     Map(
       "tweakFetchCoid" -> tweakFetchCoid,
       "tweakFetchTemplateId" -> tweakFetchTemplateId,
-      "tweakFetchActingParties(Non-empty)" -> tweakFetchActingPartiesNonEmpty,
+      "tweakFetchActingParties" -> tweakFetchActingPartiesNonEmpty,
       "tweakFetchSignatories" -> tweakFetchSignatories,
       "tweakFetchStakeholders" -> tweakFetchStakeholders,
       "tweakFetchKey(Some)" -> tweakFetchKey(tweakOptKeyMaintainersSome),
@@ -350,7 +345,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   private val insigFetchTweaks =
     Map(
-      "tweakFetchActingParties(Empty)" -> tweakFetchActingPartiesEmpty,
       "tweakFetchKey(None)" -> tweakFetchKey(tweakOptKeyMaintainersNone),
       "tweakFetchByKey(Old Version)" -> tweakFetchByKey(versionBeforeMinByKey),
     )
