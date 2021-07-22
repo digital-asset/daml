@@ -375,17 +375,10 @@ instances when we want to avoid empty identifiers, escaping problems,
 and other similar pitfalls. ::
 
   PackageId strings
-   PackageIdString ::= ' PackageIdChars '             -- PackageIdString
-
-  Sequences of PackageId character
-    PackageIdChars ::= PackageIdChar                  -- PackageIdChars
-                    |  PackageIdChars PackageIdChar
-
-  PackageId character
-     PackageIdChar  ∈  [a-zA-Z0-9\-_ ]               -- PackageIdChar
+   PackageIdString ::= [a-zA-Z0-9\-_ ]{1,64}        -- PackageIdString
 
   PartyId strings
-     PartyIdString  ∈  [a-zA-Z0-9:\-_ ]{1,255}       -- PartyIdChar
+     PartyIdString  ∈  [a-zA-Z0-9:\-_ ]{1,255}      -- PartyIdString
 
   PackageName strings
    PackageNameString ∈ [a-zA-Z0-9:\-_]+             -- PackageNameString
