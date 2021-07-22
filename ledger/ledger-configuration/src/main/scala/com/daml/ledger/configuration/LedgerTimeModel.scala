@@ -76,4 +76,10 @@ object LedgerTimeModel {
       require(!maxSkew.isNegative, "Negative max skew")
       new LedgerTimeModel(avgTransactionLatency, minSkew, maxSkew)
     }
+
+  final case class OutOfRange(ledgerTime: Instant, lowerBound: Instant, upperBound: Instant) {
+    lazy val message: String =
+      s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]"
+  }
+
 }

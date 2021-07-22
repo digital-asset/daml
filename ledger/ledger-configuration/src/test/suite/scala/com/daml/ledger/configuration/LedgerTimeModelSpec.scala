@@ -5,6 +5,7 @@ package com.daml.ledger.configuration
 
 import java.time._
 
+import com.daml.ledger.configuration.LedgerTimeModel.OutOfRange
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -12,11 +13,12 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
 
   private val referenceTime = Instant.EPOCH
   private val epsilon = Duration.ofMillis(10L)
+  private val defaultSkew = Duration.ofSeconds(30L)
   private val timeModel =
     LedgerTimeModel(
       avgTransactionLatency = Duration.ZERO,
-      minSkew = Duration.ofSeconds(30L),
-      maxSkew = Duration.ofSeconds(30L),
+      minSkew = defaultSkew,
+      maxSkew = defaultSkew,
     ).get
   private val smallSkew = Duration.ofSeconds(1L)
   private val largeSkew = Duration.ofHours(1L)
@@ -42,16 +44,13 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
       }
 
       "fail if the ledger time is higher than the high boundary" in {
-        val result = timeModel.checkTime(
-          referenceTime.plus(timeModel.maxSkew).plus(epsilon),
-          referenceTime,
-        )
+        val ledgerTime = referenceTime.plus(timeModel.maxSkew).plus(epsilon)
+        val minRecordTime = referenceTime.minus(defaultSkew)
+        val maxRecordTime = referenceTime.plus(defaultSkew)
 
-        result should be(
-          Left(
-            "Ledger time 1970-01-01T00:00:30.010Z outside of range [1969-12-31T23:59:30Z, 1970-01-01T00:00:30Z]"
-          )
-        )
+        val result = timeModel.checkTime(ledgerTime, referenceTime)
+
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
       }
 
       "succeed if the ledger time is lower than the record time and is within tolerance limit" in {
@@ -67,20 +66,17 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
       }
 
       "fail if the ledger time is lower than the low boundary" in {
-        val result = timeModel.checkTime(
-          referenceTime.minus(timeModel.minSkew).minus(epsilon),
-          referenceTime,
-        )
+        val ledgerTime = referenceTime.minus(timeModel.minSkew).minus(epsilon)
+        val minRecordTime = referenceTime.minus(defaultSkew)
+        val maxRecordTime = referenceTime.plus(defaultSkew)
 
-        result should be(
-          Left(
-            "Ledger time 1969-12-31T23:59:29.990Z outside of range [1969-12-31T23:59:30Z, 1970-01-01T00:00:30Z]"
-          )
-        )
+        val result = timeModel.checkTime(ledgerTime, referenceTime)
+
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
       }
 
       "succeed if the ledger time is equal to the high boundary (asymmetric case)" in {
-        val instance = createAsymmetricTimeModel(largeSkew, smallSkew)
+        val instance = createAsymmetricTimeModel(minSkew = largeSkew, maxSkew = smallSkew)
 
         val result = instance.checkTime(referenceTime.plus(instance.maxSkew), referenceTime)
 
@@ -88,7 +84,7 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
       }
 
       "succeed if the ledger time is equal to the low boundary (asymmetric case)" in {
-        val instance = createAsymmetricTimeModel(smallSkew, largeSkew)
+        val instance = createAsymmetricTimeModel(minSkew = smallSkew, maxSkew = largeSkew)
 
         val result = instance.checkTime(referenceTime.minus(instance.minSkew), referenceTime)
 
@@ -96,29 +92,27 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
       }
 
       "fail if the ledger time is higher than the high boundary (asymmetric case)" in {
-        val instance = createAsymmetricTimeModel(largeSkew, smallSkew)
+        val instance = createAsymmetricTimeModel(minSkew = largeSkew, maxSkew = smallSkew)
 
-        val result =
-          instance.checkTime(referenceTime.plus(instance.maxSkew).plus(epsilon), referenceTime)
+        val ledgerTime = referenceTime.plus(instance.maxSkew).plus(epsilon)
+        val minRecordTime = referenceTime.minus(largeSkew)
+        val maxRecordTime = referenceTime.plus(smallSkew)
 
-        result should be(
-          Left(
-            "Ledger time 1970-01-01T00:00:01.010Z outside of range [1969-12-31T23:00:00Z, 1970-01-01T00:00:01Z]"
-          )
-        )
+        val result = instance.checkTime(ledgerTime, referenceTime)
+
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
       }
 
       "fail if the ledger time is lower than the low boundary (asymmetric case)" in {
-        val instance = createAsymmetricTimeModel(smallSkew, largeSkew)
+        val instance = createAsymmetricTimeModel(minSkew = smallSkew, maxSkew = largeSkew)
 
-        val result = instance
-          .checkTime(referenceTime.minus(instance.minSkew).minus(epsilon), referenceTime)
+        val ledgerTime = referenceTime.minus(instance.minSkew).minus(epsilon)
+        val minRecordTime = referenceTime.minus(smallSkew)
+        val maxRecordTime = referenceTime.plus(largeSkew)
 
-        result should be(
-          Left(
-            "Ledger time 1969-12-31T23:59:58.990Z outside of range [1969-12-31T23:59:59Z, 1970-01-01T01:00:00Z]"
-          )
-        )
+        val result = instance.checkTime(ledgerTime, referenceTime)
+
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
       }
 
       "produce a valid error message" in {
@@ -127,16 +121,15 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
           minSkew = Duration.ofSeconds(10L),
           maxSkew = Duration.ofSeconds(20L),
         ).get
-        val ledgerTime = "2000-01-01T12:00:00Z"
-        val recordTime = "2000-01-01T12:30:00Z"
-        val lowerBound = "2000-01-01T12:29:50Z"
-        val upperBound = "2000-01-01T12:30:20Z"
-        val result = timeModel
-          .checkTime(Instant.parse(ledgerTime), Instant.parse(recordTime))
 
-        result should be(
-          Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
-        )
+        val ledgerTime = Instant.parse("2000-01-01T12:00:00Z")
+        val recordTime = Instant.parse("2000-01-01T12:30:00Z")
+        val minRecordTime = Instant.parse("2000-01-01T12:29:50Z")
+        val maxRecordTime = Instant.parse("2000-01-01T12:30:20Z")
+
+        val result = timeModel.checkTime(ledgerTime, recordTime)
+
+        result should be(Left(OutOfRange(ledgerTime, minRecordTime, maxRecordTime).message))
       }
     }
   }
