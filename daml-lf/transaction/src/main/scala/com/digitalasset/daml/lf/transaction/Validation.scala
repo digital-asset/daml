@@ -55,7 +55,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
       replayed: Option[Value[Cid]],
   ) =
     (recorded, replayed) match {
-      case (None, _) => true
+      case (None, None) => true
       case (Some(recordedValue), Some(replayedValue)) =>
         valueIsReplayedBy(recordedValue, replayedValue)
       case _ => false
