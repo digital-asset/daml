@@ -17,16 +17,20 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.`export`.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.api.{
   CommitMetadata,
   LedgerReader,
   LedgerRecord,
   LedgerWriter,
 }
-import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator._
+import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
+import com.daml.ledger.validator.preexecution._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -45,7 +49,9 @@ final class SqlLedgerReaderWriter(
     metrics: Metrics,
     database: Database,
     dispatcher: Dispatcher[Index],
-    committer: ValidatingCommitter[Index],
+    committer: Committer,
+    stateAccess: SqlLedgerStateAccess,
+    timeProvider: TimeProvider,
     committerExecutionContext: sc.ExecutionContext,
 ) extends LedgerWriter
     with LedgerReader {
@@ -79,10 +85,25 @@ final class SqlLedgerReaderWriter(
       envelope: Raw.Envelope,
       metadata: CommitMetadata,
   )(implicit telemetryContext: TelemetryContext): sc.Future[SubmissionResult] =
-    committer.commit(correlationId, envelope, participantId)(committerExecutionContext)
+    committer
+      .commit(
+        participantId,
+        correlationId,
+        envelope,
+        exportRecordTime = timeProvider.getCurrentTime,
+        ledgerStateAccess = stateAccess,
+      )(committerExecutionContext)
 }
 
 object SqlLedgerReaderWriter {
+  private[sql] type Committer = PreExecutingValidatingCommitter[
+    Option[DamlStateValue],
+    RawPreExecutingCommitStrategy.ReadSet,
+    RawKeyValuePairsWithLogEntry,
+  ]
+
+  private[sql] type StateValueCache = Cache[DamlStateKey, DamlStateValue]
+
   private val StartOffset: Offset = OffsetBuilder.fromLong(StartIndex)
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
@@ -94,9 +115,8 @@ object SqlLedgerReaderWriter {
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
-      logEntryIdAllocator: LogEntryIdAllocator,
-      stateValueCache: StateValueCache = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
+      stateValueCache: StateValueCache = Cache.none,
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
     override def acquire()(implicit context: ResourceContext): Resource[SqlLedgerReaderWriter] = {
@@ -112,19 +132,30 @@ object SqlLedgerReaderWriter {
           updateOrRetrieveLedgerId(ledgerId, database).removeExecutionContext
         )
         dispatcher <- new DispatcherOwner(database).acquire()
-        validator = SubmissionValidator.createForTimeMode(
-          ledgerStateAccess = new SqlLedgerStateAccess(database, metrics),
-          logEntryIdAllocator = logEntryIdAllocator,
-          checkForMissingInputs = false,
-          stateValueCache = stateValueCache,
-          engine = engine,
-          metrics = metrics,
-          inStaticTimeMode = timeProvider != TimeProvider.UTC,
+        sqlLedgerStateAccess = new SqlLedgerStateAccess(database, metrics)
+        keyValueCommitting = new KeyValueCommitting(
+          engine,
+          metrics,
         )
-        committer = new ValidatingCommitter[Index](
-          () => timeProvider.getCurrentTime,
-          validator = validator,
-          postCommit = dispatcher.signalNewHead,
+        ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
+        committer = new Committer(
+          transformStateReader = ledgerStateReader =>
+            CachingStateReader(
+              stateValueCache,
+              ImmutablesOnlyCacheUpdatePolicy,
+              DamlLedgerStateReader
+                .from(ledgerStateReader, StateKeySerializationStrategy.createDefault()),
+            ),
+          validator = new PreExecutingSubmissionValidator(
+            keyValueCommitting,
+            new RawPreExecutingCommitStrategy(StateKeySerializationStrategy.createDefault()),
+            metrics = metrics,
+          ),
+          postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,
+          postExecutionWriteSetSelector =
+            new TimeBasedWriteSetSelector(() => timeProvider.getCurrentTime),
+          postExecutionWriter = new RawPostExecutionWriter,
+          ledgerDataExporter = ledgerDataExporter,
         )
         committerExecutionContext <- ResourceOwner
           .forExecutorService(() =>
@@ -138,6 +169,8 @@ object SqlLedgerReaderWriter {
         database,
         dispatcher,
         committer,
+        sqlLedgerStateAccess,
+        timeProvider,
         committerExecutionContext,
       )
     }

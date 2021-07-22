@@ -151,8 +151,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 engine = engine,
                 jdbcUrl = ledgerJdbcUrl,
                 resetOnStartup = isReset,
-                logEntryIdAllocator =
-                  new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
                 stateValueCache = caching.WeightedCache.from(
                   caching.WeightedCache.Configuration(
                     maximumWeight = MaximumStateValueCacheSize

@@ -6,7 +6,6 @@ package com.daml.ledger.on.sql
 import java.time.Duration
 
 import akka.stream.Materializer
-import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
@@ -14,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   ReadWriteService,
 }
-import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -77,11 +75,6 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         engine = engine,
         jdbcUrl = jdbcUrl,
         resetOnStartup = false,
-        logEntryIdAllocator = RandomLogEntryIdAllocator,
-        stateValueCache = caching.WeightedCache.from(
-          configuration = config.stateValueCache,
-          metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
-        ),
       ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
