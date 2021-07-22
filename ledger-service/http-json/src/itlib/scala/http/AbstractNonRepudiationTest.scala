@@ -88,14 +88,14 @@ abstract class AbstractNonRepudiationTest
 
   private def withJsonApi[A](participantPort: Port) =
     HttpServiceTestFixture.withHttpService[A](
-      testId,
-      participantPort,
-      jdbcConfig,
-      staticContentConfig,
-      LeakPasswords.No,
-      useTls,
-      wsConfig,
-      nonRepudiation,
+      testName = testId,
+      ledgerPort = participantPort,
+      jdbcConfig = jdbcConfig,
+      staticContentConfig = staticContentConfig,
+      leakPasswords = LeakPasswords.No,
+      useTls = useTls,
+      wsConfig = wsConfig,
+      nonRepudiation = nonRepudiation,
     ) _
 
   protected def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
