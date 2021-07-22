@@ -7,6 +7,8 @@ package engine
 import java.nio.file.Path
 
 import com.daml.lf.transaction.ContractKeyUniquenessMode
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.LanguageVersion
 
 /** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -17,6 +19,9 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   * @param allowedLanguageVersions The range of language versions the
   *     engine is allowed to load.  The engine will crash if it asked
   *     to load a language version that is not included in this range.
+  * @param allowedStablePackages The set of stable packages that are
+  *     allowed regardless of the allowed language version. This set
+  *     bypasses the language version check.
   * @param stackTraceMode The flag enables the runtime support for
   *     stack trace.
   * @param profileDir The optional specifies the directory where to
@@ -24,7 +29,8 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   *     disabled if the option is empty.
   */
 final case class EngineConfig(
-    allowedLanguageVersions: VersionRange[language.LanguageVersion],
+    allowedLanguageVersions: VersionRange[LanguageVersion],
+    allowedStablePackages: Set[PackageId],
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
@@ -34,6 +40,7 @@ final case class EngineConfig(
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
       allowedLanguageVersions,
+      allowedStablePackages,
       packageValidation =
         if (packageValidation)
           speedy.Compiler.FullPackageValidation

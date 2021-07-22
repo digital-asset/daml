@@ -8,7 +8,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
+import com.daml.lf.language.{LanguageVersion, LookupError, Interface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
@@ -59,6 +59,7 @@ private[lf] object Compiler {
 
   case class Config(
       allowedLanguageVersions: VersionRange[LanguageVersion],
+      allowedStablePackages: Set[PackageId],
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
@@ -67,12 +68,14 @@ private[lf] object Compiler {
   object Config {
     val Default = Config(
       allowedLanguageVersions = LanguageVersion.StableVersions,
+      allowedStablePackages = StablePackages.ids,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
     val Dev = Config(
       allowedLanguageVersions = LanguageVersion.DevVersions,
+      allowedStablePackages = StablePackages.ids,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -346,7 +349,7 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     interface.lookupPackage(pkgId) match {
-      case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+      case Right(pkg) if !config.allowedStablePackages.contains(pkgId) && !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }

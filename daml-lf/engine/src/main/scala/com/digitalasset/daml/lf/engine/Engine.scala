@@ -16,7 +16,7 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
-import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.language.{Interface, LanguageVersion, StablePackages}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
@@ -50,7 +50,7 @@ import com.daml.nameof.NameOf
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableVersions)) {
+class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableVersions, StablePackages.ids)) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
@@ -512,7 +512,7 @@ object Engine {
     }
   }
 
-  def DevEngine(): Engine = new Engine(new EngineConfig(LanguageVersion.DevVersions))
+  def DevEngine(): Engine = new Engine(new EngineConfig(LanguageVersion.DevVersions, StablePackages.ids))
 
   def StableEngine(): Engine = new Engine()
 
