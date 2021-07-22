@@ -51,9 +51,9 @@ import com.daml.platform.index.TransactionConversion
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
+import com.daml.platform.sandbox.stores.ledger.{Ledger, TimeModelError}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.entries.{
@@ -286,12 +286,18 @@ private[sandbox] final class InMemoryLedger(
     )
 
   // Validates the given ledger time according to the ledger time model
-  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[String, Unit] = {
+  private def checkTimeModel(
+      ledgerTime: Instant,
+      recordTime: Instant,
+  ): Either[TimeModelError, Unit] =
     ledgerConfiguration
-      .fold[Either[String, Unit]](
-        Left("No ledger configuration available, cannot validate ledger time")
-      )(config => config.timeModel.checkTime(ledgerTime, recordTime))
-  }
+      .toRight(TimeModelError.NoLedgerConfiguration)
+      .flatMap(config =>
+        config.timeModel
+          .checkTime(ledgerTime, recordTime)
+          .left
+          .map(TimeModelError.InvalidLedgerTime)
+      )
 
   private def handleSuccessfulTx(
       transactionId: Ref.LedgerString,
@@ -303,7 +309,7 @@ private[sandbox] final class InMemoryLedger(
     val recordTime = timeProvider.getCurrentTime
     checkTimeModel(ledgerTime, recordTime)
       .fold(
-        reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
+        error => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(error.message)),
         _ => {
           val (committedTransaction, disclosureForIndex, divulgence) =
             Ledger
