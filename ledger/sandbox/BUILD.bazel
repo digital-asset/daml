@@ -325,10 +325,7 @@ server_conformance_test(
             "DeeplyNestedValueIT:AcceptFetchByKey46",
             "DeeplyNestedValueIT:AcceptFailingLookupByKey46",
             "DeeplyNestedValueIT:AcceptSuccessfulLookupByKey46",
-            "DeeplyNestedValueIT:RejectCreateCommand",
-            "DeeplyNestedValueIT:RejectExerciseCommand",
-            "DeeplyNestedValueIT:RejectCreateArgumentInCreateAndExerciseCommand",
-            "DeeplyNestedValueIT:RejectChoiceArgumentInCreateAndExerciseCommand",
+            "DeeplyNestedValueIT:Reject",
         ]),
     ],
 )
