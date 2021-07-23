@@ -62,8 +62,9 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "default",
-        # FIXME: enable the following line once canton-test-runner supports LF 1.14
+        "legacy",
+        # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
+        # "default",
         # "latest",
     ],
     ports = [
@@ -103,9 +104,10 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "default",
-        # FIXME: enable the following line once canton-test-runner supports LF 1.14
-        # "latest",
+        "legacy",
+        # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
+        #  "default",
+        #  "latest",
     ],
     ports = [
         5011,

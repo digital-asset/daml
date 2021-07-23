@@ -6,7 +6,6 @@ package engine
 
 import java.util
 import java.io.File
-
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
@@ -132,6 +131,15 @@ class EngineTest
       toContractId("#BasicTests:WithKey:1") ->
         withKeyContractInst,
     )
+
+  val defaultKey = Map(
+    GlobalKey.assertBuild(
+      TypeConName(basicTestsPkgId, withKeyTemplate),
+      ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+    )
+      ->
+        toContractId("#BasicTests:WithKey:1")
+  )
 
   val lookupContract = defaultContracts.get(_)
 
@@ -853,7 +861,17 @@ class EngineTest
     "reinterpret to the same result" in {
 
       val reinterpretResult =
-        reinterpret(engine, Set(alice), tx.roots, tx, txMeta, let, lookupPackage, defaultContracts)
+        reinterpret(
+          engine,
+          Set(alice),
+          tx.roots,
+          tx,
+          txMeta,
+          let,
+          lookupPackage,
+          defaultContracts,
+          defaultKey,
+        )
           .map(_._1)
       (result.map(_._1) |@| reinterpretResult)((tx, rtx) => isReplayedBy(tx, rtx)) shouldBe Right(
         Right(())
@@ -2193,7 +2211,7 @@ class EngineTest
       result shouldBe a[Left[_, _]]
       val Left(err) = result
       err.msg should not include ("Boom")
-      err.msg should include("precondition violation")
+      err.msg should include("Template precondition violated")
     }
 
     "not be create if has an empty set of maintainer" in {
@@ -2738,6 +2756,7 @@ object EngineTest {
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
       contracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] = Map.empty,
+      keys: Map[GlobalKey, ContractId] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
@@ -2752,7 +2771,7 @@ object EngineTest {
 
     val iterate =
       nodes.foldLeft[Either[Error, Acc]](
-        Right((HashMap.empty, BackStack.empty, false, BackStack.empty, contracts, Map.empty))
+        Right((HashMap.empty, BackStack.empty, false, BackStack.empty, contracts, keys))
       ) { case (acc, nodeId) =>
         for {
           previousStep <- acc
@@ -2760,10 +2779,16 @@ object EngineTest {
           cmd = tx.transaction.nodes(nodeId) match {
             case create: Node.NodeCreate[ContractId] =>
               CreateCommand(create.templateId, create.arg)
+            case fetch: Node.NodeFetch[ContractId] if fetch.byKey =>
+              val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
+              FetchByKeyCommand(fetch.templateId, key)
             case fetch: Node.NodeFetch[ContractId] =>
               FetchCommand(fetch.templateId, fetch.coid)
             case lookup: Node.NodeLookupByKey[ContractId] =>
               LookupByKeyCommand(lookup.templateId, lookup.key.key)
+            case exe: Node.NodeExercises[NodeId, ContractId] if exe.byKey =>
+              val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
+              ExerciseByKeyCommand(exe.templateId, key, exe.choiceId, exe.chosenValue)
             case exe: Node.NodeExercises[NodeId, ContractId] =>
               ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
             case _: Node.NodeRollback[NodeId] =>

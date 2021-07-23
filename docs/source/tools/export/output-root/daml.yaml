@@ -35,10 +35,14 @@ data-dependencies:
 - deps/e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c.dalf
 - deps/e491352788e56ca4603acc411ffe1a49fefd76ed8b163af86cf5ee5f4c38645b.dalf
 - deps/daml-prim-0.0.0-b76d13799ea5488f281440b63072ad3e3d48d72936144e7d19209c9cf115aa9d.dalf
+- deps/daml-prim-DA-Exception-ArithmeticError-1.0.0-cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a.dalf
+- deps/daml-prim-DA-Exception-AssertionFailed-1.0.0-3f4deaf145a15cdcfa762c058005e2edb9baa75bb7f95a4f8f6f937378e86415.dalf
+- deps/daml-prim-DA-Exception-GeneralError-1.0.0-86828b9843465f419db1ef8a8ee741d1eef645df02375ebf509cdc8c3ddd16cb.dalf
+- deps/daml-prim-DA-Exception-PreconditionFailed-1.0.0-f20de1e4e37b92280264c08bf15eca0be0bc5babd7a7b5e574997f154c00cb78.dalf
 - deps/daml-script-0.0.0-024f7a831e04595b36c668121dce9209d63e5a6a46f01a4533fca5e4c521e7e4.dalf
 - deps/daml-stdlib-0.0.0-68a8ef91f10c283e1a5fc914bbf0addd41a089ad3625641966df2415e6010e2e.dalf
 - deps/daml-stdlib-DA-Set-Types-1.0.0-97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657.dalf
 - deps/script-test-0.0.1-87967f7d2b53db9652bd343a24db7cbe371c4b105005d57eed853bd309bac477.dalf
 build-options:
-- --target=1.13
+- --target=1.14
 - --package=script-test-0.0.1
