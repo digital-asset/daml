@@ -8,11 +8,13 @@ Getting Started with Daml
 
 The goal of this tutorial is to get you up and running with full-stack Daml development.
 We do this through the example of a simple social networking application,
-showing you three things:
+showing you these things:
 
     1. How to build and run the application
     2. The design of its different components (:doc:`app-architecture`)
     3. How to write a new feature for the app (:doc:`first-feature`)
+    4. Adding automation (:doc:`triggers`)
+    5. How to test a full-stack Daml application (:doc:`testing`)
 
 We do not aim to be comprehensive in all Daml concepts and tools (covered in :doc:`Writing Daml </daml/intro/0_Intro>`) or in all deployment options (see :doc:`Deploying </deploy/index>`).
 **For a quick overview of the most important Daml concepts used in this tutorial open** `the Daml cheat-sheet <https://docs.daml.com/cheat-sheet/>`_ **in a separate tab**. The goal is that by the end of this tutorial,
