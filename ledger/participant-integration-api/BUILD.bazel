@@ -261,7 +261,6 @@ da_scala_test_suite(
         "//ledger/metrics:metrics-test-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
-        "//ledger/participant-state/kvutils",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/concurrent",
