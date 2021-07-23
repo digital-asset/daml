@@ -133,7 +133,7 @@ object Main {
             logger.error("Failed to connect to the database", e)
             terminate()
             System.exit(ErrorCodes.StartupError)
-          case _ =>
+          case Right(true) =>
         }
       case _ =>
     }
