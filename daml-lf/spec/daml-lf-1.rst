@@ -2037,6 +2037,38 @@ Note that the fields of struct values are always ordered lexicographically
 by field name, unlike the fields of struct expressions. The field order is
 normalized during evaluation.
 
+Value nesting
+~~~~~~~~~~~~~
+
+  A value is serializable if it lives inside serializable type and its
+  nesting is lower or equal to 100. Formally, the nesting of a
+  serializable value ``v`` is noted ``|v|`` and is defined recursively
+  on ``v`` as follows (we omit values that do not have serialized type)::
+
+     | LitInt64 | = 0
+     | LitNumeric | = 0
+     | LitBigNumeric | = 0
+     | t | = 0
+     | LitDate | = 0
+     | LitTimestamp | = 0
+     | cid | = 0
+     | () | = 0
+     | 'True' | = 0
+     | 'False' | = 0
+     | 'Nil' @τ | = 0
+     | 'Cons' @τ eₕ eₜ | = max₂ (|eₕ| + 1) |eₜ|
+     | 'None' @τ | = 0
+     | 'Some' @τ e | = |e| + 1
+     | [t₁ ↦ e₁; … ; tₙ ↦ eₙ] | = (maxₙ |e₁| … |eₙ|) + 1
+     | 〚e₁ ↦ e₁'; … ; eₙ ↦ eₙ'〛 | = (max₂ₙ |e₁| |e₁'| … |eₙ| |eₙ'|) + 1
+     | Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₙ = eₙ } | = (maxₙ |e₁| … |eₙ|) + 1
+     | Mod:T:V @τ₁ … @τₙ e | = |e| + 1
+     | Mod:T:E | = 0
+     | LitRoundingMode | = 0
+
+  where ``maxₙ`` is the ``n``-ary function that returns the maximum of its arguments.
+
+
 Pattern matching
 ~~~~~~~~~~~~~~~~
 
@@ -2867,6 +2899,17 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr4
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, … }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     |vₜ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateNestingArgErr
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
         'signatories' eₛ, 'observers' eₒ, …, 'no_key' }  ∈  〚Ξ〛Mod
@@ -2874,6 +2917,7 @@ as described by the ledger model::
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     |vₜ| ≤ 100
      cid ∉ dom(st₀)
      tr = 'create' (cid, Mod:T, vₜ, 'no_key')
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'active')]
@@ -2911,6 +2955,36 @@ as described by the ledger model::
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Ok vₖ
      eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyNestingArgErr
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     eₖ[x ↦ vₜ]  ⇓  Ok vₖ
+     eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| ≤ 100
+     |vₖ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyNestingKeyErr
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     eₖ[x ↦ vₜ]  ⇓  Ok vₖ
+     eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| ≤ 100    |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys₀)
    —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyFail
      'create' @Mod:T vₜ ‖ (st₀, keys₀)
@@ -2925,6 +2999,7 @@ as described by the ledger model::
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Ok vₖ
      eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| ≤ 100    |vₖ| ≤ 100
      (Mod:T, vₖ) ∉ dom(keys₀)
      cid ∉ dom(st₀)
      tr = 'create' (cid, Mod:T, vₜ)
@@ -2988,6 +3063,20 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercNestingArgErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
@@ -3017,10 +3106,30 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
+     |vₐ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercConsumNestingOutErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     keys₁ = keys₀ - keys₀⁻¹(cid)
+     st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
+     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
+     |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsum
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
@@ -3033,6 +3142,7 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumErr
@@ -3047,8 +3157,26 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
+     |vₐ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumNestingOutErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+    'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
+     |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsum
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
@@ -3106,6 +3234,15 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| > 100
+    —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyNestingErr
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
+        ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∉ dom(keys₀)
     —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyNotFound
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
@@ -3114,6 +3251,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys)
      cid = keys((Mod:T, v))
      st(cid) = (Mod:T, vₜ, 'inactive')
@@ -3124,6 +3262,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys)
      cid = keys((Mod:T, v))
      st(cid) = (Mod:T, vₜ, 'active')
@@ -3139,6 +3278,15 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  vₘ
+     |vₖ| ≤ 100
+   —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNestingErr
+     'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∉ dom(keys)
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNotFound
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
@@ -3147,6 +3295,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys)
      cid = keys((Mod:T, v))
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyFound
@@ -4880,7 +5029,7 @@ Daml-LF 1.14 is the first version that supports Exceptions.
 The deserialization process will reject any Daml-LF 1.13 (or earlier)
 program exception using:
 
-- ``AnyException` primitive type,
+- ``AnyException`` primitive type,
 - ``ToAnyException``, ``FromAnyException``, and ``Throw`` expressions,
 - ``TryCatch`` update,
 - ``ANY_EXCEPTION_MESSAGE`` builtin functions.

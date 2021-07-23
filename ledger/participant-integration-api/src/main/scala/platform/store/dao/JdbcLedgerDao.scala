@@ -33,7 +33,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{DivulgedContract, RejectionReason, SubmitterInfo}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -510,7 +510,9 @@ private class JdbcLedgerDao(
             preparedInsert.writeEvents(metrics)
             insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>
-            submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
+            submitterInfo.foreach(
+              handleError(offsetStep.offset, _, recordTime, error.toStateV1RejectionReason)
+            )
         }
 
         updateLedgerEnd(offsetStep)
@@ -522,7 +524,7 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-  )(implicit connection: Connection) =
+  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
       postCommitValidation.validate(
@@ -604,7 +606,7 @@ private class JdbcLedgerDao(
                   submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
-                  reason = reason,
+                  reason = reason.toParticipantStateRejectionReason,
                 )
                 .execute()
           }

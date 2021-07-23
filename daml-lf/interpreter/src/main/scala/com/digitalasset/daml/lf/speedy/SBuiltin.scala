@@ -918,7 +918,7 @@ private[lf] object SBuiltin {
       mbKey.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
         if (maintainers.isEmpty)
           throw SErrorDamlException(
-            IE.CreateEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
+            IE.CreateEmptyContractKeyMaintainers(templateId, createArgValue, key)
           )
       }
       val auth = machine.auth
@@ -933,7 +933,6 @@ private[lf] object SBuiltin {
           stakeholders = sigs union obs,
           key = mbKey,
         )
-        .fold(err => crash(err), identity)
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
@@ -993,7 +992,6 @@ private[lf] object SBuiltin {
           byKey = byKey,
           chosenValue = arg,
         )
-        .fold(err => crash(err), identity)
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }

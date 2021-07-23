@@ -12,11 +12,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
+  Rejection,
   Rejections,
   Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.transaction.Transaction.{
   DuplicateKeys,
   InconsistentKeys,
@@ -100,17 +100,13 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
       case Right(_) =>
         StepContinue(transactionEntry)
       case Left(error) =>
-        val message = error match {
+        val rejection = error match {
           case Duplicate =>
-            "DuplicateKeys: at least one contract key is not unique"
+            Rejection.ExternallyInconsistentTransaction.DuplicateKeys
           case Inconsistent =>
-            "InconsistentKeys: at least one contract key has changed since the submission"
+            Rejection.ExternallyInconsistentTransaction.InconsistentKeys
         }
-        rejections.buildRejectionStep(
-          transactionEntry,
-          RejectionReasonV0.Inconsistent(message),
-          commitContext.recordTime,
-        )
+        rejections.buildRejectionStep(transactionEntry, rejection, commitContext.recordTime)
     }
   }
 
@@ -134,9 +130,7 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
     else
       rejections.buildRejectionStep(
         transactionEntry,
-        RejectionReasonV0.Inconsistent(
-          "InconsistentContracts: at least one contract has been archived since the submission"
-        ),
+        Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
         commitContext.recordTime,
       )
   }
