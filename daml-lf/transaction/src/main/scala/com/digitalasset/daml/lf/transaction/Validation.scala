@@ -246,7 +246,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   actingParties1 == actingParties2 &&
                   signatories1 == signatories2 &&
                   stakeholders1 == stakeholders2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  (keyIsReplayedBy(key1, key2)) &&
                   byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(rest1, rest2, stack)
             case (
@@ -294,7 +294,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   stakeholders1 == stakeholders2 &&
                   signatories1 == signatories2 &&
                   choiceObservers1 == choiceObservers2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  (keyIsReplayedBy(key1, key2)) &&
                   byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(
                 children1.iterator.to(LazyList),
