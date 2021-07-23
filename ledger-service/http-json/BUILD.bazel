@@ -331,6 +331,9 @@ alias(
             "@maven//:org_typelevel_cats_free",
         ],
         scalacopts = hj_scalacopts,
+        versioned_scala_deps = {
+            "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+        },
         deps = [
             ":http-json-{}".format(edition),
             ":integration-tests-lib-{}".format(edition),
@@ -392,9 +395,6 @@ test_suite(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
-        versioned_scala_deps = {
-            "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-        },
         deps = [
             ":http-json-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
