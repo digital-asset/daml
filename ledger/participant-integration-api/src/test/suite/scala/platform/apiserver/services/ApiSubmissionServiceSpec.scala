@@ -310,7 +310,7 @@ class ApiSubmissionServiceSpec
               actAs = Set.empty,
               readAs = Set.empty,
               submittedAt = Instant.MIN,
-              deduplicateUntil = Instant.MIN,
+              deduplicationDuration = Duration.ZERO,
               commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
             )
           )

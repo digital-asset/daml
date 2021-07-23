@@ -99,7 +99,7 @@ trait FieldValidations {
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
 
-  def validateDeduplicationTime(
+  def validateDeduplicationDuration(
       durationO: Option[com.google.protobuf.duration.Duration],
       maxDeduplicationTimeO: Option[Duration],
       fieldName: String,

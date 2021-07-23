@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
@@ -276,7 +276,7 @@ object domain {
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplicateUntil: Instant,
+      deduplicationDuration: Duration,
       commands: LfCommands,
   )
 

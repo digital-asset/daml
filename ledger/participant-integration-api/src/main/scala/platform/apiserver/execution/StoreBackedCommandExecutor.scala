@@ -77,7 +77,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
-              commands.deduplicateUntil,
+              commands.submittedAt.plus(commands.deduplicationDuration),
             ),
             transactionMeta = TransactionMeta(
               commands.commands.ledgerEffectiveTime,
