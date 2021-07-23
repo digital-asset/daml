@@ -13,9 +13,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils._
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
