@@ -181,7 +181,8 @@ private[sandbox] object ScenarioLoader {
     }
   }
 
-  private val workflowIdPrefix = Ref.LedgerString.assertFromString(s"scenario-workflow-")
+  private val submissionIdPrefix = Ref.LedgerString.assertFromString("scenario-submission-")
+  private val workflowIdPrefix = Ref.LedgerString.assertFromString("scenario-workflow-")
   private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
 
   private def executeScenarioStep(
@@ -209,8 +210,9 @@ private[sandbox] object ScenarioLoader {
         }
 
         val transactionId = txId.id
-        val workflowId =
-          Some(Ref.LedgerString.assertConcat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
+        val stepIdString = Ref.LedgerString.fromInt(stepId)
+        val submissionId = Some(Ref.SubmissionId.assertConcat(submissionIdPrefix, stepIdString))
+        val workflowId = Some(Ref.WorkflowId.assertConcat(workflowIdPrefix, stepIdString))
         val tx = richTransaction.transaction
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
@@ -233,6 +235,7 @@ private[sandbox] object ScenarioLoader {
                     Some(transactionId),
                     transactionId,
                     Some(scenarioLoader),
+                    submissionId,
                     richTransaction.actAs.toList,
                     workflowId,
                     time.toInstant,

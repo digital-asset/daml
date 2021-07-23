@@ -6,9 +6,8 @@ package com.daml.ledger.api.validation
 import java.time.{Duration, Instant}
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.lf.command._
-import com.daml.lf.data._
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
   CreateAndExercise => ProtoCreateAndExercise,
@@ -17,17 +16,18 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   ExerciseByKey => ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
+import com.daml.lf.command._
+import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
-import scala.collection.immutable
 import scala.Ordering.Implicits.infixOrderingOps
+import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: LedgerId) {
+final class CommandsValidator(ledgerId: LedgerId, generateSubmissionId: () => Ref.SubmissionId) {
 
   import ValueValidator._
 
@@ -46,6 +46,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
+      // TODO: Let the user provide this information in the `ProtoCommands`,
+      //       and extract it from there.
+      submissionId = domain.SubmissionId(generateSubmissionId())
       submitters <- CommandsValidator.validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
@@ -68,6 +71,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       workflowId = workflowId,
       applicationId = appId,
       commandId = commandId,
+      submissionId = submissionId,
       actAs = submitters.actAs,
       readAs = submitters.readAs,
       submittedAt = currentUtcTime,

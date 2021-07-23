@@ -8,7 +8,7 @@ import java.time.Instant
 
 import anorm.{Row, SimpleSql}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.metrics.{Metrics, Timed}

@@ -9,7 +9,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.{NodeId, TransactionVersion, VersionedTransaction}
@@ -62,7 +62,7 @@ final class ExecuteUpdateSpec
   )
 
   private val txAccepted = state.Update.TransactionAccepted(
-    optSubmitterInfo = None,
+    optCompletionInfo = None,
     transactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.Epoch,
       workflowId = None,

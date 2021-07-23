@@ -36,4 +36,12 @@ final case class SubmitterInfo(
 
   /** The ID for the ledger change */
   val changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
+
+  def toCompletionInfo: CompletionInfo = CompletionInfo(
+    actAs,
+    applicationId,
+    commandId,
+    Some(deduplicationPeriod),
+    submissionId,
+  )
 }

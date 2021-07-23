@@ -11,7 +11,7 @@ import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Error => LfError}
@@ -73,6 +73,7 @@ private[apiserver] object ApiSubmissionService {
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
         ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
+      generateSubmissionId = () => Ref.SubmissionId.assertFromString(UUID.randomUUID().toString),
       metrics = metrics,
     )
 
@@ -150,21 +151,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
         logger.debug("Success")
         Success(())
 
-      case Success(Overloaded) =>
-        logger.info("Back-pressure")
-        Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
-
-      case Success(NotSupported) =>
-        logger.warn("Not supported")
-        Failure(Status.INVALID_ARGUMENT.asRuntimeException)
-
-      case Success(InternalError(reason)) =>
-        logger.error(s"Internal error: $reason")
-        Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
-
-      case Success(SynchronousReject(failure)) =>
-        logger.info(s"Rejected: ${failure.getStatus}")
-        Failure(failure)
+      case Success(result: SynchronousError) =>
+        logger.info(s"Rejected: ${result.description}")
+        Failure(result.exception)
 
       case Failure(error) =>
         logger.info(s"Rejected: ${error.getMessage}")
@@ -192,7 +181,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       telemetryContext: TelemetryContext,
   ): Future[state.SubmissionResult] =
     for {
-      result <- commandExecutor.execute(commands, submissionSeed)
+      result <- commandExecutor.execute(commands, submissionSeed, ledgerConfig)
       transactionInfo <- handleCommandExecutionResult(result)
       partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
       submissionResult <- submitTransaction(transactionInfo, partyAllocationResults, ledgerConfig)

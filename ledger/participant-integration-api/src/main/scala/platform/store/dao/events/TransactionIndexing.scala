@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.platform.store.serialization.Compression

@@ -8,7 +8,7 @@ import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.JdbcArrayConversions.StringArrayParameterMetadata

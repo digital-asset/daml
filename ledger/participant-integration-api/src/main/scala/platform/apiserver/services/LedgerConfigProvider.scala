@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -164,11 +164,9 @@ private[apiserver] final class LedgerConfigProvider private (
         .map {
           case state.SubmissionResult.Acknowledged =>
             logger.info(s"Initial configuration submission $submissionId was successful")
-          case state.SubmissionResult.NotSupported =>
-            logger.info("Setting an initial ledger configuration is not supported")
-          case result =>
+          case result: state.SubmissionResult.SynchronousError =>
             logger.warn(
-              s"Initial configuration submission $submissionId failed. Reason: ${result.description}"
+              s"Initial configuration submission $submissionId failed. Code: ${result.status.getCode}, Reason: ${result.description}"
             )
         }
     }

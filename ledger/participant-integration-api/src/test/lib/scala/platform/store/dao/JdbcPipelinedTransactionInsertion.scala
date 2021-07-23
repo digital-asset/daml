@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.entries.LedgerEntry

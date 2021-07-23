@@ -147,13 +147,14 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     val t1 = Instant.now()
     val t2 = t1.plusMillis(1)
     val t3 = t2.plusMillis(1)
-    val appId = UUID.randomUUID.toString
+    val appId = UUID.randomUUID().toString
     for {
       _ <- store(
         nextOffset() -> LedgerEntry.Transaction(
-          commandId = Some(UUID.randomUUID.toString),
-          transactionId = UUID.randomUUID.toString,
+          commandId = Some(UUID.randomUUID().toString),
+          transactionId = UUID.randomUUID().toString,
           applicationId = Some(appId),
+          submissionId = Some(UUID.randomUUID().toString),
           actAs = List(alice),
           workflowId = None,
           ledgerEffectiveTime = t1,
@@ -164,9 +165,10 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       )
       _ <- store(
         nextOffset() -> LedgerEntry.Transaction(
-          commandId = Some(UUID.randomUUID.toString),
-          transactionId = UUID.randomUUID.toString,
+          commandId = Some(UUID.randomUUID().toString),
+          transactionId = UUID.randomUUID().toString,
           applicationId = Some(appId),
+          submissionId = Some(UUID.randomUUID().toString),
           actAs = List(bob),
           workflowId = None,
           ledgerEffectiveTime = t2,
@@ -179,9 +181,10 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         divulgedContracts = Map((create2, someVersionedContractInstance) -> Set(alice)),
         blindingInfo = None,
         offsetAndTx = nextOffset() -> LedgerEntry.Transaction(
-          commandId = Some(UUID.randomUUID.toString),
-          transactionId = UUID.randomUUID.toString,
+          commandId = Some(UUID.randomUUID().toString),
+          transactionId = UUID.randomUUID().toString,
           applicationId = Some(appId),
+          submissionId = Some(UUID.randomUUID().toString),
           actAs = List(bob),
           workflowId = None,
           ledgerEffectiveTime = t3,

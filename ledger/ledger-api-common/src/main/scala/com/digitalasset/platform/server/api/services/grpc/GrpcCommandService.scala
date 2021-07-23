@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
+import com.daml.lf.data.Ref
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.google.protobuf.empty.Empty
@@ -23,6 +24,7 @@ class GrpcCommandService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
+    generateSubmissionId: () => Ref.SubmissionId,
 )(implicit executionContext: ExecutionContext)
     extends CommandService
     with GrpcApiService
@@ -31,7 +33,7 @@ class GrpcCommandService(
   protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   private[this] val validator =
-    new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId))
+    new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId, generateSubmissionId))
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
     validator

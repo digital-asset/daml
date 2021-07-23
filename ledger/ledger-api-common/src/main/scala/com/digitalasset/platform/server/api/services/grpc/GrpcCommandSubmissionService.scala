@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest,
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.daml.lf.data.Ref
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
@@ -31,6 +32,7 @@ class GrpcCommandSubmissionService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
+    generateSubmissionId: () => Ref.SubmissionId,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends ApiCommandSubmissionService
@@ -39,7 +41,9 @@ class GrpcCommandSubmissionService(
 
   protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
-  private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
+  private val validator = new SubmitRequestValidator(
+    new CommandsValidator(ledgerId, generateSubmissionId)
+  )
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {
     implicit val telemetryContext: TelemetryContext =

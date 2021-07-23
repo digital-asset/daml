@@ -33,7 +33,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -453,7 +453,7 @@ private class JdbcLedgerDao(
       offset: Offset,
       completionInfo: state.CompletionInfo,
       recordTime: Instant,
-      rejectionReason: state.RejectionReason,
+      rejectionReason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit connection: Connection): Unit = {
     stopDeduplicatingCommandSync(domain.CommandId(completionInfo.commandId), completionInfo.actAs)
     queries.prepareRejectionInsert(completionInfo, offset, recordTime, rejectionReason).execute()
@@ -511,7 +511,7 @@ private class JdbcLedgerDao(
             insertCompletions(completionInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>
             completionInfo.foreach(
-              handleError(offsetStep.offset, _, recordTime, error.toStateV1RejectionReason)
+              handleError(offsetStep.offset, _, recordTime, error.toStateV2RejectionReason)
             )
         }
 
@@ -557,7 +557,7 @@ private class JdbcLedgerDao(
       completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: state.RejectionReason,
+      reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing rejection")
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
@@ -581,12 +581,12 @@ private class JdbcLedgerDao(
           entry match {
             case tx: LedgerEntry.Transaction =>
               val completionInfo =
-                for (
-                  appId <- tx.applicationId;
-                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs);
+                for {
+                  appId <- tx.applicationId
+                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs)
                   cmdId <- tx.commandId
-                )
-                  yield state.CompletionInfo(actAs, appId, cmdId, Instant.EPOCH)
+                  subId <- tx.submissionId
+                } yield state.CompletionInfo(actAs, appId, cmdId, None, subId)
               prepareTransactionInsert(
                 completionInfo = completionInfo,
                 workflowId = tx.workflowId,
@@ -600,16 +600,24 @@ private class JdbcLedgerDao(
               completionInfo
                 .map(queries.prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                 .foreach(_.execute())
-            case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
-              val _ = queries
+            case LedgerEntry.Rejection(
+                  recordTime,
+                  commandId,
+                  applicationId,
+                  submissionId,
+                  actAs,
+                  reason,
+                ) =>
+              queries
                 .prepareRejectionInsert(
                   completionInfo =
-                    state.CompletionInfo(actAs, applicationId, commandId, Instant.EPOCH),
+                    state.CompletionInfo(actAs, applicationId, commandId, None, submissionId),
                   offset = offset,
                   recordTime = recordTime,
                   reason = reason.toParticipantStateRejectionReason,
                 )
                 .execute()
+              ()
           }
         }
         ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
@@ -1179,7 +1187,7 @@ private[platform] object JdbcLedgerDao {
         |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
-    protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES =
+    protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
         |ledger_offset > {startExclusive} and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
@@ -1204,10 +1212,10 @@ private[platform] object JdbcLedgerDao {
         completionInfo: state.CompletionInfo,
         offset: Offset,
         recordTime: Instant,
-        reason: state.RejectionReason,
+        reason: state.Update.CommandRejected.RejectionReasonTemplate,
     ): SimpleSql[Row] = {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${completionInfo.applicationId}, ${completionInfo.actAs
-        .toArray[String]}, ${completionInfo.commandId}, ${reason.code.value}, ${reason.description})"
+        .toArray[String]}, ${completionInfo.commandId}, ${reason.code}, ${reason.message})"
     }
 
     protected[JdbcLedgerDao] def escapeReservedWord(word: String): String
@@ -1363,7 +1371,7 @@ private[platform] object JdbcLedgerDao {
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES =
+    override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
         |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
         |order by ledger_offset asc
@@ -1392,11 +1400,10 @@ private[platform] object JdbcLedgerDao {
         completionInfo: state.CompletionInfo,
         offset: Offset,
         recordTime: Instant,
-        reason: state.RejectionReason,
+        reason: state.Update.CommandRejected.RejectionReasonTemplate,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${completionInfo.applicationId}, ${completionInfo.actAs.toJson.compactPrint}, ${completionInfo.commandId}, ${reason.code
-        .value()}, ${reason.description})"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${completionInfo.applicationId}, ${completionInfo.actAs.toJson.compactPrint}, ${completionInfo.commandId}, ${reason.code}, ${reason.message})"
     }
 
     // spaces which are subsequently trimmed left only for readability

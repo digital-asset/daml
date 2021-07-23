@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.transaction.SubmittedTransaction
 
 /** The result of command execution.

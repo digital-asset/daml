@@ -5,7 +5,7 @@ package com.daml.platform.indexer
 
 import akka.stream.Materializer
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics

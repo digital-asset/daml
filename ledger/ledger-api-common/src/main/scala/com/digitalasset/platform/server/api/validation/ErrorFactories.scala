@@ -24,23 +24,14 @@ trait ErrorFactories {
   def invalidArgument(errorMsg: String): StatusRuntimeException =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Invalid argument: $errorMsg"))
 
-  def invalidField(fieldName: String, message: String) =
+  def invalidField(fieldName: String, message: String): StatusRuntimeException =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Invalid field $fieldName: $message"))
 
   def outOfRange(description: String): StatusRuntimeException =
     grpcError(Status.OUT_OF_RANGE.withDescription(description))
 
-  def notFound(target: String): StatusRuntimeException =
-    grpcError(Status.NOT_FOUND.withDescription(s"$target not found."))
-
-  def internal(description: String): StatusRuntimeException =
-    grpcError(Status.INTERNAL.withDescription(description))
-
   def aborted(description: String): StatusRuntimeException =
     grpcError(Status.ABORTED.withDescription(description))
-
-  def unimplemented(description: String): StatusRuntimeException =
-    grpcError(Status.UNIMPLEMENTED.withDescription(description))
 
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
   def permissionDenied(): StatusRuntimeException =
@@ -52,13 +43,11 @@ trait ErrorFactories {
   def missingLedgerConfig(): StatusRuntimeException =
     grpcError(Status.UNAVAILABLE.withDescription("The ledger configuration is not available."))
 
-  def resourceExhausted(description: String): StatusRuntimeException =
-    grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))
-
   def participantPrunedDataAccessed(message: String): StatusRuntimeException =
     grpcError(Status.NOT_FOUND.withDescription(message))
 
-  def grpcError(status: Status) = new ApiException(status)
+  def grpcError(status: Status): StatusRuntimeException =
+    new ApiException(status)
 
 }
 
