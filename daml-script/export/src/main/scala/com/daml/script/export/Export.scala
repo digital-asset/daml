@@ -59,10 +59,7 @@ object Export {
     val treeCids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
-    val refs =
-      acs.values.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments))) ++ trees.foldMap(
-        treeRefs(_)
-      )
+    val refs = moduleRefs(acs.values, trees)
     val usesSetTime = actions.any(_.isInstanceOf[SetTime])
     val timeRefs: Set[String] = if (usesSetTime) { Set("DA.Date", "DA.Time") }
     else { Set.empty }
@@ -74,10 +71,18 @@ object Export {
       cidMap = cidMap,
       unknownCids = cidRefs -- cidMap.keySet,
       cidRefs = cidRefs,
-      moduleRefs =
-        refs.map(_.moduleName).toSet ++ timeRefs ++ partiesModuleRefs ++ unknownContractModuleRefs,
+      moduleRefs = refs ++ timeRefs ++ partiesModuleRefs ++ unknownContractModuleRefs,
       actions = actions,
     )
+  }
+
+  private def moduleRefs(
+      acs: Iterable[CreatedEvent],
+      trees: Iterable[TransactionTree],
+  ): Set[String] = {
+    val fromAcs = acs.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
+    val fromTrees = trees.foldMap(treeRefs(_))
+    (fromAcs ++ fromTrees).map(_.moduleName)
   }
 
   private def partyMapping(parties: Set[Party]): Map[Party, String] = {
