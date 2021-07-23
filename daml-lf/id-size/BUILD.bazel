@@ -1,0 +1,38 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//bazel_tools:proto.bzl", "proto_jars")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+    "lf_scalacopts",
+    "silencer_plugin",
+)
+load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "PROTO_LF_VERSIONS", "lf_version_package", "mangle_for_java")
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+    "daml_compile_with_dalf",
+)
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+da_scala_binary(
+    name = "id-size",
+    main_class = "com.daml.lf.IdSize",
+    srcs = glob(["src/**/*.scala"]),
+    scala_deps = [        "@maven//:org_scalaz_scalaz_core",],
+    initial_heap_size = "2g",
+    max_heap_size = "4g",
+    deps = [
+      "//daml-lf/archive:daml_lf_archive_reader",
+      "//daml-lf/data",
+      "//daml-lf/language",
+    ],
+)
