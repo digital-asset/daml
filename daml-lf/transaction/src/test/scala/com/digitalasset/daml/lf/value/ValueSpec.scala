@@ -32,24 +32,6 @@ class ValueSpec
     with ScalaCheckPropertyChecks {
   import ValueSpec._
 
-  "serialize" - {
-    val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
-    }
-    val exceedsNestingError = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
-    val matchesNesting = (1 to MAXIMUM_NESTING).foldRight[Value[Nothing]](ValueInt64(42)) {
-      case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
-    }
-
-    "rejects excessive nesting" in {
-      exceedsNesting.serializable() shouldBe ImmArray(exceedsNestingError)
-    }
-
-    "accepts just right nesting" in {
-      matchesNesting.serializable() shouldBe ImmArray.empty
-    }
-  }
-
   "VersionedValue" - {
 
     val pkgId = Ref.PackageId.assertFromString("pkgId")

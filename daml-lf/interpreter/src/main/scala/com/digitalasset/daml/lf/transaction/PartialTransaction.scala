@@ -395,101 +395,87 @@ private[lf] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
-  ): Either[String, (Value.ContractId, PartialTransaction)] = {
-    val serializableErrs = serializable(arg)
-    if (serializableErrs.nonEmpty) {
-      Left(
-        s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}"""
-      )
-    } else {
-      val actionNodeSeed = context.nextActionChildSeed
-      val discriminator =
-        crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
-      val cid = Value.ContractId.V1(discriminator)
-      val version = packageToTransactionVersion(templateId.packageId)
-      val createNode = Node.NodeCreate(
-        cid,
-        templateId,
-        arg,
-        agreementText,
-        signatories,
-        stakeholders,
-        key,
-        version,
-      )
-      val nid = NodeId(nextNodeIdx)
-      val ptx = copy(
-        actionNodeLocations = actionNodeLocations :+ optLocation,
-        nextNodeIdx = nextNodeIdx + 1,
-        context = context.addActionChild(nid, version),
-        nodes = nodes.updated(nid, createNode),
-        actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
-        localContracts = localContracts + cid,
-      ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
+  ): (Value.ContractId, PartialTransaction) = {
+    val actionNodeSeed = context.nextActionChildSeed
+    val discriminator =
+      crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
+    val cid = Value.ContractId.V1(discriminator)
+    val version = packageToTransactionVersion(templateId.packageId)
+    val createNode = Node.NodeCreate(
+      cid,
+      templateId,
+      arg,
+      agreementText,
+      signatories,
+      stakeholders,
+      key,
+      version,
+    )
+    val nid = NodeId(nextNodeIdx)
+    val ptx = copy(
+      actionNodeLocations = actionNodeLocations :+ optLocation,
+      nextNodeIdx = nextNodeIdx + 1,
+      context = context.addActionChild(nid, version),
+      nodes = nodes.updated(nid, createNode),
+      actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
+      localContracts = localContracts + cid,
+    ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
-      // if we have a contract key being added, include it in the list of
-      // active keys
-      key match {
-        case None => Right((cid, ptx))
-        case Some(kWithM) =>
-          val ck = GlobalKey(templateId, kWithM.key)
+    // if we have a contract key being added, include it in the list of
+    // active keys
+    key match {
+      case None => cid -> ptx
+      case Some(kWithM) =>
+        val ck = GlobalKey(templateId, kWithM.key)
 
-          // Note (MK) Duplicate key checks in Speedy
-          // When run in ContractKeyUniquenessMode.On speedy detects duplicate contract keys errors.
-          //
-          // Just like for modifying `keys` and `globalKeyInputs` we only consider
-          // by-key operations, i.e., lookup, exercise and fetch by key as well as creates
-          // and archives if the key has been brought into scope before.
-          //
-          // In the end, those checks mean that ledgers only have to look at inputs and outputs
-          // of the transaction and check for conflicts on that while speedy checks for internal
-          // conflicts.
-          //
-          // We have to consider the following cases for conflicts:
-          // 1. Create of a new local contract
-          //    1.1. KeyInactive in `keys`. This means we saw an archive so the create is valid.
-          //    1.2. KeyActive(_) in `keys`. This can either be local contract or a global contract. Both are an error.
-          //    1.3. No entry in `keys` and no entry in `globalKeyInputs`. This is valid. Note that the ledger here will then
-          //         have to check when committing that there is no active contract with this key before the transaction.
-          //    1.4. No entry in `keys` and `KeyInactive` in `globalKeyInputs`. This is valid. Ledgers need the same check
-          //         as for 1.3.
-          //    1.5. No entry in `keys` and `KeyActive(_)` in `globalKeyInputs`. This is an error. Note that the case where
-          //         the global contract has already been archived falls under 1.2.
-          // 2. Global key lookups
-          //    2.1. Conflicts with other global contracts cannot arise as we query a key at most once.
-          //    2.2. Conflicts with local contracts also cannot arise: A successful create will either
-          //         2.2.1: Set `globalKeyInputs` to `KeyInactive`.
-          //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
-          //         For both of those cases `globalKeyInputs` already had an entry which means
-          //         we would use that as a cached result and not query the ledger.
-          val conflict = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
-            case Some(KeyActive(_)) => KeyConflict.Duplicate
-            case Some(KeyInactive) | None => KeyConflict.None
-          }
-          val globalKeyInputs = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
-            case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
-            case Some(_) => ptx.globalKeyInputs
-          }
-          (conflict, contractKeyUniqueness) match {
-            case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
-              Right((cid, ptx.noteAbort(Tx.DuplicateContractKey(ck))))
-            case _ =>
-              Right(
-                (
-                  cid,
-                  ptx.copy(
-                    keys = ptx.keys.updated(ck, KeyActive(cid)),
-                    globalKeyInputs = globalKeyInputs,
-                  ),
-                )
+        // Note (MK) Duplicate key checks in Speedy
+        // When run in ContractKeyUniquenessMode.On speedy detects duplicate contract keys errors.
+        //
+        // Just like for modifying `keys` and `globalKeyInputs` we only consider
+        // by-key operations, i.e., lookup, exercise and fetch by key as well as creates
+        // and archives if the key has been brought into scope before.
+        //
+        // In the end, those checks mean that ledgers only have to look at inputs and outputs
+        // of the transaction and check for conflicts on that while speedy checks for internal
+        // conflicts.
+        //
+        // We have to consider the following cases for conflicts:
+        // 1. Create of a new local contract
+        //    1.1. KeyInactive in `keys`. This means we saw an archive so the create is valid.
+        //    1.2. KeyActive(_) in `keys`. This can either be local contract or a global contract. Both are an error.
+        //    1.3. No entry in `keys` and no entry in `globalKeyInputs`. This is valid. Note that the ledger here will then
+        //         have to check when committing that there is no active contract with this key before the transaction.
+        //    1.4. No entry in `keys` and `KeyInactive` in `globalKeyInputs`. This is valid. Ledgers need the same check
+        //         as for 1.3.
+        //    1.5. No entry in `keys` and `KeyActive(_)` in `globalKeyInputs`. This is an error. Note that the case where
+        //         the global contract has already been archived falls under 1.2.
+        // 2. Global key lookups
+        //    2.1. Conflicts with other global contracts cannot arise as we query a key at most once.
+        //    2.2. Conflicts with local contracts also cannot arise: A successful create will either
+        //         2.2.1: Set `globalKeyInputs` to `KeyInactive`.
+        //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
+        //         For both of those cases `globalKeyInputs` already had an entry which means
+        //         we would use that as a cached result and not query the ledger.
+        val conflict = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
+          case Some(KeyActive(_)) => KeyConflict.Duplicate
+          case Some(KeyInactive) | None => KeyConflict.None
+        }
+        val globalKeyInputs = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
+          case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
+          case Some(_) => ptx.globalKeyInputs
+        }
+        (conflict, contractKeyUniqueness) match {
+          case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
+            cid -> ptx.noteAbort(Tx.DuplicateContractKey(ck))
+          case _ =>
+            cid ->
+              ptx.copy(
+                keys = ptx.keys.updated(ck, KeyActive(cid)),
+                globalKeyInputs = globalKeyInputs,
               )
-          }
-      }
+        }
     }
   }
-
-  private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
       auth: Authorize,
@@ -557,62 +543,52 @@ private[lf] case class PartialTransaction(
       mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
       chosenValue: Value[Value.ContractId],
-  ): Either[String, PartialTransaction] = {
-    val serializableErrs = serializable(chosenValue)
-    if (serializableErrs.nonEmpty) {
-      Left(
-        s"""Trying to exercise a choice with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}"""
+  ): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val ec =
+      ExercisesContextInfo(
+        targetId = targetId,
+        templateId = templateId,
+        contractKey = mbKey,
+        choiceId = choiceId,
+        consuming = consuming,
+        actingParties = actingParties,
+        chosenValue = chosenValue,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        choiceObservers = choiceObservers,
+        nodeId = nid,
+        parent = context,
+        byKey = byKey,
       )
-    } else {
-      val nid = NodeId(nextNodeIdx)
-      val ec =
-        ExercisesContextInfo(
-          targetId = targetId,
-          templateId = templateId,
-          contractKey = mbKey,
-          choiceId = choiceId,
-          consuming = consuming,
-          actingParties = actingParties,
-          chosenValue = chosenValue,
-          signatories = signatories,
-          stakeholders = stakeholders,
-          choiceObservers = choiceObservers,
-          nodeId = nid,
-          parent = context,
-          byKey = byKey,
-        )
 
-      Right(
-        mustBeActive(
-          targetId,
-          templateId,
-          copy(
-            actionNodeLocations = actionNodeLocations :+ optLocation,
-            nextNodeIdx = nextNodeIdx + 1,
-            context = Context(ec),
-            actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
-            // important: the semantics of Daml dictate that contracts are immediately
-            // inactive as soon as you exercise it. therefore, mark it as consumed now.
-            consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
-            keys = mbKey match {
-              case Some(kWithM) if consuming =>
-                val gkey = GlobalKey(templateId, kWithM.key)
-                keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
-                  // An archive can only mark a key as inactive
-                  // if it was brought into scope before.
-                  case Some(KeyActive(cid)) if cid == targetId =>
-                    keys.updated(gkey, KeyInactive)
-                  // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
-                  // an activeness check when looking it up later.
-                  case _ => keys
-                }
+    mustBeActive(
+      targetId,
+      templateId,
+      copy(
+        actionNodeLocations = actionNodeLocations :+ optLocation,
+        nextNodeIdx = nextNodeIdx + 1,
+        context = Context(ec),
+        actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
+        // important: the semantics of Daml dictate that contracts are immediately
+        // inactive as soon as you exercise it. therefore, mark it as consumed now.
+        consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
+        keys = mbKey match {
+          case Some(kWithM) if consuming =>
+            val gkey = GlobalKey(templateId, kWithM.key)
+            keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
+              // An archive can only mark a key as inactive
+              // if it was brought into scope before.
+              case Some(KeyActive(cid)) if cid == targetId =>
+                keys.updated(gkey, KeyInactive)
+              // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
+              // an activeness check when looking it up later.
               case _ => keys
-            },
-          ),
-        ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, ec), auth)
-      )
-    }
+            }
+          case _ => keys
+        },
+      ),
+    ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, ec), auth)
   }
 
   /** Close normally an exercise context.
