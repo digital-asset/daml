@@ -53,11 +53,11 @@ object SchemaHandlingResult {
       }
     }
     schemaHandling match {
-      case SchemaHandling.ForceCreateAndTerminate => reinit(shouldTerminate = true)
-      case SchemaHandling.ForceCreateAndContinue => reinit(shouldTerminate = false)
-      case SchemaHandling.CheckAndTerminateIfWrong =>
+      case SchemaHandling.CreateSchema => reinit(shouldTerminate = true)
+      case SchemaHandling.CreateSchemaAndStart => reinit(shouldTerminate = false)
+      case SchemaHandling.Start =>
         checkVersion(shouldTerminate = true)
-      case SchemaHandling.CreateOrUpdateAndContinue =>
+      case SchemaHandling.CreateSchemaIfNeededAndStart =>
         checkVersion(shouldTerminate = false)
     }
   }

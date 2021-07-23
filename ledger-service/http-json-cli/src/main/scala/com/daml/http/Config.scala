@@ -21,6 +21,7 @@ import scala.util.Try
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.metrics.MetricsReporter
+import com.typesafe.scalalogging.StrictLogging
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -113,11 +114,12 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
-    schemaHandling: SchemaHandling = SchemaHandling.CheckAndTerminateIfWrong,
+    schemaHandling: SchemaHandling = SchemaHandling.Start,
 )
 
 private[http] object JdbcConfig
-    extends ConfigCompanion[JdbcConfig, Config.SupportedJdbcDriverNames]("JdbcConfig") {
+    extends ConfigCompanion[JdbcConfig, Config.SupportedJdbcDriverNames]("JdbcConfig")
+    with StrictLogging {
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, schemaHandling=${a.schemaHandling})"
@@ -129,13 +131,13 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
-      s"${indent}schemaHandling -- option setting how the schema should be handled. Valid options are ForceCreateAndTerminate, CheckAndTerminateIfWrong, CreateOrUpdateAndContinue, ForceCreateAndContinue.\n" +
+      s"${indent}schemaHandling -- option setting how the schema should be handled. Valid options are CreateSchema, Start, CreateSchemaIfNeededAndStart, CreateSchemaAndStart.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
-        "ForceCreateAndTerminate",
+        "CreateSchema",
       )
 
   lazy val usage: String = helpString(
@@ -143,7 +145,7 @@ private[http] object JdbcConfig
     "<JDBC connection url>",
     "<user>",
     "<password>",
-    "<ForceCreateAndTerminate|CheckAndTerminateIfWrong|CreateOrUpdateAndContinue|ForceCreateAndContinue>",
+    "<CreateSchema|Start|CreateSchemaIfNeededAndStart|CreateSchemaAndStart>",
   )
 
   override def create(x: Map[String, String])(implicit
@@ -160,13 +162,21 @@ private[http] object JdbcConfig
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
+      createSchema <- optionalBooleanField(x)("createSchema").map(
+        _.map { createSchema =>
+          logger.warn(
+            "The option 'createSchema' is deprecated. Please use for 'createSchema=true' => 'schemaHandling=CreateSchema' and for 'createSchema=false' => 'schemaHandling=Start'"
+          )
+          if (createSchema) SchemaHandling.CreateSchema else SchemaHandling.Start
+        }
+      )
       schemaHandling <- SchemaHandling.optionalSchemaHandlingField(x)("schemaHandling")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
-      schemaHandling = schemaHandling.getOrElse(SchemaHandling.CheckAndTerminateIfWrong),
+      schemaHandling = createSchema orElse schemaHandling getOrElse SchemaHandling.Start,
     )
 
   private def helpString(

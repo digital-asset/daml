@@ -42,14 +42,14 @@ class HttpServiceWithPostgresIntTest
       for {
         res1 <- SchemaHandlingResult.fromSchemaHandling(
           dao,
-          SchemaHandling.ForceCreateAndContinue,
+          SchemaHandling.CreateSchemaAndStart,
         )
         _ = res1 shouldBe Continue
         _ <- dao.transact(sql"DELETE FROM json_api_schema_version".update.run)
         _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
         res2 <- SchemaHandlingResult.fromSchemaHandling(
           dao,
-          SchemaHandling.CreateOrUpdateAndContinue,
+          SchemaHandling.CreateSchemaIfNeededAndStart,
         )
         _ = res2 shouldBe Continue
         version <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].unique)
@@ -67,13 +67,13 @@ class HttpServiceWithPostgresIntTest
       for {
         res1 <- SchemaHandlingResult.fromSchemaHandling(
           dao,
-          SchemaHandling.ForceCreateAndContinue,
+          SchemaHandling.CreateSchemaAndStart,
         )
         _ = res1 shouldBe Continue
         _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
         res2 <- SchemaHandlingResult.fromSchemaHandling(
           dao,
-          SchemaHandling.CheckAndTerminateIfWrong,
+          SchemaHandling.Start,
         )
         _ = res2 shouldBe Continue
         versions <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].nel)
