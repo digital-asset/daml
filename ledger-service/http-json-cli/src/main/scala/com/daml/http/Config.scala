@@ -131,6 +131,7 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
+      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by schemaHandling, however if set it will always overrule schemaHandling.\n" +
       s"${indent}schemaHandling -- option setting how the schema should be handled. Valid options are CreateSchema, Start, CreateSchemaIfNeededAndStart, CreateSchemaAndStart.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
