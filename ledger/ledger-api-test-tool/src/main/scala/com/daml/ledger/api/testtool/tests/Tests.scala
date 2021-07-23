@@ -45,6 +45,7 @@ object Tests {
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
+      new DeeplyNestedValueIT,
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
@@ -52,7 +53,6 @@ object Tests {
     Vector(
       new ParticipantPruningIT,
       new MultiPartySubmissionIT,
-      new DeeplyNestedValueIT,
     )
 
   val retired: Vector[LedgerTestSuite] =
