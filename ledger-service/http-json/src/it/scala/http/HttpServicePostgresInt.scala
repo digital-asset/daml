@@ -23,7 +23,6 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
     url = postgresDatabase.url,
     user = "test",
     password = "",
-    createSchema = true,
   )
 
   override protected def afterAll(): Unit = {

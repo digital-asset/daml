@@ -3,7 +3,10 @@
 
 package com.daml.http
 
-import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
+import com.daml.http.SchemaHandlingResult.Continue
+import com.daml.http.dbbackend.SupportedJdbcDriver
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
+import com.daml.logging.LoggingContextOf
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
 import doobie.util.log
@@ -34,12 +37,21 @@ class HttpServiceWithPostgresIntTest
 
   "if the schema version in the db is not equal to the current one the cache will be re-initialized" in {
     import doobie.implicits.toSqlInterpolator
+    implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     val res =
       for {
-        _ <- dao.transact(ContractDao.initialize(checkIfExists = false))
+        res1 <- SchemaHandlingResult.fromSchemaHandling(
+          dao,
+          SchemaHandling.ForceCreateAndContinue,
+        )
+        _ = res1 shouldBe Continue
         _ <- dao.transact(sql"DELETE FROM json_api_schema_version".update.run)
         _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
-        _ <- dao.transact(ContractDao.initialize(checkIfExists = true))
+        res2 <- SchemaHandlingResult.fromSchemaHandling(
+          dao,
+          SchemaHandling.CreateOrUpdateAndContinue,
+        )
+        _ = res2 shouldBe Continue
         version <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].unique)
       } yield {
         version should not be 0
@@ -50,11 +62,20 @@ class HttpServiceWithPostgresIntTest
 
   "if the schema version in the db is equal to the current one the cache won't be re-initialized" in {
     import doobie.implicits.toSqlInterpolator
+    implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     val res =
       for {
-        _ <- dao.transact(ContractDao.initialize(checkIfExists = false))
+        res1 <- SchemaHandlingResult.fromSchemaHandling(
+          dao,
+          SchemaHandling.ForceCreateAndContinue,
+        )
+        _ = res1 shouldBe Continue
         _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
-        _ <- dao.transact(ContractDao.initialize(checkIfExists = true))
+        res2 <- SchemaHandlingResult.fromSchemaHandling(
+          dao,
+          SchemaHandling.CheckAndTerminateIfWrong,
+        )
+        _ = res2 shouldBe Continue
         versions <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].nel)
       } yield {
         Set.from(versions.toList) should not be Set(jdbcDriver.queries.schemaVersion)

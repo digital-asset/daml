@@ -38,7 +38,6 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
         s"jdbc:postgresql://${postgresDatabase.hostName}:$dbProxyPort/${postgresDatabase.databaseName}?user=${postgresDatabase.userName}&password=${postgresDatabase.password}",
       user = "test",
       password = "",
-      createSchema = true,
     )
 
   override def packageFiles =

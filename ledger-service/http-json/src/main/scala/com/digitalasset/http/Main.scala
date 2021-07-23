@@ -109,21 +109,19 @@ object Main {
     val contractDao = config.jdbcConfig.map(c => ContractDao(c))
 
     (contractDao, config.jdbcConfig) match {
-      case (Some(dao), Some(c)) if c.createSchema =>
-        logger.info("Creating DB schema...")
-        import dao.{logHandler, jdbcDriver}
-        Try(dao.transact(ContractDao.initialize(c.checkIfExists)).unsafeRunSync()) match {
-          case Success(()) =>
-            logger.info("DB schema created...")
-            if (!c.continueAfterSchemaCreation) {
-              logger.info("Terminating process...")
-              terminate()
-              System.exit(ErrorCodes.Ok)
-            }
+      case (Some(dao), Some(c)) =>
+        def terminateProcess(): Unit = {
+          logger.info("Terminating process...")
+          terminate()
+          System.exit(ErrorCodes.Ok)
+        }
+        Try(SchemaHandlingResult.fromSchemaHandling(dao, c.schemaHandling).unsafeRunSync()) match {
+          case Success(SchemaHandlingResult.Terminate) =>
+            terminateProcess()
+          case Success(SchemaHandlingResult.Continue) => ()
           case Failure(e) =>
-            logger.error("Failed creating DB schema", e)
-            terminate()
-            System.exit(ErrorCodes.StartupError)
+            logger.error("Failed processing the schema handling", e)
+            terminateProcess()
         }
       case (Some(dao), _) =>
         Try(dao.isValid(120).unsafeRunSync()).toEither match {

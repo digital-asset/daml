@@ -249,7 +249,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       _ <- {
         import dao.{jdbcDriver, logHandler}
         dao
-          .transact(ContractDao.initialize(checkIfExists = c.checkIfExists))
+          .transact(ContractDao.initialize)
           .unsafeToFuture(): Future[Unit]
       }
     } yield dao

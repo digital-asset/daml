@@ -90,19 +90,10 @@ object ContractDao {
     new ContractDao(ds, conn, es)
   }
 
-  def initialize(checkIfExists: Boolean)(implicit
+  def initialize(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver,
-  ): ConnectionIO[Unit] = {
-    val reInit = sjd.queries.dropAllTablesIfExist *> sjd.queries.initDatabase
-    if (checkIfExists)
-      sjd.queries
-        .version()
-        .flatMap(optVersion =>
-          if (optVersion contains sjd.queries.schemaVersion) fconn.unit else reInit
-        )
-    else reInit
-  }
+  ): ConnectionIO[Unit] = sjd.queries.dropAllTablesIfExist *> sjd.queries.initDatabase
 
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
       implicit

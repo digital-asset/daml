@@ -19,7 +19,6 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "jdbc:postgresql://localhost:5432/test?&ssl=true",
     "postgres",
     "password",
-    false,
   )
   val jdbcConfigString =
     "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"

@@ -224,7 +224,6 @@ object Main extends StrictLogging {
       url = c.url,
       user = "test",
       password = "",
-      createSchema = true,
     )
 
   private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {

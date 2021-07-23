@@ -113,16 +113,14 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
-    createSchema: Boolean = false,
-    checkIfExists: Boolean = false,
-    continueAfterSchemaCreation: Boolean = false,
+    schemaHandling: SchemaHandling = SchemaHandling.CheckAndTerminateIfWrong,
 )
 
 private[http] object JdbcConfig
     extends ConfigCompanion[JdbcConfig, Config.SupportedJdbcDriverNames]("JdbcConfig") {
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, schemaHandling=${a.schemaHandling})"
   )
 
   def help(implicit supportedJdbcDriverNames: Config.SupportedJdbcDriverNames): String =
@@ -131,17 +129,13 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
-      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately if the continueAfterSchemaCreation flag was not set.\n" +
-      s"${indent}checkIfExists -- boolean flag, if set to true, the process will check during re-creating the database schema if the schema already exists & leave it untouched.\n" +
-      s"${indent}continueAfterSchemaCreation -- boolean flag, if set to true, the process won't terminate after the database schema was created.\n" +
+      s"${indent}schemaHandling -- option setting how the schema should be handled. Valid options are ForceCreateAndTerminate, CheckAndTerminateIfWrong, CreateOrUpdateAndContinue, ForceCreateAndContinue.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
-        "false",
-        "false",
-        "false",
+        "ForceCreateAndTerminate",
       )
 
   lazy val usage: String = helpString(
@@ -149,9 +143,7 @@ private[http] object JdbcConfig
     "<JDBC connection url>",
     "<user>",
     "<password>",
-    "<true|false>",
-    "<true|false>",
-    "<true|false>",
+    "<ForceCreateAndTerminate|CheckAndTerminateIfWrong|CreateOrUpdateAndContinue|ForceCreateAndContinue>",
   )
 
   override def create(x: Map[String, String])(implicit
@@ -168,17 +160,13 @@ private[http] object JdbcConfig
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
-      createSchema <- optionalBooleanField(x)("createSchema")
-      checkIfExists <- optionalBooleanField(x)("checkIfExists")
-      continueAfterSchemaCreation <- optionalBooleanField(x)("continueAfterSchemaCreation")
+      schemaHandling <- SchemaHandling.optionalSchemaHandlingField(x)("schemaHandling")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
-      createSchema = createSchema.getOrElse(false),
-      checkIfExists = checkIfExists.getOrElse(false),
-      continueAfterSchemaCreation = continueAfterSchemaCreation.getOrElse(false),
+      schemaHandling = schemaHandling.getOrElse(SchemaHandling.CheckAndTerminateIfWrong),
     )
 
   private def helpString(
@@ -186,11 +174,9 @@ private[http] object JdbcConfig
       url: String,
       user: String,
       password: String,
-      createSchema: String,
-      checkIfExists: String,
-      continueAfterSchemaCreation: String,
+      schemaHandling: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema,checkIfExists=$checkIfExists,continueAfterSchemaCreation=$continueAfterSchemaCreation\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,schemaHandling=$schemaHandling\""""
 }
 
 // It is public for Daml Hub
