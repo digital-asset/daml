@@ -510,7 +510,9 @@ private class JdbcLedgerDao(
             preparedInsert.writeEvents(metrics)
             insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>
-            submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
+            submitterInfo.foreach(
+              handleError(offsetStep.offset, _, recordTime, error.toStateV1RejectionReason)
+            )
         }
 
         updateLedgerEnd(offsetStep)
@@ -522,16 +524,14 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-  )(implicit connection: Connection): Option[RejectionReason] =
+  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
-      postCommitValidation
-        .validate(
-          transaction = transaction,
-          transactionLedgerEffectiveTime = ledgerEffectiveTime,
-          divulged = divulged.iterator.map(_.contractId).toSet,
-        )
-        .map(_.toStateV1RejectionReason),
+      postCommitValidation.validate(
+        transaction = transaction,
+        transactionLedgerEffectiveTime = ledgerEffectiveTime,
+        divulged = divulged.iterator.map(_.contractId).toSet,
+      ),
     )
 
   private def insertCompletions(

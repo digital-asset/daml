@@ -345,16 +345,14 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-  )(implicit connection: Connection): Option[RejectionReason] =
+  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
-      postCommitValidation
-        .validate(
-          transaction = transaction,
-          transactionLedgerEffectiveTime = ledgerEffectiveTime,
-          divulged = divulged.iterator.map(_.contractId).toSet,
-        )
-        .map(_.toStateV1RejectionReason),
+      postCommitValidation.validate(
+        transaction = transaction,
+        transactionLedgerEffectiveTime = ledgerEffectiveTime,
+        divulged = divulged.iterator.map(_.contractId).toSet,
+      ),
     )
 
   override def storeRejection(
@@ -693,7 +691,7 @@ private class JdbcLedgerDao(
                 Update.CommandRejected(
                   recordTime = Time.Timestamp.assertFromInstant(recordTime),
                   submitterInfo = someSubmitterInfo,
-                  reason = reason,
+                  reason = reason.toStateV1RejectionReason,
                 )
               )
           },
