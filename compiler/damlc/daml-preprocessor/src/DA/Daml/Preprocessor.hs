@@ -35,6 +35,7 @@ import           System.FilePath (splitDirectories)
 import qualified Data.Generics.Uniplate.Data as Uniplate
 
 
+-- Keep in sync with isInternalModule in daml-script/export/src/main/scala/com/daml/script/export/TreeUtils.scala
 isInternal :: GHC.ModuleName -> Bool
 isInternal (GHC.moduleNameString -> x)
   = "DA.Internal." `isPrefixOf` x ||

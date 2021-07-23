@@ -80,5 +80,62 @@ class ExportModuleRefsSpec extends AnyFreeSpec with Matchers {
       val refs = moduleRefs(acs.values, trees)
       refs should contain only ("ModuleA", "ModuleB", "ModuleC", "ModuleD", "ModuleE")
     }
+    "excludes internal modules" in {
+      val acs = TestData
+        .ACS(
+          Seq(
+            TestData.Created(
+              ContractId("acs1"),
+              templateId = Identifier("internal-a", "DA.Internal.A", "InternalA"),
+            ),
+            TestData.Created(
+              ContractId("acs2"),
+              templateId = Identifier("package-b", "ModuleB", "TemplateB"),
+            ),
+          )
+        )
+        .toACS
+      val trees = Seq(
+        TestData
+          .Tree(
+            Seq(
+              TestData.Exercised(
+                ContractId("acs2"),
+                Seq(
+                  TestData.Created(
+                    ContractId("tree1"),
+                    templateId = Identifier("package-c", "ModuleC", "TemplateC"),
+                  )
+                ),
+                choiceArgument = Value().withVariant(
+                  Variant(
+                    Some(Identifier("internal-b", "DA.Internal.Template", "Archive")),
+                    "Archive",
+                    Some(Value().withUnit(protobuf.empty.Empty())),
+                  )
+                ),
+              )
+            )
+          ),
+        TestData
+          .Tree(
+            Seq(
+              TestData.Exercised(
+                ContractId("tree1"),
+                Seq.empty[TestData.Event],
+                choiceArgument = Value().withVariant(
+                  Variant(
+                    Some(Identifier("package-e", "ModuleE", "ChoiceE")),
+                    "ChoiceE",
+                    Some(Value().withUnit(protobuf.empty.Empty())),
+                  )
+                ),
+              )
+            )
+          ),
+      ).map(_.toTransactionTree)
+      val refs = moduleRefs(acs.values, trees)
+      refs should contain only ("ModuleB", "ModuleC", "ModuleE")
+    }
   }
 }

@@ -446,7 +446,17 @@ object TreeUtils {
   ): Set[String] = {
     val fromAcs = acs.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
     val fromTrees = trees.foldMap(treeRefs(_))
-    (fromAcs ++ fromTrees).map(_.moduleName)
+    (fromAcs ++ fromTrees)
+      .map(_.moduleName)
+      .filterNot(isInternalModule)
+  }
+
+  private def isInternalModule(moduleName: String): Boolean = {
+    // Keep in sync with isInternal in compiler/damlc/daml-preprocessor/src/DA/Daml/Preprocessor.hs
+    moduleName.startsWith("DA.Internal.") ||
+    moduleName.startsWith("GHC.") ||
+    Set("Control.Exception.Base", "Data.String", "LibraryModules", "DA.Types", "DA.Time.Types")
+      .contains(moduleName)
   }
 
   def treeRefs(t: TransactionTree): Set[Identifier] =
