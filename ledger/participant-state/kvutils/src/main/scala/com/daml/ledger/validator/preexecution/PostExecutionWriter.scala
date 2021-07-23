@@ -12,5 +12,5 @@ trait PostExecutionWriter[WriteSet] {
   def write[LogResult](
       writeSet: WriteSet,
       operations: LedgerStateWriteOperations[LogResult],
-  )(implicit executionContext: ExecutionContext): Future[SubmissionResult]
+  )(implicit executionContext: ExecutionContext): Future[(SubmissionResult, LogResult)]
 }

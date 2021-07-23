@@ -13,10 +13,10 @@ final class RawPostExecutionWriter extends PostExecutionWriter[RawKeyValuePairsW
   override def write[LogResult](
       writeSet: RawKeyValuePairsWithLogEntry,
       operations: LedgerStateWriteOperations[LogResult],
-  )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
+  )(implicit executionContext: ExecutionContext): Future[(SubmissionResult, LogResult)] = {
     for {
       _ <- operations.writeState(writeSet.state)
-      _ <- operations.appendToLog(writeSet.logEntryKey, writeSet.logEntryValue)
-    } yield SubmissionResult.Acknowledged
+      logResult <- operations.appendToLog(writeSet.logEntryKey, writeSet.logEntryValue)
+    } yield (SubmissionResult.Acknowledged, logResult)
   }
 }

@@ -57,13 +57,13 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
 
   /** Pre-executes and then commits a submission.
     */
-  def commit(
+  def commit[Index](
       submittingParticipantId: Ref.ParticipantId,
       correlationId: String,
       submissionEnvelope: Raw.Envelope,
       exportRecordTime: Instant,
-      ledgerStateAccess: LedgerStateAccess[Any],
-  )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
+      ledgerStateAccess: LedgerStateAccess[Index],
+  )(implicit executionContext: ExecutionContext): Future[(SubmissionResult, Index)] =
     newLoggingContextWith(
       "participantId" -> submittingParticipantId,
       "correlationId" -> correlationId,
@@ -93,12 +93,12 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
             case result => result
           }
           writeSet = postExecutionWriteSetSelector.selectWriteSet(preExecutionOutput)
-          submissionResult <- postExecutionWriter.write(
+          submissionResult <- postExecutionWriter.write[Index](
             writeSet,
             new CombinedLedgerStateWriteOperations(
               ledgerStateOperations,
               new SubmissionAggregatorWriteOperations(submissionAggregator.addChild()),
-              (_: Any, _: Unit) => (),
+              (writtenIndex: Index, _: Unit) => writtenIndex,
             ),
           )
         } yield {
