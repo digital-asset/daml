@@ -36,7 +36,7 @@ object SchemaHandlingResult {
       dao.transact(jdbcDriver.queries.version()).flatMap {
         case None =>
           if (terminateOnMissingOrMissmatch) {
-            logger.error("No schema version found")
+            logger.error("No schema version found, create the schema via `schemaHandling=Create`")
             terminate
           } else {
             logger.info("No schema version found, initializing DB schema")
@@ -48,7 +48,7 @@ object SchemaHandlingResult {
             val msg =
               s"Schema version mismatch, expected $currentSchemaVersion but got $version"
             if (terminateOnMissingOrMissmatch) {
-              logger.error(msg)
+              logger.error(s"$msg. Re-create the schema via `schemaHandling=Create`")
               terminate
             } else {
               logger.info(msg)
