@@ -30,20 +30,29 @@ object SchemaHandlingResult {
         SchemaHandlingResult.fromBool(shouldTerminate)
       }
     }
-    def checkVersion(shouldTerminate: Boolean): IO[SchemaHandlingResult] = {
+    def checkVersion(terminateOnMissingOrMissmatch: Boolean): IO[SchemaHandlingResult] = {
       logger.info("Checking for existing schema")
+      val currentSchemaVersion = jdbcDriver.queries.schemaVersion
       dao.transact(jdbcDriver.queries.version()).flatMap {
         case None =>
-          logger.info("No schema version found")
-          if (shouldTerminate) terminate
-          else reinit(shouldTerminate = false)
+          if (terminateOnMissingOrMissmatch) {
+            logger.error("No schema version found")
+            terminate
+          } else {
+            logger.info("No schema version found, initializing DB schema")
+            reinit(shouldTerminate = false)
+          }
         case Some(version) =>
           logger.info(s"DB schema version $version found")
-          if (version != jdbcDriver.queries.schemaVersion) {
-            logger.info("DB schema version is not up to date")
-            if (shouldTerminate) terminate
-            else {
-              logger.info(s"Re-initializing with version ${jdbcDriver.queries.schemaVersion}")
+          if (version != currentSchemaVersion) {
+            val msg =
+              s"Schema version mismatch, expected $currentSchemaVersion but got $version"
+            if (terminateOnMissingOrMissmatch) {
+              logger.error(msg)
+              terminate
+            } else {
+              logger.info(msg)
+              logger.info(s"Re-initializing with version $currentSchemaVersion")
               reinit(shouldTerminate = false)
             }
           } else {
@@ -56,9 +65,9 @@ object SchemaHandlingResult {
       case SchemaHandling.CreateSchema => reinit(shouldTerminate = true)
       case SchemaHandling.CreateSchemaAndStart => reinit(shouldTerminate = false)
       case SchemaHandling.Start =>
-        checkVersion(shouldTerminate = true)
+        checkVersion(terminateOnMissingOrMissmatch = true)
       case SchemaHandling.CreateSchemaIfNeededAndStart =>
-        checkVersion(shouldTerminate = false)
+        checkVersion(terminateOnMissingOrMissmatch = false)
     }
   }
 }

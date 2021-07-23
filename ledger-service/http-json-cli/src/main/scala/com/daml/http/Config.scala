@@ -169,7 +169,7 @@ private[http] object JdbcConfig
             "The option 'createSchema' is deprecated. Please use for 'createSchema=true' => 'schemaHandling=CreateSchema' and for 'createSchema=false' => 'schemaHandling=Start'"
           )
           if (createSchema) SchemaHandling.CreateSchema else SchemaHandling.Start
-        }
+        }: Option[SchemaHandling]
       )
       schemaHandling <- SchemaHandling.optionalSchemaHandlingField(x)("schemaHandling")
     } yield JdbcConfig(
