@@ -59,7 +59,6 @@ private[lf] object Compiler {
 
   case class Config(
       allowedLanguageVersions: VersionRange[LanguageVersion],
-      allowedStablePackages: Set[PackageId],
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
@@ -68,14 +67,12 @@ private[lf] object Compiler {
   object Config {
     val Default = Config(
       allowedLanguageVersions = LanguageVersion.StableVersions,
-      allowedStablePackages = StablePackages.ids,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
     val Dev = Config(
       allowedLanguageVersions = LanguageVersion.DevVersions,
-      allowedStablePackages = StablePackages.ids,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -350,7 +347,7 @@ private[lf] final class Compiler(
 
     interface.lookupPackage(pkgId) match {
       case Right(pkg)
-          if !config.allowedStablePackages.contains(pkgId) && !config.allowedLanguageVersions
+          if !StablePackages.ids.contains(pkgId) && !config.allowedLanguageVersions
             .contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
