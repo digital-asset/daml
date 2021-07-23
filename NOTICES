@@ -615,12 +615,12 @@ Java Servlet API 3.1.0 : (Common Development and Distribution License 1.1 OR Sun
 JavaPoet 1.11.1 : Apache License 2.0
 JCommander Library 1.12 : Apache License 2.0
 Jetty :: Asynchronous HTTP Client 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
-Jetty :: Servlet Handling 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: API 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: Client 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: Common 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: Server 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
+Jetty :: Servlet Handling 9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty :: Websocket :: API 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty :: Websocket :: Client 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty :: Websocket :: Common 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty :: Websocket :: Server 9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 jgm/zip-archive 0.4.1 : BSD 3-clause "New" or "Revised" License
