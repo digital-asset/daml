@@ -12,7 +12,7 @@ import com.daml.lf.archive
 import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
-import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
+import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil, StablePackages}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.daml.lf.speedy.{Compiler, SDefinition, SExpr, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
@@ -41,6 +41,7 @@ object Context {
   private val compilerConfig =
     Compiler.Config(
       allowedLanguageVersions = LanguageVersion.DevVersions,
+      allowedStablePackages = StablePackages.ids,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
