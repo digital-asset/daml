@@ -42,12 +42,12 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         contract
-        (contract_id """ ++ contractIdType ++ sql""" NOT NULL CONSTRAINT contract_k PRIMARY KEY
-        ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
-        ,""" ++ jsonColumn(sql"key") ++ sql"""
-        ,""" ++ jsonColumn(contractColumnName) ++
-      contractsTableSignatoriesObservers ++ sql"""
-        ,agreement_text """ ++ agreementTextType ++ sql"""
+        (contract_id $contractIdType NOT NULL CONSTRAINT contract_k PRIMARY KEY
+        ,tpid $bigIntType NOT NULL REFERENCES template_id (tpid)
+        ,${jsonColumn(sql"key")}
+        ,${jsonColumn(contractColumnName)}
+        $contractsTableSignatoriesObservers
+        ,agreement_text $agreementTextType
         )
     """,
   )
@@ -59,9 +59,9 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         ledger_offset
-        (party """ ++ partyType ++ sql""" NOT NULL
-        ,tpid """ ++ bigIntType ++ sql""" NOT NULL REFERENCES template_id (tpid)
-        ,last_offset """ ++ offsetType ++ sql""" NOT NULL
+        (party $partyType NOT NULL
+        ,tpid $bigIntType NOT NULL REFERENCES template_id (tpid)
+        ,last_offset $offsetType NOT NULL
         ,PRIMARY KEY (party, tpid)
         )
     """,
@@ -87,10 +87,10 @@ sealed abstract class Queries {
     sql"""
       CREATE TABLE
         template_id
-        (tpid """ ++ bigSerialType ++ sql""" NOT NULL CONSTRAINT template_id_k PRIMARY KEY
-        ,package_id """ ++ packageIdType ++ sql""" NOT NULL
-        ,template_module_name """ ++ nameType ++ sql""" NOT NULL
-        ,template_entity_name """ ++ nameType ++ sql""" NOT NULL
+        (tpid $bigSerialType NOT NULL CONSTRAINT template_id_k PRIMARY KEY
+        ,package_id $packageIdType NOT NULL
+        ,template_module_name $nameType NOT NULL
+        ,template_entity_name $nameType NOT NULL
         ,UNIQUE (package_id, template_module_name, template_entity_name)
         )
     """,
@@ -178,12 +178,12 @@ sealed abstract class Queries {
       case hdP +: tlP =>
         Some(
           sql"""UPDATE ledger_offset SET last_offset = $newOffset
-            WHERE """ ++ Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP)) ++
-            sql""" AND tpid = $tpid
-                   AND last_offset = """ ++ caseLookup(
-              lastOffsets.filter { case (k, _) => existingParties contains k },
-              fr"party",
-            )
+            WHERE ${Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP))}
+                  AND tpid = $tpid
+                  AND last_offset = """ ++ caseLookup(
+            lastOffsets.filter { case (k, _) => existingParties contains k },
+            fr"party",
+          )
         )
       case _ => None
     }
@@ -393,7 +393,7 @@ object Queries {
     fr"CASE" ++ {
       assert(m.nonEmpty, "existing offsets must be non-empty")
       val when +: whens = m.iterator.map { case (k, v) =>
-        fr"WHEN (" ++ selector ++ fr" = $k) THEN $v"
+        fr"WHEN ($selector = $k) THEN $v"
       }.toVector
       concatFragment(OneAnd(when, whens))
     } ++ fr"ELSE NULL END"
@@ -560,15 +560,15 @@ private object PostgresQueries extends Queries {
     @nowarn("msg=parameter value evidence.* is never used")
     def query[Mark0: Read](tpid: Fragment, preds: NonEmpty[Vector[(SurrogateTpId, Fragment)]]) = {
       val assocedPreds = preds.toOneAnd.map { case (tpid, predicate) =>
-        sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
+        sql"(tpid = $tpid AND ($predicate))"
       }
       val unionPred = joinFragment(assocedPreds, sql" OR ")
       import ipol.{gas, pas}
       val q =
         sql"""SELECT contract_id, $tpid tpid, key, payload, signatories, observers, agreement_text
-                      FROM contract AS c
-                      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                       AND (""" ++ unionPred ++ sql")"
+              FROM contract AS c
+              WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                    AND ($unionPred)"""
       q.query[(String, Mark0, JsValue, JsValue, Vector[String], Vector[String], String)]
         .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
           DBContract(
@@ -625,7 +625,7 @@ private object PostgresQueries extends Queries {
       case GT => sql">"
       case GTEQ => sql">="
     }
-    fragmentContractPath(path) ++ sql" " ++ opc ++ sql" ${literalScalar}::jsonb"
+    sql"${fragmentContractPath(path)} $opc ${literalScalar}::jsonb"
   }
 }
 
@@ -652,7 +652,7 @@ private object OracleQueries extends Queries {
 
   protected[this] override def bigIntType = sql"NUMBER(19,0)"
   protected[this] override def bigSerialType =
-    bigIntType ++ sql" GENERATED ALWAYS AS IDENTITY"
+    sql"$bigIntType GENERATED ALWAYS AS IDENTITY"
   protected[this] override def packageIdType = sql"NVARCHAR2(64)"
   protected[this] override def partyOffsetContractIdType = sql"VARCHAR2(255)"
   // if >=1578: ORA-01450: maximum key length (6398) exceeded
@@ -660,7 +660,7 @@ private object OracleQueries extends Queries {
   protected[this] override def agreementTextType = sql"NCLOB"
 
   protected[this] override def jsonColumn(name: Fragment) =
-    name ++ sql" CLOB NOT NULL CONSTRAINT ensure_json_" ++ name ++ sql" CHECK (" ++ name ++ sql" IS JSON)"
+    sql"$name CLOB NOT NULL CONSTRAINT ensure_json_$name CHECK ($name IS JSON)"
 
   // See http://www.dba-oracle.com/t_ora_01795_maximum_number_of_expressions_in_a_list_is_1000.htm
   protected[this] override def maxListSize = Some(1000)
@@ -727,7 +727,7 @@ private object OracleQueries extends Queries {
         case q +-: qs =>
           joinFragment(
             OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
-              fr"($tpid = cst.tpid AND (" ++ predicate ++ fr"))"
+              fr"($tpid = cst.tpid AND ($predicate))"
             },
             fr" OR ",
           )
@@ -817,11 +817,11 @@ private object OracleQueries extends Queries {
     }
     predExtension.cata(
       { case (pred, extension) =>
-        sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
-          oracleShortPathEscape(opath ++ Cord(pred)) ++ extension ++ sql")"
+        sql"JSON_EXISTS($contractColumnName, " ++
+          sql"${oracleShortPathEscape(opath ++ Cord(pred))}$extension)"
       },
-      sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++
-        oracleShortPathEscape(opath) ++ sql" RETURNING CLOB), $literal)",
+      sql"JSON_EQUAL(JSON_QUERY($contractColumnName, " ++
+        sql"${oracleShortPathEscape(opath)} RETURNING CLOB), $literal)",
     )
   }
 
@@ -832,7 +832,7 @@ private object OracleQueries extends Queries {
     def ensureNotNull = {
       // we are only trying to reject None for an Optional record/variant/list
       val pred: Cord = ('$' -: pathSteps(path)) ++ "?(@ != null)"
-      sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oracleShortPathEscape(pred) ++ sql")"
+      sql"JSON_EXISTS($contractColumnName, ${oracleShortPathEscape(pred)})"
     }
     literal match {
       case JsTrue | JsFalse | JsNull | JsNumber(_) | JsString(_) =>
@@ -885,7 +885,7 @@ private object OracleQueries extends Queries {
       case GTEQ => ">="
     }
     val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
-    sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
-      oracleShortPathEscape(pathc) ++ sql" PASSING " ++ literalRendered ++ sql" AS X)"
+    sql"JSON_EXISTS($contractColumnName, " ++
+      sql"${oracleShortPathEscape(pathc)} PASSING $literalRendered AS X)"
   }
 }

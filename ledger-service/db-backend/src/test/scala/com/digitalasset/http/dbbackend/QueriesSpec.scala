@@ -20,11 +20,11 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       ("map", "projection"),
       (
         Seq((SurrogateTpId(55L), fr"foo") -> 0),
-        sql"CASE WHEN ( tpid = ${55L}) THEN ${0}||''  ELSE NULL END ",
+        sql"CASE WHEN (tpid = ${55L}) THEN ${0}||''  ELSE NULL END ",
       ),
       (
         Seq((SurrogateTpId(55L), fr"foo") -> 0, (SurrogateTpId(66L), fr"foo") -> 1),
-        sql"CASE WHEN ( tpid = ${55L}) THEN ${0}||''  WHEN ( tpid = ${66L}) THEN ${1}||''  ELSE NULL END ",
+        sql"CASE WHEN (tpid = ${55L}) THEN ${0}||''  WHEN (tpid = ${66L}) THEN ${1}||''  ELSE NULL END ",
       ),
       (
         Seq(
@@ -32,9 +32,9 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
           (SurrogateTpId(55L), fr"bar") -> 1,
           (SurrogateTpId(66L), fr"baz") -> 2,
         ),
-        sql"CASE WHEN ( tpid = ${55L}) THEN " ++
+        sql"CASE WHEN (tpid = ${55L}) THEN " ++
           sql"(CASE WHEN (foo ) THEN ${0}||',' ELSE '' END) || (CASE WHEN (bar ) THEN ${1}||',' ELSE '' END) " ++
-          sql" WHEN ( tpid = ${66L}) THEN ${2}||''  ELSE NULL END ",
+          sql" WHEN (tpid = ${66L}) THEN ${2}||''  ELSE NULL END ",
       ),
     )
 
