@@ -16,7 +16,7 @@ Objective
 
 We're going to build a chatbot that answers evry message with
 
-  "Please tell me more about that."
+  "Please, tell me more about that."
 
 That should fool anyone and pass the Turing test, easily.
 
@@ -163,7 +163,7 @@ Open up the trigger code again (``daml/ChatBot.daml``), and change it to::
                 case replyTo of
                   None -> pure ()
                   Some (sender, _) -> do
-                    T.dedupExercise sender (User.SendMessage p "tell me more")
+                    T.dedupExercise sender (User.SendMessage p "Please, tell me more about that.")
               else pure ()
             None -> pure ()
       , registeredTemplates = T.AllInDar
