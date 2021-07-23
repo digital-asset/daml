@@ -251,6 +251,11 @@ following features:
 - Be able to follow multiple conversations. Right now the trigger only reacts
   to the latest message it received, but it really should react to the latest
   message *per Party we're having a conversation with*.
+- For a more challenging mini-project, you could add the ability to unfollow
+  users to the UI and the Daml model, and then use the trigger state (see
+  :doc:`trigger documentation </triggers/index>` for details) to keep track of
+  users that have unfollowed you in the past, and send them ``"Welcome back!"``
+  as a message when they follow you again.
 
 Of course, if you have other ideas of cool things to implement with Daml, those
 are fine too. Either way, do not hesitate to ask for help on
