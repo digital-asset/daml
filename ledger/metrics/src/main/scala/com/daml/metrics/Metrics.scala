@@ -718,6 +718,7 @@ final class Metrics(val registry: MetricRegistry) {
         val allocateParty: Timer = registry.timer(Prefix :+ "allocate_party")
         val submitConfiguration: Timer = registry.timer(Prefix :+ "submit_configuration")
         val prune: Timer = registry.timer(Prefix :+ "prune")
+        val rejectSubmission: Timer = registry.timer(Prefix :+ "reject_submission")
       }
     }
 
