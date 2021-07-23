@@ -39,7 +39,7 @@ object SchemaHandlingResult {
           else reinit(shouldTerminate = false)
         case Some(version) =>
           logger.info(s"DB schema version $version found")
-          if (version < jdbcDriver.queries.schemaVersion) {
+          if (version != jdbcDriver.queries.schemaVersion) {
             logger.info("DB schema version is not up to date")
             if (shouldTerminate) terminate
             else {
