@@ -1,0 +1,18 @@
+version: v1beta1
+build:
+  roots:
+    - ./ledger/participant-state/kvutils/src/main/protobuf/
+    - ./ledger/ledger-configuration/protobuf/
+    - ./daml-lf/archive/src/main/protobuf/
+    - ./daml-lf/transaction/src/main/protobuf/
+  excludes:
+    - ./daml-lf/archive/src/main/protobuf/com/digitalasset/
+
+lint:
+  use:
+    - DEFAULT
+    - FILE_LOWER_SNAKE_CASE
+
+breaking:
+  use:
+    - WIRE_JSON
