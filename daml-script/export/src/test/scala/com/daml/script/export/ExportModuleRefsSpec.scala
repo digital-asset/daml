@@ -5,9 +5,7 @@ package com.daml.script.export
 
 import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.script.`export`.TestData
 import com.daml.ledger.api.v1.value.{Identifier, Value, Variant}
-import com.daml.script.`export`.TestData.Created
 import com.daml.script.export.TreeUtils.moduleRefs
 import com.google.protobuf
 import org.scalatest.freespec.AnyFreeSpec
@@ -17,7 +15,7 @@ class ExportModuleRefsSpec extends AnyFreeSpec with Matchers {
   "module references" - {
     "handles empty case" in {
       val acs = TestData
-        .ACS(Seq.empty[Created])
+        .ACS(Seq.empty[TestData.Created])
         .toACS
       val trees = Seq.empty[TransactionTree]
       val refs = moduleRefs(acs.values, trees)
