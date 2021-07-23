@@ -168,7 +168,6 @@ final class Runner[T <: ReadWriteService, Extra](
                   healthChecks = healthChecksWithIndexer,
                   metrics = metrics,
                   timeServiceBackend = factory.timeServiceBackend(config),
-                  otherServices = Seq.empty,
                   otherInterceptors = factory.interceptors(config),
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
