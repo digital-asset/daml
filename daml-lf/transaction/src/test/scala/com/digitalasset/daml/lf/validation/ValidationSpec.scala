@@ -367,14 +367,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val sigLookupTweaks =
     Map(
       "tweakLookupTemplateId" -> tweakLookupTemplateId,
-      "tweakLookupKey(None)" -> tweakLookupKey,
+      "tweakLookupKey" -> tweakLookupKey,
       "tweakLookupResult" -> tweakLookupResult,
       "tweakLookupVersion" -> tweakLookupVersion,
-    )
-
-  private val insigLookupTweaks =
-    Map(
-      "tweakExerciseKey(None)" -> tweakExerciseKey(tweakOptKeyMaintainersNone)
     )
 
   //--[Exercise node tweaks]--
@@ -483,7 +478,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   }
 
   private def insignificantTweaks: Map[String, Tweak[VTX]] = {
-    (insigFetchTweaks ++ insigLookupTweaks ++ insigExeTweaks)
+    (insigFetchTweaks ++ insigExeTweaks)
       .map { case (name, tw) => (name, tweakTxNodes(tw)) }
   }
 
