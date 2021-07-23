@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmissionBatch
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
 import com.daml.ledger.participant.state.v1.SubmissionResult
 
 import scala.concurrent.Future

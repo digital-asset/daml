@@ -9,7 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.lf
 import com.daml.lf.data.Ref

@@ -7,7 +7,7 @@ import java.lang.System.err.println
 import java.nio.file.Path
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.export.{
   ProtobufBasedLedgerDataImporter,
   SubmissionInfo,

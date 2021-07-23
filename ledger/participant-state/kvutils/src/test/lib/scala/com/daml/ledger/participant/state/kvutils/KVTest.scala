@@ -10,7 +10,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.test.SimplePackagePartyTestDar
 import com.daml.lf.command.{ApiCommand, Commands}

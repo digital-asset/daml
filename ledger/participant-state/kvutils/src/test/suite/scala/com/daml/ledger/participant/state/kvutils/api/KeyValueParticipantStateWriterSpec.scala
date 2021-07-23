@@ -8,7 +8,7 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.validator.{

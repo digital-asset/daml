@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 

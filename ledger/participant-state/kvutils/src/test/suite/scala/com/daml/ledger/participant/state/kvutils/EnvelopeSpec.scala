@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.WireFormat._
+import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers

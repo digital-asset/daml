@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
-package com.daml.ledger.participant.state.kvutils;
-option java_package = "com.daml.ledger.participant.state.kvutils";
-option java_outer_classname = "WireFormat";
-option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
+package com.daml.ledger.participant.state.kvutils.wire;
+option java_package = "com.daml.ledger.participant.state.kvutils.wire";
+option java_multiple_files = true;
+option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Wire";
 
 import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
 

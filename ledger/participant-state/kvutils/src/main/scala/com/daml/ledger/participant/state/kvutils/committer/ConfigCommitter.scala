@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   configurationStateKey,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.LoggingEntries

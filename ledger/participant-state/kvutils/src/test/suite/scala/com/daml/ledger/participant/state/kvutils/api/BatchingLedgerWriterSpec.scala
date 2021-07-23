@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.stream.Materializer
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmissionBatch
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.lf.data.Ref

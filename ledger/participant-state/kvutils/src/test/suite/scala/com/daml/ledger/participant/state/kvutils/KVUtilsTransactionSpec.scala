@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlTransactionRejectionEntry,
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.WireFormat.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v1.Update
 import com.daml.ledger.test.{
   SimplePackageListTestDar,
