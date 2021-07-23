@@ -247,14 +247,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     List(samKWM1, samKWM2, samKWM3).filter(y => x != y)
   }
 
-  private val tweakOptKeyMaintainersSome = Tweak[OKWM] {
-    case None => List() // don't tweak from None
-    case Some(x) => None :: List(samKWM1, samKWM2, samKWM3).filter(y => x != y).map(Some(_))
-  }
-
-  private val tweakOptKeyMaintainersNone = Tweak[OKWM] { // sig only for Create nodes!
+  private val tweakOptKeyMaintainers = Tweak[OKWM] {
     case None => List(Some(samKWM1), Some(samKWM2), Some(samKWM3))
-    case Some(_) => List() // don't tweak from Some
+    case Some(x) => None :: List(samKWM1, samKWM2, samKWM3).filter(y => x != y).map(Some(_))
   }
 
   private val tweakOptContractId = Tweak[Option[V.ContractId]] { case x =>
@@ -297,8 +292,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakCreateAgreementText" -> tweakCreateAgreementText,
       "tweakCreateSignatories" -> tweakCreateSignatories,
       "tweakCreateStakeholders" -> tweakCreateStakeholders,
-      "tweakCreateKey(None)" -> tweakCreateKey(tweakOptKeyMaintainersNone),
-      "tweakCreateKey(Some)" -> tweakCreateKey(tweakOptKeyMaintainersSome),
+      "tweakCreateKey" -> tweakCreateKey(tweakOptKeyMaintainers),
       "tweakCreateVersion" -> tweakCreateVersion,
     )
 
@@ -338,15 +332,14 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakFetchActingParties" -> tweakFetchActingPartiesNonEmpty,
       "tweakFetchSignatories" -> tweakFetchSignatories,
       "tweakFetchStakeholders" -> tweakFetchStakeholders,
-      "tweakFetchKey(Some)" -> tweakFetchKey(tweakOptKeyMaintainersSome),
+      "tweakFetchKey" -> tweakFetchKey(tweakOptKeyMaintainers),
       "tweakFetchByKey(New Version)" -> tweakFetchByKey(versionSinceMinByKey),
       "tweakFetchVersion" -> tweakFetchVersion,
     )
 
   private val insigFetchTweaks =
     Map(
-      "tweakFetchKey(None)" -> tweakFetchKey(tweakOptKeyMaintainersNone),
-      "tweakFetchByKey(Old Version)" -> tweakFetchByKey(versionBeforeMinByKey),
+      "tweakFetchByKey(Old Version)" -> tweakFetchByKey(versionBeforeMinByKey)
     )
 
   //--[LookupByKey node tweaks]--
@@ -436,15 +429,14 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakExerciseSignatories" -> tweakExerciseSignatories,
       "tweakExerciseChoiceObservers" -> tweakExerciseChoiceObservers,
       "tweakExerciseExerciseResult" -> tweakExerciseExerciseResult,
-      "tweakExerciseKey(Some)" -> tweakExerciseKey(tweakOptKeyMaintainersSome),
+      "tweakExerciseKey" -> tweakExerciseKey(tweakOptKeyMaintainers),
       "tweakExerciseByKey(New Version)" -> tweakExerciseByKey(versionSinceMinByKey),
       "tweakExerciseVersion" -> tweakExerciseVersion,
     )
 
   private val insigExeTweaks =
     Map(
-      "tweakExerciseKey(None)" -> tweakExerciseKey(tweakOptKeyMaintainersNone),
-      "tweakExerciseByKey(Old Version)" -> tweakExerciseByKey(versionBeforeMinByKey),
+      "tweakExerciseByKey(Old Version)" -> tweakExerciseByKey(versionBeforeMinByKey)
     )
 
   //--[significant and insignificant tx tweaks]--
