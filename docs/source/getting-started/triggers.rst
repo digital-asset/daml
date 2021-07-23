@@ -14,7 +14,7 @@ automation: :doc:`Daml Triggers </triggers/index>`.
 Objective
 *********
 
-We're going to build a chatbot that answers evry message with
+We're going to build a chatbot that answers every message with
 
   "Please, tell me more about that."
 
@@ -172,11 +172,11 @@ Open up the trigger code again (``daml/ChatBot.daml``), and change it to::
 
 Refresh ``daml start`` by pressing ``r`` (followed by ``Enter`` on Windows) in
 its terminal, then kill (CTRL-C) the trigger and start it again. Play a bit
-with ``alice`` and ``bob`` in your browser again, to get a feel for how the
+with ``alice`` and ``bob`` in your browser, to get a feel for how the
 trigger works. Watch both the messages in-browser and the debug statements
 printed by the trigger runner.
 
-Walking through the rule code line by line gives:
+Let's walk through the ``rule`` code lline-by-line:
 
 - We use the ``query`` function to get all of the ``Message`` templates visible
   to the current party (``p``; in our case this will be ``bob``). Per the
@@ -210,7 +210,7 @@ Walking through the rule code line by line gives:
   contracts earlier, the result of ``query @User`` is going to be a list of
   tuples with (contract id, payload). The big difference is that this time we
   actually want to keep the contract ids, as that is what we'll use to send a
-  message bback.
+  message back.
 - We print the list of users we just fetched, as a debug message.
 - We create a function to identify the user we are looking for.
 - We get the user contract by applying our ``isSender`` function as a
