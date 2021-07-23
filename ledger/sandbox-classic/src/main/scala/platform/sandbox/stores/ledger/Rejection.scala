@@ -16,8 +16,6 @@ sealed trait Rejection {
 
   def description: String
 
-  val definiteAnswer: Boolean
-
   def toDomainRejectionReason: domain.RejectionReason
 
   def toStateV1RejectionReason: v1.RejectionReason =
@@ -25,8 +23,6 @@ sealed trait Rejection {
 }
 
 object Rejection {
-  val rejectionDomain = "com.daml.ledger"
-
   object NoLedgerConfiguration extends Rejection {
     override val reason: String = "NO_LEDGER_CONFIGURATION"
 
@@ -34,8 +30,6 @@ object Rejection {
       "No ledger configuration available, cannot validate ledger time"
 
     override val code: Status.Code = Status.Code.ABORTED
-
-    override val definiteAnswer: Boolean = false
 
     override lazy val toDomainRejectionReason: domain.RejectionReason =
       domain.RejectionReason.InvalidLedgerTime(description)
@@ -47,8 +41,6 @@ object Rejection {
     override val code: Status.Code = Status.Code.ABORTED
 
     override lazy val description: String = outOfRange.message
-
-    override val definiteAnswer: Boolean = true
 
     override lazy val toDomainRejectionReason: domain.RejectionReason =
       domain.RejectionReason.InvalidLedgerTime(description)
