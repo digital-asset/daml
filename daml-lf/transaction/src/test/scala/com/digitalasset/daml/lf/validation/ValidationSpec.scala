@@ -406,24 +406,17 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakExerciseChoiceObservers = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
     tweakPartySet.run(ne.choiceObservers).map { x => ne.copy(choiceObservers = x) }
   }
-  private val tweakExerciseExerciseResultSome = Tweak[Node] {
-    case ne: Node.NodeExercises[_, _] => //sig
-      ne.exerciseResult match {
-        case None => Nil
-        case Some(v) =>
-          List(
-            ne.copy(exerciseResult = Some(changeValue(v))),
-            ne.copy(exerciseResult = None),
-          )
-      }
+  private val tweakExerciseExerciseResult = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
+    ne.exerciseResult match {
+      case None => List(ne.copy(exerciseResult = Some(samValue1)))
+      case Some(v) =>
+        List(
+          ne.copy(exerciseResult = Some(changeValue(v))),
+          ne.copy(exerciseResult = None),
+        )
+    }
   }
-  private val tweakExerciseExerciseResultNone = Tweak[Node] {
-    case ne: Node.NodeExercises[_, _] => //insig
-      ne.exerciseResult match {
-        case Some(_) => Nil
-        case None => List(ne.copy(exerciseResult = Some(samValue1)))
-      }
-  }
+
   private def tweakExerciseKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
     case ne: Node.NodeExercises[_, _] =>
       tweakOptKeyMaintainers.run(ne.key).map { x => ne.copy(key = x) }
@@ -447,7 +440,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakExerciseStakeholders" -> tweakExerciseStakeholders,
       "tweakExerciseSignatories" -> tweakExerciseSignatories,
       "tweakExerciseChoiceObservers" -> tweakExerciseChoiceObservers,
-      "tweakExerciseExerciseResult(Some)" -> tweakExerciseExerciseResultSome,
+      "tweakExerciseExerciseResult" -> tweakExerciseExerciseResult,
       "tweakExerciseKey(Some)" -> tweakExerciseKey(tweakOptKeyMaintainersSome),
       "tweakExerciseByKey(New Version)" -> tweakExerciseByKey(versionSinceMinByKey),
       "tweakExerciseVersion" -> tweakExerciseVersion,
@@ -455,7 +448,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   private val insigExeTweaks =
     Map(
-      "tweakExerciseExerciseResult(None)" -> tweakExerciseExerciseResultNone,
       "tweakExerciseKey(None)" -> tweakExerciseKey(tweakOptKeyMaintainersNone),
       "tweakExerciseByKey(Old Version)" -> tweakExerciseByKey(versionBeforeMinByKey),
     )
