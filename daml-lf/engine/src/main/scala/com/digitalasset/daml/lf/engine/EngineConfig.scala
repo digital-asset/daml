@@ -7,7 +7,6 @@ package engine
 import java.nio.file.Path
 
 import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.LanguageVersion
 
 /** The Engine configurations describes the versions of language and
