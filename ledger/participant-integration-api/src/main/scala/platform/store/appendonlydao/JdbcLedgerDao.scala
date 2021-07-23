@@ -345,7 +345,7 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-  )(implicit connection: Connection): Option[RejectionReason] =
+  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
       postCommitValidation.validate(
@@ -427,7 +427,7 @@ private class JdbcLedgerDao(
                   Update.CommandRejected(
                     recordTime = Time.Timestamp.assertFromInstant(recordTime),
                     submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
-                    reason = reason,
+                    reason = reason.toParticipantStateRejectionReason,
                   )
                 ),
               )
@@ -686,12 +686,12 @@ private class JdbcLedgerDao(
                 )
               )
 
-            case Some(error) =>
+            case Some(reason) =>
               submitterInfo.map(someSubmitterInfo =>
                 Update.CommandRejected(
                   recordTime = Time.Timestamp.assertFromInstant(recordTime),
                   submitterInfo = someSubmitterInfo,
-                  reason = error,
+                  reason = reason.toStateV1RejectionReason,
                 )
               )
           },

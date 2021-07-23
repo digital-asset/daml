@@ -11,12 +11,12 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlContractState, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
+  Rejection,
   Rejections,
   Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
@@ -101,21 +101,21 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           .map(error =>
             rejections.buildRejectionStep(
               transactionEntry,
-              RejectionReasonV0.Disputed(error.msg),
+              Rejection.ValidationFailure(error),
               commitContext.recordTime,
             )
           )
       } yield ()
       stepResult.fold(identity, _ => StepContinue(transactionEntry))
     } catch {
-      case missingInputErr: Err.MissingInputState =>
+      case missingInputErr @ Err.MissingInputState(key) =>
         logger.error(
           "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant).",
           missingInputErr,
         )
         rejections.buildRejectionStep(
           transactionEntry,
-          RejectionReasonV0.Inconsistent(missingInputErr.getMessage),
+          Rejection.MissingInputState(key),
           commitContext.recordTime,
         )
       case err: Err =>
@@ -125,7 +125,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
         )
         rejections.buildRejectionStep(
           transactionEntry,
-          RejectionReasonV0.Disputed(err.getMessage),
+          Rejection.InvalidParticipantState(err),
           commitContext.recordTime,
         )
     }
@@ -216,7 +216,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
     else
       rejections.buildRejectionStep(
         transactionEntry,
-        RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated"),
+        Rejection.CausalMonotonicityViolated,
         commitContext.recordTime,
       )
   }
@@ -231,16 +231,12 @@ private[transaction] object ModelConformanceValidator {
   )(
       error: KeyInputError
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-    val description = error match {
+    val rejection = error match {
       case DuplicateKeys(_) =>
-        "DuplicateKeys: the transaction contains a duplicate key"
+        Rejection.InternallyInconsistentTransaction.DuplicateKeys
       case InconsistentKeys(_) =>
-        "InconsistentKeys: the transaction is internally inconsistent"
+        Rejection.InternallyInconsistentTransaction.InconsistentKeys
     }
-    rejections.buildRejectionStep(
-      transactionEntry,
-      RejectionReasonV0.Disputed(description),
-      recordTime,
-    )
+    rejections.buildRejectionStep(transactionEntry, rejection, recordTime)
   }
 }

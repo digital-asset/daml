@@ -13,17 +13,13 @@ import anorm.Column.nonNull
 import anorm._
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
-import com.daml.ledger.participant.state.v1.RejectionReasonV0._
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
-import io.grpc.Status.Code
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
-import scala.language.implicitConversions
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 
@@ -340,22 +336,21 @@ private[platform] object Conversions {
     override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
   }
 
-  // RejectionReason
-  implicit def domainRejectionReasonToErrorCode(reason: domain.RejectionReason): Code =
-    domainRejectionReasonToParticipantRejectionReason(
-      reason
-    ).code
-
-  implicit def domainRejectionReasonToParticipantRejectionReason(
-      reason: domain.RejectionReason
-  ): RejectionReasonV0 =
-    reason match {
-      case r: domain.RejectionReason.Inconsistent => Inconsistent(r.description)
-      case r: domain.RejectionReason.Disputed => Disputed(r.description)
-      case r: domain.RejectionReason.OutOfQuota => ResourcesExhausted(r.description)
-      case r: domain.RejectionReason.PartyNotKnownOnLedger => PartyNotKnownOnLedger(r.description)
-      case r: domain.RejectionReason.SubmitterCannotActViaParticipant =>
-        SubmitterCannotActViaParticipant(r.description)
-      case r: domain.RejectionReason.InvalidLedgerTime => InvalidLedgerTime(r.description)
-    }
+  implicit class RejectionReasonOps(rejectionReason: domain.RejectionReason) {
+    def toParticipantStateRejectionReason: state.RejectionReason =
+      rejectionReason match {
+        case domain.RejectionReason.Inconsistent(reason) =>
+          state.RejectionReasonV0.Inconsistent(reason)
+        case domain.RejectionReason.Disputed(reason) =>
+          state.RejectionReasonV0.Disputed(reason)
+        case domain.RejectionReason.OutOfQuota(reason) =>
+          state.RejectionReasonV0.ResourcesExhausted(reason)
+        case domain.RejectionReason.PartyNotKnownOnLedger(reason) =>
+          state.RejectionReasonV0.PartyNotKnownOnLedger(reason)
+        case domain.RejectionReason.SubmitterCannotActViaParticipant(reason) =>
+          state.RejectionReasonV0.SubmitterCannotActViaParticipant(reason)
+        case domain.RejectionReason.InvalidLedgerTime(reason) =>
+          state.RejectionReasonV0.InvalidLedgerTime(reason)
+      }
+  }
 }

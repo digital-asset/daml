@@ -19,12 +19,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
-import com.daml.ledger.participant.state.v1.{
-  RejectionReasonV0,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -42,7 +37,7 @@ import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
-import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset, TimeModelError}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
@@ -395,16 +390,13 @@ private final class SqlLedger(
   private def checkTimeModel(
       ledgerTime: Instant,
       recordTime: Instant,
-  ): Either[RejectionReasonV0, Unit] = {
+  ): Either[Rejection, Unit] =
     currentConfiguration
       .get()
-      .toRight(TimeModelError.NoLedgerConfiguration)
+      .toRight(Rejection.NoLedgerConfiguration)
       .flatMap(
-        _.timeModel.checkTime(ledgerTime, recordTime).left.map(TimeModelError.InvalidLedgerTime)
+        _.timeModel.checkTime(ledgerTime, recordTime).left.map(Rejection.InvalidLedgerTime)
       )
-      .left
-      .map(error => RejectionReasonV0.InvalidLedgerTime(error.message))
-  }
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -424,7 +416,7 @@ private final class SqlLedger(
               Some(submitterInfo),
               recordTime,
               CurrentOffset(offset),
-              reason,
+              reason.toStateV1RejectionReason,
             ),
           _ => {
             val divulgedContracts = Nil

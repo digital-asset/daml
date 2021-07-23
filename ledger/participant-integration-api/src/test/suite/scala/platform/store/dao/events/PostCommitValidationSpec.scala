@@ -8,7 +8,6 @@ import java.time.Instant
 import java.util.UUID
 
 import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value.ValueText
@@ -88,7 +87,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(UnknownContract)
+        error shouldBe Some(Rejection.UnknownContract)
       }
 
       "accept a fetch of a contract created within the transaction" in {
@@ -124,7 +123,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(UnknownContract)
+        error shouldBe Some(Rejection.UnknownContract)
       }
 
       "accept a successful lookup of a contract created in this transaction" in {
@@ -150,7 +149,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         )
 
         error shouldBe Some(
-          MismatchingLookup(expectation = Some(missingCreate.coid), result = None)
+          Rejection.MismatchingLookup(expectation = Some(missingCreate.coid), result = None)
         )
       }
 
@@ -211,7 +210,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(DuplicateKey)
+        error shouldBe Some(Rejection.DuplicateKey)
       }
 
       "reject a create after a rolled back archive of a contract with the same key" in {
@@ -228,7 +227,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(DuplicateKey)
+        error shouldBe Some(Rejection.DuplicateKey)
       }
 
       "accept a failed lookup in a rollback" in {
@@ -273,7 +272,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(DuplicateKey)
+        error shouldBe Some(Rejection.DuplicateKey)
       }
 
       "accept an exercise on the committed contract" in {
@@ -294,7 +293,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         )
 
         error shouldBe Some(
-          CausalMonotonicityViolation(
+          Rejection.CausalMonotonicityViolation(
             contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
           )
@@ -319,7 +318,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         )
 
         error shouldBe Some(
-          CausalMonotonicityViolation(
+          Rejection.CausalMonotonicityViolation(
             contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
           )
@@ -346,7 +345,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         )
 
         error shouldBe Some(
-          MismatchingLookup(result = Some(committedContract.coid), expectation = None)
+          Rejection.MismatchingLookup(result = Some(committedContract.coid), expectation = None)
         )
       }
 
@@ -361,7 +360,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(DuplicateKey)
+        error shouldBe Some(Rejection.DuplicateKey)
       }
 
       "reject a failed lookup in a rollback" in {
@@ -376,7 +375,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         )
 
         error shouldBe Some(
-          MismatchingLookup(
+          Rejection.MismatchingLookup(
             result = Some(committedContract.coid),
             expectation = None,
           )
@@ -409,7 +408,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(DuplicateKey)
+        error shouldBe Some(Rejection.DuplicateKey)
       }
     }
 
@@ -460,7 +459,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(RejectionReasonV0.PartyNotKnownOnLedger("Some parties are unallocated"))
+        error shouldBe Some(Rejection.UnallocatedParties)
       }
 
       "reject if party is used in rollback" in {
@@ -475,7 +474,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(RejectionReasonV0.PartyNotKnownOnLedger("Some parties are unallocated"))
+        error shouldBe Some(Rejection.UnallocatedParties)
       }
     }
   }
