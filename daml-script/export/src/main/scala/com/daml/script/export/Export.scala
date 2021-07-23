@@ -9,7 +9,6 @@ import java.nio.file.{Files, Path}
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
 import com.daml.script.export.TreeUtils.{
@@ -22,8 +21,7 @@ import com.daml.script.export.TreeUtils.{
   partiesInTree,
   topoSortAcs,
   treeCreatedCids,
-  treeRefs,
-  valueRefs,
+  moduleRefs,
 }
 import com.google.protobuf.ByteString
 import scalaz.std.iterable._
@@ -74,15 +72,6 @@ object Export {
       moduleRefs = refs ++ timeRefs ++ partiesModuleRefs ++ unknownContractModuleRefs,
       actions = actions,
     )
-  }
-
-  private def moduleRefs(
-      acs: Iterable[CreatedEvent],
-      trees: Iterable[TransactionTree],
-  ): Set[String] = {
-    val fromAcs = acs.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
-    val fromTrees = trees.foldMap(treeRefs(_))
-    (fromAcs ++ fromTrees).map(_.moduleName)
   }
 
   private def partyMapping(parties: Set[Party]): Map[Party, String] = {

@@ -440,6 +440,15 @@ object TreeUtils {
     )
   }
 
+  def moduleRefs(
+      acs: Iterable[CreatedEvent],
+      trees: Iterable[TransactionTree],
+  ): Set[String] = {
+    val fromAcs = acs.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
+    val fromTrees = trees.foldMap(treeRefs(_))
+    (fromAcs ++ fromTrees).map(_.moduleName)
+  }
+
   def treeRefs(t: TransactionTree): Set[Identifier] =
     t.eventsById.values.foldMap(e => evRefs(e.kind))
 

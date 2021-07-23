@@ -30,15 +30,15 @@ object TestData {
       createArguments: Seq[RecordField] = Seq.empty,
       submitters: Seq[Party] = defaultParties,
       contractKey: Option[Value] = None,
+      templateId: Identifier = defaultTemplateId,
   ) extends Event {
     def toCreatedEvent(eventId: String): CreatedEvent = {
       CreatedEvent(
         eventId = eventId,
-        templateId = Some(defaultTemplateId),
+        templateId = Some(templateId),
         contractId = ContractId.unwrap(contractId),
         signatories = Party.unsubst(submitters),
-        createArguments =
-          Some(Record(recordId = Some(defaultTemplateId), fields = createArguments)),
+        createArguments = Some(Record(recordId = Some(templateId), fields = createArguments)),
         contractKey = contractKey,
       )
     }
