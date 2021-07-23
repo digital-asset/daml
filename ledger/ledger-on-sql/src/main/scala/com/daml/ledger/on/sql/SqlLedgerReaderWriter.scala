@@ -93,6 +93,10 @@ final class SqlLedgerReaderWriter(
         exportRecordTime = timeProvider.getCurrentTime,
         ledgerStateAccess = stateAccess,
       )(committerExecutionContext)
+      .andThen { case Success((SubmissionResult.Acknowledged, writtenIndex)) =>
+        dispatcher.signalNewHead(writtenIndex)
+      }(committerExecutionContext)
+      .map(_._1)(committerExecutionContext)
 }
 
 object SqlLedgerReaderWriter {
@@ -136,7 +140,9 @@ object SqlLedgerReaderWriter {
         keyValueCommitting = new KeyValueCommitting(
           engine,
           metrics,
+          inStaticTimeMode = timeProvider != TimeProvider.UTC,
         )
+        keySerializationStrategy = StateKeySerializationStrategy.createDefault()
         ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
         committer = new Committer(
           transformStateReader = ledgerStateReader =>
@@ -144,11 +150,11 @@ object SqlLedgerReaderWriter {
               stateValueCache,
               ImmutablesOnlyCacheUpdatePolicy,
               DamlLedgerStateReader
-                .from(ledgerStateReader, StateKeySerializationStrategy.createDefault()),
+                .from(ledgerStateReader, keySerializationStrategy),
             ),
           validator = new PreExecutingSubmissionValidator(
             keyValueCommitting,
-            new RawPreExecutingCommitStrategy(StateKeySerializationStrategy.createDefault()),
+            new RawPreExecutingCommitStrategy(keySerializationStrategy),
             metrics = metrics,
           ),
           postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,

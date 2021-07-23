@@ -15,12 +15,9 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new StampedLock()
-  @volatile private var lastLogEntryIndex = 0
 
   def readLog[A](action: ImmutableLog => A): A =
     action(log) // `log` is mutable, but the interface is immutable
-
-  def newHeadSinceLastWrite(): Int = lastLogEntryIndex
 
   def write[A](action: (MutableLog, MutableState) => Future[A])(implicit
       executionContext: ExecutionContext
@@ -33,7 +30,6 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
       }
       result <- action(log, state)
         .andThen { case _ =>
-          lastLogEntryIndex = log.size - 1
           lockCurrentState.unlock(stamp)
         }
     } yield result

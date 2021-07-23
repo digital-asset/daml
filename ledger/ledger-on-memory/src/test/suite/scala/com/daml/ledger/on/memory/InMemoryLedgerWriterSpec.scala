@@ -45,7 +45,9 @@ class InMemoryLedgerWriterSpec
         )(any[ExecutionContext])
       )
         .thenReturn(
-          Future.successful(SubmissionResult.InternalError("Validation failed with an exception"))
+          Future.successful(
+            (SubmissionResult.InternalError("Validation failed with an exception"), 1)
+          )
         )
       val instance = new InMemoryLedgerWriter(
         participantId = Ref.ParticipantId.assertFromString("participant ID"),

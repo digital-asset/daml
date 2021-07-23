@@ -58,9 +58,10 @@ final class InMemoryLedgerWriter private[memory] (
         exportRecordTime = now(),
         ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics),
       )(committerExecutionContext)
-      .andThen { case Success(SubmissionResult.Acknowledged) =>
-        dispatcher.signalNewHead(state.newHeadSinceLastWrite())
+      .andThen { case Success((SubmissionResult.Acknowledged, writtenIndex)) =>
+        dispatcher.signalNewHead(writtenIndex)
       }(committerExecutionContext)
+      .map(_._1)(committerExecutionContext)
 
   override def currentHealth(): HealthStatus = Healthy
 }
