@@ -181,9 +181,9 @@ sealed abstract class Queries {
             WHERE ${Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP))}
                   AND tpid = $tpid
                   AND last_offset = """ ++ caseLookup(
-              lastOffsets.filter { case (k, _) => existingParties contains k },
-              fr"party",
-            )
+            lastOffsets.filter { case (k, _) => existingParties contains k },
+            fr"party",
+          )
         )
       case _ => None
     }
