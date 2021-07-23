@@ -90,10 +90,8 @@ object ContractDao {
     new ContractDao(ds, conn, es)
   }
 
-  def initialize(implicit
-      log: LogHandler,
-      sjd: SupportedJdbcDriver,
-  ): ConnectionIO[Unit] = sjd.queries.dropAllTablesIfExist *> sjd.queries.initDatabase
+  def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] =
+    sjd.queries.dropAllTablesIfExist *> sjd.queries.initDatabase
 
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
       implicit
