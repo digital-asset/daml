@@ -533,13 +533,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "PRRetroactiveDivulgences",
     "Divulgence pruning succeeds",
     allocate(SingleParty, SingleParty),
-    runConcurrently = false,
+    runConcurrently = false, // pruning call may interact with other tests
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
+      divulgence <- createDivulgence(alice, bob, alpha, beta)
       contract <- alpha.create(alice, Contract(alice))
-      divulgenceHelper <- alpha.create(alice, DivulgenceHelper(alice, bob))
-
-      divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseSign)
 
       // Retroactively divulge Alice's contract to bob
       _ <- alpha.exercise(
@@ -555,16 +553,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "PRLocalAndNonLocalRetroactiveDivulgences",
     "Divuglence pruning succeeds if first divulgence is not a disclosure but happens in the same transaction as the create",
     allocate(SingleParty, SingleParty),
-    runConcurrently = false,
+    runConcurrently = false, // pruning call may interact with other tests
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
-      divulgenceHelper <- alpha.create(alice, DivulgenceHelper(alice, bob))
-
-      divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseSign)
+      divulgence <- createDivulgence(alice, bob, alpha, beta)
 
       divulgeNotDiscloseTemplate <- alpha.create(alice, DivulgeNotDiscloseTemplate(alice, bob))
 
-      // Alice creates and divulges without disclosure a contract to Bob
+      // Alice creates contract in a context not visible to Bob and follows with a divulgence to Bob in the same transaction
       contract <- alpha.exerciseAndGetContract[Contract](
         alice,
         divulgeNotDiscloseTemplate.exerciseDivulgeNoDisclose(_, divulgence),
@@ -578,13 +574,10 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "PRDisclosureAndRetroactiveDivulgence",
     "Disclosure pruning succeeds",
     allocate(SingleParty, SingleParty),
-    runConcurrently = false,
+    runConcurrently = false, // pruning call may interact with other tests
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
-      divulgenceHelper <- alpha.create(alice, DivulgenceHelper(alice, bob))
-
-      divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseSign)
-
+      divulgence <- createDivulgence(alice, bob, alpha, beta)
       // Alice's contract creation is disclosed to Bob
       contract <- alpha.exerciseAndGetContract[Contract](
         alice,
@@ -593,6 +586,17 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
     } yield ()
   })
+
+  private def createDivulgence(
+      alice: Party,
+      bob: Party,
+      alpha: ParticipantTestContext,
+      beta: ParticipantTestContext,
+  )(implicit ec: ExecutionContext) =
+    for {
+      divulgenceHelper <- alpha.create(alice, DivulgenceProposal(alice, bob))
+      divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseAccept)
+    } yield divulgence
 
   private def divulgencePruneAndCheck(
       alice: Party,
@@ -642,12 +646,13 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       // TODO divulgence pruning: Un-comment the assertion below to make tests pass once
       //                          full divulgence pruning is implemented in the participant
-//      _ <- beta
-//        .exerciseAndGetContract[Dummy](
-//          bob,
-//          divulgence.exerciseCanFetch(_, contract),
-//        )
-//        .mustFail("Bob cannot access the divulged contract after the second pruning")
+      //
+      // _ <- beta
+      //   .exerciseAndGetContract[Dummy](
+      //     bob,
+      //     divulgence.exerciseCanFetch(_, contract),
+      //   )
+      //   .mustFail("Bob cannot access the divulged contract after the second pruning")
     } yield ()
 
   private def populateLedgerAndGetOffsets(participant: ParticipantTestContext, submitter: Party)(
