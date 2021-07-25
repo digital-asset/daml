@@ -225,6 +225,7 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream_testkit",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_playframework_anorm_anorm",
+        "@maven//:org_playframework_anorm_anorm_tokenizer",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",

@@ -7,7 +7,7 @@ import java.sql.{Connection, PreparedStatement, ResultSet}
 import java.time.Instant
 import java.util.Date
 
-import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, get, int, long, str}
+import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, int, long, str}
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.configuration.Configuration
@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.store.Conversions.{
   contractId,
   eventId,
-  flatEventWitnessesColumn,
   identifier,
   instant,
   ledgerString,
@@ -28,19 +27,12 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.store.Conversions
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.StorageBackend
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
-  KeyAssigned,
-  KeyState,
-  KeyUnassigned,
-}
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
 
@@ -589,224 +581,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .execute()(connection)
     ()
   }
-
-  // Contracts
-
-  def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] = {
-    import com.daml.platform.store.Conversions.HashToStatement
-    SQL"""
-  WITH last_contract_key_create AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE event_kind = 10 -- create
-            AND create_key_hash = ${key.hash}
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          ORDER BY event_sequential_id DESC
-          FETCH NEXT 1 ROW ONLY
-       )
-  SELECT contract_id
-    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-   WHERE NOT EXISTS
-         (SELECT 1
-            FROM participant_events, parameters
-           WHERE event_kind = 20 -- consuming exercise
-             AND event_sequential_id <= parameters.ledger_end_sequential_id
-             AND contract_id = last_contract_key_create.contract_id
-         )
-       """
-      .as(contractId("contract_id").singleOpt)(connection)
-  }
-
-  private def emptyContractIds: Throwable =
-    new IllegalArgumentException(
-      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  private def notFound(missingContractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
-    )
-
-  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
-  // TODO append-only: consider pulling up traversal logic to upper layer
-  def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Instant]] = {
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Instant]] = {
-        import com.daml.platform.store.Conversions.ContractIdToStatement
-        SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT ledger_effective_time
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 0 -- divulgence
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgance events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY
-               """.as(instant("ledger_effective_time").?.singleOpt)(connection)
-      }
-
-      val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
-        .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Instant]] = queriedIds
-        .collect { case (_, Some(found)) =>
-          found
-        }
-      if (foundLedgerEffectiveTimes.size != ids.size) {
-        val missingIds = queriedIds.collect { case (missingId, None) =>
-          missingId
-        }
-        Failure(notFound(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
-    }
-  }
-
-  def keyState(key: Key, validAt: Long)(connection: Connection): KeyState = {
-    import com.daml.platform.store.Conversions.HashToStatement
-    SQL"""
-          WITH last_contract_key_create AS (
-                 SELECT contract_id, flat_event_witnesses
-                   FROM participant_events
-                  WHERE event_kind = 10 -- create
-                    AND create_key_hash = ${key.hash}
-                    AND event_sequential_id <= $validAt
-                  ORDER BY event_sequential_id DESC
-                  FETCH NEXT 1 ROW ONLY
-               )
-          SELECT contract_id, flat_event_witnesses
-            FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-          WHERE NOT EXISTS       -- check no archival visible
-                 (SELECT 1
-                    FROM participant_events
-                   WHERE event_kind = 20 -- consuming exercise
-                     AND event_sequential_id <= $validAt
-                     AND contract_id = last_contract_key_create.contract_id
-         )
-         """
-      .as(
-        (contractId("contract_id") ~ flatEventWitnessesColumn("flat_event_witnesses")).map {
-          case cId ~ stakeholders => KeyAssigned(cId, stakeholders)
-        }.singleOpt
-      )(connection)
-      .getOrElse(KeyUnassigned)
-  }
-
-  private val fullDetailsContractRowParser: RowParser[StorageBackend.RawContractState] =
-    (str("template_id").?
-      ~ flatEventWitnessesColumn("flat_event_witnesses")
-      ~ binaryStream("create_argument").?
-      ~ int("create_argument_compression").?
-      ~ int("event_kind") ~ get[Instant]("ledger_effective_time")(anorm.Column.columnToInstant).?)
-      .map(SqlParser.flatten)
-      .map(StorageBackend.RawContractState.tupled)
-
-  def contractState(contractId: ContractId, before: Long)(
-      connection: Connection
-  ): Option[StorageBackend.RawContractState] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
-    SQL"""
-           SELECT
-             template_id,
-             flat_event_witnesses,
-             create_argument,
-             create_argument_compression,
-             event_kind,
-             ledger_effective_time
-           FROM participant_events
-           WHERE
-             contract_id = $contractId
-             AND event_sequential_id <= $before
-             AND (event_kind = 10 OR event_kind = 20)
-           ORDER BY event_sequential_id DESC
-           FETCH NEXT 1 ROW ONLY
-           """
-      .as(fullDetailsContractRowParser.singleOpt)(connection)
-  }
-
-  private val contractStateRowParser: RowParser[StorageBackend.RawContractStateEvent] =
-    (int("event_kind") ~
-      contractId("contract_id") ~
-      identifier("template_id").? ~
-      instant("ledger_effective_time").? ~
-      binaryStream("create_key_value").? ~
-      int("create_key_value_compression").? ~
-      binaryStream("create_argument").? ~
-      int("create_argument_compression").? ~
-      long("event_sequential_id") ~
-      flatEventWitnessesColumn("flat_event_witnesses") ~
-      offset("event_offset")).map {
-      case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
-        StorageBackend.RawContractStateEvent(
-          eventKind,
-          contractId,
-          templateId,
-          ledgerEffectiveTime,
-          createKeyValue,
-          createKeyCompression,
-          createArgument,
-          createArgumentCompression,
-          flatEventWitnesses,
-          eventSequentialId,
-          offset,
-        )
-    }
-
-  def contractStateEvents(startExclusive: Long, endInclusive: Long)(
-      connection: Connection
-  ): Vector[StorageBackend.RawContractStateEvent] =
-    SQL"""
-           SELECT
-               event_kind,
-               contract_id,
-               template_id,
-               create_key_value,
-               create_key_value_compression,
-               create_argument,
-               create_argument_compression,
-               flat_event_witnesses,
-               ledger_effective_time,
-               event_sequential_id,
-               event_offset
-           FROM
-               participant_events
-           WHERE
-               event_sequential_id > $startExclusive
-               and event_sequential_id <= $endInclusive
-               and (event_kind = 10 or event_kind = 20)
-           ORDER BY event_sequential_id ASC
-    """
-      .asVectorOf(contractStateRowParser)(connection)
 
   // Events
 
