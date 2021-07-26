@@ -41,13 +41,11 @@ class ContractDao private (
     fconn.isValid(timeoutSeconds).transact(xa)
 
   def shutdown(): Try[Unit] = {
-    for {
-      _ <- Try {
+    Try {
         dbAccessPool.shutdown()
         dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
-      }
-      _ <- Try { ds.close() }
-    } yield ()
+        ds.close() 
+     }
   }
 
   @throws[IOException]
