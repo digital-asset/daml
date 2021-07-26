@@ -144,14 +144,14 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-stable-only",
-    lf_versions = ["1.14"],  # TODO: change to ["stable"] once 1.14 is considered stable in bazel
+    name = "conformance-test-min-1.14",
+    lf_versions = ["1.14"],
     ports = [6865],
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--stable-only",
+        "--daml-lf-min-version-1.14",
     ],
 )
 

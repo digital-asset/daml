@@ -11,14 +11,12 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.WritePackagesService
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
-import com.daml.lf.language.LanguageVersion
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
@@ -83,15 +81,7 @@ final class Runner[T <: ReadWriteService, Extra](
     )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val allowedLanguageVersions =
-      config.engineMode match {
-        case EngineMode.Stable => LanguageVersion.StableVersions
-        case EngineMode.StableOnly =>
-          LanguageVersion.StableVersions.copy(min = LanguageVersion.StableVersions.max)
-        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
-        case EngineMode.Dev => LanguageVersion.DevVersions
-      }
-    val sharedEngine = new Engine(EngineConfig(allowedLanguageVersions))
+    val sharedEngine = new Engine(EngineConfig(config.allowedLanguageVersions))
 
     newLoggingContext { implicit loggingContext =>
       for {
