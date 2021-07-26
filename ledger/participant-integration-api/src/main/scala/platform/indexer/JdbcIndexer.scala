@@ -89,10 +89,9 @@ object JdbcIndexer {
 
     def validateAndWaitOnly()(implicit
         resourceContext: ResourceContext
-    ): Future[ResourceOwner[Indexer]] =
+    ): Future[Unit] =
       flywayMigrations
         .validateAndWaitOnly(config.enableAppendOnlySchema)
-        .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean

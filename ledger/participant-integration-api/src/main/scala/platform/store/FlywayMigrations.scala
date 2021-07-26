@@ -83,14 +83,14 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       @tailrec
       def flywayMigrationDone(
           retries: Int,
-          needLessThan: Option[Int],
+          pendingMigrationsSoFar: Option[Int],
       ): Unit = {
         val pendingMigrations = flyway.info().pending().length
         if (pendingMigrations == 0) {
           ()
         } else if (retries <= 0) {
           throw ExhaustedRetries(pendingMigrations)
-        } else if (needLessThan.exists(pendingMigrations >= _)) {
+        } else if (pendingMigrationsSoFar.exists(pendingMigrations >= _)) {
           throw StoppedProgressing(pendingMigrations)
         } else {
           logger.debug(
