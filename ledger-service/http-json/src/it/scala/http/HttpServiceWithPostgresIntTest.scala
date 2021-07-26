@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import com.daml.http.SchemaHandlingResult.Continue
+import cats.effect.IO
 import com.daml.http.dbbackend.SupportedJdbcDriver
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
@@ -35,53 +35,68 @@ class HttpServiceWithPostgresIntTest
   implicit lazy val logHandler: log.LogHandler = dao.logHandler
   implicit lazy val jdbcDriver: SupportedJdbcDriver = dao.jdbcDriver
 
-  "if the schema version in the db is not equal to the current one the cache will be re-initialized" in {
-    import doobie.implicits.toSqlInterpolator
-    implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
-    val res =
-      for {
-        res1 <- SchemaHandlingResult.fromSchemaHandling(
-          dao,
-          SchemaHandling.CreateSchemaAndStart,
-        )
-        _ = res1 shouldBe Continue
-        _ <- dao.transact(sql"DELETE FROM json_api_schema_version".update.run)
-        _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
-        res2 <- SchemaHandlingResult.fromSchemaHandling(
-          dao,
-          SchemaHandling.CreateSchemaIfNeededAndStart,
-        )
-        _ = res2 shouldBe Continue
-        version <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].unique)
-      } yield {
-        version should not be 0
-        version shouldBe jdbcDriver.queries.schemaVersion
-      }
-    res.unsafeToFuture()
-  }
+  "DbStartupMode" - {
+    import doobie.implicits.toSqlInterpolator, DbStartupResult._, DbStartupMode._
+    def resetDb: IO[Unit] = dao.transact(jdbcDriver.queries.dropAllTablesIfExist)
 
-  "if the schema version in the db is equal to the current one the cache won't be re-initialized" in {
-    import doobie.implicits.toSqlInterpolator
-    implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
-    val res =
-      for {
-        res1 <- SchemaHandlingResult.fromSchemaHandling(
-          dao,
-          SchemaHandling.CreateSchemaAndStart,
+    "For the startup mode CreateIfNeededAndStart we re-initialize the cache when no schema version is available or the one in the db is not equal to the current one" in {
+      implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
+      val res =
+        for {
+          _ <- resetDb
+          res1 <- fromStartupMode(dao, CreateAndStart)
+          _ = res1 shouldBe Some(Continue)
+          _ <- dao.transact(sql"DELETE FROM json_api_schema_version".update.run)
+          _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
+          res2 <- fromStartupMode(dao, CreateIfNeededAndStart)
+          _ = res2 shouldBe Some(Continue)
+          version <- dao.transact(
+            sql"SELECT version FROM json_api_schema_version".query[Int].unique
+          )
+        } yield {
+          version should not be 0
+          version shouldBe jdbcDriver.queries.schemaVersion
+        }
+      res.unsafeToFuture()
+    }
+
+    "For the startup mode StartOnly we continue when the schema version exists and is equal to the current one" in {
+      implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
+      val res =
+        for {
+          _ <- resetDb
+          res1 <- fromStartupMode(dao, CreateAndStart)
+          _ = res1 shouldBe Some(Continue)
+          _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
+          res2 <- fromStartupMode(dao, StartOnly)
+          _ = res2 shouldBe Some(Continue)
+          versions <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].nel)
+        } yield {
+          Set.from(versions.toList) should not be Set(jdbcDriver.queries.schemaVersion)
+          Set.from(versions.toList) shouldBe Set(0, jdbcDriver.queries.schemaVersion)
+        }
+      res.unsafeToFuture()
+    }
+
+    "For the startup mode StartOnly we don't do a graceful shutdown when no schema version is available or the one in the db is not equal to the current one" in {
+      implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
+      resetDb
+        .flatMap(_ =>
+          fromStartupMode(dao, StartOnly)
+            .map(res => res shouldBe None)
         )
-        _ = res1 shouldBe Continue
-        _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(0)".update.run)
-        res2 <- SchemaHandlingResult.fromSchemaHandling(
-          dao,
-          SchemaHandling.Start,
+        .unsafeToFuture()
+    }
+
+    "For the startup mode CreateOnly we do a graceful shutdown when the db is fresh" in {
+      implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
+      resetDb
+        .flatMap(_ =>
+          fromStartupMode(dao, CreateOnly)
+            .map(res => res shouldBe Some(GracefullyExit))
         )
-        _ = res2 shouldBe Continue
-        versions <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].nel)
-      } yield {
-        Set.from(versions.toList) should not be Set(jdbcDriver.queries.schemaVersion)
-        Set.from(versions.toList) shouldBe Set(0, jdbcDriver.queries.schemaVersion)
-      }
-    res.unsafeToFuture()
+        .unsafeToFuture()
+    }
   }
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _) =>

@@ -110,18 +110,18 @@ object Main {
 
     (contractDao, config.jdbcConfig) match {
       case (Some(dao), Some(c)) =>
-        def terminateProcess(): Unit = {
+        def terminateProcess(errorCode: Int): Unit = {
           logger.info("Terminating process...")
           terminate()
-          System.exit(ErrorCodes.Ok)
+          System.exit(errorCode)
         }
-        Try(SchemaHandlingResult.fromSchemaHandling(dao, c.schemaHandling).unsafeRunSync()) match {
-          case Success(SchemaHandlingResult.Terminate) =>
-            terminateProcess()
-          case Success(SchemaHandlingResult.Continue) => ()
+        Try(DbStartupResult.fromStartupMode(dao, c.dbStartupMode).unsafeRunSync()) match {
+          case Success(Some(DbStartupResult.Continue)) => ()
+          case Success(Some(DbStartupResult.GracefullyExit)) => terminateProcess(ErrorCodes.Ok)
+          case Success(None) => terminateProcess(ErrorCodes.StartupError)
           case Failure(e) =>
             logger.error("Failed processing the schema handling", e)
-            terminateProcess()
+            terminateProcess(ErrorCodes.StartupError)
         }
       case (Some(dao), _) =>
         Try(dao.isValid(120).unsafeRunSync()).toEither match {

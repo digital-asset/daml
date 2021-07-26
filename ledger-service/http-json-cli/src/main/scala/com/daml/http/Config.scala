@@ -114,7 +114,7 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
-    schemaHandling: SchemaHandling = SchemaHandling.Start,
+    dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
 )
 
 private[http] object JdbcConfig
@@ -122,7 +122,7 @@ private[http] object JdbcConfig
     with StrictLogging {
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, schemaHandling=${a.schemaHandling})"
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, startup-mode=${a.dbStartupMode})"
   )
 
   def help(implicit supportedJdbcDriverNames: Config.SupportedJdbcDriverNames): String =
@@ -131,14 +131,15 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
-      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by schemaHandling, however if set it will always overrule schemaHandling.\n" +
-      s"${indent}schemaHandling -- option setting how the schema should be handled. Valid options are CreateSchema, Start, CreateSchemaIfNeededAndStart, CreateSchemaAndStart.\n" +
+      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by startup-mode, however if set it will always overrule startup-mode.\n" +
+      s"${indent}startup-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
+        .mkString(",")}.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
-        "CreateSchema",
+        "create-only",
       )
 
   lazy val usage: String = helpString(
@@ -146,7 +147,7 @@ private[http] object JdbcConfig
     "<JDBC connection url>",
     "<user>",
     "<password>",
-    "<CreateSchema|Start|CreateSchemaIfNeededAndStart|CreateSchemaAndStart>",
+    s"<${DbStartupMode.allConfigValues.mkString("|")}>",
   )
 
   override def create(x: Map[String, String])(implicit
@@ -165,19 +166,20 @@ private[http] object JdbcConfig
       password <- requiredField(x)("password")
       createSchema <- optionalBooleanField(x)("createSchema").map(
         _.map { createSchema =>
+          import DbStartupMode._
           logger.warn(
-            "The option 'createSchema' is deprecated. Please use for 'createSchema=true' => 'schemaHandling=CreateSchema' and for 'createSchema=false' => 'schemaHandling=Start'"
+            s"The option 'createSchema' is deprecated. Please use for 'createSchema=true' => 'startup-mode=${getConfigValue(CreateOnly)}' and for 'createSchema=false' => 'startup-mode=${getConfigValue(StartOnly)}'"
           )
-          if (createSchema) SchemaHandling.CreateSchema else SchemaHandling.Start
-        }: Option[SchemaHandling]
+          if (createSchema) CreateOnly else StartOnly
+        }: Option[DbStartupMode]
       )
-      schemaHandling <- SchemaHandling.optionalSchemaHandlingField(x)("schemaHandling")
+      dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("startup-mode")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
-      schemaHandling = createSchema orElse schemaHandling getOrElse SchemaHandling.Start,
+      dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
     )
 
   private def helpString(
@@ -185,9 +187,9 @@ private[http] object JdbcConfig
       url: String,
       user: String,
       password: String,
-      schemaHandling: String,
+      dbStartupMode: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,schemaHandling=$schemaHandling\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,startup-mode=$dbStartupMode\""""
 }
 
 // It is public for Daml Hub
