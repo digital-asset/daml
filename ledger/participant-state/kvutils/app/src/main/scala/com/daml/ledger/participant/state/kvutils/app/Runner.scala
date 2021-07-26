@@ -86,7 +86,8 @@ final class Runner[T <: ReadWriteService, Extra](
     val allowedLanguageVersions =
       config.engineMode match {
         case EngineMode.Stable => LanguageVersion.StableVersions
-        case EngineMode.StableOnly => LanguageVersion.StableVersions.copy(min = LanguageVersion.StableVersions.max)
+        case EngineMode.StableOnly =>
+          LanguageVersion.StableVersions.copy(min = LanguageVersion.StableVersions.max)
         case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
         case EngineMode.Dev => LanguageVersion.DevVersions
       }
