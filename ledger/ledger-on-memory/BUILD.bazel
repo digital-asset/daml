@@ -145,6 +145,7 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-stable-only",
+    lf_versions = ["1.14"],  # TODO: change to ["stable"] once 1.14 is considered stable in bazel
     ports = [6865],
     server = ":app",
     server_args = [
@@ -152,7 +153,6 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
         "--stable-only",
     ],
-    lf_versions = ["1.14"] # TODO: change to ["stable"] once 1.14 is considered stable in bazel
 )
 
 conformance_test(
