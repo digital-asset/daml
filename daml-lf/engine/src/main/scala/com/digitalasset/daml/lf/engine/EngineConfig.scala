@@ -7,7 +7,6 @@ package engine
 import java.nio.file.Path
 
 import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.language.LanguageVersion
 
 /** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -25,7 +24,7 @@ import com.daml.lf.language.LanguageVersion
   *     disabled if the option is empty.
   */
 final case class EngineConfig(
-    allowedLanguageVersions: VersionRange[LanguageVersion],
+    allowedLanguageVersions: VersionRange[language.LanguageVersion],
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
