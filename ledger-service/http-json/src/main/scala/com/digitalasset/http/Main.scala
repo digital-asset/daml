@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import java.nio.file.Path
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
@@ -13,9 +12,6 @@ import com.daml.runtime.JdbcDrivers
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
 import scalaz.{-\/, \/, \/-}
-import scalaz.std.anyVal._
-import scalaz.std.option._
-import scalaz.syntax.show._
 import com.daml.cliopts.{GlobalLogLevel, Logging}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
@@ -70,24 +66,7 @@ object Main {
   }
 
   private def main(config: Config)(implicit lc: LoggingContextOf[InstanceUUID]): Unit = {
-    logger.info(
-      s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
-        s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
-        s", portFile=${config.portFile: Option[Path]}" +
-        s", packageReloadInterval=${config.packageReloadInterval: FiniteDuration}" +
-        s", packageMaxInboundMessageSize=${config.packageMaxInboundMessageSize: Option[Int]}" +
-        s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
-        s", tlsConfig=${config.tlsConfig}" +
-        s", jdbcConfig=${config.jdbcConfig.shows}" +
-        s", staticContentConfig=${config.staticContentConfig.shows}" +
-        s", allowNonHttps=${config.allowNonHttps.shows}" +
-        s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
-        s", wsConfig=${config.wsConfig.shows}" +
-        s", nonRepudiationCertificateFile=${config.nonRepudiation.certificateFile: Option[Path]}" +
-        s", nonRepudiationPrivateKeyFile=${config.nonRepudiation.privateKeyFile: Option[Path]}" +
-        s", nonRepudiationPrivateKeyAlgorithm=${config.nonRepudiation.privateKeyAlgorithm: Option[String]}" +
-        ")"
-    )
+    logger.info(ConfigOps.cliString(config))
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: Materializer = Materializer(asys)
