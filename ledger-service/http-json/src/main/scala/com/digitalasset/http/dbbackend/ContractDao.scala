@@ -42,10 +42,10 @@ class ContractDao private (
 
   def shutdown(): Try[Unit] = {
     Try {
-        dbAccessPool.shutdown()
-        dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
-        ds.close() 
-     }
+      dbAccessPool.shutdown()
+      dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
+      ds.close()
+    }
   }
 
   @throws[IOException]
