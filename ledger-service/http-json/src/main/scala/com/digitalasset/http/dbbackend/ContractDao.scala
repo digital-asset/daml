@@ -13,6 +13,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
+import org.slf4j.LoggerFactory
 import scalaz.{NonEmptyList, OneAnd}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
@@ -32,7 +33,8 @@ class ContractDao private (
     val jdbcDriver: SupportedJdbcDriver
 ) extends Closeable {
 
-  implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[ContractDao])
+  private val logger = LoggerFactory.getLogger(classOf[ContractDao])
+  implicit val logHandler: log.LogHandler = Slf4jLogHandler(logger)
 
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
@@ -43,7 +45,8 @@ class ContractDao private (
   def shutdown(): Try[Unit] = {
     Try {
       dbAccessPool.shutdown()
-      dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
+      val cleanShutdown = dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
+      logger.debug(s"Clean shutdown of dbAccess pool : $cleanShutdown")
       ds.close()
     }
   }
