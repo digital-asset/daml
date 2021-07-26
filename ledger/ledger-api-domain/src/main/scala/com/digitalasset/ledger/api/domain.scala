@@ -278,7 +278,9 @@ object domain {
       submittedAt: Instant,
       deduplicationDuration: Duration,
       commands: LfCommands,
-  )
+  ) {
+    lazy val deduplicateUntil: Instant = submittedAt.plus(deduplicationDuration)
+  }
 
   /** @param party The stable unique identifier of a Daml party.
     * @param displayName Human readable name associated with the party. Might not be unique.

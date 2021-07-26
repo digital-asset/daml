@@ -124,7 +124,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         commands.commandId,
         commands.actAs.toList,
         commands.submittedAt,
-        commands.submittedAt.plus(commands.deduplicationDuration),
+        commands.deduplicateUntil,
       )
       .flatMap {
         case CommandDeduplicationNew =>
