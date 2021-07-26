@@ -21,4 +21,4 @@ lint:
 
 breaking:
   use:
-    - WIRE_JSON
+    - WIRE
