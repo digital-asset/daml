@@ -18,6 +18,7 @@ javafmt_args=(--set-exit-if-changed --replace)
 diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
+buf_args=(check breaking --against buf_image.bin)
 
 ## Functions ##
 
@@ -143,6 +144,9 @@ run scalafmt "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
+
+# Run buf checks.
+run buf "${buf_args[@]:-}"
 
 # Note that we cannot use a symlink here because Windows.
 if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then
