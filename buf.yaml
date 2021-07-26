@@ -1,17 +1,23 @@
 version: v1beta1
 build:
   roots:
-    - ./ledger/participant-state/kvutils/src/main/protobuf/
-    - ./ledger/ledger-configuration/protobuf/
-    - ./daml-lf/archive/src/main/protobuf/
-    - ./daml-lf/transaction/src/main/protobuf/
+    - daml-lf/archive/src/main/protobuf/
+    - daml-lf/transaction/src/main/protobuf/
+    - ledger/ledger-configuration/protobuf/
+    - ledger/participant-state/kvutils/src/main/protobuf/
   excludes:
-    - ./daml-lf/archive/src/main/protobuf/com/digitalasset/
+    # We have to exclude these to avoid duplicate definitions of e.g. Unit within the same package.
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_11/
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_12/
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_13/
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_14/
+    - daml-lf/archive/src/main/protobuf/com/digitalasset/
 
 lint:
   use:
     - DEFAULT
-    - FILE_LOWER_SNAKE_CASE
+  except:
+    - PACKAGE_VERSION_SUFFIX
 
 breaking:
   use:
