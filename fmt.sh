@@ -11,6 +11,12 @@ cd "$(dirname "$0")"
 # load the dev-env
 eval "$(dev-env/bin/dade-assist)"
 
+# Location of reference image used for buf breaking check.
+# Note that in case breaking changes have been introduced, running ./fmt.sh will simply overwrite
+# this image. Hence, before committing the new image you should review the errors reported by buf
+# by restoring the reference image and running './fmt.sh --test'.
+buf_image="buf_image.bin"
+
 ## Config ##
 is_test=
 scalafmt_args=()
@@ -18,7 +24,7 @@ javafmt_args=(--set-exit-if-changed --replace)
 diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
-buf_args=(check breaking --against buf_image.bin)
+buf_args=(build -o "${buf_image}")
 
 ## Functions ##
 
@@ -73,11 +79,13 @@ USAGE
       javafmt_args=(--set-exit-if-changed --dry-run)
       dade_copyright_arg=check
       buildifier_target=//:buildifier
+      buf_args=(check breaking --against "${buf_image}")
       ;;
     --diff)
       shift
       merge_base="$(git merge-base origin/main HEAD)"
       scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
+      buf_args=(check breaking --against "${buf_image}")
       diff_mode=true
       ;;
     *)
@@ -145,7 +153,7 @@ run scalafmt "${scalafmt_args[@]:-}"
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
 
-# Run buf checks.
+# Run buf checks or rebuild reference image.
 run buf "${buf_args[@]:-}"
 
 # Note that we cannot use a symlink here because Windows.
