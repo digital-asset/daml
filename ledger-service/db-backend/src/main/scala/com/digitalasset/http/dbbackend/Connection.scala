@@ -75,7 +75,6 @@ object ConnectionPool {
     c.setConnectionTimeout(ConnectionTimeout)
     c.setMaximumPoolSize(poolSize)
     c.setIdleTimeout(IdleTimeout) // ms, minimum according to log, defaults to 600s
-    c.setMaximumPoolSize(poolSize)
     new HikariDataSource(c)
   }
 }
