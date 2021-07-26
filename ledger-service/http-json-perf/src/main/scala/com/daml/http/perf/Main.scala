@@ -13,7 +13,7 @@ import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
 import com.daml.http.domain.{JwtPayload, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
-import com.daml.http.{EndpointsCompanion, HttpService, JdbcConfig}
+import com.daml.http.{DbStartupMode, EndpointsCompanion, HttpService, JdbcConfig}
 import com.daml.jwt.domain.Jwt
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresDatabase
@@ -224,6 +224,7 @@ object Main extends StrictLogging {
       url = c.url,
       user = "test",
       password = "",
+      dbStartupMode = DbStartupMode.CreateOnly,
     )
 
   private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {

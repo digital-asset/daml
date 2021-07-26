@@ -31,12 +31,12 @@ private[http] object DbStartupMode {
 
   import scalaz.Validation.{success, failure}
   import scalaz.Validation
+  import scalaz.std.option._
+  import scalaz.syntax.traverse._
 
   private[http] def optionalSchemaHandlingField(
       m: Map[String, String]
   )(k: String): Either[String, Option[DbStartupMode]] = {
-    import scalaz.std.option._
-    import scalaz.syntax.traverse._
     def parse(value: String): Validation[String, DbStartupMode] =
       configValuesMap.get(value) match {
         case Some(res) => success(res)

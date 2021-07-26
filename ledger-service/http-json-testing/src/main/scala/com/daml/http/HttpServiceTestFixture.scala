@@ -248,9 +248,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       dao <- Future(ContractDao(c, poolSize = PoolSize.Integration))
       _ <- {
         import dao.{jdbcDriver, logHandler}
-        dao
-          .transact(ContractDao.initialize)
-          .unsafeToFuture(): Future[Unit]
+        dao.transact(ContractDao.initialize).unsafeToFuture(): Future[Unit]
       }
     } yield dao
 
