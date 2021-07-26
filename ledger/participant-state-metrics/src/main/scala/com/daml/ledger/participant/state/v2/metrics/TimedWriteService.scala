@@ -20,7 +20,6 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.telemetry.TelemetryContext
-import com.google.rpc.status.Status
 
 final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends WriteService {
 
@@ -82,14 +81,4 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
-
-  override def rejectSubmission(
-      submitterInfo: SubmitterInfo,
-      submissionTime: Time.Timestamp,
-      reason: Status,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
-    Timed.completionStage(
-      metrics.daml.services.write.rejectSubmission,
-      delegate.rejectSubmission(submitterInfo, submissionTime, reason),
-    )
 }
