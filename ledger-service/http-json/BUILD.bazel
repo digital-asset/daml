@@ -272,7 +272,7 @@ alias(
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
-            "//ledger/test-common:dar-files-stable-lib",
+            "//ledger/test-common:dar-files-default-lib",
             "//libs-scala/contextualized-logging",
             "//libs-scala/doobie-slf4j",
             "//libs-scala/ports",
