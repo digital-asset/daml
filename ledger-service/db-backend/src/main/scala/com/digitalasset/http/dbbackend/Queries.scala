@@ -111,7 +111,7 @@ sealed abstract class Queries {
     sql"""
        CREATE TABLE
         json_api_schema_version
-        (version """ ++ bigIntType ++ sql""" NOT NULL
+        (version $bigIntType NOT NULL
         ,PRIMARY KEY (version)
         )
      """,
@@ -561,7 +561,7 @@ private object PostgresQueries extends Queries {
               )""".query[Boolean].unique
       version <-
         if (!doesTableExist) connection.pure(None)
-        else sql"SELECT MAX(version) FROM json_api_schema_version".query[Int].option
+        else sql"SELECT version FROM json_api_schema_version".query[Int].option
     } yield version
   }
 
@@ -735,7 +735,7 @@ private object OracleQueries extends Queries {
               )""".query[Boolean].unique
       version <-
         if (!doesTableExist) connection.pure(None)
-        else sql"SELECT MAX(version) FROM json_api_schema_version".query[Int].option
+        else sql"SELECT version FROM json_api_schema_version".query[Int].option
     } yield version
   }
 
