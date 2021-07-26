@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteConfigService}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -34,7 +34,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 private[apiserver] final class LedgerConfigProvider private (
     index: IndexConfigManagementService,
-    optWriteService: Option[WriteConfigService],
+    optWriteService: Option[state.WriteConfigService],
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
@@ -45,7 +45,8 @@ private[apiserver] final class LedgerConfigProvider private (
 
   // The latest offset that was read (if any), and the latest ledger configuration found (if any)
   private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
-  private[this] val state: AtomicReference[StateType] = new AtomicReference(None -> None)
+  private[this] val latestConfigurationState: AtomicReference[StateType] =
+    new AtomicReference(None -> None)
   private[this] val closed: AtomicBoolean = new AtomicBoolean(false)
   private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] =
     new AtomicReference(None)
@@ -95,13 +96,16 @@ private[apiserver] final class LedgerConfigProvider private (
           logger.info(
             s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning."
           )
-          state.set(None -> None)
+          latestConfigurationState.set(None -> None)
       }
       .map(_ => startStreamingUpdates())
   }
 
-  private[this] def configFound(offset: LedgerOffset.Absolute, config: Configuration): Unit = {
-    state.set(Some(offset) -> Some(config))
+  private[this] def configFound(
+      offset: LedgerOffset.Absolute,
+      config: Configuration,
+  ): Unit = {
+    latestConfigurationState.set(Some(offset) -> Some(config))
     readyPromise.trySuccess(())
     ()
   }
@@ -118,14 +122,14 @@ private[apiserver] final class LedgerConfigProvider private (
             )
           ) { () =>
             index
-              .configurationEntries(state.get._1)
+              .configurationEntries(latestConfigurationState.get._1)
               .map {
                 case (offset, domain.ConfigurationEntry.Accepted(_, config)) =>
                   logger.info(s"New ledger configuration $config found at $offset")
                   configFound(offset, config)
                 case (offset, domain.ConfigurationEntry.Rejected(_, _, _)) =>
                   logger.info(s"New ledger configuration rejection found at $offset")
-                  state.updateAndGet(previous => Some(offset) -> previous._2)
+                  latestConfigurationState.updateAndGet(previous => Some(offset) -> previous._2)
                   ()
               }
           }
@@ -137,7 +141,7 @@ private[apiserver] final class LedgerConfigProvider private (
     ()
   }
 
-  private[this] def submitInitialConfig(writeService: WriteConfigService): Future[Unit] = {
+  private[this] def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
     implicit val executionContext: ExecutionContext = materializer.executionContext
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
@@ -158,9 +162,9 @@ private[apiserver] final class LedgerConfigProvider private (
           )
         )
         .map {
-          case SubmissionResult.Acknowledged =>
+          case state.SubmissionResult.Acknowledged =>
             logger.info(s"Initial configuration submission $submissionId was successful")
-          case SubmissionResult.NotSupported =>
+          case state.SubmissionResult.NotSupported =>
             logger.info("Setting an initial ledger configuration is not supported")
           case result =>
             logger.warn(
@@ -173,7 +177,7 @@ private[apiserver] final class LedgerConfigProvider private (
   /** The latest configuration found so far.
     * This may not be the currently active ledger configuration, e.g., if the index is lagging behind the ledger.
     */
-  def latestConfiguration: Option[Configuration] = state.get._2
+  def latestConfiguration: Option[Configuration] = latestConfigurationState.get._2
 
   /** Completes:
     * - when some ledger configuration was found
@@ -191,7 +195,7 @@ private[apiserver] final class LedgerConfigProvider private (
 private[apiserver] object LedgerConfigProvider {
   def owner(
       index: IndexConfigManagementService,
-      optWriteService: Option[WriteConfigService],
+      optWriteService: Option[state.WriteConfigService],
       timeProvider: TimeProvider,
       config: LedgerConfiguration,
   )(implicit

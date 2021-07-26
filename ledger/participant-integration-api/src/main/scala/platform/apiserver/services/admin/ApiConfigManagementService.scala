@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementSe
 import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteConfigService}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -34,7 +34,7 @@ import scala.util.{Failure, Success}
 
 private[apiserver] final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
-    writeService: WriteConfigService,
+    writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
     submissionIdGenerator: String => Ref.SubmissionId,
@@ -187,7 +187,7 @@ private[apiserver] object ApiConfigManagementService {
 
   def createApiService(
       readBackend: IndexConfigManagementService,
-      writeBackend: WriteConfigService,
+      writeBackend: state.WriteConfigService,
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
@@ -205,7 +205,7 @@ private[apiserver] object ApiConfigManagementService {
     )
 
   private final class SynchronousResponseStrategy(
-      writeConfigService: WriteConfigService,
+      writeConfigService: state.WriteConfigService,
       configManagementService: IndexConfigManagementService,
       ledgerEnd: Option[LedgerOffset.Absolute],
   )(implicit loggingContext: LoggingContext)
@@ -221,7 +221,7 @@ private[apiserver] object ApiConfigManagementService {
     override def submit(
         submissionId: Ref.SubmissionId,
         input: (Time.Timestamp, Configuration),
-    )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)

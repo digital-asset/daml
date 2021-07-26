@@ -10,13 +10,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{
-  PruningResult,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
@@ -29,16 +23,16 @@ import scala.compat.java8.FutureConverters
 
 private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
     implicit loggingContext: LoggingContext
-) extends WriteService {
+) extends state.WriteService {
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def submitTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
+      submitterInfo: state.SubmitterInfo,
+      transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "actAs" -> submitterInfo.actAs,
       "applicationId" -> submitterInfo.applicationId,
@@ -57,7 +51,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
     withEnrichedLoggingContext(
       "party" -> party,
@@ -72,7 +66,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       submissionId: Ref.SubmissionId,
       payload: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "submissionId" -> submissionId,
       "description" -> sourceDescription,
@@ -88,7 +82,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       maxRecordTime: Time.Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "maxRecordTime" -> maxRecordTime.toInstant,
       "submissionId" -> submissionId,
@@ -102,6 +96,6 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
-  ): CompletionStage[PruningResult] =
-    CompletableFuture.completedFuture(PruningResult.NotPruned(Status.UNIMPLEMENTED))
+  ): CompletionStage[state.PruningResult] =
+    CompletableFuture.completedFuture(state.PruningResult.NotPruned(Status.UNIMPLEMENTED))
 }

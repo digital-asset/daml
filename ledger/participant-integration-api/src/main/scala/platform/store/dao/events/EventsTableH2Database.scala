@@ -8,7 +8,7 @@ import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.SubmitterInfo
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.JdbcArrayConversions.StringArrayParameterMetadata
@@ -63,7 +63,7 @@ object EventsTableH2Database extends EventsTable {
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       events: Vector[(NodeId, Node)],
       stakeholders: WitnessRelation[NodeId],
       disclosure: WitnessRelation[NodeId],

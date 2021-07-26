@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
@@ -31,7 +31,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
 
   private val someTime = Instant.now
 
-  private val somePackageUploadRejected = Update.PublicPackageUploadRejected(
+  private val somePackageUploadRejected = state.Update.PublicPackageUploadRejected(
     submissionId = Ref.SubmissionId.assertFromString("abc"),
     recordTime = Timestamp.assertFromInstant(someTime),
     rejectionReason = "reason",
