@@ -5,32 +5,32 @@ package com.daml.ledger.api.validation
 
 import java.time.Instant
 
-import com.daml.api.util.DurationConversion
-import com.daml.api.util.TimestampConversion
-import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
-import com.daml.lf.data._
-import com.daml.lf.value.Value.ValueRecord
-import com.daml.lf.value.{Value => Lf}
+import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.ledger.api.DomainMocks
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
+import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
+import com.daml.lf.data._
+import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
+
 class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 
-  val ledgerId = LedgerId("ledger-id")
+  private val ledgerId = LedgerId("ledger-id")
 
-  object api {
+  private object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
     val int64 = Sum.Int64(1)
     val label = "label"
@@ -40,20 +40,19 @@ class SubmitRequestValidatorTest
     val commandId = "commandId"
     val submitter = "party"
     val deduplicationTime = new Duration().withSeconds(10)
-    val command =
-      Command(
-        Command.Command.Create(
-          CreateCommand(
-            Some(Identifier("package", moduleName = "module", entityName = "entity")),
-            Some(
-              Record(
-                Some(Identifier("package", moduleName = "module", entityName = "entity")),
-                Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
-              )
-            ),
-          )
+    val command = Command.of(
+      Command.Command.Create(
+        CreateCommand.of(
+          Some(Identifier("package", moduleName = "module", entityName = "entity")),
+          Some(
+            Record(
+              Some(Identifier("package", moduleName = "module", entityName = "entity")),
+              Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
+            )
+          ),
         )
       )
+    )
 
     val commands = Commands(
       ledgerId = ledgerId.unwrap,
@@ -68,13 +67,15 @@ class SubmitRequestValidatorTest
     )
   }
 
-  object internal {
-
+  private object internal {
     val ledgerTime = Instant.EPOCH.plusSeconds(10)
     val submittedAt = Instant.now
     val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
-    val deduplicateUntil = submittedAt.plusSeconds(api.deduplicationTime.seconds)
+    val deduplicationDuration = java.time.Duration.ofSeconds(
+      api.deduplicationTime.seconds,
+      api.deduplicationTime.nanos.toLong,
+    )
 
     val emptyCommands = ApiCommands(
       ledgerId = ledgerId,
@@ -84,7 +85,7 @@ class SubmitRequestValidatorTest
       actAs = Set(DomainMocks.party),
       readAs = Set.empty,
       submittedAt = submittedAt,
-      deduplicateUntil = deduplicateUntil,
+      deduplicationDuration = deduplicationDuration,
       commands = LfCommands(
         ImmArray(
           LfCreateCommand(
@@ -311,7 +312,7 @@ class SubmitRequestValidatorTest
           Some(internal.maxDeduplicationTime),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
-            deduplicateUntil = internal.submittedAt.plus(internal.maxDeduplicationTime)
+            deduplicationDuration = internal.maxDeduplicationTime
           )
         )
       }
