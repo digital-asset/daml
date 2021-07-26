@@ -491,6 +491,14 @@ object Config {
             "Enable preview version of the next Daml-LF language. Should not be used in production."
           )
 
+        opt[Unit]("stable-only")
+          .optional()
+          .hidden()
+          .action((_, c) => c.copy(engineMode = EngineMode.StableOnly))
+          .text(
+            "Disable the loading of unstable LF packages outside of the current LF stable version. Should not be used in production."
+          )
+
         opt[Unit]("daml-lf-dev-mode-unsafe")
           .optional()
           .hidden()
@@ -556,6 +564,7 @@ object Config {
   object EngineMode {
     final case object Stable extends EngineMode
     final case object EarlyAccess extends EngineMode
+    final case object StableOnly extends EngineMode
     final case object Dev extends EngineMode
   }
 

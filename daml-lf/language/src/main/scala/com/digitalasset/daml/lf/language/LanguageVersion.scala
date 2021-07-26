@@ -69,6 +69,10 @@ object LanguageVersion {
   val EarlyAccessVersions: VersionRange[LanguageVersion] =
     StableVersions
 
+  // Only the current stable version, no older versions.
+  val StableOnlyVersions: VersionRange[LanguageVersion] =
+    StableVersions.copy(min = StableVersions.max)
+
   // All the versions
   val DevVersions: VersionRange[LanguageVersion] =
     StableVersions.copy(max = v1_dev)
