@@ -129,6 +129,26 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateAndStart)
         )
       }
+
+      "createSchema=false is converted to StartOnly" in {
+        val jdbcConfigString = s"$jdbcConfigShared,createSchema=false"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(
+          jdbcConfig.copy(dbStartupMode = DbStartupMode.StartOnly)
+        )
+      }
+
+      "createSchema=true is converted to CreateOnly" in {
+        val jdbcConfigString = s"$jdbcConfigShared,createSchema=true"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(
+          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly)
+        )
+      }
     }
   }
 
