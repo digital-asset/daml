@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
   TransactionConsistencyValidator,
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
@@ -156,20 +155,14 @@ private[kvutils] class TransactionCommitter(
           case Some(_) =>
             Some(
               rejection(
-                RejectionReasonV0.SubmitterCannotActViaParticipant(
-                  s"Party '$submitter' not hosted by participant ${commitContext.participantId}"
-                )
+                Rejection.SubmitterCannotActViaParticipant(submitter, commitContext.participantId)
               )
             )
           case None =>
-            Some(
-              rejection(
-                RejectionReasonV0.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
-              )
-            )
+            Some(rejection(Rejection.SubmittingPartyNotKnownOnLedger(submitter)))
         }
 
-      def rejection(reason: RejectionReasonV0): StepResult[DamlTransactionEntrySummary] =
+      def rejection(reason: Rejection): StepResult[DamlTransactionEntrySummary] =
         rejections.buildRejectionStep(
           transactionEntry,
           reason,
@@ -288,12 +281,13 @@ private[kvutils] class TransactionCommitter(
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val parties = transactionEntry.transaction.informees
-      if (parties.forall(party => commitContext.get(partyStateKey(party)).isDefined))
+      val missingParties = parties.filter(party => commitContext.get(partyStateKey(party)).isEmpty)
+      if (missingParties.isEmpty)
         StepContinue(transactionEntry)
       else
         rejections.buildRejectionStep(
           transactionEntry,
-          RejectionReasonV0.PartyNotKnownOnLedger("Not all parties known"),
+          Rejection.PartiesNotKnownOnLedger(missingParties),
           commitContext.recordTime,
         )
     }

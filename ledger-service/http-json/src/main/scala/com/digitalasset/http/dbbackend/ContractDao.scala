@@ -8,6 +8,7 @@ import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.scalautil.nonempty.+-:
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
@@ -145,27 +146,11 @@ object ContractDao {
                   queries,
                   Queries.MatchedQueryMarker.ByInt,
                 )
-                .toVector
-                .traverse(_.to[Vector])
+                .to[Vector]
               tidLookup = stIdSeq.view.map { case (ix, _, tid, _) => ix -> tid }.toMap
-            } yield dbContracts match {
-              case Seq() => Vector.empty
-              case Seq(alreadyUnique) =>
-                alreadyUnique map { dbc =>
-                  (toDomain(tidLookup(dbc.templateId))(dbc), NonEmptyList(dbc.templateId))
-                }
-              case potentialMultiMatches =>
-                potentialMultiMatches.view.flatten
-                  .groupBy(_.contractId)
-                  .valuesIterator
-                  .map { dbcs =>
-                    val dbc +: dups = dbcs.toSeq // always non-empty due to groupBy
-                    (
-                      toDomain(tidLookup(dbc.templateId))(dbc),
-                      NonEmptyList.nels(dbc, dups: _*).map(_.templateId),
-                    )
-                  }
-                  .toVector
+            } yield dbContracts map { dbc =>
+              val htid +-: ttid = dbc.templateId.unwrap
+              (toDomain(tidLookup(htid))(dbc), NonEmptyList(htid, ttid: _*))
             }
 
           case MatchedQueryMarker.Unused =>

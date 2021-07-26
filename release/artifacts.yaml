@@ -191,8 +191,6 @@
   type: jar-scala
 - target: //ledger/test-common:test-common-1.dev
   type: jar-scala
-- target: //ledger-service/db-backend:db-backend
-  type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //ledger-service/cli-opts:cli-opts
