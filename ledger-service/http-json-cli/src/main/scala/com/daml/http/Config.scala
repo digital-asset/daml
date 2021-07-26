@@ -122,7 +122,7 @@ private[http] object JdbcConfig
     with StrictLogging {
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, startup-mode=${a.dbStartupMode})"
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, start-mode=${a.dbStartupMode})"
   )
 
   def help(implicit supportedJdbcDriverNames: Config.SupportedJdbcDriverNames): String =
@@ -131,8 +131,8 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
-      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by startup-mode, however if set it will always overrule startup-mode.\n" +
-      s"${indent}startup-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
+      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by start-mode, however if set it will always overrule start-mode.\n" +
+      s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
         .mkString(",")}.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
@@ -168,12 +168,12 @@ private[http] object JdbcConfig
         _.map { createSchema =>
           import DbStartupMode._
           logger.warn(
-            s"The option 'createSchema' is deprecated. Please use for 'createSchema=true' => 'startup-mode=${getConfigValue(CreateOnly)}' and for 'createSchema=false' => 'startup-mode=${getConfigValue(StartOnly)}'"
+            s"The option 'createSchema' is deprecated. Please use for 'createSchema=true' => 'start-mode=${getConfigValue(CreateOnly)}' and for 'createSchema=false' => 'start-mode=${getConfigValue(StartOnly)}'"
           )
           if (createSchema) CreateOnly else StartOnly
         }: Option[DbStartupMode]
       )
-      dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("startup-mode")
+      dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("start-mode")
     } yield JdbcConfig(
       driver = driver,
       url = url,
@@ -189,7 +189,7 @@ private[http] object JdbcConfig
       password: String,
       dbStartupMode: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,startup-mode=$dbStartupMode\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,start-mode=$dbStartupMode\""""
 }
 
 // It is public for Daml Hub

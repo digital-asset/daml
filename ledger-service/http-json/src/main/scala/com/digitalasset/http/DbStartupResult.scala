@@ -38,7 +38,7 @@ object DbStartupResult {
         case None =>
           if (errorOnMissingOrMismatch) {
             logger.error(
-              "No schema version found in the DB, create the schema via `startup-mode=create-only` in the jdbc config"
+              "No schema version found in the DB, create the schema via `start-mode=create-only` in the jdbc config"
             )
             none
           } else {
@@ -52,7 +52,7 @@ object DbStartupResult {
               s"Schema version mismatch, expected $currentSchemaVersion but got $version"
             if (errorOnMissingOrMismatch) {
               logger.error(
-                s"$msg. Re-create the schema via `startup-mode=create-only` in the jdbc config"
+                s"$msg. Re-create the schema via `start-mode=create-only` in the jdbc config"
               )
               none
             } else {

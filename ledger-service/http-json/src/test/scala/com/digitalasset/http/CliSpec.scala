@@ -94,7 +94,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password"
 
       "should get the CreateOnly startup mode from the string" in {
-        val jdbcConfigString = s"$jdbcConfigShared,startup-mode=create-only"
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-only"
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
@@ -102,7 +102,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       }
 
       "should get the StartOnly startup mode from the string" in {
-        val jdbcConfigString = s"$jdbcConfigShared,startup-mode=start-only"
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=start-only"
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
@@ -110,7 +110,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       }
 
       "should get the CreateIfNeededAndStart startup mode from the string" in {
-        val jdbcConfigString = s"$jdbcConfigShared,startup-mode=create-if-needed-and-start"
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-if-needed-and-start"
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
@@ -120,7 +120,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       }
 
       "should get the CreateAndStart startup mode from the string" in {
-        val jdbcConfigString = s"$jdbcConfigShared,startup-mode=create-and-start"
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-and-start"
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
