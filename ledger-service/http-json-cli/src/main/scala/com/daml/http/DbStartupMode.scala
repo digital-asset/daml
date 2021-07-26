@@ -3,6 +3,8 @@
 
 package com.daml.http
 
+import scala.collection.compat._
+
 private[http] sealed trait DbStartupMode
 private[http] object DbStartupMode {
   private[http] case object CreateOnly extends DbStartupMode
