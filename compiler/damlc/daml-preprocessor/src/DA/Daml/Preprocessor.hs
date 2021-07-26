@@ -170,7 +170,7 @@ checkModuleName (GHC.L _ m)
 -- | We ban people from importing modules such
 checkImports :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkImports x =
-    [ (ss, "Import of unstable internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
+    [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
     | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isUnstableInternal m]
 
 -- | Emit a warning if the "daml 1.2" version header is present.
