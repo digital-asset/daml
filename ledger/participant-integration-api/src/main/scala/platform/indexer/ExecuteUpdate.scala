@@ -12,8 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.Update
-import com.daml.ledger.participant.state.v1.Update._
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -75,6 +74,9 @@ object ExecuteUpdate {
 }
 
 trait ExecuteUpdate {
+  import state.Update._
+  import state._
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private[indexer] implicit val loggingContext: LoggingContext
@@ -365,6 +367,7 @@ class PipelinedExecuteUpdate(
     private[indexer] val updatePreparationParallelism: Int,
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
+  import state.Update._
 
   private def insertTransactionState(
       timedPipelinedUpdate: PipelinedUpdateWithTimer
@@ -480,6 +483,7 @@ class AtomicExecuteUpdate(
     private[indexer] implicit val loggingContext: LoggingContext,
     private[indexer] val executionContext: ExecutionContext,
 ) extends ExecuteUpdate {
+  import state.Update._
 
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]

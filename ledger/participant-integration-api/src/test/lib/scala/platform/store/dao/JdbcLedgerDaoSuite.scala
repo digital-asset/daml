@@ -14,8 +14,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{DivulgedContract, SubmitterInfo}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}
@@ -165,10 +164,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   )
 
   private[dao] def store(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
-      divulgedContracts: List[DivulgedContract],
+      divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)]
 
@@ -635,10 +634,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   }
 
   protected final def prepareInsert(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
-      divulgedContracts: List[DivulgedContract] = List.empty,
+      divulgedContracts: List[state.DivulgedContract] = List.empty,
       blindingInfo: Option[BlindingInfo] = None,
   ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
@@ -670,7 +669,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offsetStep, entry) = offsetStepAndTx
     val maybeSubmitterInfo = submitterInfo(entry)
-    val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
+    val divulged =
+      divulgedContracts.keysIterator.map(c => state.DivulgedContract(c._1, c._2)).toList
 
     store(maybeSubmitterInfo, entry, offsetStep, divulged, blindingInfo)
   }
@@ -679,7 +679,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     for (
       actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
       cmd <- entry.commandId
-    ) yield v1.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
+    ) yield state.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
 
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction)

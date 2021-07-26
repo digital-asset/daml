@@ -8,7 +8,7 @@ import java.time.Instant
 
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
@@ -139,7 +139,7 @@ object SequentialWriteDaoSpec {
   private def offset(s: String): Offset = Offset.fromHexString(Ref.HexString.assertFromString(s))
 
   private def someUpdate(key: String) = Some(
-    Update.PublicPackageUploadRejected(
+    state.Update.PublicPackageUploadRejected(
       submissionId = Ref.SubmissionId.assertFromString("abc"),
       recordTime = Timestamp.assertFromInstant(Instant.now),
       rejectionReason = key,
@@ -220,11 +220,12 @@ object SequentialWriteDaoSpec {
     event_sequential_id = 0,
   )
 
-  val singlePartyFixture: Option[Update.PublicPackageUploadRejected] = someUpdate("singleParty")
-  val partyAndCreateFixture: Option[Update.PublicPackageUploadRejected] = someUpdate(
-    "partyAndCreate"
-  )
-  val allEventsFixture: Option[Update.PublicPackageUploadRejected] = someUpdate("allEventsFixture")
+  val singlePartyFixture: Option[state.Update.PublicPackageUploadRejected] =
+    someUpdate("singleParty")
+  val partyAndCreateFixture: Option[state.Update.PublicPackageUploadRejected] =
+    someUpdate("partyAndCreate")
+  val allEventsFixture: Option[state.Update.PublicPackageUploadRejected] =
+    someUpdate("allEventsFixture")
 
   private val someUpdateToDbDtoFixture: Map[String, List[DbDto]] = Map(
     singlePartyFixture.get.rejectionReason -> List(someParty),
@@ -236,9 +237,9 @@ object SequentialWriteDaoSpec {
     ),
   )
 
-  val updateToDbDtoFixture: Offset => Update => Iterator[DbDto] =
+  val updateToDbDtoFixture: Offset => state.Update => Iterator[DbDto] =
     _ => {
-      case r: Update.PublicPackageUploadRejected =>
+      case r: state.Update.PublicPackageUploadRejected =>
         someUpdateToDbDtoFixture(r.rejectionReason).iterator
       case _ => throw new Exception
     }

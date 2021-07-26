@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexSubmissionService,
 }
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteService}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf
 import com.daml.lf.command.{Commands => LfCommands}
@@ -90,7 +90,7 @@ class ApiSubmissionServiceSpec
 
   it should "allocate missing informees" in {
     val partyManagementService = mock[IndexPartyManagementService]
-    val writeService = mock[WriteService]
+    val writeService = mock[state.WriteService]
 
     when(partyManagementService.getParties(any[Seq[Ref.Party]])(any[LoggingContext]))
       .thenAnswer[Seq[Ref.Party]] { parties =>
@@ -108,7 +108,7 @@ class ApiSubmissionServiceSpec
         any[Option[Ref.Party]],
         any[Ref.SubmissionId],
       )(any[TelemetryContext])
-    ).thenReturn(completedFuture(SubmissionResult.Acknowledged))
+    ).thenReturn(completedFuture(state.SubmissionResult.Acknowledged))
 
     submissionService(
       writeService,
@@ -119,7 +119,7 @@ class ApiSubmissionServiceSpec
         results <- service.allocateMissingInformees(transaction)
       } yield {
         results should have size 100
-        all(results) should be(SubmissionResult.Acknowledged)
+        all(results) should be(state.SubmissionResult.Acknowledged)
         missingParties.foreach { party =>
           verify(writeService).allocateParty(
             eqTo(Some(Ref.Party.assertFromString(party))),
@@ -135,7 +135,7 @@ class ApiSubmissionServiceSpec
 
   it should "not allocate if all parties are already known" in {
     val partyManagementService = mock[IndexPartyManagementService]
-    val writeService = mock[WriteService]
+    val writeService = mock[state.WriteService]
 
     when(partyManagementService.getParties(any[Seq[Ref.Party]])(any[LoggingContext]))
       .thenAnswer[Seq[Ref.Party]] { parties =>
@@ -148,7 +148,7 @@ class ApiSubmissionServiceSpec
         any[Option[Ref.Party]],
         any[Ref.SubmissionId],
       )(any[TelemetryContext])
-    ).thenReturn(completedFuture(SubmissionResult.Acknowledged))
+    ).thenReturn(completedFuture(state.SubmissionResult.Acknowledged))
 
     submissionService(
       writeService,
@@ -158,7 +158,7 @@ class ApiSubmissionServiceSpec
       for {
         result <- service.allocateMissingInformees(transaction)
       } yield {
-        result shouldBe Seq.empty[SubmissionResult]
+        result shouldBe Seq.empty[state.SubmissionResult]
         verify(writeService, never).allocateParty(
           any[Option[Ref.Party]],
           any[Option[String]],
@@ -170,17 +170,17 @@ class ApiSubmissionServiceSpec
   }
 
   it should "not allocate missing informees if implicit party allocation is disabled" in {
-    val writeService = mock[WriteService]
+    val writeService = mock[state.WriteService]
 
     submissionService(
-      mock[WriteService],
+      mock[state.WriteService],
       mock[IndexPartyManagementService],
       implicitPartyAllocation = false,
     ).use { service =>
       for {
         result <- service.allocateMissingInformees(transaction)
       } yield {
-        result shouldBe Seq.empty[SubmissionResult]
+        result shouldBe Seq.empty[state.SubmissionResult]
         verify(writeService, never).allocateParty(
           any[Option[Ref.Party]],
           any[Option[String]],
@@ -193,11 +193,11 @@ class ApiSubmissionServiceSpec
 
   it should "forward SubmissionResult if it failed" in {
     val partyManagementService = mock[IndexPartyManagementService]
-    val writeService = mock[WriteService]
+    val writeService = mock[state.WriteService]
 
     val party = "party-1"
     val typedParty = Ref.Party.assertFromString(party)
-    val submissionFailure = SubmissionResult.InternalError(s"failed to allocate $party")
+    val submissionFailure = state.SubmissionResult.InternalError(s"failed to allocate $party")
     when(
       writeService.allocateParty(
         eqTo(Some(typedParty)),
@@ -237,7 +237,7 @@ class ApiSubmissionServiceSpec
 
   it should "return proper gRPC status codes for DamlLf errors" in {
     val partyManagementService = mock[IndexPartyManagementService]
-    val writeService = mock[WriteService]
+    val writeService = mock[state.WriteService]
 
     val tmplId = Ref.Identifier.assertFromString("pkgId:M:T")
 
@@ -310,7 +310,7 @@ class ApiSubmissionServiceSpec
               actAs = Set.empty,
               readAs = Set.empty,
               submittedAt = Instant.MIN,
-              deduplicateUntil = Instant.MIN,
+              deduplicationDuration = Duration.ZERO,
               commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
             )
           )
@@ -334,7 +334,7 @@ class ApiSubmissionServiceSpec
   }
 
   private def submissionService(
-      writeService: WriteService,
+      writeService: state.WriteService,
       partyManagementService: IndexPartyManagementService,
       implicitPartyAllocation: Boolean,
       commandExecutor: CommandExecutor = null,

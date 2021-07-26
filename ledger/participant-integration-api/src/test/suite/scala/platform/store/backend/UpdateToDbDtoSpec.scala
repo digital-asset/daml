@@ -10,13 +10,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{
-  DivulgedContract,
-  RejectionReasonV0,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.ledger.EventId
@@ -49,7 +43,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
   "UpdateToDbDto" should {
 
     "handle ConfigurationChanged" in {
-      val update = Update.ConfigurationChanged(
+      val update = state.Update.ConfigurationChanged(
         someRecordTime,
         someSubmissionId,
         someParticipantId,
@@ -73,7 +67,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle ConfigurationChangeRejected" in {
       val rejectionReason = "Test rejection reason"
-      val update = Update.ConfigurationChangeRejected(
+      val update = state.Update.ConfigurationChangeRejected(
         someRecordTime,
         someSubmissionId,
         someParticipantId,
@@ -98,7 +92,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PartyAddedToParticipant (local party)" in {
       val displayName = "Test party"
-      val update = Update.PartyAddedToParticipant(
+      val update = state.Update.PartyAddedToParticipant(
         someParty,
         displayName,
         someParticipantId,
@@ -132,7 +126,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PartyAddedToParticipant (remote party)" in {
       val displayName = "Test party"
-      val update = Update.PartyAddedToParticipant(
+      val update = state.Update.PartyAddedToParticipant(
         someParty,
         displayName,
         otherParticipantId,
@@ -166,7 +160,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PartyAllocationRejected" in {
       val rejectionReason = "Test party rejection reason"
-      val update = Update.PartyAllocationRejected(
+      val update = state.Update.PartyAllocationRejected(
         someSubmissionId,
         someParticipantId,
         someRecordTime,
@@ -192,7 +186,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PublicPackageUpload (two archives)" in {
       val sourceDescription = "Test source description"
-      val update = Update.PublicPackageUpload(
+      val update = state.Update.PublicPackageUpload(
         List(someArchive1, someArchive2),
         Some(sourceDescription),
         someRecordTime,
@@ -233,7 +227,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PublicPackageUploadRejected" in {
       val rejectionReason = "Test package rejection reason"
-      val update = Update.PublicPackageUploadRejected(
+      val update = state.Update.PublicPackageUploadRejected(
         someSubmissionId,
         someRecordTime,
         rejectionReason,
@@ -254,16 +248,16 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     }
 
     "handle CommandRejected" in {
-      val submitterInfo = SubmitterInfo(
+      val submitterInfo = state.SubmitterInfo(
         actAs = List(someParty),
         someApplicationId,
         someCommandId,
         Instant.EPOCH,
       )
-      val update = Update.CommandRejected(
+      val update = state.Update.CommandRejected(
         someRecordTime,
         submitterInfo,
-        RejectionReasonV0.Inconsistent("test reason"),
+        state.RejectionReasonV0.Inconsistent("test reason"),
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -303,7 +297,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -370,7 +364,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         .copy(agreementText = "agreement text")
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -447,7 +441,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       }
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -526,7 +520,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       }
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -631,7 +625,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val exerciseNodeBId = builder.add(exerciseNodeB, exerciseNodeAId)
       val exerciseNodeCId = builder.add(exerciseNodeC, exerciseNodeAId)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -769,7 +763,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -865,7 +859,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val createNodeId = builder.add(createNode)
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -981,13 +975,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
-        divulgedContracts = List(DivulgedContract(createNode.coid, createNode.versionedCoinst)),
+        divulgedContracts =
+          List(state.DivulgedContract(createNode.coid, createNode.versionedCoinst)),
         blindingInfo = Some(
           BlindingInfo(
             disclosure = Map(exerciseNodeId -> Set(Ref.Party.assertFromString("disclosee"))),
@@ -1086,7 +1081,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       builder.add(createNode, rollbackNodeId)
       builder.add(exerciseNode, rollbackNodeId)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = Some(submitterInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -1142,7 +1137,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
+      val update = state.Update.TransactionAccepted(
         optSubmitterInfo = None,
         transactionMeta = transactionMeta,
         transaction = transaction,
@@ -1253,13 +1248,13 @@ object UpdateToDbDtoSpec {
     .setHashFunction(DamlLf.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 2 (longer than the other payload)"))
     .build
-  private val someSubmitterInfo = SubmitterInfo(
+  private val someSubmitterInfo = state.SubmitterInfo(
     actAs = List(someParty),
     someApplicationId,
     someCommandId,
     Instant.ofEpochMilli(1),
   )
-  private val someTransactionMeta = TransactionMeta(
+  private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
     workflowId = Some(someWorkflowId),
     submissionTime = Time.Timestamp.assertFromLong(3),
