@@ -15,4 +15,6 @@ object IndexerStartupMode {
 
   case object MigrateOnly extends IndexerStartupMode
 
+  case object ValidateAndWaitOnly extends IndexerStartupMode
+
 }

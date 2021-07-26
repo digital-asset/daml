@@ -69,6 +69,13 @@ final class StandaloneIndexerServer(
             logger.debug("Waiting for the indexer to initialize the database.")
             healthReporter
           }
+      case IndexerStartupMode.ValidateAndWaitOnly =>
+        Resource
+          .fromFuture(indexerFactory.validateAndWaitOnly())
+          .map[ReportsHealth] { _ =>
+            logger.debug("Waiting for the indexer to validate the schema migrations.")
+            () => HealthStatus.healthy
+          }
     }
   }
 
