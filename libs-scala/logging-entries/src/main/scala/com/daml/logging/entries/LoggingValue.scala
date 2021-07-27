@@ -32,6 +32,10 @@ object LoggingValue {
 
   final case class Nested(entries: LoggingEntries) extends LoggingValue
 
+  object Nested {
+    def fromEntries(entries: LoggingEntry*): Nested = Nested(LoggingEntries(entries: _*))
+  }
+
   final case class OfJson(json: JsValue) extends LoggingValue
 
   @inline
