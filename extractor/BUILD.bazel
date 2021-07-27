@@ -27,7 +27,7 @@ TEST_DARS = [
     daml_compile(
         name = darmod,
         srcs = ["src/test/resources/damls/%s.daml" % darmod],
-        target = lf_version_configuration.get("stable"),
+        target = lf_version_configuration.get("default"),
     )
     for darmod in TEST_DARS
 ]
