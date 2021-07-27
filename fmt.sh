@@ -12,9 +12,8 @@ cd "$(dirname "$0")"
 eval "$(dev-env/bin/dade-assist)"
 
 # Location of reference image used for buf breaking check.
-# Note that in case breaking changes have been introduced, running ./fmt.sh will simply overwrite
-# this image. Hence, before committing the new image you should review the errors reported by buf
-# by restoring the reference image and running './fmt.sh --test'.
+# In case breaking changes have been introduced, running './fmt.sh --rebuild-buf-image' will
+# overwrite this image.
 buf_image="buf_image.bin"
 
 ## Config ##
