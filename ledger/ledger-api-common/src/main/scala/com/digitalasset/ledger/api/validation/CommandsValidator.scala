@@ -46,8 +46,6 @@ final class CommandsValidator(ledgerId: LedgerId, generateSubmissionId: () => Re
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
-      // TODO: Let the user provide this information in the `ProtoCommands`,
-      //       and extract it from there.
       submissionId = domain.SubmissionId(generateSubmissionId())
       submitters <- CommandsValidator.validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
