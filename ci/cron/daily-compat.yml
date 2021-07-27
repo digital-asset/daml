@@ -24,6 +24,7 @@ schedules:
 
 jobs:
   - job: compatibility_ts_libs
+    condition: false
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
@@ -34,6 +35,7 @@ jobs:
       - template: ../compatibility_ts_libs.yml
 
   - job: compatibility
+    condition: false
     dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     strategy:
@@ -53,6 +55,7 @@ jobs:
       - template: ../compatibility.yml
 
   - job: compatibility_windows
+    condition: false
     dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
@@ -68,6 +71,7 @@ jobs:
           artifactName: 'Bazel Compatibility Logs'
 
   - job: perf_speedy
+    condition: false
     timeoutInMinutes: 120
     pool:
       name: "ubuntu_20_04"
@@ -138,11 +142,12 @@ jobs:
           source $(bash_lib)
 
           tmp=$(mktemp -d)/out.json
-          bazel run //ledger-service/http-json:contractdao-bench -rff $tmp >&2
+          bazel run //ledger-service/http-json:contractdao-bench -rf json -rff $tmp >&2
           cat $tmp
         displayName: measure perf
 
   - job: perf_http_json
+    condition: false
     timeoutInMinutes: 120
     pool:
       name: "ubuntu_20_04"
