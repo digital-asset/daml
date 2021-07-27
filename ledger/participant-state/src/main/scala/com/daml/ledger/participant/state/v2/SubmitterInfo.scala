@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.v2
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Collects context information the submission.
   *
@@ -44,4 +45,17 @@ final case class SubmitterInfo(
     Some(deduplicationPeriod),
     submissionId,
   )
+}
+
+object SubmitterInfo {
+  implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
+    case SubmitterInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId, _) =>
+      LoggingValue.Nested.fromEntries(
+        "actAs " -> actAs,
+        "applicationId " -> applicationId,
+        "commandId " -> commandId,
+        "deduplicationPeriod " -> deduplicationPeriod,
+        "submissionId" -> submissionId,
+      )
+  }
 }

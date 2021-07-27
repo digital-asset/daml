@@ -3,12 +3,14 @@
 
 package com.daml.ledger.participant.state.v2
 
+import java.time.Duration
+
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
-import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.google.rpc.status.{Status => RpcStatus}
 
 /** An update to the (abstract) participant state.
@@ -41,6 +43,19 @@ object Update {
       s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
   }
 
+  object ConfigurationChanged {
+    implicit val `ConfigurationChanged to LoggingValue`: ToLoggingValue[ConfigurationChanged] = {
+      case ConfigurationChanged(recordTime, submissionId, participantId, newConfiguration) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.submissionId(submissionId),
+          Logging.participantId(participantId),
+          Logging.configGeneration(newConfiguration.generation),
+          Logging.maxDeduplicationTime(newConfiguration.maxDeduplicationTime),
+        )
+    }
+  }
+
   /** Signal that a configuration change submitted by this participant was rejected.
     */
   final case class ConfigurationChangeRejected(
@@ -55,20 +70,37 @@ object Update {
     }
   }
 
+  object ConfigurationChangeRejected {
+    implicit val `ConfigurationChangeRejected to LoggingValue`
+        : ToLoggingValue[ConfigurationChangeRejected] = {
+      case ConfigurationChangeRejected(
+            recordTime,
+            submissionId,
+            participantId,
+            proposedConfiguration,
+            rejectionReason,
+          ) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.submissionId(submissionId),
+          Logging.participantId(participantId),
+          Logging.configGeneration(proposedConfiguration.generation),
+          Logging.maxDeduplicationTime(proposedConfiguration.maxDeduplicationTime),
+          Logging.rejectionReason(rejectionReason),
+        )
+    }
+  }
+
   /** Signal that a party is hosted at a participant.
     *
     * @param party
-    *   The newly allocated party identifier.
-    *
+    *    The newly allocated party identifier.
     * @param displayName
-    *   The user readable description of the party. May not be unique.
-    *
+    *    The user readable description of the party. May not be unique.
     * @param participantId
     *   The participant that this party was added to.
-    *
     * @param recordTime
     *   The ledger-provided timestamp at which the party was allocated.
-    *
     * @param submissionId
     *   The submissionId of the command which requested party to be added.
     */
@@ -83,18 +115,29 @@ object Update {
       s"Add party '$party' to participant"
   }
 
+  object PartyAddedToParticipant {
+    implicit val `PartyAddedToParticipant to LoggingValue`
+        : ToLoggingValue[PartyAddedToParticipant] = {
+      case PartyAddedToParticipant(party, displayName, participantId, recordTime, submissionId) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.submissionIdOpt(submissionId),
+          Logging.participantId(participantId),
+          Logging.party(party),
+          Logging.displayName(displayName),
+        )
+    }
+  }
+
   /** Signal that the party allocation request has been Rejected.
     *
     * @param submissionId
-    *   submissionId of the party allocation command.
-    *
+    *    submissionId of the party allocation command.
     * @param participantId
-    *   The participant to which the party was requested to be added. This field
-    *   is informative.
-    *
+    *    The participant to which the party was requested to be added. This field
+    *    is informative.
     * @param recordTime
     *   The ledger-provided timestamp at which the party was added.
-    *
     * @param rejectionReason
     *   Reason for rejection of the party allocation entry.
     */
@@ -108,16 +151,29 @@ object Update {
       s"Request to add party to participant with submissionId '$submissionId' failed"
   }
 
+  object PartyAllocationRejected {
+    implicit val `PartyAllocationRejected to LoggingValue`
+        : ToLoggingValue[PartyAllocationRejected] = {
+      case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.submissionId(submissionId),
+          Logging.participantId(participantId),
+          Logging.rejectionReason(rejectionReason),
+        )
+    }
+  }
+
   /** Signal that a set of new packages has been uploaded.
     *
-    * @param archives:
-    *   The new packages that have been accepted.
-    * @param sourceDescription:
-    *   Description of the upload, if provided by the submitter.
-    * @param recordTime:
-    *   The ledger-provided timestamp at which the package upload was committed.
-    * @param submissionId:
-    *   The submission id of the upload. Unset if this participant was not the submitter.
+    * @param archives          :
+    *                          The new packages that have been accepted.
+    * @param sourceDescription :
+    *                          Description of the upload, if provided by the submitter.
+    * @param recordTime        :
+    *                          The ledger-provided timestamp at which the package upload was committed.
+    * @param submissionId      :
+    *                          The submission id of the upload. Unset if this participant was not the submitter.
     */
   final case class PublicPackageUpload(
       archives: List[DamlLf.Archive],
@@ -129,14 +185,25 @@ object Update {
       s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
   }
 
+  object PublicPackageUpload {
+    implicit val `PublicPackageUpload to LoggingValue`: ToLoggingValue[PublicPackageUpload] = {
+      case PublicPackageUpload(_, sourceDescription, recordTime, submissionId) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.submissionIdOpt(submissionId),
+          Logging.sourceDescriptionOpt(sourceDescription),
+        )
+    }
+  }
+
   /** Signal that a package upload has been rejected.
     *
-    * @param submissionId:
-    *   The submission id of the upload.
-    * @param recordTime:
-    *   The ledger-provided timestamp at which the package upload was committed.
-    * @param rejectionReason:
-    *   Reason why the upload was rejected.
+    * @param submissionId    :
+    *                        The submission id of the upload.
+    * @param recordTime      :
+    *                        The ledger-provided timestamp at which the package upload was committed.
+    * @param rejectionReason :
+    *                        Reason why the upload was rejected.
     */
   final case class PublicPackageUploadRejected(
       submissionId: Ref.SubmissionId,
@@ -147,22 +214,32 @@ object Update {
       s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
   }
 
+  object PublicPackageUploadRejected {
+    implicit val `PublicPackageUploadRejected to LoggingValue`
+        : ToLoggingValue[PublicPackageUploadRejected] = {
+      case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.submissionId(submissionId),
+          Logging.rejectionReason(rejectionReason),
+        )
+    }
+  }
+
   /** Signal the acceptance of a transaction.
     *
-    * @param optCompletionInfo:
-    *   The information provided by the submitter of the command that
-    *   created this transaction. It must be provided if this participant
-    *   hosts one of the [[SubmitterInfo.actAs]] parties and shall output a completion event
-    *   for this transaction. This in particular applies if this participant has
-    *   submitted the command to the [[WriteService]].
+    * @param optCompletionInfo :
+    *                          The information provided by the submitter of the command that
+    *                          created this transaction. It must be provided if this participant
+    *                          hosts one of the [[SubmitterInfo.actAs]] parties and shall output a completion event
+    *                          for this transaction. This in particular applies if this participant has
+    *                          submitted the command to the [[WriteService]].
     *
-    *   The [[ReadService]] implementation must ensure that command deduplication
+    *                          The [[ReadService]] implementation must ensure that command deduplication
     *   guarantees are met.
-    *
     * @param transactionMeta:
     *   The metadata of the transaction that was provided by the submitter.
     *   It is visible to all parties that can see the transaction.
-    *
     * @param transaction:
     *   The view of the transaction that was accepted. This view must
     *   include at least the projection of the accepted transaction to the
@@ -173,13 +250,11 @@ object Update {
     *   Note that ledgers with weaker privacy models can decide to forgo
     *   projections of transactions and always show the complete
     *   transaction.
-    *
     * @param recordTime:
     *   The ledger-provided timestamp at which the transaction was recorded.
     *   The last [[Configuration]] set before this [[TransactionAccepted]]
     *   determines how this transaction's recordTime relates to its
     *   [[TransactionMeta.ledgerEffectiveTime]].
-    *
     * @param divulgedContracts:
     *   List of divulged contracts. See [[DivulgedContract]] for details.
     */
@@ -193,6 +268,28 @@ object Update {
       blindingInfo: Option[BlindingInfo],
   ) extends Update {
     override def description: String = s"Accept transaction $transactionId"
+  }
+
+  object TransactionAccepted {
+    implicit val `TransactionAccepted to LoggingValue`: ToLoggingValue[TransactionAccepted] = {
+      case TransactionAccepted(
+            optCompletionInfo,
+            transactionMeta,
+            _,
+            transactionId,
+            recordTime,
+            _,
+            _,
+          ) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.completionInfo(optCompletionInfo),
+          Logging.transactionId(transactionId),
+          Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
+          Logging.workflowIdOpt(transactionMeta.workflowId),
+          Logging.submissionTime(transactionMeta.submissionTime),
+        )
+    }
   }
 
   /** Signal that a command submitted via [[WriteService]] was rejected.
@@ -219,6 +316,18 @@ object Update {
   }
 
   object CommandRejected {
+
+    implicit val `CommandRejected to LoggingValue`: ToLoggingValue[CommandRejected] = {
+      case CommandRejected(recordTime, submitterInfo, reason) =>
+        LoggingValue.Nested.fromEntries(
+          Logging.recordTime(recordTime),
+          Logging.submitter(submitterInfo.actAs),
+          Logging.applicationId(submitterInfo.applicationId),
+          Logging.commandId(submitterInfo.commandId),
+          Logging.deduplicationPeriod(submitterInfo.optDeduplicationPeriod),
+          Logging.rejectionReason(reason),
+        )
+    }
 
     /** A template for generating gRPC status codes.
       */
@@ -259,4 +368,92 @@ object Update {
       override def definiteAnswer: Boolean = GrpcStatuses.isDefiniteAnswer(status)
     }
   }
+
+  implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
+    case update: ConfigurationChanged =>
+      ConfigurationChanged.`ConfigurationChanged to LoggingValue`.toLoggingValue(update)
+    case update: ConfigurationChangeRejected =>
+      ConfigurationChangeRejected.`ConfigurationChangeRejected to LoggingValue`.toLoggingValue(
+        update
+      )
+    case update: PartyAddedToParticipant =>
+      PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
+    case update: PartyAllocationRejected =>
+      PartyAllocationRejected.`PartyAllocationRejected to LoggingValue`.toLoggingValue(update)
+    case update: PublicPackageUpload =>
+      PublicPackageUpload.`PublicPackageUpload to LoggingValue`.toLoggingValue(update)
+    case update: PublicPackageUploadRejected =>
+      PublicPackageUploadRejected.`PublicPackageUploadRejected to LoggingValue`.toLoggingValue(
+        update
+      )
+    case update: TransactionAccepted =>
+      TransactionAccepted.`TransactionAccepted to LoggingValue`.toLoggingValue(update)
+    case update: CommandRejected =>
+      CommandRejected.`CommandRejected to LoggingValue`.toLoggingValue(update)
+  }
+
+  private object Logging {
+    def recordTime(timestamp: Timestamp): LoggingEntry =
+      "recordTime" -> timestamp.toInstant
+
+    def submissionId(id: Ref.SubmissionId): LoggingEntry =
+      "submissionId" -> id
+
+    def submissionIdOpt(id: Option[Ref.SubmissionId]): LoggingEntry =
+      "submissionId" -> id
+
+    def participantId(id: Ref.ParticipantId): LoggingEntry =
+      "participantId" -> id
+
+    def commandId(id: Ref.CommandId): LoggingEntry =
+      "commandId" -> id
+
+    def party(party: Ref.Party): LoggingEntry =
+      "party" -> party
+
+    def transactionId(id: Ref.TransactionId): LoggingEntry =
+      "transactionId" -> id
+
+    def applicationId(id: Ref.ApplicationId): LoggingEntry =
+      "applicationId" -> id
+
+    def workflowIdOpt(id: Option[Ref.WorkflowId]): LoggingEntry =
+      "workflowId" -> id
+
+    def ledgerTime(time: Timestamp): LoggingEntry =
+      "ledgerTime" -> time.toInstant
+
+    def submissionTime(time: Timestamp): LoggingEntry =
+      "submissionTime" -> time.toInstant
+
+    def configGeneration(generation: Long): LoggingEntry =
+      "configGeneration" -> generation
+
+    def maxDeduplicationTime(time: Duration): LoggingEntry =
+      "maxDeduplicationTime" -> time
+
+    def deduplicationPeriod(period: Option[DeduplicationPeriod]): LoggingEntry =
+      "deduplicationPeriod" -> period
+
+    def rejectionReason(rejectionReason: String): LoggingEntry =
+      "rejectionReason" -> rejectionReason
+
+    def rejectionReason(
+        rejectionReasonTemplate: CommandRejected.RejectionReasonTemplate
+    ): LoggingEntry =
+      "rejectionReason" -> rejectionReasonTemplate
+
+    def displayName(name: String): LoggingEntry =
+      "displayName" -> name
+
+    def sourceDescriptionOpt(description: Option[String]): LoggingEntry =
+      "sourceDescription" -> description
+
+    def submitter(parties: List[Ref.Party]): LoggingEntry =
+      "submitter" -> parties
+
+    def completionInfo(info: Option[CompletionInfo]): LoggingEntry =
+      "completion" -> info
+  }
+
 }

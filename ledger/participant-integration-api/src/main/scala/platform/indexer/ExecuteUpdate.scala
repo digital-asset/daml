@@ -3,21 +3,16 @@
 
 package com.daml.platform.indexer
 
-import java.time.Duration
-
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.codahale.metrics.Timer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
-import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
@@ -75,7 +70,6 @@ object ExecuteUpdate {
 
 trait ExecuteUpdate {
   import state.Update._
-  import state._
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -228,146 +222,6 @@ trait ExecuteUpdate {
         )
     }
   }
-
-  private[indexer] def loggingEntriesFor(
-      offset: Offset,
-      update: Update,
-  ): LoggingEntries =
-    loggingEntriesFor(update) :+
-      "updateRecordTime" -> update.recordTime.toInstant :+
-      "updateOffset" -> offset
-
-  private def loggingEntriesFor(update: Update): LoggingEntries =
-    update match {
-      case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
-        LoggingEntries(
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.configGeneration(newConfiguration.generation),
-          Logging.maxDeduplicationTime(newConfiguration.maxDeduplicationTime),
-        )
-      case ConfigurationChangeRejected(
-            _,
-            submissionId,
-            participantId,
-            proposedConfiguration,
-            rejectionReason,
-          ) =>
-        LoggingEntries(
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.configGeneration(proposedConfiguration.generation),
-          Logging.maxDeduplicationTime(proposedConfiguration.maxDeduplicationTime),
-          Logging.rejectionReason(rejectionReason),
-        )
-      case PartyAddedToParticipant(party, displayName, participantId, _, submissionId) =>
-        LoggingEntries(
-          Logging.submissionIdOpt(submissionId),
-          Logging.participantId(participantId),
-          Logging.party(party),
-          Logging.displayName(displayName),
-        )
-      case PartyAllocationRejected(submissionId, participantId, _, rejectionReason) =>
-        LoggingEntries(
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.rejectionReason(rejectionReason),
-        )
-      case PublicPackageUpload(_, sourceDescription, _, submissionId) =>
-        LoggingEntries(
-          Logging.submissionIdOpt(submissionId),
-          Logging.sourceDescriptionOpt(sourceDescription),
-        )
-      case PublicPackageUploadRejected(submissionId, _, rejectionReason) =>
-        LoggingEntries(
-          Logging.submissionId(submissionId),
-          Logging.rejectionReason(rejectionReason),
-        )
-      case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _, _) =>
-        LoggingEntries(
-          Logging.transactionId(transactionId),
-          Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
-          Logging.workflowIdOpt(transactionMeta.workflowId),
-          Logging.submissionTime(transactionMeta.submissionTime),
-        ) ++ optSubmitterInfo
-          .map(info =>
-            LoggingEntries(
-              Logging.submitter(info.actAs),
-              Logging.applicationId(info.applicationId),
-              Logging.commandId(info.commandId),
-              Logging.deduplicationPeriod(info.optDeduplicationPeriod),
-            )
-          )
-          .getOrElse(LoggingEntries.empty)
-      case CommandRejected(_, completionInfo, reason) =>
-        LoggingEntries(
-          Logging.submitter(completionInfo.actAs),
-          Logging.applicationId(completionInfo.applicationId),
-          Logging.commandId(completionInfo.commandId),
-          Logging.deduplicationPeriod(completionInfo.optDeduplicationPeriod),
-          Logging.rejectionReason(reason),
-        )
-    }
-
-  private object Logging {
-    import com.daml.lf.data.logging._
-
-    def submissionId(id: Ref.SubmissionId): LoggingEntry =
-      "submissionId" -> id
-
-    def submissionIdOpt(id: Option[Ref.SubmissionId]): LoggingEntry =
-      "submissionId" -> id
-
-    def participantId(id: Ref.ParticipantId): LoggingEntry =
-      "participantId" -> id
-
-    def commandId(id: Ref.CommandId): LoggingEntry =
-      "commandId" -> id
-
-    def party(party: Ref.Party): LoggingEntry =
-      "party" -> party
-
-    def transactionId(id: Ref.TransactionId): LoggingEntry =
-      "transactionId" -> id
-
-    def applicationId(id: Ref.ApplicationId): LoggingEntry =
-      "applicationId" -> id
-
-    def workflowIdOpt(id: Option[Ref.WorkflowId]): LoggingEntry =
-      "workflowId" -> id
-
-    def ledgerTime(time: Timestamp): LoggingEntry =
-      "ledgerTime" -> time.toInstant
-
-    def submissionTime(time: Timestamp): LoggingEntry =
-      "submissionTime" -> time.toInstant
-
-    def configGeneration(generation: Long): LoggingEntry =
-      "configGeneration" -> generation
-
-    def maxDeduplicationTime(time: Duration): LoggingEntry =
-      "maxDeduplicationTime" -> time
-
-    def deduplicationPeriod(period: Option[state.DeduplicationPeriod]): LoggingEntry =
-      "deduplicationPeriod" -> period
-
-    def rejectionReason(rejectionReason: String): LoggingEntry =
-      "rejectionReason" -> rejectionReason
-
-    def rejectionReason(
-        rejectionReasonTemplate: state.Update.CommandRejected.RejectionReasonTemplate
-    ): LoggingEntry =
-      "rejectionReason" -> rejectionReasonTemplate
-
-    def displayName(name: String): LoggingEntry =
-      "displayName" -> name
-
-    def sourceDescriptionOpt(description: Option[String]): LoggingEntry =
-      "sourceDescription" -> description
-
-    def submitter(parties: List[Ref.Party]): LoggingEntry =
-      "submitter" -> parties
-  }
 }
 
 class PipelinedExecuteUpdate(
@@ -377,8 +231,6 @@ class PipelinedExecuteUpdate(
     private[indexer] val updatePreparationParallelism: Int,
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
-  import state.Update._
-
   private def insertTransactionState(
       timedPipelinedUpdate: PipelinedUpdateWithTimer
   ): Future[PipelinedUpdateWithTimer] = timedPipelinedUpdate.preparedUpdate match {
@@ -407,8 +259,9 @@ class PipelinedExecuteUpdate(
       timedPipelinedUpdate: PipelinedUpdateWithTimer
   ): Future[PersistenceResponse] = {
     val pipelinedUpdate = timedPipelinedUpdate.preparedUpdate
-    withEnrichedLoggingContextFrom(
-      loggingEntriesFor(pipelinedUpdate.offsetStep.offset, pipelinedUpdate.update)
+    withEnrichedLoggingContext(
+      "offset" -> pipelinedUpdate.offsetStep.offset,
+      "update" -> pipelinedUpdate.update,
     ) { implicit loggingContext =>
       Timed.future(
         metrics.daml.indexer.stateUpdateProcessing, {
@@ -429,7 +282,7 @@ class PipelinedExecuteUpdate(
 
   private def completeTransactionInsertion(
       offsetStep: OffsetStep,
-      tx: TransactionAccepted,
+      tx: state.Update.TransactionAccepted,
       pipelinedInsertTimer: Timer.Context,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed
@@ -493,13 +346,11 @@ class AtomicExecuteUpdate(
     private[indexer] implicit val loggingContext: LoggingContext,
     private[indexer] val executionContext: ExecutionContext,
 ) extends ExecuteUpdate {
-  import state.Update._
-
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
       .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
-        withEnrichedLoggingContextFrom(loggingEntriesFor(offsetStep.offset, update)) {
+        withEnrichedLoggingContext("offset" -> offsetStep.offset, "update" -> update) {
           implicit loggingContext =>
             Timed.future(
               metrics.daml.indexer.stateUpdateProcessing,
@@ -515,7 +366,7 @@ class AtomicExecuteUpdate(
     preparedUpdate match {
       case PreparedTransactionInsert(
             offsetStep,
-            TransactionAccepted(
+            state.Update.TransactionAccepted(
               optCompletionInfo,
               transactionMeta,
               transaction,
