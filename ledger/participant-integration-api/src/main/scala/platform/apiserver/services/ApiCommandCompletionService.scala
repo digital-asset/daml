@@ -16,7 +16,6 @@ import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
@@ -52,26 +51,22 @@ private[apiserver] final class ApiCommandCompletionService private (
 
         completionsService
           .getCompletions(offset, request.applicationId, request.parties)
-          .via(logger.debugStream(completionsLoggable))
+          .via(logger.debugStream(completionsLogLine))
           .via(logger.logErrorsOnStream)
           .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
     }
 
-  private def completionsLoggable(response: CompletionStreamResponse): String =
-    s"Responding with completions: ${response.completions.toList
-      .map(c => singleCompletionLoggable(c.commandId, c.status.map(_.code)))}"
-
-  private def singleCompletionLoggable(
-      commandId: String,
-      statusCode: Option[Int],
-  ): LoggingEntries =
-    LoggingEntries(
-      logging.commandId(commandId),
-      "statusCode" -> statusCode.fold("")(_.toString),
-    )
-
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
+
+  private def completionsLogLine(response: CompletionStreamResponse): String = {
+    val completionsString = response.completions.view
+      .map(c =>
+        s"{commandId: ${c.commandId}, statusCode: ${c.status.fold("none")(_.code.toString)}}"
+      )
+      .mkString("[", ", ", "]")
+    s"Responding with completions: $completionsString"
+  }
 
 }
 
