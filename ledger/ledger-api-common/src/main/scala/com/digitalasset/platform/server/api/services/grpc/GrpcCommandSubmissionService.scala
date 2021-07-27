@@ -5,6 +5,7 @@ package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
@@ -14,11 +15,10 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest,
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
-import com.daml.lf.data.Ref
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
+import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.daml.telemetry.{DefaultTelemetry, SpanAttribute, TelemetryContext}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
@@ -32,7 +32,7 @@ class GrpcCommandSubmissionService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
-    generateSubmissionId: () => Ref.SubmissionId,
+    submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends ApiCommandSubmissionService
@@ -42,7 +42,7 @@ class GrpcCommandSubmissionService(
   protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   private val validator = new SubmitRequestValidator(
-    new CommandsValidator(ledgerId, generateSubmissionId)
+    new CommandsValidator(ledgerId, submissionIdGenerator)
   )
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {

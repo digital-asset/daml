@@ -5,11 +5,11 @@ package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
-import com.daml.lf.data.Ref
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.google.protobuf.empty.Empty
@@ -24,7 +24,7 @@ class GrpcCommandService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
-    generateSubmissionId: () => Ref.SubmissionId,
+    generateSubmissionId: SubmissionIdGenerator,
 )(implicit executionContext: ExecutionContext)
     extends CommandService
     with GrpcApiService

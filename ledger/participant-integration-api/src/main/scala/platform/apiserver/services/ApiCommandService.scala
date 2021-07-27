@@ -4,13 +4,13 @@
 package com.daml.platform.apiserver.services
 
 import java.time.Instant
-import java.util.UUID
 
 import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -28,7 +28,6 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.ledger.configuration.{Configuration => LedgerConfiguration}
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -211,7 +210,7 @@ private[apiserver] object ApiCommandService {
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
         ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
-      generateSubmissionId = () => Ref.SubmissionId.assertFromString(UUID.randomUUID().toString),
+      generateSubmissionId = SubmissionIdGenerator.Random,
     )
 
   final case class Configuration(

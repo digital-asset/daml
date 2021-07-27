@@ -49,7 +49,7 @@ class GrpcCommandSubmissionServiceSpec
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
-        generateSubmissionId = () => Ref.SubmissionId.assertFromString("submissionId"),
+        submissionIdGenerator = () => Ref.SubmissionId.assertFromString("submissionId"),
         metrics = new Metrics(new MetricRegistry),
       )
 
@@ -74,21 +74,19 @@ class GrpcCommandSubmissionServiceSpec
 }
 
 object GrpcCommandSubmissionServiceSpec {
-  private val aCommand = {
-    Command(
-      Command.Command.Create(
-        CreateCommand(
-          Some(Identifier("package", moduleName = "module", entityName = "entity")),
-          Some(
-            Record(
-              Some(Identifier("package", moduleName = "module", entityName = "entity")),
-              Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
-            )
-          ),
-        )
+  private val aCommand = Command.of(
+    Command.Command.Create(
+      CreateCommand(
+        Some(Identifier("package", moduleName = "module", entityName = "entity")),
+        Some(
+          Record(
+            Some(Identifier("package", moduleName = "module", entityName = "entity")),
+            Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
+          )
+        ),
       )
     )
-  }
+  )
 
   private val aSubmitRequest = submitRequest.copy(
     commands = Some(commands.copy(commands = Seq(aCommand)))

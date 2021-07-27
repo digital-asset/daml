@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.UUID
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.ledger.api.DomainMocks
+import com.daml.ledger.api.{DomainMocks, SubmissionIdGenerator}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
@@ -126,7 +126,7 @@ class SubmitRequestValidatorTest
 
   private def unexpectedError = sys.error("unexpected error")
 
-  val generateRandomSubmissionId =
+  private val generateRandomSubmissionId: SubmissionIdGenerator =
     () => Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   "CommandSubmissionRequestValidator" when {
@@ -161,7 +161,7 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a missing workflowId" in {
-        val generateSubmissionId = () => submissionId.unwrap
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.withWorkflowId(""),
@@ -242,7 +242,7 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a single submitter specified in the actAs fields" in {
-        val generateSubmissionId = () => submissionId.unwrap
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator
           .validateCommands(
@@ -254,7 +254,7 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a single submitter specified in party, actAs, and readAs fields" in {
-        val generateSubmissionId = () => submissionId.unwrap
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator
           .validateCommands(
@@ -267,7 +267,7 @@ class SubmitRequestValidatorTest
 
       "advance ledger time if minLedgerTimeAbs is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
-        val generateSubmissionId = () => submissionId.unwrap
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.copy(
@@ -281,7 +281,7 @@ class SubmitRequestValidatorTest
 
       "advance ledger time if minLedgerTimeRel is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
-        val generateSubmissionId = () => submissionId.unwrap
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.copy(
@@ -324,7 +324,7 @@ class SubmitRequestValidatorTest
       }
 
       "default to maximum deduplication time if deduplication time is missing" in {
-        val generateSubmissionId = () => submissionId.unwrap
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.copy(deduplicationTime = None),

@@ -6,7 +6,6 @@ package com.daml.ledger.api.validation
 import java.time.{Duration, Instant}
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
@@ -16,6 +15,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   ExerciseByKey => ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
+import com.daml.ledger.api.{SubmissionIdGenerator, domain}
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
@@ -27,7 +27,7 @@ import scalaz.syntax.tag._
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: LedgerId, generateSubmissionId: () => Ref.SubmissionId) {
+final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: SubmissionIdGenerator) {
 
   import ValueValidator._
 
@@ -46,7 +46,7 @@ final class CommandsValidator(ledgerId: LedgerId, generateSubmissionId: () => Re
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
-      submissionId = domain.SubmissionId(generateSubmissionId())
+      submissionId = domain.SubmissionId(submissionIdGenerator.generate())
       submitters <- CommandsValidator.validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
