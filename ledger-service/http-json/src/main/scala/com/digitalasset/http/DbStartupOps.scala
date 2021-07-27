@@ -7,7 +7,6 @@ import com.daml.http.dbbackend.ContractDao
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import cats.effect.IO
 import com.daml.http.util.Logging.InstanceUUID
-import scalaz.std.option._
 
 object DbStartupOps {
 
@@ -25,23 +24,23 @@ object DbStartupOps {
   def getDbVersionState(implicit
       dao: ContractDao,
       lc: LoggingContextOf[InstanceUUID],
-  ): IO[Option[DbVersionState]] = {
-    import dao.jdbcDriver
+  ): IO[Either[Throwable, DbVersionState]] = {
+    import dao.jdbcDriver, scalaz.Scalaz._
     for {
       _ <- IO(logger.info("Checking for existing schema in the DB"))
       currentSchemaVersion = jdbcDriver.queries.schemaVersion
       getVersionResult <- dao.transact(jdbcDriver.queries.version()).attempt
     } yield getVersionResult
-      .fold(
+      .bimap(
         { err =>
           logger.error("Failed to query DB schema version", err)
-          none
+          err
         },
         {
-          case None => some(Missing)
-          case Some(version) =>
-            if (version != currentSchemaVersion) some(Mismatch(currentSchemaVersion, version))
-            else some(UpToDate)
+          case None => Missing
+          case Some(version: Int) =>
+            if (version != currentSchemaVersion) Mismatch(currentSchemaVersion, version)
+            else UpToDate
         },
       )
   }
@@ -64,7 +63,7 @@ object DbStartupOps {
   ): IO[Boolean] = {
     def checkDbVersionStateAnd(createOrUpdate: Boolean): IO[Boolean] = {
       val ioFalse = IO.pure(false)
-      val dbVersionState: IO[Option[DbVersionState]] = getDbVersionState
+      val dbVersionState = getDbVersionState
       val hintMsg = "Re-create the schema via `start-mode=create-only` in the jdbc config"
       dbVersionState.flatMap(_.map {
         case Missing =>

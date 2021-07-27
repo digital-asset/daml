@@ -55,7 +55,7 @@ class HttpServiceWithPostgresIntTest
       implicit lc =>
         for {
           res1 <- getDbVersionState
-        } yield res1 shouldBe Some(Missing)
+        } yield res1 shouldBe Right(Missing)
     }
 
     "getDbVersionState will return Mismatch when the schema version exists but isn't equal to the current one" in withFreshDb {
@@ -69,7 +69,7 @@ class HttpServiceWithPostgresIntTest
             sql"INSERT INTO json_api_schema_version(version) VALUES($wrongVersion)".update.run
           )
           res2 <- getDbVersionState
-        } yield res2 shouldBe Some(Mismatch(jdbcDriver.queries.schemaVersion, wrongVersion))
+        } yield res2 shouldBe Right(Mismatch(jdbcDriver.queries.schemaVersion, wrongVersion))
     }
 
     "getDbVersionState will return UpToDate when the schema version exists and is equal to the current one" in withFreshDb {
@@ -78,7 +78,7 @@ class HttpServiceWithPostgresIntTest
           res1 <- fromStartupMode(dao, CreateOnly)
           _ = res1 shouldBe true
           res2 <- getDbVersionState
-        } yield res2 shouldBe Some(UpToDate)
+        } yield res2 shouldBe Right(UpToDate)
     }
 
     "fromStartupMode called with StartOnly will succeed when the schema version exists and is equal to the current one" in withFreshDb {
