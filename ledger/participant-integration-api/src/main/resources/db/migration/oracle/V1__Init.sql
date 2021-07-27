@@ -185,7 +185,7 @@ CREATE TABLE participant_command_completions
 
     transaction_id    NVARCHAR2(1000), -- null if the command was rejected and checkpoints
     status_code       INTEGER,         -- null for successful command and checkpoints
-    status_message    NVARCHAR2(1000)  -- null for successful command and checkpoints
+    status_message    CLOB  -- null for successful command and checkpoints
 );
 
 create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id);
