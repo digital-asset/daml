@@ -382,13 +382,12 @@ private class JdbcLedgerDao(
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
-              val completionInfo =
-                for {
-                  appId <- tx.applicationId
-                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs)
-                  cmdId <- tx.commandId
-                  subId <- tx.submissionId
-                } yield state.CompletionInfo(actAs, appId, cmdId, None, subId)
+              val completionInfo = for {
+                actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs)
+                applicationId <- tx.applicationId
+                commandId <- tx.commandId
+                submissionId <- tx.submissionId
+              } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
 
               sequentialIndexer.store(
                 connection,

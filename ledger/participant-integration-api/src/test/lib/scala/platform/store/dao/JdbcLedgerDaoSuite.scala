@@ -695,10 +695,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected def completionInfoFrom(entry: LedgerEntry.Transaction): Option[state.CompletionInfo] =
     for {
       actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs)
-      app <- entry.applicationId
-      cmd <- entry.commandId
-      subId <- entry.submissionId
-    } yield state.CompletionInfo(actAs, app, cmd, None, subId)
+      applicationId <- entry.applicationId
+      commandId <- entry.commandId
+      submissionId <- entry.submissionId
+    } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
 
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction)
