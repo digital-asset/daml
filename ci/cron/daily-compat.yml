@@ -142,7 +142,7 @@ jobs:
           source $(bash_lib)
 
           tmp=$(mktemp -d)/out.json
-          bazel run //ledger-service/http-json:contractdao-bench -rf json -rff $tmp >&2
+          bazel run //ledger-service/http-json:contractdao-bench -- -rf json -rff $tmp >&2
           cat $tmp
         displayName: measure perf
 
