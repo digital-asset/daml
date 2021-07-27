@@ -16,7 +16,7 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
-import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.language.{Interface, LanguageVersion, StablePackages}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
@@ -452,7 +452,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     for {
       _ <- pkgs
         .collectFirst {
-          case (pkgId, pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+          case (pkgId, pkg)
+              if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+                .contains(pkg.languageVersion) =>
             Error.Package.AllowedLanguageVersion(
               pkgId,
               pkg.languageVersion,

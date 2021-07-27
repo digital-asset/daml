@@ -11,9 +11,10 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.VersionRange
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
@@ -40,7 +41,7 @@ final case class Config[Extra](
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    engineMode: EngineMode,
+    allowedLanguageVersions: VersionRange[LanguageVersion],
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
@@ -73,7 +74,7 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      engineMode = EngineMode.Stable,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
@@ -486,7 +487,7 @@ object Config {
 
         opt[Unit]("early-access")
           .optional()
-          .action((_, c) => c.copy(engineMode = EngineMode.EarlyAccess))
+          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions))
           .text(
             "Enable preview version of the next Daml-LF language. Should not be used in production."
           )
@@ -494,9 +495,21 @@ object Config {
         opt[Unit]("daml-lf-dev-mode-unsafe")
           .optional()
           .hidden()
-          .action((_, c) => c.copy(engineMode = EngineMode.Dev))
+          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.DevVersions))
           .text(
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
+          )
+
+        opt[Unit]("daml-lf-min-version-1.14-unsafe")
+          .optional()
+          .hidden()
+          .action((_, c) =>
+            c.copy(allowedLanguageVersions =
+              c.allowedLanguageVersions.copy(min = LanguageVersion.v1_14)
+            )
+          )
+          .text(
+            "Set minimum LF version for unstable packages to 1.14. Should not be used in production."
           )
 
         // TODO append-only: remove after removing support for the current (mutating) schema
@@ -550,13 +563,4 @@ object Config {
     extraOptions(parser)
     parser
   }
-
-  sealed abstract class EngineMode extends Product with Serializable
-
-  object EngineMode {
-    final case object Stable extends EngineMode
-    final case object EarlyAccess extends EngineMode
-    final case object Dev extends EngineMode
-  }
-
 }
