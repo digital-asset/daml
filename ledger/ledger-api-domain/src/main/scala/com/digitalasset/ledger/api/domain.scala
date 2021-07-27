@@ -10,6 +10,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.data.logging._
 import com.daml.lf.value.{Value => Lf}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
@@ -288,9 +289,26 @@ object domain {
     lazy val deduplicateUntil: Instant = submittedAt.plus(deduplicationDuration)
   }
 
-  /** @param party The stable unique identifier of a Daml party.
+  object Commands {
+
+    import Logging._
+
+    implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands =>
+      LoggingValue.Nested.fromEntries(
+        "ledgerId" -> commands.ledgerId,
+        "workflowId" -> commands.workflowId,
+        "applicationId" -> commands.applicationId,
+        "commandId" -> commands.commandId,
+        "actAs" -> commands.actAs,
+        "readAs" -> commands.readAs,
+        "submittedAt" -> commands.submittedAt,
+        "deduplicationDuration" -> commands.deduplicationDuration,
+      )
+  }
+
+  /** @param party      The stable unique identifier of a Daml party.
     * @param displayName Human readable name associated with the party. Might not be unique.
-    * @param isLocal True if party is hosted by the backing participant.
+    * @param isLocal     True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
 
@@ -337,5 +355,10 @@ object domain {
         recordTime: Instant,
         reason: String,
     ) extends PackageEntry
+  }
+
+  object Logging {
+    implicit def `tagged value to LoggingValue`[T: ToLoggingValue, Tag]: ToLoggingValue[T @@ Tag] =
+      value => value.unwrap
   }
 }
