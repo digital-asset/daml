@@ -372,8 +372,8 @@ final class JsonApiIt
           run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"))
         )
       } yield {
-        exception.cause.getMessage should include regex (
-          "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
+        exception.cause.getMessage should include(
+          "Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
         )
       }
     }
