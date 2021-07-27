@@ -12,6 +12,7 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import doobie.util.log
 import org.scalatest.Assertion
 import spray.json.{JsString, JsValue}
+import scala.collection.compat._
 
 import scala.concurrent.Future
 
