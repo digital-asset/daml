@@ -69,6 +69,7 @@ object ConnectionPool {
     val c = new HikariConfig()
     c.setJdbcUrl(cfg.url)
     c.setUsername(cfg.user)
+    c.setAutoCommit(false)
     c.setPassword(cfg.password)
     c.setMinimumIdle(MinIdle)
     c.setPoolName("json-api-jdbc-pool")
