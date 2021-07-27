@@ -24,7 +24,6 @@ javafmt_args=(--set-exit-if-changed --replace)
 diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
-buf_args=(build -o "${buf_image}")
 
 ## Functions ##
 
@@ -69,6 +68,7 @@ Usage: ./fmt.sh [options]
 Options:
   -h, --help: shows this help
   --test:     only test for formatting changes, used by CI
+  --rebuild-buf-image:  rebuilds reference image used for buf breaking checks
 USAGE
       exit
       ;;
@@ -79,14 +79,17 @@ USAGE
       javafmt_args=(--set-exit-if-changed --dry-run)
       dade_copyright_arg=check
       buildifier_target=//:buildifier
-      buf_args=(check breaking --against "${buf_image}")
       ;;
     --diff)
       shift
       merge_base="$(git merge-base origin/main HEAD)"
       scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
-      buf_args=(check breaking --against "${buf_image}")
       diff_mode=true
+      ;;
+    --rebuild-buf-image)
+      shift
+      run buf build -o "${buf_image}"
+      exit
       ;;
     *)
       echo "fmt.sh: unknown argument $1" >&2
@@ -153,8 +156,8 @@ run scalafmt "${scalafmt_args[@]:-}"
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
 
-# Run buf checks or rebuild reference image.
-run buf "${buf_args[@]:-}"
+# Run buf checks.
+run buf check breaking --against "${buf_image}"
 
 # Note that we cannot use a symlink here because Windows.
 if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then
