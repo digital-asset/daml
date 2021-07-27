@@ -158,9 +158,9 @@ object ValueCoder {
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
     } yield VersionedValue(version, value)
 
-  // We need (3 * MAXIMUM_NESTING + 1) as record and maps use :
-  // - 3 messages for the cases of non empty records/maps)
-  // - 2 messages for the cases of empty records/maps
+  // We need (3 * MAXIMUM_NESTING + 1) as record and maps use:
+  // - 3 nested messages for the cases of non empty records/maps)
+  // - 2 nested messages for the cases of empty records/maps
   // Note the number of recursions is one less than the number of nested messages.
   private[this] val MAXIMUM_PROTO_RECURSION_LIMIT = 3 * MAXIMUM_NESTING + 1
 
@@ -172,9 +172,9 @@ object ValueCoder {
 
   def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
     Try {
-      val cos = CodedInputStream.newInstance(bytes.asReadOnlyByteBuffer())
-      cos.setRecursionLimit(MAXIMUM_PROTO_RECURSION_LIMIT)
-      proto.Value.parseFrom(cos)
+      val cis = CodedInputStream.newInstance(bytes.asReadOnlyByteBuffer())
+      cis.setRecursionLimit(MAXIMUM_PROTO_RECURSION_LIMIT)
+      proto.Value.parseFrom(cis)
     } match {
       case Failure(exception: Error) =>
         Left(DecodeError("cannot parse proto Value: " + exception.getMessage))
