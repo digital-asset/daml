@@ -447,6 +447,7 @@ da_scala_benchmark_jmh(
     ],
     deps = [
         ":http-json",
+        "//daml-lf/interface",
         "//language-support/scala/bindings",
         "//ledger-service/db-backend",
         "//ledger-service/http-json-cli:base",
