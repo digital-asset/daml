@@ -34,7 +34,7 @@ object DbStartupOps {
     } yield getVersionResult
       .fold(
         { err =>
-          logger.error("Failed to query db schema version", err)
+          logger.error("Failed to query DB schema version", err)
           none
         },
         {
@@ -51,7 +51,10 @@ object DbStartupOps {
     for {
       _ <- IO(logger.info(s"Creating DB schema, version ${jdbcDriver.queries.schemaVersion}"))
       res <- dao.transact(ContractDao.initialize).attempt
-      _ = if (res.isRight) logger.info("DB schema created...")
+      _ = res.fold(
+        e => logger.error("Failed to initialize DB", e),
+        _ => logger.info("DB schema created..."),
+      )
     } yield res.isRight
   }
 
