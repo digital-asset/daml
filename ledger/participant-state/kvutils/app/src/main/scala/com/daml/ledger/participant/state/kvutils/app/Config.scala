@@ -500,7 +500,7 @@ object Config {
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
-        opt[Unit]("daml-lf-min-version-1.14")
+        opt[Unit]("daml-lf-min-version-1.14-unsafe")
           .optional()
           .hidden()
           .action((_, c) =>

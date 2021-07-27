@@ -151,7 +151,7 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--daml-lf-min-version-1.14",
+        "--daml-lf-min-version-1.14-unsafe",
     ],
 )
 
