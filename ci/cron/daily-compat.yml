@@ -115,6 +115,33 @@ jobs:
           targetPath: $(Build.StagingDirectory)/perf-results-speedy.json
           artifactName: perf-speedy
 
+  - job: perf_http_json_jmh
+    timeoutInMinutes: 120
+    pool:
+      name: "ubuntu_20_04"
+      demands: assignment -equals default
+    steps:
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel for root workspace'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          source $(bash_lib)
+
+          tmp=$(mktemp -d)/out.json
+          bazel run //ledger-service/http-json:contractdao-bench -rff $tmp >&2
+          cat $tmp
+        displayName: measure perf
+
   - job: perf_http_json
     timeoutInMinutes: 120
     pool:
