@@ -79,6 +79,7 @@ import qualified Data.Text.IO           as T.IO
 import qualified Data.HashSet as HashSet
 import Network.URI
 import qualified System.FilePath        as FilePath
+import qualified System.FilePath.Posix  as FPP
 import qualified System.Directory       as Directory
 import qualified Data.Time.Clock        as Clock
 import           System.FilePath        ((</>))
@@ -290,8 +291,9 @@ parseShakeProfileJSON testDir json =
     , Aeson.Array entry <- V.toList entries
      -- Number == 0, built in the last run
     , Aeson.String name : _ : Aeson.Number 0 : _ <- [V.toList entry]
-    , Just res <- [stripInfix "; " $ replace (FilePath.addTrailingPathSeparator testDir) "" $ T.unpack name]
+    , Just res <- [stripInfix "; " $ replace (FPP.addTrailingPathSeparator testDir') "" $ T.unpack name]
     ]
+  where testDir' = D.fromNormalizedFilePath $ D.toNormalizedFilePath' testDir
 
 
 getVirtualResources :: ShakeTest (Map VirtualResource T.Text)
