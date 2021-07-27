@@ -347,7 +347,7 @@ private[lf] final class Compiler(
 
     interface.lookupPackage(pkgId) match {
       case Right(pkg)
-          if !StablePackages.ids.contains(pkgId) && !config.allowedLanguageVersions
+          if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
             .contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
