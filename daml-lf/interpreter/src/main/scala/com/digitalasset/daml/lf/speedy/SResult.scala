@@ -1,9 +1,9 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
-import com.daml.lf.CompiledPackages
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
@@ -45,6 +45,7 @@ object SResult {
     */
   final case class SResultNeedPackage(
       pkg: PackageId,
+      context: language.Reference,
       callback: CompiledPackages => Unit,
   ) extends SResult
 

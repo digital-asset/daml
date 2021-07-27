@@ -467,6 +467,7 @@ private[lf] object Speedy {
                 throw SpeedyHungry(
                   SResultNeedPackage(
                     ref.packageId,
+                    language.Reference.Package(ref.packageId),
                     { packages =>
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller

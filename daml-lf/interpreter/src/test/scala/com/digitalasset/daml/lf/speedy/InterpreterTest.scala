@@ -231,7 +231,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
-        case SResultNeedPackage(pkgId, cb) =>
+        case SResultNeedPackage(pkgId, _, cb) =>
           ref.packageId shouldBe pkgId
           cb(pkgs2)
           val result = machine.run()
@@ -246,7 +246,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
-        case SResultNeedPackage(pkgId, cb) =>
+        case SResultNeedPackage(pkgId, _, cb) =>
           ref.packageId shouldBe pkgId
           try {
             cb(pkgs3)

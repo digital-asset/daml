@@ -1410,6 +1410,7 @@ private[lf] object SBuiltin {
         throw SpeedyHungry(
           SResultNeedPackage(
             tyCon.packageId,
+            language.Reference.Exception(tyCon),
             { packages =>
               machine.compiledPackages = packages
               exceptionMessage(tyCon, exception, machine)
