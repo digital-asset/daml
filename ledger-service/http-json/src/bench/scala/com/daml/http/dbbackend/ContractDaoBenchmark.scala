@@ -52,11 +52,12 @@ abstract class ContractDaoBenchmark extends OracleAround {
       id: Int,
       signatory: String,
       tpid: SurrogateTpId,
+      payload: JsObject = JsObject(),
   ): DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]] = DBContract(
     contractId = s"#$id",
     templateId = tpid,
     key = JsNull,
-    payload = JsObject(),
+    payload = payload,
     signatories = Seq(signatory),
     observers = Seq.empty,
     agreementText = "",
@@ -71,13 +72,18 @@ abstract class ContractDaoBenchmark extends OracleAround {
       .unsafeRunSync()
   }
 
-  protected def insertBatch(signatory: String, tpid: SurrogateTpId, offset: Int) = {
+  protected def insertBatch(
+      signatory: String,
+      tpid: SurrogateTpId,
+      offset: Int,
+      payload: JsObject = JsObject(),
+  ) = {
     val driver = dao.jdbcDriver
     import driver._
     val contracts: List[DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]]] =
       (0 until batchSize).map { i =>
         val n = offset + i
-        contract(n, signatory, tpid)
+        contract(n, signatory, tpid, payload)
       }.toList
     val inserted = dao
       .transact(driver.queries.insertContracts[List, JsValue, JsValue](contracts))
