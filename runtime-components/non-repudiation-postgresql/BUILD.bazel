@@ -40,7 +40,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-        "//ledger/test-common:dar-files-stable",
+        "//ledger/test-common:dar-files-default",
     ],
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -57,9 +57,9 @@ da_scala_test(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/caching",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-api-test-tool:ledger-api-test-tool-stable-lib",
-        "//ledger/ledger-api-test-tool:ledger-api-test-tool-stable-test-suites",
-        "//ledger/ledger-api-test-tool:ledger-api-test-tool-stable-tests",
+        "//ledger/ledger-api-test-tool:ledger-api-test-tool-default-lib",
+        "//ledger/ledger-api-test-tool:ledger-api-test-tool-default-test-suites",
+        "//ledger/ledger-api-test-tool:ledger-api-test-tool-default-tests",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/sandbox",

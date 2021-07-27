@@ -6,7 +6,7 @@ package com.daml.http.dbbackend
 import cats.effect._
 import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
-import com.daml.http.domain
+import com.daml.http.{JdbcConfig, domain}
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
 import com.daml.scalautil.nonempty.+-:
 import doobie.LogHandler
@@ -14,24 +14,58 @@ import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
+import org.slf4j.LoggerFactory
 import scalaz.{NonEmptyList, OneAnd}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
+import java.io.{Closeable, IOException}
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
+import scala.language.existentials
+import scala.util.Try
 
-class ContractDao private (xa: Connection.T)(implicit val jdbcDriver: SupportedJdbcDriver) {
+class ContractDao private (
+    ds: DataSource with Closeable,
+    xa: ConnectionPool.T,
+    dbAccessPool: ExecutorService,
+)(implicit
+    val jdbcDriver: SupportedJdbcDriver
+) extends Closeable {
 
-  implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[ContractDao])
+  private val logger = LoggerFactory.getLogger(classOf[ContractDao])
+  implicit val logHandler: log.LogHandler = Slf4jLogHandler(logger)
 
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
 
   def isValid(timeoutSeconds: Int): IO[Boolean] =
     fconn.isValid(timeoutSeconds).transact(xa)
+
+  def shutdown(): Try[Unit] = {
+    Try {
+      dbAccessPool.shutdown()
+      val cleanShutdown = dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
+      logger.debug(s"Clean shutdown of dbAccess pool : $cleanShutdown")
+      ds.close()
+    }
+  }
+
+  @throws[IOException]
+  override def close(): Unit = {
+    shutdown().fold(
+      {
+        case e: IOException => throw e
+        case e => throw new IOException(e)
+      },
+      identity,
+    )
+  }
 }
 
 object ContractDao {
+  import ConnectionPool.PoolSize
   private[this] val supportedJdbcDrivers = Map(
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
@@ -40,17 +74,20 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
+  def apply(cfg: JdbcConfig, poolSize: PoolSize = PoolSize.Production)(implicit
       ec: ExecutionContext
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     implicit val sjd: SupportedJdbcDriver = supportedJdbcDrivers.getOrElse(
-      jdbcDriver,
+      cfg.driver,
       throw new IllegalArgumentException(
-        s"JDBC driver $jdbcDriver is not one of ${supportedJdbcDrivers.keySet}"
+        s"JDBC driver ${cfg.driver} is not one of ${supportedJdbcDrivers.keySet}"
       ),
     )
-    new ContractDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
+    //pool for connections awaiting database access
+    val es = Executors.newWorkStealingPool(poolSize)
+    val (ds, conn) = ConnectionPool.connect(cfg, poolSize)(ExecutionContext.fromExecutor(es), cs)
+    new ContractDao(ds, conn, es)
   }
 
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] =

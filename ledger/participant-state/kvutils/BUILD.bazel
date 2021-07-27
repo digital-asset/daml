@@ -119,7 +119,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/resources",
@@ -136,7 +136,7 @@ da_scala_test_suite(
     timeout = "moderate",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
     ],
     plugins = [
         silencer_plugin,
@@ -180,7 +180,7 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_guava_guava",

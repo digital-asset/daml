@@ -219,7 +219,7 @@ da_haskell_library(
     )
     for version, skip_validation in [(version, False) for version in COMPILER_LF_VERSIONS] + [
         (
-            lf_version_configuration.get("stable"),
+            lf_version_configuration.get("default"),
             True,
         ),
         (
@@ -823,11 +823,11 @@ sh_test(
     args = [
         "$(rootpath //compiler/damlc)",
         "$(rootpath @jq_dev_env//:jq)",
-        "$(rootpath //ledger/test-common:model-tests-stable.dar)",
+        "$(rootpath //ledger/test-common:model-tests-default.dar)",
     ],
     data = [
         "//compiler/damlc",
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "@jq_dev_env//:jq",
     ],
     toolchains = [
