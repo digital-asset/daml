@@ -140,7 +140,8 @@ object Main {
             .unsafeRunSync()
         ).fold(
           { ex =>
-            logger.error("Unexpected error while checking connection or DB schema initialization", ex)
+            logger
+              .error("Unexpected error while checking connection or DB schema initialization", ex)
             terminateProcess(ErrorCodes.StartupError)
           },
           _.foreach(terminateProcess),
