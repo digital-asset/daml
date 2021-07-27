@@ -31,7 +31,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
   }
 
   // has to be lazy because postgresFixture is NOT initialized yet
-  private lazy val jdbcConfig_ =
+  protected lazy val jdbcConfig_ =
     JdbcConfig(
       driver = "org.postgresql.Driver",
       url =

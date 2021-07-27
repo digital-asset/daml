@@ -110,35 +110,45 @@ object Main {
 
     (contractDao, config.jdbcConfig) match {
       case (Some(dao), Some(c)) =>
+        import cats.effect.IO
         def terminateProcess(errorCode: Int): Unit = {
           logger.info("Terminating process...")
           terminate()
           System.exit(errorCode)
         }
-        Try(DbStartupResult.fromStartupMode(dao, c.dbStartupMode).unsafeRunSync()) match {
-          case Success(Some(DbStartupResult.Continue)) => ()
-          case Success(Some(DbStartupResult.GracefullyExit)) => terminateProcess(ErrorCodes.Ok)
-          case Success(None) => terminateProcess(ErrorCodes.StartupError)
-          case Failure(e) =>
-            logger.error("Failed processing the schema handling", e)
+        Try(
+          dao
+            .isValid(120)
+            .attempt
+            .flatMap {
+              case Left(ex) =>
+                logger.error("Unexpected error while checking database connection", ex)
+                IO.pure(some(ErrorCodes.StartupError))
+              case Right(false) =>
+                logger.error("Database connection is not valid.")
+                IO.pure(some(ErrorCodes.StartupError))
+              case Right(true) =>
+                DbStartupOps
+                  .fromStartupMode(dao, c.dbStartupMode)
+                  .map(success =>
+                    if (success)
+                      if (DbStartupOps.shouldStart(c.dbStartupMode)) none
+                      else some(ErrorCodes.Ok)
+                    else some(ErrorCodes.StartupError)
+                  )
+            }
+            .unsafeRunSync()
+        ).fold(
+          { ex =>
+            logger.error("Unexpected error while checking connection or schema initialization", ex)
             terminateProcess(ErrorCodes.StartupError)
-        }
-      case (Some(dao), _) =>
-        Try(dao.isValid(120).unsafeRunSync()).toEither match {
-          case Right(false) =>
-            logger.error("Database connection is not valid.")
-            terminate()
-            System.exit(ErrorCodes.StartupError)
-          case Left(e) =>
-            logger.error("Failed to connect to the database", e)
-            terminate()
-            System.exit(ErrorCodes.StartupError)
-          case Right(true) =>
-        }
+          },
+          _.foreach(terminateProcess),
+        )
       case _ =>
     }
 
-    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] = {
+    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] =
       metricsResource.asFuture.flatMap(implicit metrics =>
         HttpService.start(
           startSettings = config,
