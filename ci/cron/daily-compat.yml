@@ -141,6 +141,8 @@ jobs:
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
+          ./ci/start-oracle.sh
+          trap "docker rm -f oracle" EXIT
           tmp=$(mktemp -d)/out.json
           bazel run //ledger-service/http-json:contractdao-bench -- -rf json -rff $tmp >&2
           cat $tmp
