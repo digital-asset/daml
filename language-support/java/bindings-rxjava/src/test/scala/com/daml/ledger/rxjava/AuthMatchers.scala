@@ -27,4 +27,9 @@ private[rxjava] trait AuthMatchers { self: Matchers =>
       case _ => false
     }(call)
 
+  def expectDeadlineExceeded(call: => Any): Assertion =
+    expectError {
+      case GrpcException(GrpcStatus.DEADLINE_EXCEEDED(), _) => true
+      case _ => false
+    }(call)
 }
