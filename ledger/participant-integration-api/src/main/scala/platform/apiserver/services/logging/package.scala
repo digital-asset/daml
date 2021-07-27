@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.domain.{
   ApplicationId,
@@ -72,8 +72,8 @@ package object logging {
   private[services] def commandId(id: CommandId): LoggingEntry =
     "commandId" -> id.unwrap
 
-  private[services] def deduplicateUntil(instant: Instant): LoggingEntry =
-    "deduplicateUntil" -> instant
+  private[services] def deduplicationDuration(duration: Duration): LoggingEntry =
+    "deduplicationDuration" -> duration
 
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> id.unwrap
@@ -113,7 +113,7 @@ package object logging {
   private[services] def commands(cmds: Commands): LoggingEntries = {
     val context = LoggingEntries(
       commandId(cmds.commandId),
-      deduplicateUntil(cmds.deduplicateUntil),
+      deduplicationDuration(cmds.deduplicationDuration),
       applicationId(cmds.applicationId),
       submittedAt(cmds.submittedAt),
       actAs(cmds.actAs),

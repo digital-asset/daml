@@ -6,22 +6,15 @@ package com.daml.platform.indexer.parallel
 import java.time.{Duration, Instant}
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
-import com.daml.ledger.participant.state.v1.Update.{
-  CommandRejected,
-  ConfigurationChangeRejected,
-  ConfigurationChanged,
-  PartyAddedToParticipant,
-  PartyAllocationRejected,
-  PublicPackageUpload,
-  PublicPackageUploadRejected,
-  TransactionAccepted,
-}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
 
 object IndexerLoggingContext {
+  import state.Update._
+  import state._
+
   def loggingEntriesFor(
       offset: Offset,
       update: Update,

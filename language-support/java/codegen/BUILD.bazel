@@ -387,7 +387,7 @@ java_test(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    target = lf_version_configuration.get("stable"),
+    target = lf_version_configuration.get("default"),
 )
 
 dar_to_java(

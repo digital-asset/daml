@@ -14,7 +14,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteConfigService}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
@@ -77,17 +77,17 @@ class ApiConfigManagementServiceSpec
     mockIndexConfigManagementService
   }
 
-  private object TestWriteConfigService extends WriteConfigService {
+  private object TestWriteConfigService extends state.WriteConfigService {
     override def submitConfiguration(
         maxRecordTime: Time.Timestamp,
         submissionId: Ref.SubmissionId,
         config: Configuration,
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,
         anApplicationIdSpanAttribute._2,
       )
-      CompletableFuture.completedFuture(SubmissionResult.Acknowledged)
+      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
     }
   }
 }

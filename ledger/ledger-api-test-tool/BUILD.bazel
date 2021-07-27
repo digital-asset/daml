@@ -52,7 +52,7 @@ da_scala_binary(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
-    deps = [":ledger-api-test-tool-stable"],
+    deps = [":ledger-api-test-tool-default"],
 )
 
 [

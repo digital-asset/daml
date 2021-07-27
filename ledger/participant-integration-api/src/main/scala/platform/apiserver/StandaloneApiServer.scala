@@ -15,7 +15,7 @@ import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.state.v1.WriteService
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -39,15 +39,13 @@ import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-// Main entry point to start an index server that also hosts the ledger API.
-// See v2.ReferenceServer on how it is used.
 final class StandaloneApiServer(
     ledgerId: LedgerId,
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
     ledgerConfig: LedgerConfiguration,
-    optWriteService: Option[WriteService],
+    optWriteService: Option[state.WriteService],
     authService: AuthService,
     healthChecks: HealthChecks,
     metrics: Metrics,

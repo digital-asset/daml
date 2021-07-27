@@ -8,7 +8,7 @@ import java.util.UUID
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -22,9 +22,10 @@ object UpdateToDbDto {
       participantId: Ref.ParticipantId,
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
-  ): Offset => Update => Iterator[DbDto] = { offset =>
+  ): Offset => state.Update => Iterator[DbDto] = { offset =>
+    import state.Update._
     {
-      case u: Update.CommandRejected =>
+      case u: CommandRejected =>
         Iterator(
           DbDto.CommandCompletion(
             completion_offset = offset.toHexString,
@@ -44,7 +45,7 @@ object UpdateToDbDto {
           ),
         )
 
-      case u: Update.ConfigurationChanged =>
+      case u: ConfigurationChanged =>
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -56,7 +57,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.ConfigurationChangeRejected =>
+      case u: ConfigurationChangeRejected =>
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -68,7 +69,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.PartyAddedToParticipant =>
+      case u: PartyAddedToParticipant =>
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -89,7 +90,7 @@ object UpdateToDbDto {
           ),
         )
 
-      case u: Update.PartyAllocationRejected =>
+      case u: PartyAllocationRejected =>
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -103,7 +104,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.PublicPackageUpload =>
+      case u: PublicPackageUpload =>
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
           DbDto.Package(
@@ -127,7 +128,7 @@ object UpdateToDbDto {
         )
         packages ++ packageEntries
 
-      case u: Update.PublicPackageUploadRejected =>
+      case u: PublicPackageUploadRejected =>
         Iterator(
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
@@ -138,7 +139,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.TransactionAccepted =>
+      case u: TransactionAccepted =>
         // TODO append-only:
         //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
         //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well

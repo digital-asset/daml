@@ -39,7 +39,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
@@ -53,7 +53,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
-import com.daml.platform.sandbox.stores.ledger.{Ledger, TimeModelError}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.entries.{
@@ -274,14 +274,14 @@ private[sandbox] final class InMemoryLedger(
     }
 
   override def publishTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
+      submitterInfo: state.SubmitterInfo,
+      transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     Future.successful(
-      this.synchronized[SubmissionResult] {
+      this.synchronized[state.SubmissionResult] {
         handleSuccessfulTx(entries.nextTransactionId, submitterInfo, transactionMeta, transaction)
-        SubmissionResult.Acknowledged
+        state.SubmissionResult.Acknowledged
       }
     )
 
@@ -289,27 +289,24 @@ private[sandbox] final class InMemoryLedger(
   private def checkTimeModel(
       ledgerTime: Instant,
       recordTime: Instant,
-  ): Either[TimeModelError, Unit] =
+  ): Either[Rejection, Unit] =
     ledgerConfiguration
-      .toRight(TimeModelError.NoLedgerConfiguration)
+      .toRight(Rejection.NoLedgerConfiguration)
       .flatMap(config =>
-        config.timeModel
-          .checkTime(ledgerTime, recordTime)
-          .left
-          .map(TimeModelError.InvalidLedgerTime)
+        config.timeModel.checkTime(ledgerTime, recordTime).left.map(Rejection.InvalidLedgerTime)
       )
 
   private def handleSuccessfulTx(
       transactionId: Ref.LedgerString,
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
+      submitterInfo: state.SubmitterInfo,
+      transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
   )(implicit loggingContext: LoggingContext): Unit = {
     val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
     val recordTime = timeProvider.getCurrentTime
     checkTimeModel(ledgerTime, recordTime)
       .fold(
-        error => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(error.message)),
+        rejection => handleError(submitterInfo, rejection.toDomainRejectionReason),
         _ => {
           val (committedTransaction, disclosureForIndex, divulgence) =
             Ledger
@@ -356,7 +353,7 @@ private[sandbox] final class InMemoryLedger(
 
   }
 
-  private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason)(implicit
+  private def handleError(submitterInfo: state.SubmitterInfo, reason: RejectionReason)(implicit
       loggingContext: LoggingContext
   ): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
@@ -441,8 +438,8 @@ private[sandbox] final class InMemoryLedger(
       submissionId: Ref.SubmissionId,
       party: Ref.Party,
       displayName: Option[String],
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
-    Future.successful(this.synchronized[SubmissionResult] {
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
+    Future.successful(this.synchronized[state.SubmissionResult] {
       val ids = acs.parties.keySet
       if (ids.contains(party)) {
         entries.publish(
@@ -466,7 +463,7 @@ private[sandbox] final class InMemoryLedger(
           )
         )
       }
-      SubmissionResult.Acknowledged
+      state.SubmissionResult.Acknowledged
     })
 
   override def partyEntries(startExclusive: Offset)(implicit
@@ -504,7 +501,7 @@ private[sandbox] final class InMemoryLedger(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
 
     val oldStore = packageStoreRef.get
     oldStore
@@ -517,7 +514,7 @@ private[sandbox] final class InMemoryLedger(
                 .PackageUploadRejected(submissionId, timeProvider.getCurrentTime, err)
             )
           )
-          Future.successful(SubmissionResult.Acknowledged)
+          Future.successful(state.SubmissionResult.Acknowledged)
         },
         newStore => {
           if (packageStoreRef.compareAndSet(oldStore, newStore)) {
@@ -526,7 +523,7 @@ private[sandbox] final class InMemoryLedger(
                 PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)
               )
             )
-            Future.successful(SubmissionResult.Acknowledged)
+            Future.successful(state.SubmissionResult.Acknowledged)
           } else {
             uploadPackages(submissionId, knownSince, sourceDescription, payload)
           }
@@ -538,7 +535,7 @@ private[sandbox] final class InMemoryLedger(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     Future.successful {
       this.synchronized {
         val recordTime = timeProvider.getCurrentTime
@@ -571,7 +568,7 @@ private[sandbox] final class InMemoryLedger(
             entries.publish(InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, config)))
             ledgerConfiguration = Some(config)
         }
-        SubmissionResult.Acknowledged
+        state.SubmissionResult.Acknowledged
       }
     }
 

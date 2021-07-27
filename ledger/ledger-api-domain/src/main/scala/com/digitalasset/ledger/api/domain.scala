@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
@@ -276,9 +276,11 @@ object domain {
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplicateUntil: Instant,
+      deduplicationDuration: Duration,
       commands: LfCommands,
-  )
+  ) {
+    lazy val deduplicateUntil: Instant = submittedAt.plus(deduplicationDuration)
+  }
 
   /** @param party The stable unique identifier of a Daml party.
     * @param displayName Human readable name associated with the party. Might not be unique.

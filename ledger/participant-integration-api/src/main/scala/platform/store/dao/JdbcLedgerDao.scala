@@ -33,7 +33,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -429,13 +429,13 @@ private class JdbcLedgerDao(
   }
 
   override def prepareTransactionInsert(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): PreparedInsert =
     transactionsWriter.prepare(
@@ -451,9 +451,9 @@ private class JdbcLedgerDao(
 
   private def handleError(
       offset: Offset,
-      info: SubmitterInfo,
+      info: state.SubmitterInfo,
       recordTime: Instant,
-      rejectionReason: RejectionReason,
+      rejectionReason: state.RejectionReason,
   )(implicit connection: Connection): Unit = {
     stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.actAs)
     queries.prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
@@ -479,7 +479,7 @@ private class JdbcLedgerDao(
       .map(_ => Ok)(servicesExecutionContext)
 
   override def completeTransaction(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
@@ -493,13 +493,13 @@ private class JdbcLedgerDao(
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
+      divulged: Iterable[state.DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
     dbDispatcher
@@ -510,7 +510,9 @@ private class JdbcLedgerDao(
             preparedInsert.writeEvents(metrics)
             insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>
-            submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error))
+            submitterInfo.foreach(
+              handleError(offsetStep.offset, _, recordTime, error.toStateV1RejectionReason)
+            )
         }
 
         updateLedgerEnd(offsetStep)
@@ -521,8 +523,8 @@ private class JdbcLedgerDao(
   private def validate(
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
-  )(implicit connection: Connection) =
+      divulged: Iterable[state.DivulgedContract],
+  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
       postCommitValidation.validate(
@@ -533,7 +535,7 @@ private class JdbcLedgerDao(
     )
 
   private def insertCompletions(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
@@ -552,10 +554,10 @@ private class JdbcLedgerDao(
     )
 
   override def storeRejection(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: RejectionReason,
+      reason: state.RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing rejection")
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
@@ -584,7 +586,7 @@ private class JdbcLedgerDao(
                   actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs);
                   cmdId <- tx.commandId
                 )
-                  yield SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
+                  yield state.SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
               prepareTransactionInsert(
                 submitterInfo = submitterInfo,
                 workflowId = tx.workflowId,
@@ -601,10 +603,11 @@ private class JdbcLedgerDao(
             case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
               val _ = queries
                 .prepareRejectionInsert(
-                  submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
+                  submitterInfo =
+                    state.SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
-                  reason = reason,
+                  reason = reason.toParticipantStateRejectionReason,
                 )
                 .execute()
           }
@@ -967,13 +970,13 @@ private class JdbcLedgerDao(
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   override def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: OffsetStep,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
       recordTime: Instant,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
@@ -1188,7 +1191,7 @@ private[platform] object JdbcLedgerDao {
     def limit(numberOfItems: Int): String
 
     protected[JdbcLedgerDao] def prepareCompletionInsert(
-        submitterInfo: SubmitterInfo,
+        submitterInfo: state.SubmitterInfo,
         offset: Offset,
         transactionId: Ref.TransactionId,
         recordTime: Instant,
@@ -1198,10 +1201,10 @@ private[platform] object JdbcLedgerDao {
     }
 
     protected[JdbcLedgerDao] def prepareRejectionInsert(
-        submitterInfo: SubmitterInfo,
+        submitterInfo: state.SubmitterInfo,
         offset: Offset,
         recordTime: Instant,
-        reason: RejectionReason,
+        reason: state.RejectionReason,
     ): SimpleSql[Row] = {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
         .toArray[String]}, ${submitterInfo.commandId}, ${reason.code.value}, ${reason.description})"
@@ -1376,7 +1379,7 @@ private[platform] object JdbcLedgerDao {
     }
 
     override protected[JdbcLedgerDao] def prepareCompletionInsert(
-        submitterInfo: SubmitterInfo,
+        submitterInfo: state.SubmitterInfo,
         offset: Offset,
         transactionId: Ref.TransactionId,
         recordTime: Instant,
@@ -1386,10 +1389,10 @@ private[platform] object JdbcLedgerDao {
     }
 
     override protected[JdbcLedgerDao] def prepareRejectionInsert(
-        submitterInfo: SubmitterInfo,
+        submitterInfo: state.SubmitterInfo,
         offset: Offset,
         recordTime: Instant,
-        reason: RejectionReason,
+        reason: state.RejectionReason,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, ${reason.code

@@ -75,7 +75,7 @@ object HttpService {
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): Future[Error \/ ServerBinding] = {
+  ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
 
     logger.info("HTTP Server pre-startup")
 
@@ -95,7 +95,7 @@ object HttpService {
     )
 
     import akka.http.scaladsl.server.Directives._
-    val bindingEt: EitherT[Future, Error, ServerBinding] = for {
+    val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
       client <- eitherT(
         ledgerClient(
           ledgerHost,
@@ -219,9 +219,9 @@ object HttpService {
 
       _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
 
-    } yield binding
+    } yield (binding, contractDao)
 
-    bindingEt.run: Future[Error \/ ServerBinding]
+    bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
   }
 
   private[http] def refreshToken(
@@ -264,13 +264,16 @@ object HttpService {
     }
 
   def stop(
-      f: Future[Error \/ ServerBinding]
+      f: Future[Error \/ (ServerBinding, Option[ContractDao])]
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): Future[Unit] = {
     logger.info("Stopping server...")
-    f.collect { case \/-(a) => a.unbind().void }.join
+    f.collect { case \/-((a, dao)) =>
+      dao.foreach(_.close())
+      a.unbind().void
+    }.join
   }
 
   // Decode JWT without any validation

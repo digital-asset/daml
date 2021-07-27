@@ -107,7 +107,7 @@ object Main {
       Await.result(asys.terminate(), 10.seconds)
     }
 
-    val contractDao = config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
+    val contractDao = config.jdbcConfig.map(c => ContractDao(c))
 
     (contractDao, config.jdbcConfig) match {
       case (Some(dao), Some(c)) if c.createSchema =>
@@ -123,10 +123,22 @@ object Main {
             terminate()
             System.exit(ErrorCodes.StartupError)
         }
+      case (Some(dao), _) =>
+        Try(dao.isValid(120).unsafeRunSync()).toEither match {
+          case Right(false) =>
+            logger.error("Database connection is not valid.")
+            terminate()
+            System.exit(ErrorCodes.StartupError)
+          case Left(e) =>
+            logger.error("Failed to connect to the database", e)
+            terminate()
+            System.exit(ErrorCodes.StartupError)
+          case Right(true) =>
+        }
       case _ =>
     }
 
-    val serviceF: Future[HttpService.Error \/ ServerBinding] = {
+    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] = {
       metricsResource.asFuture.flatMap(implicit metrics =>
         HttpService.start(
           startSettings = config,

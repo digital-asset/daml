@@ -9,8 +9,8 @@ import java.util.concurrent.TimeUnit
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.domain.LedgerOffset
-import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.lf.data.Ref
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
@@ -34,6 +34,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
       executionContext: ExecutionContext,
       materializer: Materializer,
   ): Future[AcceptedEntry] = {
+    import state.SubmissionResult
     for {
       ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
       submissionResult <- strategy.submit(submissionId, input)
@@ -77,7 +78,7 @@ object SynchronousResponse {
     /** Submits a request to the ledger. */
     def submit(submissionId: Ref.SubmissionId, input: Input)(implicit
         telemetryContext: TelemetryContext
-    ): Future[SubmissionResult]
+    ): Future[state.SubmissionResult]
 
     /** Opens a stream of entries from before the submission. */
     def entries(offset: Option[LedgerOffset.Absolute]): Source[Entry, _]

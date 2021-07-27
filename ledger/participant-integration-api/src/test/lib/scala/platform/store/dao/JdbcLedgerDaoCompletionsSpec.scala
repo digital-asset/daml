@@ -5,11 +5,11 @@ package com.daml.platform.store.dao
 
 import java.time.Instant
 import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.Ref
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
@@ -21,6 +21,8 @@ import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+
+  import state.RejectionReasonV0._
 
   behavior of "JdbcLedgerDao (completions)"
 
@@ -71,7 +73,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     val expectedCmdId = UUID.randomUUID.toString
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      offset <- storeRejection(RejectionReasonV0.Inconsistent(""), expectedCmdId)
+      offset <- storeRejection(Inconsistent(""), expectedCmdId)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, parties)
@@ -91,7 +93,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     val expectedCmdId = UUID.randomUUID.toString
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      _ <- storeMultiPartyRejection(RejectionReasonV0.Inconsistent(""), expectedCmdId)
+      _ <- storeMultiPartyRejection(Inconsistent(""), expectedCmdId)
       to <- ledgerDao.lookupLedgerEnd()
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
@@ -115,7 +117,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "not return completions if the application id is wrong" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      _ <- storeRejection(RejectionReasonV0.Inconsistent(""))
+      _ <- storeRejection(Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId = "WRONG", parties)
@@ -128,7 +130,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "not return completions if the parties do not match" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      _ <- storeRejection(RejectionReasonV0.Inconsistent(""))
+      _ <- storeRejection(Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
@@ -145,7 +147,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "not return completions if the parties do not match (multi-party submission)" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      _ <- storeMultiPartyRejection(RejectionReasonV0.Inconsistent(""))
+      _ <- storeMultiPartyRejection(Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
@@ -160,14 +162,14 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   }
 
   it should "return the expected status for each rejection reason" in {
-    val reasons = List[RejectionReasonV0](
-      RejectionReasonV0.Disputed(""),
-      RejectionReasonV0.Inconsistent(""),
-      RejectionReasonV0.InvalidLedgerTime(""),
-      RejectionReasonV0.ResourcesExhausted(""),
-      RejectionReasonV0.PartyNotKnownOnLedger(""),
-      RejectionReasonV0.SubmitterCannotActViaParticipant(""),
-      RejectionReasonV0.InvalidLedgerTime(""),
+    val reasons = List[state.RejectionReasonV0](
+      Disputed(""),
+      Inconsistent(""),
+      InvalidLedgerTime(""),
+      ResourcesExhausted(""),
+      PartyNotKnownOnLedger(""),
+      SubmitterCannotActViaParticipant(""),
+      InvalidLedgerTime(""),
     )
 
     for {
@@ -187,15 +189,30 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       succeed
     }
   }
+  it should "allow arbitrarily large rejection reasons" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      _ <- storeMultiPartyRejection(
+        RejectionReasonV0.Inconsistent((0 to 10000).map(_ => " ").mkString(""))
+      )
+      to <- ledgerDao.lookupLedgerEnd()
+      response1 <- ledgerDao.completions
+        .getCommandCompletions(from, to, applicationId, Set("WRONG"))
+        .runWith(Sink.seq)
+    } yield {
+      response1 shouldBe Seq.empty
+    }
+  }
 
   private def prepareStoreRejection(
-      reason: RejectionReasonV0,
+      reason: state.RejectionReasonV0,
       commandId: String = UUID.randomUUID().toString,
   ): () => Future[Offset] = () => {
     val offset = nextOffset()
     ledgerDao
       .storeRejection(
-        submitterInfo = Some(SubmitterInfo(List(party1), applicationId, commandId, Instant.EPOCH)),
+        submitterInfo =
+          Some(state.SubmitterInfo(List(party1), applicationId, commandId, Instant.EPOCH)),
         recordTime = Instant.now,
         offsetStep = nextOffsetStep(offset),
         reason = reason,
@@ -204,14 +221,14 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   }
 
   private def storeMultiPartyRejection(
-      reason: RejectionReasonV0,
+      reason: state.RejectionReasonV0,
       commandId: String = UUID.randomUUID().toString,
   ): Future[Offset] = {
     lazy val offset = nextOffset()
     ledgerDao
       .storeRejection(
         submitterInfo = Some(
-          SubmitterInfo(List(party1, party2, party3), applicationId, commandId, Instant.EPOCH)
+          state.SubmitterInfo(List(party1, party2, party3), applicationId, commandId, Instant.EPOCH)
         ),
         recordTime = Instant.now,
         offsetStep = nextOffsetStep(offset),
@@ -221,7 +238,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   }
 
   private def storeRejection(
-      reason: RejectionReasonV0,
+      reason: state.RejectionReasonV0,
       commandId: String = UUID.randomUUID().toString,
   ): Future[Offset] = prepareStoreRejection(reason, commandId)()
 

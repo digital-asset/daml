@@ -14,7 +14,11 @@ if (!(Test-Path .\.bazelrc.local)) {
 
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
 
-mkdir -p ${ARTIFACT_DIRS}/logs
+if (!(Test-Path ${ARTIFACT_DIRS}/logs)) {
+    mkdir -p ${ARTIFACT_DIRS}/logs
+} elseif (Test-Path ${ARTIFACT_DIRS}/logs -PathType Leaf) {
+    throw ("Cannot create directory '${ARTIFACT_DIRS}/logs'. Conflicting file.")
+}
 
 # If a previous build was forcefully terminated, then stack's lock file might
 # not have been cleaned up properly leading to errors of the form
