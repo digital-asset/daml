@@ -168,7 +168,7 @@ private[http] object JdbcConfig
         _.map { createSchema =>
           import DbStartupMode._
           logger.warn(
-            s"The option 'createSchema' is deprecated. Please use for 'createSchema=true' => 'start-mode=${getConfigValue(CreateOnly)}' and for 'createSchema=false' => 'start-mode=${getConfigValue(StartOnly)}'"
+            s"The option 'createSchema' is deprecated. Please use 'start-mode=${getConfigValue(CreateOnly)}' for 'createSchema=true' and 'start-mode=${getConfigValue(StartOnly)}'  for 'createSchema=false'"
           )
           if (createSchema) CreateOnly else StartOnly
         }: Option[DbStartupMode]
