@@ -5,7 +5,6 @@ package com.daml.platform.store.dao
 
 import java.time.Instant
 import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
@@ -173,6 +172,22 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     } yield {
       response1 shouldBe Seq.empty
       response2 shouldBe Seq.empty
+    }
+  }
+
+  it should "allow arbitrarily large rejection reasons" in {
+    val rejection = new state.Update.CommandRejected.FinalReason(
+      RpcStatus.of(Status.Code.ABORTED.value(), (0 to 10000).map(_ => " ").mkString(""), Seq.empty)
+    )
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      _ <- storeMultiPartyRejection(rejection)
+      to <- ledgerDao.lookupLedgerEnd()
+      response1 <- ledgerDao.completions
+        .getCommandCompletions(from, to, applicationId, Set("WRONG"))
+        .runWith(Sink.seq)
+    } yield {
+      response1 shouldBe Seq.empty
     }
   }
 

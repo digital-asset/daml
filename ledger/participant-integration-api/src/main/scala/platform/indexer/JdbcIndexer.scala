@@ -87,6 +87,12 @@ object JdbcIndexer {
         resourceContext: ResourceContext
     ): Future[ResourceOwner[Indexer]] = initialized(resetSchema = true)
 
+    def validateAndWaitOnly()(implicit
+        resourceContext: ResourceContext
+    ): Future[Unit] =
+      flywayMigrations
+        .validateAndWaitOnly(config.enableAppendOnlySchema)
+
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean
     )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =

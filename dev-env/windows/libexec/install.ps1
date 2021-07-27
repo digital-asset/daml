@@ -27,7 +27,6 @@ function da_install {
 
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 
         Remove-Item $scoopTmpDir -Recurse -Force -ErrorAction Ignore
         New-Item -ItemType Directory -Force -Path $scoopTmpDir | Out-null
