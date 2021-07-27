@@ -4,7 +4,7 @@
 # The following dictionary alias LF versions to keywords:
 # - "legacy" is the keyword for last LF version that supports legacy
 #    contract ID scheme,
-# - "stable" is the keyword for the default compiler output,
+# - "default" is the keyword for the default compiler output,
 # - "latest" is the keyword for the latest stable LF version,
 # - "preview" is the keyword fort he next LF version, *not stable*,
 #    usable for beta testing,
@@ -18,7 +18,7 @@
 
 lf_version_configuration = {
     "legacy": "1.8",
-    "stable": "1.13",
+    "default": "1.13",
     "latest": "1.14",
     "dev": "1.dev",
 }
