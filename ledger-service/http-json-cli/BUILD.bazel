@@ -4,16 +4,19 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "silencer_plugin",
 )
 
 da_scala_library(
     name = "base",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [silencer_plugin],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     visibility = ["//ledger-service:__subpackages__"],
     deps = [

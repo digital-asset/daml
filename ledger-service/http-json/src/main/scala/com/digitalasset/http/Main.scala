@@ -53,7 +53,7 @@ object Main {
     config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
   }
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     instanceUUIDLogCtx(implicit lc =>
       Cli.parseConfig(
         args,
@@ -67,7 +67,6 @@ object Main {
           sys.exit(ErrorCodes.InvalidUsage)
       }
     )
-  }
 
   private def main(config: Config)(implicit lc: LoggingContextOf[InstanceUUID]): Unit = {
     logger.info(
@@ -110,42 +109,53 @@ object Main {
     val contractDao = config.jdbcConfig.map(c => ContractDao(c))
 
     (contractDao, config.jdbcConfig) match {
-      case (Some(dao), Some(c)) if c.createSchema =>
-        logger.info("Creating DB schema...")
-        import dao.{logHandler, jdbcDriver}
-        Try(dao.transact(ContractDao.initialize).unsafeRunSync()) match {
-          case Success(()) =>
-            logger.info("DB schema created. Terminating process...")
-            terminate()
-            System.exit(ErrorCodes.Ok)
-          case Failure(e) =>
-            logger.error("Failed creating DB schema", e)
-            terminate()
-            System.exit(ErrorCodes.StartupError)
+      case (Some(dao), Some(c)) =>
+        import cats.effect.IO
+        def terminateProcess(errorCode: Int): Unit = {
+          logger.info("Terminating process...")
+          terminate()
+          System.exit(errorCode)
         }
-      case (Some(dao), _) =>
-        Try(dao.isValid(120).unsafeRunSync()).toEither match {
-          case Right(false) =>
-            logger.error("Database connection is not valid.")
-            terminate()
-            System.exit(ErrorCodes.StartupError)
-          case Left(e) =>
-            logger.error("Failed to connect to the database", e)
-            terminate()
-            System.exit(ErrorCodes.StartupError)
-          case Right(true) =>
-        }
+        Try(
+          dao
+            .isValid(120)
+            .attempt
+            .flatMap {
+              case Left(ex) =>
+                logger.error("Unexpected error while checking database connection", ex)
+                IO.pure(some(ErrorCodes.StartupError))
+              case Right(false) =>
+                logger.error("Database connection is not valid.")
+                IO.pure(some(ErrorCodes.StartupError))
+              case Right(true) =>
+                DbStartupOps
+                  .fromStartupMode(dao, c.dbStartupMode)
+                  .map(success =>
+                    if (success)
+                      if (DbStartupOps.shouldStart(c.dbStartupMode)) none
+                      else some(ErrorCodes.Ok)
+                    else some(ErrorCodes.StartupError)
+                  )
+            }
+            .unsafeRunSync()
+        ).fold(
+          { ex =>
+            logger
+              .error("Unexpected error while checking connection or DB schema initialization", ex)
+            terminateProcess(ErrorCodes.StartupError)
+          },
+          _.foreach(terminateProcess),
+        )
       case _ =>
     }
 
-    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] = {
+    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] =
       metricsResource.asFuture.flatMap(implicit metrics =>
         HttpService.start(
           startSettings = config,
           contractDao = contractDao,
         )
       )
-    }
 
     discard {
       sys.addShutdownHook {

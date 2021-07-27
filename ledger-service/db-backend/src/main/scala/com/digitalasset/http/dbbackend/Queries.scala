@@ -25,12 +25,15 @@ import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.functor._
+import doobie.free.connection
 
 sealed abstract class Queries {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
   type SqlInterpol
+
+  val schemaVersion = 1
 
   protected[this] def dropIfExists(drop: Droppable): Fragment
 
@@ -103,17 +106,40 @@ sealed abstract class Queries {
       .traverse_(_.update.run)
   }
 
+  private[this] val createVersionTable = CreateTable(
+    "json_api_schema_version",
+    sql"""
+       CREATE TABLE
+        json_api_schema_version
+        (version $bigIntType NOT NULL
+        ,PRIMARY KEY (version)
+        )
+     """,
+  )
+
   protected[this] def initDatabaseDdls: Vector[InitDdl] =
     Vector(
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
+      createVersionTable,
     )
+
+  protected[this] def insertVersion(): ConnectionIO[Unit] =
+    sql"""
+         INSERT INTO json_api_schema_version (version)
+         VALUES ($schemaVersion)
+         """.update.run.map(_ => ())
 
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls.traverse_(_.create.update.run)
+    for {
+      _ <- initDatabaseDdls.traverse_(_.create.update.run)
+      _ <- insertVersion()
+    } yield ()
   }
+
+  protected[http] def version(): ConnectionIO[Option[Int]]
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
       log: LogHandler
@@ -526,6 +552,19 @@ private object PostgresQueries extends Queries {
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(indexContractsTable, indexContractsKeys)
 
+  protected[http] override def version(): ConnectionIO[Option[Int]] = {
+    for {
+      doesTableExist <-
+        sql"""SELECT EXISTS(
+                SELECT 1 FROM information_schema.tables
+                WHERE table_name = 'json_api_schema_version'
+              )""".query[Boolean].unique
+      version <-
+        if (!doesTableExist) connection.pure(None)
+        else sql"SELECT version FROM json_api_schema_version".query[Int].option
+    } yield version
+  }
+
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
     ,observers TEXT ARRAY NOT NULL
@@ -686,6 +725,19 @@ private object OracleQueries extends Queries {
 
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
+
+  protected[http] override def version(): ConnectionIO[Option[Int]] = {
+    for {
+      doesTableExist <-
+        sql"""SELECT EXISTS(
+                SELECT 1 FROM ALL_TABLES
+                WHERE table_name = 'json_api_schema_version'
+              )""".query[Boolean].unique
+      version <-
+        if (!doesTableExist) connection.pure(None)
+        else sql"SELECT version FROM json_api_schema_version".query[Int].option
+    } yield version
+  }
 
   protected[this] type DBContractKey = JsValue
 

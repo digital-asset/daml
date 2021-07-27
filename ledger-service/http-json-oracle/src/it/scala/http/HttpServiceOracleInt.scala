@@ -19,6 +19,6 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with O
     url = oracleJdbcUrl,
     user = oracleUser,
     password = oraclePwd,
-    createSchema = true,
+    dbStartupMode = DbStartupMode.CreateOnly,
   )
 }
