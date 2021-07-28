@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.{Ref, Time}
@@ -283,7 +283,7 @@ private class JdbcLedgerDao(
   }
 
   override def prepareTransactionInsert(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -312,7 +312,7 @@ private class JdbcLedgerDao(
     ) // TODO append-only: cleanup
 
   override def completeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
@@ -323,7 +323,7 @@ private class JdbcLedgerDao(
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -350,10 +350,10 @@ private class JdbcLedgerDao(
     )
 
   override def storeRejection(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: state.RejectionReason,
+      reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
@@ -361,11 +361,11 @@ private class JdbcLedgerDao(
         sequentialIndexer.store(
           conn,
           offset,
-          submitterInfo.map(someSubmitterInfo =>
+          completionInfo.map(info =>
             state.Update.CommandRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
-              submitterInfo = someSubmitterInfo,
-              reason = reason,
+              completionInfo = info,
+              reasonTemplate = reason,
             )
           ),
         )
@@ -382,19 +382,19 @@ private class JdbcLedgerDao(
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
-              val submitterInfo =
-                for (
-                  appId <- tx.applicationId;
-                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs);
-                  cmdId <- tx.commandId
-                ) yield state.SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
+              val completionInfo = for {
+                actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs)
+                applicationId <- tx.applicationId
+                commandId <- tx.commandId
+                submissionId <- tx.submissionId
+              } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
 
               sequentialIndexer.store(
                 connection,
                 offset,
                 Some(
                   state.Update.TransactionAccepted(
-                    optSubmitterInfo = submitterInfo,
+                    optCompletionInfo = completionInfo,
                     transactionMeta = state.TransactionMeta(
                       ledgerEffectiveTime =
                         Time.Timestamp.assertFromInstant(tx.ledgerEffectiveTime),
@@ -413,16 +413,23 @@ private class JdbcLedgerDao(
                   )
                 ),
               )
-            case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
+            case LedgerEntry.Rejection(
+                  recordTime,
+                  commandId,
+                  applicationId,
+                  submissionId,
+                  actAs,
+                  reason,
+                ) =>
               sequentialIndexer.store(
                 connection,
                 offset,
                 Some(
                   state.Update.CommandRejected(
                     recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                    submitterInfo =
-                      state.SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
-                    reason = reason.toParticipantStateRejectionReason,
+                    completionInfo =
+                      state.CompletionInfo(actAs, applicationId, commandId, None, submissionId),
+                    reasonTemplate = reason.toParticipantStateRejectionReason,
                   )
                 ),
               )
@@ -643,7 +650,7 @@ private class JdbcLedgerDao(
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   override def storeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -663,7 +670,7 @@ private class JdbcLedgerDao(
             case None =>
               Some(
                 state.Update.TransactionAccepted(
-                  optSubmitterInfo = submitterInfo,
+                  optCompletionInfo = completionInfo,
                   transactionMeta = state.TransactionMeta(
                     ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerEffectiveTime),
                     workflowId = workflowId,
@@ -682,11 +689,11 @@ private class JdbcLedgerDao(
               )
 
             case Some(reason) =>
-              submitterInfo.map(someSubmitterInfo =>
+              completionInfo.map(info =>
                 state.Update.CommandRejected(
                   recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                  submitterInfo = someSubmitterInfo,
-                  reason = reason.toStateV1RejectionReason,
+                  completionInfo = info,
+                  reasonTemplate = reason.toStateV2RejectionReason,
                 )
               )
           },

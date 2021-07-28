@@ -33,7 +33,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -429,7 +429,7 @@ private class JdbcLedgerDao(
   }
 
   override def prepareTransactionInsert(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -439,7 +439,7 @@ private class JdbcLedgerDao(
       blindingInfo: Option[BlindingInfo],
   ): PreparedInsert =
     transactionsWriter.prepare(
-      submitterInfo,
+      completionInfo,
       workflowId,
       transactionId,
       ledgerEffectiveTime,
@@ -451,12 +451,12 @@ private class JdbcLedgerDao(
 
   private def handleError(
       offset: Offset,
-      info: state.SubmitterInfo,
+      completionInfo: state.CompletionInfo,
       recordTime: Instant,
-      rejectionReason: state.RejectionReason,
+      rejectionReason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit connection: Connection): Unit = {
-    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.actAs)
-    queries.prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
+    stopDeduplicatingCommandSync(domain.CommandId(completionInfo.commandId), completionInfo.actAs)
+    queries.prepareRejectionInsert(completionInfo, offset, recordTime, rejectionReason).execute()
     ()
   }
 
@@ -479,21 +479,21 @@ private class JdbcLedgerDao(
       .map(_ => Ok)(servicesExecutionContext)
 
   override def completeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
-        insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
+        insertCompletions(completionInfo, transactionId, recordTime, offsetStep)
         updateLedgerEnd(offsetStep)
         Ok
       }
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -508,10 +508,10 @@ private class JdbcLedgerDao(
           case None =>
             preparedInsert.writeState(metrics)
             preparedInsert.writeEvents(metrics)
-            insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
+            insertCompletions(completionInfo, transactionId, recordTime, offsetStep)
           case Some(error) =>
-            submitterInfo.foreach(
-              handleError(offsetStep.offset, _, recordTime, error.toStateV1RejectionReason)
+            completionInfo.foreach(
+              handleError(offsetStep.offset, _, recordTime, error.toStateV2RejectionReason)
             )
         }
 
@@ -535,14 +535,14 @@ private class JdbcLedgerDao(
     )
 
   private def insertCompletions(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit connection: Connection): Unit =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
-      submitterInfo
+      completionInfo
         .map(queries.prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime))
         .foreach(_.execute()),
     )
@@ -554,14 +554,14 @@ private class JdbcLedgerDao(
     )
 
   override def storeRejection(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: state.RejectionReason,
+      reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing rejection")
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
-      for (info <- submitterInfo) {
+      for (info <- completionInfo) {
         handleError(offsetStep.offset, info, recordTime, reason)
       }
       ParametersTable.updateLedgerEnd(offsetStep)
@@ -580,15 +580,15 @@ private class JdbcLedgerDao(
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
-              val submitterInfo =
-                for (
-                  appId <- tx.applicationId;
-                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs);
-                  cmdId <- tx.commandId
-                )
-                  yield state.SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
+              val completionInfo = for {
+                actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs)
+                applicationId <- tx.applicationId
+                commandId <- tx.commandId
+                submissionId <- tx.submissionId
+              } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
+
               prepareTransactionInsert(
-                submitterInfo = submitterInfo,
+                completionInfo = completionInfo,
                 workflowId = tx.workflowId,
                 transactionId = tx.transactionId,
                 ledgerEffectiveTime = tx.ledgerEffectiveTime,
@@ -597,19 +597,27 @@ private class JdbcLedgerDao(
                 divulgedContracts = Nil,
                 blindingInfo = None,
               ).write(metrics)
-              submitterInfo
+              completionInfo
                 .map(queries.prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                 .foreach(_.execute())
-            case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
-              val _ = queries
+            case LedgerEntry.Rejection(
+                  recordTime,
+                  commandId,
+                  applicationId,
+                  submissionId,
+                  actAs,
+                  reason,
+                ) =>
+              queries
                 .prepareRejectionInsert(
-                  submitterInfo =
-                    state.SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
+                  completionInfo =
+                    state.CompletionInfo(actAs, applicationId, commandId, None, submissionId),
                   offset = offset,
                   recordTime = recordTime,
                   reason = reason.toParticipantStateRejectionReason,
                 )
                 .execute()
+              ()
           }
         }
         ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
@@ -970,7 +978,7 @@ private class JdbcLedgerDao(
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   override def storeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -981,7 +989,7 @@ private class JdbcLedgerDao(
       recordTime: Instant,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     val preparedInsert = prepareTransactionInsert(
-      submitterInfo = submitterInfo,
+      completionInfo = completionInfo,
       workflowId = workflowId,
       transactionId = transactionId,
       ledgerEffectiveTime = ledgerEffectiveTime,
@@ -992,7 +1000,7 @@ private class JdbcLedgerDao(
     )
     storeTransaction(
       preparedInsert,
-      submitterInfo,
+      completionInfo,
       transactionId,
       recordTime,
       ledgerEffectiveTime,
@@ -1179,7 +1187,7 @@ private[platform] object JdbcLedgerDao {
         |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
-    protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES =
+    protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
         |ledger_offset > {startExclusive} and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
@@ -1191,23 +1199,23 @@ private[platform] object JdbcLedgerDao {
     def limit(numberOfItems: Int): String
 
     protected[JdbcLedgerDao] def prepareCompletionInsert(
-        submitterInfo: state.SubmitterInfo,
+        completionInfo: state.CompletionInfo,
         offset: Offset,
         transactionId: Ref.TransactionId,
         recordTime: Instant,
     ): SimpleSql[Row] = {
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, $transactionId)"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${completionInfo.applicationId}, ${completionInfo.actAs
+        .toArray[String]}, ${completionInfo.commandId}, $transactionId)"
     }
 
     protected[JdbcLedgerDao] def prepareRejectionInsert(
-        submitterInfo: state.SubmitterInfo,
+        completionInfo: state.CompletionInfo,
         offset: Offset,
         recordTime: Instant,
-        reason: state.RejectionReason,
+        reason: state.Update.CommandRejected.RejectionReasonTemplate,
     ): SimpleSql[Row] = {
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.code.value}, ${reason.description})"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${completionInfo.applicationId}, ${completionInfo.actAs
+        .toArray[String]}, ${completionInfo.commandId}, ${reason.code}, ${reason.message})"
     }
 
     protected[JdbcLedgerDao] def escapeReservedWord(word: String): String
@@ -1363,7 +1371,7 @@ private[platform] object JdbcLedgerDao {
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES =
+    override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
         |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
         |order by ledger_offset asc
@@ -1379,24 +1387,23 @@ private[platform] object JdbcLedgerDao {
     }
 
     override protected[JdbcLedgerDao] def prepareCompletionInsert(
-        submitterInfo: state.SubmitterInfo,
+        completionInfo: state.CompletionInfo,
         offset: Offset,
         transactionId: Ref.TransactionId,
         recordTime: Instant,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, $transactionId)"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${completionInfo.applicationId}, ${completionInfo.actAs.toJson.compactPrint}, ${completionInfo.commandId}, $transactionId)"
     }
 
     override protected[JdbcLedgerDao] def prepareRejectionInsert(
-        submitterInfo: state.SubmitterInfo,
+        completionInfo: state.CompletionInfo,
         offset: Offset,
         recordTime: Instant,
-        reason: state.RejectionReason,
+        reason: state.Update.CommandRejected.RejectionReasonTemplate,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, ${reason.code
-        .value()}, ${reason.description})"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${completionInfo.applicationId}, ${completionInfo.actAs.toJson.compactPrint}, ${completionInfo.commandId}, ${reason.code}, ${reason.message})"
     }
 
     // spaces which are subsequently trimmed left only for readability

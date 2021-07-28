@@ -12,7 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, Ref}
@@ -48,7 +48,7 @@ final class JdbcIndexerSpec
       updates: Seq[(Offset, state.Update)] = Seq.empty
   ): state.ReadService = {
     val readService = mock[state.ReadService]
-    when(readService.getLedgerInitialConditions())
+    when(readService.ledgerInitialConditions())
       .thenAnswer(
         Source.single(
           LedgerInitialConditions(

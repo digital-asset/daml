@@ -44,6 +44,7 @@ private[platform] object CompletionFromTransaction {
             Some(commandId),
             transactionId,
             Some(`appId`),
+            _,
             actAs,
             _,
             _,
@@ -57,10 +58,9 @@ private[platform] object CompletionFromTransaction {
         Seq(Completion(commandId, Some(Status()), transactionId)),
       )
 
-    case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, actAs, reason))
+    case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, _, actAs, reason))
         if actAs.exists(parties) =>
-      val stateReason = reason.toParticipantStateRejectionReason
-      val status = Status(stateReason.code.value, stateReason.description)
+      val status = reason.toParticipantStateRejectionReason.status
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordTime, offset),
         Seq(Completion(commandId, Some(status))),

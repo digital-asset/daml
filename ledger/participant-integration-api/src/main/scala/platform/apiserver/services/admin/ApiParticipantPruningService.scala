@@ -12,7 +12,7 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset

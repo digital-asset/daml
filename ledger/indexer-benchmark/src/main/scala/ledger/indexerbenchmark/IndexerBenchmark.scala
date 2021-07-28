@@ -15,6 +15,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.{ReadService, Update}
+import com.daml.ledger.participant.state.v2.AdaptedV1ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -67,7 +68,7 @@ class IndexerBenchmark() {
       val updates = Await.result(createUpdates(config), Duration(10, "minute"))
 
       println("Creating read service and indexer...")
-      val readService = createReadService(updates)
+      val readService = new AdaptedV1ReadService(createReadService(updates))
       val indexerFactory = new JdbcIndexer.Factory(
         ServerRole.Indexer,
         config.indexerConfig,
@@ -87,7 +88,7 @@ class IndexerBenchmark() {
 
         _ = println("Setting up the index database...")
         indexer <- Await
-          .result(indexerFactory.migrateSchema(false), Duration(5, "minute"))
+          .result(indexerFactory.migrateSchema(allowExistingSchema = false), Duration(5, "minute"))
           .acquire()
 
         _ = println("Starting the indexing...")

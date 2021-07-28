@@ -9,13 +9,13 @@ import org.openjdk.jmh.annotations.{Benchmark, Setup}
 
 class DeserializeValueBenchmark extends BenchmarkWithLedgerExport {
 
-  var protobufValues: Vector[benchmark.Versioned[ByteString]] = _
+  var protobufValues: Vector[ByteString] = _
 
   @Setup
   override def setup(): Unit = {
     super.setup()
     val encodedValues = submissions.values.map(_.value).toVector
-    protobufValues = encodedValues.map(_.map(_.toByteString))
+    protobufValues = encodedValues.map(_.toByteString)
   }
 
   @Benchmark

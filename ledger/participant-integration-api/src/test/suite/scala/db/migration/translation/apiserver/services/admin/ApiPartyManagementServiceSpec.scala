@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
 }
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}

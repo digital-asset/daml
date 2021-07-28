@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.{Connection, Timestamp}
 
 import anorm.{Row, SimpleSql, SqlQuery}
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 
 object ContractsTablePostgres extends ContractsTable {

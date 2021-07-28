@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   UploadDarFileRequest,
 }
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.archive.{Dar, GenDarReader}
 import com.daml.lf.data.Ref

@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.api.domain
+import com.daml.ledger.configuration.Configuration
 import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
@@ -19,6 +20,7 @@ private[apiserver] class TimedCommandExecutor(
   override def execute(
       commands: domain.Commands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -26,7 +28,7 @@ private[apiserver] class TimedCommandExecutor(
     Timed.timedAndTrackedFuture(
       metrics.daml.execution.total,
       metrics.daml.execution.totalRunning,
-      delegate.execute(commands, submissionSeed),
+      delegate.execute(commands, submissionSeed, ledgerConfiguration),
     )
 
 }

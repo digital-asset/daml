@@ -11,7 +11,7 @@ import akka.stream.scaladsl.{Flow, Keep, Sink}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantId
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -209,7 +209,7 @@ object JdbcIndexer {
         dao: LedgerDao
     )(implicit ec: ExecutionContext): Future[Option[Offset]] =
       for {
-        initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
+        initialConditions <- readService.ledgerInitialConditions().runWith(Sink.head)
         existingLedgerId <- dao.lookupLedgerId()
         providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
         _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(

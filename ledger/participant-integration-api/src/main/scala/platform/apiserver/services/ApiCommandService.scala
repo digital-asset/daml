@@ -10,6 +10,7 @@ import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -209,6 +210,7 @@ private[apiserver] object ApiCommandService {
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
         ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
+      generateSubmissionId = SubmissionIdGenerator.Random,
     )
 
   final case class Configuration(

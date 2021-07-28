@@ -7,7 +7,7 @@ package com.daml.platform.db.migration.postgres
 
 import java.io.InputStream
 import java.sql.Connection
-import java.util.Date
+import java.util.{Date, UUID}
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -287,6 +287,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             transactionId,
             _,
             _,
+            _,
             workflowId,
             ledgerEffectiveTime,
             _,
@@ -429,7 +430,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
       "ledger_offset",
     )
 
-  private val DisclosureParser = (eventId("event_id") ~ party("party") map (flatten))
+  private val DisclosureParser = eventId("event_id") ~ party("party") map flatten
 
   private def toLedgerEntry(
       parsedEntry: ParsedEntry
@@ -455,17 +456,18 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         .transform((_, v) => v.map(_._2).toSet)
 
       offset -> LedgerEntry.Transaction(
-        Some(commandId),
-        transactionId,
-        Some(applicationId),
-        List(submitter),
-        workflowId,
-        effectiveAt.toInstant,
-        recordedAt.toInstant,
-        transactionSerializer
+        commandId = Some(commandId),
+        transactionId = transactionId,
+        applicationId = Some(applicationId),
+        submissionId = None,
+        actAs = List(submitter),
+        workflowId = workflowId,
+        ledgerEffectiveTime = effectiveAt.toInstant,
+        recordedAt = recordedAt.toInstant,
+        transaction = transactionSerializer
           .deserializeTransaction(transactionId, transactionStream)
           .getOrElse(sys.error(s"failed to deserialize transaction! trId: $transactionId")),
-        Relation.mapKeys(disclosure)(_.nodeId),
+        explicitDisclosure = Relation.mapKeys(disclosure)(_.nodeId),
       )
     case ParsedEntry(
           "rejection",
@@ -481,9 +483,17 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           Some(rejectionDescription),
           offset,
         ) =>
+      // We don't have a submission ID, so we need to generate one.
+      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
-      offset -> LedgerEntry
-        .Rejection(recordedAt.toInstant, commandId, applicationId, List(submitter), rejectionReason)
+      offset -> LedgerEntry.Rejection(
+        recordTime = recordedAt.toInstant,
+        commandId = commandId,
+        applicationId = applicationId,
+        submissionId = submissionId,
+        actAs = List(submitter),
+        rejectionReason = rejectionReason,
+      )
     case invalidRow =>
       sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
   }
@@ -501,7 +511,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
     ~ date("recorded_at")
     ~ binaryStream("contract")
     ~ binaryStream("key").?
-    ~ binaryStream("transaction") map (flatten))
+    ~ binaryStream("transaction") map flatten)
 
   private val SQL_SELECT_CONTRACT_LET =
     SQL(
@@ -544,7 +554,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(implicit
       con: Connection
   ) = {
-    require(params.size > 0, "batch sql statement must have at least one set of name parameters")
+    require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
     BatchSql(query, params.head, params.drop(1).toSeq: _*).execute()
   }
 

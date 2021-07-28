@@ -21,7 +21,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
@@ -244,7 +244,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   // TODO append-only: cleanup
   def prepareTransactionInsert(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
@@ -257,7 +257,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   // TODO append-only: cleanup
   def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -278,17 +278,17 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   // TODO append-only: cleanup
   def completeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   def storeRejection(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: state.RejectionReason,
+      reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   /** !!! Please kindly not use this.
@@ -339,7 +339,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   def storeTransaction(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,

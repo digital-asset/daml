@@ -166,7 +166,7 @@ def daml_deps():
             sha256 = "bf0e5070b4b99240183b29df78155eee335885e53a8af8683964579c214ad301",
             # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
             strip_prefix = "protobuf-3.14.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.14.0.zip"],
+            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.14.0.zip"],
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:protobuf-win32.patch",
             ],

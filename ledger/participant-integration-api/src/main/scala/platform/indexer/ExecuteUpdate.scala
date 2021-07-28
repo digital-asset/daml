@@ -3,7 +3,7 @@
 
 package com.daml.platform.indexer
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
@@ -12,7 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -101,7 +101,7 @@ trait ExecuteUpdate {
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
           Future {
             val preparedInsert = ledgerDao.prepareTransactionInsert(
-              submitterInfo = tx.optSubmitterInfo,
+              completionInfo = tx.optCompletionInfo,
               workflowId = tx.transactionMeta.workflowId,
               transactionId = tx.transactionId,
               ledgerEffectiveTime = tx.transactionMeta.ledgerEffectiveTime.toInstant,
@@ -194,8 +194,13 @@ trait ExecuteUpdate {
           Some(configRejection.rejectionReason),
         )
 
-      case CommandRejected(recordTime, submitterInfo, reason) =>
-        ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offsetStep, reason)
+      case CommandRejected(recordTime, completionInfo, reason) =>
+        ledgerDao.storeRejection(
+          Some(completionInfo),
+          recordTime.toInstant,
+          offsetStep,
+          reason,
+        )
       case update: TransactionAccepted =>
         import update._
         logger.warn(
@@ -204,7 +209,7 @@ trait ExecuteUpdate {
         )
         ledgerDao.storeTransaction(
           preparedInsert = ledgerDao.prepareTransactionInsert(
-            submitterInfo = optSubmitterInfo,
+            completionInfo = optCompletionInfo,
             workflowId = transactionMeta.workflowId,
             transactionId = transactionId,
             ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -213,7 +218,7 @@ trait ExecuteUpdate {
             divulgedContracts = divulgedContracts,
             blindingInfo = blindingInfo,
           ),
-          submitterInfo = optSubmitterInfo,
+          completionInfo = optCompletionInfo,
           transactionId = transactionId,
           recordTime = recordTime.toInstant,
           ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -290,17 +295,17 @@ trait ExecuteUpdate {
               Logging.submitter(info.actAs),
               Logging.applicationId(info.applicationId),
               Logging.commandId(info.commandId),
-              Logging.deduplicateUntil(info.deduplicateUntil),
+              Logging.deduplicationPeriod(info.optDeduplicationPeriod),
             )
           )
           .getOrElse(LoggingEntries.empty)
-      case CommandRejected(_, submitterInfo, reason) =>
+      case CommandRejected(_, completionInfo, reason) =>
         LoggingEntries(
-          Logging.submitter(submitterInfo.actAs),
-          Logging.applicationId(submitterInfo.applicationId),
-          Logging.commandId(submitterInfo.commandId),
-          Logging.deduplicateUntil(submitterInfo.deduplicateUntil),
-          Logging.rejectionReason(reason.description),
+          Logging.submitter(completionInfo.actAs),
+          Logging.applicationId(completionInfo.applicationId),
+          Logging.commandId(completionInfo.commandId),
+          Logging.deduplicationPeriod(completionInfo.optDeduplicationPeriod),
+          Logging.rejectionReason(reason),
         )
     }
 
@@ -343,11 +348,16 @@ trait ExecuteUpdate {
     def maxDeduplicationTime(time: Duration): LoggingEntry =
       "maxDeduplicationTime" -> time
 
-    def deduplicateUntil(time: Instant): LoggingEntry =
-      "deduplicateUntil" -> time
+    def deduplicationPeriod(period: Option[state.DeduplicationPeriod]): LoggingEntry =
+      "deduplicationPeriod" -> period
 
-    def rejectionReason(reason: String): LoggingEntry =
-      "rejectionReason" -> reason
+    def rejectionReason(rejectionReason: String): LoggingEntry =
+      "rejectionReason" -> rejectionReason
+
+    def rejectionReason(
+        rejectionReasonTemplate: state.Update.CommandRejected.RejectionReasonTemplate
+    ): LoggingEntry =
+      "rejectionReason" -> rejectionReasonTemplate
 
     def displayName(name: String): LoggingEntry =
       "displayName" -> name
@@ -426,7 +436,7 @@ class PipelinedExecuteUpdate(
       .future(
         metrics.daml.index.db.storeTransactionCompletion,
         ledgerDao.completeTransaction(
-          submitterInfo = tx.optSubmitterInfo,
+          completionInfo = tx.optCompletionInfo,
           transactionId = tx.transactionId,
           recordTime = tx.recordTime.toInstant,
           offsetStep = offsetStep,
@@ -506,7 +516,7 @@ class AtomicExecuteUpdate(
       case PreparedTransactionInsert(
             offsetStep,
             TransactionAccepted(
-              optSubmitterInfo,
+              optCompletionInfo,
               transactionMeta,
               transaction,
               transactionId,
@@ -520,7 +530,7 @@ class AtomicExecuteUpdate(
           metrics.daml.index.db.storeTransaction,
           ledgerDao.storeTransaction(
             preparedInsert,
-            submitterInfo = optSubmitterInfo,
+            completionInfo = optCompletionInfo,
             transactionId = transactionId,
             recordTime = recordTime.toInstant,
             ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,

@@ -33,10 +33,10 @@ package object benchmark {
     * It's the in-memory representation of the Protobuf message that
     * describes a value, not its serialized form.
     */
-  private[lf] type EncodedValue = Versioned[ValueOuterClass.Value]
+  private[lf] type EncodedValue = ValueOuterClass.VersionedValue
   private[lf] object EncodedValue {
-    def deserialize(bytes: Versioned[ByteString]): EncodedValue =
-      bytes.map(ValueOuterClass.Value.parseFrom)
+    def deserialize(bytes: ByteString): EncodedValue =
+      ValueOuterClass.VersionedValue.parseFrom(bytes)
   }
 
   private[lf] type EncodedValueWithType = TypedValue[EncodedValue]
@@ -52,7 +52,7 @@ package object benchmark {
     * [[com.daml.lf.value.ValueCoder.decodeValue]].
     * It's the Daml-LF representation of a value.
     */
-  private[lf] type DecodedValue = Versioned[value.Value[ContractId]]
+  private[lf] type DecodedValue = value.Value.VersionedValue[ContractId]
 
   private[lf] def assertDecode(transaction: EncodedTransaction): DecodedTransaction =
     assertDecode(decode(transaction))
@@ -78,7 +78,7 @@ package object benchmark {
   private def decode(
       versionedValue: EncodedValue
   ): DecodeResult[DecodedValue] =
-    versionedValue.traverse(decodeValue(CidDecoder, versionedValue.version, _))
+    decodeVersionedValue(CidDecoder, versionedValue)
 
   private def assertEncode[A](result: EncodeResult[A]): A =
     result.fold(e => sys.error(e.errorMessage), identity)
@@ -87,6 +87,6 @@ package object benchmark {
     encodeTransaction(NidEncoder, CidEncoder, transaction)
 
   private def encode(versionedValue: DecodedValue): EncodeResult[EncodedValue] =
-    versionedValue.traverse(encodeValue(CidEncoder, versionedValue.version, _))
+    encodeVersionedValue(CidEncoder, versionedValue)
 
 }

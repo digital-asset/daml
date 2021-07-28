@@ -3,7 +3,7 @@
 
 package com.daml.platform.indexer
 
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 
 import scala.concurrent.Future

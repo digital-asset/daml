@@ -39,7 +39,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
@@ -338,6 +338,7 @@ private[sandbox] final class InMemoryLedger(
                   Some(submitterInfo.commandId),
                   transactionId,
                   Some(submitterInfo.applicationId),
+                  Some(submitterInfo.submissionId),
                   submitterInfo.actAs,
                   transactionMeta.workflowId,
                   transactionMeta.ledgerEffectiveTime.toInstant,
@@ -364,6 +365,7 @@ private[sandbox] final class InMemoryLedger(
           timeProvider.getCurrentTime,
           submitterInfo.commandId,
           submitterInfo.applicationId,
+          submitterInfo.submissionId,
           submitterInfo.actAs,
           reason,
         )
