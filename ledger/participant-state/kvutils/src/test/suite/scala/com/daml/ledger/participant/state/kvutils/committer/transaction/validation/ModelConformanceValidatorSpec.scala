@@ -375,6 +375,29 @@ class ModelConformanceValidatorSpec
         .build()
       step shouldBe StepStop(expectedEntry)
     }
+
+    "reject transaction in case input contract ID is non-existent" in {
+      val step = defaultValidator
+        .validateCausalMonotonicity(
+          aTransactionEntry,
+          createCommitContext(
+            None,
+            Map.empty,
+          ),
+          rejections,
+        )
+
+      val expectedEntry = DamlLogEntry.newBuilder
+        .setTransactionRejectionEntry(
+          DamlTransactionRejectionEntry.newBuilder
+            .setSubmitterInfo(DamlSubmitterInfo.getDefaultInstance)
+            .setInvalidLedgerTime(
+              InvalidLedgerTime.newBuilder.setDetails("Causal monotonicity violated")
+            )
+        )
+        .build()
+      step shouldBe StepStop(expectedEntry)
+    }
   }
 
   private def create(
