@@ -1,5 +1,5 @@
 diff --git a/haskell/repositories.bzl b/haskell/repositories.bzl
-index 691ecaf2..1f0dd577 100644
+index 691ecaf2..d0021200 100644
 --- a/haskell/repositories.bzl
 +++ b/haskell/repositories.bzl
 @@ -66,7 +66,7 @@ def rules_haskell_dependencies():
@@ -7,7 +7,7 @@ index 691ecaf2..1f0dd577 100644
          strip_prefix = "protobuf-3.15.1",
          urls = [
 -            "https://github.com/google/protobuf/archive/v3.15.1.tar.gz",
-+            "https://github.com/protocolbuffers/archive/v3.15.1.tar.gz",
++            "https://github.com/protocolbuffers/protobuf/archive/v3.15.1.tar.gz",
          ],
      )
  
