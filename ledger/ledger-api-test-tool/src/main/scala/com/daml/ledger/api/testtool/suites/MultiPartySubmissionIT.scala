@@ -367,7 +367,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some(Pattern.compile("User abort: LookupOtherByKey value matches")),
+        Some(
+          Pattern.compile(
+            "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"LookupOtherByKey value matches\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
+          )
+        ),
       )
     }
   })

@@ -372,7 +372,9 @@ final class JsonApiIt
           run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"))
         )
       } yield {
-        exception.cause.getMessage should include("User abort: Assertion failed.")
+        exception.cause.getMessage should include(
+          "Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
+        )
       }
     }
     "submitMustFail succeeds on assertion failure" in {

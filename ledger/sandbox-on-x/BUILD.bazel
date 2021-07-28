@@ -143,6 +143,8 @@ conformance_test(
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
         "--exclude=RaceConditionIT",
+        "--exclude=ExceptionRaceConditionIT",
+        "--exclude=ExceptionsIT",
     ],
 )
 
