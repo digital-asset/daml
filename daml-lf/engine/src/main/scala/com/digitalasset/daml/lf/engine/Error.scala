@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.data.Ref
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value
 
@@ -35,12 +35,14 @@ object Error {
       def msg: String = validationError.pretty
     }
 
-    final case class MissingPackages(packageIds: Set[Ref.PackageId]) extends Error {
-      val s = if (packageIds.size <= 1) "" else "s"
-      override def msg: String = s"Couldn't find package$s ${packageIds.mkString(",")}"
+    final case class MissingPackage(packageId: Ref.PackageId, context: language.Reference)
+        extends Error {
+      override def msg: String = LookupError.MissingPackage.pretty(packageId, context)
     }
-    private[engine] object MissingPackage {
-      def apply(packageId: Ref.PackageId): MissingPackages = MissingPackages(Set(packageId))
+
+    object MissingPackage {
+      def apply(packageId: Ref.PackageId): MissingPackage =
+        MissingPackage(packageId, language.Reference.Package(packageId))
     }
 
     final case class AllowedLanguageVersion(
@@ -88,14 +90,6 @@ object Error {
 
     final case class Lookup(lookupError: language.LookupError) extends Error {
       override def msg: String = lookupError.pretty
-    }
-
-    private[engine] object MissingPackage {
-      def unapply(error: Lookup): Option[Ref.PackageId] =
-        error.lookupError match {
-          case language.LookupError(language.Reference.Package(packageId), _) => Some(packageId)
-          case _ => None
-        }
     }
 
     final case class TypeMismatch(

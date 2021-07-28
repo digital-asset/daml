@@ -106,12 +106,16 @@ final case class ResultNeedKey[A](
 
 object Result {
   // fails with ResultError if the package is not found
-  private[lf] def needPackage[A](packageId: PackageId, resume: Package => Result[A]) =
+  private[lf] def needPackage[A](
+      packageId: PackageId,
+      context: language.Reference,
+      resume: Package => Result[A],
+  ) =
     ResultNeedPackage(
       packageId,
       {
         case Some(pkg) => resume(pkg)
-        case None => ResultError(Error.Package.MissingPackage(packageId))
+        case None => ResultError(Error.Package.MissingPackage(packageId, context))
       },
     )
 

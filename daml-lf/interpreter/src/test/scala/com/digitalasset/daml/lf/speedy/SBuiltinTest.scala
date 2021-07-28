@@ -1636,7 +1636,7 @@ object SBuiltinTest {
       val value = machine.run() match {
         case SResultFinalValue(v) => v
         case SResultError(err) => throw Goodbye(err)
-        case SResultNeedPackage(pkgId, _) =>
+        case SResultNeedPackage(pkgId, _, _) =>
           throw Goodbye(SErrorCrash("", s"need package '$pkgId'"))
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }

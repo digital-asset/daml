@@ -7,8 +7,8 @@ package scenario
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{NodeId, GlobalKey, SubmittedTransaction}
+import com.daml.lf.language.{Ast, LookupError}
+import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SResult._
@@ -123,8 +123,8 @@ final case class ScenarioRunner(
             }
           }
 
-        case SResultNeedPackage(pkgId, _) =>
-          crash(s"package $pkgId not found")
+        case SResultNeedPackage(pkgId, context, _) =>
+          crash(LookupError.MissingPackage.pretty(pkgId, context))
 
         case _: SResultNeedContract =>
           crash("SResultNeedContract outside of submission")
@@ -443,8 +443,8 @@ object ScenarioRunner {
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
           go()
-        case SResultNeedPackage(pkgId, _) =>
-          throw Error.Internal(s"package $pkgId not found")
+        case SResultNeedPackage(pkgId, context, _) =>
+          throw Error.Internal(LookupError.MissingPackage.pretty(pkgId, context))
         case _: SResultScenarioGetParty =>
           throw Error.Internal("SResultScenarioGetParty in submission")
         case _: SResultScenarioPassTime =>
