@@ -10,9 +10,10 @@ import com.daml.ledger.configuration.protobuf.LedgerConfiguration
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.committer.CommitterSpec._
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.logging.entries.LoggingEntries
@@ -291,7 +292,7 @@ object CommitterSpec {
 
     override protected def init(
         ctx: CommitContext,
-        submission: DamlKvutils.DamlSubmission,
+        submission: DamlSubmission,
     )(implicit loggingContext: LoggingContext): Int = 0
 
     override protected def steps: Iterable[(StepInfo, Step)] =

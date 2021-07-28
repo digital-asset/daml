@@ -144,6 +144,18 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-min-1.14",
+    lf_versions = ["1.14"],
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
+        "--daml-lf-min-version-1.14-unsafe",
+    ],
+)
+
+conformance_test(
     name = "conformance-test-multi-participant",
     ports = [
         6865,

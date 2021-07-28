@@ -8,7 +8,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
+import com.daml.lf.language.{LanguageVersion, LookupError, Interface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
@@ -346,7 +346,9 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     interface.lookupPackage(pkgId) match {
-      case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+      case Right(pkg)
+          if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+            .contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }

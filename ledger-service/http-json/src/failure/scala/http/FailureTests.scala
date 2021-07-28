@@ -370,6 +370,35 @@ final class FailureTests
 
   }
 
+  "fromStartupMode should not succeed for any input when the connection to the db is broken" in {
+    import cats.effect.IO
+    import DbStartupOps._, DbStartupMode._
+    val dao = dbbackend.ContractDao(
+      JdbcConfig(
+        driver = jdbcConfig_.driver,
+        url = jdbcConfig_.url,
+        user = jdbcConfig_.user,
+        password = jdbcConfig_.password,
+      )
+    )
+    util.Logging
+      .instanceUUIDLogCtx[IO[Assertion]](implicit lc =>
+        for {
+          _ <- IO(dbProxy.disable())
+          res1 <- fromStartupMode(dao, CreateOnly)
+          res2 <- fromStartupMode(dao, CreateAndStart)
+          res3 <- fromStartupMode(dao, StartOnly)
+          res4 <- fromStartupMode(dao, CreateIfNeededAndStart)
+        } yield {
+          res1 shouldBe false
+          res2 shouldBe false
+          res3 shouldBe false
+          res4 shouldBe false
+        }
+      )
+      .unsafeToFuture()
+  }
+
   protected def jsObject(s: String): JsObject = {
     val r: JsonError \/ JsObject = for {
       jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))

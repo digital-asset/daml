@@ -7,7 +7,6 @@ option java_package = "com.daml.ledger.participant.state.kvutils.export";
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.export";
 
 import "google/protobuf/timestamp.proto";
-import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
 
 // A v3 export of a KV ledger. Used by the integrity checker to test that a new version of
 // kvutils can process older ledgers.
