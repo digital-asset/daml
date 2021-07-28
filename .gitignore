@@ -70,3 +70,5 @@ out
 # Visual Studio Code
 .vscode
 
+*.hi
+*.o

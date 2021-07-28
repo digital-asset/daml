@@ -33,3 +33,6 @@ import DA.Exception.ArithmeticError
 import DA.Exception.AssertionFailed
 import DA.Exception.PreconditionFailed
 #endif
+
+import Data.Typeable.Internal
+import Data.Typeable

@@ -88,6 +88,7 @@ class TypeSpec extends AnyWordSpec with Matchers {
       case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
       case _: Pkg.TSynApp => sys.error("cannot use type synonym in interface type")
+      case _: Pkg.TTypeRepGeneric => sys.error("cannot use TypeRepGeneric in interface type")
     }
 
     go(pkgTyp00, BackStack.empty)

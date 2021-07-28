@@ -387,6 +387,11 @@ message Type {
     repeated FieldWithType fields = 1;
   }
 
+  message TypeRepGeneric {
+    Kind kind = 1;
+    repeated Type args = 2;
+  }
+
   oneof Sum {
     Var var = 1;
     Con con = 2;
@@ -398,6 +403,7 @@ message Type {
     // use standard signed long for future usage.
     sint64 nat = 11;
     Syn syn = 12; // *Available in versions >= 1.8*
+    TypeRepGeneric type_rep_generic = 14;
 
     int32 interned = 13; // *Available in versions >= 1.11*
   }
@@ -900,6 +906,16 @@ message Expr {
     Expr expr = 2;
   }
 
+  message TypeRep {
+    Kind kind = 1;
+    Type type = 2;
+  }
+
+  message TypeRepApp {
+    Kind arg_kind = 1;
+    Kind res_kind = 2;
+  }
+
   // Throw an exception.
   // *Available in versions >= 1.14*
   message Throw {
@@ -1011,6 +1027,9 @@ message Expr {
     // A type representation
     // *Available in versions >= 1.7*
     Type type_rep = 32;
+
+    TypeRep type_rep_generic = 36;
+    TypeRepApp type_rep_generic_app = 37;
 
     // Wrap an arbitrary exception into an AnyException ('ExpToAnyException').
     // *Available in versions >= 1.14*

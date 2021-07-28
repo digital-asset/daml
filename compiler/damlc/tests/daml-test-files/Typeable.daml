@@ -1,0 +1,32 @@
+-- @INFO Use ===
+module Typeable where
+
+import Prelude hiding (TypeRep)
+
+import Data.Typeable
+
+data MyCoolType = MyCoolType
+
+f : Typeable a => a -> a
+f x = x
+
+g : MyCoolType -> MyCoolType
+g x = f x
+
+gInt : Int -> Int
+gInt x = f x
+
+gIntOptional : Optional Int -> Optional Int
+gIntOptional x = f x
+
+typeRepWrapOptional : Typeable a => TypeRep (Optional a)
+typeRepWrapOptional = getTypeRep
+
+typeRepOptionalInt : TypeRep (Optional Int)
+typeRepOptionalInt = getTypeRep
+
+wrapEqual = scenario do
+  assert (typeRepWrapOptional == typeRepOptionalInt)
+
+gIntFun : (Int -> Int) -> (Int -> Int)
+gIntFun x = f x

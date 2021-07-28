@@ -107,6 +107,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTBigNumeric -> Left URBigNumeric
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
+      TTypeRepGeneric{} -> Left URTypeRepGeneric
 
 -- | Determine whether a data type preserves serializability. When a module
 -- name is given, -- data types in this module are returned rather than lookup

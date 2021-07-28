@@ -185,6 +185,7 @@ instance Pretty Type where
              <-> pPrintPrec lvl precTForall t1)
     TStruct fields -> pPrintStruct lvl docHasType fields
     TNat n -> integer (fromTypeLevelNat n)
+    TTypeRepGeneric k -> "TypeRepGeneric<" <> pPrintPrec lvl prec k <> ">"
 
 precEApp, precELam :: Rational
 precEApp = 2
@@ -522,6 +523,8 @@ instance Pretty Expr where
     EToAny ty body -> pPrintAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> pPrintAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> pPrintAppKeyword lvl prec "type_rep" [TyArg ty]
+    ETypeRepGeneric kind ty -> pPrintAppKeyword lvl prec ("type_rep_generic<" <> show kind <> ">") [TyArg ty]
+    ETypeRepGenericApp k1 k2 -> pPrintAppKeyword lvl prec ("type_rep_generic_app<" <> show k1 <> "," <> show k2 <> ">") []
     EToAnyException ty val -> pPrintAppKeyword lvl prec "to_any_exception"
         [TyArg ty, TmArg val]
     EFromAnyException ty val -> pPrintAppKeyword lvl prec "from_any_exception"

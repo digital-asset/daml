@@ -1,0 +1,53 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE MagicHash #-}
+#ifdef DAML_TYPE_REP_GENERIC
+-- | HIDE
+module Data.Typeable.Internal
+  ( TypeRep
+  , Typeable
+  , getTypeRep
+  , mkTrCon
+  , mkTrApp
+  , mkTrFun
+  ) where
+
+import GHC.Classes (Eq(..))
+import GHC.Types (Opaque, RuntimeRep, TyCon, magic, primitive)
+
+data TypeRep (a : k) = TypeRep Opaque
+
+instance Eq (TypeRep a) where
+    (==) = primitive @"BEEqual"
+
+class Typeable (a : k) where
+  typeRep# : TypeRep a
+
+getTypeRep : forall a. Typeable a => TypeRep a
+getTypeRep = typeRep#
+
+data SomeTypeRep = SomeTypeRep
+
+mkTrCon : forall k (a : k). TyCon -> [SomeTypeRep] -> TypeRep a
+mkTrCon = magic @"mkTrCon"
+
+mkTrApp :  forall k1 k2 (a : k1 -> k2) (b : k1).
+           TypeRep (a : k1 -> k2)
+        -> TypeRep (b : k1)
+        -> TypeRep (a b)
+mkTrApp = magic @"mkTrApp"
+
+mkTrFun : forall (r1 : RuntimeRep) (r2 : RuntimeRep)
+                  a b.
+           TypeRep a -> TypeRep b -> TypeRep ((a -> b))
+mkTrFun arg res = magic @"mkTrFun"
+
+#else
+-- | HIDE
+module Data.Typeable.Internal () where
+import GHC.Types ()
+#endif

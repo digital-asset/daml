@@ -722,6 +722,12 @@ private[archive] class DecodeV1(minor: LV.Minor) {
                 identity,
               )
           )
+        case PLF.Type.SumCase.TYPE_REP_GENERIC =>
+          val rep = lfType.getTypeRepGeneric
+          val kind = decodeKind(rep.getKind)
+          rep.getArgsList.asScala.foldLeft[Type](TTypeRepGeneric(kind))((typ, arg) =>
+            TApp(typ, uncheckedDecodeType(arg))
+          )
         case PLF.Type.SumCase.INTERNED =>
           internedTypes.applyOrElse(
             lfType.getInterned,
@@ -1024,6 +1030,20 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Expr.SumCase.TYPE_REP =>
           assertSince(LV.Features.typeRep, "Expr.type_rep")
           ETypeRep(decodeType(lfExpr.getTypeRep))
+
+        case PLF.Expr.SumCase.TYPE_REP_GENERIC =>
+          assertSince(LV.Features.typeRep, "Expr.type_rep")
+          ETypeRepGeneric(
+            decodeKind(lfExpr.getTypeRepGeneric.getKind),
+            decodeType(lfExpr.getTypeRepGeneric.getType),
+          )
+
+        case PLF.Expr.SumCase.TYPE_REP_GENERIC_APP =>
+          assertSince(LV.Features.typeRep, "Expr.type_rep")
+          ETypeRepGenericApp(
+            decodeKind(lfExpr.getTypeRepGenericApp.getArgKind),
+            decodeKind(lfExpr.getTypeRepGenericApp.getResKind),
+          )
 
         case PLF.Expr.SumCase.THROW =>
           assertSince(LV.Features.exceptions, "Expr.from_any_exception")

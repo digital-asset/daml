@@ -64,6 +64,8 @@ private[validation] object ExprIterable {
         Iterator(value)
       case EFromAnyException(typ @ _, value) =>
         Iterator(value)
+      case ETypeRepGeneric(kind @ _, ty @ _) => Iterator.empty
+      case ETypeRepGenericApp(_, _) => Iterator.empty
     }
   }
 

@@ -25,6 +25,7 @@ private[validation] object TypeIterable {
         Iterator(body)
       case TStruct(fields) =>
         fields.values
+      case TTypeRepGeneric(_) => Iterator.empty
     }
 
   private[validation] def iterator(expr0: Expr): Iterator[Type] = {
@@ -55,6 +56,8 @@ private[validation] object TypeIterable {
         Iterator(typ) ++ iterator(expr)
       case ETypeRep(tyCon) =>
         Iterator(tyCon)
+      case ETypeRepGeneric(kind @ _, ty) => Iterator(ty)
+      case ETypeRepGenericApp(_, _) => Iterator.empty
       case ENil(typ) =>
         Iterator(typ)
       case ECons(typ, front, tail) =>

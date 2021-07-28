@@ -48,8 +48,8 @@ object Util {
       TApp(TApp(TBuiltin(BTArrow), targ), tres)
   }
 
-  class ParametricType1(bType: BuiltinType) {
-    val cons = TBuiltin(bType)
+  class ParametricType1(val cons: Type) {
+    def this(bType: BuiltinType) = this(TBuiltin(bType))
     def apply(typ: Type): Type =
       TApp(cons, typ)
     def unapply(typ: TApp): Option[Type] = typ match {
@@ -77,6 +77,7 @@ object Util {
   val TParty = TBuiltin(BTParty)
   val TAny = TBuiltin(BTAny)
   val TTypeRep = TBuiltin(BTTypeRep)
+  def TTypeRepGen(kind: Kind) = new ParametricType1(TTypeRepGeneric(kind))
   val TBigNumeric = TBuiltin(BTBigNumeric)
   val TRoundingMode = TBuiltin(BTRoundingMode)
 

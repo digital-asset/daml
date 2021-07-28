@@ -107,6 +107,7 @@ builtinType f =
         TForall b body -> TForall b <$> builtinType f body
         TStruct fs -> TStruct <$> (traverse . _2) (builtinType f) fs
         TNat n -> pure $ TNat n
+        TTypeRepGeneric k -> pure $ TTypeRepGeneric k
 
 type ModuleRef = (PackageRef, ModuleName)
 

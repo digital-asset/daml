@@ -95,6 +95,9 @@ alphaType' env = \case
     TSynApp s1 ts1 -> \case
         TSynApp s2 ts2 -> s1 == s2 && onList (alphaType' env) ts1 ts2
         _ -> False
+    TTypeRepGeneric k1 -> \case
+        TTypeRepGeneric k2 -> k1 == k2
+        _ -> False
 
 alphaTypeConApp :: AlphaEnv -> TypeConApp -> TypeConApp -> Bool
 alphaTypeConApp env (TypeConApp c1 ts1) (TypeConApp c2 ts2) =
@@ -195,6 +198,13 @@ alphaExpr' env = \case
         _ -> False
     ETypeRep t1 -> \case
         ETypeRep t2 -> alphaType' env t1 t2
+        _ -> False
+    ETypeRepGeneric k1 t1 -> \case
+        ETypeRepGeneric k2 t2 -> k1 == k2 && alphaType' env t1 t2
+        _ -> False
+    ETypeRepGenericApp k1 k2 -> \case
+        ETypeRepGenericApp k1' k2' ->
+            k1 == k1' && k2 == k2'
         _ -> False
     EToAnyException t1 e1 -> \case
         EToAnyException t2 e2

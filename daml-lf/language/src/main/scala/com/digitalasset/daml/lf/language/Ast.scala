@@ -146,6 +146,9 @@ object Ast {
   /** Unique textual representation of template Id * */
   final case class ETypeRep(typ: Type) extends Expr
 
+  final case class ETypeRepGeneric(kind: Kind, typ: Type) extends Expr
+  final case class ETypeRepGenericApp(argKind: Kind, resKind: Kind) extends Expr
+
   /** Throw an exception */
   final case class EThrow(returnType: Type, exceptionType: Type, exception: Expr) extends Expr
 
@@ -240,6 +243,8 @@ object Ast {
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
             .mkString(", ") + ")"
+        case TTypeRepGeneric(kind) =>
+          "TypeRep<" + kind.pretty + ">"
       }
 
       def prettyForAll(t: Type): String = t match {
@@ -282,6 +287,8 @@ object Ast {
 
   /** Structs */
   final case class TStruct(fields: Struct[Type]) extends Type
+
+  final case class TTypeRepGeneric(kind: Kind) extends Type
 
   sealed abstract class BuiltinType extends Product with Serializable
 

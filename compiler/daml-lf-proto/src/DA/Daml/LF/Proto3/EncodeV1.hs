@@ -342,7 +342,10 @@ encodeType' typ = do
 
     (TNat n, _) ->
         pure $ P.TypeSumNat (fromTypeLevelNat n)
-
+    (TTypeRepGeneric k, args) -> do
+        type_TypeRepGenericKind <- Just <$> encodeKind k
+        type_TypeRepGenericArgs <- encodeList encodeType' args
+        pure $ P.TypeSumTypeRepGeneric P.Type_TypeRepGeneric{..}
     (TApp{}, _) -> error "TApp after unwinding TApp"
     -- NOTE(MH): The following case is ill-kinded.
     (TStruct{}, _:_) -> error "Application of TStruct"
@@ -686,6 +689,14 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
+    ETypeRepGeneric k ty -> do
+        k' <- encodeKind k
+        ty' <- encodeType' ty
+        pure $ expr . P.ExprSumTypeRepGeneric $ P.Expr_TypeRep (Just k') (Just ty')
+    ETypeRepGenericApp k1 k2 -> do
+        k1 <- encodeKind k1
+        k2 <- encodeKind k2
+        pure $ expr . P.ExprSumTypeRepGenericApp $ P.Expr_TypeRepApp (Just k1) (Just k2)
     EToAnyException ty val -> do
         expr_ToAnyExceptionType <- encodeType ty
         expr_ToAnyExceptionExpr <- encodeExpr val

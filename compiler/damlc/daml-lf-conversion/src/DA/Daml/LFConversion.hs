@@ -123,6 +123,20 @@ import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
 
+-- NOTE [Typeable instances]
+-- We support Typeable instances in Daml, however
+-- not quite in the way GHC does.
+-- We have a polykinded TypeRep in Daml but
+-- no polykinds in general in Daml-LF.
+-- That means we cannot translate the polykinded
+-- Typeable definition. Instead, we inline it
+-- as needed and rely on the fact that all sensible uses
+-- are at a specific kind that we can fix without
+-- having to introduce kind variables.
+-- Since it is inlined everywhere, we can drop
+-- the actual Typeable definition so we never
+-- need to define a polykinded record or type synonym for it.
+
 ---------------------------------------------------------------------
 -- FAILURE REPORTING
 
@@ -485,6 +499,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_Desugar n <- t
     , n `elementOfUniqSet` consumingTypes
     -> pure []
+    | NameIn Data_Typeable_Internal "TypeRep" <- t -> pure []
 
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
@@ -568,6 +583,8 @@ convertTypeSynonym env tycon
 
 convertClassDef :: Env -> TyCon -> ConvertM [Definition]
 convertClassDef env tycon
+--    See Note [Typeable instances]
+    | NameIn Data_Typeable_Internal "Typeable" <- tycon = pure []
     | Just cls <- tyConClass_maybe tycon
     = do
     let con = tyConSingleDataCon tycon
@@ -924,6 +941,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     , ("GHC.Base",
         [ "getTag"
         ])
+    , ("Data.Typeable.Internal", ["mkTrCon", "mkTrApp", "mkTrFun", "$WTypeRep"])
     ]
 
 convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
@@ -961,6 +979,29 @@ convertExpr env0 e = do
             pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+    go env (VarIn Data_Typeable_Internal "mkTrCon") (LType kind : LType typ : _tycon : _kindargs : args)
+        = do kind <- convertKind kind
+             typ <- convertType env typ
+             pure  (ETypeRepGeneric kind typ, args)
+    go env (VarIn Data_Typeable_Internal "mkTrApp") (LType k1 : LType k2 : args)
+        = do k1 <- convertKind k2
+             k2 <- convertKind k2
+             pure (ETypeRepGenericApp k1 k2, args)
+    go env (VarIn Data_Typeable_Internal "mkTrFun") (_ : _ : LType a : LType b : args)
+        = do a <- convertType env a
+             b <- convertType env b
+             aRep <- freshTmVar
+             bRep <- freshTmVar
+             let funAppliedToA =
+                     ETypeRepGenericApp KStar (KStar `KArrow` KStar)
+                     `ETyApp` TArrow `ETyApp` a
+                     `ETmApp` ETypeRepGeneric (KStar `KArrow` KStar `KArrow` KStar) TArrow
+                     `ETmApp` EVar aRep
+                 funAppliedToAB =
+                     ETypeRepGenericApp KStar KStar
+                     `ETyApp` (TApp TArrow a) `ETyApp` b
+                     `ETmApp` funAppliedToA `ETmApp` EVar bRep
+             pure (ETmLam (aRep, TTypeRepGeneric KStar `TApp` a) $ ETmLam (bRep, TTypeRepGeneric KStar `TApp` b) funAppliedToAB, args)
     -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
     -- preprocessor to magically implement the `HasField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
@@ -1825,6 +1866,7 @@ convertTyCon env t
                     else pure TDecimal
             "BigNumeric" -> pure TBigNumeric
             "RoundingMode" -> pure TRoundingMode
+            "TyCon" -> erasedTy env
             _ -> defaultTyCon
     | NameIn DA_Internal_LF n <- t =
         case n of
@@ -1892,10 +1934,21 @@ convertType env = go env
             fieldTys <- mapM (go env) ts
             let fieldNames = map mkSuperClassField [1..]
             pure $ TStruct (zip fieldNames fieldTys)
+        | NameIn Data_Typeable_Internal "Typeable" <- t
+        , [kind, typ] <- ts = do
+          kind <- convertKind kind
+          typ <- go env typ
+          pure (TStruct [(FieldName "m_typeRep#", TUnit :-> TApp (TTypeRepGeneric kind) typ)])
         | tyConFlavour t == ClassFlavour
         , envLfVersion env `supports` featureTypeSynonyms = do
            tySyn <- convertQualifiedTySyn env t
            TSynApp tySyn <$> mapM (go env) ts
+        | NameIn Data_Typeable_Internal "TypeRep" <- t
+        , [kind, typ] <- ts = do
+          kind <- convertKind kind
+          typ <- go env typ
+          pure (TApp (TTypeRepGeneric kind) typ)
+        | NameIn GHC_Prim "TYPE" <- t = erasedTy env
         | otherwise =
             mkTApps <$> convertTyCon env t <*> mapM (go env) ts
 

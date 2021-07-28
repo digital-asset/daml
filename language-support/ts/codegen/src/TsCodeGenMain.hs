@@ -784,6 +784,7 @@ genType (TypeRef curModName t) = go t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
         TStruct{} -> error "IMPOSSIBLE: structural record not serializable"
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
+        TTypeRepGeneric{} -> error "IMPOSSIBLE: TypeRepGeneric not serializable"
 
 -- | Pair of a reference to the type and a reference to the serializer.
 -- Note that the serializer is in JS file whereas the type is in the TS

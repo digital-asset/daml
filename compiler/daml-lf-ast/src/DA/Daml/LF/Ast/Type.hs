@@ -34,6 +34,7 @@ freeVars e = go Set.empty e Set.empty
         TForall (v, _k) s -> go (Set.insert v boundVars) s acc
         TStruct fs -> foldl' (\acc (_, t) -> go boundVars t acc) acc fs
         TNat _ -> acc
+        TTypeRepGeneric _k -> acc
 
 -- | Get the type synonyms referenced by a type.
 referencedSyns :: Type -> HS.HashSet (Qualified TypeSynName)
@@ -48,6 +49,7 @@ referencedSyns = go HS.empty
       TForall _ body -> go acc body
       TStruct fs -> foldl' go acc (map snd fs)
       TNat _ -> acc
+      TTypeRepGeneric _k -> acc
 
 -- | Substitution of types for type variables.
 type Subst = Map.Map TypeVarName Type
@@ -86,6 +88,7 @@ substituteAux = go
             in TForall (v0, k) (go fvSubst1 (Map.delete v0 subst0) t)
       TStruct fs -> TStruct (map (second go0) fs)
       TNat n -> TNat n
+      TTypeRepGeneric k -> TTypeRepGeneric k
       where
         go0 = go fvSubst0 subst0
 

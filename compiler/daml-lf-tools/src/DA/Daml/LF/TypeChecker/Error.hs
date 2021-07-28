@@ -73,6 +73,7 @@ data UnserializabilityReason
   | URBigNumeric -- ^ It contains a value of type BigBumeric
   | URAnyException -- ^ It contains a value of type AnyException.
   | URTypeRep -- ^ It contains a value of type TypeRep.
+  | URTypeRepGeneric -- ^ It contains a value of type TypeRepGeneric.
   | URTypeSyn  -- ^ It contains a type synonym.
   | URExperimental -- ^ It contains a experimental type
 
@@ -201,6 +202,7 @@ instance Pretty UnserializabilityReason where
     URAny -> "Any"
     URAnyException -> "AnyException"
     URTypeRep -> "TypeRep"
+    URTypeRepGeneric -> "TypeRepGeneric"
     URTypeSyn -> "type synonym"
     URRoundingMode -> "RoundingMode"
     URBigNumeric -> "BigNumeric"

@@ -31,6 +31,7 @@ module GHC.Types (
         BigNumeric,
         RoundingMode(..),
 #endif
+        TyCon(..), RuntimeRep(..)
     ) where
 
 import GHC.Prim

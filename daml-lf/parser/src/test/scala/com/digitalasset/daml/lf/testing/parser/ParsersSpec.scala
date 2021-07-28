@@ -108,6 +108,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
         "<f1: a, f2: Bool, f3:Mod:T>" ->
           TStruct(Struct.assertFromSeq(List(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))),
+        "TypeRepGeneric[* -> *]" -> TTypeRepGeneric(KArrow(KStar, KStar)),
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>
@@ -331,6 +332,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EFromAnyException(E, e"anyException"),
         "throw @Unit @Mod:E exception" ->
           EThrow(TUnit, E, e"exception"),
+        "type_rep_generic @(* -> *) @Option" -> ETypeRepGeneric(
+          KArrow(KStar, KStar),
+          TBuiltin(BTOptional),
+        ),
+        "type_rep_generic @* @Unit" -> ETypeRepGeneric(KStar, TUnit),
+        "type_rep_generic_app @* @(* -> *)" -> ETypeRepGenericApp(KStar, KArrow(KStar, KStar)),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
@@ -729,6 +736,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     "to_any",
     "from_any",
     "type_rep",
+    "type_rep_generic",
+    "type_rep_generic_app",
     "loc",
     "to_any_exception",
     "from_any_exception",

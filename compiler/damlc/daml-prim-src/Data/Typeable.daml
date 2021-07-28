@@ -1,0 +1,14 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+#ifdef DAML_TYPE_REP_GENERIC where
+-- | HIDE
+module Data.Typeable (Typeable, TypeRep, getTypeRep) where
+import Data.Typeable.Internal
+
+#else
+-- | HIDE
+module Data.Typeable () where
+import GHC.Types ()
+#endif

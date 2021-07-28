@@ -100,6 +100,8 @@ object TypeOrdering extends Ordering[Type] {
       case Ast.TNat(_) => 2
       case Ast.TStruct(_) => 3
       case Ast.TApp(_, _) => 4
+      // TODO fixme
+      case Ast.TTypeRepGeneric(_) => 5
       case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) =>
         InternalError.illegalArgumentException(
           NameOf.qualifiedNameOfCurrentFunc,

@@ -91,6 +91,14 @@ featureTypeRep = Feature
     , featureCppFlag = Just "DAML_TYPE_REP"
     }
 
+featureTypeRepGeneric :: Feature
+featureTypeRepGeneric = Feature
+    { featureName = "TypeRepGeneric type"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_TYPE_REP_GENERIC"
+    }
+
+
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
@@ -183,6 +191,7 @@ allFeatures =
     [ featureNumeric
     , featureAnyType
     , featureTypeRep
+    , featureTypeRepGeneric
     , featureTypeSynonyms
     , featureStringInterning
     , featureGenericComparison

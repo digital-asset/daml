@@ -65,12 +65,18 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
   private lazy val tTypeSynApp: Parser[Type] =
     `|` ~> fullIdentifier ~ rep(typ0) <~ `|` ^^ { case id ~ tys => TSynApp(id, ImmArray(tys)) }
 
+  private lazy val tTypeRepGeneric: Parser[Type] =
+    id ~ (`[` ~> KindParser.kind <~ `]`) ^? { case "TypeRepGeneric" ~ k =>
+      TTypeRepGeneric(k)
+    }
+
   lazy val typ0: Parser[Type] =
     `(` ~> typ <~ `)` |
       tNat |
       tForall |
       tStruct |
       tTypeSynApp |
+      tTypeRepGeneric |
       (id ^? builtinTypes) ^^ TBuiltin |
       fullIdentifier ^^ TTyCon.apply |
       id ^^ TVar.apply
@@ -80,5 +86,6 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
   lazy val typ: Parser[Type] = rep1sep(typ1, `->`) ^^ (_.reduceRight(TFun))
 
   private[parser] lazy val argTyp: Parser[Type] = `@` ~> typ0
+  private[parser] lazy val argKind: Parser[Kind] = `@` ~> KindParser.kind0
 
 }

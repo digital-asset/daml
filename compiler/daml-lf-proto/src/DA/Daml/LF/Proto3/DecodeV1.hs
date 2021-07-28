@@ -608,6 +608,14 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
+  LF1.ExprSumTypeRepGeneric LF1.Expr_TypeRep {..} -> do
+    kind <- mayDecode "expr_TypeRepKind" expr_TypeRepKind decodeKind
+    typ <- mayDecode "expr_TypeRepType" expr_TypeRepType decodeType
+    return (ETypeRepGeneric kind typ)
+  LF1.ExprSumTypeRepGenericApp LF1.Expr_TypeRepApp {..} -> do
+    argKind <- mayDecode "expr_TypeRepAppArgKind" expr_TypeRepAppArgKind decodeKind
+    resKind <- mayDecode "expr_TypeRepAppResKind" expr_TypeRepAppResKind decodeKind
+    return (ETypeRepGenericApp argKind resKind)
   LF1.ExprSumToAnyException LF1.Expr_ToAnyException {..} -> EToAnyException
     <$> mayDecode "expr_ToAnyExceptionType" expr_ToAnyExceptionType decodeType
     <*> mayDecode "expr_ToAnyExceptionExpr" expr_ToAnyExceptionExpr decodeExpr
@@ -842,6 +850,8 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF1.TypeSumStruct (LF1.Type_Struct flds) ->
     TStruct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
+  LF1.TypeSumTypeRepGeneric (LF1.Type_TypeRepGeneric kind args) ->
+    decodeWithArgs args $ TTypeRepGeneric <$> mayDecode "type_TypeRepGenericKind" kind decodeKind
   LF1.TypeSumInterned n -> do
     DecodeEnv{internedTypes} <- ask
     lookupInterned internedTypes BadTypeId n

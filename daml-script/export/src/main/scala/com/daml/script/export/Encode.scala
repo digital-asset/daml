@@ -279,14 +279,14 @@ private[export] object Encode {
           case Ast.BTDate => "Date"
           case Ast.BTContractId => "ContractId"
           case Ast.BTArrow => "(->)"
-          case Ast.BTAny =>
-            // We only need to encode types in type-class instances of serializable types.
-            // DA.Internal.LF.Any is not serializable and also cannot be imported.
-            throw new NotImplementedError("Encoding of Any is not implemented")
           case Ast.BTTypeRep => "TypeRep"
           case Ast.BTAnyException => "AnyException"
           case Ast.BTRoundingMode => "RoundingMode"
           case Ast.BTBigNumeric => "BigNumeric"
+          case Ast.BTAny =>
+            // We only need to encode types in type-class instances of serializable types.
+            // DA.Internal.LF.Any is not serializable and also cannot be imported.
+            throw new NotImplementedError("Encoding of Any is not implemented")
         })
       case app: Ast.TApp =>
         unfoldApp(app) match {
@@ -309,6 +309,9 @@ private[export] object Encode {
       case Ast.TStruct(_) =>
         // We only need to encode types in type-class instances. Structs don't occur in that position.
         throw new NotImplementedError("Encoding of struct types is not implemented")
+      case Ast.TTypeRepGeneric(_) =>
+        // We only need to encode types in type-class instances. TypeRepGeneric don't occur in that position.
+        throw new NotImplementedError("Encoding of TypeRepGeenric is not implemented")
     }
   }
 

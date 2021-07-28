@@ -209,6 +209,7 @@ data Type
   | TStruct      ![(FieldName, Type)]
   -- | Type-level natural numbers
   | TNat !TypeLevelNat
+  | TTypeRepGeneric !Kind
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Fully applied qualified type constructor.
@@ -530,6 +531,8 @@ data Expr
     , fromAnyBody :: !Expr
     }
   | ETypeRep !Type
+  | ETypeRepGeneric !Kind !Type
+  | ETypeRepGenericApp !Kind !Kind
   -- | Construct an 'AnyException' value from a value of an exception type.
   | EToAnyException
     { toAnyExceptionType :: !Type

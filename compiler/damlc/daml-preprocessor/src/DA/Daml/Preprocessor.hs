@@ -47,6 +47,7 @@ isInternal (GHC.moduleNameString -> x)
       , "LibraryModules"
       , "DA.Types"
       , "DA.Time.Types"
+      , "Data.Typeable.Internal"
       ]
 
 isUnstableInternal :: GHC.ModuleName -> Bool
@@ -73,6 +74,7 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Exception.ArithmeticError"
     , "DA.Exception.AssertionFailed"
     , "DA.Exception.PreconditionFailed"
+    , "Data.Typeable"
 
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"

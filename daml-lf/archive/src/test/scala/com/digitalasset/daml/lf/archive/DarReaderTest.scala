@@ -75,6 +75,8 @@ class DarReaderTest
         )
         .toSet
       archiveModuleNames shouldBe Set(
+        "Data.Typeable",
+        "Data.Typeable.Internal",
         "GHC.Enum",
         "GHC.Show",
         "GHC.Num",

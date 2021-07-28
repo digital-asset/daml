@@ -87,6 +87,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         t"forall (a:*) (b:*) . a -> b -> a" -> k"*",
         t"< f1 : Int64, f2 : Bool >" -> k"*",
         t"Arrow Int64" -> k"* -> *",
+        t"TypeRepGeneric[*]" -> k"* -> *",
+        t"TypeRepGeneric[* -> *]" -> k"(* -> *) -> *",
       )
 
       forEvery(testCases) { (typ: Type, expectedKind: Kind) =>
@@ -247,6 +249,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // UpdTryCatch
         E"Λ (σ : ⋆). λ (e₁ : Update σ) (e₂: AnyException → Option (Update σ)) → (( try @σ e₁ catch x → e₂ x ))" ->
           T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ",
+        // ExpTypeRepGeneric
+        E"type_rep_generic @(⋆ → ⋆) @Option" -> T"TypeRepGeneric[⋆ → ⋆] Option",
+        E"type_rep_generic @⋆ @Unit" -> T"TypeRepGeneric[⋆] Unit",
+        // ExpTypeRepGenericApp
+        E"type_rep_generic_app @⋆ @⋆" -> T"∀ ($$alpha$$ : ⋆ → ⋆) ($$beta$$ : ⋆). TypeRepGeneric[⋆ → ⋆] $$alpha$$ → TypeRepGeneric[⋆] $$beta$$ → TypeRepGeneric[⋆] ($$alpha$$ $$beta$$)",
+        E"type_rep_generic_app @(⋆ → ⋆) @(⋆ → ⋆)" -> T"∀ ($$alpha$$ : (⋆ → ⋆) → ⋆ → ⋆) ($$beta$$ : ⋆ → ⋆). TypeRepGeneric[(⋆ → ⋆) → ⋆ → ⋆] $$alpha$$ → TypeRepGeneric[⋆ → ⋆] $$beta$$ → TypeRepGeneric[⋆ → ⋆] ($$alpha$$ $$beta$$)",
         // EExperimental
         E"experimental ANSWER (Unit -> Int64)" ->
           T"Unit -> Int64",

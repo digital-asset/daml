@@ -376,6 +376,7 @@ object Repl {
           .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
           .toSeq
           .mkString(", ") + ")"
+      case TTypeRepGeneric(_) => "typerepgeneric"
     }
 
     def prettyForAll(t: Type): String = t match {

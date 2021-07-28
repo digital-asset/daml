@@ -78,7 +78,7 @@ pattern IgnoreWorkerPrefixFS :: T.Text -> FastString
 pattern IgnoreWorkerPrefixFS n <- (fsToText -> IgnoreWorkerPrefix n)
 
 -- daml-prim module patterns
-pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Types, GHC_Show :: GHC.Module
+pattern Control_Exception_Base, Data_String, Data_Typeable_Internal, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Types, GHC_Show :: GHC.Module
 pattern Control_Exception_Base <- ModuleIn DamlPrim "Control.Exception.Base"
 pattern Data_String <- ModuleIn DamlPrim "Data.String"
 pattern GHC_Base <- ModuleIn DamlPrim "GHC.Base"
@@ -91,6 +91,7 @@ pattern GHC_Real <- ModuleIn DamlPrim "GHC.Real"
 pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
 pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 pattern GHC_Show <- ModuleIn DamlPrim "GHC.Show"
+pattern Data_Typeable_Internal <- ModuleIn DamlPrim "Data.Typeable.Internal"
 
 -- daml-stdlib module patterns
 pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception :: GHC.Module
