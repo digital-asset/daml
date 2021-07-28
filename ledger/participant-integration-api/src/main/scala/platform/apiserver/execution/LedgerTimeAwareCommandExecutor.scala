@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.api.domain.Commands
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
@@ -31,22 +32,24 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   override def execute(
       commands: Commands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
-    loop(commands, submissionSeed, maxRetries)
+    loop(commands, submissionSeed, ledgerConfiguration, maxRetries)
 
   private[this] def loop(
       commands: Commands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
       retriesLeft: Int,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     delegate
-      .execute(commands, submissionSeed)
+      .execute(commands, submissionSeed, ledgerConfiguration)
       .flatMap {
         case e @ Left(_) =>
           // Permanently failed
@@ -79,7 +82,12 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                   logger.debug(
                     s"Restarting the computation with new ledger effective time $maxUsedTime"
                   )
-                  loop(advanceInputTime(commands, maxUsedTime), submissionSeed, retriesLeft - 1)
+                  loop(
+                    advanceInputTime(commands, maxUsedTime),
+                    submissionSeed,
+                    ledgerConfiguration,
+                    retriesLeft - 1,
+                  )
                 } else {
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
                 }

@@ -11,12 +11,16 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v1.WritePackagesService
-import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v2.{
+  AdaptedV1ReadService,
+  AdaptedV1WriteService,
+  WritePackagesService,
+}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
-import com.daml.lf.engine._
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
@@ -110,8 +114,8 @@ final class Runner[T <: ReadWriteService, Extra](
             ledger <- factory
               .readWriteServiceOwner(config, participantConfig, sharedEngine)
               .acquire()
-            readService = new TimedReadService(ledger, metrics)
-            writeService = new TimedWriteService(ledger, metrics)
+            readService = new TimedReadService(new AdaptedV1ReadService(ledger), metrics)
+            writeService = new TimedWriteService(new AdaptedV1WriteService(ledger), metrics)
             healthChecks = new HealthChecks(
               "read" -> readService,
               "write" -> writeService,

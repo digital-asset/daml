@@ -19,7 +19,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -44,6 +44,8 @@ import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
+import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.Status
 import scalaz.Tag
 
 import scala.collection.immutable.Queue
@@ -413,10 +415,10 @@ private final class SqlLedger(
         .fold(
           reason =>
             ledgerDao.storeRejection(
-              Some(submitterInfo),
-              recordTime,
-              CurrentOffset(offset),
-              reason.toStateV1RejectionReason,
+              completionInfo = Some(submitterInfo.toCompletionInfo),
+              recordTime = recordTime,
+              offsetStep = CurrentOffset(offset),
+              reason = reason.toStateV2RejectionReason,
             ),
           _ => {
             val divulgedContracts = Nil
@@ -425,7 +427,7 @@ private final class SqlLedger(
             val blindingInfo = None
 
             ledgerDao.storeTransaction(
-              submitterInfo = Some(submitterInfo),
+              completionInfo = Some(submitterInfo.toCompletionInfo),
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -452,7 +454,15 @@ private final class SqlLedger(
         case Success(Enqueued) =>
           Success(state.SubmissionResult.Acknowledged)
         case Success(Dropped) =>
-          Success(state.SubmissionResult.Overloaded)
+          Success(
+            state.SubmissionResult.SynchronousError(
+              RpcStatus.of(
+                Status.Code.RESOURCE_EXHAUSTED.value(),
+                "System is overloaded, please try again later",
+                Seq.empty,
+              )
+            )
+          )
         case Success(QueueClosed) =>
           Failure(new IllegalStateException("queue closed"))
         case Success(QueueOfferResult.Failure(e)) => Failure(e)

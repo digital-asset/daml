@@ -9,8 +9,8 @@ import java.util.concurrent.TimeUnit
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
-import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
@@ -54,14 +54,8 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
               Future.failed(ErrorFactories.aborted("Request timed out"))
             }
             .flatten
-        case r @ SubmissionResult.SynchronousReject(_) =>
-          Future.failed(r.failure)
-        case r @ SubmissionResult.Overloaded =>
-          Future.failed(ErrorFactories.resourceExhausted(r.description))
-        case r @ SubmissionResult.InternalError(_) =>
-          Future.failed(ErrorFactories.internal(r.reason))
-        case r @ SubmissionResult.NotSupported =>
-          Future.failed(ErrorFactories.unimplemented(r.description))
+        case r: SubmissionResult.SynchronousError =>
+          Future.failed(r.exception)
       }
     } yield entry
   }

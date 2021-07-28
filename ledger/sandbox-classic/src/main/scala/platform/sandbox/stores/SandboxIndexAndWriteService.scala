@@ -10,7 +10,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine

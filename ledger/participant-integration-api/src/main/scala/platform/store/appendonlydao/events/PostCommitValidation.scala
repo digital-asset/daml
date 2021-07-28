@@ -6,7 +6,8 @@ package com.daml.platform.store.appendonlydao.events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1
+import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.{v1, v2}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.platform.store.appendonlydao.events.PostCommitValidation._
 import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend}
@@ -278,15 +279,23 @@ private[appendonlydao] object PostCommitValidation {
     def description: String
 
     def toStateV1RejectionReason: v1.RejectionReason
+
+    def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate
   }
 
   object Rejection {
+
+    import com.daml.platform.store.Conversions.RejectionReasonOps
+
     object UnknownContract extends Rejection {
       override val description =
         "Unknown contract"
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.Inconsistent(description)
+
+      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+        domain.RejectionReason.Inconsistent(description).toParticipantStateRejectionReason
     }
 
     object DuplicateKey extends Rejection {
@@ -295,6 +304,9 @@ private[appendonlydao] object PostCommitValidation {
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.Inconsistent(description)
+
+      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+        domain.RejectionReason.Inconsistent(description).toParticipantStateRejectionReason
     }
 
     final case class MismatchingLookup(
@@ -306,6 +318,9 @@ private[appendonlydao] object PostCommitValidation {
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.Inconsistent(description)
+
+      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+        domain.RejectionReason.Inconsistent(description).toParticipantStateRejectionReason
     }
 
     final case class CausalMonotonicityViolation(
@@ -317,6 +332,9 @@ private[appendonlydao] object PostCommitValidation {
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.InvalidLedgerTime(description)
+
+      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+        domain.RejectionReason.InvalidLedgerTime(description).toParticipantStateRejectionReason
     }
 
     object UnallocatedParties extends Rejection {
@@ -325,6 +343,9 @@ private[appendonlydao] object PostCommitValidation {
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.PartyNotKnownOnLedger(description)
+
+      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+        domain.RejectionReason.PartyNotKnownOnLedger(description).toParticipantStateRejectionReason
     }
   }
 }

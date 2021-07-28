@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementSe
 import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import java.time.{Duration, Instant}
+import java.util.UUID
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -12,7 +13,15 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.DomainMocks
-import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, LedgerOffset, PartyDetails}
+import com.google.rpc.status.{Status => RpcStatus}
+import com.daml.ledger.api.domain.{
+  CommandId,
+  Commands,
+  LedgerId,
+  LedgerOffset,
+  PartyDetails,
+  SubmissionId,
+}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -22,7 +31,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexSubmissionService,
 }
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf
 import com.daml.lf.command.{Commands => LfCommands}
@@ -197,7 +206,9 @@ class ApiSubmissionServiceSpec
 
     val party = "party-1"
     val typedParty = Ref.Party.assertFromString(party)
-    val submissionFailure = state.SubmissionResult.InternalError(s"failed to allocate $party")
+    val submissionFailure = state.SubmissionResult.SynchronousError(
+      RpcStatus.of(Status.Code.INTERNAL.value(), s"Failed to allocate $party.", Seq.empty)
+    )
     when(
       writeService.allocateParty(
         eqTo(Some(typedParty)),
@@ -305,8 +316,10 @@ class ApiSubmissionServiceSpec
               workflowId = None,
               applicationId = DomainMocks.applicationId,
               commandId = CommandId(
-                Ref.LedgerString.assertFromString(s"commandId-${commandId.incrementAndGet()}")
+                Ref.CommandId.assertFromString(s"commandId-${commandId.incrementAndGet()}")
               ),
+              submissionId =
+                SubmissionId(Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)),
               actAs = Set.empty,
               readAs = Set.empty,
               submittedAt = Instant.MIN,
@@ -315,10 +328,11 @@ class ApiSubmissionServiceSpec
             )
           )
           when(
-            mockCommandExecutor.execute(eqTo(submitRequest.commands), any[Hash])(
-              any[ExecutionContext],
-              any[LoggingContext],
-            )
+            mockCommandExecutor.execute(
+              eqTo(submitRequest.commands),
+              any[Hash],
+              any[Configuration],
+            )(any[ExecutionContext], any[LoggingContext])
           ).thenReturn(Future.successful(Left(error)))
 
           service.submit(submitRequest).transform(result => Success(code -> result))

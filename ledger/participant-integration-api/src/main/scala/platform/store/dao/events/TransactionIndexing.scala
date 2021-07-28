@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.time.Instant
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.platform.store.serialization.Compression
@@ -193,7 +193,7 @@ object TransactionIndexing {
       )
 
     def build(
-        submitterInfo: Option[state.SubmitterInfo],
+        completionInfo: Option[state.CompletionInfo],
         workflowId: Option[WorkflowId],
         transactionId: TransactionId,
         ledgerEffectiveTime: Instant,
@@ -223,7 +223,7 @@ object TransactionIndexing {
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(
-          submitterInfo = submitterInfo,
+          completionInfo = completionInfo,
           workflowId = workflowId,
           transactionId = transactionId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -249,7 +249,7 @@ object TransactionIndexing {
   }
 
   final case class TransactionInfo(
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
@@ -323,7 +323,7 @@ object TransactionIndexing {
 
   def from(
       blindingInfo: BlindingInfo,
-      submitterInfo: Option[state.SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
@@ -341,7 +341,7 @@ object TransactionIndexing {
         rollbackEnd = (acc, _, _) => acc,
       )
       .build(
-        submitterInfo = submitterInfo,
+        completionInfo = completionInfo,
         workflowId = workflowId,
         transactionId = transactionId,
         ledgerEffectiveTime = ledgerEffectiveTime,

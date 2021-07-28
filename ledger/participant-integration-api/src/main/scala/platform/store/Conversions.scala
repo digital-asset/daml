@@ -13,12 +13,15 @@ import anorm.Column.nonNull
 import anorm._
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import spray.json.DefaultJsonProtocol._
+import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.Status
 import spray.json._
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
@@ -337,20 +340,34 @@ private[platform] object Conversions {
   }
 
   implicit class RejectionReasonOps(rejectionReason: domain.RejectionReason) {
-    def toParticipantStateRejectionReason: state.RejectionReason =
+
+    import RejectionReasonOps._
+
+    def toParticipantStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
       rejectionReason match {
         case domain.RejectionReason.Inconsistent(reason) =>
-          state.RejectionReasonV0.Inconsistent(reason)
+          newRejectionReason(Status.Code.ABORTED, s"Inconsistent: $reason")
         case domain.RejectionReason.Disputed(reason) =>
-          state.RejectionReasonV0.Disputed(reason)
+          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Disputed: $reason")
         case domain.RejectionReason.OutOfQuota(reason) =>
-          state.RejectionReasonV0.ResourcesExhausted(reason)
+          newRejectionReason(Status.Code.ABORTED, s"Resources exhausted: $reason")
         case domain.RejectionReason.PartyNotKnownOnLedger(reason) =>
-          state.RejectionReasonV0.PartyNotKnownOnLedger(reason)
+          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Party not known on ledger: $reason")
         case domain.RejectionReason.SubmitterCannotActViaParticipant(reason) =>
-          state.RejectionReasonV0.SubmitterCannotActViaParticipant(reason)
+          newRejectionReason(
+            Status.Code.PERMISSION_DENIED,
+            s"Submitted cannot act via participant: $reason",
+          )
         case domain.RejectionReason.InvalidLedgerTime(reason) =>
-          state.RejectionReasonV0.InvalidLedgerTime(reason)
+          newRejectionReason(Status.Code.ABORTED, s"Invalid ledger time: $reason")
       }
+  }
+
+  object RejectionReasonOps {
+    private def newRejectionReason(
+        code: Status.Code,
+        message: String,
+    ): state.Update.CommandRejected.RejectionReasonTemplate =
+      new CommandRejected.FinalReason(RpcStatus.of(code.value(), message, Seq.empty))
   }
 }

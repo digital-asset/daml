@@ -10,7 +10,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.{v1 => state}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
@@ -37,7 +37,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       "actAs" -> submitterInfo.actAs,
       "applicationId" -> submitterInfo.applicationId,
       "commandId" -> submitterInfo.commandId,
-      "deduplicateUntil" -> submitterInfo.deduplicateUntil,
+      "deduplicationPeriod" -> submitterInfo.deduplicationPeriod,
       "submissionTime" -> transactionMeta.submissionTime.toInstant,
       "workflowId" -> transactionMeta.workflowId,
       "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant,
