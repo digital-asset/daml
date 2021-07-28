@@ -1398,26 +1398,14 @@ private[lf] object SBuiltin {
 
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
-    private def exceptionMessage(tyCon: TypeConName, value: SValue, machine: Machine) =
-      machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(value)))
-
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val exception = getSAnyException(args, 0)
-      val tyCon = exception.id
-      if (tyCon == ValueArithmeticError.tyCon)
-        machine.returnValue = exception.values.get(0)
-      else if (!machine.compiledPackages.packageIds.contains(exception.id.packageId))
-        throw SpeedyHungry(
-          SResultNeedPackage(
-            tyCon.packageId,
-            language.Reference.Exception(tyCon),
-            { packages =>
-              machine.compiledPackages = packages
-              exceptionMessage(tyCon, exception, machine)
-            },
-          )
-        )
-      exceptionMessage(tyCon, exception, machine)
+      exception.id match {
+        case ValueArithmeticError.tyCon =>
+          machine.returnValue = exception.values.get(0)
+        case tyCon =>
+          machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
+      }
     }
   }
 
