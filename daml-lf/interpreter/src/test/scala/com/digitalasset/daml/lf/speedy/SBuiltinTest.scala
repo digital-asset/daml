@@ -9,6 +9,7 @@ import java.util
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue, SResultNeedPackage}
@@ -1562,6 +1563,22 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val expected = Right(SValue.SText(res))
         eval(e"$exp") shouldBe expected
       }
+    }
+  }
+
+  "TypeRepGeneric/TypeRepGenericApp" - {
+    "should produce typerep for Unit" in {
+      eval(e"type_rep_generic @* @Unit") shouldBe Right(SValue.STypeRep(TUnit))
+    }
+    "should produce typerep for Option" in {
+      eval(e"type_rep_generic @(* -> *) @Option") shouldBe Right(
+        SValue.STypeRep(TBuiltin(BTOptional))
+      )
+    }
+    "should produce typerep for Option Unit" in {
+      eval(
+        e"type_rep_generic_app @* @* (type_rep_generic @(* -> *) @Option) (type_rep_generic @* @Unit)"
+      ) shouldBe Right(SValue.STypeRep(TOptional(TUnit)))
     }
   }
 

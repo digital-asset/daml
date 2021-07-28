@@ -309,6 +309,9 @@ private[export] object Encode {
       case Ast.TStruct(_) =>
         // We only need to encode types in type-class instances. Structs don't occur in that position.
         throw new NotImplementedError("Encoding of struct types is not implemented")
+      case Ast.TTypeRepGeneric(_) =>
+        // We only need to encode types in type-class instances. TypeRepGeneric don't occur in that position.
+        throw new NotImplementedError("Encoding of TypeRepGeenric is not implemented")
     }
   }
 

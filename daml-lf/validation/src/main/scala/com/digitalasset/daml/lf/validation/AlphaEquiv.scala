@@ -32,6 +32,8 @@ private[validation] object AlphaEquiv {
       case (TStruct(fs1), TStruct(fs2)) =>
         (fs1.names sameElements fs2.names) &&
           (fs1.values zip fs2.values).forall((alphaEquiv _).tupled)
+      case (TTypeRepGeneric(k1), TTypeRepGeneric(k2)) =>
+        k1 == k2
       case _ => false
     }
   }

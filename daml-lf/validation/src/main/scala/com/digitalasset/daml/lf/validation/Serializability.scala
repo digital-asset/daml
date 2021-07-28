@@ -90,6 +90,7 @@ private[validation] object Serializability {
           case BTBigNumeric =>
             unserializable(URBigNumeric)
         }
+      case TTypeRepGeneric(_) => unserializable(URTypeRepGeneric)
       case TForall(_, _) =>
         unserializable(URForall)
       case TStruct(_) =>

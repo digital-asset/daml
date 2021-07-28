@@ -46,6 +46,8 @@ private[parser] object Token {
   case object `to_any` extends Token
   case object `from_any` extends Token
   case object `type_rep` extends Token
+  case object `type_rep_generic` extends Token
+  case object `type_rep_generic_app` extends Token
   case object `loc` extends Token
   case object `to_any_exception` extends Token
   case object `from_any_exception` extends Token

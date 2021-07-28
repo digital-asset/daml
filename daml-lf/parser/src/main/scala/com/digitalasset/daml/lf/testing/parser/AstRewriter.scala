@@ -49,6 +49,8 @@ private[daml] class AstRewriter(
           TForall(binder, apply(body))
         case TStruct(fields) =>
           TStruct(fields.mapValues(apply))
+        case TTypeRepGeneric(kind) =>
+          TTypeRepGeneric(kind)
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {
@@ -60,9 +62,11 @@ private[daml] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) |
-            EExperimental(_, _) =>
+        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EExperimental(_, _) |
+            ETypeRepGenericApp(_, _) =>
           x
+        case ETypeRep(ty) => ETypeRep(apply(ty))
+        case ETypeRepGeneric(kind, ty) => ETypeRepGeneric(kind, apply(ty))
         case EVal(ref) =>
           EVal(apply(ref))
         case ELocation(loc, expr) =>

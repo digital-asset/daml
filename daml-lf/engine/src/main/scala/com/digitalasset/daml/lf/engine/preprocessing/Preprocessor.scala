@@ -88,7 +88,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
               }
             case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
               go(typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
-            case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
+            case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) | Ast.TTypeRepGeneric(_) =>
               // We assume that getDependencies is always given serializable types
               ResultError(
                 Error.Preprocessing

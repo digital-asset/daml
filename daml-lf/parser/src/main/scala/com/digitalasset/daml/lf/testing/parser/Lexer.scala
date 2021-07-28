@@ -38,6 +38,8 @@ private[parser] object Lexer extends RegexParsers {
     "to_any" -> `to_any`,
     "from_any" -> `from_any`,
     "type_rep" -> `type_rep`,
+    "type_rep_generic" -> `type_rep_generic`,
+    "type_rep_generic_app" -> `type_rep_generic_app`,
     "loc" -> `loc`,
     "to_any_exception" -> `to_any_exception`,
     "from_any_exception" -> `from_any_exception`,

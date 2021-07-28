@@ -16,6 +16,10 @@ import scala.annotation.tailrec
 
 private[validation] object Typing {
 
+  private val alpha = TVar(Name.assertFromString("$alpha$"))
+  private val beta = TVar(Name.assertFromString("$beta$"))
+  private val gamma = TVar(Name.assertFromString("$gamma$"))
+
   import Util.handleLookup
 
   /* Typing */
@@ -46,9 +50,6 @@ private[validation] object Typing {
   }
 
   protected[validation] lazy val typeOfBuiltinFunction = {
-    val alpha = TVar(Name.assertFromString("$alpha$"))
-    val beta = TVar(Name.assertFromString("$beta$"))
-    val gamma = TVar(Name.assertFromString("$gamma$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
     val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
     val tMultiNumBinop =
@@ -481,6 +482,8 @@ private[validation] object Typing {
       case TStruct(fields) =>
         checkRecordType(fields.toImmArray)
         KStar
+      case TTypeRepGeneric(kind) =>
+        KArrow(kind, KStar)
     }
 
     private def expandTypeSynonyms(typ0: Type): Type = typ0 match {
@@ -501,6 +504,7 @@ private[validation] object Typing {
         TForall((v, k), introTypeVar(v, k).expandTypeSynonyms(b))
       case TStruct(recordType) =>
         TStruct(recordType.mapValues(expandTypeSynonyms(_)))
+      case TTypeRepGeneric(_) => typ0
     }
 
     private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
@@ -1033,6 +1037,19 @@ private[validation] object Typing {
       case ETypeRep(typ) =>
         checkAnyType(typ)
         TTypeRep
+      case ETypeRepGeneric(kind, typ) =>
+        checkType(typ, kind)
+        TTypeRepGen(kind)(typ)
+      case ETypeRepGenericApp(argKind, resKind) =>
+        TForall(
+          alpha.name -> KArrow(argKind, resKind),
+          TForall(
+            beta.name -> argKind,
+            TTypeRepGen(KArrow(argKind, resKind))(alpha) ->: TTypeRepGen(argKind)(
+              beta
+            ) ->: TTypeRepGen(resKind)(TApp(alpha, beta)),
+          ),
+        )
       case EThrow(returnTyp, excepTyp, body) =>
         checkType(returnTyp, KStar)
         checkExceptionType(excepTyp)

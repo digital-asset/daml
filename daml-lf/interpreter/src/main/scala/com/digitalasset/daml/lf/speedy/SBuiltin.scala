@@ -162,6 +162,12 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "Exception", otherwise)
     }
 
+  final protected def getSTypeRep(args: util.ArrayList[SValue], i: Int): Ast.Type =
+    args.get(i) match {
+      case STypeRep(x) => x
+      case otherwise => unexpectedType(i, "STNat", otherwise)
+    }
+
   final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
     args.get(i) match {
       case SToken => ()
@@ -353,6 +359,14 @@ private[lf] object SBuiltin {
       val outputScale = getSTNat(args, 1)
       val x = getSNumeric(args, 2)
       Numeric.fromBigDecimal(outputScale, x).toOption.map(SNumeric(_))
+    }
+  }
+
+  final case object SBTypeRepApp extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
+      val t1 = getSTypeRep(args, 0)
+      val t2 = getSTypeRep(args, 1)
+      STypeRep(Ast.TApp(t1, t2))
     }
   }
 

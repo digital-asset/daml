@@ -142,6 +142,9 @@ case object URAny extends UnserializabilityReason {
 case object URTypeRep extends UnserializabilityReason {
   def pretty: String = "TypeRep"
 }
+case object URTypeRepGeneric extends UnserializabilityReason {
+  def pretty: String = "TypeRepGeneric"
+}
 case object URRoundingMode extends UnserializabilityReason {
   def pretty: String = "RoundingMode"
 }

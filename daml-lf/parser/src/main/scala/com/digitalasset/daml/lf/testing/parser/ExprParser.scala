@@ -40,7 +40,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eFromAny |
       eToAnyException |
       eFromAnyException |
-      eToTextTypeConName |
+      eTypeRep |
+      eTypeRepGeneric |
+      eTypeRepGenericApp |
       eThrow |
       (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
@@ -217,8 +219,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       EThrow(retType, excepType, exception)
     }
 
-  private lazy val eToTextTypeConName: Parser[Expr] =
+  private lazy val eTypeRep: Parser[Expr] =
     `type_rep` ~>! argTyp ^^ ETypeRep
+
+  private lazy val eTypeRepGeneric: Parser[Expr] =
+    `type_rep_generic` ~>! argKind ~ argTyp ^^ { case kind ~ typ =>
+      ETypeRepGeneric(kind, typ)
+    }
+
+  private lazy val eTypeRepGenericApp: Parser[Expr] =
+    `type_rep_generic_app` ~>! argKind ~ argKind ^^ { case k1 ~ k2 =>
+      ETypeRepGenericApp(k1, k2)
+    }
 
   private lazy val pattern: Parser[CasePat] =
     primCon ^^ CPPrimCon |
