@@ -206,7 +206,8 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       }
 
     val isCausallyMonotonic = transactionEntry.transaction.inputContracts.forall { contractId =>
-      inputContracts.get(contractId).exists { inputContractState =>
+      // We don't check monotonicity for non-existent contracts.
+      inputContracts.get(contractId).forall { inputContractState =>
         val activeAt = Option(inputContractState.getActiveAt).map(parseTimestamp)
         activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
       }
