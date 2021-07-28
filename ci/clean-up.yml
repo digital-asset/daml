@@ -30,9 +30,9 @@ steps:
 
     for path in $MPS; do
       if ! ($CMD | grep -F "$path"); then
-        echo "$path is not a mount point, aborting"
-        echo "Please ping @gary on Slack."
-        exit 1
+        echo "$path is not a mount point, forcing cache reset"
+        $HOME/reset_caches.sh
+        echo "Done."
       fi
     done
     ## END temp debug
@@ -44,4 +44,14 @@ steps:
         echo "Done."
         df -h .
     fi
+
+    ## More temp debugging
+    for path in $MPS; do
+      if ! ($CMD | grep -F "$path"); then
+        echo "$path is not a mount point, forcing cache reset"
+        $HOME/reset_caches.sh
+        echo "Done."
+      fi
+    done
+    ## End more debugging
   displayName: clean-up disk cache

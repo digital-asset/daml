@@ -15,7 +15,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.WriteService
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
@@ -71,7 +71,7 @@ private[daml] object ApiServices {
 
   final class Owner(
       participantId: Ref.ParticipantId,
-      optWriteService: Option[WriteService],
+      optWriteService: Option[state.WriteService],
       indexService: IndexService,
       authorizer: Authorizer,
       engine: Engine,

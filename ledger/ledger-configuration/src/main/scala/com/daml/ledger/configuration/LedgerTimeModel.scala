@@ -5,18 +5,20 @@ package com.daml.ledger.configuration
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.configuration.LedgerTimeModel._
+
 import scala.util.Try
 
 /** The ledger time model and associated validations. Some values are given by constructor args;
   * others are derived.
   *
-  * @param avgTransactionLatency The expected average latency of a transaction, i.e., the average
-  *                              time from submitting the transaction to a write service and the
-  *                              transaction being assigned a record time.
-  * @param minSkew               The minimimum skew between ledger time and record time:
-  *                              lt_TX >= rt_TX - minSkew
-  * @param maxSkew               The maximum skew between ledger time and record time:
-  *                              lt_TX <= rt_TX + maxSkew
+  * @param avgTransactionLatency  The expected average latency of a transaction, i.e., the average
+  *                               time from submitting the transaction to a write service and the
+  *                               transaction being assigned a record time.
+  * @param minSkew                The minimimum skew between ledger time and record time:
+  *                               lt_TX >= rt_TX - minSkew
+  * @param maxSkew                The maximum skew between ledger time and record time:
+  *                               lt_TX <= rt_TX + maxSkew
   * @throws IllegalArgumentException if the parameters aren't valid
   */
 case class LedgerTimeModel private (
@@ -31,13 +33,14 @@ case class LedgerTimeModel private (
   def checkTime(
       ledgerTime: Instant,
       recordTime: Instant,
-  ): Either[String, Unit] = {
+  ): Either[OutOfRange, Unit] = {
     val lowerBound = minLedgerTime(recordTime)
     val upperBound = maxLedgerTime(recordTime)
-    if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound))
-      Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
-    else
+    if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound)) {
+      Left(OutOfRange(ledgerTime, lowerBound, upperBound))
+    } else {
       Right(())
+    }
   }
 
   private[ledger] def minLedgerTime(recordTime: Instant): Instant =
@@ -76,4 +79,10 @@ object LedgerTimeModel {
       require(!maxSkew.isNegative, "Negative max skew")
       new LedgerTimeModel(avgTransactionLatency, minSkew, maxSkew)
     }
+
+  final case class OutOfRange(ledgerTime: Instant, lowerBound: Instant, upperBound: Instant) {
+    lazy val message: String =
+      s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]"
+  }
+
 }

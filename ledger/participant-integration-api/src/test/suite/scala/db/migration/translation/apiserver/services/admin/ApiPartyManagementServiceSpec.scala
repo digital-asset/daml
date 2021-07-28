@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
 }
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
@@ -74,17 +74,17 @@ class ApiPartyManagementServiceSpec
     }
   }
 
-  private object TestWritePartyService extends WritePartyService {
+  private object TestWritePartyService extends state.WritePartyService {
     override def allocateParty(
         hint: Option[Ref.Party],
         displayName: Option[String],
         submissionId: Ref.SubmissionId,
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,
         anApplicationIdSpanAttribute._2,
       )
-      CompletableFuture.completedFuture(SubmissionResult.Acknowledged)
+      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
     }
   }
 }

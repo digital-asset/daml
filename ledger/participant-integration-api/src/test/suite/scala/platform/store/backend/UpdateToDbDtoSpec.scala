@@ -3,20 +3,14 @@
 
 package com.daml.platform.store.backend
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{
-  DivulgedContract,
-  RejectionReasonV0,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.ledger.EventId
@@ -37,6 +31,8 @@ import com.daml.platform.store.appendonlydao.events.{
 }
 import com.daml.platform.store.dao.DeduplicationKeyMaker
 import com.google.protobuf.ByteString
+import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.Status
 import org.scalactic.TripleEquals._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -44,12 +40,13 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.concurrent.{ExecutionContext, Future}
 
 class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
+
   import UpdateToDbDtoSpec._
 
   "UpdateToDbDto" should {
 
     "handle ConfigurationChanged" in {
-      val update = Update.ConfigurationChanged(
+      val update = state.Update.ConfigurationChanged(
         someRecordTime,
         someSubmissionId,
         someParticipantId,
@@ -73,7 +70,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle ConfigurationChangeRejected" in {
       val rejectionReason = "Test rejection reason"
-      val update = Update.ConfigurationChangeRejected(
+      val update = state.Update.ConfigurationChangeRejected(
         someRecordTime,
         someSubmissionId,
         someParticipantId,
@@ -98,7 +95,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PartyAddedToParticipant (local party)" in {
       val displayName = "Test party"
-      val update = Update.PartyAddedToParticipant(
+      val update = state.Update.PartyAddedToParticipant(
         someParty,
         displayName,
         someParticipantId,
@@ -132,7 +129,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PartyAddedToParticipant (remote party)" in {
       val displayName = "Test party"
-      val update = Update.PartyAddedToParticipant(
+      val update = state.Update.PartyAddedToParticipant(
         someParty,
         displayName,
         otherParticipantId,
@@ -166,7 +163,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PartyAllocationRejected" in {
       val rejectionReason = "Test party rejection reason"
-      val update = Update.PartyAllocationRejected(
+      val update = state.Update.PartyAllocationRejected(
         someSubmissionId,
         someParticipantId,
         someRecordTime,
@@ -192,7 +189,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PublicPackageUpload (two archives)" in {
       val sourceDescription = "Test source description"
-      val update = Update.PublicPackageUpload(
+      val update = state.Update.PublicPackageUpload(
         List(someArchive1, someArchive2),
         Some(sourceDescription),
         someRecordTime,
@@ -233,7 +230,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     "handle PublicPackageUploadRejected" in {
       val rejectionReason = "Test package rejection reason"
-      val update = Update.PublicPackageUploadRejected(
+      val update = state.Update.PublicPackageUploadRejected(
         someSubmissionId,
         someRecordTime,
         rejectionReason,
@@ -254,16 +251,19 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     }
 
     "handle CommandRejected" in {
-      val submitterInfo = SubmitterInfo(
+      val completionInfo = state.CompletionInfo(
         actAs = List(someParty),
-        someApplicationId,
-        someCommandId,
-        Instant.EPOCH,
+        applicationId = someApplicationId,
+        commandId = someCommandId,
+        optDeduplicationPeriod = None,
+        submissionId = someSubmissionId,
       )
-      val update = Update.CommandRejected(
+      val update = state.Update.CommandRejected(
         someRecordTime,
-        submitterInfo,
-        RejectionReasonV0.Inconsistent("test reason"),
+        completionInfo,
+        new state.Update.CommandRejected.FinalReason(
+          RpcStatus.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
+        ),
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -273,24 +273,24 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = someApplicationId,
+          submitters = Set(someParty),
+          command_id = someCommandId,
           transaction_id = None,
-          status_code = Some(update.reason.code.value()),
-          status_message = Some(update.reason.description),
+          status_code = Some(Status.Code.ABORTED.value()),
+          status_message = Some("test reason"),
         ),
         DbDto.CommandDeduplication(
           DeduplicationKeyMaker.make(
-            domain.CommandId(submitterInfo.commandId),
-            submitterInfo.actAs,
+            domain.CommandId(completionInfo.commandId),
+            completionInfo.actAs,
           )
         ),
       )
     }
 
     "handle TransactionAccepted (single create node)" in {
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val createNode = builder.create(
@@ -303,8 +303,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -321,10 +321,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(createNodeId.index),
           event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
           contract_id = createNode.coid.coid,
@@ -344,9 +344,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -355,7 +355,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     }
 
     "handle TransactionAccepted (single create node with agreement text)" in {
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val createNode = builder
@@ -370,8 +370,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         .copy(agreementText = "agreement text")
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -388,10 +388,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(createNodeId.index),
           event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
           contract_id = createNode.coid.coid,
@@ -411,9 +411,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -422,7 +422,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     }
 
     "handle TransactionAccepted (single consuming exercise node)" in {
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val exerciseNode = {
@@ -447,8 +447,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       }
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -466,10 +466,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
@@ -490,9 +490,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -501,7 +501,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     }
 
     "handle TransactionAccepted (single non-consuming exercise node)" in {
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val exerciseNode = {
@@ -526,8 +526,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       }
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -545,10 +545,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
@@ -569,9 +569,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -586,7 +586,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       // └─ #2 Exercise (choice A)
       //    ├─ #3 Exercise (choice B)
       //    └─ #4 Exercise (choice C)
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val createNode = builder.create(
@@ -631,8 +631,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val exerciseNodeBId = builder.add(exerciseNodeB, exerciseNodeAId)
       val exerciseNodeCId = builder.add(exerciseNodeC, exerciseNodeAId)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -650,10 +650,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeAId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeAId).toLedgerString),
           contract_id = exerciseNodeA.targetCoid.coid,
@@ -681,10 +681,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeBId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeBId).toLedgerString),
           contract_id = exerciseNodeB.targetCoid.coid,
@@ -707,10 +707,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeCId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeCId).toLedgerString),
           contract_id = exerciseNodeC.targetCoid.coid,
@@ -731,9 +731,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -746,7 +746,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       // └─ #1 Create
       // Transaction
       // └─ #2 Exercise (divulges #1 to 'divulgee')
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val createNode = builder.create(
@@ -769,8 +769,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -788,10 +788,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
@@ -811,10 +811,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.EventDivulgence(
           event_offset = Some(someOffset.toHexString),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           contract_id = exerciseNode.targetCoid.coid,
           template_id =
             None, // No contract details stored. That's ok because the participant sees the create event.
@@ -827,9 +827,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -841,7 +841,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       // Transaction
       // ├─ #1 Create
       // └─ #2 Exercise (divulges #1 to 'divulgee')
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val createNode = builder.create(
@@ -865,8 +865,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val createNodeId = builder.add(createNode)
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -883,10 +883,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(createNodeId.index),
           event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
           contract_id = createNode.coid.coid,
@@ -908,10 +908,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
@@ -931,10 +931,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.EventDivulgence(
           event_offset = Some(someOffset.toHexString),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           contract_id = exerciseNode.targetCoid.coid,
           template_id =
             None, // No contract details stored. That's ok because the participant sees the create event.
@@ -947,9 +947,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -958,7 +958,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     }
 
     "handle TransactionAccepted (explicit blinding info)" in {
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val createNode = builder.create(
@@ -981,13 +981,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val exerciseNodeId = builder.add(exerciseNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
-        divulgedContracts = List(DivulgedContract(createNode.coid, createNode.versionedCoinst)),
+        divulgedContracts =
+          List(state.DivulgedContract(createNode.coid, createNode.versionedCoinst)),
         blindingInfo = Some(
           BlindingInfo(
             disclosure = Map(exerciseNodeId -> Set(Ref.Party.assertFromString("disclosee"))),
@@ -1005,10 +1006,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
           ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           node_index = Some(exerciseNodeId.index),
           event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
           contract_id = exerciseNode.targetCoid.coid,
@@ -1028,10 +1029,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.EventDivulgence(
           event_offset = Some(someOffset.toHexString),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           contract_id = exerciseNode.targetCoid.coid,
           template_id =
             Some(createNode.templateId.toString), // taken from explicit divulgedContracts
@@ -1043,9 +1044,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -1060,7 +1061,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       //    └─ #3 Exercise (divulges #2 to divulgee)
       // - Create and Exercise events must not be visible
       // - Divulgence events from rolled back Exercise/Fetch nodes must be visible
-      val submitterInfo = someSubmitterInfo
+      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val rollbackNode = builder.rollback()
@@ -1086,8 +1087,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       builder.add(createNode, rollbackNodeId)
       builder.add(exerciseNode, rollbackNodeId)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = Some(submitterInfo),
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -1103,10 +1104,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         // TODO append-only: Why is there a divulgence event? The divulged contract doesn't exist because it was rolled back.
         DbDto.EventDivulgence(
           event_offset = Some(someOffset.toHexString),
-          command_id = Some(submitterInfo.commandId),
+          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          application_id = Some(submitterInfo.applicationId),
-          submitters = Some(submitterInfo.actAs.toSet),
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
           contract_id = exerciseNode.targetCoid.coid,
           template_id = None,
           tree_event_witnesses = Set("divulgee"),
@@ -1117,9 +1118,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.toInstant,
-          application_id = submitterInfo.applicationId,
-          submitters = submitterInfo.actAs.toSet,
-          command_id = submitterInfo.commandId,
+          application_id = completionInfo.applicationId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
           status_code = None,
           status_message = None,
@@ -1142,8 +1143,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = Update.TransactionAccepted(
-        optSubmitterInfo = None,
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = None,
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
@@ -1253,13 +1254,14 @@ object UpdateToDbDtoSpec {
     .setHashFunction(DamlLf.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 2 (longer than the other payload)"))
     .build
-  private val someSubmitterInfo = SubmitterInfo(
+  private val someCompletionInfo = state.CompletionInfo(
     actAs = List(someParty),
-    someApplicationId,
-    someCommandId,
-    Instant.ofEpochMilli(1),
+    applicationId = someApplicationId,
+    commandId = someCommandId,
+    optDeduplicationPeriod = None,
+    submissionId = someSubmissionId,
   )
-  private val someTransactionMeta = TransactionMeta(
+  private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
     workflowId = Some(someWorkflowId),
     submissionTime = Time.Timestamp.assertFromLong(3),

@@ -8,18 +8,29 @@ import com.daml.lf.data.Ref._
 
 final case class LookupError(notFound: Reference, context: Reference) {
   val pretty: String = "unknown " + notFound.pretty + (
-    if (context == notFound) "" else " while looking for " + context.pretty
+    if (context == notFound) "" else LookupError.contextDetails(context)
   )
 }
 
 object LookupError {
+
+  def contextDetails(context: Reference): String =
+    context match {
+      case Reference.Package(_) => ""
+      case otherwise => " while looking for " + otherwise.pretty
+    }
+
   object MissingPackage {
-    def unapply(err: LookupError): Option[PackageId] =
+    def unapply(err: LookupError): Option[(PackageId, Reference)] =
       err.notFound match {
-        case Reference.Package(packageId) => Some(packageId)
+        case Reference.Package(packageId) => Some(packageId -> err.context)
         case _ => None
       }
+
+    def pretty(pkgId: PackageId, context: Reference): String =
+      s"Couldn't find package $pkgId" + contextDetails(context)
   }
+
 }
 
 sealed abstract class Reference extends Product with Serializable {

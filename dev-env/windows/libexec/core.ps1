@@ -49,7 +49,7 @@ function da_clear_buckets {
 
 function da_sync_buckets([String] $Directory) {
     da_clear_buckets
-    $files = Get-ChildItem $Directory | Where-Object {$_.Name -like '*.json'}
+    $files = Get-ChildItem -Path $Directory -Name | Where-Object {$_ -like '*.json'}
     ForEach ($file in $files) {
         Get-Content "$Directory\$file" | Set-Content "$scoopInstallDir\buckets\dadew\$file"
     }

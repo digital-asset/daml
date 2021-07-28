@@ -1,9 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.language
-
-import com.daml.lf.VersionRange
+package com.daml.lf
+package language
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
@@ -16,6 +15,13 @@ object LanguageVersion {
 
   type Minor = LanguageMinorVersion
   val Minor = LanguageMinorVersion
+
+  private[this] lazy val stringToVersions = All.iterator.map(v => v.pretty -> v).toMap
+
+  def fromString(s: String): Either[String, LanguageVersion] =
+    stringToVersions.get(s).toRight(s + " is not supported")
+
+  def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>

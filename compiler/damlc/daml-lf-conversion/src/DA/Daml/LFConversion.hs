@@ -75,6 +75,7 @@
 
 module DA.Daml.LFConversion
     ( convertModule
+    , convertModuleName
     , sourceLocToRange
     , convertRationalBigNumeric -- exposed for festing
     , runConvertM -- exposed for testing

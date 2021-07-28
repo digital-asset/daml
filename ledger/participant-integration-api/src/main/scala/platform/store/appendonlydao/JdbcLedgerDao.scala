@@ -19,13 +19,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1.{
-  DivulgedContract,
-  RejectionReason,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.{Ref, Time}
@@ -192,7 +186,7 @@ private class JdbcLedgerDao(
 
         val update = finalRejectionReason match {
           case None =>
-            Update.ConfigurationChanged(
+            state.Update.ConfigurationChanged(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
               submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
@@ -201,7 +195,7 @@ private class JdbcLedgerDao(
             )
 
           case Some(reason) =>
-            Update.ConfigurationChangeRejected(
+            state.Update.ConfigurationChangeRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
               submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
@@ -232,7 +226,7 @@ private class JdbcLedgerDao(
               conn,
               offset,
               Some(
-                Update.PartyAddedToParticipant(
+                state.Update.PartyAddedToParticipant(
                   party = partyDetails.party,
                   displayName = partyDetails.displayName.orNull,
                   participantId = participantId,
@@ -257,7 +251,7 @@ private class JdbcLedgerDao(
             conn,
             offset,
             Some(
-              Update.PartyAllocationRejected(
+              state.Update.PartyAllocationRejected(
                 submissionId = submissionId,
                 participantId = participantId,
                 recordTime = Time.Timestamp.assertFromInstant(recordTime),
@@ -289,13 +283,13 @@ private class JdbcLedgerDao(
   }
 
   override def prepareTransactionInsert(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): PreparedInsert =
     throw new UnsupportedOperationException(
@@ -318,7 +312,7 @@ private class JdbcLedgerDao(
     ) // TODO append-only: cleanup
 
   override def completeTransaction(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
@@ -329,13 +323,13 @@ private class JdbcLedgerDao(
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
+      divulged: Iterable[state.DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     throw new UnsupportedOperationException(
       "not supported by append-only code"
@@ -344,8 +338,8 @@ private class JdbcLedgerDao(
   private def validate(
       ledgerEffectiveTime: Instant,
       transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
-  )(implicit connection: Connection): Option[RejectionReason] =
+      divulged: Iterable[state.DivulgedContract],
+  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
       postCommitValidation.validate(
@@ -356,10 +350,10 @@ private class JdbcLedgerDao(
     )
 
   override def storeRejection(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: RejectionReason,
+      reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
@@ -367,11 +361,11 @@ private class JdbcLedgerDao(
         sequentialIndexer.store(
           conn,
           offset,
-          submitterInfo.map(someSubmitterInfo =>
-            Update.CommandRejected(
+          completionInfo.map(info =>
+            state.Update.CommandRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
-              submitterInfo = someSubmitterInfo,
-              reason = reason,
+              completionInfo = info,
+              reasonTemplate = reason,
             )
           ),
         )
@@ -388,20 +382,20 @@ private class JdbcLedgerDao(
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
-              val submitterInfo =
-                for (
-                  appId <- tx.applicationId;
-                  actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs);
-                  cmdId <- tx.commandId
-                ) yield SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
+              val completionInfo = for {
+                actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs)
+                applicationId <- tx.applicationId
+                commandId <- tx.commandId
+                submissionId <- tx.submissionId
+              } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
 
               sequentialIndexer.store(
                 connection,
                 offset,
                 Some(
-                  Update.TransactionAccepted(
-                    optSubmitterInfo = submitterInfo,
-                    transactionMeta = TransactionMeta(
+                  state.Update.TransactionAccepted(
+                    optCompletionInfo = completionInfo,
+                    transactionMeta = state.TransactionMeta(
                       ledgerEffectiveTime =
                         Time.Timestamp.assertFromInstant(tx.ledgerEffectiveTime),
                       workflowId = tx.workflowId,
@@ -419,15 +413,23 @@ private class JdbcLedgerDao(
                   )
                 ),
               )
-            case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
+            case LedgerEntry.Rejection(
+                  recordTime,
+                  commandId,
+                  applicationId,
+                  submissionId,
+                  actAs,
+                  reason,
+                ) =>
               sequentialIndexer.store(
                 connection,
                 offset,
                 Some(
-                  Update.CommandRejected(
+                  state.Update.CommandRejected(
                     recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                    submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
-                    reason = reason,
+                    completionInfo =
+                      state.CompletionInfo(actAs, applicationId, commandId, None, submissionId),
+                    reasonTemplate = reason.toParticipantStateRejectionReason,
                   )
                 ),
               )
@@ -493,7 +495,7 @@ private class JdbcLedgerDao(
           case None =>
             // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
             // or in the case where the submission ID is unknown (package was submitted through a different participant).
-            Update.PublicPackageUpload(
+            state.Update.PublicPackageUpload(
               archives = packages.view.map(_._1).toList,
               sourceDescription = packages.headOption.flatMap(
                 _._2.sourceDescription
@@ -510,7 +512,7 @@ private class JdbcLedgerDao(
             )
 
           case Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)) =>
-            Update.PublicPackageUpload(
+            state.Update.PublicPackageUpload(
               archives = packages.view.map(_._1).toList,
               sourceDescription = packages.headOption.flatMap(
                 _._2.sourceDescription
@@ -520,7 +522,7 @@ private class JdbcLedgerDao(
             )
 
           case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
-            Update.PublicPackageUploadRejected(
+            state.Update.PublicPackageUploadRejected(
               submissionId = submissionId,
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
               rejectionReason = reason,
@@ -648,13 +650,13 @@ private class JdbcLedgerDao(
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   override def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
       recordTime: Instant,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
@@ -667,9 +669,9 @@ private class JdbcLedgerDao(
           validate(ledgerEffectiveTime, transaction, divulgedContracts) match {
             case None =>
               Some(
-                Update.TransactionAccepted(
-                  optSubmitterInfo = submitterInfo,
-                  transactionMeta = TransactionMeta(
+                state.Update.TransactionAccepted(
+                  optCompletionInfo = completionInfo,
+                  transactionMeta = state.TransactionMeta(
                     ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerEffectiveTime),
                     workflowId = workflowId,
                     submissionTime = null, // not used for DbDto generation
@@ -686,12 +688,12 @@ private class JdbcLedgerDao(
                 )
               )
 
-            case Some(error) =>
-              submitterInfo.map(someSubmitterInfo =>
-                Update.CommandRejected(
+            case Some(reason) =>
+              completionInfo.map(info =>
+                state.Update.CommandRejected(
                   recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                  submitterInfo = someSubmitterInfo,
-                  reason = error,
+                  completionInfo = info,
+                  reasonTemplate = reason.toStateV2RejectionReason,
                 )
               )
           },

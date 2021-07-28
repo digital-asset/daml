@@ -4,62 +4,59 @@
 package com.daml.ledger.api.validation
 
 import java.time.Instant
+import java.util.UUID
 
-import com.daml.api.util.DurationConversion
-import com.daml.api.util.TimestampConversion
-import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
-import com.daml.lf.data._
-import com.daml.lf.value.Value.ValueRecord
-import com.daml.lf.value.{Value => Lf}
-import com.daml.ledger.api.DomainMocks
-import com.daml.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
+import com.daml.api.util.{DurationConversion, TimestampConversion}
+import com.daml.ledger.api.{DomainMocks, SubmissionIdGenerator}
+import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
+import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
+import com.daml.lf.data._
+import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
+
 class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 
-  val ledgerId = LedgerId("ledger-id")
+  private val ledgerId = LedgerId("ledger-id")
 
-  object api {
+  private object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
     val int64 = Sum.Int64(1)
     val label = "label"
     val constructor = "constructor"
-    val workflowId = "workflowId"
-    val applicationId = "applicationId"
-    val commandId = "commandId"
     val submitter = "party"
     val deduplicationTime = new Duration().withSeconds(10)
-    val command =
-      Command(
-        Command.Command.Create(
-          CreateCommand(
-            Some(Identifier("package", moduleName = "module", entityName = "entity")),
-            Some(
-              Record(
-                Some(Identifier("package", moduleName = "module", entityName = "entity")),
-                Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
-              )
-            ),
-          )
+    val command = Command.of(
+      Command.Command.Create(
+        CreateCommand.of(
+          Some(Identifier("package", moduleName = "module", entityName = "entity")),
+          Some(
+            Record(
+              Some(Identifier("package", moduleName = "module", entityName = "entity")),
+              Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
+            )
+          ),
         )
       )
+    )
 
     val commands = Commands(
       ledgerId = ledgerId.unwrap,
-      workflowId = workflowId,
-      applicationId = applicationId,
-      commandId = commandId,
+      workflowId = workflowId.unwrap,
+      applicationId = applicationId.unwrap,
+      commandId = commandId.unwrap,
       party = submitter,
       commands = Seq(command),
       deduplicationTime = Some(deduplicationTime),
@@ -68,23 +65,26 @@ class SubmitRequestValidatorTest
     )
   }
 
-  object internal {
-
+  private object internal {
     val ledgerTime = Instant.EPOCH.plusSeconds(10)
     val submittedAt = Instant.now
     val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
-    val deduplicateUntil = submittedAt.plusSeconds(api.deduplicationTime.seconds)
+    val deduplicationDuration = java.time.Duration.ofSeconds(
+      api.deduplicationTime.seconds,
+      api.deduplicationTime.nanos.toLong,
+    )
 
     val emptyCommands = ApiCommands(
       ledgerId = ledgerId,
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
+      submissionId = submissionId,
       actAs = Set(DomainMocks.party),
       readAs = Set.empty,
       submittedAt = submittedAt,
-      deduplicateUntil = deduplicateUntil,
+      deduplicationDuration = deduplicationDuration,
       commands = LfCommands(
         ImmArray(
           LfCreateCommand(
@@ -122,14 +122,17 @@ class SubmitRequestValidatorTest
       )
     )
 
-  val commandsValidator = new CommandsValidator(ledgerId)
   import ValueValidator.validateValue
 
   private def unexpectedError = sys.error("unexpected error")
 
+  private val generateRandomSubmissionId: SubmissionIdGenerator =
+    () => Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
+
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
       "reject requests with empty commands" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withCommands(Seq.empty),
@@ -143,6 +146,7 @@ class SubmitRequestValidatorTest
       }
 
       "not allow missing ledgerId" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator
             .validateCommands(
@@ -157,6 +161,8 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a missing workflowId" in {
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
+        val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.withWorkflowId(""),
           internal.ledgerTime,
@@ -171,6 +177,7 @@ class SubmitRequestValidatorTest
       }
 
       "not allow missing applicationId" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withApplicationId(""),
@@ -184,6 +191,7 @@ class SubmitRequestValidatorTest
       }
 
       "not allow missing commandId" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withCommandId(""),
@@ -197,6 +205,7 @@ class SubmitRequestValidatorTest
       }
 
       "not allow missing submitter" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator
             .validateCommands(
@@ -211,6 +220,7 @@ class SubmitRequestValidatorTest
       }
 
       "correctly read and deduplicate multiple submitters" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         val result = commandsValidator
           .validateCommands(
             api.commands
@@ -232,6 +242,8 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a single submitter specified in the actAs fields" in {
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
+        val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator
           .validateCommands(
             api.commands.withParty("").addActAs(api.submitter),
@@ -242,6 +254,8 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a single submitter specified in party, actAs, and readAs fields" in {
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
+        val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator
           .validateCommands(
             api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
@@ -253,6 +267,8 @@ class SubmitRequestValidatorTest
 
       "advance ledger time if minLedgerTimeAbs is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
+        val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))
@@ -265,6 +281,8 @@ class SubmitRequestValidatorTest
 
       "advance ledger time if minLedgerTimeRel is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
+        val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))
@@ -276,6 +294,7 @@ class SubmitRequestValidatorTest
       }
 
       "not allow negative deduplication time" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.copy(deduplicationTime = Some(Duration.of(-1, 0))),
@@ -290,6 +309,7 @@ class SubmitRequestValidatorTest
 
       "not allow deduplication time exceeding maximum deduplication time" in {
         val manySeconds = 100000L
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.copy(deduplicationTime = Some(Duration.of(manySeconds, 0))),
@@ -304,6 +324,8 @@ class SubmitRequestValidatorTest
       }
 
       "default to maximum deduplication time if deduplication time is missing" in {
+        val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
+        val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
           api.commands.copy(deduplicationTime = None),
           internal.ledgerTime,
@@ -311,12 +333,13 @@ class SubmitRequestValidatorTest
           Some(internal.maxDeduplicationTime),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
-            deduplicateUntil = internal.submittedAt.plus(internal.maxDeduplicationTime)
+            deduplicationDuration = internal.maxDeduplicationTime
           )
         )
       }
 
       "not allow missing ledger configuration" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator
             .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
@@ -324,7 +347,6 @@ class SubmitRequestValidatorTest
           "The ledger configuration is not available.",
         )
       }
-
     }
 
     "validating contractId values" should {

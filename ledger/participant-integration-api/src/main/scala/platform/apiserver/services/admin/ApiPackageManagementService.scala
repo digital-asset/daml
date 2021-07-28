@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexTransactionsService,
   LedgerEndService,
 }
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePackagesService}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -42,7 +42,7 @@ import scala.util.Try
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
-    packagesWrite: WritePackagesService,
+    packagesWrite: state.WritePackagesService,
     managementServiceTimeout: Duration,
     engine: Engine,
     darReader: GenDarReader[Archive],
@@ -138,7 +138,7 @@ private[apiserver] object ApiPackageManagementService {
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
-      writeBackend: WritePackagesService,
+      writeBackend: state.WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
       darReader: GenDarReader[Archive] = DarParser,
@@ -161,7 +161,7 @@ private[apiserver] object ApiPackageManagementService {
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,
       packagesIndex: IndexPackagesService,
-      packagesWrite: WritePackagesService,
+      packagesWrite: state.WritePackagesService,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         Dar[Archive],
@@ -174,7 +174,7 @@ private[apiserver] object ApiPackageManagementService {
 
     override def submit(submissionId: Ref.SubmissionId, dar: Dar[Archive])(implicit
         telemetryContext: TelemetryContext
-    ): Future[SubmissionResult] =
+    ): Future[state.SubmissionResult] =
       packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =

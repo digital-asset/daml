@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
@@ -228,17 +228,17 @@ object domain {
 
   sealed trait WorkflowIdTag
 
-  type WorkflowId = Ref.LedgerString @@ WorkflowIdTag
+  type WorkflowId = Ref.WorkflowId @@ WorkflowIdTag
   val WorkflowId: Tag.TagOf[WorkflowIdTag] = Tag.of[WorkflowIdTag]
 
   sealed trait CommandIdTag
 
-  type CommandId = Ref.LedgerString @@ CommandIdTag
+  type CommandId = Ref.CommandId @@ CommandIdTag
   val CommandId: Tag.TagOf[CommandIdTag] = Tag.of[CommandIdTag]
 
   sealed trait TransactionIdTag
 
-  type TransactionId = Ref.LedgerString @@ TransactionIdTag
+  type TransactionId = Ref.TransactionId @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
 
   sealed trait ContractIdTag
@@ -265,20 +265,28 @@ object domain {
 
   sealed trait ApplicationIdTag
 
-  type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
+  type ApplicationId = Ref.ApplicationId @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
+
+  sealed trait SubmissionIdTag
+
+  type SubmissionId = Ref.SubmissionId @@ SubmissionIdTag
+  val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
 
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
+      submissionId: SubmissionId,
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplicateUntil: Instant,
+      deduplicationDuration: Duration,
       commands: LfCommands,
-  )
+  ) {
+    lazy val deduplicateUntil: Instant = submittedAt.plus(deduplicationDuration)
+  }
 
   /** @param party The stable unique identifier of a Daml party.
     * @param displayName Human readable name associated with the party. Might not be unique.

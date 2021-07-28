@@ -159,7 +159,7 @@ object Export {
         val prefix = pkg.metadata.map(md => s"${md.name}-${md.version}-").getOrElse("")
         val file = deps.resolve(s"$prefix$pkgId.dalf")
         Dependencies.writeDalf(file, pkgId, bs)
-        file
+        dir.relativize(file)
       }
     val lfTarget = Dependencies.targetLfVersion(pkgs.values.map(_._2.languageVersion))
     val targetFlag = lfTarget.fold("")(Dependencies.targetFlag(_))

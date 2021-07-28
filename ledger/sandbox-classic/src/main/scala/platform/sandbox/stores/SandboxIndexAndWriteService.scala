@@ -10,7 +10,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.WriteService
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[sandbox] trait IndexAndWriteService {
   def indexService: IndexService
 
-  def writeService: WriteService
+  def writeService: state.WriteService
 }
 
 private[sandbox] object SandboxIndexAndWriteService {
@@ -141,7 +141,7 @@ private[sandbox] object SandboxIndexAndWriteService {
     } yield new IndexAndWriteService {
       override val indexService: IndexService = indexSvc
 
-      override val writeService: WriteService = writeSvc
+      override val writeService: state.WriteService = writeSvc
     }
   }
 

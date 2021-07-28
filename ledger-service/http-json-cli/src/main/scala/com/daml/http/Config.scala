@@ -21,6 +21,7 @@ import scala.util.Try
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.metrics.MetricsReporter
+import com.typesafe.scalalogging.StrictLogging
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -113,14 +114,15 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
-    createSchema: Boolean = false,
+    dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
 )
 
 private[http] object JdbcConfig
-    extends ConfigCompanion[JdbcConfig, Config.SupportedJdbcDriverNames]("JdbcConfig") {
+    extends ConfigCompanion[JdbcConfig, Config.SupportedJdbcDriverNames]("JdbcConfig")
+    with StrictLogging {
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, start-mode=${a.dbStartupMode})"
   )
 
   def help(implicit supportedJdbcDriverNames: Config.SupportedJdbcDriverNames): String =
@@ -129,13 +131,15 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
-      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
+      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by start-mode, however if set it will always overrule start-mode.\n" +
+      s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
+        .mkString(",")}.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
-        "false",
+        "create-only",
       )
 
   lazy val usage: String = helpString(
@@ -143,7 +147,7 @@ private[http] object JdbcConfig
     "<JDBC connection url>",
     "<user>",
     "<password>",
-    "<true|false>",
+    s"<${DbStartupMode.allConfigValues.mkString("|")}>",
   )
 
   override def create(x: Map[String, String])(implicit
@@ -160,13 +164,22 @@ private[http] object JdbcConfig
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
-      createSchema <- optionalBooleanField(x)("createSchema")
+      createSchema <- optionalBooleanField(x)("createSchema").map(
+        _.map { createSchema =>
+          import DbStartupMode._
+          logger.warn(
+            s"The option 'createSchema' is deprecated. Please use 'start-mode=${getConfigValue(CreateOnly)}' for 'createSchema=true' and 'start-mode=${getConfigValue(StartOnly)}'  for 'createSchema=false'"
+          )
+          if (createSchema) CreateOnly else StartOnly
+        }: Option[DbStartupMode]
+      )
+      dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("start-mode")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
-      createSchema = createSchema.getOrElse(false),
+      dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
     )
 
   private def helpString(
@@ -174,9 +187,9 @@ private[http] object JdbcConfig
       url: String,
       user: String,
       password: String,
-      createSchema: String,
+      dbStartupMode: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,start-mode=$dbStartupMode\""""
 }
 
 // It is public for Daml Hub

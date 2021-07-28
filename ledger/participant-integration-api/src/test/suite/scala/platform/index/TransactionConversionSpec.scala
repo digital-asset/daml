@@ -24,7 +24,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
   private val contractId1 = Value.ContractId.assertFromString("#contractId")
   private val contractId2 = Value.ContractId.assertFromString("#contractId2")
   private def create(contractId: Value.ContractId): Event =
-    Event(
+    Event.of(
       Event.Event.Created(
         CreatedEvent("", contractId.coid, None, None, None, Seq.empty, Seq.empty, Seq.empty, None)
       )
@@ -32,7 +32,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
 
   private val create1 = create(contractId1)
   private val create2 = create(contractId2)
-  private val archive1 = Event(
+  private val archive1 = Event.of(
     Event.Event.Archived(ArchivedEvent("", contractId1.coid, None, Seq.empty))
   )
 
@@ -119,6 +119,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
         commandId = None,
         transactionId = Ref.TransactionId.assertFromString("transactionId"),
         applicationId = None,
+        submissionId = Some(Ref.SubmissionId.assertFromString("submissionId")),
         actAs = List(party),
         workflowId = None,
         ledgerEffectiveTime = Instant.EPOCH,

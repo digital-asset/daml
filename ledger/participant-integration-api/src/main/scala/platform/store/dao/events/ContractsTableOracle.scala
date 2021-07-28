@@ -7,7 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.DivulgedContract
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 import com.daml.platform.store.serialization.Compression
@@ -70,7 +70,7 @@ object ContractsTableOracle extends ContractsTable {
       )
     val divulgedInserts =
       for {
-        DivulgedContract(contractId, contractInst) <- info.divulgedContracts.iterator
+        state.DivulgedContract(contractId, contractInst) <- info.divulgedContracts.iterator
       } yield {
         insertContract(
           contractId = contractId,

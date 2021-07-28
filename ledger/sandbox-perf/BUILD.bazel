@@ -40,7 +40,7 @@ da_scala_library(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/concurrent",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
@@ -62,7 +62,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
         "//ledger/sandbox-perf:LargeTransaction.dar",
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "@postgresql_dev_env//:all",
     ],
     scala_deps = [
@@ -95,7 +95,7 @@ da_scala_benchmark_jmh(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/concurrent",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",

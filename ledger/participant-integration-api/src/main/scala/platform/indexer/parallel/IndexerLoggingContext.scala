@@ -3,25 +3,18 @@
 
 package com.daml.platform.indexer.parallel
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
-import com.daml.ledger.participant.state.v1.Update.{
-  CommandRejected,
-  ConfigurationChangeRejected,
-  ConfigurationChanged,
-  PartyAddedToParticipant,
-  PartyAllocationRejected,
-  PublicPackageUpload,
-  PublicPackageUploadRejected,
-  TransactionAccepted,
-}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
 
 object IndexerLoggingContext {
+  import state.Update._
+  import state._
+
   def loggingEntriesFor(
       offset: Offset,
       update: Update,
@@ -88,7 +81,7 @@ object IndexerLoggingContext {
               Logging.submitter(info.actAs),
               Logging.applicationId(info.applicationId),
               Logging.commandId(info.commandId),
-              Logging.deduplicateUntil(info.deduplicateUntil),
+              Logging.deduplicationPeriod(info.optDeduplicationPeriod),
             )
           )
           .getOrElse(LoggingEntries.empty)
@@ -97,8 +90,8 @@ object IndexerLoggingContext {
           Logging.submitter(submitterInfo.actAs),
           Logging.applicationId(submitterInfo.applicationId),
           Logging.commandId(submitterInfo.commandId),
-          Logging.deduplicateUntil(submitterInfo.deduplicateUntil),
-          Logging.rejectionReason(reason.description),
+          Logging.deduplicationPeriod(submitterInfo.optDeduplicationPeriod),
+          Logging.rejectionReason(reason),
         )
     }
 
@@ -139,11 +132,16 @@ object IndexerLoggingContext {
     def maxDeduplicationTime(time: Duration): LoggingEntry =
       "maxDeduplicationTime" -> time
 
-    def deduplicateUntil(time: Instant): LoggingEntry =
-      "deduplicateUntil" -> time
+    def deduplicationPeriod(period: Option[state.DeduplicationPeriod]): LoggingEntry =
+      "deduplicationPeriod" -> period
 
-    def rejectionReason(reason: String): LoggingEntry =
-      "rejectionReason" -> reason
+    def rejectionReason(rejectionReason: String): LoggingEntry =
+      "rejectionReason" -> rejectionReason
+
+    def rejectionReason(
+        rejectionReasonTemplate: state.Update.CommandRejected.RejectionReasonTemplate
+    ): LoggingEntry =
+      "rejectionReason" -> rejectionReasonTemplate
 
     def displayName(name: String): LoggingEntry =
       "displayName" -> name

@@ -192,9 +192,9 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             expectVirtualResource vr1 "Return value: {}"
             expectVirtualResource vr2 "Return value: {}"
             setBufferModified f2 badFileContent
-            expectOneError (f2,1,0) "Aborted:  Assertion failed"
+            expectOneError (f2,1,0) "Assertion failed"
             expectVirtualResource vr1 "Return value: {}"
-            expectVirtualResource vr2 "Aborted:  Assertion failed"
+            expectVirtualResource vr2 "Assertion failed"
 
     ,   testCase' "Deleting a file you import DEL-7189" $ do
             a <- makeFile "A.daml" "module A where; import B"
@@ -890,8 +890,8 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           let vr = VRScenario foo "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
-          expectOneError (foo,1,0) "Aborted:  Assertion failed"
-          expectVirtualResource vr "Aborted:  Assertion failed"
+          expectOneError (foo,1,0) "Assertion failed"
+          expectVirtualResource vr "Assertion failed"
     , testCase' "Virtual resources should update when files update" $ do
           let fooContent = T.unlines
                  [ "module Foo where"
@@ -906,7 +906,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
               [ "module Foo where"
               , "v = scenario $ assert False"
               ]
-          expectVirtualResource vr "Aborted:  Assertion failed"
+          expectVirtualResource vr "Assertion failed"
     , testCase' "Scenario error disappears when scenario is deleted" $ do
         let goodScenario =
                 [ "module F where"
@@ -923,7 +923,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
         let vr2 = VRScenario f "example2"
         setOpenVirtualResources [vr1, vr2]
         expectOneError (f, 2, 0) "Scenario execution failed"
-        expectVirtualResource vr2 "Aborted:  Assertion failed"
+        expectVirtualResource vr2 "Assertion failed"
         setBufferModified f $ T.unlines goodScenario
         expectNoErrors
         expectVirtualResource vr1 "Return value: {}"
@@ -1038,7 +1038,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           setFilesOfInterest [foo]
           setOpenVirtualResources []
           -- We expect to get the diagnostic here but no virtual resource.
-          expectOneError (foo,1,0) "Aborted:  Assertion failed"
+          expectOneError (foo,1,0) "Assertion failed"
           expectNoVirtualResource vr
     , testCase' "Scenario opened but not in files of interest" $ do
           foo <- makeFile "Foo.daml" $ T.unlines
@@ -1071,8 +1071,8 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
                , "bar : () -> Scenario ()"
                , "bar _ = assert False"
                ]
-           expectOneError (foo,2,0) "Aborted:  Assertion failed"
-           expectVirtualResource vr "Aborted:  Assertion failed"
+           expectOneError (foo,2,0) "Assertion failed"
+           expectVirtualResource vr "Assertion failed"
     , testCase' "Open scenario after scenarios have already been run" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
               [ "module Foo where"
@@ -1116,7 +1116,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           expectVirtualResourceRegex vr $ T.concat
             [ "  c, called at .*Foo.daml:5:7 in main:Foo<br>"
             , "  b, called at .*Foo.daml:3:7 in main:Foo<br>"
-            , "  a, called at .*Foo.daml:9:9 in main:Foo<br>"
+            , "  a, called at .*Foo.daml:9:9 in main:Foo"
             ]
     , testCase' "debug is lazy" $ do
         let goodScenario =

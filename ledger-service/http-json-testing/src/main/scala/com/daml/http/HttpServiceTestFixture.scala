@@ -5,7 +5,6 @@ package com.daml.http
 
 import java.io.File
 import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -17,6 +16,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
+import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
@@ -86,7 +86,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
-    val httpServiceF: Future[ServerBinding] = for {
+    val httpServiceF: Future[(ServerBinding, Option[ContractDao])] = for {
       contractDao <- contractDaoF
       config = Config(
         ledgerHost = "localhost",
@@ -125,7 +125,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield codecs
 
     val fa: Future[A] = for {
-      httpService <- httpServiceF
+      (httpService, _) <- httpServiceF
       address = httpService.localAddress
       uri = Uri.from(scheme = "http", host = address.getHostName, port = address.getPort)
       (encoder, decoder) <- codecsF
@@ -134,7 +134,14 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield a
 
     fa.transformWith { ta =>
-      httpServiceF.flatMap(_.unbind()).fallbackTo(Future.unit).transform(_ => ta)
+      httpServiceF
+        .flatMap { case (serv, dao) =>
+          logger.info("Shutting down http service")
+          dao.foreach(_.close())
+          serv.unbind()
+        }
+        .fallbackTo(Future.unit)
+        .transform(_ => ta)
     }
   }
 
@@ -227,8 +234,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   private def stripLeft(
-      fa: Future[HttpService.Error \/ ServerBinding]
-  )(implicit ec: ExecutionContext): Future[ServerBinding] =
+      fa: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])]
+  )(implicit ec: ExecutionContext): Future[(ServerBinding, Option[ContractDao])] =
     fa.flatMap {
       case -\/(e) =>
         Future.failed(new IllegalStateException(s"Cannot start HTTP Service: ${e.message}"))
@@ -238,7 +245,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   private def initializeDb(c: JdbcConfig)(implicit ec: ExecutionContext): Future[ContractDao] =
     for {
-      dao <- Future(ContractDao(c.driver, c.url, c.user, c.password))
+      dao <- Future(ContractDao(c, poolSize = PoolSize.Integration))
       _ <- {
         import dao.{jdbcDriver, logHandler}
         dao.transact(ContractDao.initialize).unsafeToFuture(): Future[Unit]

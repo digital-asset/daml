@@ -307,7 +307,7 @@ private[data] final class IdStringImpl extends IdString {
     */
   override type PackageId = String
   override val PackageId: ConcatenableStringModule[PackageId, HexString] =
-    new ConcatenableMatchingStringModule("Daml-LF Package ID", "-_ ")
+    new ConcatenableMatchingStringModule("Daml-LF Package ID", "-_ ", 64)
 
   /** Used to reference to leger objects like contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we

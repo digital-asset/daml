@@ -3,7 +3,7 @@
 
 package com.daml.lf
 
-import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, EncodedValue, Versioned}
+import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, EncodedValue}
 import com.google.protobuf.ByteString
 import org.openjdk.jmh.annotations.{Benchmark, Setup}
 
@@ -18,7 +18,7 @@ class SerializeValueBenchmark extends BenchmarkWithLedgerExport {
   }
 
   @Benchmark
-  def run(): Vector[Versioned[ByteString]] =
-    encodedValues.map(_.map(_.toByteString))
+  def run(): Vector[ByteString] =
+    encodedValues.map(_.toByteString)
 
 }

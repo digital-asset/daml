@@ -6,7 +6,7 @@ package com.daml.platform.store.appendonlydao
 import java.sql.Connection
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.backend.{
   DbDto,
   IngestionStorageBackend,
@@ -17,12 +17,12 @@ import com.daml.platform.store.backend.{
 import scala.util.chaining.scalaUtilChainingOps
 
 trait SequentialWriteDao {
-  def store(connection: Connection, offset: Offset, update: Option[Update]): Unit
+  def store(connection: Connection, offset: Offset, update: Option[state.Update]): Unit
 }
 
 case class SequentialWriteDaoImpl[DB_BATCH](
     storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
-    updateToDbDtos: Offset => Update => Iterator[DbDto],
+    updateToDbDtos: Offset => state.Update => Iterator[DbDto],
 ) extends SequentialWriteDao {
 
   private var lastEventSeqId: Long = _
@@ -47,7 +47,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
       case notEvent => notEvent
     }.toVector
 
-  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
+  override def store(connection: Connection, offset: Offset, update: Option[state.Update]): Unit =
     synchronized {
       lazyInit(connection)
 

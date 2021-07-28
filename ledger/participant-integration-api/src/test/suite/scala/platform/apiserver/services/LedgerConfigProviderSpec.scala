@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WriteConfigService}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -41,7 +41,7 @@ final class LedgerConfigProviderSpec
   "Ledger Config Provider" should {
     "read an existing ledger configuration from the index" in {
       val index = mock[IndexConfigManagementService]
-      val writeService = mock[WriteConfigService]
+      val writeService = mock[state.WriteConfigService]
       val configuration = configurationWith(generation = 7)
       when(index.lookupConfiguration())
         .thenReturn(Future.successful(Some(offset("0001") -> configuration)))
@@ -145,7 +145,7 @@ object LedgerConfigProviderSpec {
   private final class FakeWriteConfigService(
       delay: FiniteDuration = scala.concurrent.duration.Duration.Zero
   )(implicit materializer: Materializer)
-      extends WriteConfigService {
+      extends state.WriteConfigService {
     private var currentOffset = 0
 
     private val (queue, source) = Source
@@ -158,14 +158,14 @@ object LedgerConfigProviderSpec {
         maxRecordTime: Timestamp,
         submissionId: Ref.SubmissionId,
         config: Configuration,
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
       CompletableFuture.supplyAsync { () =>
         Thread.sleep(delay.toMillis)
         currentOffset += 1
         queue.offer(
           offset(currentOffset.toString) -> ConfigurationEntry.Accepted(submissionId, config)
         )
-        SubmissionResult.Acknowledged
+        state.SubmissionResult.Acknowledged
       }
   }
 

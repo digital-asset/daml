@@ -33,9 +33,9 @@ final class ValueEnricher(engine: Engine) {
 
   private[this] def handleLookup[X](lookup: => Either[LookupError, X]) = lookup match {
     case Right(value) => ResultDone(value)
-    case Left(LookupError.MissingPackage(pkgId)) =>
+    case Left(LookupError.MissingPackage(pkgId, context)) =>
       engine
-        .loadPackages(List(pkgId))
+        .loadPackage(pkgId, context)
         .flatMap(_ =>
           lookup match {
             case Right(value) => ResultDone(value)

@@ -8,7 +8,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
+import com.daml.lf.language.{LanguageVersion, LookupError, Interface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
@@ -39,8 +39,13 @@ private[lf] object Compiler {
       languageVersion: language.LanguageVersion,
       allowedLanguageVersions: VersionRange[language.LanguageVersion],
   ) extends RuntimeException(s"Disallowed language version $languageVersion", null, true, false)
-  case class PackageNotFound(pkgId: PackageId)
-      extends RuntimeException(s"Package not found $pkgId", null, true, false)
+  case class PackageNotFound(pkgId: PackageId, context: language.Reference)
+      extends RuntimeException(
+        language.LookupError.MissingPackage.pretty(pkgId, context),
+        null,
+        true,
+        false,
+      )
 
   // NOTE(MH): We make this an enum type to avoid boolean blindness. In fact,
   // other profiling modes like "only trace the ledger interactions" might also
@@ -111,7 +116,8 @@ private[lf] object Compiler {
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
-      case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
+      case PackageNotFound(pkgId, context) =>
+        Left(LookupError.MissingPackage.pretty(pkgId, context))
       case e: ValidationError => Left(e.pretty)
     }
   }
@@ -346,7 +352,9 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     interface.lookupPackage(pkgId) match {
-      case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+      case Right(pkg)
+          if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+            .contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }
@@ -355,9 +363,9 @@ private[lf] final class Compiler(
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
         Validation.checkPackage(interface, pkgId, pkg).left.foreach {
-          case EUnknownDefinition(_, LookupError.MissingPackage(pkgId_)) =>
+          case EUnknownDefinition(_, LookupError.MissingPackage(pkgId_, context)) =>
             logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
-            throw PackageNotFound(pkgId_)
+            throw PackageNotFound(pkgId_, context)
           case e =>
             throw e
         }

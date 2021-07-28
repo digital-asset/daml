@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v2
 import java.time.Duration
 
 import com.daml.ledger.offset.Offset
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Specifies the deduplication period for a command submission.
   * Note that we would like to keep this easily extensible to support offsets and absolute
@@ -31,4 +32,11 @@ object DeduplicationPeriod {
 
   /** The `offset` defines the start of the deduplication period. */
   final case class DeduplicationOffset(offset: Offset) extends DeduplicationPeriod
+
+  implicit val `DeduplicationPeriod to LoggingValue`: ToLoggingValue[DeduplicationPeriod] = {
+    case DeduplicationDuration(duration) =>
+      LoggingValue.Nested.fromEntries("duration" -> duration)
+    case DeduplicationOffset(offset) =>
+      LoggingValue.Nested.fromEntries("offset" -> offset)
+  }
 }

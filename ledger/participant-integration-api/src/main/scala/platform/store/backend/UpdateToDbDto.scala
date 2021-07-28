@@ -8,7 +8,7 @@ import java.util.UUID
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -22,29 +22,30 @@ object UpdateToDbDto {
       participantId: Ref.ParticipantId,
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
-  ): Offset => Update => Iterator[DbDto] = { offset =>
+  ): Offset => state.Update => Iterator[DbDto] = { offset =>
+    import state.Update._
     {
-      case u: Update.CommandRejected =>
+      case u: CommandRejected =>
         Iterator(
           DbDto.CommandCompletion(
             completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
-            application_id = u.submitterInfo.applicationId,
-            submitters = u.submitterInfo.actAs.toSet,
-            command_id = u.submitterInfo.commandId,
+            application_id = u.completionInfo.applicationId,
+            submitters = u.completionInfo.actAs.toSet,
+            command_id = u.completionInfo.commandId,
             transaction_id = None,
-            status_code = Some(u.reason.code.value()),
-            status_message = Some(u.reason.description),
+            status_code = Some(u.reasonTemplate.code),
+            status_message = Some(u.reasonTemplate.message),
           ),
           DbDto.CommandDeduplication(
             DeduplicationKeyMaker.make(
-              domain.CommandId(u.submitterInfo.commandId),
-              u.submitterInfo.actAs,
+              domain.CommandId(u.completionInfo.commandId),
+              u.completionInfo.actAs,
             )
           ),
         )
 
-      case u: Update.ConfigurationChanged =>
+      case u: ConfigurationChanged =>
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -56,7 +57,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.ConfigurationChangeRejected =>
+      case u: ConfigurationChangeRejected =>
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -68,7 +69,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.PartyAddedToParticipant =>
+      case u: PartyAddedToParticipant =>
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -89,7 +90,7 @@ object UpdateToDbDto {
           ),
         )
 
-      case u: Update.PartyAllocationRejected =>
+      case u: PartyAllocationRejected =>
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -103,7 +104,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.PublicPackageUpload =>
+      case u: PublicPackageUpload =>
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
           DbDto.Package(
@@ -127,7 +128,7 @@ object UpdateToDbDto {
         )
         packages ++ packageEntries
 
-      case u: Update.PublicPackageUploadRejected =>
+      case u: PublicPackageUploadRejected =>
         Iterator(
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
@@ -138,7 +139,7 @@ object UpdateToDbDto {
           )
         )
 
-      case u: Update.TransactionAccepted =>
+      case u: TransactionAccepted =>
         // TODO append-only:
         //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
         //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
@@ -164,10 +165,10 @@ object UpdateToDbDto {
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
                 ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
-                command_id = u.optSubmitterInfo.map(_.commandId),
+                command_id = u.optCompletionInfo.map(_.commandId),
                 workflow_id = u.transactionMeta.workflowId,
-                application_id = u.optSubmitterInfo.map(_.applicationId),
-                submitters = u.optSubmitterInfo.map(_.actAs.toSet),
+                application_id = u.optCompletionInfo.map(_.applicationId),
+                submitters = u.optCompletionInfo.map(_.actAs.toSet),
                 node_index = Some(nodeId.index),
                 event_id = Some(eventId.toLedgerString),
                 contract_id = create.coid.coid,
@@ -203,10 +204,10 @@ object UpdateToDbDto {
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
                 ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
-                command_id = u.optSubmitterInfo.map(_.commandId),
+                command_id = u.optCompletionInfo.map(_.commandId),
                 workflow_id = u.transactionMeta.workflowId,
-                application_id = u.optSubmitterInfo.map(_.applicationId),
-                submitters = u.optSubmitterInfo.map(_.actAs.toSet),
+                application_id = u.optCompletionInfo.map(_.applicationId),
+                submitters = u.optCompletionInfo.map(_.actAs.toSet),
                 node_index = Some(nodeId.index),
                 event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
                 contract_id = exercise.targetCoid.coid,
@@ -244,10 +245,10 @@ object UpdateToDbDto {
             val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
             DbDto.EventDivulgence(
               event_offset = Some(offset.toHexString),
-              command_id = u.optSubmitterInfo.map(_.commandId),
+              command_id = u.optCompletionInfo.map(_.commandId),
               workflow_id = u.transactionMeta.workflowId,
-              application_id = u.optSubmitterInfo.map(_.applicationId),
-              submitters = u.optSubmitterInfo.map(_.actAs.toSet),
+              application_id = u.optCompletionInfo.map(_.applicationId),
+              submitters = u.optCompletionInfo.map(_.actAs.toSet),
               contract_id = contractId.coid,
               template_id = contractInst.map(_.template.toString),
               tree_event_witnesses = visibleToParties.map(_.toString),
@@ -260,13 +261,13 @@ object UpdateToDbDto {
             )
         }
 
-        val completions = u.optSubmitterInfo.iterator.map { submitterInfo =>
+        val completions = u.optCompletionInfo.iterator.map { completionInfo =>
           DbDto.CommandCompletion(
             completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
-            application_id = submitterInfo.applicationId,
-            submitters = submitterInfo.actAs.toSet,
-            command_id = submitterInfo.commandId,
+            application_id = completionInfo.applicationId,
+            submitters = completionInfo.actAs.toSet,
+            command_id = completionInfo.commandId,
             transaction_id = Some(u.transactionId),
             status_code = None,
             status_message = None,

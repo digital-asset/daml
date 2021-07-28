@@ -180,7 +180,7 @@ da_scala_test_suite(
     name = "ledger-on-sql-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
     ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
@@ -224,7 +224,7 @@ da_scala_test_suite(
     conformance_test(
         name = "conformance-test-{}".format(db["name"]),
         lf_versions = [
-            "stable",
+            "default",
             "latest",
             "preview",
         ],

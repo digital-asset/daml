@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexTransactionsService,
   LedgerEndService,
 }
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -34,7 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     transactionService: IndexTransactionsService,
-    writeService: WritePartyService,
+    writeService: state.WritePartyService,
     managementServiceTimeout: Duration,
     submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId,
 )(implicit
@@ -139,7 +139,7 @@ private[apiserver] object ApiPartyManagementService {
   def createApiService(
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
-      writeBackend: WritePartyService,
+      writeBackend: state.WritePartyService,
       managementServiceTimeout: Duration,
       submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
@@ -170,7 +170,7 @@ private[apiserver] object ApiPartyManagementService {
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,
-      writeService: WritePartyService,
+      writeService: state.WritePartyService,
       partyManagementService: IndexPartyManagementService,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
@@ -185,7 +185,7 @@ private[apiserver] object ApiPartyManagementService {
     override def submit(
         submissionId: Ref.SubmissionId,
         input: (Option[Ref.Party], Option[String]),
-    )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
       val (party, displayName) = input
       writeService.allocateParty(party, displayName, submissionId).toScala
     }

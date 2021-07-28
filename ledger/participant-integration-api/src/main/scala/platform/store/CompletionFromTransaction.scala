@@ -12,7 +12,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.store.Conversions.domainRejectionReasonToErrorCode
+import com.daml.platform.store.Conversions.RejectionReasonOps
 import com.daml.platform.store.entries.LedgerEntry
 import com.google.rpc.status.Status
 
@@ -44,6 +44,7 @@ private[platform] object CompletionFromTransaction {
             Some(commandId),
             transactionId,
             Some(`appId`),
+            _,
             actAs,
             _,
             _,
@@ -56,17 +57,13 @@ private[platform] object CompletionFromTransaction {
         checkpoint = toApiCheckpoint(recordTime, offset),
         Seq(Completion(commandId, Some(Status()), transactionId)),
       )
-    case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, actAs, reason))
+
+    case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, _, actAs, reason))
         if actAs.exists(parties) =>
+      val status = reason.toParticipantStateRejectionReason.status
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(
-          Completion(
-            commandId,
-            Some(Status(reason.value, reason.description)),
-          )
-        ),
+        Seq(Completion(commandId, Some(status))),
       )
   }
-
 }

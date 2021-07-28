@@ -5,10 +5,10 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
-  DamlSubmission,
   DamlTransactionRejectionEntry,
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v1.Update
 import com.daml.ledger.test.{
   SimplePackageListTestDar,

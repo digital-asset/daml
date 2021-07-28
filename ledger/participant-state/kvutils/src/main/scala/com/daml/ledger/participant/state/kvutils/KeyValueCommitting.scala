@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   PartyAllocationCommitter,
   SubmissionExecutor,
 }
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine

@@ -53,9 +53,9 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val templateIds = Array.ofDim[String](batchSize)
     val nodeIndexes = Array.ofDim[java.lang.Integer](batchSize)
     val commandIds =
-      Array.fill(batchSize)(tx.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull)
+      Array.fill(batchSize)(tx.completionInfo.map(_.commandId.asInstanceOf[String]).orNull)
     val applicationIds =
-      Array.fill(batchSize)(tx.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull)
+      Array.fill(batchSize)(tx.completionInfo.map(_.applicationId.asInstanceOf[String]).orNull)
     val submitters = Array.ofDim[String](batchSize)
     val flatEventWitnesses = Array.ofDim[String](batchSize)
     val treeEventWitnesses = Array.ofDim[String](batchSize)
@@ -72,7 +72,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val exerciseActors = Array.ofDim[String](batchSize)
     val exerciseChildEventIds = Array.ofDim[String](batchSize)
 
-    val submittersValue = tx.submitterInfo.map(_.actAs.mkString("|")).orNull
+    val submittersValue = tx.completionInfo.map(_.actAs.mkString("|")).orNull
 
     for (((nodeId, node), i) <- info.events.zipWithIndex) {
       node match {

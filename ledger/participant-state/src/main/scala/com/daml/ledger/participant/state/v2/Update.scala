@@ -8,6 +8,8 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.google.rpc.status.{Status => RpcStatus}
 
 /** An update to the (abstract) participant state.
   *
@@ -222,22 +224,39 @@ object Update {
       */
     sealed trait RejectionReasonTemplate {
 
+      /** A human-readable description of the error */
+      def message: String
+
+      /** A gRPC status code representing the error. */
+      def code: Int
+
+      /** A protobuf gRPC status representing the error. */
+      def status: RpcStatus
+
       /** Whether the rejection is a definite answer for the deduplication guarantees
         * specified for [[ReadService.stateUpdates]].
         */
       def definiteAnswer: Boolean
+    }
 
-      /** A human-readable description of the error */
-      def message: String
+    object RejectionReasonTemplate {
+      implicit val `RejectionReasonTemplate to LoggingValue`
+          : ToLoggingValue[RejectionReasonTemplate] =
+        reason =>
+          LoggingValue.Nested.fromEntries(
+            "code" -> reason.code,
+            "message" -> reason.message,
+            "definiteAnswer" -> reason.definiteAnswer,
+          )
     }
 
     /** The status code for the command rejection. */
-    final class FinalReason(val status: com.google.rpc.status.Status)
-        extends RejectionReasonTemplate {
-
+    final class FinalReason(override val status: RpcStatus) extends RejectionReasonTemplate {
       override def message: String = status.message
-      override def definiteAnswer: Boolean =
-        GrpcStatuses.isDefiniteAnswer(status)
+
+      override def code: Int = status.code
+
+      override def definiteAnswer: Boolean = GrpcStatuses.isDefiniteAnswer(status)
     }
   }
 }

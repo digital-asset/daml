@@ -6,6 +6,7 @@ package com.daml.http.dbbackend
 import cats.instances.list._
 import doobie.util.log.LogHandler
 import com.daml.doobie.logging.Slf4jLogHandler
+import com.daml.http.JdbcConfig
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.testing.oracle, oracle.{OracleAround, User}
@@ -32,7 +33,8 @@ abstract class ContractDaoBenchmark extends OracleAround {
   def setup(): Unit = {
     connectToOracle()
     user = createNewRandomUser()
-    val oracleDao = ContractDao("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+    val cfg = new JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+    val oracleDao = ContractDao(cfg)
     dao = oracleDao
 
     import oracleDao.jdbcDriver
@@ -41,18 +43,21 @@ abstract class ContractDaoBenchmark extends OracleAround {
   }
 
   @TearDown(Level.Trial)
-  def teardown(): Unit =
+  def teardown(): Unit = {
+    dao.close()
     dropUser(user.name)
+  }
 
   protected def contract(
       id: Int,
       signatory: String,
       tpid: SurrogateTpId,
+      payload: JsObject = JsObject(),
   ): DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]] = DBContract(
     contractId = s"#$id",
     templateId = tpid,
     key = JsNull,
-    payload = JsObject(),
+    payload = payload,
     signatories = Seq(signatory),
     observers = Seq.empty,
     agreementText = "",
@@ -67,13 +72,18 @@ abstract class ContractDaoBenchmark extends OracleAround {
       .unsafeRunSync()
   }
 
-  protected def insertBatch(signatory: String, tpid: SurrogateTpId, offset: Int) = {
+  protected def insertBatch(
+      signatory: String,
+      tpid: SurrogateTpId,
+      offset: Int,
+      payload: JsObject = JsObject(),
+  ) = {
     val driver = dao.jdbcDriver
     import driver._
     val contracts: List[DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]]] =
       (0 until batchSize).map { i =>
         val n = offset + i
-        contract(n, signatory, tpid)
+        contract(n, signatory, tpid, payload)
       }.toList
     val inserted = dao
       .transact(driver.queries.insertContracts[List, JsValue, JsValue](contracts))

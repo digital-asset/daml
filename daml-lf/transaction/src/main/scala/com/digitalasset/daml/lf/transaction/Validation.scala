@@ -55,7 +55,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
       replayed: Option[Value[Cid]],
   ) =
     (recorded, replayed) match {
-      case (None, _) => true
+      case (None, None) => true
       case (Some(recordedValue), Some(replayedValue)) =>
         valueIsReplayedBy(recordedValue, replayedValue)
       case _ => false
@@ -243,10 +243,10 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                 if version1 == version2 &&
                   coid1 === coid2 &&
                   templateId1 == templateId2 &&
-                  (actingParties1.isEmpty || actingParties1 == actingParties2) &&
+                  actingParties1 == actingParties2 &&
                   signatories1 == signatories2 &&
                   stakeholders1 == stakeholders2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  (keyIsReplayedBy(key1, key2)) &&
                   byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(rest1, rest2, stack)
             case (
@@ -294,7 +294,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   stakeholders1 == stakeholders2 &&
                   signatories1 == signatories2 &&
                   choiceObservers1 == choiceObservers2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  (keyIsReplayedBy(key1, key2)) &&
                   byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(
                 children1.iterator.to(LazyList),

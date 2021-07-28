@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.any

@@ -13,17 +13,16 @@ import anorm.Column.nonNull
 import anorm._
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
-import com.daml.ledger.participant.state.v1.RejectionReasonV0._
+import com.daml.ledger.participant.state.v2.Update.CommandRejected
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
-import io.grpc.Status.Code
 import spray.json.DefaultJsonProtocol._
+import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.Status
 import spray.json._
-
-import scala.language.implicitConversions
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 
@@ -340,22 +339,35 @@ private[platform] object Conversions {
     override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
   }
 
-  // RejectionReason
-  implicit def domainRejectionReasonToErrorCode(reason: domain.RejectionReason): Code =
-    domainRejectionReasonToParticipantRejectionReason(
-      reason
-    ).code
+  implicit class RejectionReasonOps(rejectionReason: domain.RejectionReason) {
 
-  implicit def domainRejectionReasonToParticipantRejectionReason(
-      reason: domain.RejectionReason
-  ): RejectionReasonV0 =
-    reason match {
-      case r: domain.RejectionReason.Inconsistent => Inconsistent(r.description)
-      case r: domain.RejectionReason.Disputed => Disputed(r.description)
-      case r: domain.RejectionReason.OutOfQuota => ResourcesExhausted(r.description)
-      case r: domain.RejectionReason.PartyNotKnownOnLedger => PartyNotKnownOnLedger(r.description)
-      case r: domain.RejectionReason.SubmitterCannotActViaParticipant =>
-        SubmitterCannotActViaParticipant(r.description)
-      case r: domain.RejectionReason.InvalidLedgerTime => InvalidLedgerTime(r.description)
-    }
+    import RejectionReasonOps._
+
+    def toParticipantStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+      rejectionReason match {
+        case domain.RejectionReason.Inconsistent(reason) =>
+          newRejectionReason(Status.Code.ABORTED, s"Inconsistent: $reason")
+        case domain.RejectionReason.Disputed(reason) =>
+          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Disputed: $reason")
+        case domain.RejectionReason.OutOfQuota(reason) =>
+          newRejectionReason(Status.Code.ABORTED, s"Resources exhausted: $reason")
+        case domain.RejectionReason.PartyNotKnownOnLedger(reason) =>
+          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Party not known on ledger: $reason")
+        case domain.RejectionReason.SubmitterCannotActViaParticipant(reason) =>
+          newRejectionReason(
+            Status.Code.PERMISSION_DENIED,
+            s"Submitted cannot act via participant: $reason",
+          )
+        case domain.RejectionReason.InvalidLedgerTime(reason) =>
+          newRejectionReason(Status.Code.ABORTED, s"Invalid ledger time: $reason")
+      }
+  }
+
+  object RejectionReasonOps {
+    private def newRejectionReason(
+        code: Status.Code,
+        message: String,
+    ): state.Update.CommandRejected.RejectionReasonTemplate =
+      new CommandRejected.FinalReason(RpcStatus.of(code.value(), message, Seq.empty))
+  }
 }

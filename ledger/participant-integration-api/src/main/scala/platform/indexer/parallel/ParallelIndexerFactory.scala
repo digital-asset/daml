@@ -11,15 +11,14 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{ReadService, Update}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.indexer.ha.{HaCoordinator, Handle, NoopHaCoordinator}
+import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.appendonlydao.DbDispatcher
@@ -27,7 +26,6 @@ import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValu
 import com.daml.platform.store.backend
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
-import com.daml.resources
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.duration.FiniteDuration
@@ -99,8 +97,10 @@ object ParallelIndexerFactory {
         else
           ResourceOwner.successful(NoopHaCoordinator)
     } yield {
-      val ingest
-          : (Long, DbDispatcher) => Source[(Offset, Update), NotUsed] => Source[Unit, NotUsed] =
+      val ingest: (
+          Long,
+          DbDispatcher,
+      ) => Source[(Offset, state.Update), NotUsed] => Source[Unit, NotUsed] =
         (initialSeqId, dbDispatcher) =>
           source =>
             BatchingParallelIngestionPipe(
@@ -141,7 +141,7 @@ object ParallelIndexerFactory {
                   },
               )
 
-      def subscribe(resourceContext: ResourceContext)(readService: ReadService): Handle = {
+      def subscribe(resourceContext: ResourceContext)(readService: state.ReadService): Handle = {
         implicit val rc: ResourceContext = resourceContext
         implicit val ec: ExecutionContext = resourceContext.executionContext
         implicit val matImplicit: Materializer = mat
@@ -215,10 +215,10 @@ object ParallelIndexerFactory {
 
   def inputMapper(
       metrics: Metrics,
-      toDbDto: Offset => Update => Iterator[DbDto],
+      toDbDto: Offset => state.Update => Iterator[DbDto],
   )(implicit
       loggingContext: LoggingContext
-  ): Iterable[((Offset, Update), Long)] => Batch[Vector[DbDto]] = { input =>
+  ): Iterable[((Offset, state.Update), Long)] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case ((offset, update), _) =>
       withEnrichedLoggingContextFrom(IndexerLoggingContext.loggingEntriesFor(offset, update)) {
@@ -355,14 +355,10 @@ object ParallelIndexerFactory {
         }
       }
 
-  def toIndexer(
-      ingestionPipeOn: ResourceContext => ReadService => Handle
-  ): Indexer =
+  def toIndexer(ingestionPipeOn: ResourceContext => state.ReadService => Handle): Indexer =
     readService =>
       new ResourceOwner[IndexFeedHandle] {
-        override def acquire()(implicit
-            context: ResourceContext
-        ): resources.Resource[ResourceContext, IndexFeedHandle] = {
+        override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] = {
           Resource {
             Future {
               val handle = ingestionPipeOn(context)(readService)

@@ -8,9 +8,11 @@ module DA.Daml.Preprocessor
   , noPreprocessor
   ) where
 
+import           DA.Daml.LFConversion (convertModuleName)
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.Generics
 import           DA.Daml.Preprocessor.EnumType
+import           DA.Daml.StablePackages (stablePackageByModuleName)
 
 import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
@@ -46,6 +48,11 @@ isInternal (GHC.moduleNameString -> x)
       , "DA.Types"
       , "DA.Time.Types"
       ]
+
+isUnstableInternal :: GHC.ModuleName -> Bool
+isUnstableInternal moduleName =
+  isInternal moduleName &&
+    convertModuleName moduleName `Map.notMember` stablePackageByModuleName
 
 preprocessorExceptions :: Set.Set GHC.ModuleName
 preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
@@ -164,7 +171,7 @@ checkModuleName (GHC.L _ m)
 checkImports :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkImports x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
-    | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
+    | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isUnstableInternal m]
 
 -- | Emit a warning if the "daml 1.2" version header is present.
 checkDamlHeader :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
