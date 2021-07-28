@@ -27,9 +27,13 @@ final class TypedValueExtractor(interface: language.Interface) {
       unversioned: => ByteString,
   ) = {
     if (version < TransactionVersion.minNoVersionValue) {
-      Versioned(version, ValueOuterClass.Value.parseFrom(versioned.getValue))
+      versioned
     } else {
-      Versioned(version, ValueOuterClass.Value.parseFrom(unversioned))
+      ValueOuterClass.VersionedValue
+        .newBuilder()
+        .setVersion(version.protoValue)
+        .setValue(unversioned)
+        .build()
     }
   }
 
