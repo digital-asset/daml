@@ -18,7 +18,7 @@ import "google/protobuf/empty.proto";
 
 message VersionedValue {
     string version = 1;
-    Value value = 2;
+    bytes value = 2;
 }
 
 // The universe of serializable Daml-LF values.

@@ -143,6 +143,39 @@ class ValueCoderSpec
     "do versioned value with supported override version" in forAll(versionedValueGen) {
       case VersionedValue(version, value) => testRoundTrip(value, version)
     }
+
+  }
+
+  "decode" should {
+    "do deep record" in {
+      def toNat(
+          i: Int,
+          acc: ValueRecord[Nothing] = ValueRecord(None, ImmArray.empty),
+      ): ValueRecord[Nothing] =
+        if (i <= 0) acc
+        else toNat(i - 1, ValueRecord(None, ImmArray(None -> acc)))
+
+      val n = toNat(100)
+
+      // We double check that 100 is the maximum
+      ValueCoder
+        .encodeValue(
+          ValueCoder.CidEncoder,
+          TransactionVersion.minTypeErasure,
+          toNat(1, n), // 101
+        ) shouldBe a[Left[_, _]]
+
+      val encoded = assertRight(
+        ValueCoder
+          .encodeValue(ValueCoder.CidEncoder, TransactionVersion.minTypeErasure, n)
+      ).toByteString
+
+      ValueCoder.decodeValue(
+        ValueCoder.CidDecoder,
+        TransactionVersion.minTypeErasure,
+        encoded,
+      ) shouldBe Right(n)
+    }
   }
 
   def testRoundTrip(value0: Value[ContractId], version: TransactionVersion): Assertion = {

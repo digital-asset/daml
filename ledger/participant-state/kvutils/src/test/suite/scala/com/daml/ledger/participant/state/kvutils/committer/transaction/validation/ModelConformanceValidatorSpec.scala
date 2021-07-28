@@ -430,7 +430,9 @@ object ModelConformanceValidatorSpec {
                 ValueOuterClass.VersionedValue
                   .newBuilder()
                   .setVersion(TransactionVersion.VDev.protoValue)
-                  .setValue(ValueOuterClass.Value.newBuilder().setText("dummyValue"))
+                  .setValue(
+                    ValueOuterClass.Value.newBuilder().setText("dummyValue").build().toByteString
+                  )
               )
           )
           .build()
