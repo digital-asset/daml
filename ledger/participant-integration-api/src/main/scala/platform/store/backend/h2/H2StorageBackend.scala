@@ -101,7 +101,8 @@ private[backend] object H2StorageBackend
       connection: Connection
   ): Option[StorageBackend.RawContract] =
     TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      participantTreeWitnessEventsWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      divulgenceEventsTreeWitnessWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
       contractId = contractId,
     )(connection)
 

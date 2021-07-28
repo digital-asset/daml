@@ -8,28 +8,16 @@ import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.lf.data.Ref
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
-import com.daml.platform.store.backend.common.{
-  AppendOnlySchema,
-  CommonStorageBackend,
-  EventStorageBackendTemplate,
-  EventStrategy,
-  InitHookDataSourceProxy,
-  TemplatedStorageBackend,
-}
-import com.daml.platform.store.backend.{
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  DbDto,
-  StorageBackend,
-  common,
-}
+import com.daml.platform.store.backend.common.{AppendOnlySchema, CommonStorageBackend, EventStorageBackendTemplate, EventStrategy, InitHookDataSourceProxy, TemplatedStorageBackend}
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, DbDto, StorageBackend, common}
+
 import java.sql.Connection
 import java.time.Instant
-
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
-
 import com.daml.logging.LoggingContext
+import com.daml.platform.store.Conversions.contractId
+
 import javax.sql.DataSource
 
 private[backend] object OracleStorageBackend
@@ -94,14 +82,15 @@ private[backend] object OracleStorageBackend
       startExclusive = startExclusive,
       endInclusive = endInclusive,
       applicationId = applicationId,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
+      submittersInPartiesClause = arrayIntersectionWhereClauseUseCase1(parties),
     )(connection)
 
   def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
       connection: Connection
   ): Option[StorageBackend.RawContract] =
     TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      participantTreeWitnessEventsWhereClause = arrayIntersectionWhereClauseParticipantEvents(readers),
+      divulgenceEventsTreeWitnessWhereClause = arrayIntersectionWhereClauseDivulgence(readers),
       contractId = contractId,
     )(connection)
 
@@ -109,18 +98,48 @@ private[backend] object OracleStorageBackend
       connection: Connection
   ): Option[String] =
     TemplatedStorageBackend.activeContractWithoutArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      treeEventWitnessesWhereClause = arrayIntersectionWhereClauseParticipantEvents(readers),
       contractId = contractId,
     )(connection)
 
   def contractKey(readers: Set[Ref.Party], key: Key)(
       connection: Connection
   ): Option[ContractId] =
-    TemplatedStorageBackend.contractKey(
+    contractKey(
       flatEventWitnesses = columnPrefix =>
         arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers),
       key = key,
+      readers
     )(connection)
+
+  private def contractKey(flatEventWitnesses: String => String, key: Key, readers: Set[Ref.Party])(
+    connection: Connection
+  ): Option[ContractId] = {
+    import com.daml.platform.store.Conversions.HashToStatement
+    SQL"""
+  WITH last_contract_key_create AS (
+         SELECT participant_events.*
+           FROM participant_events, parameters
+          WHERE event_kind = 10 -- create
+            AND create_key_hash = ${key.hash}
+            AND event_sequential_id <= parameters.ledger_end_sequential_id
+                -- do NOT check visibility here, as otherwise we do not abort the scan early
+          ORDER BY event_sequential_id DESC
+          FETCH NEXT 1 ROW ONLY
+       )
+  SELECT contract_id
+    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
+  WHERE #${flatEventWitnesses("last_contract_key_create")} -- check visibility only here
+    AND NOT EXISTS       -- check no archival visible
+         (SELECT 1
+            FROM participant_events, parameters
+           WHERE event_kind = 20 -- consuming exercise
+             AND event_sequential_id <= parameters.ledger_end_sequential_id
+             AND #${arrayIntersectionWhereClause("flat_event_witness", "PARTICIPANT_EVENTS_FLAT_WITNESS", "EVENT_SEQUENTIAL_ID", "participant_events", readers)}
+             AND contract_id = last_contract_key_create.contract_id
+         )
+       """.as(contractId("contract_id").singleOpt)(connection)
+  }
 
   object OracleEventStrategy extends EventStrategy {
 
@@ -188,10 +207,12 @@ private[backend] object OracleStorageBackend
           }
           .toList
           .unzip
-      (
+      val res = (
         (wildCardClause ::: partiesTemplatesClauses).mkString("(", " OR ", ")"),
         wildCardParams ::: partiesTemplatesParams.flatten,
       )
+      println("printing out res", res)
+      res
     }
 
     override def columnEqualityBoolean(column: String, value: String): String =
@@ -215,7 +236,46 @@ private[backend] object OracleStorageBackend
     to.map(to => s"fetch next $to rows only").getOrElse("")
 
   // TODO append-only: remove as part of ContractStorageBackend consolidation, use the data-driven one
-  private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
+
+  private def arrayIntersectionWhereClauseUseCase1(parties: Set[Ref.Party]): String = {
+    arrayIntersectionWhereClause(
+      "submitter",
+      "participant_command_completions_submitters",
+      "COMPLETION_OFFSET",
+      "participant_command_completions",
+      parties)
+  }
+
+  private def arrayIntersectionWhereClauseDivulgence(parties: Set[Ref.Party]): String = {
+    arrayIntersectionWhereClause(
+      "tree_event_witness",
+      "PARTICIPANT_EVENTS_TREE_WITNESS",
+      "EVENT_SEQUENTIAL_ID",
+      "divulgence_events",
+      parties)
+  }
+  private def arrayIntersectionWhereClauseParticipantEvents(parties: Set[Ref.Party]): String = {
+    arrayIntersectionWhereClause(
+      "tree_event_witness",
+      "PARTICIPANT_EVENTS_TREE_WITNESS",
+      "EVENT_SEQUENTIAL_ID",
+      "participant_events",
+      parties)
+
+  }
+
+    private def arrayIntersectionWhereClause(viewColumn: String, view: String, idColumn: String, table: String, parties: Set[Ref.Party]): String = {
+    println("ARRAY INTERSECTION WHERE CLAUSE", table)
+    if(parties.isEmpty)
+      "false"
+    else {
+      s"""$idColumn in (select v.$idColumn from $view v
+        |        where v.$viewColumn in (${parties.map(p=> s"'$p'").mkString(",")}))""".stripMargin
+    }
+  }
+
+  private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String = {
+    println("OLD ARRAY INTERSECTION WHERE CLAUSE")
     if (parties.isEmpty)
       "false"
     else {
@@ -243,6 +303,7 @@ private[backend] object OracleStorageBackend
         }
         .mkString(" OR ") + ")"
     }
+  }
 
   override def createDataSource(
       jdbcUrl: String,

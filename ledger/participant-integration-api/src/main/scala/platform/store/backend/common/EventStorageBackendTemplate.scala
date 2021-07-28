@@ -280,6 +280,8 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
          |ORDER BY event_sequential_id
          |$limitClause
          |""".stripMargin
+
+    println("THIS IS THE QUERY", sql, additionalAndClause)
     SQL(sql)
       .on(additionalAndClause._2: _*)
       .on(filteredEventWitnessesParams: _*)

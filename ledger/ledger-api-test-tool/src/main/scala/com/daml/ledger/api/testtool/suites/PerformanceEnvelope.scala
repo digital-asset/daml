@@ -302,8 +302,8 @@ object PerformanceEnvelope {
       case e: Envelope.Latency =>
         new LatencyTest(e, numPings = e.numPings, numWarmupPings = e.numPings, reporter = reporter)
       case e: Envelope.Throughput =>
-        val numPings =
-          Math.max(20, e.operationsPerSecond * 15) // test should run at least 15 seconds
+        val numPings = 100000
+           // test should run at least 15 seconds
         new ThroughputTest(
           envelope = e,
           maxInflight = e.operationsPerSecond * 5, // aiming for a latency of 5 seconds

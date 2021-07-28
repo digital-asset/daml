@@ -5,7 +5,6 @@ package com.daml.platform.store.backend.postgresql
 
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import anorm.SqlParser.get
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -103,7 +102,8 @@ private[backend] object PostgresStorageBackend
       connection: Connection
   ): Option[StorageBackend.RawContract] =
     TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      participantTreeWitnessEventsWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      divulgenceEventsTreeWitnessWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
       contractId = contractId,
     )(connection)
 

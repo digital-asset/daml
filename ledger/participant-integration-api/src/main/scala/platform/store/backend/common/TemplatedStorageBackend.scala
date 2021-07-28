@@ -52,6 +52,23 @@ private[backend] object TemplatedStorageBackend {
   )(connection: Connection): List[CompletionStreamResponse] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
+
+    println("this is the query", s"""
+      select
+        completion_offset,
+        record_time,
+        command_id,
+        transaction_id,
+        status_code,
+        status_message
+      from
+        participant_command_completions
+      where
+        completion_offset > $startExclusive and
+        completion_offset <= $endInclusive and
+        application_id = $applicationId and
+        #$submittersInPartiesClause
+        order by completion_offset asc""")
     SQL"""
       select
         completion_offset,
@@ -79,11 +96,13 @@ private[backend] object TemplatedStorageBackend {
       .map(StorageBackend.RawContract.tupled)
 
   def activeContractWithArgument(
-      treeEventWitnessesWhereClause: String,
+      participantTreeWitnessEventsWhereClause: String,
+      divulgenceEventsTreeWitnessWhereClause: String,
       contractId: ContractId,
   )(connection: Connection): Option[StorageBackend.RawContract] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
 
+    println("THIS IS THE QUERY1")
     SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
@@ -91,7 +110,7 @@ private[backend] object TemplatedStorageBackend {
           WHERE contract_id = $contractId
             AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$treeEventWitnessesWhereClause  -- only use visible archivals
+            AND #$participantTreeWitnessEventsWhereClause  -- only use visible archivals
           FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
@@ -100,7 +119,7 @@ private[backend] object TemplatedStorageBackend {
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$treeEventWitnessesWhereClause
+            AND #$participantTreeWitnessEventsWhereClause
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
@@ -127,7 +146,7 @@ private[backend] object TemplatedStorageBackend {
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
             AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$treeEventWitnessesWhereClause
+            AND #$divulgenceEventsTreeWitnessWhereClause
           ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
@@ -153,6 +172,7 @@ private[backend] object TemplatedStorageBackend {
       contractId: ContractId,
   )(connection: Connection): Option[String] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
+    println("THIS IS THE QUERY2")
     SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
