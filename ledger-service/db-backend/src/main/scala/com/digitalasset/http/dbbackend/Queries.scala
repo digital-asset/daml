@@ -762,7 +762,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
               )""".query[Boolean].unique
       version <-
         if (!doesTableExist) connection.pure(None)
-        else sql"SELECT version FROM $$jsonApiSchemaVersionTableName".query[Int].option
+        else sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
     } yield version
   }
 
