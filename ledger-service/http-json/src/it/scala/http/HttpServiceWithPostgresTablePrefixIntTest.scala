@@ -5,12 +5,5 @@ package com.daml.http
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class HttpServiceWithPostgresTablePrefixIntTest extends HttpServiceWithPostgresIntTest {
-  override lazy val jdbcConfig_ = JdbcConfig(
-    driver = "org.postgresql.Driver",
-    url = postgresDatabase.url,
-    user = "test",
-    password = "",
-    tablePrefix = "some_nice_prefix_",
-    dbStartupMode = DbStartupMode.CreateOnly,
-  )
+  override def jdbcConfig_ = super.jdbcConfig_.copy(tablePrefix = "some_nice_prefix_")
 }
