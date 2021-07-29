@@ -58,6 +58,7 @@ if is_windows; then
   # can therefore ensure symlinks are available
   # (Startup options don't support --config flags.)
   echo "startup --windows_enable_symlinks" >> .bazelrc.local
+  echo "build --enable_runfiles" >> .bazelrc.local
 
   # Modify the output path to avoid shared action keys.
   # The issue appears to be that GCC produces absolute paths
