@@ -3,9 +3,7 @@
 
 package com.daml.logging.entries
 
-import scala.annotation.nowarn
-
-final case class LoggingEntries(contents: Map[LoggingKey, LoggingValue]) extends AnyVal {
+final class LoggingEntries private (val contents: Map[LoggingKey, LoggingValue]) extends AnyVal {
   def isEmpty: Boolean =
     contents.isEmpty
 
@@ -21,11 +19,6 @@ final case class LoggingEntries(contents: Map[LoggingKey, LoggingValue]) extends
 
 object LoggingEntries {
   val empty: LoggingEntries = new LoggingEntries(Map.empty)
-
-  // Private so that it doesn't conflict with the other `apply` method.
-  @nowarn("msg=never used")
-  private def apply(entries: Map[LoggingKey, LoggingValue]): LoggingEntries =
-    new LoggingEntries(entries)
 
   def apply(entries: LoggingEntry*): LoggingEntries =
     new LoggingEntries(entries.toMap)

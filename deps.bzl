@@ -93,6 +93,8 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
                 # Can be removed once https://github.com/tweag/rules_haskell/pull/1464 is merged.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-windows.patch",
+                # Should be upstreamed.
+                "@com_github_digital_asset_daml//bazel_tools:haskell_protobuf_source.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
