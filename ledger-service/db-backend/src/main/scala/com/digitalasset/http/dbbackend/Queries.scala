@@ -62,7 +62,7 @@ sealed abstract class Queries(val tablePrefix: String) {
       CREATE TABLE
         $contractTableName
         (contract_id $contractIdType NOT NULL CONSTRAINT contract_k PRIMARY KEY
-        ,tpid $bigIntType NOT NULL REFERENCES template_id (tpid)
+        ,tpid $bigIntType NOT NULL REFERENCES $templateIdTableName (tpid)
         ,${jsonColumn(sql"key")}
         ,${jsonColumn(contractColumnName)}
         $contractsTableSignatoriesObservers
@@ -79,7 +79,7 @@ sealed abstract class Queries(val tablePrefix: String) {
       CREATE TABLE
         $ledgerOffsetTableName
         (party $partyType NOT NULL
-        ,tpid $bigIntType NOT NULL REFERENCES template_id (tpid)
+        ,tpid $bigIntType NOT NULL REFERENCES $templateIdTableName (tpid)
         ,last_offset $offsetType NOT NULL
         ,PRIMARY KEY (party, tpid)
         )
@@ -567,11 +567,11 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
   protected[this] val contractsTableIndexName = Fragment.const0(s"${tablePrefix}contract_tpid_idx")
 
   private[this] val indexContractsKeys = CreateIndex(sql"""
-      CREATE INDEX $contractsKeysIndexName ON contract USING BTREE (tpid, key)
+      CREATE INDEX $contractsKeysIndexName ON $contractTableName USING BTREE (tpid, key)
   """)
 
   private[this] val indexContractsTable = CreateIndex(sql"""
-      CREATE INDEX $contractsTableIndexName ON contract (tpid)
+      CREATE INDEX $contractsTableIndexName ON $contractTableName (tpid)
     """)
 
   protected[this] override def initDatabaseDdls =
@@ -747,7 +747,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
   )
   private[this] val stakeholdersIndexName = Fragment.const0(s"${tablePrefix}stakeholder_idx")
   private[this] def stakeholdersIndex = CreateIndex(
-    sql"""CREATE INDEX $stakeholdersIndexName ON contract_stakeholders (tpid, stakeholder)"""
+    sql"""CREATE INDEX $stakeholdersIndexName ON $contractStakeholdersViewName (tpid, stakeholder)"""
   )
 
   protected[this] override def initDatabaseDdls =
@@ -777,7 +777,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, JsValue, JsValue, JsValue]](
       s"""
-        INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
+        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id)) */
         INTO $contractTableNameRaw (contract_id, tpid, key, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       """
