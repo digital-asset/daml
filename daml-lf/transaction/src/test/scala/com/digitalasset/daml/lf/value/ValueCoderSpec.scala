@@ -168,7 +168,7 @@ class ValueCoderSpec
       val encoded = assertRight(
         ValueCoder
           .encodeValue(ValueCoder.CidEncoder, TransactionVersion.minTypeErasure, n)
-      ).toByteString
+      )
 
       ValueCoder.decodeValue(
         ValueCoder.CidDecoder,
