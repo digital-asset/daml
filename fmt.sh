@@ -155,7 +155,7 @@ run scalafmt "${scalafmt_args[@]:-}"
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
 
-# Run buf checks.
+# Check for breaking proto changes.
 run buf breaking --against "${buf_image}"
 
 # Note that we cannot use a symlink here because Windows.
