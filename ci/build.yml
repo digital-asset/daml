@@ -325,6 +325,14 @@ jobs:
         DOCKER_PASSWORD: $(DOCKER_PASSWORD)
       displayName: 'Build'
       condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
+
+    - task: PublishBuildArtifacts@1
+      condition: failed()
+      displayName: 'Publish the bazel test logs'
+      inputs:
+        pathtoPublish: 'bazel-testlogs/'
+        artifactName: 'Test logs Oracle'
+
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
