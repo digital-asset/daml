@@ -14,7 +14,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
@@ -221,7 +221,7 @@ object ParallelIndexerFactory {
   ): Iterable[((Offset, state.Update), Long)] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case ((offset, update), _) =>
-      withEnrichedLoggingContextFrom(IndexerLoggingContext.loggingEntriesFor(offset, update)) {
+      withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
         implicit loggingContext =>
           logger.info(s"Storing ${update.description}")
       }
