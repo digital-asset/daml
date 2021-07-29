@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-class HttpServiceWithOracleTablePrefixIntTest
-    extends HttpServiceWithOracleIntTest {
+class HttpServiceWithOracleTablePrefixIntTest extends HttpServiceWithOracleIntTest {
   override def jdbcConfig_ = super.jdbcConfig_.copy(tablePrefix = "some_nice_prefix_")
 }
