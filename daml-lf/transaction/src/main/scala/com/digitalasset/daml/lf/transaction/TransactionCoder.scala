@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError, parseValue}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.{ByteString, GeneratedMessageV3, ProtocolStringList}
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -80,7 +80,7 @@ object TransactionCoder {
       cidEncoder: ValueCoder.EncodeCid[Cid],
       nodeVersion: TransactionVersion,
       value: Value[Cid],
-  ): Either[EncodeError, ValueOuterClass.Value] =
+  ): Either[EncodeError, ByteString] =
     ValueCoder.encodeValue(cidEncoder, nodeVersion, value)
 
   private[this] def encodeVersionedValue[Cid](
@@ -192,7 +192,7 @@ object TransactionCoder {
     } else {
       ValueCoder
         .encodeValue(encodeCid, version, key.key)
-        .map(v => builder.setKeyUnversioned(v.toByteString).build())
+        .map(builder.setKeyUnversioned(_).build())
     }
   }
 
@@ -224,8 +224,8 @@ object TransactionCoder {
       }
     } else {
       encodeValue(encodeCid, version, value).map { v =>
-        setUnversioned(v.toByteString);
-        {}
+        setUnversioned(v)
+        ()
       }
     }
   }
@@ -298,7 +298,7 @@ object TransactionCoder {
                   } else {
                     encodeValue(encodeCid, nodeVersion, nc.coinst.arg).map { arg =>
                       builder.setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
-                      builder.setArgUnversioned(arg.toByteString)
+                      builder.setArgUnversioned(arg)
                       builder.setAgreement(nc.coinst.agreementText)
                     }
                   }
@@ -890,7 +890,7 @@ object TransactionCoder {
   private[this] def keyHash(
       nodeVersion: TransactionVersion,
       rawTmplId: ValueOuterClass.Identifier,
-      rawKey: ValueOuterClass.Value,
+      rawKey: ByteString,
   ): Either[DecodeError, GlobalKey] =
     for {
       tmplId <- ValueCoder.decodeIdentifier(rawTmplId)
@@ -913,7 +913,7 @@ object TransactionCoder {
         } else {
           protoCreate.getTemplateId -> protoCreate.getKeyWithMaintainers.getKeyUnversioned
         }
-      ValueCoder.parseValue(rawKey).flatMap(keyHash(nodeVersion, rawTmplId, _)).map(Some(_))
+      keyHash(nodeVersion, rawTmplId, rawKey).map(Some(_))
     } else {
       Right(None)
     }
@@ -934,7 +934,7 @@ object TransactionCoder {
         } else {
           protoExercise.getKeyWithMaintainers.getKeyUnversioned
         }
-      parseValue(rawKey).flatMap(keyHash(nodeVersion, protoExercise.getTemplateId, _)).map(Some(_))
+      keyHash(nodeVersion, protoExercise.getTemplateId, rawKey).map(Some(_))
     } else {
       Right(None)
     }

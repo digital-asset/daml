@@ -170,7 +170,7 @@ object ValueCoder {
   ): Either[DecodeError, Value[Cid]] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
 
-  def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
+  private[this] def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
     Try {
       val cis = CodedInputStream.newInstance(bytes.asReadOnlyByteBuffer())
       cis.setRecursionLimit(MAXIMUM_PROTO_RECURSION_LIMIT)
@@ -199,7 +199,7 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return either error or Value
     */
-  def decodeValue[Cid](
+  private[this] def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       version: TransactionVersion,
       protoValue0: proto.Value,
@@ -387,7 +387,7 @@ object ValueCoder {
       protoValue <- encodeValue(encodeCid, version, value)
     } yield {
       val builder = proto.VersionedValue.newBuilder()
-      builder.setVersion(encodeValueVersion(version)).setValue(protoValue.toByteString).build()
+      builder.setVersion(encodeValueVersion(version)).setValue(protoValue).build()
     }
 
   /** Serialize a Value to protobuf
@@ -402,7 +402,7 @@ object ValueCoder {
       encodeCid: EncodeCid[Cid],
       valueVersion: TransactionVersion,
       v0: Value[Cid],
-  ): Either[EncodeError, proto.Value] = {
+  ): Either[EncodeError, ByteString] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def assertSince(minVersion: TransactionVersion, description: => String) =
@@ -511,7 +511,7 @@ object ValueCoder {
     }
 
     try {
-      Right(go(0, v0))
+      Right(go(0, v0).toByteString)
     } catch {
       case Err(msg) => Left(EncodeError(msg))
     }
