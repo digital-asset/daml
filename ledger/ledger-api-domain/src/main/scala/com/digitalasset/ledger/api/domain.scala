@@ -306,7 +306,9 @@ object domain {
       )
   }
 
-  /** @param party      The stable unique identifier of a Daml party.
+  /** Represents a party with additional known information.
+    *
+    * @param party       The stable unique identifier of a Daml party.
     * @param displayName Human readable name associated with the party. Might not be unique.
     * @param isLocal     True if party is hosted by the backing participant.
     */
