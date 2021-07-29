@@ -3,8 +3,10 @@
 
 package com.daml.script.export
 
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.{value => v}
+import com.daml.lf.language.{Ast, LanguageVersion}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -33,7 +35,17 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
             )
           ),
       ).map(_.toTransactionTree)
-      val export = Export.fromTransactionTrees(acs, trees, acsBatchSize = 10, setTime = false)
+      val pkgLfVersions = Map.empty[String, LanguageVersion]
+      val legacyTemplates = Map.empty[ApiTypes.TemplateId, Ast.GenTemplate[Ast.Expr]]
+      val export =
+        Export.fromTransactionTrees(
+          acs,
+          trees,
+          pkgLfVersions,
+          legacyTemplates,
+          acsBatchSize = 10,
+          setTime = false,
+        )
       export.cidRefs shouldBe empty
       export.cidMap shouldBe empty
       export.unknownCids shouldBe empty
@@ -71,7 +83,17 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
             )
           ),
       ).map(_.toTransactionTree)
-      val export = Export.fromTransactionTrees(acs, trees, acsBatchSize = 10, setTime = false)
+      val pkgLfVersions = Map.empty[String, LanguageVersion]
+      val legacyTemplates = Map.empty[ApiTypes.TemplateId, Ast.GenTemplate[Ast.Expr]]
+      val export =
+        Export.fromTransactionTrees(
+          acs,
+          trees,
+          pkgLfVersions,
+          legacyTemplates,
+          acsBatchSize = 10,
+          setTime = false,
+        )
       export.cidRefs should contain only (
         ContractId("acs1"),
         ContractId("acs2"),
@@ -111,7 +133,17 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
           )
         )
     ).map(_.toTransactionTree)
-    val export = Export.fromTransactionTrees(acs, trees, acsBatchSize = 10, setTime = false)
+    val pkgLfVersions = Map.empty[String, LanguageVersion]
+    val legacyTemplates = Map.empty[ApiTypes.TemplateId, Ast.GenTemplate[Ast.Expr]]
+    val export =
+      Export.fromTransactionTrees(
+        acs,
+        trees,
+        pkgLfVersions,
+        legacyTemplates,
+        acsBatchSize = 10,
+        setTime = false,
+      )
     export.cidRefs should contain only (ContractId("un1"), ContractId("un2"))
     export.cidMap shouldBe empty
     export.unknownCids should contain only (ContractId("un1"), ContractId("un2"))

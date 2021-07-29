@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Time.{Date, Timestamp}
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
@@ -46,7 +47,46 @@ private[export] object Encode {
       Doc.hardLine +
       encodeTestExport() /
       Doc.hardLine +
-      encodeExportActions(export)
+      encodeExportActions(export) /
+      encodeLegacyInstances(export.legacyTemplates)
+  }
+
+  private def encodeLegacyInstances(templates: Map[TemplateId, Ast.GenTemplate[Ast.Expr]]): Doc = {
+    if (templates.isEmpty) {
+      Doc.empty
+    } else {
+      Doc.hardLine +
+        Doc.stack(
+          templates.map { case (tplId, tpl) =>
+            System.err.println(s"$tplId: ${tpl.key.map(_.typ)}")
+            val docTplId = encodeTemplateId(tplId)
+            Doc.stack(
+              Seq(
+                "instance HasTemplateTypeRep" &: docTplId :& "where _templateTypeRep = GHC.Types.primitive @\"ETemplateTypeRep\"",
+                "instance HasToAnyTemplate" &: docTplId :& "where _toAnyTemplate = GHC.Types.primitive @\"EToAnyTemplate\"",
+              ) ++
+                tpl.choices.map { case (choiceName, choice) =>
+                  val choiceDoc = if (choiceName == "Archive") {
+                    Doc.text("Archive")
+                  } else {
+                    val choiceId = Identifier()
+                      .withPackageId(TemplateId.unwrap(tplId).packageId)
+                      .withModuleName(TemplateId.unwrap(tplId).moduleName)
+                      .withEntityName(choiceName)
+                    qualifyId(choiceId)
+                  }
+                  System.err.println(s"$choiceName: ${choice.returnType}")
+                  // TODO[AH] Handle precendence in encodeAstType
+                  Doc.text("instance HasToAnyChoice") & docTplId & choiceDoc & parens(
+                    encodeAstType(choice.returnType)
+                  ) & Doc.text(
+                    "where _toAnyChoice = GHC.Types.primitive @\"EToAnyChoice\""
+                  )
+                }
+            )
+          }
+        )
+    }
   }
 
   private def encodeExportActions(export: Export): Doc = {
@@ -55,7 +95,7 @@ private[export] object Encode {
       (Doc.text("export Args{parties, contracts} = do") /
         stackNonEmpty(
           export.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ export.actions.map(
-            encodeAction(export.partyMap, export.cidMap, export.cidRefs, _)
+            encodeAction(export.partyMap, export.cidMap, export.cidRefs, export.pkgLfVersions, _)
           ) :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -210,6 +250,56 @@ private[export] object Encode {
     )
   }
 
+  private def encodeAstType(ty: Ast.Type): Doc = {
+    ty match {
+      case Ast.TVar(name) => Doc.text(name)
+      case Ast.TNat(n) => Doc.text(s"$n")
+      case Ast.TSynApp(tysyn, args) =>
+        qualifyId(
+          Identifier()
+            .withPackageId(tysyn.packageId)
+            .withModuleName(tysyn.qualifiedName.module.dottedName)
+            .withEntityName(tysyn.qualifiedName.name.dottedName)
+        ) & Doc.intercalate(Doc.space, args.toSeq.map(ty => parens(encodeAstType(ty))))
+      case Ast.TTyCon(tycon) =>
+        qualifyId(
+          Identifier()
+            .withPackageId(tycon.packageId)
+            .withModuleName(tycon.qualifiedName.module.dottedName)
+            .withEntityName(tycon.qualifiedName.name.dottedName)
+        )
+      case Ast.TBuiltin(bt) =>
+        Doc.text(bt match {
+          case Ast.BTInt64 => "Int64"
+          case Ast.BTNumeric => "Numeric"
+          case Ast.BTText => "Text"
+          case Ast.BTTimestamp => "Timestamp"
+          case Ast.BTParty => "Party"
+          case Ast.BTUnit => "()"
+          case Ast.BTBool => "Bool"
+          case Ast.BTList => "List"
+          case Ast.BTOptional => "Optional"
+          case Ast.BTTextMap => "TextMap"
+          case Ast.BTGenMap => "GenMap"
+          case Ast.BTUpdate => "Update"
+          case Ast.BTScenario => "Scenario"
+          case Ast.BTDate => "Date"
+          case Ast.BTContractId => "ContractId"
+          case Ast.BTArrow => "(->)"
+          case Ast.BTAny => "Any"
+          case Ast.BTTypeRep => "TypeRep"
+          case Ast.BTAnyException => "AnyException"
+          case Ast.BTRoundingMode => "RoundingMode"
+          case Ast.BTBigNumeric => "BigNumeric"
+        })
+      case Ast.TApp(tyfun, arg) =>
+        parens(encodeAstType(tyfun)) & parens(encodeAstType(arg))
+      case Ast.TForall(binder, body) =>
+        Doc.text("forall") & Doc.text(binder._1) & encodeAstType(body)
+      case Ast.TStruct(_) => Doc.empty // TODO[AH] Not needed for type signatures
+    }
+  }
+
   private def quotes(v: Doc) =
     "\"" +: v :+ "\""
 
@@ -278,38 +368,71 @@ private[export] object Encode {
   private def encodeCmd(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
+      pkgLfVersions: Map[String, LanguageVersion],
       cmd: Command,
   ): Doc = cmd match {
     case CreateCommand(createdEvent) =>
-      encodeCreatedEvent(partyMap, cidMap, createdEvent)
+      encodeCreatedEvent(partyMap, cidMap, pkgLfVersions, createdEvent)
     case ExerciseCommand(exercisedEvent) =>
-      val command = Doc.text("exerciseCmd")
+      val pkgId = exercisedEvent.getTemplateId.packageId
       val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      command & cid & choice
+      if (isPreLf_1_8(pkgId, pkgLfVersions)) {
+        val command = Doc.text("internalExerciseCmd")
+        val templateId = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
+        val typeRepArg = parens("templateTypeRep" &: templateId)
+        val cidArg = parens("coerceContractId" &: cid)
+        val choiceArg = parens(Doc.text("toAnyChoice") & templateId & choice)
+        command & typeRepArg & cidArg & choiceArg
+      } else {
+        val command = Doc.text("exerciseCmd")
+        command & cid & choice
+      }
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
-      val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
+      val pkgId = templateId.packageId
+      val exerciseByKeyCmd =
+        if (isPreLf_1_8(pkgId, pkgLfVersions)) { "internalExerciseByKeyCmd" }
+        else { "exerciseByKeyCmd" }
+      val command = Doc.text(exerciseByKeyCmd) & "@" +: qualifyId(templateId)
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
       command.lineOrSpace(key).lineOrSpace(choice).nested(2)
     case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
-      Doc
-        .stack(
-          Seq(
-            Doc.text("createAndExerciseCmd"),
-            encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments),
-            encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
-          )
-        )
-        .nested(2)
+      val pkgId = createdEvent.getTemplateId.packageId
+      val tpl = encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+      if (isPreLf_1_8(pkgId, pkgLfVersions)) {
+        val command = Doc.text("internalCreateAndExerciseCmd")
+        val templateId = "@" +: encodeTemplateId(TemplateId(createdEvent.getTemplateId))
+        val typeRepArg = parens("templateTypeRep" &: templateId)
+        val tplArg = parens("toAnyTemplate" &: tpl)
+        val choiceArg = parens(Doc.text("toAnyChoice") & templateId & choice)
+        command & typeRepArg & tplArg & choiceArg
+        Doc
+          .stack(Seq(command, tplArg, choiceArg))
+          .nested(2)
+      } else {
+        val command = Doc.text("createAndExerciseCmd")
+        Doc
+          .stack(Seq(command, tpl, choice))
+          .nested(2)
+      }
   }
 
   private def encodeCreatedEvent(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
+      pkgLfVersions: Map[String, LanguageVersion],
       created: CreatedEvent,
-  ): Doc =
-    Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
+  ): Doc = {
+    val tpl = encodeRecord(partyMap, cidMap, created.getCreateArguments)
+    val pkgId = created.getTemplateId.packageId
+    if (isPreLf_1_8(pkgId, pkgLfVersions)) {
+      Doc.text("internalCreateCmd") & parens("toAnyTemplate" &: tpl)
+    } else {
+      Doc.text("createCmd") & tpl
+    }
+  }
 
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
     (Doc.text("let") & encodeCid(cidMap, c.cid) & Doc.text("=") & encodePath(
@@ -322,6 +445,7 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      pkgLfVersions: Map[String, LanguageVersion],
       submit: SubmitSimple,
   ): Doc = {
     val cids = submit.simpleCommands.map(_.contractId)
@@ -351,7 +475,7 @@ private[export] object Encode {
       } else {
         Doc.empty
       }
-      bind + encodeCmd(partyMap, cidMap, cmd)
+      bind + encodeCmd(partyMap, cidMap, pkgLfVersions, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
     ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
@@ -365,11 +489,13 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      pkgLfVersions: Map[String, LanguageVersion],
       submit: Submit,
   ): Doc = {
     submit match {
-      case simple: SubmitSimple => encodeSubmitSimple(partyMap, cidMap, cidRefs, simple)
-      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, tree)
+      case simple: SubmitSimple =>
+        encodeSubmitSimple(partyMap, cidMap, cidRefs, pkgLfVersions, simple)
+      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, pkgLfVersions, tree)
     }
   }
 
@@ -377,6 +503,7 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      pkgLfVersions: Map[String, LanguageVersion],
       submit: SubmitTree,
   ): Doc = {
     val cids = treeCreatedCids(submit.tree)
@@ -384,7 +511,7 @@ private[export] object Encode {
     val treeBind = Doc
       .stack(
         ("tree <-" &: encodeSubmitCall(partyMap, submit) :& "do") +:
-          submit.commands.map(encodeCmd(partyMap, cidMap, _))
+          submit.commands.map(encodeCmd(partyMap, cidMap, pkgLfVersions, _))
       )
       .hang(2)
     val cidBinds = referencedCids.map(bindCid(cidMap, _))
@@ -395,11 +522,12 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      pkgLfVersions: Map[String, LanguageVersion],
       action: Action,
   ): Doc = {
     action match {
       case SetTime(timestamp) => encodeSetTime(timestamp)
-      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, submit)
+      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, pkgLfVersions, submit)
     }
   }
 

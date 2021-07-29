@@ -6,12 +6,14 @@ package com.daml.script.export
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
+import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.script.`export`.TreeUtils.isPreLf_1_8
 import com.daml.script.export.TreeUtils.{
   Action,
   CreatedContract,
@@ -38,6 +40,9 @@ case class Export(
     unknownCids: Set[ContractId],
     cidRefs: Set[ContractId],
     moduleRefs: Set[String],
+    pkgLfVersions: Map[String, LanguageVersion],
+    legacyTemplateIds: Set[Identifier],
+    legacyTemplates: Map[TemplateId, Ast.GenTemplate[Ast.Expr]],
     actions: Seq[Action],
 )
 
@@ -46,6 +51,8 @@ object Export {
   def fromTransactionTrees(
       acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
+      pkgLfVersions: Map[String, LanguageVersion],
+      allLegacyTemplates: Map[TemplateId, Ast.GenTemplate[Ast.Expr]],
       acsBatchSize: Int,
       setTime: Boolean,
   ): Export = {
@@ -58,6 +65,23 @@ object Export {
       sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
     val treeCids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
+
+    val legacyTemplateIds: Set[Identifier] = submits.foldMap(submit =>
+      submit.commands.collect {
+        case TreeUtils.CreateCommand(createdEvent)
+            if isPreLf_1_8(createdEvent.getTemplateId.packageId, pkgLfVersions) =>
+          createdEvent.getTemplateId
+        case TreeUtils.ExerciseCommand(exercisedEvent)
+            if isPreLf_1_8(exercisedEvent.getTemplateId.packageId, pkgLfVersions) =>
+          exercisedEvent.getTemplateId
+        case TreeUtils.ExerciseByKeyCommand(_, templateId, _)
+            if isPreLf_1_8(templateId.packageId, pkgLfVersions) =>
+          templateId
+        case TreeUtils.CreateAndExerciseCommand(createdEvent, _)
+            if isPreLf_1_8(createdEvent.getTemplateId.packageId, pkgLfVersions) =>
+          createdEvent.getTemplateId
+      }.toSet
+    )
 
     val refs =
       acs.values.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments))) ++ trees.foldMap(
@@ -76,6 +100,11 @@ object Export {
       cidRefs = cidRefs,
       moduleRefs =
         refs.map(_.moduleName).toSet ++ timeRefs ++ partiesModuleRefs ++ unknownContractModuleRefs,
+      pkgLfVersions = pkgLfVersions,
+      legacyTemplateIds = legacyTemplateIds,
+      legacyTemplates = allLegacyTemplates.filter { case (tplId, _) =>
+        legacyTemplateIds.contains(TemplateId.unwrap(tplId))
+      },
       actions = actions,
     )
   }
@@ -131,7 +160,17 @@ object Export {
       acsBatchSize: Int,
       setTime: Boolean,
   ) = {
-    val export = Export.fromTransactionTrees(acs, trees, acsBatchSize, setTime)
+    val pkgLfVersions = pkgs
+      .map { case (pkgId, (_, pkg)) => pkgId -> pkg.languageVersion }
+      .toMap[String, LanguageVersion]
+    val export = Export.fromTransactionTrees(
+      acs,
+      trees,
+      pkgLfVersions,
+      Dependencies.legacyTemplates(pkgs),
+      acsBatchSize,
+      setTime,
+    )
 
     val dir = Files.createDirectories(targetDir)
     Files.write(

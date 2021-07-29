@@ -14,8 +14,8 @@ def _client_server_build_impl(ctx):
         command = """
         export {output_env}="{output_path}"
         {runner} "{client}" "{client_args} {client_files}" "{server}" "{server_args} {server_files}" "{runner_args}" &> runner.log
+        {cat} runner.log
         if [ "$?" -ne 0 ]; then
-          {cat} runner.log
           exit 1
         fi
       """.format(

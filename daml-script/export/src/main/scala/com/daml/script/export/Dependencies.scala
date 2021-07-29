@@ -7,6 +7,8 @@ import java.io.FileOutputStream
 import java.nio.file.Path
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.value
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.archive
 import com.daml.lf.data.Ref
@@ -14,6 +16,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.ByteString
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 object Dependencies {
@@ -92,5 +95,38 @@ object Dependencies {
       main <- pkgs.get(mainId) if !isProvidedLibrary(mainId, main._2)
       pkg = main._2.metadata.map(md => s"${md.name}-${md.version}").getOrElse(mainId.toString)
     } yield pkg
+  }
+
+  /** Whether the given LF version includes type-class instances.
+    *
+    * If not then we need to generate replacement instances for standard template and choice instances.
+    */
+  def lfIncludesInstances(version: LanguageVersion): Boolean = {
+    LanguageVersion.Ordering.lt(version, LanguageVersion.v1_8)
+  }
+
+  /** Collect all templates for which we need to generate replacement instances.
+    */
+  def legacyTemplates(
+      pkgs: Map[PackageId, (ByteString, Ast.Package)]
+  ): Map[ApiTypes.TemplateId, Ast.GenTemplate[Ast.Expr]] = {
+    val map = mutable.HashMap.empty[ApiTypes.TemplateId, Ast.GenTemplate[Ast.Expr]]
+    pkgs.foreach {
+      case (pkgId, (_, pkg)) if lfIncludesInstances(pkg.languageVersion) =>
+        pkg.modules.foreach { case (modName, mod) =>
+          mod.templates.foreach { case (tplName, tpl) =>
+            val tplId = ApiTypes.TemplateId(
+              value
+                .Identifier()
+                .withPackageId(pkgId)
+                .withModuleName(modName.dottedName)
+                .withEntityName(tplName.dottedName)
+            )
+            map += tplId -> tpl
+          }
+        }
+      case _ => ()
+    }
+    map.toMap
   }
 }

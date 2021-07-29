@@ -5,6 +5,7 @@ package com.daml.script.export
 
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.value.Value
+import com.daml.lf.language.LanguageVersion
 import com.daml.script.export.TreeUtils.SubmitSimpleMulti
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -22,6 +23,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
         ContractId("cid2") -> "contract_0_1",
       )
       val cidRefs = Set.empty[ContractId]
+      val pkgLfVersions = Map.empty[String, LanguageVersion]
       val submit = TestData
         .Tree(
           Seq[TestData.Event](
@@ -30,7 +32,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           )
         )
         .toSubmit
-      encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+      encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
         """tree <- submitTreeMulti [alice_0, bob_0] [] do
           |  createCmd Module.Template
           |  exerciseCmd contract_0_1 (Module.Choice ())""".stripMargin.replace("\r\n", "\n")
@@ -40,6 +42,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
         val parties = Map(Party("Alice") -> "alice_0")
         val cidMap = Map(ContractId("cid1") -> "contract_0_0")
         val cidRefs = Set.empty[ContractId]
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq(
@@ -47,7 +50,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """_ <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
       }
@@ -58,6 +61,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid2") -> "contract_1_1",
         )
         val cidRefs = Set.empty[ContractId]
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq(
@@ -66,7 +70,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
@@ -80,6 +84,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid1") -> "contract_1_1",
         )
         val cidRefs = Set.empty[ContractId]
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq(
@@ -92,7 +97,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())""".stripMargin.replace("\r\n", "\n")
       }
@@ -100,6 +105,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
         val parties = Map(Party("Alice") -> "alice_0")
         val cidMap = Map(ContractId("cid1") -> "contract_0_0")
         val cidRefs = Set(ContractId("cid1"))
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq(
@@ -107,7 +113,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """contract_0_0 <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
@@ -121,6 +127,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid2") -> "contract_1_1",
         )
         val cidRefs = Set(ContractId("cid1"), ContractId("cid2"))
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq(
@@ -129,7 +136,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """(contract_1_0, contract_1_1) <- submit alice_0 do
             |  contract_1_0 <- createCmd Module.Template
             |  contract_1_1 <- createCmd Module.Template
@@ -149,6 +156,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid5") -> "contract_2_1",
         )
         val cidRefs = Set(ContractId("cid1"), ContractId("cid2"), ContractId("cid4"))
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq(
@@ -169,7 +177,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())
             |  exerciseCmd contract_0_1 (Module.Choice ())
@@ -194,6 +202,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid2") -> "contract_1_1",
         )
         val cidRefs = Set(ContractId("cid1"), ContractId("cid2"))
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq[TestData.Event](
@@ -208,7 +217,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  createCmd Module.Template
             |  createCmd Module.Template
@@ -230,6 +239,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid1") -> "contract_1_1",
         )
         val cidRefs = Set.empty[ContractId]
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val submit = TestData
           .Tree(
             Seq[TestData.Event](
@@ -243,7 +253,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, pkgLfVersions, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  createAndExerciseCmd
             |    Module.Template
@@ -265,6 +275,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           ContractId("cid5") -> "contract_0_4",
         )
         val cidRefs = Set(ContractId("cid1"), ContractId("cid3"), ContractId("cid5"))
+        val pkgLfVersions = Map.empty[String, LanguageVersion]
         val commands = TestData
           .Tree(
             Seq[TestData.Event](
@@ -289,7 +300,13 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSimpleCommands
-        encodeSubmit(parties, cidMap, cidRefs, SubmitSimpleMulti(commands, parties.keySet))
+        encodeSubmit(
+          parties,
+          cidMap,
+          cidRefs,
+          pkgLfVersions,
+          SubmitSimpleMulti(commands, parties.keySet),
+        )
           .render(80) shouldBe
           """(contract_0_0, contract_0_2, contract_0_4) <- submitMulti [alice_0, bob_0] [] do
             |  contract_0_0 <- createCmd Module.Template

@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Graphs
+import com.daml.lf.language.{Graphs, LanguageVersion}
 import scalaz.std.option._
 import scalaz.std.iterable._
 import scalaz.std.set._
@@ -218,6 +218,15 @@ object TreeUtils {
         createdReferencedCids(createdEvent) ++ exercisedEvent.choiceArgument.foldMap(arg =>
           valueCids(arg.sum)
         )
+    }
+  }
+
+  /** Check whether the given package-id is known to come from a package with an LF version earlier than 1.8.
+    */
+  def isPreLf_1_8(pkgId: String, pkgLfVersions: Map[String, LanguageVersion]): Boolean = {
+    pkgLfVersions.get(pkgId) match {
+      case None => false
+      case Some(lfVersion) => LanguageVersion.Ordering.lt(lfVersion, LanguageVersion.v1_8)
     }
   }
 
