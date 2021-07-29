@@ -741,7 +741,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     contractStakeholdersViewNameRaw,
     sql"""CREATE MATERIALIZED VIEW $contractStakeholdersViewName
           BUILD IMMEDIATE REFRESH FAST ON STATEMENT AS
-          SELECT contract_id, tpid, stakeholder FROM contract,
+          SELECT contract_id, tpid, stakeholder FROM $contractTableName,
                  json_table(json_array(signatories, observers), '$$[*][*]'
                     columns (stakeholder $partyType path '$$'))""",
   )
