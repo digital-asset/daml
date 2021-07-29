@@ -115,7 +115,7 @@ shadowPat vars p
     go (TuplePat ext pats boxity) = TuplePat ext (map go pats) boxity
     go (SumPat ext pat tag arity) = SumPat ext (go pat) tag arity
     go (ConPatIn ext ps) = ConPatIn ext (shadowDetails ps)
-    go ConPatOut{} = error "ConPatOut is never produced by the parser"
+    go ConPatOut{} = error "ConPatOut is never produced by the parser!"
     go p@LitPat{} = p
     go p@NPat{} = p
     go NPlusKPat{} = error "N+k patterns are not suppported"
