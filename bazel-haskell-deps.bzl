@@ -111,7 +111,7 @@ haskell_cabal_library(
 )""".format(version = LSP_TYPES_VERSION),
         patch_args = ["-p1"],
         patches = [
-            "@com_github_digital_asset_daml//bazel_tools:lsp-types2.patch",
+            "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
         ],
         sha256 = "637a85878d7b8c895311eb6878f19c43038ef93db1e4de4820b04fa7bc30b4ab",
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
