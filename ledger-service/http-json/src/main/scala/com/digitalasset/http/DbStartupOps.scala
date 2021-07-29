@@ -7,6 +7,7 @@ import com.daml.http.dbbackend.ContractDao
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import cats.effect.IO
 import com.daml.http.util.Logging.InstanceUUID
+import doobie.LogHandler
 
 object DbStartupOps {
 
@@ -24,6 +25,7 @@ object DbStartupOps {
   def getDbVersionState(implicit
       dao: ContractDao,
       lc: LoggingContextOf[InstanceUUID],
+      log: LogHandler,
   ): IO[Either[Throwable, DbVersionState]] = {
     import dao.jdbcDriver, scalaz.Scalaz._
     for {
@@ -61,6 +63,7 @@ object DbStartupOps {
       _dao: ContractDao = dao,
       lc: LoggingContextOf[InstanceUUID],
   ): IO[Boolean] = {
+    import dao.logHandler
     def checkDbVersionStateAnd(createOrUpdate: Boolean): IO[Boolean] = {
       val ioFalse = IO.pure(false)
       val dbVersionState = getDbVersionState

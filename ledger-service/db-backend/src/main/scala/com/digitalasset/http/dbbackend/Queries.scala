@@ -27,7 +27,7 @@ import cats.syntax.applicative._
 import cats.syntax.functor._
 import doobie.free.connection
 
-sealed abstract class Queries {
+sealed abstract class Queries(val tablePrefix: String) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
@@ -40,11 +40,27 @@ sealed abstract class Queries {
   /** for use when generating predicates */
   protected[this] val contractColumnName: Fragment = sql"payload"
 
+  /** Table names with prefix * */
+
+  val contractTableNameRaw = s"${tablePrefix}contract"
+  val contractTableName: Fragment = Fragment.const0(contractTableNameRaw)
+
+  val ledgerOffsetTableNameRaw = s"${tablePrefix}ledger_offset"
+  val ledgerOffsetTableName: Fragment =
+    Fragment.const0(ledgerOffsetTableNameRaw)
+
+  val templateIdTableNameRaw = s"${tablePrefix}template_id"
+  val templateIdTableName: Fragment = Fragment.const0(templateIdTableNameRaw)
+
+  val jsonApiSchemaVersionTableNameRaw = s"${tablePrefix}json_api_schema_version"
+  val jsonApiSchemaVersionTableName: Fragment =
+    Fragment.const0(jsonApiSchemaVersionTableNameRaw)
+
   private[this] val createContractsTable = CreateTable(
-    "contract",
+    contractTableNameRaw,
     sql"""
       CREATE TABLE
-        contract
+        $contractTableName
         (contract_id $contractIdType NOT NULL CONSTRAINT contract_k PRIMARY KEY
         ,tpid $bigIntType NOT NULL REFERENCES template_id (tpid)
         ,${jsonColumn(sql"key")}
@@ -58,10 +74,10 @@ sealed abstract class Queries {
   protected[this] def contractsTableSignatoriesObservers: Fragment
 
   private[this] val createOffsetTable = CreateTable(
-    "ledger_offset",
+    ledgerOffsetTableNameRaw,
     sql"""
       CREATE TABLE
-        ledger_offset
+        $ledgerOffsetTableName
         (party $partyType NOT NULL
         ,tpid $bigIntType NOT NULL REFERENCES template_id (tpid)
         ,last_offset $offsetType NOT NULL
@@ -86,10 +102,10 @@ sealed abstract class Queries {
   protected[this] def jsonColumn(name: Fragment): Fragment
 
   private[this] val createTemplateIdsTable = CreateTable(
-    "template_id",
+    templateIdTableNameRaw,
     sql"""
       CREATE TABLE
-        template_id
+        $templateIdTableName
         (tpid $bigSerialType NOT NULL CONSTRAINT template_id_k PRIMARY KEY
         ,package_id $packageIdType NOT NULL
         ,template_module_name $nameType NOT NULL
@@ -107,10 +123,10 @@ sealed abstract class Queries {
   }
 
   private[this] val createVersionTable = CreateTable(
-    "json_api_schema_version",
+    jsonApiSchemaVersionTableNameRaw,
     sql"""
        CREATE TABLE
-        json_api_schema_version
+        $jsonApiSchemaVersionTableName
         (version $bigIntType NOT NULL
         ,PRIMARY KEY (version)
         )
@@ -127,7 +143,7 @@ sealed abstract class Queries {
 
   protected[this] def insertVersion(): ConnectionIO[Unit] =
     sql"""
-         INSERT INTO json_api_schema_version (version)
+         INSERT INTO $jsonApiSchemaVersionTableName (version)
          VALUES ($schemaVersion)
          """.update.run.map(_ => ())
 
@@ -139,19 +155,19 @@ sealed abstract class Queries {
     } yield ()
   }
 
-  protected[http] def version(): ConnectionIO[Option[Int]]
+  protected[http] def version()(implicit log: LogHandler): ConnectionIO[Option[Int]]
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
       log: LogHandler
   ): ConnectionIO[SurrogateTpId] =
-    sql"""SELECT tpid FROM template_id
+    sql"""SELECT tpid FROM $templateIdTableName
           WHERE (package_id = $packageId AND template_module_name = $moduleName
                  AND template_entity_name = $entityName)"""
       .query[SurrogateTpId]
       .option flatMap {
       _.cata(
         _.pure[ConnectionIO],
-        sql"""INSERT INTO template_id (package_id, template_module_name, template_entity_name)
+        sql"""INSERT INTO $templateIdTableName (package_id, template_module_name, template_entity_name)
               VALUES ($packageId, $moduleName, $entityName)""".update
           .withUniqueGeneratedKeys[SurrogateTpId]("tpid"),
       )
@@ -163,7 +179,7 @@ sealed abstract class Queries {
     val partyVector =
       cats.data.OneAnd(parties.head, parties.tail.toList)
     val q = sql"""
-      SELECT party, last_offset FROM ledger_offset WHERE tpid = $tpid AND
+      SELECT party, last_offset FROM $ledgerOffsetTableName WHERE tpid = $tpid AND
     """ ++ Fragments.in(fr"party", partyVector)
     q.query[(String, String)]
       .to[Vector]
@@ -197,13 +213,15 @@ sealed abstract class Queries {
     }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
     val insert =
-      Update[(String, SurrogateTpId, String)]("""INSERT INTO ledger_offset VALUES(?, ?, ?)""")
+      Update[(String, SurrogateTpId, String)](
+        s"""INSERT INTO ${tablePrefix}ledger_offset VALUES(?, ?, ?)"""
+      )
     // If a concurrent transaction updated the offset for an existing party, we will get
     // fewer rows and throw a StaleOffsetException in the caller.
     val update = existingParties match {
       case hdP +: tlP =>
         Some(
-          sql"""UPDATE ledger_offset SET last_offset = $newOffset
+          sql"""UPDATE $ledgerOffsetTableName SET last_offset = $newOffset
             WHERE ${Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP))}
                   AND tpid = $tpid
                   AND last_offset = """ ++ caseLookup(
@@ -250,7 +268,8 @@ sealed abstract class Queries {
         val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
         chunks
           .map(chunk =>
-            (fr"DELETE FROM contract WHERE " ++ Fragments.in(fr"contract_id", chunk)).update.run
+            (fr"DELETE FROM $contractTableName WHERE " ++ Fragments
+              .in(fr"contract_id", chunk)).update.run
           )
           .foldA
     }
@@ -478,8 +497,10 @@ object Queries {
     }
   }
 
-  private[http] val Postgres: Aux[SqlInterpolation.StringArray] = PostgresQueries
-  private[http] val Oracle: Aux[SqlInterpolation.Unused] = OracleQueries
+  private[http] def Postgres(tablePrefix: String = ""): Aux[SqlInterpolation.StringArray] =
+    new PostgresQueries(tablePrefix)
+  private[http] def Oracle(tablePrefix: String = ""): Aux[SqlInterpolation.Unused] =
+    new OracleQueries(tablePrefix)
 
   private[http] object SqlInterpolation {
     final class StringArray()(implicit val gas: Get[Array[String]], val pas: Put[Array[String]])
@@ -520,7 +541,7 @@ object Queries {
   }
 }
 
-private object PostgresQueries extends Queries {
+private final class PostgresQueries(tablePrefix: String) extends Queries(tablePrefix) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
 
@@ -541,27 +562,31 @@ private object PostgresQueries extends Queries {
 
   protected[this] override val maxListSize = None
 
+  protected[this] val contractsKeysIndexName =
+    Fragment.const0(s"${tablePrefix}contract_tpid_key_idx")
+  protected[this] val contractsTableIndexName = Fragment.const0(s"${tablePrefix}contract_tpid_idx")
+
   private[this] val indexContractsKeys = CreateIndex(sql"""
-      CREATE INDEX contract_tpid_key_idx ON contract USING BTREE (tpid, key)
+      CREATE INDEX $contractsKeysIndexName ON contract USING BTREE (tpid, key)
   """)
 
   private[this] val indexContractsTable = CreateIndex(sql"""
-      CREATE INDEX contract_tpid_idx ON contract (tpid)
+      CREATE INDEX $contractsTableIndexName ON contract (tpid)
     """)
 
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(indexContractsTable, indexContractsKeys)
 
-  protected[http] override def version(): ConnectionIO[Option[Int]] = {
+  protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
       doesTableExist <-
         sql"""SELECT EXISTS(
                 SELECT 1 FROM information_schema.tables
-                WHERE table_name = 'json_api_schema_version'
+                WHERE table_name = '$jsonApiSchemaVersionTableName'
               )""".query[Boolean].unique
       version <-
         if (!doesTableExist) connection.pure(None)
-        else sql"SELECT version FROM json_api_schema_version".query[Int].option
+        else sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
     } yield version
   }
 
@@ -579,8 +604,8 @@ private object PostgresQueries extends Queries {
   )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
     import ipol.pas
     Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
-      """
-        INSERT INTO contract
+      s"""
+        INSERT INTO $contractTableNameRaw
         VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
         ON CONFLICT (contract_id) DO NOTHING
       """
@@ -605,7 +630,7 @@ private object PostgresQueries extends Queries {
       import ipol.{gas, pas}
       val q =
         sql"""SELECT contract_id, $tpid tpid, key, payload, signatories, observers, agreement_text
-              FROM contract AS c
+              FROM $contractTableName AS c
               WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
                     AND ($unionPred)"""
       q.query[(String, Mark0, JsValue, JsValue, Vector[String], Vector[String], String)]
@@ -668,7 +693,7 @@ private object PostgresQueries extends Queries {
   }
 }
 
-private object OracleQueries extends Queries {
+private final class OracleQueries(tablePrefix: String) extends Queries(tablePrefix) {
   import Queries._, InitDdl._
   import Implicits._
 
@@ -709,33 +734,35 @@ private object OracleQueries extends Queries {
         ,${jsonColumn(sql"signatories")}
         ,${jsonColumn(sql"observers")}
         """
-
+  private[this] val contractStakeholdersViewNameRaw = s"${tablePrefix}contract_stakeholders"
+  private[this] val contractStakeholdersViewName =
+    Fragment.const0(contractStakeholdersViewNameRaw)
   private[this] def stakeholdersView = CreateMaterializedView(
-    "contract_stakeholders",
-    sql"""CREATE MATERIALIZED VIEW contract_stakeholders
+    contractStakeholdersViewNameRaw,
+    sql"""CREATE MATERIALIZED VIEW $contractStakeholdersViewName
           BUILD IMMEDIATE REFRESH FAST ON STATEMENT AS
           SELECT contract_id, tpid, stakeholder FROM contract,
                  json_table(json_array(signatories, observers), '$$[*][*]'
                     columns (stakeholder $partyType path '$$'))""",
   )
-
+  private[this] val stakeholdersIndexName = Fragment.const0(s"${tablePrefix}stakeholder_idx")
   private[this] def stakeholdersIndex = CreateIndex(
-    sql"""CREATE INDEX stakeholder_idx ON contract_stakeholders (tpid, stakeholder)"""
+    sql"""CREATE INDEX $stakeholdersIndexName ON contract_stakeholders (tpid, stakeholder)"""
   )
 
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
-  protected[http] override def version(): ConnectionIO[Option[Int]] = {
+  protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
       doesTableExist <-
         sql"""SELECT EXISTS(
                 SELECT 1 FROM ALL_TABLES
-                WHERE table_name = 'json_api_schema_version'
+                WHERE table_name = '$jsonApiSchemaVersionTableName'
               )""".query[Boolean].unique
       version <-
         if (!doesTableExist) connection.pure(None)
-        else sql"SELECT version FROM json_api_schema_version".query[Int].option
+        else sql"SELECT version FROM $$jsonApiSchemaVersionTableName".query[Int].option
     } yield version
   }
 
@@ -749,9 +776,9 @@ private object OracleQueries extends Queries {
   )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, JsValue, JsValue, JsValue]](
-      """
+      s"""
         INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
-        INTO contract (contract_id, tpid, key, payload, signatories, observers, agreement_text)
+        INTO $contractTableNameRaw (contract_id, tpid, key, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       """
     ).updateMany(
@@ -792,8 +819,8 @@ private object OracleQueries extends Queries {
         sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload,
                      signatories, observers, agreement_text,
                      row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber
-                FROM contract c
-                     JOIN contract_stakeholders cst ON (c.contract_id = cst.contract_id)
+                FROM $contractTableName c
+                     JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
                 WHERE (${Fragments.in(fr"cst.stakeholder", parties)})
                       AND ($queriesCondition)"""
       val q = sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1"

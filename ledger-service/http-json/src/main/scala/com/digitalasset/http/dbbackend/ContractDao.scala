@@ -66,7 +66,7 @@ class ContractDao private (
 
 object ContractDao {
   import ConnectionPool.PoolSize
-  private[this] val supportedJdbcDrivers = Map(
+  private[this] val supportedJdbcDrivers = Map[String, String => SupportedJdbcDriver](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
   )
@@ -83,7 +83,7 @@ object ContractDao {
       throw new IllegalArgumentException(
         s"JDBC driver ${cfg.driver} is not one of ${supportedJdbcDrivers.keySet}"
       ),
-    )
+    )(cfg.tablePrefix)
     //pool for connections awaiting database access
     val es = Executors.newWorkStealingPool(poolSize)
     val (ds, conn) = ConnectionPool.connect(cfg, poolSize)(ExecutionContext.fromExecutor(es), cs)

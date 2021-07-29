@@ -31,23 +31,25 @@ object SupportedJdbcDriver {
     type SqlInterpol = SI
   }
 
-  val Postgres: SupportedJdbcDriver = {
+  def Postgres(tablePrefix: String = ""): SupportedJdbcDriver = {
     import doobie.postgres.implicits._
     import doobie.postgres.sqlstate.{class23 => postgres_class23}
-    implicit val ipol: Queries.Postgres.SqlInterpol = new Queries.SqlInterpolation.StringArray()
+    val queries = Queries.Postgres(tablePrefix)
+    implicit val ipol: queries.SqlInterpol = new Queries.SqlInterpolation.StringArray()
     new Instance(
       label = "PostgreSQL",
-      queries = Queries.Postgres,
+      queries,
       retrySqlStates =
         Set(postgres_class23.UNIQUE_VIOLATION.value, ContractDao.StaleOffsetException.SqlState),
     )
   }
 
-  val Oracle: SupportedJdbcDriver = {
-    implicit val ipol: Queries.Oracle.SqlInterpol = new Queries.SqlInterpolation.Unused()
+  def Oracle(tablePrefix: String = ""): SupportedJdbcDriver = {
+    val queries = Queries.Oracle(tablePrefix)
+    implicit val ipol: queries.SqlInterpol = new Queries.SqlInterpolation.Unused()
     new Instance(
       label = "Oracle",
-      queries = Queries.Oracle,
+      queries,
       // all oracle class 23 errors yield 23000; if we want to check for *unique*
       // violation specifically we'll have to look at something other than the SQLState.
       // All other class 23 errors indicate a bug, which should exhaust the retry loop anyway
