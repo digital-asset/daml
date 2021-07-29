@@ -156,7 +156,7 @@ run scalafmt "${scalafmt_args[@]:-}"
 run bazel run "$buildifier_target"
 
 # Run buf checks.
-run buf check breaking --against "${buf_image}"
+run buf breaking --against "${buf_image}"
 
 # Note that we cannot use a symlink here because Windows.
 if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then
