@@ -294,10 +294,10 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.16.0-snapshot.20210720.7404.1",
+        "start": "1.16.0-snapshot.20210727.7476.1",
         "platform_ranges": [
             {
-                "end": "1.16.0-snapshot.20210720.7404.0.b7cf42d1",
+                "end": "1.16.0-snapshot.20210727.7476.0.b5e9d861",
                 "exclusions": [
                     "DeeplyNestedValueIT",
                 ],
