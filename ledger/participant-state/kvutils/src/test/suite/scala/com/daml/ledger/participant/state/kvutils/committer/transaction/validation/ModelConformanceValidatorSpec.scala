@@ -375,6 +375,16 @@ class ModelConformanceValidatorSpec
         .build()
       step shouldBe StepStop(expectedEntry)
     }
+
+    "accept a transaction in case an input contract is non-existent (possibly because it has been pruned)" in {
+      val step = defaultValidator.validateCausalMonotonicity(
+        aTransactionEntry,
+        createCommitContext(None, Map.empty), // No contract is present in the commit context.
+        rejections,
+      )
+
+      step shouldBe StepContinue(aTransactionEntry)
+    }
   }
 
   private def create(

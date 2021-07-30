@@ -206,9 +206,15 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       }
 
     val isCausallyMonotonic = transactionEntry.transaction.inputContracts.forall { contractId =>
-      val inputContractState = inputContracts(contractId)
-      val activeAt = Option(inputContractState.getActiveAt).map(parseTimestamp)
-      activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
+      // Checking contract existence is part of contract consistency checks at a later validation step,
+      // hence, we don't want to leak contract information to a potentially malicious participant here
+      // by producing a rejection for non-existent contracts.
+      // Some input contracts may no longer exist even if the participant is honest, as they may
+      // have been archived and pruned by the committer.
+      inputContracts.get(contractId).forall { damlContractState =>
+        val activeAt = Option(damlContractState.getActiveAt).map(parseTimestamp)
+        activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
+      }
     }
 
     if (isCausallyMonotonic)
