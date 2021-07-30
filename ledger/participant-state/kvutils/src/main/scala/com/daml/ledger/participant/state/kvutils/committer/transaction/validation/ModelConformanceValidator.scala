@@ -209,7 +209,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       // Checking contract existence is part of contract consistency checks at a later validation step,
       // hence, we don't want to leak contract information to a potentially malicious participant here
       // by producing a rejection for non-existent contracts.
-      // In case of an honest participant, all input contracts may no longer exist either, as some may
+      // Some input contracts may no longer exist even if the participant is honest, as they may
       // have been archived and pruned by the committer.
       inputContracts.get(contractId).forall { damlContractState =>
         val activeAt = Option(damlContractState.getActiveAt).map(parseTimestamp)
