@@ -6,6 +6,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, Daml
 import com.daml.ledger.validator.HasDamlStateValue
 import com.daml.ledger.validator.reading.StateReader
 
+import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 object PreExecutionTestHelper {
