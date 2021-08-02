@@ -5,7 +5,9 @@ package com.daml.platform.apiserver.configuration
 
 import java.time.Duration
 
+import akka.event.NoLogging
 import akka.stream.scaladsl.Source
+import akka.testkit.ExplicitlyTriggeredScheduler
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -21,6 +23,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 final class IndexStreamingCurrentLedgerConfigurationSpec
     extends AsyncWordSpec
@@ -46,9 +49,10 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val index = mock[IndexConfigManagementService]
       when(index.lookupConfiguration())
         .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, system.scheduler, materializer)
+        .owner(ledgerConfiguration, index, scheduler, materializer)
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             currentLedgerConfiguration.latestConfiguration should be(Some(currentConfiguration))
@@ -89,9 +93,10 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       when(index.lookupConfiguration()).thenReturn(Future.successful(None))
       when(index.configurationEntries(None))
         .thenReturn(Source(configurationEntries).concat(Source.never))
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, system.scheduler, materializer)
+        .owner(ledgerConfiguration, index, scheduler, materializer)
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             eventually {
@@ -112,11 +117,16 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         initialConfigurationSubmitDelay = Duration.ZERO,
         configurationLoadTimeout = Duration.ofMillis(500),
       )
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, system.scheduler, materializer)
-        .use { ledgerConfigProvider =>
-          ledgerConfigProvider.latestConfiguration should be(None)
+        .owner(ledgerConfiguration, index, scheduler, materializer)
+        .use { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.isCompleted should be(false)
+          scheduler.timePasses(1.second)
+          currentLedgerConfiguration.ready.map { _ =>
+            currentLedgerConfiguration.latestConfiguration should be(None)
+          }
         }
     }
   }

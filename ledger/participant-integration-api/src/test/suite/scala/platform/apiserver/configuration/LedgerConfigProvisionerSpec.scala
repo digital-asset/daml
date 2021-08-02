@@ -6,6 +6,8 @@ package com.daml.platform.apiserver.configuration
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
+import akka.event.NoLogging
+import akka.testkit.ExplicitlyTriggeredScheduler
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -19,7 +21,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.TelemetryContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
+import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -55,6 +57,7 @@ final class LedgerConfigProvisionerSpec
       val submissionIdGenerator = new SubmissionIdGenerator {
         override def generate(): SubmissionId = submissionId
       }
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       LedgerConfigProvisioner
         .owner(
@@ -63,17 +66,22 @@ final class LedgerConfigProvisionerSpec
           writeService = writeService,
           timeProvider = timeProvider,
           submissionIdGenerator = submissionIdGenerator,
-          scheduler = system.scheduler,
+          scheduler = scheduler,
           executionContext = system.dispatcher,
         )
         .use { _ =>
-          eventually(PatienceConfiguration.Timeout(1.second)) {
-            verify(writeService).submitConfiguration(
-              eqTo(Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))),
-              eqTo(submissionId),
-              eqTo(configurationToSubmit),
-            )(any[TelemetryContext])
-          }
+          verify(writeService, never).submitConfiguration(
+            any[Timestamp],
+            any[Ref.SubmissionId],
+            any[Configuration],
+          )(any[TelemetryContext])
+
+          scheduler.timePasses(100.millis)
+          verify(writeService).submitConfiguration(
+            eqTo(Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))),
+            eqTo(submissionId),
+            eqTo(configurationToSubmit),
+          )(any[TelemetryContext])
           succeed
         }
     }
@@ -98,6 +106,7 @@ final class LedgerConfigProvisionerSpec
           fail("We should never generate a submission.")
         }
       }
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       LedgerConfigProvisioner
         .owner(
@@ -106,16 +115,16 @@ final class LedgerConfigProvisionerSpec
           writeService = writeService,
           timeProvider = timeProvider,
           submissionIdGenerator = submissionIdGenerator,
-          scheduler = system.scheduler,
+          scheduler = scheduler,
           executionContext = system.dispatcher,
         )
         .use { _ =>
-          verify(writeService, after(1.second.toMillis.toInt).never())
-            .submitConfiguration(
-              any[Timestamp],
-              any[Ref.SubmissionId],
-              any[Configuration],
-            )(any[TelemetryContext])
+          scheduler.timePasses(1.second)
+          verify(writeService, never).submitConfiguration(
+            any[Timestamp],
+            any[Ref.SubmissionId],
+            any[Configuration],
+          )(any[TelemetryContext])
           succeed
         }
     }
@@ -127,7 +136,7 @@ final class LedgerConfigProvisionerSpec
     val ledgerConfiguration = LedgerConfiguration(
       initialConfiguration =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-      initialConfigurationSubmitDelay = Duration.ofSeconds(1),
+      initialConfigurationSubmitDelay = Duration.ofSeconds(3),
       configurationLoadTimeout = Duration.ZERO,
     )
 
@@ -142,6 +151,7 @@ final class LedgerConfigProvisionerSpec
         fail("We should never generate a submission.")
       }
     }
+    val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
     LedgerConfigProvisioner
       .owner(
@@ -150,15 +160,20 @@ final class LedgerConfigProvisionerSpec
         writeService = writeService,
         timeProvider = timeProvider,
         submissionIdGenerator = submissionIdGenerator,
-        scheduler = system.scheduler,
+        scheduler = scheduler,
         executionContext = system.dispatcher,
       )
       .use { _ =>
-        materializer.scheduleOnce(
-          100.millis,
-          { () => currentConfiguration.set(Some(eventualConfiguration)) },
+        scheduler.scheduleOnce(
+          2.seconds,
+          new Runnable {
+            override def run(): Unit = {
+              currentConfiguration.set(Some(eventualConfiguration))
+            }
+          },
         )
-        verify(writeService, after(1.second.toMillis.toInt).never())
+        scheduler.timePasses(5.seconds)
+        verify(writeService, never)
           .submitConfiguration(
             any[Timestamp],
             any[Ref.SubmissionId],
