@@ -1,45 +1,37 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.services
+package com.daml.platform.apiserver.configuration
 
-import java.util.UUID
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
-import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
-import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-/** Subscribes to ledger configuration updates coming from the index,
-  * and makes the latest ledger configuration available to consumers.
+/** Subscribes to ledger configuration updates coming from the index, and makes the latest ledger
+  * configuration available to consumers.
   *
-  * This class helps avoiding code duplication and limiting the number of
-  * database lookups, as multiple services and validators require the latest ledger config.
+  * This class helps avoiding code duplication and limiting the number of database lookups, as
+  * multiple services and validators require the latest ledger config.
   */
-private[apiserver] final class LedgerConfigProvider private (
+private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private (
     index: IndexConfigManagementService,
-    optWriteService: Option[state.WriteConfigService],
-    timeProvider: TimeProvider,
-    config: LedgerConfiguration,
+    ledgerConfiguration: LedgerConfiguration,
     materializer: Materializer,
 )(implicit loggingContext: LoggingContext)
-    extends AutoCloseable {
+    extends CurrentLedgerConfiguration
+    with AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
 
@@ -47,7 +39,6 @@ private[apiserver] final class LedgerConfigProvider private (
   private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
   private[this] val latestConfigurationState: AtomicReference[StateType] =
     new AtomicReference(None -> None)
-  private[this] val closed: AtomicBoolean = new AtomicBoolean(false)
   private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] =
     new AtomicReference(None)
   private[this] val readyPromise: Promise[Unit] = Promise()
@@ -58,25 +49,16 @@ private[apiserver] final class LedgerConfigProvider private (
   // - Submit the initial config if none is found after a delay
   startLoading()
   materializer.scheduleOnce(
-    config.configurationLoadTimeout.toNanos.nanos,
+    ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
     () => {
       if (readyPromise.trySuccess(())) {
         logger.warn(
-          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+          s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
         )
       }
       ()
     },
   )
-  optWriteService.foreach { writeService =>
-    materializer.scheduleOnce(
-      config.initialConfigurationSubmitDelay.toNanos.nanos,
-      () => {
-        if (latestConfiguration.isEmpty && !closed.get) submitInitialConfig(writeService)
-        ()
-      },
-    )
-  }
 
   // Looks up the latest ledger configuration, then subscribes to a
   // stream of configuration changes.
@@ -141,71 +123,31 @@ private[apiserver] final class LedgerConfigProvider private (
     ()
   }
 
-  private[this] def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
-    implicit val executionContext: ExecutionContext = materializer.executionContext
-    // There are several reasons why the change could be rejected:
-    // - The participant is not authorized to set the configuration
-    // - There already is a configuration, it just didn't appear in the index yet
-    // This method therefore does not try to re-submit the initial configuration in case of failure.
-    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID.toString)
-    logger.info(s"No ledger configuration found, submitting an initial configuration $submissionId")
-    DefaultTelemetry.runFutureInSpan(
-      SpanName.LedgerConfigProviderInitialConfig,
-      SpanKind.Internal,
-    ) { implicit telemetryContext =>
-      FutureConverters
-        .toScala(
-          writeService.submitConfiguration(
-            Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
-            submissionId,
-            config.initialConfiguration,
-          )
-        )
-        .map {
-          case state.SubmissionResult.Acknowledged =>
-            logger.info(s"Initial configuration submission $submissionId was successful")
-          case result: state.SubmissionResult.SynchronousError =>
-            logger.warn(
-              s"Initial configuration submission $submissionId failed. Code: ${result.status.getCode}, Reason: ${result.description}"
-            )
-        }
-    }
-  }
-
-  /** The latest configuration found so far.
-    * This may not be the currently active ledger configuration, e.g., if the index is lagging behind the ledger.
-    */
-  def latestConfiguration: Option[Configuration] = latestConfigurationState.get._2
-
-  /** Completes:
-    * - when some ledger configuration was found
-    * - after [[com.daml.platform.configuration.LedgerConfiguration.configurationLoadTimeout]]
-    * , whichever happens first.
+  /** This future will resolve successfully:
+    *
+    *   - when a ledger configuration is found, or
+    *   - after [[LedgerConfiguration.configurationLoadTimeout]].
+    *
+    * Whichever is first.
     */
   def ready: Future[Unit] = readyPromise.future
 
+  override def latestConfiguration: Option[Configuration] = latestConfigurationState.get._2
+
   override def close(): Unit = {
-    closed.set(true)
     killSwitch.get.foreach(k => k.shutdown())
   }
 }
 
-private[apiserver] object LedgerConfigProvider {
+private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
   def owner(
       index: IndexConfigManagementService,
-      optWriteService: Option[state.WriteConfigService],
-      timeProvider: TimeProvider,
-      config: LedgerConfiguration,
+      ledgerConfiguration: LedgerConfiguration,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[LedgerConfigProvider] =
-    for {
-      provider <- ResourceOwner.forCloseable(() =>
-        new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
-      )
-      _ <- ResourceOwner.forFuture(() =>
-        provider.ready.map(_ => provider)(materializer.executionContext)
-      )
-    } yield provider
+  ): ResourceOwner[IndexStreamingCurrentLedgerConfiguration] =
+    ResourceOwner.forCloseable(() =>
+      new IndexStreamingCurrentLedgerConfiguration(index, ledgerConfiguration, materializer)
+    )
 }
