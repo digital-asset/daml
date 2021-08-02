@@ -3,14 +3,13 @@
 
 package com.daml.platform.apiserver.services
 
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -30,6 +29,7 @@ private[apiserver] final class LedgerConfigProvisioner private (
     currentLedgerConfiguration: CurrentLedgerConfiguration,
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
+    submissionIdGenerator: SubmissionIdGenerator,
     config: LedgerConfiguration,
     materializer: Materializer,
 )(implicit loggingContext: LoggingContext)
@@ -47,12 +47,12 @@ private[apiserver] final class LedgerConfigProvisioner private (
     },
   )
 
-  private[this] def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
-    // There are several reasons why the change could be rejected:
-    // - The participant is not authorized to set the configuration
-    // - There already is a configuration, it just didn't appear in the index yet
-    // This method therefore does not try to re-submit the initial configuration in case of failure.
-    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID.toString)
+  // There are several reasons why the change could be rejected:
+  // - The participant is not authorized to set the configuration
+  // - There already is a configuration, it just didn't appear in the index yet
+  // This method therefore does not try to re-submit the initial configuration in case of failure.
+  private def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
+    val submissionId = submissionIdGenerator.generate()
     withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
       logger.info(s"No ledger configuration found, submitting an initial configuration.")
       DefaultTelemetry.runFutureInSpan(
@@ -89,7 +89,8 @@ object LedgerConfigProvisioner {
       currentLedgerConfiguration: CurrentLedgerConfiguration,
       writeService: state.WriteConfigService,
       timeProvider: TimeProvider,
-      config: LedgerConfiguration,
+      submissionIdGenerator: SubmissionIdGenerator,
+      ledgerConfiguration: LedgerConfiguration,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -99,7 +100,8 @@ object LedgerConfigProvisioner {
         currentLedgerConfiguration,
         writeService,
         timeProvider,
-        config,
+        submissionIdGenerator,
+        ledgerConfiguration,
         materializer,
       )
     )

@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private (
     index: IndexConfigManagementService,
-    config: LedgerConfiguration,
+    ledgerConfiguration: LedgerConfiguration,
     materializer: Materializer,
 )(implicit loggingContext: LoggingContext)
     extends CurrentLedgerConfiguration
@@ -49,11 +49,11 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   // - Submit the initial config if none is found after a delay
   startLoading()
   materializer.scheduleOnce(
-    config.configurationLoadTimeout.toNanos.nanos,
+    ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
     () => {
       if (readyPromise.trySuccess(())) {
         logger.warn(
-          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+          s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
         )
       }
       ()
@@ -142,12 +142,12 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
 private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
   def owner(
       index: IndexConfigManagementService,
-      config: LedgerConfiguration,
+      ledgerConfiguration: LedgerConfiguration,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[IndexStreamingCurrentLedgerConfiguration] =
     ResourceOwner.forCloseable(() =>
-      new IndexStreamingCurrentLedgerConfiguration(index, config, materializer)
+      new IndexStreamingCurrentLedgerConfiguration(index, ledgerConfiguration, materializer)
     )
 }

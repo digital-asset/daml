@@ -379,7 +379,7 @@ class ApiSubmissionServiceSpec
     IndexStreamingCurrentLedgerConfiguration
       .owner(
         configManagementService,
-        config = LedgerConfiguration(
+        ledgerConfiguration = LedgerConfiguration(
           initialConfiguration = configuration,
           initialConfigurationSubmitDelay = Duration.ZERO,
           configurationLoadTimeout = Duration.ZERO,

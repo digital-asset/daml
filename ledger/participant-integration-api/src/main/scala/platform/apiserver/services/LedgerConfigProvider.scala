@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.services
 
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
@@ -16,18 +17,25 @@ object LedgerConfigProvider {
       index: IndexConfigManagementService,
       optWriteService: Option[state.WriteConfigService],
       timeProvider: TimeProvider,
-      config: LedgerConfiguration,
+      ledgerConfiguration: LedgerConfiguration,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[CurrentLedgerConfiguration] =
     for {
-      provider <- IndexStreamingCurrentLedgerConfiguration.owner(index, config)
+      currentLedgerConfiguration <-
+        IndexStreamingCurrentLedgerConfiguration.owner(index, ledgerConfiguration)
       _ <- optWriteService match {
         case None => ResourceOwner.unit
         case Some(writeService) =>
-          LedgerConfigProvisioner.owner(provider, writeService, timeProvider, config)
+          LedgerConfigProvisioner.owner(
+            currentLedgerConfiguration = currentLedgerConfiguration,
+            writeService = writeService,
+            timeProvider = timeProvider,
+            submissionIdGenerator = SubmissionIdGenerator.Random,
+            ledgerConfiguration = ledgerConfiguration,
+          )
       }
-      _ <- ResourceOwner.forFuture(() => provider.ready)
-    } yield provider
+      _ <- ResourceOwner.forFuture(() => currentLedgerConfiguration.ready)
+    } yield currentLedgerConfiguration
 }
