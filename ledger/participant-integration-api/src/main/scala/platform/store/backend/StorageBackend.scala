@@ -197,7 +197,9 @@ trait EventStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit
+  def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
+      connection: Connection
+  ): Unit
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,

@@ -30,7 +30,8 @@ template Divulgence
     controller divulgee can
       nonconsuming CanFetch: ContractId Dummy
         with contractId: ContractId Contract
-          do fetch contractId
+          do contract <- fetch contractId
+             assert $ contract.party == divulger
              -- create an event so the transaction is visible on the GetTransactionTrees endpoint
              create Dummy with holder=divulgee
 

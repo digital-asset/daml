@@ -196,10 +196,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     delegate.stopDeduplicatingCommand(commandId, submitter)
 
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    delegate.prune(pruneUpToInclusive)
+    delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()

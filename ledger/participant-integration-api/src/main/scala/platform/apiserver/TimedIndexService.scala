@@ -224,11 +224,12 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     )
 
   override def prune(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.services.index.prune,
-      delegate.prune(pruneUpToInclusive),
+      delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
 
   override def currentHealth(): HealthStatus =

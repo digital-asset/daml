@@ -590,10 +590,11 @@ private class JdbcLedgerDao(
   }
 
   override def prune(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-      storageBackend.pruneEvents(pruneUpToInclusive)(conn)
+      storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(conn)
       storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
       storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
       logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
