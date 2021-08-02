@@ -68,7 +68,8 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
               .setTransactionRejectionEntry(
                 rejections.preExecutionOutOfTimeBoundsRejectionEntry(
                   transactionEntry,
-                  Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime),
+                  minimumRecordTime,
+                  maximumRecordTime,
                 )
               )
               .build
