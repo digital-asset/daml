@@ -36,7 +36,7 @@ final class LedgerConfigProvisionerSpec
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  "Ledger Config Provider" should {
+  "provisioning a ledger configuration" should {
     "write a ledger configuration to the index if one is not provided" in {
       val configurationToSubmit =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1))
@@ -58,11 +58,13 @@ final class LedgerConfigProvisionerSpec
 
       LedgerConfigProvisioner
         .owner(
+          ledgerConfiguration = ledgerConfiguration,
           currentLedgerConfiguration = currentLedgerConfiguration,
           writeService = writeService,
           timeProvider = timeProvider,
           submissionIdGenerator = submissionIdGenerator,
-          ledgerConfiguration = ledgerConfiguration,
+          scheduler = system.scheduler,
+          executionContext = system.dispatcher,
         )
         .use { _ =>
           eventually(PatienceConfiguration.Timeout(1.second)) {
@@ -99,11 +101,13 @@ final class LedgerConfigProvisionerSpec
 
       LedgerConfigProvisioner
         .owner(
+          ledgerConfiguration = ledgerConfiguration,
           currentLedgerConfiguration = currentLedgerConfiguration,
           writeService = writeService,
           timeProvider = timeProvider,
           submissionIdGenerator = submissionIdGenerator,
-          ledgerConfiguration = ledgerConfiguration,
+          scheduler = system.scheduler,
+          executionContext = system.dispatcher,
         )
         .use { _ =>
           verify(writeService, after(1.second.toMillis.toInt).never())
@@ -141,11 +145,13 @@ final class LedgerConfigProvisionerSpec
 
     LedgerConfigProvisioner
       .owner(
+        ledgerConfiguration = ledgerConfiguration,
         currentLedgerConfiguration = currentLedgerConfiguration,
         writeService = writeService,
         timeProvider = timeProvider,
         submissionIdGenerator = submissionIdGenerator,
-        ledgerConfiguration = ledgerConfiguration,
+        scheduler = system.scheduler,
+        executionContext = system.dispatcher,
       )
       .use { _ =>
         materializer.scheduleOnce(

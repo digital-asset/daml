@@ -48,7 +48,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(index, ledgerConfiguration)
+        .owner(ledgerConfiguration, index, system.scheduler, materializer)
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             currentLedgerConfiguration.latestConfiguration should be(Some(currentConfiguration))
@@ -91,7 +91,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .thenReturn(Source(configurationEntries).concat(Source.never))
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(index, ledgerConfiguration)
+        .owner(ledgerConfiguration, index, system.scheduler, materializer)
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             eventually {
@@ -114,7 +114,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       )
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(index, ledgerConfiguration)
+        .owner(ledgerConfiguration, index, system.scheduler, materializer)
         .use { ledgerConfigProvider =>
           ledgerConfigProvider.latestConfiguration should be(None)
         }

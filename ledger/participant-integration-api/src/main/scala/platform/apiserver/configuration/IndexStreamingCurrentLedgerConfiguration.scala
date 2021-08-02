@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.configuration
 
 import java.util.concurrent.atomic.AtomicReference
 
+import akka.actor.Scheduler
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
@@ -26,11 +27,14 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   * multiple services and validators require the latest ledger config.
   */
 private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private (
-    index: IndexConfigManagementService,
     ledgerConfiguration: LedgerConfiguration,
+    index: IndexConfigManagementService,
+    scheduler: Scheduler,
+)(implicit
     materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
-    extends CurrentLedgerConfiguration
+    executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
+) extends CurrentLedgerConfiguration
     with AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -48,15 +52,17 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   // - Mark the provider as ready if no configuration was found after a timeout
   // - Submit the initial config if none is found after a delay
   startLoading()
-  materializer.scheduleOnce(
+  scheduler.scheduleOnce(
     ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
-    () => {
-      if (readyPromise.trySuccess(())) {
-        logger.warn(
-          s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
-        )
+    new Runnable {
+      override def run(): Unit = {
+        if (readyPromise.trySuccess(())) {
+          logger.warn(
+            s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+          )
+        }
+        ()
       }
-      ()
     },
   )
 
@@ -65,7 +71,6 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   // If the source of configuration changes proves to be a performance bottleneck,
   // it could be replaced by regular polling.
   private[this] def startLoading(): Future[Unit] = {
-    implicit val executionContext: ExecutionContext = materializer.executionContext
     index
       .lookupConfiguration()
       .map {
@@ -117,7 +122,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
           }
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .toMat(Sink.ignore)(Keep.left[UniqueKillSwitch, Future[Done]])
-          .run()(materializer)
+          .run()
       )
     )
     ()
@@ -141,13 +146,18 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
 
 private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
   def owner(
-      index: IndexConfigManagementService,
       ledgerConfiguration: LedgerConfiguration,
-  )(implicit
+      index: IndexConfigManagementService,
+      scheduler: Scheduler,
       materializer: Materializer,
-      loggingContext: LoggingContext,
+  )(implicit
+      loggingContext: LoggingContext
   ): ResourceOwner[IndexStreamingCurrentLedgerConfiguration] =
     ResourceOwner.forCloseable(() =>
-      new IndexStreamingCurrentLedgerConfiguration(index, ledgerConfiguration, materializer)
+      new IndexStreamingCurrentLedgerConfiguration(
+        ledgerConfiguration,
+        index,
+        scheduler,
+      )(materializer, materializer.executionContext, loggingContext)
     )
 }
