@@ -5,7 +5,6 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import com.daml.ledger.configuration.LedgerTimeModel.OutOfRange
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
