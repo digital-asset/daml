@@ -93,7 +93,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
           submissionAggregator.finish()
           submissionResult
         }).recover { case _: ConflictDetectedException =>
-          logger.error("Too many conflicts detected during post-execution. Giving up.")
+          logger.error("Conflict detected during post-execution, acknowledging but dropping the submission.")
           SubmissionResult.Acknowledged // But it will simply be dropped.
         }
       }
