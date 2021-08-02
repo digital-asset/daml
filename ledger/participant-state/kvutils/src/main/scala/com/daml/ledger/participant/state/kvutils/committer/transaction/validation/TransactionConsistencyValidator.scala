@@ -106,7 +106,7 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
           case Inconsistent =>
             Rejection.ExternallyInconsistentTransaction.InconsistentKeys
         }
-        rejections.buildRejectionStep(transactionEntry, rejection, commitContext.recordTime)
+        rejections.buildImmediateRejectionStep(transactionEntry, rejection, commitContext.recordTime)
     }
   }
 
@@ -128,7 +128,7 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
     if (areContractsConsistent)
       StepContinue(transactionEntry)
     else
-      rejections.buildRejectionStep(
+      rejections.buildImmediateRejectionStep(
         transactionEntry,
         Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
         commitContext.recordTime,

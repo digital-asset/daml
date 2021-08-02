@@ -40,7 +40,7 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
               .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
               .fold(
                 outOfRange =>
-                  rejections.buildRejectionStep(
+                  rejections.buildImmediateRejectionStep(
                     transactionEntry,
                     Rejection.LedgerTimeOutOfRange(outOfRange),
                     commitContext.recordTime,
