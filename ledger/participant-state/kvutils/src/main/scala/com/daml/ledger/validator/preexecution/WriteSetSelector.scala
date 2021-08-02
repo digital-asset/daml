@@ -7,8 +7,8 @@ import com.daml.logging.LoggingContext
 
 trait WriteSetSelector[ReadSet, WriteSet] {
 
-  def selectWriteSet(preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet])(implicit
-      loggingContext: LoggingContext
-  ): WriteSet
+  def selectWriteSet(
+      preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet]
+  )(implicit loggingContext: LoggingContext): WriteSet
 
 }
