@@ -718,7 +718,13 @@ private[testtool] final class ParticipantTestContext private[participant] (
     eventually(
       attempts = attempts,
       runAssertion = {
-        services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
+        services.participantPruning.prune(
+          PruneRequest(
+            pruneUpTo,
+            pruneAllDivulgedContracts = true,
+            submissionId = nextSubmissionId(),
+          )
+        )
       },
     )
 

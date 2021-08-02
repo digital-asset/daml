@@ -60,7 +60,10 @@ final class ApiParticipantPruningService private (
               // systems back in sync by reissuing the prune request at the currently specified or later offset.
               _ <- pruneWriteService(pruneUpTo, submissionId)
 
-              pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo, true /* TDT */ )
+              pruneResponse <- pruneLedgerApiServerIndex(
+                pruneUpTo,
+                request.pruneAllDivulgedContracts,
+              )
 
             } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
         },

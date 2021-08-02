@@ -30,7 +30,7 @@ class BaseLedgerSpec extends AnyWordSpec with MockitoSugar with Matchers {
     "prune" should {
       "trigger prune on the ledger read dao and the buffers" in {
         val someOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
-        baseLedger.prune(someOffset)
+        baseLedger.prune(someOffset, false)
 
         verify(ledgerDao).prune(someOffset, false)
         verify(pruneBuffers).apply(someOffset)
