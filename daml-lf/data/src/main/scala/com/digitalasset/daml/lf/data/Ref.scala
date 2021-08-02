@@ -126,6 +126,8 @@ object Ref {
   }
 
   object DottedName {
+    val maxLength = 1000
+
     def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
         Left(s"Expected a non-empty string")
@@ -154,8 +156,15 @@ object Ref {
     def assertFromSegments(s: Iterable[String]): DottedName =
       assertRight(fromSegments(s))
 
-    def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
-      Either.cond(names.nonEmpty, new DottedName(names), "No segments provided")
+    def fromNames(names: ImmArray[Name]): Either[String, DottedName] = {
+      val length = names.foldLeft(-1)(_ + _.length + 1)
+      if (length < 0)
+        Left("No segments provided")
+      else if (length > maxLength)
+        Left("")
+      else
+        Right(new DottedName(names))
+    }
 
     @throws[IllegalArgumentException]
     def assertFromNames(names: ImmArray[Name]): DottedName =

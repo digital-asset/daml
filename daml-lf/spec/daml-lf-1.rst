@@ -390,16 +390,17 @@ and other similar pitfalls. ::
 We can now define a generic notion of *identifier* and *name*::
 
   identifiers:
-          Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]       -- Ident
+          Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]{999}  -- Ident
 
   names:
-         Name   ::= Identifier                      -- Name
-                 |  Name \. Identifier
+         Name   ::= Ident                           -- Name
+                 |  Name \. Ident
 
 Identifiers are standard `java identifiers
 <https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.8>`_
-restricted to US-ASCII while names are sequences of identifiers
-intercalated with dots.
+restricted to US-ASCII with a length of at most 1000 characters.
+Names are sequences of identifiers intercalated with dots with a total
+length of at most 1000 characters.
 
 The character ``%`` is reserved for external languages built on
 Daml-LF as a "not an Ident" notation, so should not be considered for
