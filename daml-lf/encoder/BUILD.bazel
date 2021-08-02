@@ -137,7 +137,7 @@ object TestDar {
     val fileName = \"daml-lf/encoder/test-%s.dar\"
 }
 EOF
-""" % lf_version_configuration.get(keyword),
+""" % version,
         ),
         da_scala_library(
             name = "testing-dar-lookup-lib-%s" % keyword,
@@ -147,7 +147,8 @@ EOF
             visibility = ["//visibility:public"],
         ),
     ]
-    for keyword in ["latest"]
+    for (keyword, version) in lf_version_configuration.items()
+    if keyword in ["latest"]
 ]
 
 [
