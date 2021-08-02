@@ -98,7 +98,7 @@ private[kvutils] class TransactionCommitter(
           if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
             StepContinue(transactionEntry)
           } else {
-            rejections.buildImmediateRejectionStep(
+            rejections.reject(
               DamlTransactionRejectionEntry.newBuilder
                 .setSubmitterInfo(transactionEntry.submitterInfo)
                 .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
@@ -164,7 +164,7 @@ private[kvutils] class TransactionCommitter(
         }
 
       def immediateRejectionStep(reason: Rejection): StepResult[DamlTransactionEntrySummary] =
-        rejections.buildImmediateRejectionStep(
+        rejections.reject(
           transactionEntry,
           reason,
           commitContext.recordTime,
@@ -286,7 +286,7 @@ private[kvutils] class TransactionCommitter(
       if (missingParties.isEmpty)
         StepContinue(transactionEntry)
       else
-        rejections.buildImmediateRejectionStep(
+        rejections.reject(
           transactionEntry,
           Rejection.PartiesNotKnownOnLedger(missingParties),
           commitContext.recordTime,

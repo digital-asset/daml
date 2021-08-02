@@ -24,18 +24,18 @@ private[transaction] class Rejections(metrics: Metrics) {
 
   private final val logger = ContextualizedLogger.get(getClass)
 
-  def buildImmediateRejectionStep[A](
+  def reject[A](
       transactionEntry: DamlTransactionEntrySummary,
       rejection: Rejection,
       recordTime: Option[Timestamp],
   )(implicit loggingContext: LoggingContext): StepResult[A] =
-    buildImmediateRejectionStep(
+    reject(
       buildRejectionEntry(transactionEntry, rejection),
       rejection.description,
       recordTime,
     )
 
-  def buildImmediateRejectionStep[A](
+  def reject[A](
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
       rejectionDescription: String,
       recordTime: Option[Timestamp],
