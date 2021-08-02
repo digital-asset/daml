@@ -145,13 +145,22 @@ private[backend] object OracleStorageBackend
 
     def arrayIntersectionClause(
         columnName: String,
+        columnPrefix: String,
         parties: Set[Ref.Party],
         paramNamePostfix: String,
-    ): (String, List[NamedParameter]) =
+    ): (String, List[NamedParameter]) = {
+      val (viewColumnName, viewName, idColumn) = columnName.toLowerCase match {
+        case "flat_event_witnesses" => ("flat_event_witness", "PARTICIPANT_EVENTS_FLAT_WITNESS", "EVENT_SEQUENTIAL_ID")
+        case "tree_event_witnesses" => ("tree_event_witness", "PARTICIPANT_EVENTS_TREE_WITNESS", "EVENT_SEQUENTIAL_ID")
+        case "submitters" => ("submitter", "PARTICIPANT_EVENTS_SUBMITTERS", "EVENT_SEQUENTIAL_ID")
+      }
+      val colPrefix = if(columnPrefix == "") "PARTICIPANT_EVENTS" else columnPrefix
       (
-        s"EXISTS (SELECT 1 FROM JSON_TABLE($columnName, '$$[*]' columns (value PATH '$$')) WHERE value IN ({parties$paramNamePostfix}))",
+        s"""$colPrefix.$idColumn in (select v.$idColumn from $viewName v
+           |        where v.$viewColumnName in ({parties$paramNamePostfix}))""".stripMargin,
         List(s"parties$paramNamePostfix" -> parties.map(_.toString)),
       )
+    }
 
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
@@ -174,20 +183,22 @@ private[backend] object OracleStorageBackend
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
+        columnPrefix: String
     ): (String, List[NamedParameter]) = {
-      val (clause, params) = arrayIntersectionClause(submittersColumnName, parties, "sapc")
+      val (clause, params) = arrayIntersectionClause(submittersColumnName, columnPrefix, parties, "sapc")
       (s"($clause)", params)
     }
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
+        columnPrefix: String
     ): (String, List[NamedParameter]) = {
       val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)
         case wildCardParties =>
           val (clause, params) =
-            arrayIntersectionClause(witnessesColumnName, wildCardParties, "wcwwc")
+            arrayIntersectionClause(witnessesColumnName, columnPrefix, wildCardParties, "wcwwc")
           (
             List(s"($clause)"),
             params,
@@ -197,7 +208,7 @@ private[backend] object OracleStorageBackend
         filterParams.partiesAndTemplates.iterator.zipWithIndex
           .map { case ((parties, templateIds), index) =>
             val (clause, params) =
-              arrayIntersectionClause(witnessesColumnName, parties, s"ptwwc$index")
+              arrayIntersectionClause(witnessesColumnName, columnPrefix, parties, s"ptwwc$index")
             (
               s"( ($clause) AND (template_id IN ({templateIdsArraywwc$index})) )",
               List[NamedParameter](
@@ -269,7 +280,7 @@ private[backend] object OracleStorageBackend
     if(parties.isEmpty)
       "false"
     else {
-      s"""$idColumn in (select v.$idColumn from $view v
+      s"""$table.$idColumn in (select v.$idColumn from $view v
         |        where v.$viewColumn in (${parties.map(p=> s"'$p'").mkString(",")}))""".stripMargin
     }
   }

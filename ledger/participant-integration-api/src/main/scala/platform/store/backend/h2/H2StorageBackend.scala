@@ -146,6 +146,7 @@ private[backend] object H2StorageBackend
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
+        columnPrefix: String
     ): (String, List[NamedParameter]) =
       (
         s"(${arrayIntersectionWhereClause(submittersColumnName, parties)})",
@@ -155,6 +156,7 @@ private[backend] object H2StorageBackend
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
+        columnPrefix: String,
     ): (String, List[NamedParameter]) = {
       val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)

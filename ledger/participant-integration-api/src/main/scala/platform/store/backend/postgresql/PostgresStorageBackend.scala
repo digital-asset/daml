@@ -143,6 +143,7 @@ private[backend] object PostgresStorageBackend
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Party],
+        columnPrefix: String,
     ): (String, List[NamedParameter]) =
       (
         s"($submittersColumnName::text[] && {wildCardPartiesArraysapc}::text[])",
@@ -152,6 +153,7 @@ private[backend] object PostgresStorageBackend
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
+        columnPrefix: String,
     ): (String, List[NamedParameter]) = {
       val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)

@@ -12,18 +12,18 @@ class JdbcLedgerDaoOracleAppendOnlySpec
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendOracleAppendOnly
     with JdbcLedgerDaoPackagesSpec
-//    with JdbcLedgerDaoActiveContractsSpec
-//    with JdbcLedgerDaoCompletionsSpec
-//    with JdbcLedgerDaoConfigurationSpec
-//    with JdbcLedgerDaoConfigurationAppendOnlySpec
-//    with JdbcLedgerDaoContractsAppendOnlySpec
-//    with JdbcLedgerDaoDivulgenceSpec
-//    with JdbcLedgerDaoExceptionSpec
-//    with JdbcLedgerDaoPartiesSpec
+    with JdbcLedgerDaoActiveContractsSpec
+    with JdbcLedgerDaoCompletionsSpec
+    with JdbcLedgerDaoConfigurationSpec
+    with JdbcLedgerDaoConfigurationAppendOnlySpec
+    with JdbcLedgerDaoContractsAppendOnlySpec
+    with JdbcLedgerDaoDivulgenceSpec
+    with JdbcLedgerDaoExceptionSpec
+    with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoContractsSpec
-//    with JdbcLedgerDaoTransactionTreesSpec
-//    with JdbcLedgerDaoContractEventsStreamSpec
-//    with JdbcLedgerDaoTransactionsWriterSpec
-//    with JdbcLedgerDaoTransactionLogUpdatesSpec
+    with JdbcLedgerDaoTransactionTreesSpec
+    with JdbcLedgerDaoContractEventsStreamSpec
+    with JdbcLedgerDaoTransactionsWriterSpec
+    with JdbcLedgerDaoTransactionLogUpdatesSpec
     with JdbcAppendOnlyTransactionInsertion
