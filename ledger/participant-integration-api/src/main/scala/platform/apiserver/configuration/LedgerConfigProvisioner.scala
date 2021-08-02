@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.Scheduler
 import com.daml.api.util.TimeProvider
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
@@ -17,8 +18,9 @@ import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationLong
-import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** Writes a default ledger configuration to the ledger, after a configurable delay. The
   * configuration is only written if the ledger does not already have a configuration.
@@ -53,31 +55,33 @@ private[apiserver] final class LedgerConfigProvisioner private (
   // - The participant is not authorized to set the configuration
   // - There already is a configuration, it just didn't appear in the index yet
   // This method therefore does not try to re-submit the initial configuration in case of failure.
-  private def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
+  private def submitInitialConfig(writeService: state.WriteConfigService): Unit = {
     val submissionId = submissionIdGenerator.generate()
     withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
-      logger.info(s"No ledger configuration found, submitting an initial configuration.")
-      DefaultTelemetry.runFutureInSpan(
-        SpanName.LedgerConfigProviderInitialConfig,
-        SpanKind.Internal,
-      ) { implicit telemetryContext =>
-        FutureConverters
-          .toScala(
+      logger.info("No ledger configuration found, submitting an initial configuration.")
+      DefaultTelemetry
+        .runFutureInSpan(
+          SpanName.LedgerConfigProviderInitialConfig,
+          SpanKind.Internal,
+        ) { implicit telemetryContext =>
+          FutureConverters.toScala(
             writeService.submitConfiguration(
               Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
               submissionId,
               ledgerConfiguration.initialConfiguration,
             )
           )
-          .map {
-            case state.SubmissionResult.Acknowledged =>
-              logger.info(s"Initial configuration submission was successful.")
-            case result: state.SubmissionResult.SynchronousError =>
-              withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
-                logger.warn(s"Initial configuration submission failed.")
-              }
-          }
-      }
+        }
+        .onComplete {
+          case Success(state.SubmissionResult.Acknowledged) =>
+            logger.info("Initial configuration submission was successful.")
+          case Success(result: state.SubmissionResult.SynchronousError) =>
+            withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
+              logger.warn("Initial configuration submission failed.")
+            }
+          case Failure(exception) =>
+            logger.error("Initial configuration submission failed.", exception)
+        }(DirectExecutionContext)
     }
   }
 
