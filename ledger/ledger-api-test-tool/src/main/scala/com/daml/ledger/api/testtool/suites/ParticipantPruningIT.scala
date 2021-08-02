@@ -626,7 +626,6 @@ class ParticipantPruningIT extends LedgerTestSuite {
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
-      offsetAfter_divulgence_2 <- beta.currentEnd()
 
       _ <- beta.prune(offsetAfter_divulgence_1)
       // Check that Bob can still fetch the contract after pruning the first transaction
@@ -635,24 +634,17 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
+      offsetAfter_divulgence_2 <- beta.currentEnd()
+      // Dummy create to be able to prune
+      _ <- beta.create(bob, DivulgenceProposal(bob, alice))
       _ <- beta.prune(offsetAfter_divulgence_2)
-      // TODO divulgence pruning: Remove - The following assertion should fail once full divulgence pruning
-      //                          is implemented in the participant
+
       _ <- beta
         .exerciseAndGetContract[Dummy](
           bob,
           divulgence.exerciseCanFetch(_, contract),
         )
-
-      // TODO divulgence pruning: Un-comment the assertion below to make tests pass once
-      //                          full divulgence pruning is implemented in the participant
-      //
-      // _ <- beta
-      //   .exerciseAndGetContract[Dummy](
-      //     bob,
-      //     divulgence.exerciseCanFetch(_, contract),
-      //   )
-      //   .mustFail("Bob cannot access the divulged contract after the second pruning")
+        .mustFail("Bob cannot access the divulged contract after the second pruning")
     } yield ()
 
   private def populateLedgerAndGetOffsets(participant: ParticipantTestContext, submitter: Party)(

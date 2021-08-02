@@ -43,6 +43,7 @@ import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
+  def pruneImmediateDivulgence: Boolean = false
 
   // Ingestion
 
@@ -809,21 +810,56 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .asVectorOf(contractStateRowParser)(connection)
 
   // Events
-
-  def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
+  def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
+      connection: Connection
+  ): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    List(
+    val conditionalImmediateDivulgencePruning =
+      if (pruneAllDivulgedContracts && pruneImmediateDivulgence)
+        List(
+          SQL"""
+          -- Immediate divulgence events
+          WITH
+          	creates_stakeholders AS (
+          		SELECT event_offset, event_sequential_id, unnest(flat_event_witnesses) AS stakeholder
+          		FROM participant_events_create
+          		WHERE event_offset <= $pruneUpToInclusive
+          	),
+            to_be_pruned AS(
+              SELECT DISTINCT(event_sequential_id) AS event_sequential_id
+              FROM creates_stakeholders
+              WHERE NOT EXISTS (
+              	SELECT 1
+              	FROM
+              		creates_stakeholders c INNER JOIN parties p ON c.stakeholder=p.party
+              	WHERE
+              		c.event_sequential_id = creates_stakeholders.event_sequential_id
+              		AND p.is_local
+              		AND p.ledger_offset <= c.event_offset
+              )
+            )
+          DELETE FROM participant_events_create
+          USING to_be_pruned
+          WHERE participant_events_create.event_sequential_id = to_be_pruned.event_sequential_id
+         """
+        )
+      else List.empty
+
+    val consumingExercisesPruning =
       SQL"""
-          -- Divulgence events (only for contracts archived before the specified offset)
-          delete from participant_events_divulgence delete_events
+          -- Exercise events (consuming)
+          delete from participant_events_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            )""",
+            delete_events.event_offset <= $pruneUpToInclusive"""
+
+    val nonConsumingExercisesPruning =
+      SQL"""
+          -- Exercise events (non-consuming)
+          delete from participant_events_non_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive"""
+
+    val createsPruning =
       SQL"""
           -- Create events (only for contracts archived before the specified offset)
           delete from participant_events_create delete_events
@@ -834,18 +870,36 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive AND
                 archive_events.contract_id = delete_events.contract_id
-            )""",
-      SQL"""
-          -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise delete_events
+            )"""
+
+    val retroactiveDivulgencesPruning =
+      if (pruneAllDivulgedContracts)
+        SQL"""
+          -- Retroactive divulgence events
+          delete from participant_events_divulgence delete_events
+          where delete_events.event_offset <= $pruneUpToInclusive"""
+      else
+        SQL"""
+          -- Divulgence events (only for contracts archived before the specified offset)
+          delete from participant_events_divulgence delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive""",
-      SQL"""
-          -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive""",
-    ).foreach(_.execute()(connection))
+            delete_events.event_offset <= $pruneUpToInclusive and
+            exists (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive AND
+                archive_events.contract_id = delete_events.contract_id
+            )"""
+
+    {
+      conditionalImmediateDivulgencePruning ++
+        List(
+          retroactiveDivulgencesPruning,
+          createsPruning,
+          consumingExercisesPruning,
+          nonConsumingExercisesPruning,
+        )
+    }.foreach(_.execute()(connection))
   }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {

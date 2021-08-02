@@ -32,7 +32,7 @@ class BaseLedgerSpec extends AnyWordSpec with MockitoSugar with Matchers {
         val someOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
         baseLedger.prune(someOffset)
 
-        verify(ledgerDao).prune(someOffset)
+        verify(ledgerDao).prune(someOffset, false)
         verify(pruneBuffers).apply(someOffset)
       }
     }

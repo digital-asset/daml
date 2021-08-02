@@ -324,10 +324,10 @@ private[platform] final class LedgerBackedIndexService(
     ledger.stopDeduplicatingCommand(commandId, submitters)
 
   /** Participant pruning command */
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    ledger.prune(pruneUpToInclusive)
+    ledger.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
 
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
     startExclusive
