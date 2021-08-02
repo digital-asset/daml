@@ -22,9 +22,7 @@ import com.daml.ledger.validator.{
 import com.daml.lf.data.Ref
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContextWith
-import com.daml.timer.RetryStrategy
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -75,23 +73,13 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
         val stateReader =
           transformStateReader(new LedgerStateOperationsReaderAdapter(ledgerStateOperations))
-        for {
+        (for {
           preExecutionOutput <- validator.validate(
             submissionEnvelope,
             submittingParticipantId,
             stateReader,
           )
-          _ <- retry { case _: ConflictDetectedException =>
-            logger.error("Conflict detected during post-execution. Retrying...")
-            true
-          } { (_, _) =>
-            postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
-          }.transform {
-            case Failure(_: ConflictDetectedException) =>
-              logger.error("Too many conflicts detected during post-execution. Giving up.")
-              Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
-            case result => result
-          }
+          _ <- postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
           writeSet = postExecutionWriteSetSelector.selectWriteSet(preExecutionOutput)
           submissionResult <- postExecutionWriter.write(
             writeSet,
@@ -102,13 +90,17 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
             ),
           )
         } yield {
-          submissionAggregator.finish()
           submissionResult
-        }
+        }).transform {
+          case Failure(_: ConflictDetectedException) =>
+            logger.error("Too many conflicts detected during post-execution. Giving up.")
+            Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
+          case result => result
+        }.map(result => {
+          submissionAggregator.finish()
+          result
+        })
       }
     }
-
-  private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
-    RetryStrategy.constant(attempts = Some(3), 5.seconds)
 
 }
