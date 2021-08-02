@@ -4,6 +4,8 @@
 # The following dictionary alias LF versions to keywords:
 # - "legacy" is the keyword for last LF version that supports legacy
 #    contract ID scheme,
+# - "no-exceptions" is a keyword for the last version that does not
+#   support exceptions (can be dropped without notice),
 # - "default" is the keyword for the default compiler output,
 # - "latest" is the keyword for the latest stable LF version,
 # - "preview" is the keyword fort he next LF version, *not stable*,
@@ -18,16 +20,14 @@
 
 lf_version_configuration = {
     "legacy": "1.8",
+    # TODO (MK) Drop no-exception once Canton fully supports exceptions.
+    "no-exceptions": "1.13",
     "default": "1.14",
     "latest": "1.14",
     "dev": "1.dev",
 }
 
-# TODO (MK) Drop 1.13 once Canton fully supports exceptions.
-test_tool_lf_version_configuration = dict({"no-exceptions": "1.13"}, **lf_version_configuration)
-
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
-test_tool_lf_version_configuration_versions = depset(test_tool_lf_version_configuration.values()).to_list()
 
 # aggregates a list of version keywords and versions:
 # 1. converts keyword in version

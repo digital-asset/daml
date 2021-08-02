@@ -7,8 +7,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    lf_version_configuration = "test_tool_lf_version_configuration",
-    lf_version_configuration_versions = "test_tool_lf_version_configuration_versions",
+    "lf_version_configuration",
+    "lf_version_configuration_versions",
 )
 load(
     "//bazel_tools:scala.bzl",
