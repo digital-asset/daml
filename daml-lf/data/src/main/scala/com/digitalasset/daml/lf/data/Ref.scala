@@ -156,15 +156,16 @@ object Ref {
     def assertFromSegments(s: Iterable[String]): DottedName =
       assertRight(fromSegments(s))
 
-    def fromNames(names: ImmArray[Name]): Either[String, DottedName] = {
-      val length = names.foldLeft(-1)(_ + _.length + 1)
-      if (length < 0)
+    def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
+      if (names.isEmpty)
         Left("No segments provided")
-      else if (length > maxLength)
-        Left("")
-      else
-        Right(new DottedName(names))
-    }
+      else {
+        val length = names.foldLeft(-1)(_ + _.length + 1)
+        if (length > maxLength)
+          Left(s"""DottedName is too long (max: $maxLength)""")
+        else
+          Right(new DottedName(names))
+      }
 
     @throws[IllegalArgumentException]
     def assertFromNames(names: ImmArray[Name]): DottedName =

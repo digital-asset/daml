@@ -390,7 +390,7 @@ and other similar pitfalls. ::
 We can now define a generic notion of *identifier* and *name*::
 
   identifiers:
-          Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]{999}  -- Ident
+          Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]{0,999}  -- Ident
 
   names:
          Name   ::= Ident                           -- Name
