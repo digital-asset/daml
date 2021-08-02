@@ -90,16 +90,14 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
             ),
           )
         } yield {
+          submissionAggregator.finish()
           submissionResult
         }).transform {
           case Failure(_: ConflictDetectedException) =>
             logger.error("Too many conflicts detected during post-execution. Giving up.")
             Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
-          case result => result
-        }.map(result => {
-          submissionAggregator.finish()
-          result
-        })
+          case result: Success[SubmissionResult] => result
+        }
       }
     }
 
