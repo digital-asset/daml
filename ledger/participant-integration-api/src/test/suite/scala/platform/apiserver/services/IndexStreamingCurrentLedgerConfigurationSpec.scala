@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.services
 import java.time.Duration
 
 import akka.stream.scaladsl.Source
-import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -16,6 +16,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.IndexStreamingCurrentLedgerConfigurationSpec._
 import com.daml.platform.configuration.LedgerConfiguration
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -24,6 +25,7 @@ import scala.concurrent.Future
 final class IndexStreamingCurrentLedgerConfigurationSpec
     extends AsyncWordSpec
     with Matchers
+    with Eventually
     with AkkaBeforeAndAfterAll
     with MockitoSugar
     with ArgumentMatchersSugar {
@@ -50,6 +52,51 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             currentLedgerConfiguration.latestConfiguration should be(Some(currentConfiguration))
+            succeed
+          }
+        }
+    }
+
+    "stream the latest configuration from the index" in {
+      val configurations = Seq(
+        offset("000a") -> Configuration(
+          generation = 3,
+          timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(1)),
+          maxDeduplicationTime = Duration.ofDays(1),
+        ),
+        offset("0023") -> Configuration(
+          generation = 4,
+          timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(2)),
+          maxDeduplicationTime = Duration.ofDays(1),
+        ),
+        offset("01ef") -> Configuration(
+          generation = 5,
+          timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(2)),
+          maxDeduplicationTime = Duration.ofHours(6),
+        ),
+      )
+      val configurationEntries = configurations.zipWithIndex.map {
+        case ((offset, configuration), index) =>
+          offset -> ConfigurationEntry.Accepted(s"submission ID #$index", configuration)
+      }
+      val ledgerConfiguration = LedgerConfiguration(
+        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
+        initialConfigurationSubmitDelay = Duration.ZERO,
+        configurationLoadTimeout = Duration.ofSeconds(5),
+      )
+
+      val index = mock[IndexConfigManagementService]
+      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
+      when(index.configurationEntries(None))
+        .thenReturn(Source(configurationEntries).concat(Source.never))
+
+      IndexStreamingCurrentLedgerConfiguration
+        .owner(index, ledgerConfiguration)
+        .use { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.map { _ =>
+            eventually {
+              currentLedgerConfiguration.latestConfiguration should be(Some(configurations.last._2))
+            }
             succeed
           }
         }
