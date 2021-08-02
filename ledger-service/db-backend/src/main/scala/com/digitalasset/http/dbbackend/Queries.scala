@@ -27,7 +27,7 @@ import cats.syntax.applicative._
 import cats.syntax.functor._
 import doobie.free.connection
 
-sealed abstract class Queries(val tablePrefix: String) {
+sealed abstract class Queries(tablePrefix: String) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
