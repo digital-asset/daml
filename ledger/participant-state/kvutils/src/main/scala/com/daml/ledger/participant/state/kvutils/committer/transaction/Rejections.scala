@@ -53,7 +53,7 @@ private[transaction] class Rejections(metrics: Metrics) {
   def buildRejectionEntry(
       transactionEntry: DamlTransactionEntrySummary,
       rejection: Rejection,
-  )(implicit loggingContext: LoggingContext): DamlTransactionRejectionEntry.Builder = {
+  ): DamlTransactionRejectionEntry.Builder = {
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
       .setSubmitterInfo(transactionEntry.submitterInfo)
