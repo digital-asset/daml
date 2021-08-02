@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.SubmissionIdGenerator
@@ -74,5 +75,90 @@ final class LedgerConfigProvisionerSpec
           succeed
         }
     }
+
+    "not write a configuration if one is provided" in {
+      val currentConfiguration =
+        Configuration(6, LedgerTimeModel.reasonableDefault, Duration.ofHours(12))
+      val ledgerConfiguration = LedgerConfiguration(
+        initialConfiguration =
+          Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+        initialConfigurationSubmitDelay = Duration.ofMillis(100),
+        configurationLoadTimeout = Duration.ZERO,
+      )
+
+      val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+        override def latestConfiguration: Option[Configuration] = Some(currentConfiguration)
+      }
+      val writeService = mock[state.WriteConfigService]
+      val timeProvider = TimeProvider.Constant(Instant.EPOCH)
+      val submissionIdGenerator = new SubmissionIdGenerator {
+        override def generate(): SubmissionId = {
+          fail("We should never generate a submission.")
+        }
+      }
+
+      LedgerConfigProvisioner
+        .owner(
+          currentLedgerConfiguration = currentLedgerConfiguration,
+          writeService = writeService,
+          timeProvider = timeProvider,
+          submissionIdGenerator = submissionIdGenerator,
+          ledgerConfiguration = ledgerConfiguration,
+        )
+        .use { _ =>
+          verify(writeService, after(1.second.toMillis.toInt).never())
+            .submitConfiguration(
+              any[Timestamp],
+              any[Ref.SubmissionId],
+              any[Configuration],
+            )(any[TelemetryContext])
+          succeed
+        }
+    }
+  }
+
+  "not write a configuration if one is provided within the time window" in {
+    val eventualConfiguration =
+      Configuration(8, LedgerTimeModel.reasonableDefault, Duration.ofDays(3))
+    val ledgerConfiguration = LedgerConfiguration(
+      initialConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+      initialConfigurationSubmitDelay = Duration.ofSeconds(1),
+      configurationLoadTimeout = Duration.ZERO,
+    )
+
+    val currentConfiguration = new AtomicReference[Option[Configuration]](None)
+    val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+      override def latestConfiguration: Option[Configuration] = currentConfiguration.get
+    }
+    val writeService = mock[state.WriteConfigService]
+    val timeProvider = TimeProvider.Constant(Instant.EPOCH)
+    val submissionIdGenerator = new SubmissionIdGenerator {
+      override def generate(): SubmissionId = {
+        fail("We should never generate a submission.")
+      }
+    }
+
+    LedgerConfigProvisioner
+      .owner(
+        currentLedgerConfiguration = currentLedgerConfiguration,
+        writeService = writeService,
+        timeProvider = timeProvider,
+        submissionIdGenerator = submissionIdGenerator,
+        ledgerConfiguration = ledgerConfiguration,
+      )
+      .use { _ =>
+        materializer.scheduleOnce(
+          100.millis,
+          { () => currentConfiguration.set(Some(eventualConfiguration)) },
+        )
+        verify(writeService, after(1.second.toMillis.toInt).never())
+          .submitConfiguration(
+            any[Timestamp],
+            any[Ref.SubmissionId],
+            any[Configuration],
+          )(any[TelemetryContext])
+        succeed
+      }
   }
 }
