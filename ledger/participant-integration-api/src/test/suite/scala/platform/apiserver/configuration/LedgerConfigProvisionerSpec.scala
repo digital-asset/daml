@@ -77,11 +77,13 @@ final class LedgerConfigProvisionerSpec
           )(any[TelemetryContext])
 
           scheduler.timePasses(100.millis)
-          verify(writeService).submitConfiguration(
-            eqTo(Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))),
-            eqTo(submissionId),
-            eqTo(configurationToSubmit),
-          )(any[TelemetryContext])
+          eventually {
+            verify(writeService).submitConfiguration(
+              eqTo(Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))),
+              eqTo(submissionId),
+              eqTo(configurationToSubmit),
+            )(any[TelemetryContext])
+          }
           succeed
         }
     }
@@ -101,11 +103,6 @@ final class LedgerConfigProvisionerSpec
       }
       val writeService = mock[state.WriteConfigService]
       val timeProvider = TimeProvider.Constant(Instant.EPOCH)
-      val submissionIdGenerator = new SubmissionIdGenerator {
-        override def generate(): SubmissionId = {
-          fail("We should never generate a submission.")
-        }
-      }
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       LedgerConfigProvisioner
@@ -114,13 +111,13 @@ final class LedgerConfigProvisionerSpec
           currentLedgerConfiguration = currentLedgerConfiguration,
           writeService = writeService,
           timeProvider = timeProvider,
-          submissionIdGenerator = submissionIdGenerator,
+          submissionIdGenerator = SubmissionIdGenerator.Random,
           scheduler = scheduler,
           executionContext = system.dispatcher,
         )
         .use { _ =>
           scheduler.timePasses(1.second)
-          verify(writeService, never).submitConfiguration(
+          verify(writeService, after(100).never()).submitConfiguration(
             any[Timestamp],
             any[Ref.SubmissionId],
             any[Configuration],
@@ -146,11 +143,6 @@ final class LedgerConfigProvisionerSpec
     }
     val writeService = mock[state.WriteConfigService]
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
-    val submissionIdGenerator = new SubmissionIdGenerator {
-      override def generate(): SubmissionId = {
-        fail("We should never generate a submission.")
-      }
-    }
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
     LedgerConfigProvisioner
@@ -159,7 +151,7 @@ final class LedgerConfigProvisionerSpec
         currentLedgerConfiguration = currentLedgerConfiguration,
         writeService = writeService,
         timeProvider = timeProvider,
-        submissionIdGenerator = submissionIdGenerator,
+        submissionIdGenerator = SubmissionIdGenerator.Random,
         scheduler = scheduler,
         executionContext = system.dispatcher,
       )
@@ -173,12 +165,50 @@ final class LedgerConfigProvisionerSpec
           },
         )
         scheduler.timePasses(5.seconds)
-        verify(writeService, never)
-          .submitConfiguration(
-            any[Timestamp],
-            any[Ref.SubmissionId],
-            any[Configuration],
-          )(any[TelemetryContext])
+        verify(writeService, after(100).never()).submitConfiguration(
+          any[Timestamp],
+          any[Ref.SubmissionId],
+          any[Configuration],
+        )(any[TelemetryContext])
+        succeed
+      }
+  }
+
+  "not write a configuration if the provisioner is shut down" in {
+    val ledgerConfiguration = LedgerConfiguration(
+      initialConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+      initialConfigurationSubmitDelay = Duration.ofSeconds(1),
+      configurationLoadTimeout = Duration.ZERO,
+    )
+
+    val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+      override def latestConfiguration: Option[Configuration] = None
+    }
+    val writeService = mock[state.WriteConfigService]
+    val timeProvider = TimeProvider.Constant(Instant.EPOCH)
+    val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
+
+    val owner = LedgerConfigProvisioner.owner(
+      ledgerConfiguration = ledgerConfiguration,
+      currentLedgerConfiguration = currentLedgerConfiguration,
+      writeService = writeService,
+      timeProvider = timeProvider,
+      submissionIdGenerator = SubmissionIdGenerator.Random,
+      scheduler = scheduler,
+      executionContext = system.dispatcher,
+    )
+    val resource = owner.acquire()
+
+    resource.asFuture
+      .flatMap { _ => resource.release() }
+      .map { _ =>
+        scheduler.timePasses(1.second)
+        verify(writeService, after(100).never()).submitConfiguration(
+          any[Timestamp],
+          any[Ref.SubmissionId],
+          any[Configuration],
+        )(any[TelemetryContext])
         succeed
       }
   }
