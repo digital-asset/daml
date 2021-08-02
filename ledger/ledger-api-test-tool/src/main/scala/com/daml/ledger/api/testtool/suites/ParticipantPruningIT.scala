@@ -570,22 +570,25 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield ()
   })
 
-  test(
-    "PRDisclosureAndRetroactiveDivulgence",
-    "Disclosure pruning succeeds",
-    allocate(SingleParty, SingleParty),
-    runConcurrently = false, // pruning call may interact with other tests
-  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
-    for {
-      divulgence <- createDivulgence(alice, bob, alpha, beta)
-      // Alice's contract creation is disclosed to Bob
-      contract <- alpha.exerciseAndGetContract[Contract](
-        alice,
-        divulgence.exerciseCreateAndDisclose,
-      )
-      _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
-    } yield ()
-  })
+// TODO divulgence pruning: This test can only pass on privacy-aware ledgers that can enable immediate divulgence pruning
+//                          Figure out a way to enable this test discretionary.
+//
+//  test(
+//    "PRDisclosureAndRetroactiveDivulgence",
+//    "Disclosure pruning succeeds",
+//    allocate(SingleParty, SingleParty),
+//    runConcurrently = false, // pruning call may interact with other tests
+//  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+//    for {
+//      divulgence <- createDivulgence(alice, bob, alpha, beta)
+//      // Alice's contract creation is disclosed to Bob
+//      contract <- alpha.exerciseAndGetContract[Contract](
+//        alice,
+//        divulgence.exerciseCreateAndDisclose,
+//      )
+//      _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
+//    } yield ()
+//  })
 
   private def createDivulgence(
       alice: Party,
