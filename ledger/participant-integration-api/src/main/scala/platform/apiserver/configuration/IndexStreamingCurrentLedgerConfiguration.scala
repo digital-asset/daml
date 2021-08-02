@@ -68,7 +68,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   // stream of configuration changes.
   // If the source of configuration changes proves to be a performance bottleneck,
   // it could be replaced by regular polling.
-  private[this] def startLoading(): Future[Unit] = {
+  private[this] def startLoading(): Unit =
     index
       .lookupConfiguration()
       .map {
@@ -84,7 +84,11 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
           latestConfigurationState.set(None -> None)
       }
       .map(_ => startStreamingUpdates())
-  }
+      .failed
+      .foreach { exception =>
+        readyPromise.tryFailure(exception)
+        logger.error("Could not load the ledger configuration.", exception)
+      }
 
   private[this] def configFound(
       offset: LedgerOffset.Absolute,

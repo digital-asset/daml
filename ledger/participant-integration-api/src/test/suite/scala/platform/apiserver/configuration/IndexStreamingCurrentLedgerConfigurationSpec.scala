@@ -18,17 +18,20 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.configuration.IndexStreamingCurrentLedgerConfigurationSpec._
 import com.daml.platform.configuration.LedgerConfiguration
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Inside
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 
 final class IndexStreamingCurrentLedgerConfigurationSpec
     extends AsyncWordSpec
     with Matchers
     with Eventually
+    with Inside
     with AkkaBeforeAndAfterAll
     with MockitoSugar
     with ArgumentMatchersSugar {
@@ -155,6 +158,31 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .map { currentLedgerConfiguration =>
           scheduler.timePasses(5.seconds)
           currentLedgerConfiguration.ready.isCompleted should be(false)
+        }
+    }
+
+    "readiness fails if lookup fails" in {
+      val failure = new RuntimeException("It failed.")
+
+      val index = mock[IndexConfigManagementService]
+      when(index.lookupConfiguration()).thenReturn(Future.failed(failure))
+      when(index.configurationEntries(None)).thenReturn(Source.never)
+
+      val ledgerConfiguration = LedgerConfiguration(
+        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
+        initialConfigurationSubmitDelay = Duration.ZERO,
+        configurationLoadTimeout = Duration.ofSeconds(1),
+      )
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
+
+      IndexStreamingCurrentLedgerConfiguration
+        .owner(ledgerConfiguration, index, scheduler, materializer)
+        .use { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.transform(Success.apply).map { result =>
+            inside(result) { case Failure(exception) =>
+              exception should be(failure)
+            }
+          }
         }
     }
   }
