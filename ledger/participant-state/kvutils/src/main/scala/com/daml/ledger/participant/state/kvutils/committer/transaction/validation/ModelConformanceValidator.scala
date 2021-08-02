@@ -99,7 +99,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           )
           .left
           .map(error =>
-            rejections.buildRejectionStep(
+            rejections.reject(
               transactionEntry,
               Rejection.ValidationFailure(error),
               commitContext.recordTime,
@@ -113,7 +113,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant).",
           missingInputErr,
         )
-        rejections.buildRejectionStep(
+        rejections.reject(
           transactionEntry,
           Rejection.MissingInputState(key),
           commitContext.recordTime,
@@ -123,7 +123,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           "Model conformance validation failed most likely due to invalid state on the participant.",
           err,
         )
-        rejections.buildRejectionStep(
+        rejections.reject(
           transactionEntry,
           Rejection.InvalidParticipantState(err),
           commitContext.recordTime,
@@ -220,7 +220,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
     if (isCausallyMonotonic)
       StepContinue(transactionEntry)
     else
-      rejections.buildRejectionStep(
+      rejections.reject(
         transactionEntry,
         Rejection.CausalMonotonicityViolated,
         commitContext.recordTime,
@@ -243,6 +243,6 @@ private[transaction] object ModelConformanceValidator {
       case InconsistentKeys(_) =>
         Rejection.InternallyInconsistentTransaction.InconsistentKeys
     }
-    rejections.buildRejectionStep(transactionEntry, rejection, recordTime)
+    rejections.reject(transactionEntry, rejection, recordTime)
   }
 }

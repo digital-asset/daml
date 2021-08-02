@@ -98,11 +98,11 @@ private[kvutils] class TransactionCommitter(
           if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
             StepContinue(transactionEntry)
           } else {
-            logger.trace("Transaction rejected because the command is a duplicate.")
-            rejections.buildRejectionStep(
+            rejections.reject(
               DamlTransactionRejectionEntry.newBuilder
                 .setSubmitterInfo(transactionEntry.submitterInfo)
                 .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
+              "the command is a duplicate",
               commitContext.recordTime,
             )
           }
@@ -155,16 +155,16 @@ private[kvutils] class TransactionCommitter(
             None
           case Some(_) =>
             Some(
-              rejection(
+              reject(
                 Rejection.SubmitterCannotActViaParticipant(submitter, commitContext.participantId)
               )
             )
           case None =>
-            Some(rejection(Rejection.SubmittingPartyNotKnownOnLedger(submitter)))
+            Some(reject(Rejection.SubmittingPartyNotKnownOnLedger(submitter)))
         }
 
-      def rejection(reason: Rejection): StepResult[DamlTransactionEntrySummary] =
-        rejections.buildRejectionStep(
+      def reject(reason: Rejection): StepResult[DamlTransactionEntrySummary] =
+        rejections.reject(
           transactionEntry,
           reason,
           commitContext.recordTime,
@@ -286,7 +286,7 @@ private[kvutils] class TransactionCommitter(
       if (missingParties.isEmpty)
         StepContinue(transactionEntry)
       else
-        rejections.buildRejectionStep(
+        rejections.reject(
           transactionEntry,
           Rejection.PartiesNotKnownOnLedger(missingParties),
           commitContext.recordTime,
