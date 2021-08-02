@@ -17,7 +17,7 @@ To do that:
    Security Public Key imported into your keychain. Once you have ``gpg``
    installed, you can import the key by running::
 
-     gpg --keyserver pool.sks-keyservers.net --search 4911A8DFE976ACDFA07130DBE8372C0C1C734C51
+     gpg --keyserver https://keys.openpgp.org --search 4911A8DFE976ACDFA07130DBE8372C0C1C734C51
 
    This should come back with a key belonging to ``Digital Asset Holdings, LLC
    <security@digitalasset.com>``, created on 2019-05-16 and expiring on
