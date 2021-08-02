@@ -36,7 +36,7 @@ class PreExecutingValidatingCommitterSpec
 
     "write the transactions when no post execution conflicts are detected" in {
       val fixture = new ValidatingCommitterFixture
-      fixture.validatorReturnsSuccess
+      fixture.validatorReturnsSuccess()
       when(
         fixture.conflictDetector.detectConflicts(
           any[PreExecutionOutput[TestReadSet, TestWriteSet]],
@@ -71,7 +71,7 @@ class PreExecutingValidatingCommitterSpec
 
     "drop transaction when post execution conflicts are detected" in {
       val fixture = new ValidatingCommitterFixture
-      fixture.validatorReturnsSuccess
+      fixture.validatorReturnsSuccess()
       when(
         fixture.conflictDetector.detectConflicts(
           any[PreExecutionOutput[TestReadSet, TestWriteSet]],
@@ -126,7 +126,7 @@ object PreExecutingValidatingCommitterSpec {
         ledgerDataExporter,
       )
 
-    def validatorReturnsSuccess = {
+    def validatorReturnsSuccess() = {
       when(
         validator.validate(
           any[Raw.Envelope],

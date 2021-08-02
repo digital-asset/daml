@@ -24,7 +24,6 @@ import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContextWith
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /** A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide
   * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
@@ -73,7 +72,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
         val stateReader =
           transformStateReader(new LedgerStateOperationsReaderAdapter(ledgerStateOperations))
-        (for {
+        val submissionResult = for {
           preExecutionOutput <- validator.validate(
             submissionEnvelope,
             submittingParticipantId,
@@ -92,7 +91,8 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
         } yield {
           submissionAggregator.finish()
           submissionResult
-        }).recover { case _: ConflictDetectedException =>
+        }
+        submissionResult.recover { case _: ConflictDetectedException =>
           logger.error("Conflict detected during post-execution, acknowledging but dropping the submission.")
           SubmissionResult.Acknowledged // But it will simply be dropped.
         }
