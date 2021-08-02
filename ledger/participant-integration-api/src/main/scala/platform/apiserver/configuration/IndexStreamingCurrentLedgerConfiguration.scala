@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.configuration
 
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.actor.Scheduler
+import akka.actor.{Cancellable, Scheduler}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
@@ -47,22 +47,10 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
 
   // At startup, do the following:
   // - Start loading the ledger configuration
-  // - Mark the provider as ready if no configuration was found after a timeout
   // - Submit the initial config if none is found after a delay
+  // - Mark the provider as ready if no configuration was found after a timeout
+  private val scheduledTimeout = giveUpAfterTimeout()
   startLoading()
-  private val scheduledTimeout = scheduler.scheduleOnce(
-    ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
-    new Runnable {
-      override def run(): Unit = {
-        if (readyPromise.trySuccess(())) {
-          logger.warn(
-            s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
-          )
-        }
-        ()
-      }
-    },
-  )
 
   // Looks up the latest ledger configuration, then subscribes to a
   // stream of configuration changes.
@@ -129,6 +117,22 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
       )
     )
     ()
+  }
+
+  private def giveUpAfterTimeout(): Cancellable = {
+    scheduler.scheduleOnce(
+      ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
+      new Runnable {
+        override def run(): Unit = {
+          if (readyPromise.trySuccess(())) {
+            logger.warn(
+              s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+            )
+          }
+          ()
+        }
+      },
+    )
   }
 
   /** This future will resolve successfully:

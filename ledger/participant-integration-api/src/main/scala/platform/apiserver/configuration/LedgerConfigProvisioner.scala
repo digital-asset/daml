@@ -3,8 +3,6 @@
 
 package com.daml.platform.apiserver.configuration
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.actor.Scheduler
 import com.daml.api.util.TimeProvider
 import com.daml.dec.DirectExecutionContext
@@ -38,13 +36,11 @@ private[apiserver] final class LedgerConfigProvisioner private (
     extends AutoCloseable {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private val closed: AtomicBoolean = new AtomicBoolean(false)
-
-  scheduler.scheduleOnce(
+  private val cancellation = scheduler.scheduleOnce(
     ledgerConfiguration.initialConfigurationSubmitDelay.toNanos.nanos,
     new Runnable {
       override def run(): Unit = {
-        if (currentLedgerConfiguration.latestConfiguration.isEmpty && !closed.get)
+        if (currentLedgerConfiguration.latestConfiguration.isEmpty)
           submitInitialConfig(writeService)
         ()
       }
@@ -86,7 +82,8 @@ private[apiserver] final class LedgerConfigProvisioner private (
   }
 
   override def close(): Unit = {
-    closed.set(true)
+    cancellation.cancel()
+    ()
   }
 }
 
