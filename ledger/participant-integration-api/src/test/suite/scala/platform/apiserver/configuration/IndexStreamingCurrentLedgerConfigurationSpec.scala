@@ -58,7 +58,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
     }
 
     "stream the latest configuration from the index" in {
-      val configurations = Seq(
+      val configurations = List(
         offset("000a") -> Configuration(
           generation = 3,
           timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(1)),
