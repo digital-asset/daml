@@ -93,7 +93,7 @@ class PreExecutingValidatingCommitterSpec
         .map { result =>
           verify(fixture.postExecutionWriter, never)
             .write(any[TestWriteSet], any[LedgerStateWriteOperations[Long]])(any[ExecutionContext])
-          verify(submissionAggregator).finish()
+          verify(submissionAggregator, never).finish()
           result shouldBe SubmissionResult.Acknowledged
         }
     }
