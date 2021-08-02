@@ -1,0 +1,104 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.platform.apiserver.services
+
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+
+import akka.stream.Materializer
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
+
+import scala.compat.java8.FutureConverters
+import scala.concurrent.duration.DurationLong
+import scala.concurrent.{ExecutionContext, Future}
+
+/** Writes a default ledger configuration to the ledger, after a configurable delay. The
+  * configuration is only written if the ledger does not already have a configuration.
+  *
+  * Used by the participant to initialize a new ledger.
+  */
+private[apiserver] final class LedgerConfigProvisioner private (
+    ledgerConfigProvider: CurrentLedgerConfiguration,
+    writeService: state.WriteConfigService,
+    timeProvider: TimeProvider,
+    config: LedgerConfiguration,
+    materializer: Materializer,
+)(implicit loggingContext: LoggingContext)
+    extends AutoCloseable {
+  private val logger = ContextualizedLogger.get(getClass)
+
+  private val closed: AtomicBoolean = new AtomicBoolean(false)
+
+  materializer.scheduleOnce(
+    config.initialConfigurationSubmitDelay.toNanos.nanos,
+    () => {
+      if (ledgerConfigProvider.latestConfiguration.isEmpty && !closed.get)
+        submitInitialConfig(writeService)
+      ()
+    },
+  )
+
+  private[this] def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
+    implicit val executionContext: ExecutionContext = materializer.executionContext
+    // There are several reasons why the change could be rejected:
+    // - The participant is not authorized to set the configuration
+    // - There already is a configuration, it just didn't appear in the index yet
+    // This method therefore does not try to re-submit the initial configuration in case of failure.
+    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID.toString)
+    logger.info(s"No ledger configuration found, submitting an initial configuration $submissionId")
+    DefaultTelemetry.runFutureInSpan(
+      SpanName.LedgerConfigProviderInitialConfig,
+      SpanKind.Internal,
+    ) { implicit telemetryContext =>
+      FutureConverters
+        .toScala(
+          writeService.submitConfiguration(
+            Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
+            submissionId,
+            config.initialConfiguration,
+          )
+        )
+        .map {
+          case state.SubmissionResult.Acknowledged =>
+            logger.info(s"Initial configuration submission $submissionId was successful")
+          case result: state.SubmissionResult.SynchronousError =>
+            logger.warn(
+              s"Initial configuration submission $submissionId failed. Code: ${result.status.getCode}, Reason: ${result.description}"
+            )
+        }
+    }
+  }
+
+  override def close(): Unit = {
+    closed.set(true)
+  }
+}
+
+object LedgerConfigProvisioner {
+  def owner(
+      ledgerConfigProvider: CurrentLedgerConfiguration,
+      writeService: state.WriteConfigService,
+      timeProvider: TimeProvider,
+      config: LedgerConfiguration,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[LedgerConfigProvisioner] =
+    ResourceOwner.forCloseable(() =>
+      new LedgerConfigProvisioner(
+        ledgerConfigProvider,
+        writeService,
+        timeProvider,
+        config,
+        materializer,
+      )
+    )
+}

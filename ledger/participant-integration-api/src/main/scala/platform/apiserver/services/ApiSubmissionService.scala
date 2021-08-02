@@ -47,7 +47,7 @@ private[apiserver] object ApiSubmissionService {
       partyManagementService: IndexPartyManagementService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      ledgerConfigProvider: LedgerConfigProvider,
+      currentLedgerConfiguration: CurrentLedgerConfiguration,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
@@ -63,7 +63,7 @@ private[apiserver] object ApiSubmissionService {
         partyManagementService,
         timeProvider,
         timeProviderType,
-        ledgerConfigProvider,
+        currentLedgerConfiguration,
         seedService,
         commandExecutor,
         configuration,
@@ -73,7 +73,7 @@ private[apiserver] object ApiSubmissionService {
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
-        ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
+        currentLedgerConfiguration.latestConfiguration.map(_.maxDeduplicationTime),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
     )
@@ -90,7 +90,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     partyManagementService: IndexPartyManagementService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
-    ledgerConfigProvider: LedgerConfigProvider,
+    currentLedgerConfiguration: CurrentLedgerConfiguration,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
@@ -110,7 +110,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
-      ledgerConfigProvider.latestConfiguration
+      currentLedgerConfiguration.latestConfiguration
         .map(deduplicateAndRecordOnLedger(seedService.nextSeed(), request.commands, _))
         .getOrElse(Future.failed(ErrorFactories.missingLedgerConfig()))
         .andThen(logger.logErrorsOnCall[Unit])

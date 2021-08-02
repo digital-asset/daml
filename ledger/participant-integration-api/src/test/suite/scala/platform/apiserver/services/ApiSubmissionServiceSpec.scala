@@ -11,9 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
-import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.DomainMocks
-import com.google.rpc.status.{Status => RpcStatus}
 import com.daml.ledger.api.domain.{
   CommandId,
   Commands,
@@ -51,6 +49,7 @@ import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.store.ErrorCause
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
@@ -377,25 +376,23 @@ class ApiSubmissionServiceSpec
       )(any[LoggingContext])
     ).thenReturn(Future.unit)
 
-    LedgerConfigProvider
+    CurrentLedgerConfiguration
       .owner(
         configManagementService,
-        optWriteService = None,
-        timeProvider = TimeProvider.Constant(Instant.EPOCH),
         config = LedgerConfiguration(
           initialConfiguration = configuration,
           initialConfigurationSubmitDelay = Duration.ZERO,
           configurationLoadTimeout = Duration.ZERO,
         ),
       )
-      .map(configProvider =>
+      .map(currentLedgerConfiguration =>
         new ApiSubmissionService(
           writeService = writeService,
           submissionService = indexSubmissionService,
           partyManagementService = partyManagementService,
           timeProvider = null,
           timeProviderType = null,
-          ledgerConfigProvider = configProvider,
+          currentLedgerConfiguration = currentLedgerConfiguration,
           seedService = SeedService.WeakRandom,
           commandExecutor = commandExecutor,
           configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),
