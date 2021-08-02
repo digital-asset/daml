@@ -27,7 +27,7 @@ import scala.concurrent.duration.DurationLong
   * Used by the participant to initialize a new ledger.
   */
 private[apiserver] final class LedgerConfigProvisioner private (
-    ledgerConfigProvider: CurrentLedgerConfiguration,
+    currentLedgerConfiguration: CurrentLedgerConfiguration,
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
@@ -41,7 +41,7 @@ private[apiserver] final class LedgerConfigProvisioner private (
   materializer.scheduleOnce(
     config.initialConfigurationSubmitDelay.toNanos.nanos,
     () => {
-      if (ledgerConfigProvider.latestConfiguration.isEmpty && !closed.get)
+      if (currentLedgerConfiguration.latestConfiguration.isEmpty && !closed.get)
         submitInitialConfig(writeService)
       ()
     },
@@ -86,7 +86,7 @@ private[apiserver] final class LedgerConfigProvisioner private (
 
 object LedgerConfigProvisioner {
   def owner(
-      ledgerConfigProvider: CurrentLedgerConfiguration,
+      currentLedgerConfiguration: CurrentLedgerConfiguration,
       writeService: state.WriteConfigService,
       timeProvider: TimeProvider,
       config: LedgerConfiguration,
@@ -96,7 +96,7 @@ object LedgerConfigProvisioner {
   ): ResourceOwner[LedgerConfigProvisioner] =
     ResourceOwner.forCloseable(() =>
       new LedgerConfigProvisioner(
-        ledgerConfigProvider,
+        currentLedgerConfiguration,
         writeService,
         timeProvider,
         config,

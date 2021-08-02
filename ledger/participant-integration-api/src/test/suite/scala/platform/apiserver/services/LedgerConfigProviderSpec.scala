@@ -57,15 +57,9 @@ final class LedgerConfigProviderSpec
             configurationLoadTimeout = Duration.ofSeconds(5),
           ),
         )
-        .use { ledgerConfigProvider =>
-          ledgerConfigProvider.ready
-            .map { _ =>
-              verifyZeroInteractions(writeService)
-              ledgerConfigProvider.latestConfiguration should be(Some(configuration))
-            }
-            .andThen { case _ =>
-              ledgerConfigProvider.close()
-            }
+        .use { currentLedgerConfiguration =>
+          verifyZeroInteractions(writeService)
+          currentLedgerConfiguration.latestConfiguration should be(Some(configuration))
         }
     }
 
@@ -88,13 +82,7 @@ final class LedgerConfigProviderSpec
           ),
         )
         .use { ledgerConfigProvider =>
-          ledgerConfigProvider.ready
-            .map { _ =>
-              ledgerConfigProvider.latestConfiguration should be(Some(configurationToSubmit))
-            }
-            .andThen { case _ =>
-              ledgerConfigProvider.close()
-            }
+          ledgerConfigProvider.latestConfiguration should be(Some(configurationToSubmit))
         }
     }
 
@@ -117,13 +105,7 @@ final class LedgerConfigProviderSpec
           ),
         )
         .use { ledgerConfigProvider =>
-          ledgerConfigProvider.ready
-            .map { _ =>
-              ledgerConfigProvider.latestConfiguration should be(None)
-            }
-            .andThen { case _ =>
-              ledgerConfigProvider.close()
-            }
+          ledgerConfigProvider.latestConfiguration should be(None)
         }
     }
   }

@@ -22,7 +22,7 @@ object LedgerConfigProvider {
       loggingContext: LoggingContext,
   ): ResourceOwner[CurrentLedgerConfiguration] =
     for {
-      provider <- CurrentLedgerConfiguration.owner(index, config)
+      provider <- IndexStreamingCurrentLedgerConfiguration.owner(index, config)
       _ <- optWriteService match {
         case None => ResourceOwner.unit
         case Some(writeService) =>

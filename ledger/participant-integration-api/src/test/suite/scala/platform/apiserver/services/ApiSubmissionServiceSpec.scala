@@ -376,7 +376,7 @@ class ApiSubmissionServiceSpec
       )(any[LoggingContext])
     ).thenReturn(Future.unit)
 
-    CurrentLedgerConfiguration
+    IndexStreamingCurrentLedgerConfiguration
       .owner(
         configManagementService,
         config = LedgerConfiguration(
