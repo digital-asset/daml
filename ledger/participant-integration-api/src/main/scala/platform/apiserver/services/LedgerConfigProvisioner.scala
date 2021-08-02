@@ -12,13 +12,14 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationLong
-import scala.concurrent.{ExecutionContext, Future}
 
 /** Writes a default ledger configuration to the ledger, after a configurable delay. The
   * configuration is only written if the ledger does not already have a configuration.
@@ -47,33 +48,34 @@ private[apiserver] final class LedgerConfigProvisioner private (
   )
 
   private[this] def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
-    implicit val executionContext: ExecutionContext = materializer.executionContext
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet
     // This method therefore does not try to re-submit the initial configuration in case of failure.
     val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID.toString)
-    logger.info(s"No ledger configuration found, submitting an initial configuration $submissionId")
-    DefaultTelemetry.runFutureInSpan(
-      SpanName.LedgerConfigProviderInitialConfig,
-      SpanKind.Internal,
-    ) { implicit telemetryContext =>
-      FutureConverters
-        .toScala(
-          writeService.submitConfiguration(
-            Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
-            submissionId,
-            config.initialConfiguration,
-          )
-        )
-        .map {
-          case state.SubmissionResult.Acknowledged =>
-            logger.info(s"Initial configuration submission $submissionId was successful")
-          case result: state.SubmissionResult.SynchronousError =>
-            logger.warn(
-              s"Initial configuration submission $submissionId failed. Code: ${result.status.getCode}, Reason: ${result.description}"
+    withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
+      logger.info(s"No ledger configuration found, submitting an initial configuration.")
+      DefaultTelemetry.runFutureInSpan(
+        SpanName.LedgerConfigProviderInitialConfig,
+        SpanKind.Internal,
+      ) { implicit telemetryContext =>
+        FutureConverters
+          .toScala(
+            writeService.submitConfiguration(
+              Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
+              submissionId,
+              config.initialConfiguration,
             )
-        }
+          )
+          .map {
+            case state.SubmissionResult.Acknowledged =>
+              logger.info(s"Initial configuration submission was successful.")
+            case result: state.SubmissionResult.SynchronousError =>
+              withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
+                logger.warn(s"Initial configuration submission failed.")
+              }
+          }(materializer.executionContext)
+      }
     }
   }
 
