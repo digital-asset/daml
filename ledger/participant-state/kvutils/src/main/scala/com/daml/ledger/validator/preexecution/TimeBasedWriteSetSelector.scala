@@ -29,7 +29,7 @@ final class TimeBasedWriteSetSelector[ReadSet, WriteSet](now: () => Instant)
         !recordTime.isAfter(maxRecordTime)
     if (withinTimeBounds) {
       val rejectionReason =
-        Rejection.LedgerTimeOutOfRange(OutOfRange(recordTime, minRecordTime, maxRecordTime))
+        Rejection.RecordTimeOutOfRange(minRecordTime, maxRecordTime)
       logger.trace(s"Transaction rejected at post-execution, ${rejectionReason.description}")
       preExecutionOutput.successWriteSet
     } else {
