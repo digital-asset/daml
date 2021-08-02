@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.services
+package com.daml.platform.apiserver.configuration
 
 import java.time.Duration
 
@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.apiserver.services.IndexStreamingCurrentLedgerConfigurationSpec._
+import com.daml.platform.apiserver.configuration.IndexStreamingCurrentLedgerConfigurationSpec._
 import com.daml.platform.configuration.LedgerConfiguration
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
