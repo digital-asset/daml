@@ -22,7 +22,7 @@ import com.daml.metrics.Metrics
 
 private[transaction] class Rejections(metrics: Metrics) {
 
-  private final val logger = ContextualizedLogger.get(getClass)
+  final private val logger = ContextualizedLogger.get(getClass)
 
   def reject[A](
       transactionEntry: DamlTransactionEntrySummary,
@@ -50,7 +50,13 @@ private[transaction] class Rejections(metrics: Metrics) {
     )
   }
 
-  def buildRejectionEntry(
+  def preExecutionOutOfTimeBoundsRejectionEntry(
+      transactionEntry: DamlTransactionEntrySummary,
+      rejection: Rejection,
+  ): DamlTransactionRejectionEntry =
+    buildRejectionEntry(transactionEntry, rejection).build
+
+  private def buildRejectionEntry(
       transactionEntry: DamlTransactionEntrySummary,
       rejection: Rejection,
   ): DamlTransactionRejectionEntry.Builder = {
