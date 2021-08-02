@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.configuration
 import akka.actor.Scheduler
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.SubmissionIdGenerator
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
@@ -24,33 +25,50 @@ import scala.util.{Failure, Success, Try}
   *
   * Used by the participant to initialize a new ledger.
   */
-private[apiserver] final class LedgerConfigProvisioner private (
-    ledgerConfiguration: LedgerConfiguration,
-    currentLedgerConfiguration: CurrentLedgerConfiguration,
-    writeService: state.WriteConfigService,
-    timeProvider: TimeProvider,
-    submissionIdGenerator: SubmissionIdGenerator,
-    scheduler: Scheduler,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends AutoCloseable {
+object LedgerConfigProvisioner {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private val cancellation = scheduler.scheduleOnce(
-    ledgerConfiguration.initialConfigurationSubmitDelay.toNanos.nanos,
-    new Runnable {
-      override def run(): Unit = {
-        if (currentLedgerConfiguration.latestConfiguration.isEmpty)
-          submitInitialConfig(writeService)
-        ()
-      }
-    },
-  )
+  def owner(
+      ledgerConfiguration: LedgerConfiguration,
+      currentLedgerConfiguration: CurrentLedgerConfiguration,
+      writeService: state.WriteConfigService,
+      timeProvider: TimeProvider,
+      submissionIdGenerator: SubmissionIdGenerator,
+      scheduler: Scheduler,
+      executionContext: ExecutionContext,
+  )(implicit
+      loggingContext: LoggingContext
+  ): ResourceOwner[Unit] = {
+    implicit val ec: ExecutionContext = executionContext
+    ResourceOwner
+      .forCancellable(() =>
+        scheduler.scheduleOnce(
+          ledgerConfiguration.initialConfigurationSubmitDelay.toNanos.nanos,
+          new Runnable {
+            override def run(): Unit = {
+              if (currentLedgerConfiguration.latestConfiguration.isEmpty)
+                submitInitialConfig(writeService, timeProvider, submissionIdGenerator)(
+                  ledgerConfiguration.initialConfiguration
+                )
+              ()
+            }
+          },
+        )
+      )
+      .map(_ => ())
+  }
 
   // There are several reasons why the change could be rejected:
   // - The participant is not authorized to set the configuration
   // - There already is a configuration, it just didn't appear in the index yet
   // This method therefore does not try to re-submit the initial configuration in case of failure.
-  private def submitInitialConfig(writeService: state.WriteConfigService): Unit = {
+  private def submitInitialConfig(
+      writeService: state.WriteConfigService,
+      timeProvider: TimeProvider,
+      submissionIdGenerator: SubmissionIdGenerator,
+  )(
+      initialConfiguration: Configuration
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit = {
     Future.fromTry(Try(submissionIdGenerator.generate())).flatMap { submissionId =>
       withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
         logger.info("No ledger configuration found, submitting an initial configuration.")
@@ -63,7 +81,7 @@ private[apiserver] final class LedgerConfigProvisioner private (
               writeService.submitConfiguration(
                 Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
                 submissionId,
-                ledgerConfiguration.initialConfiguration,
+                initialConfiguration,
               )
             )
           }
@@ -81,33 +99,4 @@ private[apiserver] final class LedgerConfigProvisioner private (
     }
     ()
   }
-
-  override def close(): Unit = {
-    cancellation.cancel()
-    ()
-  }
-}
-
-object LedgerConfigProvisioner {
-  def owner(
-      ledgerConfiguration: LedgerConfiguration,
-      currentLedgerConfiguration: CurrentLedgerConfiguration,
-      writeService: state.WriteConfigService,
-      timeProvider: TimeProvider,
-      submissionIdGenerator: SubmissionIdGenerator,
-      scheduler: Scheduler,
-      executionContext: ExecutionContext,
-  )(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[LedgerConfigProvisioner] =
-    ResourceOwner.forCloseable(() =>
-      new LedgerConfigProvisioner(
-        ledgerConfiguration,
-        currentLedgerConfiguration,
-        writeService,
-        timeProvider,
-        submissionIdGenerator,
-        scheduler,
-      )(executionContext, loggingContext)
-    )
 }

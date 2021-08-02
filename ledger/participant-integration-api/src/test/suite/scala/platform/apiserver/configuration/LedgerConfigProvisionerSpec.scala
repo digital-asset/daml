@@ -38,6 +38,9 @@ final class LedgerConfigProvisionerSpec
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  override implicit val patienceConfig: PatienceConfig =
+    super.patienceConfig.copy(timeout = 1.second)
+
   "provisioning a ledger configuration" should {
     "write a ledger configuration to the index if one is not provided" in {
       val configurationToSubmit =
