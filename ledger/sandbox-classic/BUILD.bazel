@@ -11,11 +11,6 @@ load(
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
-load(
-    "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
-    "lf_version_configuration_versions",
-)
 
 alias(
     name = "sandbox-classic",
