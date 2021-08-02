@@ -124,9 +124,37 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.isCompleted should be(false)
           scheduler.timePasses(1.second)
+          currentLedgerConfiguration.ready.isCompleted should be(true)
           currentLedgerConfiguration.ready.map { _ =>
             currentLedgerConfiguration.latestConfiguration should be(None)
           }
+        }
+    }
+
+    "never becomes ready if stopped" in {
+      val index = mock[IndexConfigManagementService]
+      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
+      when(index.configurationEntries(None)).thenReturn(Source.never)
+
+      val ledgerConfiguration = LedgerConfiguration(
+        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
+        initialConfigurationSubmitDelay = Duration.ZERO,
+        configurationLoadTimeout = Duration.ofSeconds(1),
+      )
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
+
+      val owner = IndexStreamingCurrentLedgerConfiguration
+        .owner(ledgerConfiguration, index, scheduler, materializer)
+      val resource = owner.acquire()
+
+      resource.asFuture
+        .flatMap { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.isCompleted should be(false)
+          resource.release().map(_ => currentLedgerConfiguration)
+        }
+        .map { currentLedgerConfiguration =>
+          scheduler.timePasses(5.seconds)
+          currentLedgerConfiguration.ready.isCompleted should be(false)
         }
     }
   }

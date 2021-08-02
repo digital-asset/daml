@@ -37,22 +37,20 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
 ) extends CurrentLedgerConfiguration
     with AutoCloseable {
 
-  private[this] val logger = ContextualizedLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   // The latest offset that was read (if any), and the latest ledger configuration found (if any)
-  private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
-  private[this] val latestConfigurationState: AtomicReference[StateType] =
-    new AtomicReference(None -> None)
-  private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] =
-    new AtomicReference(None)
-  private[this] val readyPromise: Promise[Unit] = Promise()
+  private type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
+  private val latestConfigurationState = new AtomicReference[StateType](None -> None)
+  private val killSwitch = new AtomicReference[Option[UniqueKillSwitch]](None)
+  private val readyPromise = Promise[Unit]()
 
   // At startup, do the following:
   // - Start loading the ledger configuration
   // - Mark the provider as ready if no configuration was found after a timeout
   // - Submit the initial config if none is found after a delay
   startLoading()
-  scheduler.scheduleOnce(
+  private val scheduledTimeout = scheduler.scheduleOnce(
     ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
     new Runnable {
       override def run(): Unit = {
@@ -92,6 +90,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
       offset: LedgerOffset.Absolute,
       config: Configuration,
   ): Unit = {
+    scheduledTimeout.cancel()
     latestConfigurationState.set(Some(offset) -> Some(config))
     readyPromise.trySuccess(())
     ()
@@ -140,6 +139,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   override def latestConfiguration: Option[Configuration] = latestConfigurationState.get._2
 
   override def close(): Unit = {
+    scheduledTimeout.cancel()
     killSwitch.get.foreach(k => k.shutdown())
   }
 }
