@@ -23,7 +23,11 @@ lf_version_configuration = {
     "dev": "1.dev",
 }
 
+# TODO (MK) Drop 1.13 once Canton fully supports exceptions.
+test_tool_lf_version_configuration = dict({"no-exceptions": "1.13"}, **lf_version_configuration)
+
 lf_version_configuration_versions = depset(lf_version_configuration.values()).to_list()
+test_tool_lf_version_configuration_versions = depset(test_tool_lf_version_configuration.values()).to_list()
 
 # aggregates a list of version keywords and versions:
 # 1. converts keyword in version

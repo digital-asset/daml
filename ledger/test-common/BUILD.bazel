@@ -14,8 +14,8 @@ load("@scala_version//:index.bzl", "scala_major_version")
 load("@scala_version//:index.bzl", "scala_major_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
-    "lf_version_configuration_versions",
+    lf_version_configuration = "test_tool_lf_version_configuration",
+    lf_version_configuration_versions = "test_tool_lf_version_configuration_versions",
 )
 load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
