@@ -61,12 +61,12 @@ class PreExecutingValidatingCommitterSpec
           Instant.now(),
           new FakeStateAccess(mock[LedgerStateOperations[Unit]]),
         )
-        .map(result => {
+        .map { result =>
           verify(fixture.postExecutionWriter)
             .write(any[TestWriteSet], any[LedgerStateWriteOperations[Long]])(any[ExecutionContext])
           verify(submissionAggregator).finish()
           result shouldBe SubmissionResult.Acknowledged
-        })
+        }
     }
 
     "drop transaction when post execution conflicts are detected" in {
@@ -90,12 +90,12 @@ class PreExecutingValidatingCommitterSpec
           Instant.now(),
           new FakeStateAccess(mock[LedgerStateOperations[Unit]]),
         )
-        .map(result => {
+        .map { result =>
           verify(fixture.postExecutionWriter, never)
             .write(any[TestWriteSet], any[LedgerStateWriteOperations[Long]])(any[ExecutionContext])
           verify(submissionAggregator).finish()
           result shouldBe SubmissionResult.Acknowledged
-        })
+        }
     }
   }
 
@@ -103,6 +103,7 @@ class PreExecutingValidatingCommitterSpec
 
 object PreExecutingValidatingCommitterSpec {
 
+  import ArgumentMatchersSugar._
   import MockitoSugar._
   import PreExecutionTestHelper._
 
@@ -128,23 +129,22 @@ object PreExecutingValidatingCommitterSpec {
     def validatorReturnsSuccess = {
       when(
         validator.validate(
-          ArgumentMatchersSugar.any[Raw.Envelope],
-          ArgumentMatchersSugar.any[ParticipantId],
-          ArgumentMatchersSugar.any[StateReader[DamlStateKey, TestValue]],
-        )(ArgumentMatchersSugar.any[ExecutionContext], ArgumentMatchersSugar.any[LoggingContext])
-      )
-        .thenReturn(
-          Future.successful(
-            PreExecutionOutput(
-              None,
-              None,
-              TestWriteSet(""),
-              TestWriteSet(""),
-              TestReadSet(Set.empty),
-              Set.empty,
-            )
+          any[Raw.Envelope],
+          any[ParticipantId],
+          any[StateReader[DamlStateKey, TestValue]],
+        )(any[ExecutionContext], any[LoggingContext])
+      ).thenReturn(
+        Future.successful(
+          PreExecutionOutput(
+            None,
+            None,
+            TestWriteSet(""),
+            TestWriteSet(""),
+            TestReadSet(Set.empty),
+            Set.empty,
           )
         )
+      )
     }
   }
 }
