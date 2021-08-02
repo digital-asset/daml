@@ -155,15 +155,15 @@ private[kvutils] class TransactionCommitter(
             None
           case Some(_) =>
             Some(
-              immediateRejectionStep(
+              reject(
                 Rejection.SubmitterCannotActViaParticipant(submitter, commitContext.participantId)
               )
             )
           case None =>
-            Some(immediateRejectionStep(Rejection.SubmittingPartyNotKnownOnLedger(submitter)))
+            Some(reject(Rejection.SubmittingPartyNotKnownOnLedger(submitter)))
         }
 
-      def immediateRejectionStep(reason: Rejection): StepResult[DamlTransactionEntrySummary] =
+      def reject(reason: Rejection): StepResult[DamlTransactionEntrySummary] =
         rejections.reject(
           transactionEntry,
           reason,
