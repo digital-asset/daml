@@ -679,7 +679,7 @@ object Converter {
       sValue <- valueTranslator
         .translateValue(ty, lfValue)
         .left
-        .map(_.msg)
+        .map(_.message)
     } yield sValue
   }
 

@@ -22,7 +22,7 @@ private[platform] object ErrorCause {
           case _ => "N/A"
         }
       }
-      s"Command interpretation error in LF-DAMLe: ${error.msg}. Details: $details."
+      s"Command interpretation error in LF-DAMLe: ${error.message}. Details: $details."
     }
   }
 

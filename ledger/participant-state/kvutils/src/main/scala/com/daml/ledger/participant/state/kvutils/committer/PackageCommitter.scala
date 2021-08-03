@@ -220,7 +220,7 @@ final private[kvutils] class PackageCommitter(
       pkgs: Map[Ref.PackageId, Ast.Package]
   ): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.validateTimer.time { () =>
-      engine.validatePackages(pkgs).left.map(_.msg)
+      engine.validatePackages(pkgs).left.map(_.message)
     }
 
   // Strict validation
@@ -289,7 +289,7 @@ final private[kvutils] class PackageCommitter(
         engine
           .preloadPackage(pkgId, pkg)
           .consume(_ => None, packages.get, _ => None)
-          .fold(err => List(err.msg), _ => List.empty)
+          .fold(err => List(err.message), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
         engine.compiledPackages().packageIds.size

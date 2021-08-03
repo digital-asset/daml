@@ -190,10 +190,10 @@ private[lf] object Speedy {
     @inline
     private[speedy] def kontDepth(): Int = kontStack.size()
 
-    private[lf] def withOnLedger[T](where: String)(f: OnLedger => T): T =
+    private[lf] def withOnLedger[T](location: String)(f: OnLedger => T): T =
       ledgerMode match {
         case onLedger: OnLedger => f(onLedger)
-        case OffLedger => throw SErrorCrash(where, "unexpected off-ledger machine")
+        case OffLedger => throw SErrorCrash(location, "unexpected off-ledger machine")
       }
 
     @inline

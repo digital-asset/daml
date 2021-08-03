@@ -336,8 +336,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case SResultFinalValue(_) => finished = true
 
         case SResultError(SError.SErrorDamlException(error)) =>
-          // Special-cased because duplicate key errors
-          // produce a different gRPC error code.
           return ResultError(Error.Interpretation.DamlException(error), detailMsg)
 
         case SResultError(err) =>
@@ -369,7 +367,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           )
 
         case SResultNeedTime(callback) =>
-          onLedger.dependsOnTime = true
           callback(time)
 
         case SResultNeedKey(gk, _, cb) =>

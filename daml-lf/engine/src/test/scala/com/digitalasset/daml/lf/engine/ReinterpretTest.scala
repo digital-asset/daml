@@ -135,7 +135,7 @@ class ReinterpretTest
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
       val Left(err) = reinterpretCommand(theCommand)
-      assert(err.msg.contains("Error: functions are not comparable"))
+      assert(err.message.contains("Error: functions are not comparable"))
     }
 
     "rollback version 14 contract creation" in {

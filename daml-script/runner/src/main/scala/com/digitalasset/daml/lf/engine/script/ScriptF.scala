@@ -260,7 +260,7 @@ object ScriptF {
     )(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.msg)
+        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.message)
       } yield translated
 
     override def execute(env: Env)(implicit

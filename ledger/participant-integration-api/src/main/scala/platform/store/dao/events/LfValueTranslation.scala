@@ -129,7 +129,7 @@ final class LfValueTranslation(
   ): Future[V] = {
     result match {
       case LfEngine.ResultDone(r) => Future.successful(r)
-      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.msg))
+      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
       case LfEngine.ResultNeedPackage(packageId, resume) =>
         packageLoader
           .loadPackage(
