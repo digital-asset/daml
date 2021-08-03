@@ -240,7 +240,7 @@ Represented as an ISO 8601 date rendered using the format
     0001-01-01
 
 The dates must be between the bounds specified by Daml-LF and ISO 8601,
-[0001-01-01, 9999-99-99].
+[0001-01-01, 9999-12-31].
 
 Text
 ****
