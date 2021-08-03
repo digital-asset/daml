@@ -12,12 +12,15 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
 
+import scala.concurrent.ExecutionContext
+
 object LedgerConfigProvider {
   def owner(
+      ledgerConfiguration: LedgerConfiguration,
       index: IndexConfigManagementService,
       optWriteService: Option[state.WriteConfigService],
       timeProvider: TimeProvider,
-      ledgerConfiguration: LedgerConfiguration,
+      servicesExecutionContext: ExecutionContext,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -30,6 +33,7 @@ object LedgerConfigProvider {
         index = index,
         scheduler = scheduler,
         materializer = materializer,
+        servicesExecutionContext = servicesExecutionContext,
       )
       // Next, we provision the configuration if one does not already exist on the ledger.
       _ <- optWriteService match {
@@ -42,7 +46,7 @@ object LedgerConfigProvider {
             timeProvider = timeProvider,
             submissionIdGenerator = SubmissionIdGenerator.Random,
             scheduler = scheduler,
-            executionContext = materializer.executionContext,
+            servicesExecutionContext = servicesExecutionContext,
           )
       }
       // Finally, we wait until either an existing configuration or the provisioned configuration

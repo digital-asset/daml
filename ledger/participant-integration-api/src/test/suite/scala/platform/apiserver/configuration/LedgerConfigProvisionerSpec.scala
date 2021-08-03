@@ -70,7 +70,7 @@ final class LedgerConfigProvisionerSpec
           timeProvider = timeProvider,
           submissionIdGenerator = submissionIdGenerator,
           scheduler = scheduler,
-          executionContext = system.dispatcher,
+          servicesExecutionContext = system.dispatcher,
         )
         .use { _ =>
           verify(writeService, never).submitConfiguration(
@@ -116,7 +116,7 @@ final class LedgerConfigProvisionerSpec
           timeProvider = timeProvider,
           submissionIdGenerator = SubmissionIdGenerator.Random,
           scheduler = scheduler,
-          executionContext = system.dispatcher,
+          servicesExecutionContext = system.dispatcher,
         )
         .use { _ =>
           scheduler.timePasses(1.second)
@@ -156,7 +156,7 @@ final class LedgerConfigProvisionerSpec
         timeProvider = timeProvider,
         submissionIdGenerator = SubmissionIdGenerator.Random,
         scheduler = scheduler,
-        executionContext = system.dispatcher,
+        servicesExecutionContext = system.dispatcher,
       )
       .use { _ =>
         scheduler.scheduleOnce(
@@ -199,7 +199,7 @@ final class LedgerConfigProvisionerSpec
       timeProvider = timeProvider,
       submissionIdGenerator = SubmissionIdGenerator.Random,
       scheduler = scheduler,
-      executionContext = system.dispatcher,
+      servicesExecutionContext = system.dispatcher,
     )
     val resource = owner.acquire()
 

@@ -55,7 +55,13 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, scheduler, materializer)
+        .owner(
+          ledgerConfiguration = ledgerConfiguration,
+          index = index,
+          scheduler = scheduler,
+          materializer = materializer,
+          servicesExecutionContext = system.dispatcher,
+        )
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             currentLedgerConfiguration.latestConfiguration should be(Some(currentConfiguration))
@@ -99,7 +105,13 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, scheduler, materializer)
+        .owner(
+          ledgerConfiguration = ledgerConfiguration,
+          index = index,
+          scheduler = scheduler,
+          materializer = materializer,
+          servicesExecutionContext = system.dispatcher,
+        )
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             eventually {
@@ -123,7 +135,13 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, scheduler, materializer)
+        .owner(
+          ledgerConfiguration = ledgerConfiguration,
+          index = index,
+          scheduler = scheduler,
+          materializer = materializer,
+          servicesExecutionContext = system.dispatcher,
+        )
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.isCompleted should be(false)
           scheduler.timePasses(1.second)
@@ -146,8 +164,13 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      val owner = IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, scheduler, materializer)
+      val owner = IndexStreamingCurrentLedgerConfiguration.owner(
+        ledgerConfiguration = ledgerConfiguration,
+        index = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      )
       val resource = owner.acquire()
 
       resource.asFuture
@@ -176,7 +199,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       IndexStreamingCurrentLedgerConfiguration
-        .owner(ledgerConfiguration, index, scheduler, materializer)
+        .owner(ledgerConfiguration, index, scheduler, materializer, system.dispatcher)
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.transform(Success.apply).map { result =>
             inside(result) { case Failure(exception) =>

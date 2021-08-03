@@ -108,7 +108,13 @@ private[daml] object ApiServices {
       for {
         ledgerId <- Resource.fromFuture(indexService.getLedgerId())
         currentLedgerConfiguration <- LedgerConfigProvider
-          .owner(indexService, optWriteService, timeProvider, ledgerConfiguration)
+          .owner(
+            ledgerConfiguration,
+            indexService,
+            optWriteService,
+            timeProvider,
+            servicesExecutionContext,
+          )
           .acquire()
         services <- Resource(
           Future(createServices(ledgerId, currentLedgerConfiguration)(servicesExecutionContext))

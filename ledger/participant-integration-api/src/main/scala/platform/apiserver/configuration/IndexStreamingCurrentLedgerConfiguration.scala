@@ -30,9 +30,9 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
     ledgerConfiguration: LedgerConfiguration,
     index: IndexConfigManagementService,
     scheduler: Scheduler,
+    servicesExecutionContext: ExecutionContext,
 )(implicit
     materializer: Materializer,
-    executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends CurrentLedgerConfiguration
     with AutoCloseable {
@@ -70,13 +70,13 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
             s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning."
           )
           latestConfigurationState.set(None -> None)
-      }
-      .map(_ => startStreamingUpdates())
+      }(servicesExecutionContext)
+      .map(_ => startStreamingUpdates())(servicesExecutionContext)
       .failed
       .foreach { exception =>
         readyPromise.tryFailure(exception)
         logger.error("Could not load the ledger configuration.", exception)
-      }
+      }(servicesExecutionContext)
 
   private[this] def configFound(
       offset: LedgerOffset.Absolute,
@@ -132,7 +132,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
           ()
         }
       },
-    )
+    )(servicesExecutionContext)
   }
 
   /** This future will resolve successfully:
@@ -158,6 +158,7 @@ private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
       index: IndexConfigManagementService,
       scheduler: Scheduler,
       materializer: Materializer,
+      servicesExecutionContext: ExecutionContext,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[IndexStreamingCurrentLedgerConfiguration] =
@@ -166,6 +167,7 @@ private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
         ledgerConfiguration,
         index,
         scheduler,
-      )(materializer, materializer.executionContext, loggingContext)
+        servicesExecutionContext,
+      )(materializer, loggingContext)
     )
 }

@@ -35,11 +35,10 @@ object LedgerConfigProvisioner {
       timeProvider: TimeProvider,
       submissionIdGenerator: SubmissionIdGenerator,
       scheduler: Scheduler,
-      executionContext: ExecutionContext,
+      servicesExecutionContext: ExecutionContext,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[Unit] = {
-    implicit val ec: ExecutionContext = executionContext
     ResourceOwner
       .forCancellable(() =>
         scheduler.scheduleOnce(
@@ -49,11 +48,11 @@ object LedgerConfigProvisioner {
               if (currentLedgerConfiguration.latestConfiguration.isEmpty)
                 submitInitialConfig(writeService, timeProvider, submissionIdGenerator)(
                   ledgerConfiguration.initialConfiguration
-                )
+                )(servicesExecutionContext, loggingContext)
               ()
             }
           },
-        )
+        )(servicesExecutionContext)
       )
       .map(_ => ())
   }
