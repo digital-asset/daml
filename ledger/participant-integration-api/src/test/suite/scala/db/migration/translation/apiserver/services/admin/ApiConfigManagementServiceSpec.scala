@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.{Duration => jDuration}
+import java.time.Duration
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.CompletionStage
 
@@ -13,7 +13,11 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
+import com.daml.ledger.api.v1.admin.config_management_service.{
+  GetTimeModelRequest,
+  SetTimeModelRequest,
+  TimeModel,
+}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.{v2 => state}
@@ -23,7 +27,7 @@ import com.daml.platform.apiserver.services.admin.ApiConfigManagementServiceSpec
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
-import com.google.protobuf.duration.Duration
+import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -40,6 +44,64 @@ class ApiConfigManagementServiceSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "ApiConfigManagementService" should {
+    "get the time model" in {
+      val indexedTimeModel = LedgerTimeModel(
+        avgTransactionLatency = Duration.ofMinutes(5),
+        minSkew = Duration.ofMinutes(3),
+        maxSkew = Duration.ofMinutes(2),
+      ).get
+      val expectedTimeModel = TimeModel.of(
+        avgTransactionLatency = Some(DurationProto.of(5 * 60, 0)),
+        minSkew = Some(DurationProto.of(3 * 60, 0)),
+        maxSkew = Some(DurationProto.of(2 * 60, 0)),
+      )
+
+      val apiConfigManagementService = ApiConfigManagementService.createApiService(
+        new FakeCurrentIndexConfigManagementService(
+          LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")),
+          Configuration(aConfigurationGeneration, indexedTimeModel, Duration.ZERO),
+        ),
+        TestWriteConfigService,
+        TimeProvider.UTC,
+        LedgerConfiguration.defaultLocalLedger,
+        _ => Ref.SubmissionId.assertFromString("aSubmission"),
+      )
+
+      apiConfigManagementService.getTimeModel(GetTimeModelRequest.defaultInstance).map { response =>
+        response.timeModel should be(Some(expectedTimeModel))
+      }
+    }
+
+    "return the default time model if one is not found" in {
+      val initialTimeModel = LedgerTimeModel(
+        avgTransactionLatency = Duration.ofMinutes(5),
+        minSkew = Duration.ofMinutes(3),
+        maxSkew = Duration.ofMinutes(2),
+      ).get
+      val expectedTimeModel = TimeModel.of(
+        avgTransactionLatency = Some(DurationProto.of(5 * 60, 0)),
+        minSkew = Some(DurationProto.of(3 * 60, 0)),
+        maxSkew = Some(DurationProto.of(2 * 60, 0)),
+      )
+
+      val apiConfigManagementService = ApiConfigManagementService.createApiService(
+        EmptyIndexConfigManagementService,
+        TestWriteConfigService,
+        TimeProvider.UTC,
+        LedgerConfiguration(
+          initialConfiguration =
+            Configuration(aConfigurationGeneration, initialTimeModel, Duration.ZERO),
+          initialConfigurationSubmitDelay = Duration.ZERO,
+          configurationLoadTimeout = Duration.ZERO,
+        ),
+        _ => Ref.SubmissionId.assertFromString("aSubmission"),
+      )
+
+      apiConfigManagementService.getTimeModel(GetTimeModelRequest.defaultInstance).map { response =>
+        response.timeModel should be(Some(expectedTimeModel))
+      }
+    }
+
     "propagate trace context" in {
       val apiConfigManagementService = ApiConfigManagementService.createApiService(
         new FakeStreamingIndexConfigManagementService(someConfigurationEntries),
@@ -76,7 +138,7 @@ object ApiConfigManagementServiceSpec {
         Configuration(
           aConfigurationGeneration,
           LedgerTimeModel.reasonableDefault,
-          jDuration.ZERO,
+          Duration.ZERO,
         ),
       )
   )
@@ -87,12 +149,39 @@ object ApiConfigManagementServiceSpec {
     aConfigurationGeneration,
     Some(
       TimeModel(
-        Some(Duration.defaultInstance),
-        Some(Duration.defaultInstance),
-        Some(Duration.defaultInstance),
+        Some(DurationProto.defaultInstance),
+        Some(DurationProto.defaultInstance),
+        Some(DurationProto.defaultInstance),
       )
     ),
   )
+
+  private object EmptyIndexConfigManagementService extends IndexConfigManagementService {
+    override def lookupConfiguration()(implicit
+        loggingContext: LoggingContext
+    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+      Future.successful(None)
+
+    override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])(implicit
+        loggingContext: LoggingContext
+    ): Source[(LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
+      Source.never
+  }
+
+  private final class FakeCurrentIndexConfigManagementService(
+      offset: LedgerOffset.Absolute,
+      configuration: Configuration,
+  ) extends IndexConfigManagementService {
+    override def lookupConfiguration()(implicit
+        loggingContext: LoggingContext
+    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+      Future.successful(Some(offset -> configuration))
+
+    override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])(implicit
+        loggingContext: LoggingContext
+    ): Source[(LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
+      Source.never
+  }
 
   private final class FakeStreamingIndexConfigManagementService(
       entries: immutable.Iterable[(LedgerOffset.Absolute, domain.ConfigurationEntry)]
