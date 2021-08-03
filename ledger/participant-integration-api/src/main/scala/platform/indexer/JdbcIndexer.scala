@@ -55,6 +55,7 @@ object JdbcIndexer {
         servicesExecutionContext: ExecutionContext,
         metrics: Metrics,
         lfValueTranslationCache: LfValueTranslationCache.Cache,
+        additionalMigrationPaths: Seq[String] = Seq.empty,
     )(implicit materializer: Materializer, loggingContext: LoggingContext) =
       this(
         config,
@@ -63,7 +64,7 @@ object JdbcIndexer {
         metrics,
         ExecuteUpdate.owner,
         serverRole,
-        new FlywayMigrations(config.jdbcUrl),
+        new FlywayMigrations(config.jdbcUrl, additionalMigrationPaths),
         lfValueTranslationCache,
       )
 

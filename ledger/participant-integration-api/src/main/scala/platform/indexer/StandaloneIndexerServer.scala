@@ -20,6 +20,7 @@ final class StandaloneIndexerServer(
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
+    additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
 
@@ -33,6 +34,7 @@ final class StandaloneIndexerServer(
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
+      additionalMigrationPaths,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,
@@ -94,7 +96,7 @@ final class StandaloneIndexerServer(
       .map { case (indexerHealthReporter, _) => indexerHealthReporter }
 }
 
-object StandaloneIndexerServerCanton {
+object StandaloneIndexerServer {
 
   // Separate entry point for migrateOnly that serves as an operations rather than a startup command. As such it
   // does not require any of the configurations of a full-fledged indexer except for the jdbc url.
@@ -103,8 +105,9 @@ object StandaloneIndexerServerCanton {
       // TODO append-only: remove after removing support for the current (mutating) schema
       enableAppendOnlySchema: Boolean,
       allowExistingSchema: Boolean = false,
+      additionalMigrationPaths: Seq[String] = Seq.empty,
   )(implicit rc: ResourceContext, loggingContext: LoggingContext): Future[Unit] = {
-    val flywayMigrations = new FlywayMigrations(jdbcUrl)
+    val flywayMigrations = new FlywayMigrations(jdbcUrl, additionalMigrationPaths)
     flywayMigrations.migrate(allowExistingSchema, enableAppendOnlySchema)
   }
 }
