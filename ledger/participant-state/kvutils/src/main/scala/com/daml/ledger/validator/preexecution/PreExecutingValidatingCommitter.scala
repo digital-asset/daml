@@ -22,11 +22,8 @@ import com.daml.ledger.validator.{
 import com.daml.lf.data.Ref
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContextWith
-import com.daml.timer.RetryStrategy
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /** A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide
   * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
@@ -75,23 +72,13 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
         val stateReader =
           transformStateReader(new LedgerStateOperationsReaderAdapter(ledgerStateOperations))
-        for {
+        val submissionResult = for {
           preExecutionOutput <- validator.validate(
             submissionEnvelope,
             submittingParticipantId,
             stateReader,
           )
-          _ <- retry { case _: ConflictDetectedException =>
-            logger.error("Conflict detected during post-execution. Retrying...")
-            true
-          } { (_, _) =>
-            postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
-          }.transform {
-            case Failure(_: ConflictDetectedException) =>
-              logger.error("Too many conflicts detected during post-execution. Giving up.")
-              Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
-            case result => result
-          }
+          _ <- postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
           writeSet = postExecutionWriteSetSelector.selectWriteSet(preExecutionOutput)
           submissionResult <- postExecutionWriter.write(
             writeSet,
@@ -105,10 +92,13 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
           submissionAggregator.finish()
           submissionResult
         }
+        submissionResult.recover { case _: ConflictDetectedException =>
+          logger.error(
+            "Conflict detected during post-execution, acknowledging but dropping the submission."
+          )
+          SubmissionResult.Acknowledged // But it will simply be dropped.
+        }
       }
     }
-
-  private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =
-    RetryStrategy.constant(attempts = Some(3), 5.seconds)
 
 }

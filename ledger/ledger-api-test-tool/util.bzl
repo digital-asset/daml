@@ -5,10 +5,6 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "versions",
 )
-load(
-    "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
-)
 
 exceptions_suites = [
     "src/main/scala/com/daml/ledger/api/testtool/suites/ExceptionsIT.scala",

@@ -62,7 +62,7 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "legacy",
+        "no-exceptions",
         # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
         # "default",
         # "latest",
@@ -105,7 +105,7 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "legacy",
+        "no-exceptions",
         # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
         #  "default",
         #  "latest",

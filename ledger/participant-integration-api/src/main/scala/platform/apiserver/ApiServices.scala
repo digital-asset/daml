@@ -21,6 +21,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.configuration.{CurrentLedgerConfiguration, LedgerConfigProvider}
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
@@ -107,7 +108,7 @@ private[daml] object ApiServices {
 
       for {
         ledgerId <- Resource.fromFuture(indexService.getLedgerId())
-        ledgerConfigProvider <- LedgerConfigProvider
+        currentLedgerConfiguration <- LedgerConfigProvider
           .owner(
             indexService,
             optWriteService,
@@ -116,7 +117,7 @@ private[daml] object ApiServices {
           )(materializer, loggingContext)
           .acquire()
         services <- Resource(
-          Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext))
+          Future(createServices(ledgerId, currentLedgerConfiguration)(servicesExecutionContext))
         )(services =>
           Future {
             services.foreach {
@@ -130,7 +131,7 @@ private[daml] object ApiServices {
 
     private def createServices(
         ledgerId: LedgerId,
-        ledgerConfigProvider: LedgerConfigProvider,
+        currentLedgerConfiguration: CurrentLedgerConfiguration,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService, metrics)
@@ -160,7 +161,7 @@ private[daml] object ApiServices {
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,
-          ledgerConfigProvider,
+          currentLedgerConfiguration,
           apiCompletionService,
           apiTransactionService,
         )
@@ -186,7 +187,7 @@ private[daml] object ApiServices {
 
     private def intitializeWriteServiceBackedApiServices(
         ledgerId: LedgerId,
-        ledgerConfigProvider: LedgerConfigProvider,
+        currentLedgerConfiguration: CurrentLedgerConfiguration,
         apiCompletionService: GrpcCommandCompletionService,
         apiTransactionService: GrpcTransactionService,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
@@ -214,7 +215,7 @@ private[daml] object ApiServices {
           partyManagementService,
           timeProvider,
           timeProviderType,
-          ledgerConfigProvider,
+          currentLedgerConfiguration,
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
@@ -243,7 +244,7 @@ private[daml] object ApiServices {
             apiTransactionService.getFlatTransactionById,
           ),
           timeProvider,
-          ledgerConfigProvider,
+          currentLedgerConfiguration,
           metrics,
         )
 

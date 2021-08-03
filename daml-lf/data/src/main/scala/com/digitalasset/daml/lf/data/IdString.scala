@@ -254,6 +254,8 @@ private[data] final class IdStringImpl extends IdString {
   override type Name = String
   override val Name: StringModule[Name] = new StringModuleImpl {
 
+    val maxLength = 1000
+
     private[this] val disallowedFirstChar =
       IdString.asciiCharsToRejectionArray(IdString.letters ++ "$_")
     private[this] val disallowedOtherChar =
@@ -261,8 +263,10 @@ private[data] final class IdStringImpl extends IdString {
 
     @throws[IllegalArgumentException]
     override def assertFromString(s: String) = {
-      if (s.length == 0)
+      if (s.isEmpty)
         throw new IllegalArgumentException("Daml-LF Name is empty")
+      if (s.length > maxLength)
+        throw new IllegalArgumentException(s"""Name is too long (max: $maxLength)""")
       val c = s(0).toInt
       if (c > 0x7f || disallowedFirstChar(c))
         throw new IllegalArgumentException(

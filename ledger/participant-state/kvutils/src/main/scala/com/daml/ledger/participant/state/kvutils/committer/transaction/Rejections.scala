@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
+import java.time.Instant
+
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlTransactionRejectionEntry,
@@ -22,24 +24,26 @@ import com.daml.metrics.Metrics
 
 private[transaction] class Rejections(metrics: Metrics) {
 
-  private final val logger = ContextualizedLogger.get(getClass)
+  final private val logger = ContextualizedLogger.get(getClass)
 
-  def buildRejectionStep[A](
+  def reject[A](
       transactionEntry: DamlTransactionEntrySummary,
       rejection: Rejection,
       recordTime: Option[Timestamp],
-  )(implicit loggingContext: LoggingContext): StepResult[A] = {
-    buildRejectionStep(
+  )(implicit loggingContext: LoggingContext): StepResult[A] =
+    reject(
       buildRejectionEntry(transactionEntry, rejection),
+      rejection.description,
       recordTime,
     )
-  }
 
-  def buildRejectionStep[A](
+  def reject[A](
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
+      rejectionDescription: String,
       recordTime: Option[Timestamp],
-  ): StepResult[A] = {
+  )(implicit loggingContext: LoggingContext): StepResult[A] = {
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
+    logger.trace(s"Transaction rejected, $rejectionDescription.")
     StepStop(
       buildLogEntryWithOptionalRecordTime(
         recordTime,
@@ -48,12 +52,20 @@ private[transaction] class Rejections(metrics: Metrics) {
     )
   }
 
-  def buildRejectionEntry(
+  def preExecutionOutOfTimeBoundsRejectionEntry(
+      transactionEntry: DamlTransactionEntrySummary,
+      minimumRecordTime: Instant,
+      maximumRecordTime: Instant,
+  ): DamlTransactionRejectionEntry =
+    buildRejectionEntry(
+      transactionEntry,
+      Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime),
+    ).build
+
+  private def buildRejectionEntry(
       transactionEntry: DamlTransactionEntrySummary,
       rejection: Rejection,
-  )(implicit loggingContext: LoggingContext): DamlTransactionRejectionEntry.Builder = {
-    logger.trace(s"Transaction rejected, ${rejection.description}.")
-
+  ): DamlTransactionRejectionEntry.Builder = {
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
       .setSubmitterInfo(transactionEntry.submitterInfo)

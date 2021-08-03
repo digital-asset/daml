@@ -99,7 +99,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           )
           .left
           .map(error =>
-            rejections.buildRejectionStep(
+            rejections.reject(
               transactionEntry,
               Rejection.ValidationFailure(error),
               commitContext.recordTime,
@@ -113,7 +113,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant).",
           missingInputErr,
         )
-        rejections.buildRejectionStep(
+        rejections.reject(
           transactionEntry,
           Rejection.MissingInputState(key),
           commitContext.recordTime,
@@ -123,7 +123,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           "Model conformance validation failed most likely due to invalid state on the participant.",
           err,
         )
-        rejections.buildRejectionStep(
+        rejections.reject(
           transactionEntry,
           Rejection.InvalidParticipantState(err),
           commitContext.recordTime,
@@ -206,15 +206,21 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       }
 
     val isCausallyMonotonic = transactionEntry.transaction.inputContracts.forall { contractId =>
-      val inputContractState = inputContracts(contractId)
-      val activeAt = Option(inputContractState.getActiveAt).map(parseTimestamp)
-      activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
+      // Checking contract existence is part of contract consistency checks at a later validation step,
+      // hence, we don't want to leak contract information to a potentially malicious participant here
+      // by producing a rejection for non-existent contracts.
+      // Some input contracts may no longer exist even if the participant is honest, as they may
+      // have been archived and pruned by the committer.
+      inputContracts.get(contractId).forall { damlContractState =>
+        val activeAt = Option(damlContractState.getActiveAt).map(parseTimestamp)
+        activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
+      }
     }
 
     if (isCausallyMonotonic)
       StepContinue(transactionEntry)
     else
-      rejections.buildRejectionStep(
+      rejections.reject(
         transactionEntry,
         Rejection.CausalMonotonicityViolated,
         commitContext.recordTime,
@@ -237,6 +243,6 @@ private[transaction] object ModelConformanceValidator {
       case InconsistentKeys(_) =>
         Rejection.InternallyInconsistentTransaction.InconsistentKeys
     }
-    rejections.buildRejectionStep(transactionEntry, rejection, recordTime)
+    rejections.reject(transactionEntry, rejection, recordTime)
   }
 }

@@ -58,7 +58,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
     Conversions.encodeContractKey(aCreateNode.templateId, aCreateNode.key.get.key)
   }
 
-  "ContractKeysValidator" should {
+  "TransactionConsistencyValidator" should {
     "return Inconsistent when a contract key resolves to a different contract ID than submitted by a participant" in {
       val cases =
         Seq(

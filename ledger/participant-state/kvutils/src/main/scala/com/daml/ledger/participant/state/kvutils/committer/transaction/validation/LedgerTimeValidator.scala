@@ -40,7 +40,7 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
               .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
               .fold(
                 outOfRange =>
-                  rejections.buildRejectionStep(
+                  rejections.reject(
                     transactionEntry,
                     Rejection.LedgerTimeOutOfRange(outOfRange),
                     commitContext.recordTime,
@@ -66,9 +66,10 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
             commitContext.maximumRecordTime = Some(maximumRecordTime)
             val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
               .setTransactionRejectionEntry(
-                rejections.buildRejectionEntry(
+                rejections.preExecutionOutOfTimeBoundsRejectionEntry(
                   transactionEntry,
-                  Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime),
+                  minimumRecordTime,
+                  maximumRecordTime,
                 )
               )
               .build
