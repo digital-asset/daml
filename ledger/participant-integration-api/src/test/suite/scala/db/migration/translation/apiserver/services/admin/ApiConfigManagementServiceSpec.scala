@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.timestamp.Timestamp
@@ -76,20 +77,6 @@ class ApiConfigManagementServiceSpec
     ).thenReturn(configurationEntries)
     mockIndexConfigManagementService
   }
-
-  private object TestWriteConfigService extends state.WriteConfigService {
-    override def submitConfiguration(
-        maxRecordTime: Time.Timestamp,
-        submissionId: Ref.SubmissionId,
-        config: Configuration,
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
-      telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
-      )
-      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
-    }
-  }
 }
 
 object ApiConfigManagementServiceSpec {
@@ -120,4 +107,18 @@ object ApiConfigManagementServiceSpec {
       )
     ),
   )
+
+  private object TestWriteConfigService extends state.WriteConfigService {
+    override def submitConfiguration(
+        maxRecordTime: Time.Timestamp,
+        submissionId: Ref.SubmissionId,
+        config: Configuration,
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
+      telemetryContext.setAttribute(
+        anApplicationIdSpanAttribute._1,
+        anApplicationIdSpanAttribute._2,
+      )
+      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
+    }
+  }
 }

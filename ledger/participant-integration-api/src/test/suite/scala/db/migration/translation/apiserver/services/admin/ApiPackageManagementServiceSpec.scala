@@ -28,6 +28,7 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.logging.LoggingContext
+import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -98,20 +99,6 @@ class ApiPackageManagementServiceSpec
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
     )
   }
-
-  private object TestWritePackagesService extends state.WritePackagesService {
-    override def uploadPackages(
-        submissionId: Ref.SubmissionId,
-        archives: List[DamlLf.Archive],
-        sourceDescription: Option[String],
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
-      telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
-      )
-      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
-    }
-  }
 }
 
 object ApiPackageManagementServiceSpec {
@@ -133,5 +120,19 @@ object ApiPackageManagementServiceSpec {
       defaultParserParameters.defaultPackageId -> pkg,
       defaultParserParameters.languageVersion,
     )
+  }
+
+  private object TestWritePackagesService extends state.WritePackagesService {
+    override def uploadPackages(
+        submissionId: Ref.SubmissionId,
+        archives: List[DamlLf.Archive],
+        sourceDescription: Option[String],
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
+      telemetryContext.setAttribute(
+        anApplicationIdSpanAttribute._1,
+        anApplicationIdSpanAttribute._2,
+      )
+      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
+    }
   }
 }

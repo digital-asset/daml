@@ -11,6 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /** Other cases are covered by [[TelemetrySpec]] */
 class TelemetryContextSpec extends AnyWordSpec with TelemetrySpecBase with Matchers {
+  import TelemetrySpecBase._
 
   "DefaultTelemetryContext.runInOpenTelemetryScope" should {
     "run a body and create a current context with a span" in {

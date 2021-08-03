@@ -3,6 +3,7 @@
 
 package com.daml.telemetry
 
+import com.daml.telemetry.TelemetrySpecBase._
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider
@@ -13,13 +14,6 @@ import org.scalatest.{BeforeAndAfterEach, Suite}
 import scala.jdk.CollectionConverters._
 
 trait TelemetrySpecBase extends BeforeAndAfterEach { self: Suite =>
-
-  protected val aSpanName = "aSpan"
-  protected val anApplicationIdSpanAttribute: (SpanAttribute, String) =
-    SpanAttribute.ApplicationId -> "anApplicationId"
-  protected val aCommandIdSpanAttribute: (SpanAttribute, String) =
-    SpanAttribute.CommandId -> "aCommandId"
-
   protected val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create
   protected val tracer: Tracer = {
     val tracerProvider = SdkTracerProvider
@@ -61,4 +55,12 @@ trait TelemetrySpecBase extends BeforeAndAfterEach { self: Suite =>
       finishedSpans.flatMap(spanDataToAttributes).toMap
     }
   }
+}
+
+object TelemetrySpecBase {
+  val aSpanName = "aSpan"
+  val anApplicationIdSpanAttribute: (SpanAttribute, String) =
+    SpanAttribute.ApplicationId -> "anApplicationId"
+  val aCommandIdSpanAttribute: (SpanAttribute, String) =
+    SpanAttribute.CommandId -> "aCommandId"
 }
