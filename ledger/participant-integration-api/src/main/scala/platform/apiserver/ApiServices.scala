@@ -105,16 +105,16 @@ private[daml] object ApiServices {
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
-
       for {
         ledgerId <- Resource.fromFuture(indexService.getLedgerId())
         currentLedgerConfiguration <- LedgerConfigProvider
           .owner(
+            ledgerConfiguration,
             indexService,
             optWriteService,
             timeProvider,
-            ledgerConfiguration,
-          )(materializer, loggingContext)
+            servicesExecutionContext,
+          )
           .acquire()
         services <- Resource(
           Future(createServices(ledgerId, currentLedgerConfiguration)(servicesExecutionContext))

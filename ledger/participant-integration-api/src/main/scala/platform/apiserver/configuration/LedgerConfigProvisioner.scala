@@ -3,106 +3,110 @@
 
 package com.daml.platform.apiserver.configuration
 
-import java.util.concurrent.atomic.AtomicBoolean
-
-import akka.stream.Materializer
+import akka.actor.Scheduler
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.SubmissionIdGenerator
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.configuration.LedgerConfigProvisioner._
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationLong
+import scala.util.{Failure, Success}
 
 /** Writes a default ledger configuration to the ledger, after a configurable delay. The
   * configuration is only written if the ledger does not already have a configuration.
   *
   * Used by the participant to initialize a new ledger.
+  *
+  * Designed to be used only through the [[owner]] constructor.
   */
-private[apiserver] final class LedgerConfigProvisioner private (
+final class LedgerConfigProvisioner private (
     currentLedgerConfiguration: CurrentLedgerConfiguration,
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     submissionIdGenerator: SubmissionIdGenerator,
-    config: LedgerConfiguration,
-    materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
-    extends AutoCloseable {
-  private val logger = ContextualizedLogger.get(getClass)
+) {
 
-  private val closed: AtomicBoolean = new AtomicBoolean(false)
-
-  materializer.scheduleOnce(
-    config.initialConfigurationSubmitDelay.toNanos.nanos,
-    () => {
-      if (currentLedgerConfiguration.latestConfiguration.isEmpty && !closed.get)
-        submitInitialConfig(writeService)
-      ()
-    },
-  )
-
-  // There are several reasons why the change could be rejected:
-  // - The participant is not authorized to set the configuration
-  // - There already is a configuration, it just didn't appear in the index yet
-  // This method therefore does not try to re-submit the initial configuration in case of failure.
-  private def submitInitialConfig(writeService: state.WriteConfigService): Future[Unit] = {
-    val submissionId = submissionIdGenerator.generate()
-    withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
-      logger.info(s"No ledger configuration found, submitting an initial configuration.")
-      DefaultTelemetry.runFutureInSpan(
-        SpanName.LedgerConfigProviderInitialConfig,
-        SpanKind.Internal,
-      ) { implicit telemetryContext =>
-        FutureConverters
-          .toScala(
-            writeService.submitConfiguration(
-              Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
-              submissionId,
-              config.initialConfiguration,
+  /** Submits the initial configuration immediately.
+    * The [[owner]] constructor will schedule this with a delay.
+    *
+    * There are several reasons why the change could be rejected:
+    *
+    *   - The participant is not authorized to set the configuration
+    *   - There already is a configuration, it just didn't appear in the index yet
+    *
+    * This method therefore does not try to re-submit the initial configuration in case of failure.
+    */
+  def submitInitialConfig(
+      initialConfiguration: Configuration
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit =
+    if (currentLedgerConfiguration.latestConfiguration.isEmpty) {
+      val submissionId = submissionIdGenerator.generate()
+      withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
+        logger.info("No ledger configuration found, submitting an initial configuration.")
+        DefaultTelemetry
+          .runFutureInSpan(
+            SpanName.LedgerConfigProviderInitialConfig,
+            SpanKind.Internal,
+          ) { implicit telemetryContext =>
+            val maxRecordTime =
+              Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))
+            FutureConverters.toScala(
+              writeService.submitConfiguration(maxRecordTime, submissionId, initialConfiguration)
             )
-          )
-          .map {
-            case state.SubmissionResult.Acknowledged =>
-              logger.info(s"Initial configuration submission was successful.")
-            case result: state.SubmissionResult.SynchronousError =>
+          }
+          .onComplete {
+            case Success(state.SubmissionResult.Acknowledged) =>
+              logger.info("Initial configuration submission was successful.")
+            case Success(result: state.SubmissionResult.SynchronousError) =>
               withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
-                logger.warn(s"Initial configuration submission failed.")
+                logger.warn("Initial configuration submission failed.")
               }
-          }(materializer.executionContext)
+            case Failure(exception) =>
+              logger.error("Initial configuration submission failed.", exception)
+          }
       }
     }
-  }
-
-  override def close(): Unit = {
-    closed.set(true)
-  }
 }
 
 object LedgerConfigProvisioner {
+  private val logger = ContextualizedLogger.get(getClass)
+
   def owner(
+      ledgerConfiguration: LedgerConfiguration,
       currentLedgerConfiguration: CurrentLedgerConfiguration,
       writeService: state.WriteConfigService,
       timeProvider: TimeProvider,
       submissionIdGenerator: SubmissionIdGenerator,
-      ledgerConfiguration: LedgerConfiguration,
-  )(implicit
-      materializer: Materializer,
-      loggingContext: LoggingContext,
-  ): ResourceOwner[LedgerConfigProvisioner] =
-    ResourceOwner.forCloseable(() =>
-      new LedgerConfigProvisioner(
-        currentLedgerConfiguration,
-        writeService,
-        timeProvider,
-        submissionIdGenerator,
-        ledgerConfiguration,
-        materializer,
-      )
+      scheduler: Scheduler,
+      servicesExecutionContext: ExecutionContext,
+  )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] = {
+    implicit val executionContext: ExecutionContext = servicesExecutionContext
+    val provisioner = new LedgerConfigProvisioner(
+      currentLedgerConfiguration,
+      writeService,
+      timeProvider,
+      submissionIdGenerator,
     )
+    ResourceOwner
+      .forCancellable(() =>
+        scheduler.scheduleOnce(
+          ledgerConfiguration.initialConfigurationSubmitDelay.toNanos.nanos,
+          new Runnable {
+            override def run(): Unit = {
+              provisioner.submitInitialConfig(ledgerConfiguration.initialConfiguration)
+            }
+          },
+        )
+      )
+      .map(_ => ())
+  }
 }

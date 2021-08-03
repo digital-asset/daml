@@ -12,34 +12,46 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
 
+import scala.concurrent.ExecutionContext
+
 object LedgerConfigProvider {
   def owner(
+      ledgerConfiguration: LedgerConfiguration,
       index: IndexConfigManagementService,
       optWriteService: Option[state.WriteConfigService],
       timeProvider: TimeProvider,
-      ledgerConfiguration: LedgerConfiguration,
+      servicesExecutionContext: ExecutionContext,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[CurrentLedgerConfiguration] =
+  ): ResourceOwner[CurrentLedgerConfiguration] = {
+    val scheduler = materializer.system.scheduler
     for {
       // First, we acquire the mechanism for looking up the current ledger configuration.
-      currentLedgerConfiguration <-
-        IndexStreamingCurrentLedgerConfiguration.owner(index, ledgerConfiguration)
+      currentLedgerConfiguration <- IndexStreamingCurrentLedgerConfiguration.owner(
+        ledgerConfiguration = ledgerConfiguration,
+        index = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = servicesExecutionContext,
+      )
       // Next, we provision the configuration if one does not already exist on the ledger.
       _ <- optWriteService match {
         case None => ResourceOwner.unit
         case Some(writeService) =>
           LedgerConfigProvisioner.owner(
+            ledgerConfiguration = ledgerConfiguration,
             currentLedgerConfiguration = currentLedgerConfiguration,
             writeService = writeService,
             timeProvider = timeProvider,
             submissionIdGenerator = SubmissionIdGenerator.Random,
-            ledgerConfiguration = ledgerConfiguration,
+            scheduler = scheduler,
+            servicesExecutionContext = servicesExecutionContext,
           )
       }
       // Finally, we wait until either an existing configuration or the provisioned configuration
       // appears on the index.
       _ <- ResourceOwner.forFuture(() => currentLedgerConfiguration.ready)
     } yield currentLedgerConfiguration
+  }
 }

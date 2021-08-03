@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.configuration
 
 import java.util.concurrent.atomic.AtomicReference
 
+import akka.actor.{Cancellable, Scheduler}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
@@ -26,46 +27,36 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   * multiple services and validators require the latest ledger config.
   */
 private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private (
-    index: IndexConfigManagementService,
     ledgerConfiguration: LedgerConfiguration,
+    index: IndexConfigManagementService,
+    scheduler: Scheduler,
+    servicesExecutionContext: ExecutionContext,
+)(implicit
     materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
-    extends CurrentLedgerConfiguration
+    loggingContext: LoggingContext,
+) extends CurrentLedgerConfiguration
     with AutoCloseable {
 
-  private[this] val logger = ContextualizedLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   // The latest offset that was read (if any), and the latest ledger configuration found (if any)
-  private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
-  private[this] val latestConfigurationState: AtomicReference[StateType] =
-    new AtomicReference(None -> None)
-  private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] =
-    new AtomicReference(None)
-  private[this] val readyPromise: Promise[Unit] = Promise()
+  private type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
+  private val latestConfigurationState = new AtomicReference[StateType](None -> None)
+  private val killSwitch = new AtomicReference[Option[UniqueKillSwitch]](None)
+  private val readyPromise = Promise[Unit]()
 
   // At startup, do the following:
   // - Start loading the ledger configuration
-  // - Mark the provider as ready if no configuration was found after a timeout
   // - Submit the initial config if none is found after a delay
+  // - Mark the provider as ready if no configuration was found after a timeout
+  private val scheduledTimeout = giveUpAfterTimeout()
   startLoading()
-  materializer.scheduleOnce(
-    ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
-    () => {
-      if (readyPromise.trySuccess(())) {
-        logger.warn(
-          s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
-        )
-      }
-      ()
-    },
-  )
 
   // Looks up the latest ledger configuration, then subscribes to a
   // stream of configuration changes.
   // If the source of configuration changes proves to be a performance bottleneck,
   // it could be replaced by regular polling.
-  private[this] def startLoading(): Future[Unit] = {
-    implicit val executionContext: ExecutionContext = materializer.executionContext
+  private[this] def startLoading(): Unit =
     index
       .lookupConfiguration()
       .map {
@@ -79,14 +70,19 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
             s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning."
           )
           latestConfigurationState.set(None -> None)
-      }
-      .map(_ => startStreamingUpdates())
-  }
+      }(servicesExecutionContext)
+      .map(_ => startStreamingUpdates())(servicesExecutionContext)
+      .failed
+      .foreach { exception =>
+        readyPromise.tryFailure(exception)
+        logger.error("Could not load the ledger configuration.", exception)
+      }(servicesExecutionContext)
 
   private[this] def configFound(
       offset: LedgerOffset.Absolute,
       config: Configuration,
   ): Unit = {
+    scheduledTimeout.cancel()
     latestConfigurationState.set(Some(offset) -> Some(config))
     readyPromise.trySuccess(())
     ()
@@ -117,10 +113,26 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
           }
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .toMat(Sink.ignore)(Keep.left[UniqueKillSwitch, Future[Done]])
-          .run()(materializer)
+          .run()
       )
     )
     ()
+  }
+
+  private def giveUpAfterTimeout(): Cancellable = {
+    scheduler.scheduleOnce(
+      ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
+      new Runnable {
+        override def run(): Unit = {
+          if (readyPromise.trySuccess(())) {
+            logger.warn(
+              s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+            )
+          }
+          ()
+        }
+      },
+    )(servicesExecutionContext)
   }
 
   /** This future will resolve successfully:
@@ -135,19 +147,27 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   override def latestConfiguration: Option[Configuration] = latestConfigurationState.get._2
 
   override def close(): Unit = {
+    scheduledTimeout.cancel()
     killSwitch.get.foreach(k => k.shutdown())
   }
 }
 
 private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
   def owner(
-      index: IndexConfigManagementService,
       ledgerConfiguration: LedgerConfiguration,
-  )(implicit
+      index: IndexConfigManagementService,
+      scheduler: Scheduler,
       materializer: Materializer,
-      loggingContext: LoggingContext,
+      servicesExecutionContext: ExecutionContext,
+  )(implicit
+      loggingContext: LoggingContext
   ): ResourceOwner[IndexStreamingCurrentLedgerConfiguration] =
     ResourceOwner.forCloseable(() =>
-      new IndexStreamingCurrentLedgerConfiguration(index, ledgerConfiguration, materializer)
+      new IndexStreamingCurrentLedgerConfiguration(
+        ledgerConfiguration,
+        index,
+        scheduler,
+        servicesExecutionContext,
+      )(materializer, loggingContext)
     )
 }
