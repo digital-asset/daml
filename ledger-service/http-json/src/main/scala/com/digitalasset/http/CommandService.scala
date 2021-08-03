@@ -42,7 +42,7 @@ class CommandService(
 
   import CommandService._
 
-  def withTemplateLoggingContext[T](
+  private def withTemplateLoggingContext[T](
       templateId: TemplateId.RequiredPkg
   )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[TemplateId.RequiredPkg, T] =
     withEnrichedLoggingContext(
@@ -50,7 +50,7 @@ class CommandService(
       "template_id" -> templateId.toString,
     )
 
-  def withTemplateChoiceLoggingContext[T](
+  private def withTemplateChoiceLoggingContext[T](
       templateId: TemplateId.RequiredPkg,
       choice: domain.Choice,
   )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, RequiredPkg with T] =
