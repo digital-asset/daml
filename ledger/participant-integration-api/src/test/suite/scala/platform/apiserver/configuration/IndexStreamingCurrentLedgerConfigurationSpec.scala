@@ -176,7 +176,9 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       resource.asFuture
         .flatMap { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.isCompleted should be(false)
-          resource.release().map(_ => currentLedgerConfiguration)
+          resource
+            .release() // Will cancel reading the configuration
+            .map(_ => currentLedgerConfiguration)
         }
         .map { currentLedgerConfiguration =>
           scheduler.timePasses(5.seconds)
