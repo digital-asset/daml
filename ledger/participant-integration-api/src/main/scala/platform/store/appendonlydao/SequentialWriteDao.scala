@@ -60,10 +60,10 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .pipe(storageBackend.batch)
         .pipe(storageBackend.insertBatch(connection, _))
 
-      storageBackend.updateParams(
-        StorageBackend.Params(
-          ledgerEnd = offset,
-          eventSeqId = lastEventSeqId,
+      storageBackend.updateLedgerEnd(
+        StorageBackend.LedgerEnd(
+          lastOffset = offset,
+          lastEventSeqId = lastEventSeqId,
         )
       )(connection)
     }

@@ -78,39 +78,44 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @param connection to be used when initializing
     * @return the LedgerEnd, which should be the basis for further indexing.
     */
-  def initialize(connection: Connection): StorageBackend.LedgerEnd
+  def initializeIngestion(connection: Connection): StorageBackend.OptionalLedgerEnd
 }
 
-// TODO append-only: consolidate parameters table facing functions
 trait ParameterStorageBackend {
 
-  /** This method is used to update the parameters table: setting the new observable ledger-end, and other parameters.
+  /** This method is used to update the new observable ledger end.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * @param connection to be used when updating the parameters table
-    * @param params     the parameters
     */
-  def updateParams(params: StorageBackend.Params)(connection: Connection): Unit
+  def updateLedgerEnd(ledgerEnd: StorageBackend.LedgerEnd)(connection: Connection): Unit
 
-  /** Query the ledgerEnd, read from the parameters table.
+  /** Query the ledger end, read from the parameters table.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * @param connection to be used to get the LedgerEnd
     * @return the LedgerEnd, which should be the basis for further indexing
     */
-  def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd
-  def ledgerId(connection: Connection): Option[LedgerId]
-  def updateLedgerId(ledgerId: String)(connection: Connection): Unit
-  def participantId(connection: Connection): Option[ParticipantId]
-  def updateParticipantId(participantId: String)(connection: Connection): Unit
-  def ledgerEndOffset(connection: Connection): Offset
-  def ledgerEndOffsetAndSequentialId(connection: Connection): (Offset, Long)
-  def initialLedgerEnd(connection: Connection): Option[Offset]
+  def ledgerEnd(connection: Connection): StorageBackend.OptionalLedgerEnd
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
   def prunedUptoInclusive(connection: Connection): Option[Offset]
+
+  /** Initializes the parameters table and verifies or updates ledger identity parameters:
+    *  - If no identity parameters are stored, then they are set to the given value.
+    *  - If identity parameters are stored, then they are compared to the given ones.
+    *  - Ledger identity parameters are written at most once, and are never overwritten.
+    *  No significant CPU load, mostly blocking JDBC communication with the database backend.
+    *
+    *  This method is atomic. The above mentioned behavior must always work correctly,
+    *  independent of the default transaction isolation level.
+    */
+  def initializeParameters(params: StorageBackend.IdentityParams)(
+      connection: Connection
+  ): StorageBackend.InitializationResult
+  def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams
 }
 
 trait ConfigurationStorageBackend {
@@ -283,9 +288,29 @@ object DBLockStorageBackend {
 }
 
 object StorageBackend {
-  case class Params(ledgerEnd: Offset, eventSeqId: Long)
+  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long)
+  case class OptionalLedgerEnd(lastOffset: Option[Offset], lastEventSeqId: Option[Long])
+  case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
+  case class OptionalIdentityParams(
+      ledgerId: Option[LedgerId],
+      participantId: Option[ParticipantId],
+  )
 
-  case class LedgerEnd(lastOffset: Option[Offset], lastEventSeqId: Option[Long])
+  sealed abstract class InitializationResult
+  object InitializationResult {
+
+    /** The stored ledgerId and participantId both contained the expected value. */
+    case object AlreadyExists extends InitializationResult
+
+    /** Either the stored ledgerId or the stored participantId contained an unexpected value. */
+    final case class Mismatch(
+        existingLedgerId: LedgerId,
+        existingParticipantId: Option[ParticipantId],
+    ) extends InitializationResult
+
+    /** The stored ledgerId and/or participantId was empty. It was updated to the expected value. */
+    case object New extends InitializationResult
+  }
 
   case class RawContractState(
       templateId: Option[String],

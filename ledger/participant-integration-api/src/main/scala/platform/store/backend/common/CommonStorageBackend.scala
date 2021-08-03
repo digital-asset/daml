@@ -8,7 +8,7 @@ import java.time.Instant
 import java.util.Date
 
 import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, int, long, str}
-import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
+import anorm.{Macro, RowParser, SQL, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -28,11 +28,12 @@ import com.daml.platform.store.Conversions
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.StorageBackend
-import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
+import com.daml.platform.store.backend.StorageBackend.{OptionalIdentityParams, RawTransactionEvent}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
+import scalaz.syntax.tag._
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
 
@@ -52,8 +53,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       "DELETE FROM party_entries WHERE ledger_offset > ?",
     )
 
-  override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
-    val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
+  override def initializeIngestion(connection: Connection): StorageBackend.OptionalLedgerEnd = {
+    val result @ StorageBackend.OptionalLedgerEnd(offset, _) = ledgerEnd(connection)
 
     offset.foreach { existingOffset =>
       preparedDeleteIngestionOverspillEntries.foreach { preparedStatementString =>
@@ -81,16 +82,18 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       |""".stripMargin
   )
 
-  def updateParams(params: StorageBackend.Params)(connection: Connection): Unit = {
+  override def updateLedgerEnd(
+      ledgerEnd: StorageBackend.LedgerEnd
+  )(connection: Connection): Unit = {
     val preparedStatement = preparedUpdateLedgerEnd(connection)
-    preparedStatement.setString(1, params.ledgerEnd.toHexString)
-    preparedStatement.setLong(2, params.eventSeqId)
+    preparedStatement.setString(1, ledgerEnd.lastOffset.toHexString)
+    preparedStatement.setLong(2, ledgerEnd.lastEventSeqId)
     preparedStatement.execute()
     preparedStatement.close()
     ()
   }
 
-  def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd = {
+  override def ledgerEnd(connection: Connection): StorageBackend.OptionalLedgerEnd = {
     val queryStatement = connection.createStatement()
     val params = fetch(
       queryStatement.executeQuery(
@@ -104,7 +107,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           |""".stripMargin
       )
     )(rs =>
-      StorageBackend.LedgerEnd(
+      StorageBackend.OptionalLedgerEnd(
         lastOffset =
           if (rs.getString(1) == null) None
           else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
@@ -125,13 +128,9 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     buffer.toVector
   }
 
-  private val EventSequentialIdBeforeBegin = 0L
-
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
   private val ParticipantIdColumnName: String = "participant_id"
-  private val LedgerEndColumnName: String = "ledger_end"
-  private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
 
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
@@ -139,59 +138,48 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   private val ParticipantIdParser: RowParser[Option[ParticipantId]] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_)).?
 
-  private val LedgerEndParser: RowParser[Option[Offset]] =
-    offset(LedgerEndColumnName).?
+  private val LedgerIdentityParser: RowParser[OptionalIdentityParams] =
+    LedgerIdParser ~ ParticipantIdParser map { case ledgerId ~ participantId =>
+      OptionalIdentityParams(Some(ledgerId), participantId)
+    }
 
-  private val LedgerEndOrBeforeBeginParser: RowParser[Offset] =
-    LedgerEndParser.map(_.getOrElse(Offset.beforeBegin))
+  override def initializeParameters(
+      params: StorageBackend.IdentityParams
+  )(connection: Connection): StorageBackend.InitializationResult = {
+    // Note: this method is the only one that inserts a row into the parameters table
+    // To prevent inserting more than one row, we can:
+    // - get an exclusive lock for the whole table (H2 does not support table locks)
+    // - add a unique constraint or trigger to the table (might have a performance impact)
+    // - read all rows before inserting a new row, while using serializable isolation level
+    // We use the last approach (the isolation level is set by the caller).
+    val previous = ledgerIdentity(connection)
+    val ledgerId = params.ledgerId
+    val participantId = params.participantId
+    previous match {
+      case StorageBackend.OptionalIdentityParams(None, _) =>
+        // ledgerId is not null, this is the case where the the parameters table is empty
+        discard(
+          SQL"insert into #$TableName(#$LedgerIdColumnName, #$ParticipantIdColumnName) values(${ledgerId.unwrap}, ${participantId.unwrap: String})"
+            .execute()(connection)
+        )
+        StorageBackend.InitializationResult.New
+      case StorageBackend.OptionalIdentityParams(Some(`ledgerId`), None) =>
+        discard(
+          SQL"update #$TableName set #$ParticipantIdColumnName=${participantId.unwrap: String}"
+            .execute()(connection)
+        )
+        StorageBackend.InitializationResult.New
+      case StorageBackend.OptionalIdentityParams(Some(`ledgerId`), Some(`participantId`)) =>
+        StorageBackend.InitializationResult.AlreadyExists
+      case StorageBackend.OptionalIdentityParams(Some(lid), pid) =>
+        StorageBackend.InitializationResult.Mismatch(lid, pid)
+    }
+  }
 
-  private val LedgerEndOffsetAndSequentialIdParser =
-    (offset(LedgerEndColumnName).? ~ long(LedgerEndSequentialIdColumnName).?)
-      .map(SqlParser.flatten)
-      .map {
-        case (Some(offset), Some(seqId)) => (offset, seqId)
-        case (Some(offset), None) => (offset, EventSequentialIdBeforeBegin)
-        case (None, None) => (Offset.beforeBegin, EventSequentialIdBeforeBegin)
-        case (None, Some(_)) =>
-          throw InvalidLedgerEnd("Parameters table in invalid state: ledger_end is not set")
-      }
-
-  private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
-
-  private val SelectLedgerEndOffsetAndSequentialId =
-    SQL"select #$LedgerEndColumnName, #$LedgerEndSequentialIdColumnName from #$TableName"
-
-  def ledgerId(connection: Connection): Option[LedgerId] =
-    SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
-
-  def updateLedgerId(ledgerId: String)(connection: Connection): Unit =
-    discard(
-      SQL"insert into #$TableName(#$LedgerIdColumnName) values($ledgerId)".execute()(connection)
-    )
-
-  def participantId(connection: Connection): Option[ParticipantId] =
-    SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.single)(
-      connection
-    )
-
-  def updateParticipantId(participantId: String)(connection: Connection): Unit =
-    discard(
-      SQL"update #$TableName set #$ParticipantIdColumnName = $participantId".execute()(
-        connection
-      )
-    )
-
-  def ledgerEndOffset(connection: Connection): Offset =
-    SelectLedgerEnd.as(LedgerEndOrBeforeBeginParser.single)(connection)
-
-  // TODO mutable contract state cache - use only one getLedgerEnd method
-  def ledgerEndOffsetAndSequentialId(connection: Connection): (Offset, Long) =
-    SelectLedgerEndOffsetAndSequentialId.as(LedgerEndOffsetAndSequentialIdParser.single)(connection)
-
-  def initialLedgerEnd(connection: Connection): Option[Offset] =
-    SelectLedgerEnd.as(LedgerEndParser.single)(connection)
-
-  case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
+  override def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams =
+    SQL"select #$LedgerIdColumnName, #$ParticipantIdColumnName from #$TableName"
+      .as(LedgerIdentityParser.singleOpt)(connection)
+      .getOrElse(OptionalIdentityParams(None, None))
 
   private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL("""
                                                      |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}

@@ -20,7 +20,11 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationResult,
+  InitializationResult,
+  PackageDetails,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
@@ -232,15 +236,23 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
 
-  /** Initializes the ledger. Must be called only once.
+  /** Verifies or updates ledger identity parameters:
+    *  - If no identity parameters are stored, then they are set to the given value.
+    *  - If identity parameters are stored, then they are compared to the given ones.
+    *  - Ledger identity parameters are written at most once, and are never overwritten.
+    *
+    *  This method is atomic. The above mentioned behavior will work correctly,
+    *  even under heavy concurrency.
+    *
+    *  This method must succeed at least once before other LedgerWriteDao methods may be used.
     *
     * @param ledgerId the ledger id to be stored
+    * @param participantId the participant id to be stored
     */
-  def initializeLedger(ledgerId: LedgerId)(implicit loggingContext: LoggingContext): Future[Unit]
-
-  def initializeParticipantId(participantId: ParticipantId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit]
+  def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): Future[InitializationResult]
 
   // TODO append-only: cleanup
   def prepareTransactionInsert(

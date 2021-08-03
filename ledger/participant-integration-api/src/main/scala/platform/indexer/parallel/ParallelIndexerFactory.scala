@@ -116,7 +116,8 @@ object ParallelIndexerFactory {
               ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
               tailer = tailer(storageBackend.batch(Vector.empty)),
               tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-              ingestTail = ingestTail[DB_BATCH](storageBackend.updateParams, dbDispatcher, metrics),
+              ingestTail =
+                ingestTail[DB_BATCH](storageBackend.updateLedgerEnd, dbDispatcher, metrics),
             )(
               InstrumentedSource
                 .bufferedSource(
@@ -168,7 +169,9 @@ object ParallelIndexerFactory {
             )
             .use { dbDispatcher =>
               dbDispatcher
-                .executeSql(metrics.daml.parallelIndexer.initialization)(storageBackend.initialize)
+                .executeSql(metrics.daml.parallelIndexer.initialization)(
+                  storageBackend.initializeIngestion
+                )
                 .flatMap { initialized =>
                   val (killSwitch, completionFuture) =
                     ingest(initialized.lastEventSeqId.getOrElse(0L), dbDispatcher)(
@@ -332,14 +335,14 @@ object ParallelIndexerFactory {
         offsets = Vector.empty, // not used anymore
       )
 
-  def ledgerEndFrom(batch: Batch[_]): StorageBackend.Params =
-    StorageBackend.Params(
-      ledgerEnd = batch.lastOffset,
-      eventSeqId = batch.lastSeqEventId,
+  def ledgerEndFrom(batch: Batch[_]): StorageBackend.LedgerEnd =
+    StorageBackend.LedgerEnd(
+      lastOffset = batch.lastOffset,
+      lastEventSeqId = batch.lastSeqEventId,
     )
 
   def ingestTail[DB_BATCH](
-      ingestTailFunction: StorageBackend.Params => Connection => Unit,
+      ingestTailFunction: StorageBackend.LedgerEnd => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =

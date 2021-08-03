@@ -7,6 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
@@ -17,6 +18,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
   CommandDeduplicationResult,
+  InitializationResult,
   PackageDetails,
 }
 import com.daml.ledger.participant.state.{v2 => state}
@@ -58,7 +60,6 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -87,45 +88,75 @@ private class JdbcLedgerDao(
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerId)(storageBackend.ledgerId)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerId)(storageBackend.ledgerIdentity)
+      .map(_.ledgerId)(DEC)
 
   override def lookupParticipantId()(implicit
       loggingContext: LoggingContext
   ): Future[Option[ParticipantId]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getParticipantId)(storageBackend.participantId)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getParticipantId)(storageBackend.ledgerIdentity)
+      .map(_.participantId)(DEC)
 
   /** Defaults to Offset.begin if ledger_end is unset
     */
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(storageBackend.ledgerEndOffset)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerEnd)(storageBackend.ledgerEnd)
+      .map(_.lastOffset.getOrElse(Offset.beforeBegin))(DEC)
+
+  case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
 
   override def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
   ): Future[(Offset, Long)] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId)(
-      storageBackend.ledgerEndOffsetAndSequentialId
-    )
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId)(storageBackend.ledgerEnd)
+      .map { end =>
+        val EventSequentialIdBeforeBegin = 0L
+        (end.lastOffset, end.lastEventSeqId) match {
+          case (Some(offset), Some(seqId)) => (offset, seqId)
+          case (Some(offset), None) => (offset, EventSequentialIdBeforeBegin)
+          case (None, None) => (Offset.beforeBegin, EventSequentialIdBeforeBegin)
+          case (None, Some(seqId)) =>
+            throw InvalidLedgerEnd(
+              s"Parameters table in invalid state: ledger_end=None, ledger_end_sequential_id=$seqId"
+            )
+        }
+      }(DEC)
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[Option[Offset]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
-      storageBackend.initialLedgerEnd
-    )
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(storageBackend.ledgerEnd)
+      .map { end =>
+        end.lastOffset
+      }(DEC)
 
-  override def initializeLedger(
-      ledgerId: LedgerId
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
-      implicit connection =>
-        storageBackend.updateLedgerId(ledgerId.unwrap)(connection)
-    }
-
-  override def initializeParticipantId(
-      participantId: ParticipantId
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
-      storageBackend.updateParticipantId(participantId.unwrap)(connection)
+  override def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): Future[InitializationResult] =
+    dbDispatcher.executeSql(
+      metrics.daml.index.db.initializeLedgerParameters
+    ) { implicit connection =>
+      storageBackend.initializeParameters(
+        StorageBackend.IdentityParams(
+          ledgerId = ledgerId,
+          participantId = participantId,
+        )
+      )(connection) match {
+        // Note: StorageBackend should not depend on LedgerDao, and we can't expose
+        // StorageBackend.IdentityUpdateResult in LedgerDao, at least not until the mutable schema is deleted.
+        // For atomicity reasons, the logic of comparing IDs needs to be done in StorageEngine.
+        // We therefore end up duplicating the IdentityUpdateResult ADT.
+        case StorageBackend.InitializationResult.AlreadyExists => InitializationResult.AlreadyExists
+        case StorageBackend.InitializationResult.New => InitializationResult.New
+        case StorageBackend.InitializationResult.Mismatch(lid, pid) =>
+          InitializationResult.Mismatch(lid, pid)
+      }
     }
 
   override def lookupLedgerConfiguration()(implicit
@@ -710,7 +741,7 @@ private class JdbcLedgerDao(
   private[this] def validateOffsetStep(offsetStep: OffsetStep, conn: Connection): Offset = {
     offsetStep match {
       case IncrementalOffsetStep(p, o) =>
-        val actualEnd = storageBackend.ledgerEndOffset(conn)
+        val actualEnd = storageBackend.ledgerEnd(conn).lastOffset.getOrElse(Offset.beforeBegin)
         if (actualEnd.compareTo(p) != 0) throw LedgerEndUpdateError(p) else o
       case CurrentOffset(o) => o
     }

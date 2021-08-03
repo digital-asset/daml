@@ -303,9 +303,9 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
         averageStartTime = 0,
         offsets = Vector.empty,
       )
-    ) shouldBe StorageBackend.Params(
-      ledgerEnd = offset("05"),
-      eventSeqId = 2000,
+    ) shouldBe StorageBackend.LedgerEnd(
+      lastOffset = offset("05"),
+      lastEventSeqId = 2000,
     )
   }
 }
