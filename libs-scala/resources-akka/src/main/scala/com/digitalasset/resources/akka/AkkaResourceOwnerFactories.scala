@@ -24,6 +24,6 @@ trait AkkaResourceOwnerFactories[Context] {
       materializer <- forMaterializer(() => Materializer(actorSystem))
     } yield materializer
 
-  def forCancellable(acquire: () => Cancellable): AbstractResourceOwner[Context, Cancellable] =
+  def forCancellable[C <: Cancellable](acquire: () => C): AbstractResourceOwner[Context, C] =
     new CancellableResourceOwner(acquire)
 }

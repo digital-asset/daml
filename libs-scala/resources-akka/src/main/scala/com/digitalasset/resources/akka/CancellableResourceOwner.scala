@@ -8,9 +8,10 @@ import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Releasabl
 
 import scala.concurrent.Future
 
-class CancellableResourceOwner[Context: HasExecutionContext](acquireCancellable: () => Cancellable)
-    extends AbstractResourceOwner[Context, Cancellable] {
-  override def acquire()(implicit context: Context): Resource[Context, Cancellable] =
+class CancellableResourceOwner[C <: Cancellable, Context: HasExecutionContext](
+    acquireCancellable: () => C
+) extends AbstractResourceOwner[Context, C] {
+  override def acquire()(implicit context: Context): Resource[Context, C] =
     ReleasableResource(Future(acquireCancellable()))(cancellable =>
       Future(cancellable.cancel()).map(_ => ())
     )
