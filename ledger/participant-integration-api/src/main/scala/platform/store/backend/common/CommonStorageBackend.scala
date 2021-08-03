@@ -43,8 +43,6 @@ import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
-  def pruneImmediateDivulgence: Boolean = false
-
   // Ingestion
 
   private val preparedDeleteIngestionOverspillEntries: List[String] =
@@ -815,7 +813,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   ): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     val conditionalImmediateDivulgencePruning =
-      if (pruneAllDivulgedContracts && pruneImmediateDivulgence)
+      if (pruneAllDivulgedContracts)
         List(
           SQL"""
           -- Immediate divulgence events
