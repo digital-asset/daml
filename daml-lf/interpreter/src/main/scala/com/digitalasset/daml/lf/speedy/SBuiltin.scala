@@ -1291,6 +1291,11 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args, 0)
       // $ugettime :: Token -> Timestamp
+      machine.ledgerMode match {
+        case onLedger: OnLedger =>
+          onLedger.dependsOnTime = true
+        case Speedy.OffLedger =>
+      }
       throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
     }
   }
