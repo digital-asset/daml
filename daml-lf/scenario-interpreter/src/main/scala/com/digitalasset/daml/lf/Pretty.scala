@@ -4,8 +4,6 @@
 package com.daml.lf
 package scenario
 
-import com.daml.lf.speedy.PartialTransaction
-
 import org.typelevel.paiges.Doc
 import org.typelevel.paiges.Doc._
 
@@ -13,10 +11,10 @@ private[lf] object Pretty {
 
   import speedy.Pretty._
 
-  def prettyError(err: Error, optPtx: Option[PartialTransaction] = None): Doc =
+  def prettyError(err: Error): Doc =
     err match {
       case Error.RunnerException(serror) =>
-        speedy.Pretty.prettyError(serror, optPtx)
+        speedy.Pretty.prettyError(serror)
       case Error.Internal(msg) =>
         text(s"CRASH: $msg ")
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
