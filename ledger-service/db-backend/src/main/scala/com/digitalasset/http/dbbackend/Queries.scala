@@ -17,6 +17,7 @@ import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import scalaz.std.AllInstances._
@@ -813,19 +814,20 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
             fr" OR ",
           )
       }
+      val rownum = parties.tail.nonEmpty option fr""",
+            row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber"""
       import Queries.CompatImplicits.catsReducibleFromFoldable1
       val outerSelectList =
         sql"""contract_id, template_id, key, payload,
               signatories, observers, agreement_text"""
       val dupQ =
         sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload,
-                     signatories, observers, agreement_text,
-                     row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber
+                     signatories, observers, agreement_text ${rownum getOrElse fr""}
                 FROM $contractTableName c
                      JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
                 WHERE (${Fragments.in(fr"cst.stakeholder", parties)})
                       AND ($queriesCondition)"""
-      val q = sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1"
+      val q = rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")
       q.query[
         (String, Mark0, JsValue, JsValue, JsValue, JsValue, Option[String])
       ].map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
