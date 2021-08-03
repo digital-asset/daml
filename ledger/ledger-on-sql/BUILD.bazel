@@ -322,8 +322,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     tags = [],
     test_tool_args = [
@@ -338,8 +338,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
     ],
     tags = [],
@@ -357,8 +357,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
@@ -387,8 +387,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [],
@@ -404,8 +404,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [] if oracle_testing else ["manual"],
@@ -421,8 +421,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     tags = [],
     test_tool_args = [
@@ -438,8 +438,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
     ],
     tags = [],
@@ -458,8 +458,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [] if oracle_testing else ["manual"],
@@ -491,8 +491,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     tags = [],
     test_tool_args = [
@@ -508,8 +508,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
     ],
     tags = [],
@@ -528,8 +528,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [] if oracle_testing else ["manual"],
