@@ -142,10 +142,10 @@ private[lf] final class Compiler(
 
   import Compiler._
 
-  private[this] def handleLookup[X](where: String, x: Either[LookupError, X]) =
+  private[this] def handleLookup[X](location: String, x: Either[LookupError, X]) =
     x match {
       case Right(value) => value
-      case Left(err) => throw SError.SErrorCrash(where, err.pretty)
+      case Left(err) => throw SError.SErrorCrash(location, err.pretty)
     }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.

@@ -21,7 +21,7 @@ sealed trait Rejection {
 object Rejection {
   final case class ValidationFailure(error: lf.engine.Error) extends Rejection {
     override lazy val description: String =
-      error.msg
+      error.message
 
     override def toStateV1RejectionReason: v1.RejectionReason =
       v1.RejectionReasonV0.Disputed(description)

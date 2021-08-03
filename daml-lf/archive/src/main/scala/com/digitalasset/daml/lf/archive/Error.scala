@@ -9,9 +9,10 @@ sealed abstract class Error(val msg: String) extends RuntimeException(msg)
 
 object Error {
 
-  final case class Internal(where: String, message: String) extends Error(s"IO error: $message")
+  final case class Internal(location: String, message: String) extends Error(s"IO error: $message")
 
-  final case class IO(where: String, cause: java.io.IOException) extends Error(s"IO error: $cause")
+  final case class IO(location: String, cause: java.io.IOException)
+      extends Error(s"IO error: $cause")
 
   import GenDarReader.ZipEntries
 

@@ -52,9 +52,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 
   private def unexpectedType(i: Int, expected: String, found: SValue) =
-    crash(
-      s"${getClass.getSimpleName}: type mismatch of argument $i: expect $expected but got $found"
-    )
+    crash(s"type mismatch of argument $i: expect $expected but got $found")
 
   final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
     args.get(i) match {
@@ -393,7 +391,7 @@ private[lf] object SBuiltin {
       SText(getSText(args, 0) + getSText(args, 1))
   }
 
-  private[this] def litToText(where: String, x: SValue): String =
+  private[this] def litToText(location: String, x: SValue): String =
     x match {
       case SBool(b) => b.toString
       case SInt64(i) => i.toString
@@ -407,7 +405,7 @@ private[lf] object SBuiltin {
       case STNat(n) => s"@$n"
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
           _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
-        throw SErrorCrash(where, s"litToText: unexpected $x")
+        throw SErrorCrash(location, s"litToText: unexpected $x")
     }
 
   final case object SBToText extends SBuiltinPure(1) {
@@ -1607,7 +1605,7 @@ private[lf] object SBuiltin {
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
-      where: String,
+      location: String,
       v: SValue,
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
@@ -1623,7 +1621,7 @@ private[lf] object SBuiltin {
           case Left(_) =>
             throw SErrorDamlException(IE.ContractIdInContractKey(key))
         }
-      case _ => throw SErrorCrash(where, s"Invalid key with maintainers: $v")
+      case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
 
   private[this] def extractOptionalKeyWithMaintainers(

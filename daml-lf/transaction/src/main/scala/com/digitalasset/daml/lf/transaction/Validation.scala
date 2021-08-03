@@ -374,7 +374,7 @@ sealed abstract class ReplayMismatch[Nid, Cid] extends Product with Serializable
   def recordedTransaction: VersionedTransaction[Nid, Cid]
   def replayedTransaction: VersionedTransaction[Nid, Cid]
 
-  def msg: String =
+  def message: String =
     s"recreated and original transaction mismatch $recordedTransaction expected, but $replayedTransaction is recreated"
 }
 

@@ -306,7 +306,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(res) { case Left(Error.Preprocessing(error)) =>
         error shouldBe a[Error.Preprocessing.TypeMismatch]
-        error.msg should startWith("Missing record label n for record")
+        error.message should startWith("Missing record label n for record")
       }
     }
 
@@ -531,7 +531,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -621,7 +621,7 @@ class EngineTest
           )
         validated match {
           case Left(e) =>
-            fail(e.msg)
+            fail(e.message)
           case Right(()) => succeed
         }
       }
@@ -745,7 +745,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -888,7 +888,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -936,7 +936,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -975,7 +975,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -1149,7 +1149,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -1204,7 +1204,7 @@ class EngineTest
         .swap
         .toOption
         .get
-        .msg should include("Provided value exceeds maximum nesting level")
+        .message should include("Provided value exceeds maximum nesting level")
     }
   }
 
@@ -1839,7 +1839,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -2039,19 +2039,19 @@ class EngineTest
     "error on fetch" in {
       val result = run(ImmArray(incorrectFetch))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
     "error on exercise" in {
       val result = run(ImmArray(incorrectCommand))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
     "error on exercise even if used correctly before" in {
       val result = run(ImmArray(correctCommand, incorrectCommand))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
   }
@@ -2102,8 +2102,7 @@ class EngineTest
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
-          submitter <-
-            tx.guessSubmitter.left.map(msg => Error.Validation(Error.Validation.Generic(msg)))
+          submitter <- tx.guessSubmitter
           res <- engine
             .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(
@@ -2111,6 +2110,8 @@ class EngineTest
               lookupPackage,
               _ => None,
             )
+            .left
+            .map(_.message)
         } yield res
 
       run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
@@ -2210,8 +2211,8 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
       result shouldBe a[Left[_, _]]
       val Left(err) = result
-      err.msg should not include ("Boom")
-      err.msg should include("Template precondition violated")
+      err.message should not include ("Boom")
+      err.message should include("Template precondition violated")
     }
 
     "not be create if has an empty set of maintainer" in {
@@ -2242,7 +2243,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
