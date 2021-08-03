@@ -16,9 +16,9 @@ import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationLong
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 /** Writes a default ledger configuration to the ledger, after a configurable delay. The
   * configuration is only written if the ledger does not already have a configuration.
@@ -68,34 +68,32 @@ object LedgerConfigProvisioner {
   )(
       initialConfiguration: Configuration
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit = {
-    Future.fromTry(Try(submissionIdGenerator.generate())).flatMap { submissionId =>
-      withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
-        logger.info("No ledger configuration found, submitting an initial configuration.")
-        DefaultTelemetry
-          .runFutureInSpan(
-            SpanName.LedgerConfigProviderInitialConfig,
-            SpanKind.Internal,
-          ) { implicit telemetryContext =>
-            FutureConverters.toScala(
-              writeService.submitConfiguration(
-                Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
-                submissionId,
-                initialConfiguration,
-              )
+    val submissionId = submissionIdGenerator.generate()
+    withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
+      logger.info("No ledger configuration found, submitting an initial configuration.")
+      DefaultTelemetry
+        .runFutureInSpan(
+          SpanName.LedgerConfigProviderInitialConfig,
+          SpanKind.Internal,
+        ) { implicit telemetryContext =>
+          FutureConverters.toScala(
+            writeService.submitConfiguration(
+              Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
+              submissionId,
+              initialConfiguration,
             )
-          }
-          .andThen {
-            case Success(state.SubmissionResult.Acknowledged) =>
-              logger.info("Initial configuration submission was successful.")
-            case Success(result: state.SubmissionResult.SynchronousError) =>
-              withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
-                logger.warn("Initial configuration submission failed.")
-              }
-            case Failure(exception) =>
-              logger.error("Initial configuration submission failed.", exception)
-          }
-      }
+          )
+        }
+        .onComplete {
+          case Success(state.SubmissionResult.Acknowledged) =>
+            logger.info("Initial configuration submission was successful.")
+          case Success(result: state.SubmissionResult.SynchronousError) =>
+            withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
+              logger.warn("Initial configuration submission failed.")
+            }
+          case Failure(exception) =>
+            logger.error("Initial configuration submission failed.", exception)
+        }
     }
-    ()
   }
 }
