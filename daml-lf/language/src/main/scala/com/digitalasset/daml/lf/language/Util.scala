@@ -1,10 +1,12 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.language
+package com.daml.lf
+package language
 
 import com.daml.lf.data.{Decimal, ImmArray, Ref}
 import com.daml.lf.language.Ast._
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -119,6 +121,7 @@ object Util {
 
   // Returns the `pkgIds` and all its dependencies in topological order.
   // A package undefined w.r.t. the function `packages` is treated as a sink.
+  @throws[IllegalArgumentException]
   def dependenciesInTopologicalOrder(
       pkgIds: List[Ref.PackageId],
       packages: PartialFunction[Ref.PackageId, Package],
@@ -142,15 +145,15 @@ object Util {
         case Nil => graph0
       }
 
-    Graphs
-      .topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty))
-      .fold(
-        // If we get a cycle in package dependencies, there is something very wrong
-        // (i.e. we find a collision in SHA256), so we crash.
-        cycle =>
-          throw new Error(s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}"),
-        identity,
-      )
+    Graphs.topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty)) match {
+      case Right(value) =>
+        value
+      case Left(cycle) =>
+        InternalError.illegalArgumentException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}",
+        )
+    }
   }
 
   private[this] def toSignature(choice: TemplateChoice): TemplateChoiceSignature =

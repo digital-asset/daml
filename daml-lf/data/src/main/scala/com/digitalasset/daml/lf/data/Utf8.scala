@@ -73,10 +73,14 @@ object Utf8 {
   def unpack(s: String): ImmArray[Long] =
     ImmArray(s.codePoints().iterator().asScala.map(_.toLong).iterator.to(Iterable))
 
-  @throws[IllegalArgumentException]
-  def pack(codePoints: ImmArray[Long]): String = {
+  // Converts the List of Unicode code point into a String if all code point are valid.
+  // Returns the first invalid code point as Left otherwise.
+  def pack(codePoints: ImmArray[Long]): Either[Long, String] = {
     val builder = new StringBuilder()
-    for (cp <- codePoints) {
+    var illegalCodePoint = Option.empty[Long]
+    val iterator = codePoints.iterator
+    while (iterator.nonEmpty && illegalCodePoint.isEmpty) {
+      val cp = iterator.next()
       if (
         Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
         Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE
@@ -90,10 +94,11 @@ object Utf8 {
         builder += Character.highSurrogate(cp.toInt)
         builder += Character.lowSurrogate(cp.toInt)
       } else {
-        throw new IllegalArgumentException(s"invalid code point 0x${cp.toHexString}.")
+        // cp is an illegal Unicode code point
+        illegalCodePoint = Some(cp)
       }
     }
-    builder.result()
+    illegalCodePoint.toLeft(builder.result())
   }
 
 }

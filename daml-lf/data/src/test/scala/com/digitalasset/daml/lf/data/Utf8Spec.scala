@@ -139,12 +139,14 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
         cp <- (Character.MIN_CODE_POINT until Character.MIN_SURROGATE) ++
           ((Character.MAX_SURROGATE + 1) to Character.MAX_CODE_POINT)
       )
-        Utf8.pack(makeImmArray(cp.toLong)) shouldBe "-" + new String(Character.toChars(cp)) + "-"
+        Utf8.pack(makeImmArray(cp.toLong)) shouldBe Right(
+          "-" + new String(Character.toChars(cp)) + "-"
+        )
     }
 
     "reject any surrogate code point" in {
       for (cp <- Character.MIN_SURROGATE to Character.MAX_SURROGATE)
-        an[IllegalArgumentException] should be thrownBy Utf8.pack(makeImmArray(cp.toLong))
+        Utf8.pack(makeImmArray(cp.toLong)) shouldBe a[Left[_, _]]
     }
 
     "reject too small or too big code points" in {
@@ -160,25 +162,25 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
       )
 
       for (cp <- testCases)
-        an[IllegalArgumentException] should be thrownBy Utf8.pack(makeImmArray(cp))
+        Utf8.pack(makeImmArray(cp)) shouldBe a[Left[_, _]]
     }
 
     "packs properly" in {
-      Utf8.pack(ImmArray.empty) shouldBe ""
-      Utf8.pack(ImmArray(0x00061, 0x000b6, 0x02031, 0x1f602)) shouldBe "a¶‱😂"
+      Utf8.pack(ImmArray.empty) shouldBe Right("")
+      Utf8.pack(ImmArray(0x00061, 0x000b6, 0x02031, 0x1f602)) shouldBe Right("a¶‱😂")
     }
   }
 
   "unpack" should {
     "unpacks properly" in {
-      Utf8.pack(ImmArray.empty) shouldBe ""
+      Utf8.pack(ImmArray.empty) shouldBe Right("")
       Utf8.unpack("a¶‱😂") shouldBe ImmArray(0x00061, 0x000b6, 0x02031, 0x1f602)
     }
   }
 
   "pack and unpack" should {
     "form an isomorphism between strings and sequences of legal code points" in {
-      forAll(strings)(s => Utf8.pack(Utf8.unpack(s)) shouldBe s)
+      forAll(strings)(s => Utf8.pack(Utf8.unpack(s)) shouldBe Right(s))
     }
   }
 

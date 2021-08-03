@@ -35,6 +35,7 @@ da_scala_library(
         "//libs-scala/logging-entries",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

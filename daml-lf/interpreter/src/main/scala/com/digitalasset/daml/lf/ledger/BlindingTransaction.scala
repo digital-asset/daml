@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.ledger
+package com.daml.lf
+package ledger
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
@@ -9,11 +10,9 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
+import com.daml.nameof.NameOf
 
 object BlindingTransaction {
-
-  def crash(reason: String) =
-    throw new IllegalArgumentException(reason)
 
   private object BlindState {
     val Empty =
@@ -31,7 +30,10 @@ object BlindingTransaction {
         nid: NodeId,
     ): BlindState = {
       if (disclosures.contains(nid))
-        crash(s"discloseNode: nodeId already processed '$nid'.")
+        InternalError.illegalArgumentException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"discloseNode: nodeId already processed '$nid'.",
+        )
       // Each node should be visible to someone
       copy(
         disclosures = disclosures.updated(nid, witnesses)
@@ -107,8 +109,9 @@ object BlindingTransaction {
             )
           }
         case None =>
-          throw new IllegalArgumentException(
-            s"processNode - precondition violated: node $nodeId not present"
+          InternalError.illegalArgumentException(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"processNode - precondition violated: node $nodeId not present",
           )
       }
 
