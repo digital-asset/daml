@@ -21,8 +21,6 @@ class WebsocketServiceOffsetTickIntTest
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
-  override def jdbcConfig: Option[JdbcConfig] = None
-
   override def staticContentConfig: Option[StaticContentConfig] = None
 
   override def useTls: UseTls = UseTls.NoTls
@@ -32,6 +30,10 @@ class WebsocketServiceOffsetTickIntTest
     Some(Config.DefaultWsConfig.copy(heartBeatPer = 0.second))
 
   import WebsocketTestFixture._
+
+  val jdbcConfig: Option[JdbcConfig] = None
+
+  val withHttpService = super.withHttpService[Assertion](jdbcConfig)(_)
 
   "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _) =>
     for {
@@ -63,24 +65,27 @@ class WebsocketServiceOffsetTickIntTest
         }
       }
   }
-  "Given an offset to resume at, we should immediately start emitting ticks" in withHttpServiceAndClient {
-    (uri, _, _, client) =>
-      for {
-        ledgerOffset <- client.transactionClient.getLedgerEnd().map(domain.Offset.fromLedgerApi(_))
-        _ = println(ledgerOffset)
-        msgs <- singleClientQueryStream(
-          jwt,
-          uri,
-          """{"templateIds": ["Iou:Iou"]}""",
-          offset = ledgerOffset,
-        )
-          .take(10)
-          .runWith(collectResultsAsTextMessage)
-      } yield {
-        inside(eventsBlockVector(msgs.toVector)) { case \/-(offsetTicks) =>
-          offsetTicks.forall(isAbsoluteOffsetTick) shouldBe true
-          offsetTicks should have length 10
-        }
+  "Given an offset to resume at, we should immediately start emitting ticks" in withHttpServiceAndClient(
+    jdbcConfig
+  )() { (uri, _, _, client) =>
+    for {
+      ledgerOffset <- client.transactionClient
+        .getLedgerEnd()
+        .map(domain.Offset.fromLedgerApi(_))
+      _ = println(ledgerOffset)
+      msgs <- singleClientQueryStream(
+        jwt,
+        uri,
+        """{"templateIds": ["Iou:Iou"]}""",
+        offset = ledgerOffset,
+      )
+        .take(10)
+        .runWith(collectResultsAsTextMessage)
+    } yield {
+      inside(eventsBlockVector(msgs.toVector)) { case \/-(offsetTicks) =>
+        offsetTicks.forall(isAbsoluteOffsetTick) shouldBe true
+        offsetTicks should have length 10
       }
+    }
   }
 }

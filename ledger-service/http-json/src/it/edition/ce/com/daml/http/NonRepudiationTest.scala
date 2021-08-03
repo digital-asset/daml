@@ -13,19 +13,20 @@ final class NonRepudiationTest extends AbstractNonRepudiationTest {
 
   import HttpServiceTestFixture._
 
-  "fail to work through the non-repudiation proxy" in withSetup { (db, uri, encoder) =>
-    val expectedParty = "Alice"
-    val expectedNumber = "abc123"
-    val expectedCommandId = UUID.randomUUID.toString
-    val meta = Some(domain.CommandMeta(commandId = Some(domain.CommandId(expectedCommandId))))
-    val domainParty = domain.Party(expectedParty)
-    val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
-    postCreateCommand(command, encoder, uri)
-      .flatMap { case (status, _) =>
-        status shouldBe StatusCodes.InternalServerError
-        val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))
-        payloads shouldBe empty
-      }
+  "fail to work through the non-repudiation proxy" in withSetup(jdbcConfig = None) {
+    (db, uri, encoder) =>
+      val expectedParty = "Alice"
+      val expectedNumber = "abc123"
+      val expectedCommandId = UUID.randomUUID.toString
+      val meta = Some(domain.CommandMeta(commandId = Some(domain.CommandId(expectedCommandId))))
+      val domainParty = domain.Party(expectedParty)
+      val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
+      postCreateCommand(command, encoder, uri)
+        .flatMap { case (status, _) =>
+          status shouldBe StatusCodes.InternalServerError
+          val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))
+          payloads shouldBe empty
+        }
   }
 
 }

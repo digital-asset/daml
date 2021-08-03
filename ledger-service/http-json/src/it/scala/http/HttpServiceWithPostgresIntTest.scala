@@ -4,13 +4,17 @@
 package com.daml.http
 
 import cats.effect.IO
+import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
+import com.typesafe.scalalogging.StrictLogging
 import doobie.util.log
-import org.scalatest.Assertion
+import org.scalatest.{Assertion, Inside}
+import org.scalatest.freespec.AsyncFreeSpecLike
+import org.scalatest.matchers.should.Matchers
 import spray.json.{JsString, JsValue}
 import scala.collection.compat._
 
@@ -20,181 +24,241 @@ import scala.concurrent.Future
 class HttpServiceWithPostgresIntTest
     extends AbstractHttpServiceIntegrationTest
     with PostgresAroundAll
-    with HttpServicePostgresInt {
+    with AsyncFreeSpecLike
+    with Matchers
+    with Inside
+    with StrictLogging {
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 
   override def wsConfig: Option[WebsocketConfig] = None
 
-  implicit lazy val logHandler: log.LogHandler = dao.logHandler
-  implicit lazy val jdbcDriver: SupportedJdbcDriver = dao.jdbcDriver
+  override protected def testId: String = getClass.getSimpleName
 
-  "DbStartupOps" - {
-    import doobie.implicits.toSqlInterpolator, DbStartupOps.DbVersionState._, DbStartupOps._,
-    DbStartupMode._
-
-    implicit lazy val _dao: ContractDao = dao
-
-    def withFreshDb(fun: LoggingContextOf[InstanceUUID] => IO[Assertion]): Future[Assertion] =
-      dao
-        .transact(jdbcDriver.queries.dropAllTablesIfExist)
-        .flatMap(_ => fun(instanceUUIDLogCtx()))
-        .unsafeToFuture()
-
-    "fromStartupMode called with CreateIfNeededAndStart will re-initialize the cache when no schema version is available" in withFreshDb {
-      implicit lc =>
-        for {
-          res1 <- fromStartupMode(dao, CreateIfNeededAndStart)
-          _ = res1 shouldBe true
-          version <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
-              .query[Int]
-              .unique
-          )
-        } yield version shouldBe jdbcDriver.queries.schemaVersion
-    }
-
-    "getDbVersionState will return Missing when the schema version table is missing" in withFreshDb {
-      implicit lc =>
-        for {
-          res1 <- getDbVersionState
-        } yield res1 shouldBe Right(Missing)
-    }
-
-    "getDbVersionState will return Mismatch when the schema version exists but isn't equal to the current one" in withFreshDb {
-      implicit lc =>
-        val wrongVersion = -1
-        for {
-          res1 <- fromStartupMode(dao, CreateOnly)
-          _ = res1 shouldBe true
-          _ <- dao.transact(
-            sql"DELETE FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}".update.run
-          )
-          _ <- dao.transact(
-            sql"INSERT INTO ${jdbcDriver.queries.jsonApiSchemaVersionTableName}(version) VALUES($wrongVersion)".update.run
-          )
-          res2 <- getDbVersionState
-        } yield res2 shouldBe Right(Mismatch(jdbcDriver.queries.schemaVersion, wrongVersion))
-    }
-
-    "getDbVersionState will return UpToDate when the schema version exists and is equal to the current one" in withFreshDb {
-      implicit lc =>
-        for {
-          res1 <- fromStartupMode(dao, CreateOnly)
-          _ = res1 shouldBe true
-          res2 <- getDbVersionState
-        } yield res2 shouldBe Right(UpToDate)
-    }
-
-    "fromStartupMode called with StartOnly will succeed when the schema version exists and is equal to the current one" in withFreshDb {
-      implicit lc =>
-        for {
-          res1 <- fromStartupMode(dao, CreateOnly)
-          _ = res1 shouldBe true
-          res2 <- fromStartupMode(dao, StartOnly)
-          _ = res2 shouldBe true
-          versions <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
-              .query[Int]
-              .nel
-          )
-        } yield {
-          Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
-        }
-    }
-
-    "fromStartupMode called with StartOnly does not succeed when no schema version is available" in withFreshDb {
-      implicit lc =>
-        fromStartupMode(dao, StartOnly)
-          .map(res => res shouldBe false)
-    }
-
-    "fromStartupMode called with StartOnly does not succeed when the schema version exists but isn't equal to the current one" in withFreshDb {
-      implicit lc =>
-        for {
-          res1 <- fromStartupMode(dao, CreateOnly)
-          _ = res1 shouldBe true
-          _ <- dao.transact(
-            sql"DELETE FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}".update.run
-          )
-          _ <- dao.transact(
-            sql"INSERT INTO ${jdbcDriver.queries.jsonApiSchemaVersionTableName}(version) VALUES(-1)".update.run
-          )
-          res2 <- fromStartupMode(dao, StartOnly)
-        } yield res2 shouldBe false
-    }
-
-    "fromStartupMode called with CreateOnly initializes the schema correctly when the db is fresh" in withFreshDb {
-      implicit lc =>
-        for {
-          res1 <- fromStartupMode(dao, CreateOnly)
-          _ = res1 shouldBe true
-          versions <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
-              .query[Int]
-              .nel
-          )
-        } yield {
-          Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
-        }
-    }
-
-    "fromStartupMode called with CreateAndStart initializes the schema correctly when the db is fresh" in withFreshDb {
-      implicit lc =>
-        for {
-          res1 <- fromStartupMode(dao, CreateAndStart)
-          _ = res1 shouldBe true
-          versions <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
-              .query[Int]
-              .nel
-          )
-        } yield {
-          Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
-        }
-    }
-
+  final class Lazy[T](value: => T) {
+    lazy val cache = value
   }
 
-  "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
-    searchExpectOk(
-      searchDataSet,
-      jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
-      uri,
-      encoder,
-    ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
-      discard { searchResult should have size 2 }
-      discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }
-      selectAllDbContracts.flatMap { listFromDb =>
-        discard { listFromDb should have size searchDataSet.size.toLong }
-        val actualCurrencyValues: List[String] = listFromDb
-          .flatMap { case (_, _, _, payload, _, _, _) =>
-            payload.asJsObject().getFields("currency")
-          }
-          .collect { case JsString(a) => a }
-        val expectedCurrencyValues = List("EUR", "EUR", "GBP", "BTC")
-        // the initial create commands submitted asynchronously, we don't know the exact order, that is why sorted
-        actualCurrencyValues.sorted shouldBe expectedCurrencyValues.sorted
+  object Lazy {
+    import scala.language.implicitConversions
+    def apply[T](value: => T) = new Lazy(value)
+    implicit def unwrapLazy[T](_lazy: Lazy[T]): T = _lazy.cache
+  }
+
+  val prefixes = List("", "some_fancy_prefix_")
+
+  def tests(name: String)(prefix: String = "") = {
+    lazy val config = JdbcConfig(
+      driver = "org.postgresql.Driver",
+      url = postgresDatabase.url,
+      user = "test",
+      password = "",
+      dbStartupMode = DbStartupMode.CreateOnly,
+      tablePrefix = prefix,
+    )
+
+    lazy val jdbcConfig = Some(config)
+
+    lazy val dao = Lazy(dbbackend.ContractDao(config, poolSize = PoolSize.Integration))
+
+    implicit lazy val logHandler: log.LogHandler = dao.logHandler
+    implicit lazy val jdbcDriver: SupportedJdbcDriver = dao.jdbcDriver
+
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    def selectAllDbContracts: Future[
+      List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
+    ] = {
+      import doobie.implicits._, doobie.postgres.implicits._
+      import dao.cache.jdbcDriver._, queries.Implicits._
+      val q =
+        sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM ${jdbcDriver.queries.contractTableName}"""
+          .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
+
+      dao.transact(q.to[List]).unsafeToFuture()
+    }
+
+    def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =
+      a.payload.asJsObject().getFields(k) match {
+        case Seq(x) => x
+        case xs @ _ => fail(s"Expected exactly one value, got: $xs")
       }
+
+    name - {
+
+      "DbStartupOps" - {
+        import doobie.implicits.toSqlInterpolator, DbStartupOps.DbVersionState._, DbStartupOps._,
+        DbStartupMode._
+
+        implicit lazy val _dao: ContractDao = dao
+
+        // IMPORTANT: This won't drop all tables.
+        // It only drops the tables which have been created with respect to the current tablePrefix.
+        // This is intended as we want to test here,
+        // whether we get collisions in the end (e.g. because we forgot to mix in the table prefix in a query).
+        def withFreshDbForCurrentPrefix(
+            fun: LoggingContextOf[InstanceUUID] => IO[Assertion]
+        ): Future[Assertion] =
+          dao
+            .transact(jdbcDriver.queries.dropAllTablesIfExist)
+            .flatMap(_ => fun(instanceUUIDLogCtx()))
+            .unsafeToFuture()
+
+        lazy val schemaVersionTableName = jdbcDriver.queries.jsonApiSchemaVersionTableName
+
+        "fromStartupMode called with CreateIfNeededAndStart will re-initialize the cache when no schema version is available" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            for {
+              res1 <- fromStartupMode(dao, CreateIfNeededAndStart)
+              _ = res1 shouldBe true
+              version <- dao.transact(
+                sql"SELECT version FROM $schemaVersionTableName"
+                  .query[Int]
+                  .unique
+              )
+            } yield version shouldBe jdbcDriver.queries.schemaVersion
+        }
+
+        "getDbVersionState will return Missing when the schema version table is missing" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            for {
+              res1 <- getDbVersionState
+            } yield res1 shouldBe Right(Missing)
+        }
+
+        "getDbVersionState will return Mismatch when the schema version exists but isn't equal to the current one" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            val wrongVersion = -1
+            for {
+              res1 <- fromStartupMode(dao, CreateOnly)
+              _ = res1 shouldBe true
+              _ <- dao.transact(
+                sql"DELETE FROM $schemaVersionTableName".update.run
+              )
+              _ <- dao.transact(
+                sql"INSERT INTO $schemaVersionTableName(version) VALUES($wrongVersion)".update.run
+              )
+              res2 <- getDbVersionState
+            } yield res2 shouldBe Right(Mismatch(jdbcDriver.queries.schemaVersion, wrongVersion))
+        }
+
+        "getDbVersionState will return UpToDate when the schema version exists and is equal to the current one" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            for {
+              res1 <- fromStartupMode(dao, CreateOnly)
+              _ = res1 shouldBe true
+              res2 <- getDbVersionState
+            } yield res2 shouldBe Right(UpToDate)
+        }
+
+        "fromStartupMode called with StartOnly will succeed when the schema version exists and is equal to the current one" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            for {
+              res1 <- fromStartupMode(dao, CreateOnly)
+              _ = res1 shouldBe true
+              res2 <- fromStartupMode(dao, StartOnly)
+              _ = res2 shouldBe true
+              versions <- dao.transact(
+                sql"SELECT version FROM $schemaVersionTableName"
+                  .query[Int]
+                  .nel
+              )
+            } yield {
+              Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
+            }
+        }
+
+        "fromStartupMode called with StartOnly does not succeed when no schema version is available" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            fromStartupMode(dao, StartOnly)
+              .map(res => res shouldBe false)
+        }
+
+        "fromStartupMode called with StartOnly does not succeed when the schema version exists but isn't equal to the current one" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            for {
+              res1 <- fromStartupMode(dao, CreateOnly)
+              _ = res1 shouldBe true
+              _ <- dao.transact(
+                sql"DELETE FROM $schemaVersionTableName".update.run
+              )
+              _ <- dao.transact(
+                sql"INSERT INTO $schemaVersionTableName(version) VALUES(-1)".update.run
+              )
+              res2 <- fromStartupMode(dao, StartOnly)
+            } yield res2 shouldBe false
+        }
+
+        "fromStartupMode called with CreateOnly initializes the schema correctly when the db is fresh" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            for {
+              res1 <- fromStartupMode(dao, CreateOnly)
+              _ = res1 shouldBe true
+              versions <- dao.transact(
+                sql"SELECT version FROM $schemaVersionTableName"
+                  .query[Int]
+                  .nel
+              )
+            } yield {
+              Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
+            }
+        }
+
+        "fromStartupMode called with CreateAndStart initializes the schema correctly when the db is fresh" in withFreshDbForCurrentPrefix {
+          implicit lc =>
+            for {
+              res1 <- fromStartupMode(dao, CreateAndStart)
+              _ = res1 shouldBe true
+              versions <- dao.transact(
+                sql"SELECT version FROM $schemaVersionTableName"
+                  .query[Int]
+                  .nel
+              )
+            } yield {
+              Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
+            }
+        }
+      }
+
+      "query persists all active contracts" in withHttpService(Some(config)) { (uri, encoder, _) =>
+        searchExpectOk(
+          searchDataSet,
+          jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
+          uri,
+          encoder,
+        )
+          .flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
+            discard { searchResult should have size 2 }
+            discard {
+              searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR"))
+            }
+            selectAllDbContracts.flatMap { listFromDb =>
+              discard { listFromDb should have size searchDataSet.size.toLong }
+              val actualCurrencyValues: List[String] = listFromDb
+                .flatMap { case (_, _, _, payload, _, _, _) =>
+                  payload.asJsObject().getFields("currency")
+                }
+                .collect { case JsString(a) => a }
+              val expectedCurrencyValues = List("EUR", "EUR", "GBP", "BTC")
+              // the initial create commands submitted asynchronously, we don't know the exact order, that is why sorted
+              actualCurrencyValues.sorted shouldBe expectedCurrencyValues.sorted
+            }
+          }
+      }
+
+      super.httpServiceIntegrationTests(jdbcConfig)
     }
+
+    dao
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def selectAllDbContracts
-      : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
-    import doobie.implicits._, doobie.postgres.implicits._
-    import dao.jdbcDriver._, queries.Implicits._
-
-    val q =
-      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM ${jdbcDriver.queries.contractTableName}"""
-        .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
-
-    dao.transact(q.to[List]).unsafeToFuture()
-  }
-
-  private def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =
-    a.payload.asJsObject().getFields(k) match {
-      case Seq(x) => x
-      case xs @ _ => fail(s"Expected exactly one value, got: $xs")
+  val toDelete =
+    prefixes.map {
+      case "" => tests("Without table prefix")()
+      case prefix => tests("With table prefix")(prefix)
     }
+
+  override protected def afterAll(): Unit = {
+    toDelete.foreach(_.close())
+    super.afterAll()
+  }
 }

@@ -315,6 +315,7 @@ alias(
         ],
         resources = glob(["src/it/resources/**/*"]),
         scala_deps = [
+            "@maven//:com_github_scopt_scopt",
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",

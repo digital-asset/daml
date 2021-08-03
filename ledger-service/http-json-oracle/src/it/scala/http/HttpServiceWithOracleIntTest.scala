@@ -10,4 +10,9 @@ class HttpServiceWithOracleIntTest
   override def staticContentConfig: Option[StaticContentConfig] = None
 
   override def wsConfig: Option[WebsocketConfig] = None
+
+  "Without table prefix" - httpServiceIntegrationTests(this.jdbcConfig)
+  "With table prefix" - httpServiceIntegrationTests(
+    this.jdbcConfig.map(_.copy(tablePrefix = "some_fancy_prefix_"))
+  )
 }

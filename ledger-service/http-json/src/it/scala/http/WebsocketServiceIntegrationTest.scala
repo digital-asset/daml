@@ -4,9 +4,16 @@
 package com.daml.http
 
 final class WebsocketServiceIntegrationTest extends AbstractWebsocketServiceIntegrationTest {
-  override def jdbcConfig = None
+  override protected def testId: String = getClass.getSimpleName
+  websocketServiceIntegrationTests(jdbcConfig = None)
 }
 
 final class WebsocketServiceWithPostgresIntTest
     extends AbstractWebsocketServiceIntegrationTest
-    with HttpServicePostgresInt
+    with HttpServicePostgresInt {
+  override protected def testId: String = getClass.getSimpleName
+  "Without table prefix" - websocketServiceIntegrationTests(this.jdbcConfig)
+  "With table prefix" - websocketServiceIntegrationTests(
+    Some(this.jdbcConfig_.copy(tablePrefix = "some_fancy_prefix_"))
+  )
+}

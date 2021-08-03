@@ -63,8 +63,6 @@ abstract class AbstractNonRepudiationTest
     nonRepudiation.privateKeyFile.foreach(Files.delete)
   }
 
-  override val jdbcConfig: Option[JdbcConfig] = None
-
   override val staticContentConfig: Option[StaticContentConfig] = None
 
   override val useTls: UseTls = UseTls.NoTls
@@ -86,7 +84,7 @@ abstract class AbstractNonRepudiationTest
   private def withParticipant[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) _
 
-  private def withJsonApi[A](participantPort: Port) =
+  private def withJsonApi[A](jdbcConfig: => Option[JdbcConfig])(participantPort: Port) =
     HttpServiceTestFixture.withHttpService[A](
       testName = testId,
       ledgerPort = participantPort,
@@ -98,7 +96,9 @@ abstract class AbstractNonRepudiationTest
       nonRepudiation = nonRepudiation,
     ) _
 
-  protected def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
+  protected def withSetup[A](jdbcConfig: => Option[JdbcConfig])(
+      test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]
+  ) =
     withParticipant { case (participantPort, _: DamlLedgerClient) =>
       val participantChannelBuilder =
         NettyChannelBuilder
@@ -136,8 +136,9 @@ abstract class AbstractNonRepudiationTest
         } yield (proxy, db)
 
       setup.use { case (_: Server, db: Tables) =>
-        withJsonApi(proxyPort) { (uri, encoder, _: DomainJsonDecoder, _: DamlLedgerClient) =>
-          test(db, uri, encoder)
+        withJsonApi(jdbcConfig)(proxyPort) {
+          (uri, encoder, _: DomainJsonDecoder, _: DamlLedgerClient) =>
+            test(db, uri, encoder)
         }
       }
 

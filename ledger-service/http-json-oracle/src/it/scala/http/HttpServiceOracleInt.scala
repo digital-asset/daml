@@ -11,14 +11,13 @@ import org.scalatest.matchers.should.Matchers
 
 trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with OracleAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
-
-  override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
-
-  protected[this] def jdbcConfig_ = JdbcConfig(
+  protected[this] lazy val jdbcConfig_ = JdbcConfig(
     driver = "oracle.jdbc.OracleDriver",
     url = oracleJdbcUrl,
     user = oracleUser,
     password = oraclePwd,
     dbStartupMode = DbStartupMode.CreateOnly,
   )
+
+  protected[this] lazy val jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 }

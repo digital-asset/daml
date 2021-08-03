@@ -25,9 +25,9 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
   override def staticContentConfig: Option[StaticContentConfig] =
     Some(StaticContentConfig(prefix = staticContent, directory = staticContentDir))
 
-  override def jdbcConfig: Option[JdbcConfig] = None
-
   override def wsConfig: Option[WebsocketConfig] = None
+
+  val jdbcConfig: Option[JdbcConfig] = None
 
   private val expectedDummyContent: String = Gen
     .listOfN(100, Gen.identifier)
@@ -46,21 +46,22 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
     super.afterAll()
   }
 
-  "should serve static content from configured directory" in withHttpService { (uri: Uri, _, _) =>
-    Http()
-      .singleRequest(
-        HttpRequest(
-          method = HttpMethods.GET,
-          uri = uri.withPath(Uri.Path(s"/$staticContent/${dummyFile.getName}")),
+  "should serve static content from configured directory" in withHttpService(jdbcConfig) {
+    (uri: Uri, _, _) =>
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.GET,
+            uri = uri.withPath(Uri.Path(s"/$staticContent/${dummyFile.getName}")),
+          )
         )
-      )
-      .flatMap { resp =>
-        discard { resp.status shouldBe StatusCodes.OK }
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = false)
-        bodyF.flatMap { body =>
-          body shouldBe expectedDummyContent
-        }
-      }: Future[Assertion]
+        .flatMap { resp =>
+          discard { resp.status shouldBe StatusCodes.OK }
+          val bodyF: Future[String] = getResponseDataBytes(resp, debug = false)
+          bodyF.flatMap { body =>
+            body shouldBe expectedDummyContent
+          }
+        }: Future[Assertion]
   }
 
   "Forwarded" - {
@@ -75,4 +76,5 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
       )
     }
   }
+  httpServiceIntegrationTests(jdbcConfig)
 }

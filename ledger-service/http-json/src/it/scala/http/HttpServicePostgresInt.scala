@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Inside
 import org.scalatest.AsyncTestSuite
@@ -12,13 +11,8 @@ import org.scalatest.matchers.should.Matchers
 trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with PostgresAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
 
-  override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
-
-  // has to be lazy because jdbcConfig_ is NOT initialized yet
-  protected lazy val dao = dbbackend.ContractDao(jdbcConfig_, poolSize = PoolSize.Integration)
-
   // has to be lazy because postgresFixture is NOT initialized yet
-  protected[this] def jdbcConfig_ = JdbcConfig(
+  protected[this] lazy val jdbcConfig_ = JdbcConfig(
     driver = "org.postgresql.Driver",
     url = postgresDatabase.url,
     user = "test",
@@ -26,8 +20,5 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
     dbStartupMode = DbStartupMode.CreateOnly,
   )
 
-  override protected def afterAll(): Unit = {
-    dao.close()
-    super.afterAll()
-  }
+  protected[this] lazy val jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 }

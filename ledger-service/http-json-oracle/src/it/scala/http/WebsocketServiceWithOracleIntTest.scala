@@ -5,4 +5,9 @@ package com.daml.http
 
 final class WebsocketServiceWithOracleIntTest
     extends AbstractWebsocketServiceIntegrationTest
-    with HttpServiceOracleInt
+    with HttpServiceOracleInt {
+  "Without table prefix" - websocketServiceIntegrationTests(this.jdbcConfig)
+  "With table prefix" - websocketServiceIntegrationTests(
+    Some(this.jdbcConfig_.copy(tablePrefix = "some_fancy_prefix_"))
+  )
+}
