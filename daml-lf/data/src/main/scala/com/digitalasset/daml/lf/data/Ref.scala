@@ -34,12 +34,32 @@ object Ref {
   type PackageId = IdString.PackageId
   val PackageId: IdString.PackageId.type = IdString.PackageId
 
-  /** Identifiers for a contractIds */
+  /** Identifiers for contract IDs. */
   type ContractIdString = IdString.ContractIdString
   val ContractIdString: IdString.ContractIdString.type = IdString.ContractIdString
 
   type LedgerString = IdString.LedgerString
   val LedgerString: IdString.LedgerString.type = IdString.LedgerString
+
+  /** Identifiers for submitting client applications. */
+  type ApplicationId = LedgerString
+  val ApplicationId: LedgerString.type = LedgerString
+
+  /** Identifiers used to correlate a command submission with its result. */
+  type CommandId = LedgerString
+  val CommandId: LedgerString.type = LedgerString
+
+  /** Identifiers used to correlate a submission with its result. */
+  type SubmissionId = LedgerString
+  val SubmissionId: LedgerString.type = LedgerString
+
+  /** Uniquely identifies a transaction. */
+  type TransactionId = LedgerString
+  val TransactionId: LedgerString.type = LedgerString
+
+  /** Identifiers used for correlating a submission with a workflow. */
+  type WorkflowId = LedgerString
+  val WorkflowId: LedgerString.type = LedgerString
 
   type ParticipantId = IdString.ParticipantId
   val ParticipantId: IdString.ParticipantId.type = IdString.ParticipantId
@@ -106,6 +126,8 @@ object Ref {
   }
 
   object DottedName {
+    val maxLength = 1000
+
     def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
         Left(s"Expected a non-empty string")
@@ -135,7 +157,15 @@ object Ref {
       assertRight(fromSegments(s))
 
     def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
-      Either.cond(names.nonEmpty, new DottedName(names), "No segments provided")
+      if (names.isEmpty)
+        Left("No segments provided")
+      else {
+        val length = names.foldLeft(-1)(_ + _.length + 1)
+        if (length > maxLength)
+          Left(s"""DottedName is too long (max: $maxLength)""")
+        else
+          Right(new DottedName(names))
+      }
 
     @throws[IllegalArgumentException]
     def assertFromNames(names: ImmArray[Name]): DottedName =

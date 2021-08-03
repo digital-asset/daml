@@ -5,7 +5,7 @@ package com.daml.scalautil.nonempty
 
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, Traverse}
+import scalaz.{Foldable, OneAnd, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import NonEmptyCollCompat._
@@ -118,6 +118,15 @@ object NonEmptyColl extends NonEmptyCollInstances {
   // importing the appropriate Scalaz instances and using `.toF.map` if you need
   // it; we can add collection-like `map` later if it seems to be really
   // important.
+
+  implicit final class `Seq Ops`[A, CC[_], C](
+      private val self: NonEmpty[SeqOps[A, CC, C with CC[A]]]
+  ) extends AnyVal {
+    def toOneAnd: OneAnd[CC, A] = {
+      val h +-: t = self
+      OneAnd(h, t)
+    }
+  }
 
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)

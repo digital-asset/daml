@@ -33,5 +33,4 @@ mkRequest lid tf verbosity = GetActiveContractsRequest
     { getActiveContractsRequestLedgerId = unLedgerId lid
     , getActiveContractsRequestFilter = Just tf
     , getActiveContractsRequestVerbose = unVerbosity verbosity
-    , getActiveContractsRequestTraceContext = noTrace
     }

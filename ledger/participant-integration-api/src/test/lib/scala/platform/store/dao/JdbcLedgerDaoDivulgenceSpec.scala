@@ -31,7 +31,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           templateId = someTemplateId,
           arg = someContractArgument,
           agreementText = someAgreement,
-          optLocation = None,
           signatories = Set(alice),
           stakeholders = Set(alice),
           key = None,
@@ -49,7 +48,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           someTemplateId,
           someContractArgument,
           someAgreement,
-          optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
@@ -67,7 +65,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           targetCoid = create1,
           templateId = someTemplateId,
           choiceId = someChoiceName,
-          optLocation = None,
           consuming = true,
           actingParties = Set(bob),
           chosenValue = someChoiceArgument,
@@ -87,7 +84,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeFetch(
           coid = create2,
           templateId = someTemplateId,
-          optLocation = None,
           actingParties = Set(bob),
           signatories = Set(bob),
           stakeholders = Set(bob),
@@ -104,7 +100,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           targetCoid = create2,
           templateId = someTemplateId,
           choiceId = someChoiceName,
-          optLocation = None,
           consuming = true,
           actingParties = Set(bob),
           chosenValue = someChoiceArgument,
@@ -127,7 +122,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           someTemplateId,
           someContractArgument,
           someAgreement,
-          optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(alice, bob),
           key = Some(
@@ -153,13 +147,14 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     val t1 = Instant.now()
     val t2 = t1.plusMillis(1)
     val t3 = t2.plusMillis(1)
-    val appId = UUID.randomUUID.toString
+    val appId = UUID.randomUUID().toString
     for {
       _ <- store(
         nextOffset() -> LedgerEntry.Transaction(
-          commandId = Some(UUID.randomUUID.toString),
-          transactionId = UUID.randomUUID.toString,
+          commandId = Some(UUID.randomUUID().toString),
+          transactionId = UUID.randomUUID().toString,
           applicationId = Some(appId),
+          submissionId = Some(UUID.randomUUID().toString),
           actAs = List(alice),
           workflowId = None,
           ledgerEffectiveTime = t1,
@@ -170,9 +165,10 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       )
       _ <- store(
         nextOffset() -> LedgerEntry.Transaction(
-          commandId = Some(UUID.randomUUID.toString),
-          transactionId = UUID.randomUUID.toString,
+          commandId = Some(UUID.randomUUID().toString),
+          transactionId = UUID.randomUUID().toString,
           applicationId = Some(appId),
+          submissionId = Some(UUID.randomUUID().toString),
           actAs = List(bob),
           workflowId = None,
           ledgerEffectiveTime = t2,
@@ -185,9 +181,10 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         divulgedContracts = Map((create2, someVersionedContractInstance) -> Set(alice)),
         blindingInfo = None,
         offsetAndTx = nextOffset() -> LedgerEntry.Transaction(
-          commandId = Some(UUID.randomUUID.toString),
-          transactionId = UUID.randomUUID.toString,
+          commandId = Some(UUID.randomUUID().toString),
+          transactionId = UUID.randomUUID().toString,
           applicationId = Some(appId),
+          submissionId = Some(UUID.randomUUID().toString),
           actAs = List(bob),
           workflowId = None,
           ledgerEffectiveTime = t3,

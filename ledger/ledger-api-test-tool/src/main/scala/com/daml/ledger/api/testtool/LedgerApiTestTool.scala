@@ -209,6 +209,7 @@ object LedgerApiTestTool {
         new LedgerTestCasesRunner(
           testCases = cases,
           participants = participants,
+          maxConnectionAttempts = config.maxConnectionAttempts,
           partyAllocation = config.partyAllocation,
           shuffleParticipants = config.shuffleParticipants,
           timeoutScaleFactor = config.timeoutScaleFactor,

@@ -62,8 +62,9 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "stable",
-        # FIXME: enable the following line once canton-test-runner supports LF 1.14
+        "no-exceptions",
+        # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
+        # "default",
         # "latest",
     ],
     ports = [
@@ -83,7 +84,8 @@ conformance_test(
         ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
         ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
         # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
-        ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey",
+        ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
+        ",DeeplyNestedValueIT",
     ],
 ) if not is_windows else None
 
@@ -103,9 +105,10 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "stable",
-        # FIXME: enable the following line once canton-test-runner supports LF 1.14
-        # "latest",
+        "no-exceptions",
+        # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
+        #  "default",
+        #  "latest",
     ],
     ports = [
         5011,
@@ -139,7 +142,7 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "stable",
+        "default",
         "latest",
     ],
     ports = [

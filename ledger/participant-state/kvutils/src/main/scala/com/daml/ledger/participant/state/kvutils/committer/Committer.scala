@@ -12,13 +12,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlOutOfTimeBoundsEntry,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils._
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.lf.data.Time
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -84,7 +83,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   def run(
       recordTime: Option[Time.Timestamp],
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
@@ -95,7 +94,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   def runWithPreExecution(
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): PreExecutionResult =
     preExecutionRunTimer.time { () =>

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
-import com.daml.ledger.participant.state.kvutils.committer.transaction.{Step, Rejections}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{Rejections, Step}
 
 private[transaction] trait TransactionValidator {
   def createValidationStep(rejections: Rejections): Step

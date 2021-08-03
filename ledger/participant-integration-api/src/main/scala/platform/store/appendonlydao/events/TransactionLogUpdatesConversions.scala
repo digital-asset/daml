@@ -61,7 +61,6 @@ private[events] object TransactionLogUpdatesConversions {
                     effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
                     events = flatEvents,
                     offset = ApiOffset.toApiString(tx.offset),
-                    traceContext = None,
                   )
                 )
               } else None
@@ -248,7 +247,6 @@ private[events] object TransactionLogUpdatesConversions {
                 offset = ApiOffset.toApiString(tx.offset),
                 eventsById = eventsById,
                 rootEventIds = rootEventIds,
-                traceContext = None,
               )
             )
           }

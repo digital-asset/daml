@@ -52,7 +52,7 @@ da_scala_binary(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
-    deps = [":ledger-api-test-tool-stable"],
+    deps = [":ledger-api-test-tool-default"],
 )
 
 [
@@ -88,7 +88,6 @@ da_scala_binary(
             deps = [
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
-                "//ledger/ledger-api-common",
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
@@ -146,7 +145,6 @@ da_scala_binary(
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-test-suites" % lf_version,
-                "//ledger/ledger-api-common",
             ],
         ),
         da_scala_binary(

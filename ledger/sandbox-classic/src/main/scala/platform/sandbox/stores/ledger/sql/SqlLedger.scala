@@ -19,12 +19,11 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher}
-import com.daml.lf.transaction.TransactionCommitter
+import com.daml.lf.transaction.{SubmittedTransaction, TransactionCommitter}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
@@ -38,13 +37,15 @@ import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
-import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
+import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
+import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.Status
 import scalaz.Tag
 
 import scala.collection.immutable.Queue
@@ -257,8 +258,7 @@ private[sandbox] object SqlLedger {
           lfValueTranslationCache = lfValueTranslationCache,
           validatePartyAllocation = validatePartyAllocation,
           enricher = Some(new ValueEnricher(engine)),
-          participantId = com.daml.ledger.participant.state.v1.ParticipantId
-            .assertFromString(participantId.toString),
+          participantId = Ref.ParticipantId.assertFromString(participantId.toString),
           compressionStrategy =
             if (enableCompression) CompressionStrategy.allGZIP(metrics)
             else CompressionStrategy.none(metrics),
@@ -392,24 +392,19 @@ private final class SqlLedger(
   private def checkTimeModel(
       ledgerTime: Instant,
       recordTime: Instant,
-  ): Either[RejectionReasonV0, Unit] = {
+  ): Either[Rejection, Unit] =
     currentConfiguration
       .get()
-      .fold[Either[RejectionReasonV0, Unit]](
-        Left(
-          RejectionReasonV0
-            .InvalidLedgerTime("No ledger configuration available, cannot validate ledger time")
-        )
-      )(
-        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReasonV0.InvalidLedgerTime)
+      .toRight(Rejection.NoLedgerConfiguration)
+      .flatMap(
+        _.timeModel.checkTime(ledgerTime, recordTime).left.map(Rejection.InvalidLedgerTime)
       )
-  }
 
   override def publishTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
+      submitterInfo: state.SubmitterInfo,
+      transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     enqueue { offset =>
       val transactionId = offset.toApiString
 
@@ -420,10 +415,10 @@ private final class SqlLedger(
         .fold(
           reason =>
             ledgerDao.storeRejection(
-              Some(submitterInfo),
-              recordTime,
-              CurrentOffset(offset),
-              reason,
+              completionInfo = Some(submitterInfo.toCompletionInfo),
+              recordTime = recordTime,
+              offsetStep = CurrentOffset(offset),
+              reason = reason.toStateV2RejectionReason,
             ),
           _ => {
             val divulgedContracts = Nil
@@ -432,7 +427,7 @@ private final class SqlLedger(
             val blindingInfo = None
 
             ledgerDao.storeTransaction(
-              submitterInfo = Some(submitterInfo),
+              completionInfo = Some(submitterInfo.toCompletionInfo),
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -452,14 +447,22 @@ private final class SqlLedger(
 
     }
 
-  private def enqueue(persist: Offset => Future[Unit]): Future[SubmissionResult] =
+  private def enqueue(persist: Offset => Future[Unit]): Future[state.SubmissionResult] =
     persistenceQueue
       .offer(persist)
       .transform {
         case Success(Enqueued) =>
-          Success(SubmissionResult.Acknowledged)
+          Success(state.SubmissionResult.Acknowledged)
         case Success(Dropped) =>
-          Success(SubmissionResult.Overloaded)
+          Success(
+            state.SubmissionResult.SynchronousError(
+              RpcStatus.of(
+                Status.Code.RESOURCE_EXHAUSTED.value(),
+                "System is overloaded, please try again later",
+                Seq.empty,
+              )
+            )
+          )
         case Success(QueueClosed) =>
           Failure(new IllegalStateException("queue closed"))
         case Success(QueueOfferResult.Failure(e)) => Failure(e)
@@ -467,10 +470,10 @@ private final class SqlLedger(
       }(DEC)
 
   override def publishPartyAllocation(
-      submissionId: SubmissionId,
-      party: Party,
+      submissionId: Ref.SubmissionId,
+      party: Ref.Party,
       displayName: Option[String],
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
     enqueue { offset =>
       ledgerDao
         .storePartyEntry(
@@ -491,11 +494,11 @@ private final class SqlLedger(
   }
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription))
     )
@@ -519,7 +522,7 @@ private final class SqlLedger(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     enqueue { offset =>
       val recordTime = timeProvider.getCurrentTime
       val mrt = maxRecordTime.toInstant

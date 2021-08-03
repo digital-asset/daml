@@ -18,7 +18,7 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
+import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -249,7 +249,7 @@ final class SandboxServer(
           .left
           // TODO https://github.com/digital-asset/daml/issues/9974
           //  Review how the error is displayed once LF errors are properly structured
-          .foreach(err => sys.error(err.msg))
+          .foreach(err => sys.error(err.message))
       }
     }
     config.scenario match {

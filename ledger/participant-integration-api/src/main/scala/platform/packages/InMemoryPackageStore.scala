@@ -97,7 +97,7 @@ private[platform] case class InMemoryPackageStore(
     archives
       .traverse(proto =>
         try {
-          Right((proto, archive.Decode.decodeArchive(proto)._2))
+          Right((proto, archive.Decode.assertDecodeArchive(proto)._2))
         } catch {
           case err: archive.Error => Left(s"Could not parse archive ${proto.getHash}: $err")
         }

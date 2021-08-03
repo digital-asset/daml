@@ -12,16 +12,13 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
-import com.daml.ledger.participant.state.v1.{
-  PruningResult,
-  SubmissionId,
-  WriteParticipantPruningService,
-}
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.services.logging
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -31,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
-    writeBackend: WriteParticipantPruningService,
+    writeBackend: state.WriteParticipantPruningService,
 )(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
     with GrpcApiService {
@@ -42,7 +39,7 @@ final class ApiParticipantPruningService private (
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
 
   override def prune(request: PruneRequest): Future[PruneResponse] = {
-    val submissionIdOrErr = SubmissionId
+    val submissionIdOrErr = Ref.SubmissionId
       .fromString(
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
@@ -83,17 +80,18 @@ final class ApiParticipantPruningService private (
       )
   }
 
-  private def pruneWriteService(pruneUpTo: Offset, submissionId: SubmissionId)(implicit
+  private def pruneWriteService(pruneUpTo: Offset, submissionId: Ref.SubmissionId)(implicit
       logCtx: LoggingContext
   ): Future[Unit] = {
+    import state.PruningResult._
     logger.info(
       s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service"
     )
     FutureConverters
       .toScala(writeBackend.prune(pruneUpTo, submissionId))
       .flatMap {
-        case PruningResult.NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
-        case PruningResult.ParticipantPruned =>
+        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
       }
@@ -113,7 +111,7 @@ final class ApiParticipantPruningService private (
 
   private def checkOffsetIsSpecified(offset: String): Either[StatusRuntimeException, String] =
     Either.cond(
-      !offset.isEmpty,
+      offset.nonEmpty,
       offset,
       ErrorFactories.invalidArgument("prune_up_to not specified"),
     )
@@ -127,13 +125,14 @@ final class ApiParticipantPruningService private (
       .left
       .map(t =>
         ErrorFactories.invalidArgument(
-          s"prune_up_to needs to be a hexadecimal string and not ${pruneUpToString}: ${t.getMessage}"
+          s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}"
         )
       )
 
-  private def checkOffsetIsBeforeLedgerEnd(pruneUpToProto: Offset, pruneUpToString: String)(implicit
-      logCtx: LoggingContext
-  ): Future[Offset] =
+  private def checkOffsetIsBeforeLedgerEnd(
+      pruneUpToProto: Offset,
+      pruneUpToString: String,
+  )(implicit logCtx: LoggingContext): Future[Offset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
@@ -153,7 +152,7 @@ final class ApiParticipantPruningService private (
 object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
-      writeBackend: WriteParticipantPruningService,
+      writeBackend: state.WriteParticipantPruningService,
   )(implicit
       executionContext: ExecutionContext,
       logCtx: LoggingContext,

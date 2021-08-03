@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.messages.transaction
 
-import brave.propagation.TraceContext
 import com.daml.ledger.api.domain.LedgerId
 
-final case class GetLedgerEndRequest(ledgerId: LedgerId, traceContext: Option[TraceContext])
+final case class GetLedgerEndRequest(ledgerId: LedgerId)

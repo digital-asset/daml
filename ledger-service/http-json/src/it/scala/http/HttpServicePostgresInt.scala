@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Inside
 import org.scalatest.AsyncTestSuite
@@ -13,12 +14,20 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
+  // has to be lazy because jdbcConfig_ is NOT initialized yet
+  protected lazy val dao = dbbackend.ContractDao(jdbcConfig_, poolSize = PoolSize.Integration)
+
   // has to be lazy because postgresFixture is NOT initialized yet
-  protected[this] lazy val jdbcConfig_ = JdbcConfig(
+  protected[this] def jdbcConfig_ = JdbcConfig(
     driver = "org.postgresql.Driver",
     url = postgresDatabase.url,
     user = "test",
     password = "",
-    createSchema = true,
+    dbStartupMode = DbStartupMode.CreateOnly,
   )
+
+  override protected def afterAll(): Unit = {
+    dao.close()
+    super.afterAll()
+  }
 }

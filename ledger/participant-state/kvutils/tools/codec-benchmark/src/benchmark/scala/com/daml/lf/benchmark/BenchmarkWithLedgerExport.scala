@@ -6,8 +6,8 @@ package com.daml.lf.benchmark
 import java.nio.file.{Files, Paths}
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.`export`.ProtobufBasedLedgerDataImporter
+import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.archive.Decode
 import org.openjdk.jmh.annotations.{Param, Scope, Setup, State}
@@ -42,7 +42,7 @@ abstract class BenchmarkWithLedgerExport {
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
           for (archive <- submission.getPackageUploadEntry.getArchivesList.asScala) {
-            builder += Decode.decodeArchive(archive)
+            builder += Decode.assertDecodeArchive(archive)
           }
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>

@@ -114,11 +114,11 @@ private[lf] object Speedy {
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
-      var committers: Set[Party],
+      val committers: Set[Party],
       /* Additional readers (besides committers) for visibility checks. */
-      var readAs: Set[Party],
+      val readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
-      var commitLocation: Option[Location],
+      val commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
       // global contract discriminators, that are discriminators from contract created in previous transactions
@@ -190,10 +190,10 @@ private[lf] object Speedy {
     @inline
     private[speedy] def kontDepth(): Int = kontStack.size()
 
-    private[lf] def withOnLedger[T](where: String)(f: OnLedger => T): T =
+    private[lf] def withOnLedger[T](location: String)(f: OnLedger => T): T =
       ledgerMode match {
         case onLedger: OnLedger => f(onLedger)
-        case OffLedger => throw SErrorCrash(where, "unexpected off-ledger machine")
+        case OffLedger => throw SErrorCrash(location, "unexpected off-ledger machine")
       }
 
     @inline
@@ -467,6 +467,7 @@ private[lf] object Speedy {
                 throw SpeedyHungry(
                   SResultNeedPackage(
                     ref.packageId,
+                    language.Reference.Package(ref.packageId),
                     { packages =>
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
@@ -752,7 +753,11 @@ private[lf] object Speedy {
         case SVisibleToStakeholders.Visible => ()
         case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
           this.warningLog.add(
-            s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning"
+            Warning(
+              commitLocation = onLedger.commitLocation,
+              message =
+                s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning",
+            )
           )
       }
     }
@@ -778,6 +783,7 @@ private[lf] object Speedy {
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+        commitLocation: Option[Location] = None,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.interface.packageLanguageVersion.andThen(
@@ -798,7 +804,7 @@ private[lf] object Speedy {
             .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
           committers = committers,
           readAs = readAs,
-          commitLocation = None,
+          commitLocation = commitLocation,
           dependsOnTime = false,
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
             discriminator

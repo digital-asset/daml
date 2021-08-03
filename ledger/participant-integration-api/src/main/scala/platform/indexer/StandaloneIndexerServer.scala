@@ -5,7 +5,7 @@ package com.daml.platform.indexer
 
 import akka.stream.Materializer
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.daml.ledger.participant.state.v1.ReadService
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -15,7 +15,7 @@ import com.daml.platform.store.LfValueTranslationCache
 import scala.concurrent.ExecutionContext
 
 final class StandaloneIndexerServer(
-    readService: ReadService,
+    readService: state.ReadService,
     config: IndexerConfig,
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
@@ -68,6 +68,13 @@ final class StandaloneIndexerServer(
           .map { healthReporter =>
             logger.debug("Waiting for the indexer to initialize the database.")
             healthReporter
+          }
+      case IndexerStartupMode.ValidateAndWaitOnly =>
+        Resource
+          .fromFuture(indexerFactory.validateAndWaitOnly())
+          .map[ReportsHealth] { _ =>
+            logger.debug("Waiting for the indexer to validate the schema migrations.")
+            () => HealthStatus.healthy
           }
     }
   }

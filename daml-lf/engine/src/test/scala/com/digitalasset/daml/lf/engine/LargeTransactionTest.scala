@@ -49,6 +49,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
           effectiveAt = effectiveAt,
           optLocation = None,
           tx = tx,
+          locationInfo = Map.empty,
           l = ledger,
         )
         .fold(

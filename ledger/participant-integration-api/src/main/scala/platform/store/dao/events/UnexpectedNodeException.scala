@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.dao.events
 
-import com.daml.ledger.TransactionId
-
 final class UnexpectedNodeException(val nodeId: NodeId, val transactionId: TransactionId)
     extends Throwable {
   override def getMessage: String =

@@ -32,7 +32,8 @@ object Dependencies {
         case p :: todo =>
           client.packageClient.getPackage(p).flatMap { pkgResp =>
             val pkgId = PackageId.assertFromString(pkgResp.hash)
-            val pkg = archive.archivePayloadDecoder(pkgId).fromByteString(pkgResp.archivePayload)
+            val pkg =
+              archive.archivePayloadDecoder(pkgId).assertFromByteString(pkgResp.archivePayload)._2
             go(todo ++ pkg.directDeps, acc + (pkgId -> ((pkgResp.archivePayload, pkg))))
           }
       }

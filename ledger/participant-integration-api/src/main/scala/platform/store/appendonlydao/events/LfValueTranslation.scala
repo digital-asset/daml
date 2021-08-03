@@ -5,7 +5,6 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.io.InputStream
 
-import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.{
   Identifier => ApiIdentifier,
@@ -13,8 +12,9 @@ import com.daml.ledger.api.v1.value.{
   Value => ApiValue,
 }
 import com.daml.lf.engine.ValueEnricher
-import com.daml.lf.{engine => LfEngine}
+import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.{engine => LfEngine}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.packages.DeduplicatingPackageLoader
@@ -179,7 +179,7 @@ final class LfValueTranslation(
   ): Future[V] = {
     result match {
       case LfEngine.ResultDone(r) => Future.successful(r)
-      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.msg))
+      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
       case LfEngine.ResultNeedPackage(packageId, resume) =>
         packageLoader
           .loadPackage(

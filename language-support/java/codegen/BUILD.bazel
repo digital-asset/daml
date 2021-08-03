@@ -387,7 +387,7 @@ java_test(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    target = lf_version_configuration.get("stable"),
+    target = lf_version_configuration.get("default"),
 )
 
 dar_to_java(
@@ -423,7 +423,6 @@ da_scala_test(
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/ports",

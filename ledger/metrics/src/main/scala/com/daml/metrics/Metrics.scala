@@ -84,6 +84,14 @@ final class Metrics(val registry: MetricRegistry) {
 
         val dispatcherLag: Timer = registry.timer(Prefix :+ "dispatcher_lag")
 
+        val resolveDivulgenceLookup: Counter =
+          registry.counter(Prefix :+ "resolve_divulgence_lookup")
+
+        val resolveFullLookup: Counter =
+          registry.counter(Prefix :+ "resolve_full_lookup")
+
+        val readThroughNotFound: Counter = registry.counter(Prefix :+ "read_through_not_found")
+
         val indexSequentialId = new VarGauge[Long](0L)
         registry.register(
           Prefix :+ "index_sequential_id",
@@ -728,7 +736,7 @@ final class Metrics(val registry: MetricRegistry) {
       val getPartyTimer: Timer = registry.timer(Prefix :+ "get_party_timing")
       // Meters how long processing of a party management request takes
       val allocatePartyTimer: Timer = registry.timer(Prefix :+ "allocate_party_timing")
-      // Meters how long processing of a package management request takes
+      // Meters how long processing of a package download request takes
       val downloadPackageTimer: Timer = registry.timer(Prefix :+ "download_package_timing")
       // Meters how long processing of a package upload request takes
       val uploadPackageTimer: Timer = registry.timer(Prefix :+ "upload_package_timing")

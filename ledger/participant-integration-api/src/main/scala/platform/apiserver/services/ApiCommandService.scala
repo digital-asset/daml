@@ -10,6 +10,7 @@ import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -31,6 +32,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.configuration.CurrentLedgerConfiguration
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.daml.platform.server.api.ApiException
@@ -49,7 +51,7 @@ import scala.util.Try
 private[apiserver] final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
-    ledgerConfigProvider: LedgerConfigProvider,
+    currentLedgerConfiguration: CurrentLedgerConfiguration,
     metrics: Metrics,
 )(implicit
     materializer: Materializer,
@@ -85,7 +87,7 @@ private[apiserver] final class ApiCommandService private (
       logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
+        currentLedgerConfiguration.latestConfiguration.fold[Future[Completion]](
           Future.failed(ErrorFactories.missingLedgerConfig())
         )(ledgerConfig => track(request, ledgerConfig))
       } else {
@@ -195,7 +197,7 @@ private[apiserver] object ApiCommandService {
       configuration: Configuration,
       services: LocalServices,
       timeProvider: TimeProvider,
-      ledgerConfigProvider: LedgerConfigProvider,
+      currentLedgerConfiguration: CurrentLedgerConfiguration,
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
@@ -203,12 +205,13 @@ private[apiserver] object ApiCommandService {
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
-      new ApiCommandService(services, configuration, ledgerConfigProvider, metrics),
+      new ApiCommandService(services, configuration, currentLedgerConfiguration, metrics),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
-        ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
+        currentLedgerConfiguration.latestConfiguration.map(_.maxDeduplicationTime),
+      generateSubmissionId = SubmissionIdGenerator.Random,
     )
 
   final case class Configuration(

@@ -11,11 +11,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
 import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
+  Rejection,
   Rejections,
   Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 
@@ -39,10 +39,10 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
             timeModel
               .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
               .fold(
-                reason =>
-                  rejections.buildRejectionStep(
+                outOfRange =>
+                  rejections.reject(
                     transactionEntry,
-                    RejectionReasonV0.InvalidLedgerTime(reason),
+                    Rejection.LedgerTimeOutOfRange(outOfRange),
                     commitContext.recordTime,
                   ),
                 _ => StepContinue(transactionEntry),
@@ -66,11 +66,10 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
             commitContext.maximumRecordTime = Some(maximumRecordTime)
             val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
               .setTransactionRejectionEntry(
-                rejections.buildRejectionEntry(
+                rejections.preExecutionOutOfTimeBoundsRejectionEntry(
                   transactionEntry,
-                  RejectionReasonV0.InvalidLedgerTime(
-                    s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
-                  ),
+                  minimumRecordTime,
+                  maximumRecordTime,
                 )
               )
               .build

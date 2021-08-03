@@ -3,8 +3,8 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.ledger.EventId
 import com.daml.ledger.offset.Offset
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.ApiOffset
@@ -24,8 +24,8 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
   it should "allow idempotent transaction insertions" in {
     val key = "some-key"
     val create @ (offset, tx) = txCreateContractWithKey(alice, key, Some("1337"))
-    val maybeSubmitterInfo = submitterInfo(tx)
-    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
+    val info = completionInfoFrom(tx)
+    val preparedInsert = prepareInsert(info, tx, CurrentOffset(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       // Assume the indexer restarts after events insertion
@@ -73,7 +73,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
       offsetTx: (Offset, LedgerEntry.Transaction)
   ): Future[Assertion] = {
     val (offset, tx) = offsetTx
-    val maybeSubmitterInfo = submitterInfo(tx)
+    val maybeSubmitterInfo = completionInfoFrom(tx)
     val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)

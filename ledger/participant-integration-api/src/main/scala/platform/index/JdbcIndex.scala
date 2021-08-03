@@ -6,8 +6,8 @@ package com.daml.platform.index
 import akka.stream.Materializer
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -21,7 +21,7 @@ private[platform] object JdbcIndex {
   def owner(
       serverRole: ServerRole,
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       jdbcUrl: String,
       databaseConnectionPoolSize: Int,
       databaseConnectionTimeout: FiniteDuration,

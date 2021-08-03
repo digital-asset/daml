@@ -104,7 +104,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
         "//ledger/participant-state",
@@ -144,6 +143,8 @@ conformance_test(
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
         "--exclude=RaceConditionIT",
+        "--exclude=ExceptionRaceConditionIT",
+        "--exclude=ExceptionsIT",
     ],
 )
 

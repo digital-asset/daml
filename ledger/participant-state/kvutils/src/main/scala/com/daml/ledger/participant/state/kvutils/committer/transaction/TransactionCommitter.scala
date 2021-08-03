@@ -11,12 +11,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
-  ContractKeysValidator,
   LedgerTimeValidator,
   ModelConformanceValidator,
+  TransactionConsistencyValidator,
 }
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
-import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
@@ -75,10 +75,8 @@ private[kvutils] class TransactionCommitter(
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "deduplicate" -> deduplicateCommand,
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
-    "validate_contract_keys" -> ContractKeysValidator.createValidationStep(rejections),
-    "validate_model_conformance" -> modelConformanceValidator.createValidationStep(
-      rejections
-    ),
+    "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
+    "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
     "blind" -> blind,
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,
@@ -100,11 +98,11 @@ private[kvutils] class TransactionCommitter(
           if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
             StepContinue(transactionEntry)
           } else {
-            logger.trace("Transaction rejected because the command is a duplicate.")
-            rejections.buildRejectionStep(
+            rejections.reject(
               DamlTransactionRejectionEntry.newBuilder
                 .setSubmitterInfo(transactionEntry.submitterInfo)
                 .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
+              "the command is a duplicate",
               commitContext.recordTime,
             )
           }
@@ -157,22 +155,16 @@ private[kvutils] class TransactionCommitter(
             None
           case Some(_) =>
             Some(
-              rejection(
-                RejectionReasonV0.SubmitterCannotActViaParticipant(
-                  s"Party '$submitter' not hosted by participant ${commitContext.participantId}"
-                )
+              reject(
+                Rejection.SubmitterCannotActViaParticipant(submitter, commitContext.participantId)
               )
             )
           case None =>
-            Some(
-              rejection(
-                RejectionReasonV0.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
-              )
-            )
+            Some(reject(Rejection.SubmittingPartyNotKnownOnLedger(submitter)))
         }
 
-      def rejection(reason: RejectionReasonV0): StepResult[DamlTransactionEntrySummary] =
-        rejections.buildRejectionStep(
+      def reject(reason: Rejection): StepResult[DamlTransactionEntrySummary] =
+        rejections.reject(
           transactionEntry,
           reason,
           commitContext.recordTime,
@@ -218,9 +210,8 @@ private[kvutils] class TransactionCommitter(
         case Nil => result
         case head :: tail =>
           import TransactionOuterClass.Node.NodeTypeCase
-          val node = nodeMap
-            .get(head)
-            .getOrElse(throw Err.InternalError(s"Invalid transaction node id $head"))
+          val node =
+            nodeMap.getOrElse(head, throw Err.InternalError(s"Invalid transaction node id $head"))
           node.getNodeTypeCase match {
             case NodeTypeCase.CREATE =>
               goNodesToKeep(tail, result + head)
@@ -291,12 +282,13 @@ private[kvutils] class TransactionCommitter(
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val parties = transactionEntry.transaction.informees
-      if (parties.forall(party => commitContext.get(partyStateKey(party)).isDefined))
+      val missingParties = parties.filter(party => commitContext.get(partyStateKey(party)).isEmpty)
+      if (missingParties.isEmpty)
         StepContinue(transactionEntry)
       else
-        rejections.buildRejectionStep(
+        rejections.reject(
           transactionEntry,
-          RejectionReasonV0.PartyNotKnownOnLedger("Not all parties known"),
+          Rejection.PartiesNotKnownOnLedger(missingParties),
           commitContext.recordTime,
         )
     }

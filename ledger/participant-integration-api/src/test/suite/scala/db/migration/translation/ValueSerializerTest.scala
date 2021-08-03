@@ -18,7 +18,9 @@ class ValueSerializerTest extends AnyWordSpec with Matchers with TableDrivenProp
       val negativeTestCases = Table("version", "0", "6", "7", "11", "999", "some version")
       val positiveTestCases = Table("version", "1", "2", "3", "4", "5")
       val valueBuilder =
-        proto.VersionedValue.newBuilder().setValue(proto.Value.newBuilder().setBool(true))
+        proto.VersionedValue
+          .newBuilder()
+          .setValue(proto.Value.newBuilder().setBool(true).build().toByteString)
 
       forEvery(negativeTestCases) { version =>
         val x = ValueSerializer.DeprecatedValueVersionsError.unapply(

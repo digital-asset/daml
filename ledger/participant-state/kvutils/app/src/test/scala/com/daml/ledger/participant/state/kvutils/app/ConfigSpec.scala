@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -23,7 +23,8 @@ final class ConfigSpec
 
   private val dumpIndexMetadataCommand = "dump-index-metadata"
   private val participantOption = "--participant"
-  private val participantId: ParticipantId = ParticipantId.assertFromString("dummy-participant")
+  private val participantId: Ref.ParticipantId =
+    Ref.ParticipantId.assertFromString("dummy-participant")
   private val fixedParticipantSubOptions = s"participant-id=$participantId,port=123"
 
   private val jdbcUrlSubOption = "server-jdbc-url"

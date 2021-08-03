@@ -301,7 +301,7 @@ class PlatformSubscriber(
   }
 
   private def decodePackage(res: GetPackageResponse) = {
-    val payload = ArchivePayloadParser.fromByteString(res.archivePayload)
+    val payload = ArchivePayloadParser.assertFromByteString(res.archivePayload)
     val (errors, out) =
       InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash), payload)
     if (!errors.equals(Errors.zeroErrors)) {
@@ -333,7 +333,7 @@ class PlatformSubscriber(
 
           // Send command to ledger
           commandTracker
-            .offer(Ctx(command, V1.command_submission_service.SubmitRequest(Some(commands), None)))
+            .offer(Ctx(command, V1.command_submission_service.SubmitRequest(Some(commands))))
             .andThen {
               case Success(QOR.Dropped) =>
                 party.addCommandStatus(

@@ -52,9 +52,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 
   private def unexpectedType(i: Int, expected: String, found: SValue) =
-    crash(
-      s"${getClass.getSimpleName}: type mismatch of argument $i: expect $expected but got $found"
-    )
+    crash(s"type mismatch of argument $i: expect $expected but got $found")
 
   final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
     args.get(i) match {
@@ -393,7 +391,7 @@ private[lf] object SBuiltin {
       SText(getSText(args, 0) + getSText(args, 1))
   }
 
-  private[this] def litToText(where: String, x: SValue): String =
+  private[this] def litToText(location: String, x: SValue): String =
     x match {
       case SBool(b) => b.toString
       case SInt64(i) => i.toString
@@ -407,7 +405,7 @@ private[lf] object SBuiltin {
       case STNat(n) => s"@$n"
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
           _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
-        throw SErrorCrash(where, s"litToText: unexpected $x")
+        throw SErrorCrash(location, s"litToText: unexpected $x")
     }
 
   final case object SBToText extends SBuiltinPure(1) {
@@ -918,7 +916,7 @@ private[lf] object SBuiltin {
       mbKey.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
         if (maintainers.isEmpty)
           throw SErrorDamlException(
-            IE.CreateEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
+            IE.CreateEmptyContractKeyMaintainers(templateId, createArgValue, key)
           )
       }
       val auth = machine.auth
@@ -933,7 +931,6 @@ private[lf] object SBuiltin {
           stakeholders = sigs union obs,
           key = mbKey,
         )
-        .fold(err => crash(err), identity)
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
@@ -993,7 +990,6 @@ private[lf] object SBuiltin {
           byKey = byKey,
           chosenValue = arg,
         )
-        .fold(err => crash(err), identity)
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }
@@ -1295,6 +1291,11 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args, 0)
       // $ugettime :: Token -> Timestamp
+      machine.ledgerMode match {
+        case onLedger: OnLedger =>
+          onLedger.dependsOnTime = true
+        case Speedy.OffLedger =>
+      }
       throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
     }
   }
@@ -1400,25 +1401,14 @@ private[lf] object SBuiltin {
 
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
-    private def exceptionMessage(tyCon: TypeConName, value: SValue, machine: Machine) =
-      machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(value)))
-
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val exception = getSAnyException(args, 0)
-      val tyCon = exception.id
-      if (tyCon == ValueArithmeticError.tyCon)
-        machine.returnValue = exception.values.get(0)
-      else if (!machine.compiledPackages.packageIds.contains(exception.id.packageId))
-        throw SpeedyHungry(
-          SResultNeedPackage(
-            tyCon.packageId,
-            { packages =>
-              machine.compiledPackages = packages
-              exceptionMessage(tyCon, exception, machine)
-            },
-          )
-        )
-      exceptionMessage(tyCon, exception, machine)
+      exception.id match {
+        case ValueArithmeticError.tyCon =>
+          machine.returnValue = exception.values.get(0)
+        case tyCon =>
+          machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
+      }
     }
   }
 
@@ -1620,7 +1610,7 @@ private[lf] object SBuiltin {
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
-      where: String,
+      location: String,
       v: SValue,
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
@@ -1636,7 +1626,7 @@ private[lf] object SBuiltin {
           case Left(_) =>
             throw SErrorDamlException(IE.ContractIdInContractKey(key))
         }
-      case _ => throw SErrorCrash(where, s"Invalid key with maintainers: $v")
+      case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
 
   private[this] def extractOptionalKeyWithMaintainers(

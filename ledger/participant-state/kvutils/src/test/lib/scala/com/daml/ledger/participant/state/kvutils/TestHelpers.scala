@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepResult, StepStop}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.SubmittedTransaction
@@ -47,7 +46,7 @@ object TestHelpers {
       .setEntryId(ByteString.copyFromUtf8(n.toString))
       .build
 
-  def mkParticipantId(n: Int): ParticipantId =
+  def mkParticipantId(n: Int): Ref.ParticipantId =
     Ref.ParticipantId.assertFromString(s"participant-$n")
 
   def randomLedgerString: Ref.LedgerString =

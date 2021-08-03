@@ -584,17 +584,15 @@ object Repl {
         println("Collecting profile...")
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("cmdProfile") { onLedger =>
-          errOrLedger match {
-            case error: ScenarioRunner.ScenarioError =>
-              println(PrettyScenario.prettyError(error.error, Some(onLedger.ptx)).render(128))
-              (false, state)
-            case _: ScenarioRunner.ScenarioSuccess =>
-              println("Writing profile...")
-              machine.profile.name = testId
-              machine.profile.writeSpeedscopeJson(outputFile)
-              (true, state)
-          }
+        errOrLedger match {
+          case error: ScenarioRunner.ScenarioError =>
+            println(PrettyScenario.prettyError(error.error).render(128))
+            (false, state)
+          case _: ScenarioRunner.ScenarioSuccess =>
+            println("Writing profile...")
+            machine.profile.name = testId
+            machine.profile.writeSpeedscopeJson(outputFile)
+            (true, state)
         }
       }
       .getOrElse((false, state))

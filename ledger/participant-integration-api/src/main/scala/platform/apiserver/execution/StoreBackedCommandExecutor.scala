@@ -7,8 +7,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{
@@ -43,6 +44,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
   override def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -73,13 +75,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
         } yield {
           val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(
-            submitterInfo = SubmitterInfo(
+            submitterInfo = state.SubmitterInfo(
               commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
-              commands.deduplicateUntil,
+              state.DeduplicationPeriod.DeduplicationDuration(commands.deduplicationDuration),
+              commands.submissionId.unwrap,
+              ledgerConfiguration,
             ),
-            transactionMeta = TransactionMeta(
+            transactionMeta = state.TransactionMeta(
               commands.commands.ledgerEffectiveTime,
               commands.workflowId.map(_.unwrap),
               meta.submissionTime,

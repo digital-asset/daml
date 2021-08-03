@@ -11,6 +11,11 @@ cd "$(dirname "$0")"
 # load the dev-env
 eval "$(dev-env/bin/dade-assist)"
 
+# Location of reference image used for buf breaking check.
+# In case breaking changes have been introduced, running './fmt.sh --rebuild-buf-image' will
+# overwrite this image.
+buf_image="buf_image.bin"
+
 ## Config ##
 is_test=
 scalafmt_args=()
@@ -62,6 +67,7 @@ Usage: ./fmt.sh [options]
 Options:
   -h, --help: shows this help
   --test:     only test for formatting changes, used by CI
+  --rebuild-buf-image:  rebuilds reference image used for buf breaking checks
 USAGE
       exit
       ;;
@@ -78,6 +84,11 @@ USAGE
       merge_base="$(git merge-base origin/main HEAD)"
       scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
       diff_mode=true
+      ;;
+    --rebuild-buf-image)
+      shift
+      run buf build -o "${buf_image}"
+      exit
       ;;
     *)
       echo "fmt.sh: unknown argument $1" >&2
@@ -143,6 +154,9 @@ run scalafmt "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"
+
+# Check for breaking proto changes.
+run buf breaking --against "${buf_image}"
 
 # Note that we cannot use a symlink here because Windows.
 if ! diff .bazelrc compatibility/.bazelrc >/dev/null; then

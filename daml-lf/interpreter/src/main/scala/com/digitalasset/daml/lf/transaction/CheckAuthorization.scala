@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.data.Ref.Location
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey}
@@ -23,21 +24,24 @@ private[lf] object CheckAuthorization {
       List(failWith)
   }
 
-  private[lf] def authorizeCreate(create: NodeCreate[_])(
+  private[lf] def authorizeCreate(
+      optLocation: Option[Location],
+      create: NodeCreate[_],
+  )(
       auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = create.signatories subsetOf auth.authParties,
       failWith = FailedAuthorization.CreateMissingAuthorization(
         templateId = create.coinst.template,
-        optLocation = create.optLocation,
+        optLocation = optLocation,
         authorizingParties = auth.authParties,
         requiredParties = create.signatories,
       ),
     ) ++
       authorize(
         passIf = create.signatories.nonEmpty,
-        failWith = FailedAuthorization.NoSignatories(create.coinst.template, create.optLocation),
+        failWith = FailedAuthorization.NoSignatories(create.coinst.template, optLocation),
       ) ++
       (create.key match {
         case None => List()
@@ -47,7 +51,7 @@ private[lf] object CheckAuthorization {
             passIf = maintainers subsetOf create.signatories,
             failWith = FailedAuthorization.MaintainersNotSubsetOfSignatories(
               templateId = create.coinst.template,
-              optLocation = create.optLocation,
+              optLocation = optLocation,
               signatories = create.signatories,
               maintainers = maintainers,
             ),
@@ -55,47 +59,56 @@ private[lf] object CheckAuthorization {
       })
   }
 
-  private[lf] def authorizeFetch(fetch: NodeFetch[_])(
+  private[lf] def authorizeFetch(
+      optLocation: Option[Location],
+      fetch: NodeFetch[_],
+  )(
       auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = fetch.stakeholders.intersect(auth.authParties).nonEmpty,
       failWith = FailedAuthorization.FetchMissingAuthorization(
         templateId = fetch.templateId,
-        optLocation = fetch.optLocation,
+        optLocation = optLocation,
         stakeholders = fetch.stakeholders,
         authorizingParties = auth.authParties,
       ),
     )
   }
 
-  private[lf] def authorizeLookupByKey(lbk: NodeLookupByKey[_])(
+  private[lf] def authorizeLookupByKey(
+      optLocation: Option[Location],
+      lbk: NodeLookupByKey[_],
+  )(
       auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = lbk.key.maintainers subsetOf auth.authParties,
       failWith = FailedAuthorization.LookupByKeyMissingAuthorization(
         lbk.templateId,
-        lbk.optLocation,
+        optLocation,
         lbk.key.maintainers,
         auth.authParties,
       ),
     )
   }
 
-  private[lf] def authorizeExercise(ex: ExercisesContextInfo)(
+  private[lf] def authorizeExercise(
+      optLocation: Option[Location],
+      ex: ExercisesContextInfo,
+  )(
       auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = ex.actingParties.nonEmpty,
-      failWith = FailedAuthorization.NoControllers(ex.templateId, ex.choiceId, ex.optLocation),
+      failWith = FailedAuthorization.NoControllers(ex.templateId, ex.choiceId, optLocation),
     ) ++
       authorize(
         passIf = ex.actingParties subsetOf auth.authParties,
         failWith = FailedAuthorization.ExerciseMissingAuthorization(
           templateId = ex.templateId,
           choiceId = ex.choiceId,
-          optLocation = ex.optLocation,
+          optLocation = optLocation,
           authorizingParties = auth.authParties,
           requiredParties = ex.actingParties,
         ),

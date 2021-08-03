@@ -5,6 +5,7 @@ package com.daml.http.dbbackend
 
 import cats.instances.list._
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
+import com.daml.http.domain.TemplateId
 import org.openjdk.jmh.annotations._
 import scalaz.std.list._
 import spray.json._
@@ -19,20 +20,23 @@ class InsertBenchmark extends ContractDaoBenchmark {
 
   private var contracts: List[DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]]] = _
 
-  private var contractCids: List[String] = _
+  private var contractCids: Set[String] = _
+
+  private var tpid: SurrogateTpId = _
 
   @Setup(Level.Trial)
   override def setup(): Unit = {
     super.setup()
+    tpid = insertTemplate(TemplateId("-pkg-", "M", "T"))
     contracts = (1 until numContracts + 1).map { i =>
       // Use negative cids to avoid collisions with other contracts
-      contract(-i, "Alice")
+      contract(-i, "Alice", tpid)
     }.toList
 
-    contractCids = contracts.map(_.contractId)
+    contractCids = contracts.view.map(_.contractId).toSet
 
     (0 until batches).foreach { batch =>
-      insertBatch("Alice", batch * batchSize)
+      insertBatch("Alice", tpid, batch * batchSize)
     }
     ()
   }

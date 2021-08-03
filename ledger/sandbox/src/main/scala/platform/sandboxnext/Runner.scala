@@ -22,9 +22,12 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.caching._
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.WritePackagesService
-import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v2.{
+  AdaptedV1ReadService,
+  AdaptedV1WriteService,
+  WritePackagesService,
+}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -162,14 +165,14 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               )
               ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-              readService = new TimedReadService(ledger, metrics)
-              writeService = new TimedWriteService(ledger, metrics)
+              readService = new TimedReadService(new AdaptedV1ReadService(ledger), metrics)
+              writeService = new TimedWriteService(new AdaptedV1WriteService(ledger), metrics)
               healthChecks = new HealthChecks(
                 "read" -> readService,
                 "write" -> writeService,
               )
               ledgerId <- ResourceOwner.forFuture(() =>
-                readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId)
+                readService.ledgerInitialConditions().runWith(Sink.head).map(_.ledgerId)
               )
               _ <-
                 if (isReset) {
@@ -295,7 +298,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       executionContext: ExecutionContext
   ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
     implicit telemetryContext =>
-      val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
         dar <- Future.fromTry(DarParser.readArchiveFromFile(from).toTry)
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala

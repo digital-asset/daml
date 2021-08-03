@@ -24,6 +24,8 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/5611
 # - SemanticTests:
 #   - https://github.com/digital-asset/daml/pull/9218
+# - DeeplyNestedValueIT
+#   - https://github.com/digital-asset/daml/pull/10393
 
 last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
 first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
@@ -293,6 +295,17 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "1.16.0-snapshot.20210727.7476.1",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210727.7476.0.b5e9d861",
+                "exclusions": [
+                    "DeeplyNestedValueIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
@@ -518,8 +531,11 @@ def daml_lf_compatible(sdk_version, platform_version):
         # any post 1.10.0 platform supports any pre 1.14 SDK
         in_range(platform_version, {"start": "1.11.0-snapshot"}) and not in_range(sdk_version, {"start": "1.14.0-snapshot"})
     ) or (
-        # any post 1.14.0 platform supports any SDK
-        in_range(platform_version, {"start": "1.14.0-snapshot"})
+        # any post 1.14.0 platform supports any pre 1.16 SDK
+        in_range(platform_version, {"start": "1.14.0-snapshot"}) and not in_range(sdk_version, {"start": "1.16.0-snapshot"})
+    ) or (
+        # any post 1.15.0 platform supports any SDK
+        in_range(platform_version, {"start": "1.15.0-snapshot"})
     )
 
 def sdk_platform_test(sdk_version, platform_version):

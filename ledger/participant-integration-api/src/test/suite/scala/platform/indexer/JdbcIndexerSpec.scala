@@ -12,11 +12,10 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{ReadService, Update}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.lf.data.Bytes
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
@@ -45,9 +44,11 @@ final class JdbcIndexerSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private def mockedReadService(updates: Seq[(Offset, Update)] = Seq.empty): ReadService = {
-    val readService = mock[ReadService]
-    when(readService.getLedgerInitialConditions())
+  private def mockedReadService(
+      updates: Seq[(Offset, state.Update)] = Seq.empty
+  ): state.ReadService = {
+    val readService = mock[state.ReadService]
+    when(readService.ledgerInitialConditions())
       .thenAnswer(
         Source.single(
           LedgerInitialConditions(
@@ -126,7 +127,7 @@ final class JdbcIndexerSpec
         .map(_ => ())
 
     val mockedUpdates @ Seq(update1, update2, update3) =
-      (1 to 3).map(_ => mock[Update])
+      (1 to 3).map(_ => mock[state.Update])
 
     val offsets @ Seq(offset1, offset2, offset3) =
       (1 to 3).map(idx => Offset(Bytes.fromByteArray(Array(idx.toByte))))
@@ -174,7 +175,7 @@ final class JdbcIndexerSpec
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit,
   ): Future[ResourceOwner[Indexer]] = {
     val config = IndexerConfig(
-      participantId = v1.ParticipantId.assertFromString(participantId),
+      participantId = Ref.ParticipantId.assertFromString(participantId),
       jdbcUrl = postgresDatabase.url,
       startupMode = IndexerStartupMode.MigrateAndStart,
       asyncCommitMode = jdbcAsyncCommitMode,
@@ -195,7 +196,7 @@ final class JdbcIndexerSpec
 
   private def mockedUpdateFlowOwnerBuilder(
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed],
   ): ExecuteUpdate.FlowOwnerBuilder = {
     val mocked = mock[ExecuteUpdate.FlowOwnerBuilder]

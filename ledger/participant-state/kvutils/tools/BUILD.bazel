@@ -157,7 +157,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction-test-lib",
-        "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -203,14 +202,14 @@ sh_test(
     args = [
         "$(location :engine-replay-profile)",
         "$(location //ledger/participant-state/kvutils:reference-ledger-export.out)",
-        "$(location //ledger/test-common:model-tests-stable.dar)",
+        "$(location //ledger/test-common:model-tests-default.dar)",
         "$(location @jq_dev_env//:jq)",
     ],
     data = [
         ":engine-replay-profile",
         "//ledger/participant-state/kvutils:reference-ledger-export.out",
         # Use dev to test --adapt to a different ledger API version.
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "@jq_dev_env//:jq",
     ],
     deps = [

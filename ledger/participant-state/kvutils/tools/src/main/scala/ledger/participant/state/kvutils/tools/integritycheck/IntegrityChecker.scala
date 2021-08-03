@@ -15,8 +15,9 @@ import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
 }
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
+import com.daml.ledger.participant.state.v2.{AdaptedV1ReadService, ReadService}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -103,7 +104,7 @@ class IntegrityChecker[LogResult](
       _ <- indexStateUpdates(
         config = config,
         metrics = metrics,
-        readService =
+        replayingReadService =
           if (config.indexOnly)
             expectedReadServiceFactory.createReadService
           else
@@ -123,12 +124,13 @@ class IntegrityChecker[LogResult](
   private def indexStateUpdates(
       config: Config,
       metrics: Metrics,
-      readService: ReplayingReadService,
+      replayingReadService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
+    val readService = new AdaptedV1ReadService(replayingReadService)
 
     // Start the indexer consuming the recorded state updates
-    println(s"Starting to index ${readService.updateCount()} updates.".white)
+    println(s"Starting to index ${replayingReadService.updateCount()} updates.".white)
     newLoggingContext { implicit loggingContext =>
       val feedHandleResourceOwner = for {
         indexer <- migrateAndStartIndexer(
@@ -157,7 +159,7 @@ class IntegrityChecker[LogResult](
             .fromNanos(System.nanoTime() - startTime)
             .toMillis
             .toDouble / 1000.0
-          val updatesPerSecond = readService.updateCount() / durationSeconds
+          val updatesPerSecond = replayingReadService.updateCount() / durationSeconds
           println()
           println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
         }
@@ -313,7 +315,7 @@ object IntegrityChecker {
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
     IndexerConfig(
-      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
+      participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl(config),
       startupMode = IndexerStartupMode.MigrateAndStart,
     )

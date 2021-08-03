@@ -7,11 +7,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -50,7 +51,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, Unit]] =
     newLoggingContext { implicit loggingContext =>
       runValidation(
@@ -67,7 +68,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, LogResult]] =
     newLoggingContext { implicit loggingContext =>
       validateAndCommitWithContext(envelope, correlationId, recordTime, participantId)
@@ -77,7 +78,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -95,7 +96,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       transform: (
           DamlLogEntryId,
           StateMap,
@@ -139,7 +140,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       postProcessResult: (
           DamlLogEntryId,
           StateMap,
@@ -311,7 +312,7 @@ object SubmissionValidator {
       DamlLogEntryId,
       RecordTime,
       DamlSubmission,
-      ParticipantId,
+      Ref.ParticipantId,
       InputState,
   ) => LoggingContext => LogEntryAndState
 
@@ -339,7 +340,7 @@ object SubmissionValidator {
       damlLogEntryId: DamlLogEntryId,
       recordTime: Timestamp,
       damlSubmission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(loggingContext: LoggingContext): LogEntryAndState =
     keyValueCommitting.processSubmission(

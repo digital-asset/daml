@@ -3,33 +3,85 @@
 
 package com.daml.lf.data
 
-import com.daml.lf.data.Ref.{DottedName, Identifier, LedgerString, PackageId, Party, QualifiedName}
+import com.daml.lf.data.Ref._
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 class RefTest extends AnyFreeSpec with Matchers with EitherValues {
 
-  "DottedName.string" - {
-    "rejects bad segments" - {
+  "Name.fromString" - {
+    "reject" - {
       "digit at the start" in {
-        DottedName.fromString("9test") shouldBe a[Left[_, _]]
+        Name.fromString("9test") shouldBe a[Left[_, _]]
       }
 
       "bad symbols" in {
-        DottedName.fromString("test%") shouldBe a[Left[_, _]]
-        DottedName.fromString("test-") shouldBe a[Left[_, _]]
-        DottedName.fromString("test@") shouldBe a[Left[_, _]]
+        Name.fromString("test%") shouldBe a[Left[_, _]]
+        Name.fromString("test-") shouldBe a[Left[_, _]]
+        Name.fromString("test@") shouldBe a[Left[_, _]]
       }
 
       "unicode" in {
-        DottedName.fromString("à") shouldBe a[Left[_, _]]
-        DottedName.fromString("ਊ") shouldBe a[Left[_, _]]
+        Name.fromString("à") shouldBe a[Left[_, _]]
+        Name.fromString("ਊ") shouldBe a[Left[_, _]]
       }
 
-      "colon" in {
-        DottedName.fromString("foo:bar") shouldBe a[Left[_, _]]
+      "too long" in {
+        Name.fromString("a" * 1000) shouldBe a[Right[_, _]]
+        Name.fromString("a" * 1001) shouldBe a[Left[_, _]]
+        Name.fromString("a" * 10000) shouldBe a[Left[_, _]]
       }
+
+      "empty" in {
+        Name.fromString("") shouldBe a[Left[_, _]]
+      }
+    }
+
+    "accepts" - {
+      "dollar" in {
+        Name.fromString("$") shouldBe Right("$")
+        Name.fromString("$blAH9") shouldBe Right("$blAH9")
+        Name.fromString("foo$bar") shouldBe Right("foo$bar")
+        Name.fromString("baz$") shouldBe Right("baz$")
+      }
+
+      "underscore" in {
+        Name.fromString("_") shouldBe Right("_")
+        Name.fromString("_blAH9") shouldBe Right("_blAH9")
+        Name.fromString("foo_bar") shouldBe Right("foo_bar")
+        Name.fromString("baz_") shouldBe Right("baz_")
+      }
+    }
+  }
+
+  "DottedName.fromString" - {
+    "reject empty" in {
+      DottedName.fromString("") shouldBe a[Left[_, _]]
+    }
+
+    "rejects empty segment" in {
+      DottedName.fromString(".") shouldBe a[Left[_, _]]
+      DottedName.fromString("a..a") shouldBe a[Left[_, _]]
+      DottedName.fromString("a.") shouldBe a[Left[_, _]]
+      DottedName.fromString(".a") shouldBe a[Left[_, _]]
+    }
+
+    "rejects colon" in {
+      DottedName.fromString("foo:bar") shouldBe a[Left[_, _]]
+    }
+
+    "reject too long string" in {
+      DottedName.fromString("a" * 1000) shouldBe a[Right[_, _]]
+      DottedName.fromString("a" * 1001) shouldBe a[Left[_, _]]
+      DottedName.fromString("a" * 10000) shouldBe a[Left[_, _]]
+      DottedName.fromString("a" * 500 + "." + "a" * 499) shouldBe a[Right[_, _]]
+      DottedName.fromString("a" * 500 + "." + "a" * 500) shouldBe a[Left[_, _]]
+      DottedName.fromString("a" * 5000 + "." + "a" * 5000) shouldBe a[Left[_, _]]
+      DottedName.fromString("a" * 10000) shouldBe a[Left[_, _]]
+      DottedName.fromString("a." * 499 + "aa") shouldBe a[Right[_, _]]
+      DottedName.fromString("a." * 500 + "a") shouldBe a[Left[_, _]]
+      DottedName.fromString("a." * 5000 + "a") shouldBe a[Left[_, _]]
     }
 
     "rejects empty segments" in {
@@ -42,19 +94,38 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
 
     "accepts good segments" - {
       "dollar" in {
-        DottedName
-          .fromString("$.$blAH9.foo$bar.baz$")
-          .getOrElse(sys.error("expect right found left"))
-          .segments shouldBe
+        DottedName.fromString("$.$blAH9.foo$bar.baz$").map(_.segments) shouldBe Right(
           ImmArray("$", "$blAH9", "foo$bar", "baz$")
+        )
       }
 
       "underscore" in {
-        DottedName
-          .fromString("_._blAH9.foo_bar.baz_")
-          .getOrElse(sys.error("expect right found left"))
-          .segments shouldBe
+        DottedName.fromString("_._blAH9.foo_bar.baz_").map(_.segments) shouldBe Right(
           ImmArray("_", "_blAH9", "foo_bar", "baz_")
+        )
+      }
+    }
+  }
+
+  "DottedName.fromSegments" - {
+    "rejects" - {
+      "empty" in {
+        DottedName.fromSegments(List.empty) shouldBe a[Left[_, _]]
+      }
+      "too long" in {
+        val s1 = Name.assertFromString("a")
+        val s499 = Name.assertFromString("a" * 499)
+        val s500 = Name.assertFromString("a" * 500)
+        val s1000 = Name.assertFromString("a" * 1000)
+        DottedName.fromSegments(List.fill(500)(s1)) shouldBe a[Right[_, _]] // length = 999
+        DottedName.fromSegments(List.fill(501)(s1)) shouldBe a[Left[_, _]] // length = 1001
+        DottedName.fromSegments(List.fill(5000)(s1)) shouldBe a[Left[_, _]] // length = 5002
+        DottedName.fromSegments(List(s499, s500)) shouldBe a[Right[_, _]] //length = 1000
+        DottedName.fromSegments(List(s500, s500)) shouldBe a[Left[_, _]] //length = 1001
+        DottedName.fromSegments(List(s1000)) shouldBe a[Right[_, _]] // length = 1000
+        DottedName.fromSegments(List(s1000, s1)) shouldBe a[Left[_, _]] // length = 1002
+        DottedName.fromSegments(List(s1, s1000)) shouldBe a[Left[_, _]] // length = 1002
+        DottedName.fromSegments(List(s1000, s1000)) shouldBe a[Left[_, _]] // length = 2001
       }
     }
   }
@@ -204,6 +275,8 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     "reject too long string" in {
       Party.fromString("p" * 255) shouldBe a[Right[_, _]]
       Party.fromString("p" * 256) shouldBe a[Left[_, _]]
+      PackageId.fromString("p" * 64) shouldBe a[Right[_, _]]
+      PackageId.fromString("p" * 65) shouldBe a[Left[_, _]]
     }
   }
 

@@ -3,14 +3,14 @@
 
 package com.daml.ledger.api
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
-import brave.propagation.TraceContext
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.data.logging._
 import com.daml.lf.value.{Value => Lf}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
@@ -134,8 +134,6 @@ object domain {
     def effectiveAt: Instant
 
     def offset: LedgerOffset.Absolute
-
-    def traceContext: Option[TraceContext]
   }
 
   final case class TransactionTree(
@@ -146,7 +144,6 @@ object domain {
       offset: LedgerOffset.Absolute,
       eventsById: immutable.Map[EventId, CreateOrExerciseEvent],
       rootEventIds: immutable.Seq[EventId],
-      traceContext: Option[TraceContext],
   ) extends TransactionBase
 
   final case class Transaction(
@@ -156,7 +153,6 @@ object domain {
       effectiveAt: Instant,
       events: immutable.Seq[CreateOrArchiveEvent],
       offset: LedgerOffset.Absolute,
-      traceContext: Option[TraceContext],
   ) extends TransactionBase
 
   sealed trait CompletionEvent extends Product with Serializable {
@@ -233,17 +229,17 @@ object domain {
 
   sealed trait WorkflowIdTag
 
-  type WorkflowId = Ref.LedgerString @@ WorkflowIdTag
+  type WorkflowId = Ref.WorkflowId @@ WorkflowIdTag
   val WorkflowId: Tag.TagOf[WorkflowIdTag] = Tag.of[WorkflowIdTag]
 
   sealed trait CommandIdTag
 
-  type CommandId = Ref.LedgerString @@ CommandIdTag
+  type CommandId = Ref.CommandId @@ CommandIdTag
   val CommandId: Tag.TagOf[CommandIdTag] = Tag.of[CommandIdTag]
 
   sealed trait TransactionIdTag
 
-  type TransactionId = Ref.LedgerString @@ TransactionIdTag
+  type TransactionId = Ref.TransactionId @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
 
   sealed trait ContractIdTag
@@ -270,24 +266,51 @@ object domain {
 
   sealed trait ApplicationIdTag
 
-  type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
+  type ApplicationId = Ref.ApplicationId @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
+
+  sealed trait SubmissionIdTag
+
+  type SubmissionId = Ref.SubmissionId @@ SubmissionIdTag
+  val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
 
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
+      submissionId: SubmissionId,
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplicateUntil: Instant,
+      deduplicationDuration: Duration,
       commands: LfCommands,
-  )
+  ) {
+    lazy val deduplicateUntil: Instant = submittedAt.plus(deduplicationDuration)
+  }
 
-  /** @param party The stable unique identifier of a Daml party.
+  object Commands {
+
+    import Logging._
+
+    implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands =>
+      LoggingValue.Nested.fromEntries(
+        "ledgerId" -> commands.ledgerId,
+        "workflowId" -> commands.workflowId,
+        "applicationId" -> commands.applicationId,
+        "commandId" -> commands.commandId,
+        "actAs" -> commands.actAs,
+        "readAs" -> commands.readAs,
+        "submittedAt" -> commands.submittedAt,
+        "deduplicationDuration" -> commands.deduplicationDuration,
+      )
+  }
+
+  /** Represents a party with additional known information.
+    *
+    * @param party       The stable unique identifier of a Daml party.
     * @param displayName Human readable name associated with the party. Might not be unique.
-    * @param isLocal True if party is hosted by the backing participant.
+    * @param isLocal     True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
 
@@ -334,5 +357,10 @@ object domain {
         recordTime: Instant,
         reason: String,
     ) extends PackageEntry
+  }
+
+  object Logging {
+    implicit def `tagged value to LoggingValue`[T: ToLoggingValue, Tag]: ToLoggingValue[T @@ Tag] =
+      value => value.unwrap
   }
 }

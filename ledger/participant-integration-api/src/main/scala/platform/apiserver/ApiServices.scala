@@ -15,12 +15,13 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.WriteService
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.configuration.{CurrentLedgerConfiguration, LedgerConfigProvider}
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
@@ -71,7 +72,7 @@ private[daml] object ApiServices {
 
   final class Owner(
       participantId: Ref.ParticipantId,
-      optWriteService: Option[WriteService],
+      optWriteService: Option[state.WriteService],
       indexService: IndexService,
       authorizer: Authorizer,
       engine: Engine,
@@ -104,19 +105,19 @@ private[daml] object ApiServices {
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
-
       for {
         ledgerId <- Resource.fromFuture(indexService.getLedgerId())
-        ledgerConfigProvider <- LedgerConfigProvider
+        currentLedgerConfiguration <- LedgerConfigProvider
           .owner(
+            ledgerConfiguration,
             indexService,
             optWriteService,
             timeProvider,
-            ledgerConfiguration,
-          )(materializer, loggingContext)
+            servicesExecutionContext,
+          )
           .acquire()
         services <- Resource(
-          Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext))
+          Future(createServices(ledgerId, currentLedgerConfiguration)(servicesExecutionContext))
         )(services =>
           Future {
             services.foreach {
@@ -130,7 +131,7 @@ private[daml] object ApiServices {
 
     private def createServices(
         ledgerId: LedgerId,
-        ledgerConfigProvider: LedgerConfigProvider,
+        currentLedgerConfiguration: CurrentLedgerConfiguration,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService, metrics)
@@ -160,7 +161,7 @@ private[daml] object ApiServices {
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,
-          ledgerConfigProvider,
+          currentLedgerConfiguration,
           apiCompletionService,
           apiTransactionService,
         )
@@ -186,7 +187,7 @@ private[daml] object ApiServices {
 
     private def intitializeWriteServiceBackedApiServices(
         ledgerId: LedgerId,
-        ledgerConfigProvider: LedgerConfigProvider,
+        currentLedgerConfiguration: CurrentLedgerConfiguration,
         apiCompletionService: GrpcCommandCompletionService,
         apiTransactionService: GrpcTransactionService,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
@@ -214,7 +215,7 @@ private[daml] object ApiServices {
           partyManagementService,
           timeProvider,
           timeProviderType,
-          ledgerConfigProvider,
+          currentLedgerConfiguration,
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
@@ -243,7 +244,7 @@ private[daml] object ApiServices {
             apiTransactionService.getFlatTransactionById,
           ),
           timeProvider,
-          ledgerConfigProvider,
+          currentLedgerConfiguration,
           metrics,
         )
 

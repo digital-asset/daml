@@ -6,12 +6,11 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.{Files, Paths}
-import scala.concurrent.duration.DurationInt
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.test.ModelTestDar
+import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.metrics.MetricsReporter.{Graphite, Prometheus}
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
@@ -22,6 +21,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 
 abstract class CommonCliSpecBase(
@@ -71,7 +71,7 @@ abstract class CommonCliSpecBase(
       val participantId = "myParticipant"
       checkOption(
         Array("--participant-id", participantId),
-        _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")),
+        _.copy(participantId = Ref.ParticipantId.assertFromString("myParticipant")),
       )
     }
 

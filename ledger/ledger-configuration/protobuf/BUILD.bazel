@@ -5,7 +5,7 @@ load("//bazel_tools:proto.bzl", "proto_jars")
 
 proto_jars(
     name = "ledger_configuration_proto",
-    srcs = ["com/daml/ledger/participant/state/ledger_configuration.proto"],
+    srcs = ["com/daml/ledger/configuration/ledger_configuration.proto"],
     maven_artifact_prefix = "participant-state-ledger-configuration",
     maven_group = "com.daml",
     visibility = [

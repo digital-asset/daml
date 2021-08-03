@@ -77,7 +77,7 @@ object ValueGenerators {
 
   // generate a junk identifier
   val idGen: Gen[Identifier] = for {
-    n <- Gen.choose(1, 200)
+    n <- Gen.choose(1, 64)
     packageId <- Gen
       .listOfN(n, Gen.alphaNumChar)
       .map(s => PackageId.assertFromString(s.mkString))
@@ -322,7 +322,6 @@ object ValueGenerators {
       templateId,
       arg,
       agreement,
-      None,
       signatories,
       stakeholders,
       key,
@@ -348,7 +347,6 @@ object ValueGenerators {
     } yield NodeFetch(
       coid,
       templateId,
-      None,
       actingParties,
       signatories,
       stakeholders,
@@ -400,7 +398,6 @@ object ValueGenerators {
       targetCoid,
       templateId,
       choiceId,
-      None,
       consume,
       actingParties,
       chosenValue,
@@ -424,7 +421,6 @@ object ValueGenerators {
       result <- Gen.option(targetCoid)
     } yield NodeLookupByKey(
       templateId,
-      None,
       key,
       result,
       version,

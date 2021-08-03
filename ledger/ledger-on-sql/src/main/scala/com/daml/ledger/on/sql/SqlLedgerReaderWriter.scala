@@ -41,7 +41,7 @@ import scala.{concurrent => sc}
 
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    val participantId: ParticipantId,
+    val participantId: Ref.ParticipantId,
     metrics: Metrics,
     database: Database,
     dispatcher: Dispatcher[Index],
@@ -89,7 +89,7 @@ object SqlLedgerReaderWriter {
 
   final class Owner(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       metrics: Metrics,
       engine: Engine,
       jdbcUrl: String,

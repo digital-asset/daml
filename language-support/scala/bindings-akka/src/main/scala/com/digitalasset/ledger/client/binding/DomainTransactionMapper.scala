@@ -65,7 +65,6 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
       commandId,
       effectiveAt,
       events,
-      t.traceContext,
     )
 
   private def checkExists[T](

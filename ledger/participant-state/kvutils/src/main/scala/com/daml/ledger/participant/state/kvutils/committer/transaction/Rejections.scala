@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
+import java.time.Instant
+
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlTransactionRejectionEntry,
@@ -22,24 +24,26 @@ import com.daml.metrics.Metrics
 
 private[transaction] class Rejections(metrics: Metrics) {
 
-  private final val logger = ContextualizedLogger.get(getClass)
+  final private val logger = ContextualizedLogger.get(getClass)
 
-  def buildRejectionStep[A](
+  def reject[A](
       transactionEntry: DamlTransactionEntrySummary,
-      reason: RejectionReasonV0,
+      rejection: Rejection,
       recordTime: Option[Timestamp],
-  )(implicit loggingContext: LoggingContext): StepResult[A] = {
-    buildRejectionStep(
-      buildRejectionEntry(transactionEntry, reason),
+  )(implicit loggingContext: LoggingContext): StepResult[A] =
+    reject(
+      buildRejectionEntry(transactionEntry, rejection),
+      rejection.description,
       recordTime,
     )
-  }
 
-  def buildRejectionStep[A](
+  def reject[A](
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
+      rejectionDescription: String,
       recordTime: Option[Timestamp],
-  ): StepResult[A] = {
+  )(implicit loggingContext: LoggingContext): StepResult[A] = {
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
+    logger.trace(s"Transaction rejected, $rejectionDescription.")
     StepStop(
       buildLogEntryWithOptionalRecordTime(
         recordTime,
@@ -48,17 +52,25 @@ private[transaction] class Rejections(metrics: Metrics) {
     )
   }
 
-  def buildRejectionEntry(
+  def preExecutionOutOfTimeBoundsRejectionEntry(
       transactionEntry: DamlTransactionEntrySummary,
-      reason: RejectionReasonV0,
-  )(implicit loggingContext: LoggingContext): DamlTransactionRejectionEntry.Builder = {
-    logger.trace(s"Transaction rejected, ${reason.description}.")
+      minimumRecordTime: Instant,
+      maximumRecordTime: Instant,
+  ): DamlTransactionRejectionEntry =
+    buildRejectionEntry(
+      transactionEntry,
+      Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime),
+    ).build
 
+  private def buildRejectionEntry(
+      transactionEntry: DamlTransactionEntrySummary,
+      rejection: Rejection,
+  ): DamlTransactionRejectionEntry.Builder = {
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
       .setSubmitterInfo(transactionEntry.submitterInfo)
 
-    reason match {
+    rejection.toStateV1RejectionReason match {
       case RejectionReasonV0.Inconsistent(reason) =>
         builder.setInconsistent(Inconsistent.newBuilder.setDetails(reason))
       case RejectionReasonV0.Disputed(reason) =>
@@ -69,8 +81,7 @@ private[transaction] class Rejections(metrics: Metrics) {
         builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(reason))
       case RejectionReasonV0.SubmitterCannotActViaParticipant(details) =>
         builder.setSubmitterCannotActViaParticipant(
-          SubmitterCannotActViaParticipant.newBuilder
-            .setDetails(details)
+          SubmitterCannotActViaParticipant.newBuilder.setDetails(details)
         )
       case RejectionReasonV0.InvalidLedgerTime(reason) =>
         builder.setInvalidLedgerTime(InvalidLedgerTime.newBuilder.setDetails(reason))

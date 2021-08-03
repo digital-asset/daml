@@ -11,11 +11,6 @@ load(
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
-load(
-    "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
-    "lf_version_configuration_versions",
-)
 
 alias(
     name = "sandbox-classic",
@@ -162,7 +157,6 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
@@ -218,7 +212,7 @@ test_deps = [
     "//ledger/sandbox-common",
     "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
     "//ledger/test-common",
-    "//ledger/test-common:dar-files-stable-lib",
+    "//ledger/test-common:dar-files-default-lib",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
     "//libs-scala/grpc-utils",
@@ -264,7 +258,7 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
         ),
         data = [
             "//daml-lf/encoder:testing-dars",
-            "//ledger/test-common:model-tests-stable.dar",
+            "//ledger/test-common:model-tests-default.dar",
             "//ledger/test-common/test-certificates",
         ],
         flaky = flaky,
@@ -329,7 +323,7 @@ ONLY_POSTGRES_SERVER = {
 server_conformance_test(
     name = "conformance-test-static-time",
     lf_versions = [
-        "stable",
+        "default",
         "preview",
     ],
     server_args = [
@@ -347,7 +341,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-static-time-append-only",
     lf_versions = [
-        "stable",
+        "default",
     ],
     server_args = [
         "--static-time",

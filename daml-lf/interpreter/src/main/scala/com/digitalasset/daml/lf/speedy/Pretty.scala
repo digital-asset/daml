@@ -25,16 +25,10 @@ import com.daml.lf.speedy.SBuiltin._
 
 private[lf] object Pretty {
 
-  def prettyError(err: SError, optPtx: Option[PartialTransaction] = None): Doc =
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  (MK) I’m not convinced the partial transaction here provides any real value.
-    //  Afaict the only thing we use it for is to produce slightly different error
-    //  if a contract is inactive due to a recursive exercise. We don’t do that in
-    //  the scenario service however and I’ve never heard a request for it so I
-    //  have a hard time believing that it is really useful here.
+  def prettyError(err: SError): Doc =
     text("Error:") & (err match {
       case ex: SErrorDamlException =>
-        prettyDamlException(ex.error, optPtx)
+        prettyDamlException(ex.error)
       case SErrorCrash(where, reason) =>
         text(s"CRASH in $where: $reason")
     })
@@ -42,10 +36,7 @@ private[lf] object Pretty {
   def prettyParty(p: Party): Doc =
     char('\'') + text(p) + char('\'')
 
-  def prettyDamlException(
-      error: interpretation.Error,
-      optPtx: Option[PartialTransaction] = None,
-  ): Doc = {
+  def prettyDamlException(error: interpretation.Error): Doc = {
     import interpretation.Error._
     error match {
       case FailedAuthorization(nid, fa) =>
@@ -61,13 +52,7 @@ private[lf] object Pretty {
       case ContractNotActive(coid, tid, consumedBy) =>
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConName(tid)) + text(").") /
-          text(s"The contract had been consumed in sub-transaction #$consumedBy:") +
-          (optPtx.flatMap(_.nodes.get(consumedBy)) match {
-            case None =>
-              (line + text("Recursive exercise of ") + prettyTypeConName(tid)).nested(4)
-            case Some(node) =>
-              (line + prettyPartialTransactionNode(node)).nested(4)
-          })
+          text(s"The contract had been consumed in sub-transaction #$consumedBy:")
       case ContractKeyNotFound(gk) =>
         text(
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
@@ -117,6 +102,8 @@ private[lf] object Pretty {
         text(
           s"Contract IDs are not supported in contract keys: ${key.ensureNoCid.left.toOption.get}"
         )
+      case ValueExceedsMaxNesting =>
+        text(s"Value exceeds maximum nesting value of 100")
     }
   }
 

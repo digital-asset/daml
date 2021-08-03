@@ -11,8 +11,8 @@ import com.daml.ledger.participant.state.kvutils.export.{
   ProtobufBasedLedgerDataImporter,
   SubmissionInfo,
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, DamlKvutils => Proto}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.crypto
 import com.daml.lf.data._
@@ -35,7 +35,7 @@ import scala.jdk.CollectionConverters._
 
 final case class TxEntry(
     tx: SubmittedTransaction,
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     submitters: List[Ref.Party],
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
@@ -123,10 +123,10 @@ private[replay] object Replay {
 
   private[this] def decodeSubmission(
       participantId: Ref.ParticipantId,
-      submission: Proto.DamlSubmission,
+      submission: DamlSubmission,
   ): LazyList[TxEntry] =
     submission.getPayloadCase match {
-      case Proto.DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val entry = submission.getTransactionEntry
         val tx = TxCoder
           .decodeTransaction(

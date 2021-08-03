@@ -16,8 +16,8 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantRunMode,
 }
 import com.daml.ledger.participant.state.kvutils.{app => kvutils}
-import com.daml.ledger.participant.state.v1
 import com.daml.ledger.resources.ResourceContext
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.ports.Port
@@ -46,7 +46,7 @@ trait MultiParticipantFixture
     Port(Integer.parseInt(Files.readAllLines(f).stream.collect(Collectors.joining("\n"))))
   }
 
-  private val participantId1 = v1.ParticipantId.assertFromString("participant1")
+  private val participantId1 = Ref.ParticipantId.assertFromString("participant1")
   private val participant1 = ParticipantConfig(
     mode = ParticipantRunMode.Combined,
     participantId = participantId1,
@@ -59,7 +59,7 @@ trait MultiParticipantFixture
       allowExistingSchema = false
     ),
   )
-  private val participantId2 = v1.ParticipantId.assertFromString("participant2")
+  private val participantId2 = Ref.ParticipantId.assertFromString("participant2")
   private val participant2 = ParticipantConfig(
     mode = ParticipantRunMode.Combined,
     participantId = participantId2,

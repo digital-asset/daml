@@ -78,6 +78,8 @@ in rec {
 
     javafmt = pkgs.callPackage ./tools/google-java-format {};
 
+    buf = pkgs.buf;
+
     scala = bazel_dependencies.scala_2_13;
     fsc      = scala;
     scalac   = scala;

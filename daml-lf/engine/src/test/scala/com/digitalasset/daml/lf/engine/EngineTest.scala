@@ -6,7 +6,6 @@ package engine
 
 import java.util
 import java.io.File
-
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
@@ -132,6 +131,15 @@ class EngineTest
       toContractId("#BasicTests:WithKey:1") ->
         withKeyContractInst,
     )
+
+  val defaultKey = Map(
+    GlobalKey.assertBuild(
+      TypeConName(basicTestsPkgId, withKeyTemplate),
+      ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+    )
+      ->
+        toContractId("#BasicTests:WithKey:1")
+  )
 
   val lookupContract = defaultContracts.get(_)
 
@@ -298,7 +306,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(res) { case Left(Error.Preprocessing(error)) =>
         error shouldBe a[Error.Preprocessing.TypeMismatch]
-        error.msg should startWith("Missing record label n for record")
+        error.message should startWith("Missing record label n for record")
       }
     }
 
@@ -314,8 +322,9 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      inside(res) { case Left(Error.Preprocessing(Error.Preprocessing.Lookup(error))) =>
-        error shouldBe a[language.LookupError.TemplateKey]
+      inside(res) {
+        case Left(Error.Preprocessing(Error.Preprocessing.Lookup(language.LookupError(ref, _)))) =>
+          ref shouldBe a[language.Reference.TemplateKey]
       }
     }
 
@@ -522,7 +531,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -612,7 +621,7 @@ class EngineTest
           )
         validated match {
           case Left(e) =>
-            fail(e.msg)
+            fail(e.message)
           case Right(()) => succeed
         }
       }
@@ -736,7 +745,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -852,7 +861,17 @@ class EngineTest
     "reinterpret to the same result" in {
 
       val reinterpretResult =
-        reinterpret(engine, Set(alice), tx.roots, tx, txMeta, let, lookupPackage, defaultContracts)
+        reinterpret(
+          engine,
+          Set(alice),
+          tx.roots,
+          tx,
+          txMeta,
+          let,
+          lookupPackage,
+          defaultContracts,
+          defaultKey,
+        )
           .map(_._1)
       (result.map(_._1) |@| reinterpretResult)((tx, rtx) => isReplayedBy(tx, rtx)) shouldBe Right(
         Right(())
@@ -869,7 +888,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -917,7 +936,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -956,7 +975,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -1130,7 +1149,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -1185,7 +1204,7 @@ class EngineTest
         .swap
         .toOption
         .get
-        .msg should include("Provided value exceeds maximum nesting level")
+        .message should include("Provided value exceeds maximum nesting level")
     }
   }
 
@@ -1408,7 +1427,6 @@ class EngineTest
               coid,
               _,
               choice,
-              _,
               consuming,
               actingParties,
               _,
@@ -1504,7 +1522,7 @@ class EngineTest
 
     def actFetchActors[Nid, Cid](n: Node.GenNode[Nid, Cid]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _, _) => actingParties
+        case Node.NodeFetch(_, _, actingParties, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
@@ -1683,7 +1701,7 @@ class EngineTest
     def firstLookupNode[Nid, Cid](
         tx: GenTx[Nid, Cid]
     ): Option[(Nid, Node.NodeLookupByKey[Cid])] =
-      tx.nodes.collectFirst { case (nid, nl @ Node.NodeLookupByKey(_, _, _, _, _)) =>
+      tx.nodes.collectFirst { case (nid, nl @ Node.NodeLookupByKey(_, _, _, _)) =>
         nid -> nl
       }
 
@@ -1821,7 +1839,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -1892,7 +1910,7 @@ class EngineTest
         )
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _, _)) =>
+        case Some(Node.NodeFetch(_, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -2021,19 +2039,19 @@ class EngineTest
     "error on fetch" in {
       val result = run(ImmArray(incorrectFetch))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
     "error on exercise" in {
       val result = run(ImmArray(incorrectCommand))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
     "error on exercise even if used correctly before" in {
       val result = run(ImmArray(correctCommand, incorrectCommand))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
   }
@@ -2084,8 +2102,7 @@ class EngineTest
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
-          submitter <-
-            tx.guessSubmitter.left.map(msg => Error.Validation(Error.Validation.Generic(msg)))
+          submitter <- tx.guessSubmitter
           res <- engine
             .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(
@@ -2093,6 +2110,8 @@ class EngineTest
               lookupPackage,
               _ => None,
             )
+            .left
+            .map(_.message)
         } yield res
 
       run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
@@ -2102,7 +2121,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -2192,8 +2211,8 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
       result shouldBe a[Left[_, _]]
       val Left(err) = result
-      err.msg should not include ("Boom")
-      err.msg should include("precondition violation")
+      err.message should not include ("Boom")
+      err.message should include("Template precondition violated")
     }
 
     "not be create if has an empty set of maintainer" in {
@@ -2224,7 +2243,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey)
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -2738,6 +2757,7 @@ object EngineTest {
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
       contracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] = Map.empty,
+      keys: Map[GlobalKey, ContractId] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
@@ -2752,7 +2772,7 @@ object EngineTest {
 
     val iterate =
       nodes.foldLeft[Either[Error, Acc]](
-        Right((HashMap.empty, BackStack.empty, false, BackStack.empty, contracts, Map.empty))
+        Right((HashMap.empty, BackStack.empty, false, BackStack.empty, contracts, keys))
       ) { case (acc, nodeId) =>
         for {
           previousStep <- acc
@@ -2760,10 +2780,16 @@ object EngineTest {
           cmd = tx.transaction.nodes(nodeId) match {
             case create: Node.NodeCreate[ContractId] =>
               CreateCommand(create.templateId, create.arg)
+            case fetch: Node.NodeFetch[ContractId] if fetch.byKey =>
+              val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
+              FetchByKeyCommand(fetch.templateId, key)
             case fetch: Node.NodeFetch[ContractId] =>
               FetchCommand(fetch.templateId, fetch.coid)
             case lookup: Node.NodeLookupByKey[ContractId] =>
               LookupByKeyCommand(lookup.templateId, lookup.key.key)
+            case exe: Node.NodeExercises[NodeId, ContractId] if exe.byKey =>
+              val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
+              ExerciseByKeyCommand(exe.templateId, key, exe.choiceId, exe.chosenValue)
             case exe: Node.NodeExercises[NodeId, ContractId] =>
               ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
             case _: Node.NodeRollback[NodeId] =>
@@ -2790,7 +2816,6 @@ object EngineTest {
                     _,
                     Node.NodeExercises(
                       targetCoid: ContractId,
-                      _,
                       _,
                       _,
                       consuming @ true,

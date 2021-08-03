@@ -16,7 +16,15 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  ReadService,
+  RejectionReasonV0,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+  WriteService,
+}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.Decode
@@ -68,7 +76,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
   protected def participantStateFactory(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       testId: String,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState]
@@ -715,7 +723,8 @@ object ParticipantStateIntegrationSpecBase {
   private val IdleTimeout: FiniteDuration = 15.seconds
   private val DefaultInterpretationCost = 0L
 
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
+  private val participantId: Ref.ParticipantId =
+    Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
   private val archives = TestDarReader.readCommonTestDar(ModelTestDar).get.all
@@ -725,7 +734,7 @@ object ParticipantStateIntegrationSpecBase {
     archives
       .sortBy(_.getSerializedSize) // look at the smallest archives first to limit decoding work
       .iterator
-      .filter(Decode.decodeArchive(_)._2.directDeps.isEmpty)
+      .filter(Decode.assertDecodeArchive(_)._2.directDeps.isEmpty)
       .take(2)
       .toList
 
@@ -734,7 +743,7 @@ object ParticipantStateIntegrationSpecBase {
   private def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
-  private def newSubmissionId(): SubmissionId =
+  private def newSubmissionId(): Ref.SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def transactionMeta(let: Timestamp) =
@@ -752,7 +761,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchPackageUpload(
       update: Update,
-      expectedSubmissionId: SubmissionId,
+      expectedSubmissionId: Ref.SubmissionId,
       expectedArchives: List[DamlLf.Archive],
   ): Assertion =
     inside(update) {

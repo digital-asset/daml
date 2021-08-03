@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupK
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -193,7 +194,7 @@ final private[kvutils] class PackageCommitter(
       archives
         .foldLeft[Result](Right(Map.empty)) { (acc, arch) =>
           try {
-            acc.map(_ + lf.archive.Decode.decodeArchive(arch))
+            acc.map(_ + lf.archive.Decode.assertDecodeArchive(arch))
           } catch {
             case NonFatal(e) =>
               Left(
@@ -219,7 +220,7 @@ final private[kvutils] class PackageCommitter(
       pkgs: Map[Ref.PackageId, Ast.Package]
   ): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.validateTimer.time { () =>
-      engine.validatePackages(pkgs).left.map(_.msg)
+      engine.validatePackages(pkgs).left.map(_.message)
     }
 
   // Strict validation
@@ -288,7 +289,7 @@ final private[kvutils] class PackageCommitter(
         engine
           .preloadPackage(pkgId, pkg)
           .consume(_ => None, packages.get, _ => None)
-          .fold(err => List(err.msg), _ => List.empty)
+          .fold(err => List(err.message), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
         engine.compiledPackages().packageIds.size

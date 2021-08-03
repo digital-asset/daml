@@ -442,15 +442,6 @@
     };
   }
   {
-    goPackagePath = "github.com/openzipkin/zipkin-go";
-    fetch = {
-      type = "git";
-      url = "https://github.com/openzipkin/zipkin-go";
-      rev = "v0.1.6";
-      sha256 = "0fyf69w66khj3dxdpqydwjdhhhyhlh3caxa5ybnd1h2f6b5gbvvv";
-    };
-  }
-  {
     goPackagePath = "github.com/pierrec/lz4";
     fetch = {
       type = "git";

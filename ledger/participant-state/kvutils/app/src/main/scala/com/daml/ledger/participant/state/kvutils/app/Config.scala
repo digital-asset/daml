@@ -11,9 +11,10 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.VersionRange
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
@@ -40,10 +41,11 @@ final case class Config[Extra](
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    engineMode: EngineMode,
+    allowedLanguageVersions: VersionRange[LanguageVersion],
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
+    enableHa: Boolean, // TODO ha: remove after stable
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -72,10 +74,11 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      engineMode = EngineMode.Stable,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
+      enableHa = false,
       extra = extra,
     )
 
@@ -172,8 +175,7 @@ object Config {
               "]"
           )
           .action((kv, config) => {
-            val participantId =
-              ParticipantId.assertFromString(kv("participant-id"))
+            val participantId = Ref.ParticipantId.assertFromString(kv("participant-id"))
             val port = Port(kv("port").toInt)
             val address = kv.get("address")
             val portFile = kv.get("port-file").map(new File(_).toPath)
@@ -485,7 +487,7 @@ object Config {
 
         opt[Unit]("early-access")
           .optional()
-          .action((_, c) => c.copy(engineMode = EngineMode.EarlyAccess))
+          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions))
           .text(
             "Enable preview version of the next Daml-LF language. Should not be used in production."
           )
@@ -493,25 +495,37 @@ object Config {
         opt[Unit]("daml-lf-dev-mode-unsafe")
           .optional()
           .hidden()
-          .action((_, c) => c.copy(engineMode = EngineMode.Dev))
+          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.DevVersions))
           .text(
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
+        opt[Unit]("daml-lf-min-version-1.14-unsafe")
+          .optional()
+          .hidden()
+          .action((_, c) =>
+            c.copy(allowedLanguageVersions =
+              c.allowedLanguageVersions.copy(min = LanguageVersion.v1_14)
+            )
+          )
+          .text(
+            "Set minimum LF version for unstable packages to 1.14. Should not be used in production."
+          )
+
         // TODO append-only: remove after removing support for the current (mutating) schema
-        opt[Unit]("index-append-only-schema-unsafe")
+        opt[Unit]("index-append-only-schema")
           .optional()
           .hidden()
           .text(
-            s"Use the append-only index database with parallel ingestion. Highly unstable. Should not be used in production."
+            s"Use the append-only index database with parallel ingestion."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 
-        opt[Unit]("mutable-contract-state-cache-unsafe")
+        opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
           .text(
-            "Experimental contract state cache for command execution. Should not be used in production."
+            "Contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema."
           )
           .action((_, config) => config.copy(enableMutableContractStateCache = true))
 
@@ -519,20 +533,34 @@ object Config {
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
+
+        checkConfig(config =>
+          if (config.enableMutableContractStateCache && !config.enableAppendOnlySchema)
+            failure(
+              "mutable-contract-state-cache must be enabled in conjunction with index-append-only-schema."
+            )
+          else if (
+            config.enableInMemoryFanOutForLedgerApi && !(config.enableMutableContractStateCache && config.enableAppendOnlySchema)
+          )
+            failure(
+              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache."
+            )
+          else success
+        )
+
+        // TODO ha: remove after stable
+        opt[Unit]("index-ha-unsafe")
+          .optional()
+          .hidden()
+          .text(
+            s"Use the experimental High Availability feature with the indexer. Should not be used in production."
+          )
+          .action((_, config) => config.copy(enableHa = true))
       }
     extraOptions(parser)
     parser
   }
-
-  sealed abstract class EngineMode extends Product with Serializable
-
-  object EngineMode {
-    final case object Stable extends EngineMode
-    final case object EarlyAccess extends EngineMode
-    final case object Dev extends EngineMode
-  }
-
 }

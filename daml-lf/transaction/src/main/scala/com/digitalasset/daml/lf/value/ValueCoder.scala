@@ -10,9 +10,11 @@ import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
 import com.google.protobuf
+import com.google.protobuf.{ByteString, CodedInputStream}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances
@@ -156,11 +158,38 @@ object ValueCoder {
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
     } yield VersionedValue(version, value)
 
+  // We need (3 * MAXIMUM_NESTING + 1) as record and maps use:
+  // - 3 nested messages for the cases of non empty records/maps)
+  // - 2 nested messages for the cases of empty records/maps
+  // Note the number of recursions is one less than the number of nested messages.
+  private[this] val MAXIMUM_PROTO_RECURSION_LIMIT = 3 * MAXIMUM_NESTING + 1
+
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, Value[Cid]] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
+
+  private[this] def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
+    Try {
+      val cis = CodedInputStream.newInstance(bytes.asReadOnlyByteBuffer())
+      cis.setRecursionLimit(MAXIMUM_PROTO_RECURSION_LIMIT)
+      proto.Value.parseFrom(cis)
+    } match {
+      case Failure(exception: Error) =>
+        Left(DecodeError("cannot parse proto Value: " + exception.getMessage))
+      case Failure(throwable) =>
+        throw throwable
+      case Success(value) =>
+        Right(value)
+    }
+
+  def decodeValue[Cid](
+      decodeCid: DecodeCid[Cid],
+      version: TransactionVersion,
+      bytes: ByteString,
+  ): Either[DecodeError, Value[Cid]] =
+    parseValue(bytes).flatMap(decodeValue(decodeCid, version, _))
 
   /** Method to read a serialized protobuf value
     * to engine/interpreter usable Value type
@@ -170,7 +199,7 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return either error or Value
     */
-  def decodeValue[Cid](
+  private[this] def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       version: TransactionVersion,
       protoValue0: proto.Value,
@@ -373,7 +402,7 @@ object ValueCoder {
       encodeCid: EncodeCid[Cid],
       valueVersion: TransactionVersion,
       v0: Value[Cid],
-  ): Either[EncodeError, proto.Value] = {
+  ): Either[EncodeError, ByteString] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def assertSince(minVersion: TransactionVersion, description: => String) =
@@ -482,7 +511,7 @@ object ValueCoder {
     }
 
     try {
-      Right(go(0, v0))
+      Right(go(0, v0).toByteString)
     } catch {
       case Err(msg) => Left(EncodeError(msg))
     }

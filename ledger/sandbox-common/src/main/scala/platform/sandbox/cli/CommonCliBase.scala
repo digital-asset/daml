@@ -12,7 +12,6 @@ import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.configuration.LedgerTimeModel
-import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
@@ -83,7 +82,7 @@ class CommonCliBase(name: LedgerName) {
 
       opt[String]("participant-id")
         .optional()
-        .action((id, c) => c.copy(participantId = v1.ParticipantId.assertFromString(id)))
+        .action((id, c) => c.copy(participantId = Ref.ParticipantId.assertFromString(id)))
         .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
       // TODO remove in next major release.

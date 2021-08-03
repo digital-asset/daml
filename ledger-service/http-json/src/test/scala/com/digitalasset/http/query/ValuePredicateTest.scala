@@ -299,8 +299,8 @@ class ValuePredicateTest
       forEvery(
         Table(
           "backend" -> "sql",
-          dbbackend.SupportedJdbcDriver.Postgres -> postgreSql,
-          dbbackend.SupportedJdbcDriver.Oracle -> oracleSql,
+          dbbackend.SupportedJdbcDriver.Postgres() -> postgreSql,
+          dbbackend.SupportedJdbcDriver.Oracle() -> oracleSql,
         )
       ) { (backend, sql: doobie.Fragment) =>
         // we aren't running the SQL, just looking at it

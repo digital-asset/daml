@@ -3,6 +3,8 @@
 
 package com.daml.logging.entries
 
+import spray.json.JsValue
+
 import scala.language.implicitConversions
 
 sealed trait LoggingValue
@@ -29,6 +31,12 @@ object LoggingValue {
   final case class OfIterable(sequence: Iterable[LoggingValue]) extends LoggingValue
 
   final case class Nested(entries: LoggingEntries) extends LoggingValue
+
+  object Nested {
+    def fromEntries(entries: LoggingEntry*): Nested = Nested(LoggingEntries(entries: _*))
+  }
+
+  final case class OfJson(json: JsValue) extends LoggingValue
 
   @inline
   implicit def from[T](value: T)(implicit toLoggingValue: ToLoggingValue[T]): LoggingValue =

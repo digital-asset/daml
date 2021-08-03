@@ -8,12 +8,12 @@ import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.{EventId, TransactionId}
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, WorkflowId}
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.OracleArrayConversions._
-import spray.json._
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 object EventsTableOracle extends EventsTable {
 
@@ -69,7 +69,7 @@ object EventsTableOracle extends EventsTable {
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       events: Vector[(NodeId, Node)],
       stakeholders: WitnessRelation[NodeId],
       disclosure: WitnessRelation[NodeId],
@@ -81,9 +81,9 @@ object EventsTableOracle extends EventsTable {
         "transaction_id" -> transactionId,
         "workflow_id" -> workflowId,
         "ledger_effective_time" -> ledgerEffectiveTime,
-        "command_id" -> submitterInfo.map(_.commandId),
-        "application_id" -> submitterInfo.map(_.applicationId),
-        "submitters" -> submitterInfo.map(_.actAs).getOrElse(List.empty).toJson.compactPrint,
+        "command_id" -> completionInfo.map(_.commandId),
+        "application_id" -> completionInfo.map(_.applicationId),
+        "submitters" -> completionInfo.map(_.actAs).getOrElse(List.empty).toJson.compactPrint,
       )
 
     for ((nodeId, node) <- events)
@@ -210,7 +210,7 @@ object EventsTableOracle extends EventsTable {
       transactionId = tx.transactionId,
       workflowId = tx.workflowId,
       ledgerEffectiveTime = tx.ledgerEffectiveTime,
-      submitterInfo = tx.submitterInfo,
+      completionInfo = tx.completionInfo,
       events = info.events,
       stakeholders = info.stakeholders,
       disclosure = info.disclosure,

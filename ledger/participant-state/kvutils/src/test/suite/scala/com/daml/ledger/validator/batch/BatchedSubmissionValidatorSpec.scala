@@ -7,19 +7,20 @@ import java.time.Clock
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch.CorrelatedSubmission
+import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   SubmissionAggregator,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, iterableOf}
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorSpec._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.ledger.validator.{CommitStrategy, ValidationFailed}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
@@ -136,7 +137,7 @@ class BatchedSubmissionValidatorSpec
       val outputStateCaptor = ArgCaptor[Map[DamlStateKey, DamlStateValue]]
       when(
         mockCommit.commit(
-          any[ParticipantId],
+          any[Ref.ParticipantId],
           any[String],
           any[DamlLogEntryId],
           logEntryCaptor.capture,
@@ -184,7 +185,7 @@ class BatchedSubmissionValidatorSpec
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
         mockCommit.commit(
-          any[ParticipantId],
+          any[Ref.ParticipantId],
           any[String],
           any[DamlLogEntryId],
           logEntryCaptor.capture,
@@ -211,7 +212,7 @@ class BatchedSubmissionValidatorSpec
           verify(mockLedgerStateReader, times(1000))
             .read(any[Seq[DamlStateKey]])(anyExecutionContext)
           verify(mockCommit, times(1000)).commit(
-            any[ParticipantId],
+            any[Ref.ParticipantId],
             any[String],
             any[DamlLogEntryId],
             any[DamlLogEntry],
@@ -252,7 +253,7 @@ class BatchedSubmissionValidatorSpec
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
         mockCommit.commit(
-          any[ParticipantId],
+          any[Ref.ParticipantId],
           any[String],
           any[DamlLogEntryId],
           any[DamlLogEntry],
@@ -278,7 +279,7 @@ class BatchedSubmissionValidatorSpec
         .map { _ =>
           // We must have 1 commit only (for the first submission).
           verify(mockCommit, times(1)).commit(
-            any[ParticipantId],
+            any[Ref.ParticipantId],
             any[String],
             any[DamlLogEntryId],
             any[DamlLogEntry],
@@ -301,7 +302,7 @@ class BatchedSubmissionValidatorSpec
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
         mockCommit.commit(
-          any[ParticipantId],
+          any[Ref.ParticipantId],
           any[String],
           any[DamlLogEntryId],
           any[DamlLogEntry],

@@ -62,7 +62,9 @@ compile_deps = [
     "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
-    # this oracle import is problematic for daml assistant build
+    "@maven//:com_h2database_h2",
+    "@maven//:org_postgresql_postgresql",
+    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 scala_compile_deps = [
@@ -79,9 +81,6 @@ scala_compile_deps = [
 
 runtime_deps = [
     "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:com_h2database_h2",
-    "@maven//:org_postgresql_postgresql",
-    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 da_scala_library(
@@ -176,7 +175,7 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/oracle-testing",
@@ -207,7 +206,7 @@ da_scala_test_suite(
         ],
     ),
     data = [
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "//ledger/test-common/test-certificates",
         openssl_executable,
     ],
@@ -217,9 +216,11 @@ da_scala_test_suite(
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_testkit",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_akka_akka_stream_testkit",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_playframework_anorm_anorm",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
@@ -261,9 +262,8 @@ da_scala_test_suite(
         "//ledger/metrics:metrics-test-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
-        "//ledger/participant-state/kvutils",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
@@ -276,6 +276,7 @@ da_scala_test_suite(
         "//libs-scala/scala-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:com_typesafe_config",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
@@ -298,7 +299,7 @@ da_scala_test_suite(
     size = "large",
     srcs = glob(["src/test/suite/**/*Oracle*.scala"]),
     data = [
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "//ledger/test-common/test-certificates",
         openssl_executable,
     ],

@@ -10,6 +10,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
@@ -51,8 +52,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         }
       """
     )
-    pkgWithId = Decode.decodeArchive(archive)
-    (pkgId, pkg) = pkgWithId
+    (pkgId, pkg) = Decode.assertDecodeArchive(archive)
   } yield (pkg, pkgId, archive)
 
   // [libraryArchive] contains another well-typed and self-consistent package
@@ -65,7 +65,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         }
       """
   )
-  val (libraryPackageId, libraryPackage) = Decode.decodeArchive(libraryArchive)
+  val (libraryPackageId, libraryPackage) = Decode.assertDecodeArchive(libraryArchive)
 
   // [dependentArchive] contains a well-typed package that depends on [libraryArchive]
   private[this] val dependentArchive = encodePackage(
@@ -77,7 +77,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         }
       """
   )
-  val (dependentPackageId, _) = Decode.decodeArchive(dependentArchive)
+  val (dependentPackageId, _) = Decode.assertDecodeArchive(dependentArchive)
 
   private[this] val participantId = Ref.ParticipantId.assertFromString("participant")
 

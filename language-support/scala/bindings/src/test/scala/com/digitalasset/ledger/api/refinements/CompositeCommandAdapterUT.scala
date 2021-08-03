@@ -6,7 +6,6 @@ package com.daml.ledger.api.refinements
 import com.daml.ledger.api.refinements.ApiTypes._
 import com.daml.ledger.api.v1.commands.Command.Command.Create
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
-import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.value.Identifier
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,13 +22,11 @@ class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
           )
         )
 
-      val submittedTraceContext = Some(TraceContext(1, 2, 3, Some(4L), true))
       val compositeCommand = CompositeCommand(
         commands,
         Party("party"),
         CommandId("commandId"),
         WorkflowId("workflowId"),
-        submittedTraceContext,
       )
 
       val submitRequest = CompositeCommandAdapter(
@@ -40,8 +37,6 @@ class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
       submitRequest.commands shouldBe Some(
         Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands)
       )
-
-      submitRequest.traceContext shouldBe submittedTraceContext
     }
 
   }

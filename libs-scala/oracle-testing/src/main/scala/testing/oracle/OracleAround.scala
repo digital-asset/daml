@@ -40,7 +40,7 @@ trait OracleAround {
       val con = use(
         DriverManager.getConnection(
           s"jdbc:oracle:thin:@localhost:$port/ORCLPDB1",
-          systemUser,
+          "sys as sysdba", // TODO this is needed for being able to grant the execute access for the sys.dbms_lock below. Consider making this configurable
           systemPwd,
         )
       )
@@ -51,6 +51,11 @@ trait OracleAround {
         s"""grant create table, create materialized view, create view, create procedure, create sequence, create type to $name"""
       )
       stmt.execute(s"""alter user $name quota unlimited on users""")
+
+      // for DBMS_LOCK access
+      stmt.execute(s"""GRANT EXECUTE ON SYS.DBMS_LOCK TO $name""")
+      stmt.execute(s"""GRANT SELECT ON V_$$MYSTAT TO $name""")
+      stmt.execute(s"""GRANT SELECT ON V_$$LOCK TO $name""")
     }.get
     User(name, pwd)
   }

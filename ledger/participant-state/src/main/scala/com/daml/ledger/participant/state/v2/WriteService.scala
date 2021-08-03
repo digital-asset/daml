@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.v2
 import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.lf.data.Time
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.telemetry.TelemetryContext
 
 /** An interface to change a ledger via a participant.
@@ -102,34 +102,5 @@ trait WriteService
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
-
-  /** Record the rejection of a command submission on the ledger.
-    *
-    * This method must be thread-safe.
-    *
-    * This method is used by the Ledger API server to deliver interpretation failures as definitive answers to the
-    * Ledger API client via completions; thereby allowing the Ledger API client to safely decide to not retry
-    * the command if desired.
-    *
-    * The result is communicated asynchronously via a [[ReadService]] implementation backed by the same participant
-    * state as this [[WriteService]]. Successful recording is communicated using a [[Update.CommandRejected]]
-    * with [[SubmitterInfo]] and [[Update.CommandRejected.definiteAnswer]].
-    * If the recording as a rejection fails (e.g., due to deduplication),
-    * the failure should be communicated using a [[Update.CommandRejected]] with [[SubmitterInfo]]
-    * and not [[Update.CommandRejected.definiteAnswer]].
-    *
-    * Recorded rejections fall under the deduplication guarantees described in [[ReadService.stateUpdates]].
-    *
-    * @param submitterInfo the information provided by the submitter for correlating this submission
-    *                      with its rejection on the associated [[ReadService]].
-    * @param submissionTime the submission time of the rejected submission like in [[TransactionMeta.submissionTime]]
-    * @param reason The rejection reason to be included in the [[Update.CommandRejected]]
-    * @param telemetryContext Implicit context for tracing.
-    */
-  def rejectSubmission(
-      submitterInfo: SubmitterInfo,
-      submissionTime: Time.Timestamp,
-      reason: com.google.rpc.status.Status,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

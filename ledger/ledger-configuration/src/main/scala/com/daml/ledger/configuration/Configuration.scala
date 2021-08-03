@@ -22,8 +22,6 @@ final case class Configuration(
 
 object Configuration {
 
-  import com.daml.ledger.participant.state.protobuf
-
   /** Version history:
     * V1: initial version
     * V2: added maxDeduplicationTime

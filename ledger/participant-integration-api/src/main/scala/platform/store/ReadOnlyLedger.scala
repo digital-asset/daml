@@ -8,7 +8,6 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -23,7 +22,6 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -41,14 +39,14 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   def flatTransactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      filter: Map[Party, Set[Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionTreesResponse), NotUsed]
 
@@ -62,13 +60,13 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed]
 
   def activeContracts(
-      filter: Map[Party, Set[Identifier]],
+      filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): (Source[GetActiveContractsResponse, NotUsed], Offset)
 
   def lookupContract(
       contractId: Value.ContractId,
-      forParties: Set[Party],
+      forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
@@ -77,22 +75,22 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+  def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]]
 
   def lookupFlatTransactionById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
   def lookupTransactionTreeById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
   // Party management
-  def getParties(parties: Seq[Party])(implicit
+  def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]]
 
@@ -105,13 +103,13 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   // Package management
   def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]]
+  ): Future[Map[Ref.PackageId, PackageDetails]]
 
-  def getLfArchive(packageId: PackageId)(implicit
+  def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]]
 
-  def getLfPackage(packageId: PackageId)(implicit
+  def getLfPackage(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Ast.Package]]
 

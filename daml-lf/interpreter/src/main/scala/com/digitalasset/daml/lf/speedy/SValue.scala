@@ -24,55 +24,9 @@ import scala.util.hashing.MurmurHash3
   */
 sealed trait SValue {
 
-  import SValue._
+  import SValue.{SValue => _, _}
 
-  def toValue: V[V.ContractId] =
-    this match {
-      case SInt64(x) => V.ValueInt64(x)
-      case SNumeric(x) => V.ValueNumeric(x)
-      case SText(x) => V.ValueText(x)
-      case STimestamp(x) => V.ValueTimestamp(x)
-      case SParty(x) => V.ValueParty(x)
-      case SBool(x) => V.ValueBool(x)
-      case SUnit => V.ValueUnit
-      case SDate(x) => V.ValueDate(x)
-
-      case SRecord(id, fields, svalues) =>
-        V.ValueRecord(
-          Some(id),
-          ImmArray(
-            fields.toSeq
-              .zip(svalues.asScala)
-              .map({ case (fld, sv) => (Some(fld), sv.toValue) })
-          ),
-        )
-      case SVariant(id, variant, _, sv) =>
-        V.ValueVariant(Some(id), variant, sv.toValue)
-      case SEnum(id, constructor, _) =>
-        V.ValueEnum(Some(id), constructor)
-      case SList(lst) =>
-        V.ValueList(lst.map(_.toValue))
-      case SOptional(mbV) =>
-        V.ValueOptional(mbV.map(_.toValue))
-      case SMap(true, entries) =>
-        V.ValueTextMap(SortedLookupList(entries.map {
-          case (SText(t), v) => t -> v.toValue
-          case (_, _) =>
-            throw SError.SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              "SValue.toValue: TextMap with non text key",
-            )
-        }))
-      case SMap(false, entries) =>
-        V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
-      case SContractId(coid) =>
-        V.ValueContractId(coid)
-      case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
-        throw SError.SErrorCrash(
-          NameOf.qualifiedNameOfCurrentFunc,
-          s"SValue.toValue: unexpected ${getClass.getSimpleName}",
-        )
-    }
+  def toValue: V[V.ContractId] = SValue.toValue(this)
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
@@ -107,6 +61,62 @@ sealed trait SValue {
 }
 
 object SValue {
+
+  def toValue(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V[V.ContractId] = {
+    if (maxNesting < 0)
+      throw SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting)
+    val nextMaxNesting = maxNesting - 1
+    v match {
+      case SInt64(x) => V.ValueInt64(x)
+      case SNumeric(x) => V.ValueNumeric(x)
+      case SText(x) => V.ValueText(x)
+      case STimestamp(x) => V.ValueTimestamp(x)
+      case SParty(x) => V.ValueParty(x)
+      case SBool(x) => V.ValueBool(x)
+      case SUnit => V.ValueUnit
+      case SDate(x) => V.ValueDate(x)
+
+      case SRecord(id, fields, svalues) =>
+        V.ValueRecord(
+          Some(id),
+          ImmArray(
+            fields.toSeq
+              .zip(svalues.asScala)
+              .map({ case (fld, sv) => (Some(fld), toValue(sv, nextMaxNesting)) })
+          ),
+        )
+      case SVariant(id, variant, _, sv) =>
+        V.ValueVariant(Some(id), variant, toValue(sv, nextMaxNesting))
+      case SEnum(id, constructor, _) =>
+        V.ValueEnum(Some(id), constructor)
+      case SList(lst) =>
+        V.ValueList(lst.map(toValue(_, nextMaxNesting)))
+      case SOptional(mbV) =>
+        V.ValueOptional(mbV.map(toValue(_, nextMaxNesting)))
+      case SMap(true, entries) =>
+        V.ValueTextMap(SortedLookupList(entries.map {
+          case (SText(t), v) => t -> toValue(v, nextMaxNesting)
+          case (_, _) =>
+            throw SError.SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              "SValue.toValue: TextMap with non text key",
+            )
+        }))
+      case SMap(false, entries) =>
+        V.ValueGenMap(
+          entries.view
+            .map { case (k, v) => toValue(k, nextMaxNesting) -> toValue(v, nextMaxNesting) }
+            .to(ImmArray)
+        )
+      case SContractId(coid) =>
+        V.ValueContractId(coid)
+      case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
+        throw SError.SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"SValue.toValue: unexpected ${getClass.getSimpleName}",
+        )
+    }
+  }
 
   /** "Primitives" that can be applied. */
   sealed trait Prim

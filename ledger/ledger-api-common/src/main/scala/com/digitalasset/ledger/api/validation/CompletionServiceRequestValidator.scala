@@ -12,7 +12,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionStreamRequest => GrpcCompletionStreamRequest,
 }
 import com.daml.platform.server.api.validation.FieldValidations
-import com.daml.platform.server.util.context.TraceContextConversions.toBrave
 import io.grpc.StatusRuntimeException
 import com.daml.platform.server.api.validation.ErrorFactories._
 
@@ -52,6 +51,6 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))
-    } yield completion.CompletionEndRequest(ledgerId, req.traceContext.map(toBrave))
+    } yield completion.CompletionEndRequest(ledgerId)
 
 }

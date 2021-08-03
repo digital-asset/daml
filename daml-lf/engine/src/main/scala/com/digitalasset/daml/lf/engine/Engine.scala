@@ -16,7 +16,7 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
-import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.language.{Interface, LanguageVersion, LookupError, StablePackages}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
@@ -230,21 +230,16 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     } yield validationResult
   }
 
-  private[engine] def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
-    pkgIds.dropWhile(compiledPackages.packageIds.contains) match {
-      case pkgId :: rest =>
-        ResultNeedPackage(
-          pkgId,
-          {
-            case Some(pkg) =>
-              compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
-            case None =>
-              ResultError(Error.Package.MissingPackage(pkgId))
-          },
-        )
-      case Nil =>
-        ResultDone.Unit
-    }
+  private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =
+    ResultNeedPackage(
+      pkgId,
+      {
+        case Some(pkg) =>
+          compiledPackages.addPackage(pkgId, pkg)
+        case None =>
+          ResultError(Error.Package.MissingPackage(pkgId, context))
+      },
+    )
 
   @inline
   private[lf] def runSafely[X](
@@ -256,9 +251,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       } catch {
         // The two following error should be prevented by the type checking does by translateCommand
         // so it’s an internal error.
-        case error: speedy.Compiler.PackageNotFound =>
+        case speedy.Compiler.PackageNotFound(pkgId, context) =>
           ResultError(
-            Error.Preprocessing.Internal(funcName, s"CompilationError: ${error.getMessage}")
+            Error.Preprocessing.Internal(
+              funcName,
+              s"CompilationError: " + LookupError.MissingPackage.pretty(pkgId, context),
+            )
           )
         case speedy.Compiler.CompilationError(error) =>
           ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
@@ -338,8 +336,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case SResultFinalValue(_) => finished = true
 
         case SResultError(SError.SErrorDamlException(error)) =>
-          // Special-cased because duplicate key errors
-          // produce a different gRPC error code.
           return ResultError(Error.Interpretation.DamlException(error), detailMsg)
 
         case SResultError(err) =>
@@ -349,9 +345,10 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             case SError.SErrorDamlException(error) =>
               Error.Interpretation.DamlException(error)
           }
-        case SResultNeedPackage(pkgId, callback) =>
+        case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
             pkgId,
+            context,
             pkg => {
               compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                 callback(compiledPackages)
@@ -370,7 +367,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           )
 
         case SResultNeedTime(callback) =>
-          onLedger.dependsOnTime = true
           callback(time)
 
         case SResultNeedKey(gk, _, cb) =>
@@ -394,7 +390,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     }
 
     onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(tx, nodeSeeds) =>
+      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
           submissionTime = onLedger.ptxInternal.submissionTime,
@@ -452,7 +448,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     for {
       _ <- pkgs
         .collectFirst {
-          case (pkgId, pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+          case (pkgId, pkg)
+              if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+                .contains(pkg.languageVersion) =>
             Error.Package.AllowedLanguageVersion(
               pkgId,
               pkg.languageVersion,

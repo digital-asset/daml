@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   UploadDarFileRequest,
 }
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.archive.{Dar, GenDarReader}
 import com.daml.lf.data.Ref
@@ -95,21 +95,21 @@ class ApiPackageManagementServiceSpec
       Duration.ZERO,
       mockEngine,
       mockDarReader,
-      _ => SubmissionId.assertFromString("aSubmission"),
+      _ => Ref.SubmissionId.assertFromString("aSubmission"),
     )
   }
 
-  private object TestWritePackagesService extends WritePackagesService {
+  private object TestWritePackagesService extends state.WritePackagesService {
     override def uploadPackages(
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         archives: List[DamlLf.Archive],
         sourceDescription: Option[String],
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,
         anApplicationIdSpanAttribute._2,
       )
-      CompletableFuture.completedFuture(SubmissionResult.Acknowledged)
+      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
     }
   }
 }

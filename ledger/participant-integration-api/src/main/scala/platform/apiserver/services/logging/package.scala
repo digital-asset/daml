@@ -3,18 +3,13 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
   Commands,
   EventId,
   LedgerId,
   LedgerOffset,
   TransactionFilter,
   TransactionId,
-  WorkflowId,
 }
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.logging._
@@ -63,17 +58,8 @@ package object logging {
   private[services] def ledgerId(id: LedgerId): LoggingEntry =
     "ledgerId" -> id.unwrap
 
-  private[services] def applicationId(id: ApplicationId): LoggingEntry =
-    "applicationId" -> id.unwrap
-
   private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id
-
-  private[services] def commandId(id: CommandId): LoggingEntry =
-    "commandId" -> id.unwrap
-
-  private[services] def deduplicateUntil(instant: Instant): LoggingEntry =
-    "deduplicateUntil" -> instant
 
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> id.unwrap
@@ -95,9 +81,6 @@ package object logging {
   private[services] def submissionId(id: String): LoggingEntry =
     "submissionId" -> id
 
-  private[services] def submittedAt(t: Instant): LoggingEntry =
-    "submittedAt" -> t
-
   private[services] def transactionId(id: String): LoggingEntry =
     "transactionId" -> id
 
@@ -107,20 +90,8 @@ package object logging {
   private[services] def workflowId(id: String): LoggingEntry =
     "workflowId" -> id
 
-  private[services] def workflowId(id: WorkflowId): LoggingEntry =
-    "workflowId" -> id.unwrap
-
-  private[services] def commands(cmds: Commands): LoggingEntries = {
-    val context = LoggingEntries(
-      commandId(cmds.commandId),
-      deduplicateUntil(cmds.deduplicateUntil),
-      applicationId(cmds.applicationId),
-      submittedAt(cmds.submittedAt),
-      actAs(cmds.actAs),
-      readAs(cmds.readAs),
-    )
-    cmds.workflowId.fold(context)(context :+ workflowId(_))
-  }
+  private[services] def commands(cmds: Commands): LoggingEntry =
+    "commands" -> cmds
 
   private[services] def verbose(v: Boolean): LoggingEntry =
     "verbose" -> v

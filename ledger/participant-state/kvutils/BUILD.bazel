@@ -51,7 +51,6 @@ da_scala_library(
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
         "//ledger/caching",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
@@ -65,7 +64,6 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
-        "//libs-scala/timer-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
@@ -120,7 +118,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/resources",
@@ -137,7 +135,7 @@ da_scala_test_suite(
     timeout = "moderate",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
     ],
     plugins = [
         silencer_plugin,
@@ -181,7 +179,7 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_guava_guava",
@@ -210,7 +208,7 @@ da_scala_dar_resources_library(
 
 proto_jars(
     name = "daml_kvutils_proto",
-    srcs = ["src/main/protobuf/daml_kvutils.proto"],
+    srcs = glob(["src/main/protobuf/**/*.proto"]),
     maven_artifact_prefix = "participant-state-kvutils",
     maven_group = "com.daml",
     proto_deps = [

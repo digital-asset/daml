@@ -5,11 +5,10 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
+import com.daml.lf.language.{LanguageVersion, LookupError, Interface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
@@ -40,8 +39,13 @@ private[lf] object Compiler {
       languageVersion: language.LanguageVersion,
       allowedLanguageVersions: VersionRange[language.LanguageVersion],
   ) extends RuntimeException(s"Disallowed language version $languageVersion", null, true, false)
-  case class PackageNotFound(pkgId: PackageId)
-      extends RuntimeException(s"Package not found $pkgId", null, true, false)
+  case class PackageNotFound(pkgId: PackageId, context: language.Reference)
+      extends RuntimeException(
+        language.LookupError.MissingPackage.pretty(pkgId, context),
+        null,
+        true,
+        false,
+      )
 
   // NOTE(MH): We make this an enum type to avoid boolean blindness. In fact,
   // other profiling modes like "only trace the ledger interactions" might also
@@ -112,7 +116,8 @@ private[lf] object Compiler {
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
-      case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
+      case PackageNotFound(pkgId, context) =>
+        Left(LookupError.MissingPackage.pretty(pkgId, context))
       case e: ValidationError => Left(e.pretty)
     }
   }
@@ -137,10 +142,10 @@ private[lf] final class Compiler(
 
   import Compiler._
 
-  private[this] def handleLookup[X](where: String, x: Either[LookupError, X]) =
+  private[this] def handleLookup[X](location: String, x: Either[LookupError, X]) =
     x match {
       case Right(value) => value
-      case Left(err) => throw SError.SErrorCrash(where, err.pretty)
+      case Left(err) => throw SError.SErrorCrash(location, err.pretty)
     }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
@@ -347,7 +352,9 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     interface.lookupPackage(pkgId) match {
-      case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+      case Right(pkg)
+          if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+            .contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }
@@ -356,9 +363,9 @@ private[lf] final class Compiler(
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
         Validation.checkPackage(interface, pkgId, pkg).left.foreach {
-          case EUnknownDefinition(_, LookupError.Package(pkgId_)) =>
+          case EUnknownDefinition(_, LookupError.MissingPackage(pkgId_, context)) =>
             logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
-            throw PackageNotFound(pkgId_)
+            throw PackageNotFound(pkgId_, context)
           case e =>
             throw e
         }
@@ -463,7 +470,7 @@ private[lf] final class Compiler(
         ).rank
         SBVariantCon(tapp.tycon, variant, rank)(compile(arg))
       case let: ELet =>
-        compileELet(let)
+        withEnv(_ => compileELet(let))
       case EUpdate(upd) =>
         compileEUpdate(upd)
       case ELocation(loc, EScenario(scen)) =>
@@ -734,17 +741,28 @@ private[lf] final class Compiler(
       },
     )
 
-  @inline
-  private[this] def compileELet(elet: ELet) =
-    withEnv { _ =>
-      elet match {
-        case ELet(Binding(optBinder, _, bound), body) =>
-          let(withOptLabel(optBinder, compile(bound))) { boundPos =>
-            optBinder.foreach(addExprVar(_, boundPos))
-            compile(body)
-          }
-      }
+  // Compile nested lets using constant stack.
+  @tailrec
+  private[this] def compileELet(
+      eLet0: ELet,
+      bounds0: List[SExpr] = List.empty,
+  ): SELet = {
+    val binding = eLet0.binding
+    val bounds = withOptLabel(binding.binder, compile(binding.bound)) :: bounds0
+    val boundPos = nextPosition()
+    binding.binder.foreach(addExprVar(_, boundPos))
+    eLet0.body match {
+      case eLet1: ELet =>
+        compileELet(eLet1, bounds)
+      case body0 =>
+        compile(body0) match {
+          case SELet(bounds1, body1) =>
+            SELet(bounds.foldLeft(bounds1)((acc, b) => b :: acc), body1)
+          case otherwise =>
+            SELet(bounds.reverse, otherwise)
+        }
     }
+  }
 
   @inline
   private[this] def compileEUpdate(update: Update): SExpr =

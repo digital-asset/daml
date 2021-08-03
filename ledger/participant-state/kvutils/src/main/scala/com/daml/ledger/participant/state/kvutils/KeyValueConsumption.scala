@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{RejectionReasonV0, TransactionMeta, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
@@ -340,8 +340,8 @@ object KeyValueConsumption {
         Some(
           Update.ConfigurationChangeRejected(
             recordTime,
-            SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
-            ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
+            Ref.SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
+            Ref.ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
             Configuration.decode(configurationRejectionEntry.getConfiguration).toOption.get,
             reason,
           )

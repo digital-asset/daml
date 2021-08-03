@@ -8,10 +8,16 @@ import java.time.Clock
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.wire.{DamlSubmission, DamlSubmissionBatch}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
 import com.daml.ledger.validator.SubmissionValidatorSpec._
-import com.daml.ledger.validator.TestHelper.{aLogEntry, aLogEntryId, aParticipantId}
+import com.daml.ledger.validator.TestHelper.{
+  FakeStateAccess,
+  aLogEntry,
+  aLogEntryId,
+  aParticipantId,
+}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
@@ -23,7 +29,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Try
 
 class SubmissionValidatorSpec
@@ -349,11 +355,4 @@ object SubmissionValidatorSpec {
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  private class FakeStateAccess[LogResult](mockStateOperations: LedgerStateOperations[LogResult])
-      extends LedgerStateAccess[LogResult] {
-    override def inTransaction[T](
-        body: LedgerStateOperations[LogResult] => Future[T]
-    )(implicit executionContext: ExecutionContext): Future[T] =
-      body(mockStateOperations)
-  }
 }

@@ -55,7 +55,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
       replayed: Option[Value[Cid]],
   ) =
     (recorded, replayed) match {
-      case (None, _) => true
+      case (None, None) => true
       case (Some(recordedValue), Some(replayedValue)) =>
         valueIsReplayedBy(recordedValue, replayedValue)
       case _ => false
@@ -193,7 +193,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     templateId1,
                     arg1,
                     agreementText1,
-                    optLocation1 @ _,
                     signatories1,
                     stakeholders1,
                     key1,
@@ -204,7 +203,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     templateId2,
                     arg2,
                     agreementText2,
-                    optLocation2 @ _,
                     signatories2,
                     stakeholders2,
                     key2,
@@ -224,7 +222,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   Node.NodeFetch(
                     coid1,
                     templateId1,
-                    optLocation1 @ _,
                     actingParties1,
                     signatories1,
                     stakeholders1,
@@ -235,7 +232,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   Node.NodeFetch(
                     coid2,
                     templateId2,
-                    optLocation2 @ _,
                     actingParties2,
                     signatories2,
                     stakeholders2,
@@ -247,10 +243,10 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                 if version1 == version2 &&
                   coid1 === coid2 &&
                   templateId1 == templateId2 &&
-                  (actingParties1.isEmpty || actingParties1 == actingParties2) &&
+                  actingParties1 == actingParties2 &&
                   signatories1 == signatories2 &&
                   stakeholders1 == stakeholders2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  (keyIsReplayedBy(key1, key2)) &&
                   byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(rest1, rest2, stack)
             case (
@@ -258,7 +254,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     targetCoid1,
                     templateId1,
                     choiceId1,
-                    optLocation1 @ _,
                     consuming1,
                     actingParties1,
                     chosenValue1,
@@ -275,7 +270,6 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     targetCoid2,
                     templateId2,
                     choiceId2,
-                    optLocation2 @ _,
                     consuming2,
                     actingParties2,
                     chosenValue2,
@@ -300,7 +294,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   stakeholders1 == stakeholders2 &&
                   signatories1 == signatories2 &&
                   choiceObservers1 == choiceObservers2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  (keyIsReplayedBy(key1, key2)) &&
                   byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(
                 children1.iterator.to(LazyList),
@@ -308,8 +302,8 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                 ExerciseEntry(Exercise(nid1, exe1, rest1), Exercise(nid2, exe2, rest2)) :: stack,
               )
             case (
-                  Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1, version1),
-                  Node.NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2, version2),
+                  Node.NodeLookupByKey(templateId1, key1, result1, version1),
+                  Node.NodeLookupByKey(templateId2, key2, result2, version2),
                 )
                 if version1 == version2 &&
                   templateId1 == templateId2 &&
@@ -380,7 +374,7 @@ sealed abstract class ReplayMismatch[Nid, Cid] extends Product with Serializable
   def recordedTransaction: VersionedTransaction[Nid, Cid]
   def replayedTransaction: VersionedTransaction[Nid, Cid]
 
-  def msg: String =
+  def message: String =
     s"recreated and original transaction mismatch $recordedTransaction expected, but $replayedTransaction is recreated"
 }
 

@@ -423,7 +423,7 @@ class ContractsService(
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
     getActiveContracts(jwt, txnFilter, true)
-      .map { case GetActiveContractsResponse(offset, _, activeContracts, _) =>
+      .map { case GetActiveContractsResponse(offset, _, activeContracts) =>
         if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
         else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
       }

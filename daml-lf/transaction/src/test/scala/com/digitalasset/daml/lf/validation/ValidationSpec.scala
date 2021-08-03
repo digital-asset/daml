@@ -5,15 +5,7 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{
-  Location,
-  PackageId,
-  ModuleName,
-  Identifier,
-  TypeConName,
-  ChoiceName,
-  Party,
-}
+import com.daml.lf.data.Ref.{Identifier, TypeConName, ChoiceName, Party}
 import com.daml.lf.transaction.Node.{
   KeyWithMaintainers,
   GenNode,
@@ -71,16 +63,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   //--[samples]--
 
-  private val samPackageId1 = PackageId.assertFromString("packageId1")
-  private val samModuleName1 = ModuleName.assertFromString("moduleName1")
-
-  private val samLocation1 = Location(samPackageId1, samModuleName1, "someString1", (1, 2), (3, 4))
-  private val samLocation2 =
-    Location(samPackageId1, samModuleName1, "someString2", (11, 22), (33, 44))
-
-  private val samOptLocation1: Option[Location] = None
-  private val samOptLocation2: Option[Location] = Some(samLocation1)
-
   private val samBool1 = true
   private val samBool2 = false
 
@@ -123,7 +105,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       templateId = samTemplateId1,
       arg = samValue1,
       agreementText = samText1,
-      optLocation = samOptLocation1,
       signatories = samParties1,
       stakeholders = samParties2,
       key = key,
@@ -138,7 +119,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield NodeFetch(
       coid = samContractId1,
       templateId = samTemplateId1,
-      optLocation = samOptLocation1,
       actingParties = actingParties,
       signatories = samParties2,
       stakeholders = samParties3,
@@ -153,7 +133,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       result <- Seq(None, Some(samContractId1))
     } yield NodeLookupByKey(
       templateId = samTemplateId1,
-      optLocation = samOptLocation1,
       result = result,
       key = samKWM3,
       version = version,
@@ -168,7 +147,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       targetCoid = samContractId2,
       templateId = samTemplateId2,
       choiceId = samChoiceName1,
-      optLocation = samOptLocation2,
       consuming = samBool1,
       actingParties = samParties1,
       chosenValue = samValue1,
@@ -201,7 +179,11 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       val nid1 = NodeId(1)
       val parent = exe.copy(children = ImmArray(nid1))
       val version = TransactionVersion.minExceptions
-      VersionedTransaction(version, HashMap(nid0 -> parent, nid1 -> child), ImmArray(nid0))
+      VersionedTransaction(
+        version,
+        HashMap(nid0 -> parent, nid1 -> child),
+        ImmArray(nid0),
+      )
     }
 
   private def preTweakedVTXs: Seq[VTX] = flatVTXs ++ nestedVTXs
@@ -237,15 +219,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     if (x != samVersion1) samVersion1 else samVersion2
   }
 
-  private def changeLocation(x: Location): Location = {
-    if (x != samLocation1) samLocation1 else samLocation2
-  }
-
-  private def tweakOptLocation = Tweak[Option[Location]] {
-    case None => List(Some(samLocation1), Some(samLocation2))
-    case Some(loc) => List(None, Some(changeLocation(loc)))
-  }
-
   private def changeText(x: String): String = {
     x + "_XXX"
   }
@@ -274,14 +247,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     List(samKWM1, samKWM2, samKWM3).filter(y => x != y)
   }
 
-  private val tweakOptKeyMaintainersSome = Tweak[OKWM] {
-    case None => List() // don't tweak from None
-    case Some(x) => None :: List(samKWM1, samKWM2, samKWM3).filter(y => x != y).map(Some(_))
-  }
-
-  private val tweakOptKeyMaintainersNone = Tweak[OKWM] { // sig only for Create nodes!
+  private val tweakOptKeyMaintainers = Tweak[OKWM] {
     case None => List(Some(samKWM1), Some(samKWM2), Some(samKWM3))
-    case Some(_) => List() // don't tweak from Some
+    case Some(x) => None :: List(samKWM1, samKWM2, samKWM3).filter(y => x != y).map(Some(_))
   }
 
   private val tweakOptContractId = Tweak[Option[V.ContractId]] { case x =>
@@ -301,9 +269,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   }
   private val tweakCreateAgreementText = Tweak.single[Node] { case nc: Node.NodeCreate[_] =>
     nc.copy(agreementText = changeText(nc.agreementText))
-  }
-  private val tweakCreateOptLocation = Tweak[Node] { case nc: Node.NodeCreate[_] => //insig
-    tweakOptLocation.run(nc.optLocation).map { x => nc.copy(optLocation = x) }
   }
   private val tweakCreateSignatories = Tweak[Node] { case nc: Node.NodeCreate[_] =>
     tweakPartySet.run(nc.signatories).map { x => nc.copy(signatories = x) }
@@ -327,14 +292,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakCreateAgreementText" -> tweakCreateAgreementText,
       "tweakCreateSignatories" -> tweakCreateSignatories,
       "tweakCreateStakeholders" -> tweakCreateStakeholders,
-      "tweakCreateKey(None)" -> tweakCreateKey(tweakOptKeyMaintainersNone),
-      "tweakCreateKey(Some)" -> tweakCreateKey(tweakOptKeyMaintainersSome),
+      "tweakCreateKey" -> tweakCreateKey(tweakOptKeyMaintainers),
       "tweakCreateVersion" -> tweakCreateVersion,
-    )
-
-  private val insigCreateTweaks =
-    Map(
-      "tweakCreateOptLocation" -> tweakCreateOptLocation
     )
 
   //--[Fetch node tweaks]--
@@ -345,16 +304,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakFetchTemplateId = Tweak.single[Node] { case nf: Node.NodeFetch[_] =>
     nf.copy(templateId = changeTemplateId(nf.templateId))
   }
-  private val tweakFetchOptLocation = Tweak[Node] { case nf: Node.NodeFetch[_] =>
-    tweakOptLocation.run(nf.optLocation).map { x => nf.copy(optLocation = x) }
-  }
-  private val tweakFetchActingPartiesEmpty = Tweak[Node] {
-    case nf: Node.NodeFetch[_] if nf.actingParties.isEmpty => //insig
-      tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
-  }
-  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] {
-    case nf: Node.NodeFetch[_] if nf.actingParties.nonEmpty => //sig
-      tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
+  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] { case nf: Node.NodeFetch[_] =>
+    tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
   }
   private val tweakFetchSignatories = Tweak[Node] { case nf: Node.NodeFetch[_] =>
     tweakPartySet.run(nf.signatories).map { x => nf.copy(signatories = x) }
@@ -378,29 +329,23 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     Map(
       "tweakFetchCoid" -> tweakFetchCoid,
       "tweakFetchTemplateId" -> tweakFetchTemplateId,
-      "tweakFetchActingParties(Non-empty)" -> tweakFetchActingPartiesNonEmpty,
+      "tweakFetchActingParties" -> tweakFetchActingPartiesNonEmpty,
       "tweakFetchSignatories" -> tweakFetchSignatories,
       "tweakFetchStakeholders" -> tweakFetchStakeholders,
-      "tweakFetchKey(Some)" -> tweakFetchKey(tweakOptKeyMaintainersSome),
+      "tweakFetchKey" -> tweakFetchKey(tweakOptKeyMaintainers),
       "tweakFetchByKey(New Version)" -> tweakFetchByKey(versionSinceMinByKey),
       "tweakFetchVersion" -> tweakFetchVersion,
     )
 
   private val insigFetchTweaks =
     Map(
-      "tweakFetchOptLocation" -> tweakFetchOptLocation,
-      "tweakFetchActingParties(Empty)" -> tweakFetchActingPartiesEmpty,
-      "tweakFetchKey(None)" -> tweakFetchKey(tweakOptKeyMaintainersNone),
-      "tweakFetchByKey(Old Version)" -> tweakFetchByKey(versionBeforeMinByKey),
+      "tweakFetchByKey(Old Version)" -> tweakFetchByKey(versionBeforeMinByKey)
     )
 
   //--[LookupByKey node tweaks]--
 
   private val tweakLookupTemplateId = Tweak.single[Node] { case nl: Node.NodeLookupByKey[_] =>
     nl.copy(templateId = changeTemplateId(nl.templateId))
-  }
-  private val tweakLookupOptLocation = Tweak[Node] { case nl: Node.NodeLookupByKey[_] =>
-    tweakOptLocation.run(nl.optLocation).map { x => nl.copy(optLocation = x) }
   }
   private val tweakLookupKey = Tweak[Node] { case nl: Node.NodeLookupByKey[_] =>
     tweakKeyMaintainers.run(nl.key).map { x => nl.copy(key = x) }
@@ -415,15 +360,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val sigLookupTweaks =
     Map(
       "tweakLookupTemplateId" -> tweakLookupTemplateId,
-      "tweakLookupKey(None)" -> tweakLookupKey,
+      "tweakLookupKey" -> tweakLookupKey,
       "tweakLookupResult" -> tweakLookupResult,
       "tweakLookupVersion" -> tweakLookupVersion,
-    )
-
-  private val insigLookupTweaks =
-    Map(
-      "tweakLookupOptLocation" -> tweakLookupOptLocation,
-      "tweakExerciseKey(None)" -> tweakExerciseKey(tweakOptKeyMaintainersNone),
     )
 
   //--[Exercise node tweaks]--
@@ -436,9 +375,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   }
   private val tweakExerciseChoiceId = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
     ne.copy(choiceId = changeChoiceId(ne.choiceId))
-  }
-  private val tweakExerciseOptLocation = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
-    tweakOptLocation.run(ne.optLocation).map { x => ne.copy(optLocation = x) }
   }
   private val tweakExerciseConsuming = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
     ne.copy(consuming = changeBoolean(ne.consuming))
@@ -458,24 +394,17 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakExerciseChoiceObservers = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
     tweakPartySet.run(ne.choiceObservers).map { x => ne.copy(choiceObservers = x) }
   }
-  private val tweakExerciseExerciseResultSome = Tweak[Node] {
-    case ne: Node.NodeExercises[_, _] => //sig
-      ne.exerciseResult match {
-        case None => Nil
-        case Some(v) =>
-          List(
-            ne.copy(exerciseResult = Some(changeValue(v))),
-            ne.copy(exerciseResult = None),
-          )
-      }
+  private val tweakExerciseExerciseResult = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
+    ne.exerciseResult match {
+      case None => List(ne.copy(exerciseResult = Some(samValue1)))
+      case Some(v) =>
+        List(
+          ne.copy(exerciseResult = Some(changeValue(v))),
+          ne.copy(exerciseResult = None),
+        )
+    }
   }
-  private val tweakExerciseExerciseResultNone = Tweak[Node] {
-    case ne: Node.NodeExercises[_, _] => //insig
-      ne.exerciseResult match {
-        case Some(_) => Nil
-        case None => List(ne.copy(exerciseResult = Some(samValue1)))
-      }
-  }
+
   private def tweakExerciseKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
     case ne: Node.NodeExercises[_, _] =>
       tweakOptKeyMaintainers.run(ne.key).map { x => ne.copy(key = x) }
@@ -499,18 +428,15 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakExerciseStakeholders" -> tweakExerciseStakeholders,
       "tweakExerciseSignatories" -> tweakExerciseSignatories,
       "tweakExerciseChoiceObservers" -> tweakExerciseChoiceObservers,
-      "tweakExerciseExerciseResult(Some)" -> tweakExerciseExerciseResultSome,
-      "tweakExerciseKey(Some)" -> tweakExerciseKey(tweakOptKeyMaintainersSome),
+      "tweakExerciseExerciseResult" -> tweakExerciseExerciseResult,
+      "tweakExerciseKey" -> tweakExerciseKey(tweakOptKeyMaintainers),
       "tweakExerciseByKey(New Version)" -> tweakExerciseByKey(versionSinceMinByKey),
       "tweakExerciseVersion" -> tweakExerciseVersion,
     )
 
   private val insigExeTweaks =
     Map(
-      "tweakExerciseOptLocation" -> tweakExerciseOptLocation,
-      "tweakExerciseExerciseResult(None)" -> tweakExerciseExerciseResultNone,
-      "tweakExerciseKey(None)" -> tweakExerciseKey(tweakOptKeyMaintainersNone),
-      "tweakExerciseByKey(Old Version)" -> tweakExerciseByKey(versionBeforeMinByKey),
+      "tweakExerciseByKey(Old Version)" -> tweakExerciseByKey(versionBeforeMinByKey)
     )
 
   //--[significant and insignificant tx tweaks]--
@@ -536,7 +462,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   }
 
   private def insignificantTweaks: Map[String, Tweak[VTX]] = {
-    (insigCreateTweaks ++ insigFetchTweaks ++ insigLookupTweaks ++ insigExeTweaks)
+    (insigFetchTweaks ++ insigExeTweaks)
       .map { case (name, tw) => (name, tweakTxNodes(tw)) }
   }
 

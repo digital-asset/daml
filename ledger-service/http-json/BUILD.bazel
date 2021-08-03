@@ -29,10 +29,8 @@ hj_scalacopts = lf_scalacopts + [
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_github_scopt_scopt",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http",
             "@maven//:com_typesafe_akka_akka_http_core",
-            "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalaz_scalaz_core",
@@ -95,7 +93,6 @@ alias(
 json_scala_deps = [
     "@maven//:com_chuusai_shapeless",
     "@maven//:com_github_scopt_scopt",
-    "@maven//:com_lihaoyi_sourcecode",
     "@maven//:com_typesafe_akka_akka_http",
     "@maven//:com_typesafe_akka_akka_http_core",
     "@maven//:com_typesafe_akka_akka_http_spray_json",
@@ -196,7 +193,6 @@ daml_compile(
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -267,6 +263,7 @@ alias(
             "//daml-lf/data",
             "//daml-lf/interface",
             "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/http-json-cli:{}".format(edition),
@@ -275,7 +272,7 @@ alias(
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
-            "//ledger/test-common:dar-files-stable-lib",
+            "//ledger/test-common:dar-files-default-lib",
             "//libs-scala/contextualized-logging",
             "//libs-scala/doobie-slf4j",
             "//libs-scala/ports",
@@ -319,11 +316,9 @@ alias(
         resources = glob(["src/it/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalatest_scalatest",
             "@maven//:org_scalaz_scalaz_core",
@@ -333,6 +328,8 @@ alias(
             "@maven//:org_typelevel_cats_core",
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
+            "@maven//:org_typelevel_cats_kernel",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
         ],
         scalacopts = hj_scalacopts,
         deps = [
@@ -342,6 +339,7 @@ alias(
             "//daml-lf/data",
             "//daml-lf/interface",
             "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/db-backend",
@@ -350,7 +348,6 @@ alias(
             "//ledger-service/jwt",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
-            "//ledger/ledger-api-common",
             "//libs-scala/auth-utils",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ports",
@@ -366,9 +363,9 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "integration-tests",
-    actual = "integration-tests-ce",
+    tests = ["integration-tests-ce"],
 )
 
 [
@@ -394,6 +391,8 @@ alias(
             "@maven//:io_spray_spray_json",
             "@maven//:org_scalatest_scalatest",
             "@maven//:org_scalaz_scalaz_core",
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_typelevel_cats_effect",
         ],
         scalacopts = hj_scalacopts,
         deps = [
@@ -403,16 +402,18 @@ alias(
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
+            "//ledger-service/db-backend",
+            "//libs-scala/contextualized-logging",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/jwt",
+            "//ledger-service/utils",
             "//ledger/caching",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
             "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-            "//ledger/participant-state",
             "//ledger/sandbox",
             "//ledger/sandbox-common",
             "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
@@ -429,9 +430,9 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "failure-tests",
-    actual = "failure-tests-ce",
+    tests = ["failure-tests-ce"],
 )
 
 exports_files(["src/main/resources/logback.xml"])
@@ -449,12 +450,14 @@ da_scala_benchmark_jmh(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     deps = [
         ":http-json",
+        "//daml-lf/interface",
         "//language-support/scala/bindings",
         "//ledger-service/db-backend",
+        "//ledger-service/http-json-cli:base",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",

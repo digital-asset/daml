@@ -16,7 +16,6 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersion,
-  IncompleteTransaction => TxIncompleteTransaction,
 }
 import com.daml.lf.value.Value
 
@@ -40,8 +39,9 @@ private[lf] object PartialTransaction {
   private type ExerciseNode = Node.NodeExercises[NodeId, Value.ContractId]
 
   private final case class IncompleteTxImpl(
-      val transaction: TX
-  ) extends TxIncompleteTransaction
+      val transaction: TX,
+      val locationInfo: Map[NodeId, Location],
+  ) extends transaction.IncompleteTransaction
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
@@ -140,7 +140,6 @@ private[lf] object PartialTransaction {
       templateId: TypeConName,
       contractKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       choiceId: ChoiceName,
-      optLocation: Option[Location],
       consuming: Boolean,
       actingParties: Set[Party],
       chosenValue: Value[Value.ContractId],
@@ -192,12 +191,17 @@ private[lf] object PartialTransaction {
     keys = Map.empty,
     globalKeyInputs = Map.empty,
     localContracts = Set.empty,
+    actionNodeLocations = BackStack.empty,
   )
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
 
   sealed abstract class Result extends Product with Serializable
-  final case class CompleteTransaction(tx: SubmittedTransaction, seeds: NodeSeeds) extends Result
+  final case class CompleteTransaction(
+      tx: SubmittedTransaction,
+      locationInfo: Map[NodeId, Location],
+      seeds: NodeSeeds,
+  ) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
   sealed abstract class KeyMapping extends Product with Serializable
@@ -252,6 +256,9 @@ private[lf] object PartialTransaction {
   *   same key might have been created since. This is updated on creates with keys with KeyInactive
   *   (implying that no key must have been active at the beginning of the transaction)
   *   and on failing and successful lookup and fetch by key.
+  *
+  *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
+  *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
@@ -266,6 +273,7 @@ private[lf] case class PartialTransaction(
     keys: Map[GlobalKey, PartialTransaction.KeyMapping],
     globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
+    actionNodeLocations: BackStack[Option[Location]],
 ) {
 
   import PartialTransaction._
@@ -321,6 +329,12 @@ private[lf] case class PartialTransaction(
       sb.toString
     }
 
+  private def locationInfo(): Map[NodeId, Location] = {
+    this.actionNodeLocations.toImmArray.toSeq.zipWithIndex.collect { case (Some(loc), n) =>
+      (NodeId(n), loc)
+    }.toMap
+  }
+
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This returns:
     * - a SubmittedTransaction in case of success ;
@@ -339,6 +353,7 @@ private[lf] case class PartialTransaction(
           SubmittedTransaction(
             TxVersion.asVersionedTransaction(tx)
           ),
+          locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
         )
       case _ =>
@@ -346,10 +361,9 @@ private[lf] case class PartialTransaction(
     }
 
   // construct an IncompleteTransaction from the partial-transaction
-  def finishIncomplete: TxIncompleteTransaction = {
-
+  def finishIncomplete: transaction.IncompleteTransaction = {
     @tailrec
-    def unwindToExercise(
+    def unwindToExercise( //TODO: remove as never called
         contextInfo: PartialTransaction.ContextInfo
     ): Option[PartialTransaction.ExercisesContextInfo] = contextInfo match {
       case ctx: PartialTransaction.ExercisesContextInfo => Some(ctx)
@@ -358,13 +372,14 @@ private[lf] case class PartialTransaction(
       case _: PartialTransaction.RootContextInfo => None
     }
 
-    val ptx = unwind
+    val ptx = unwind()
 
     IncompleteTxImpl(
       GenTransaction(
         ptx.nodes,
         ImmArray(ptx.context.children.toImmArray.toSeq.sortBy(_.index)),
-      )
+      ),
+      ptx.locationInfo(),
     )
   }
 
@@ -380,101 +395,87 @@ private[lf] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
-  ): Either[String, (Value.ContractId, PartialTransaction)] = {
-    val serializableErrs = serializable(arg)
-    if (serializableErrs.nonEmpty) {
-      Left(
-        s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}"""
-      )
-    } else {
-      val actionNodeSeed = context.nextActionChildSeed
-      val discriminator =
-        crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
-      val cid = Value.ContractId.V1(discriminator)
-      val version = packageToTransactionVersion(templateId.packageId)
-      val createNode = Node.NodeCreate(
-        cid,
-        templateId,
-        arg,
-        agreementText,
-        optLocation,
-        signatories,
-        stakeholders,
-        key,
-        version,
-      )
-      val nid = NodeId(nextNodeIdx)
-      val ptx = copy(
-        nextNodeIdx = nextNodeIdx + 1,
-        context = context.addActionChild(nid, version),
-        nodes = nodes.updated(nid, createNode),
-        actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
-        localContracts = localContracts + cid,
-      ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(createNode), auth)
+  ): (Value.ContractId, PartialTransaction) = {
+    val actionNodeSeed = context.nextActionChildSeed
+    val discriminator =
+      crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
+    val cid = Value.ContractId.V1(discriminator)
+    val version = packageToTransactionVersion(templateId.packageId)
+    val createNode = Node.NodeCreate(
+      cid,
+      templateId,
+      arg,
+      agreementText,
+      signatories,
+      stakeholders,
+      key,
+      version,
+    )
+    val nid = NodeId(nextNodeIdx)
+    val ptx = copy(
+      actionNodeLocations = actionNodeLocations :+ optLocation,
+      nextNodeIdx = nextNodeIdx + 1,
+      context = context.addActionChild(nid, version),
+      nodes = nodes.updated(nid, createNode),
+      actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
+      localContracts = localContracts + cid,
+    ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(optLocation, createNode), auth)
 
-      // if we have a contract key being added, include it in the list of
-      // active keys
-      key match {
-        case None => Right((cid, ptx))
-        case Some(kWithM) =>
-          val ck = GlobalKey(templateId, kWithM.key)
+    // if we have a contract key being added, include it in the list of
+    // active keys
+    key match {
+      case None => cid -> ptx
+      case Some(kWithM) =>
+        val ck = GlobalKey(templateId, kWithM.key)
 
-          // Note (MK) Duplicate key checks in Speedy
-          // When run in ContractKeyUniquenessMode.On speedy detects duplicate contract keys errors.
-          //
-          // Just like for modifying `keys` and `globalKeyInputs` we only consider
-          // by-key operations, i.e., lookup, exercise and fetch by key as well as creates
-          // and archives if the key has been brought into scope before.
-          //
-          // In the end, those checks mean that ledgers only have to look at inputs and outputs
-          // of the transaction and check for conflicts on that while speedy checks for internal
-          // conflicts.
-          //
-          // We have to consider the following cases for conflicts:
-          // 1. Create of a new local contract
-          //    1.1. KeyInactive in `keys`. This means we saw an archive so the create is valid.
-          //    1.2. KeyActive(_) in `keys`. This can either be local contract or a global contract. Both are an error.
-          //    1.3. No entry in `keys` and no entry in `globalKeyInputs`. This is valid. Note that the ledger here will then
-          //         have to check when committing that there is no active contract with this key before the transaction.
-          //    1.4. No entry in `keys` and `KeyInactive` in `globalKeyInputs`. This is valid. Ledgers need the same check
-          //         as for 1.3.
-          //    1.5. No entry in `keys` and `KeyActive(_)` in `globalKeyInputs`. This is an error. Note that the case where
-          //         the global contract has already been archived falls under 1.2.
-          // 2. Global key lookups
-          //    2.1. Conflicts with other global contracts cannot arise as we query a key at most once.
-          //    2.2. Conflicts with local contracts also cannot arise: A successful create will either
-          //         2.2.1: Set `globalKeyInputs` to `KeyInactive`.
-          //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
-          //         For both of those cases `globalKeyInputs` already had an entry which means
-          //         we would use that as a cached result and not query the ledger.
-          val conflict = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
-            case Some(KeyActive(_)) => KeyConflict.Duplicate
-            case Some(KeyInactive) | None => KeyConflict.None
-          }
-          val globalKeyInputs = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
-            case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
-            case Some(_) => ptx.globalKeyInputs
-          }
-          (conflict, contractKeyUniqueness) match {
-            case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
-              Right((cid, ptx.noteAbort(Tx.DuplicateContractKey(ck))))
-            case _ =>
-              Right(
-                (
-                  cid,
-                  ptx.copy(
-                    keys = ptx.keys.updated(ck, KeyActive(cid)),
-                    globalKeyInputs = globalKeyInputs,
-                  ),
-                )
+        // Note (MK) Duplicate key checks in Speedy
+        // When run in ContractKeyUniquenessMode.On speedy detects duplicate contract keys errors.
+        //
+        // Just like for modifying `keys` and `globalKeyInputs` we only consider
+        // by-key operations, i.e., lookup, exercise and fetch by key as well as creates
+        // and archives if the key has been brought into scope before.
+        //
+        // In the end, those checks mean that ledgers only have to look at inputs and outputs
+        // of the transaction and check for conflicts on that while speedy checks for internal
+        // conflicts.
+        //
+        // We have to consider the following cases for conflicts:
+        // 1. Create of a new local contract
+        //    1.1. KeyInactive in `keys`. This means we saw an archive so the create is valid.
+        //    1.2. KeyActive(_) in `keys`. This can either be local contract or a global contract. Both are an error.
+        //    1.3. No entry in `keys` and no entry in `globalKeyInputs`. This is valid. Note that the ledger here will then
+        //         have to check when committing that there is no active contract with this key before the transaction.
+        //    1.4. No entry in `keys` and `KeyInactive` in `globalKeyInputs`. This is valid. Ledgers need the same check
+        //         as for 1.3.
+        //    1.5. No entry in `keys` and `KeyActive(_)` in `globalKeyInputs`. This is an error. Note that the case where
+        //         the global contract has already been archived falls under 1.2.
+        // 2. Global key lookups
+        //    2.1. Conflicts with other global contracts cannot arise as we query a key at most once.
+        //    2.2. Conflicts with local contracts also cannot arise: A successful create will either
+        //         2.2.1: Set `globalKeyInputs` to `KeyInactive`.
+        //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
+        //         For both of those cases `globalKeyInputs` already had an entry which means
+        //         we would use that as a cached result and not query the ledger.
+        val conflict = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
+          case Some(KeyActive(_)) => KeyConflict.Duplicate
+          case Some(KeyInactive) | None => KeyConflict.None
+        }
+        val globalKeyInputs = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
+          case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
+          case Some(_) => ptx.globalKeyInputs
+        }
+        (conflict, contractKeyUniqueness) match {
+          case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
+            cid -> ptx.noteAbort(Tx.DuplicateContractKey(ck))
+          case _ =>
+            cid ->
+              ptx.copy(
+                keys = ptx.keys.updated(ck, KeyActive(cid)),
+                globalKeyInputs = globalKeyInputs,
               )
-          }
-      }
+        }
     }
   }
-
-  private[this] def serializable(a: Value[Value.ContractId]): ImmArray[String] = a.serializable()
 
   def insertFetch(
       auth: Authorize,
@@ -492,7 +493,6 @@ private[lf] case class PartialTransaction(
     val node = Node.NodeFetch(
       coid,
       templateId,
-      optLocation,
       actingParties,
       signatories,
       stakeholders,
@@ -503,8 +503,8 @@ private[lf] case class PartialTransaction(
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(node, version),
-    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
+      insertLeafNode(node, version, optLocation),
+    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
   }
 
   def insertLookup(
@@ -518,13 +518,12 @@ private[lf] case class PartialTransaction(
     val version = packageToTransactionVersion(templateId.packageId)
     val node = Node.NodeLookupByKey(
       templateId,
-      optLocation,
       key,
       result,
       version,
     )
-    insertLeafNode(node, version)
-      .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
+    insertLeafNode(node, version, optLocation)
+      .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(optLocation, node), auth)
   }
 
   /** Open an exercises context.
@@ -544,62 +543,52 @@ private[lf] case class PartialTransaction(
       mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
       chosenValue: Value[Value.ContractId],
-  ): Either[String, PartialTransaction] = {
-    val serializableErrs = serializable(chosenValue)
-    if (serializableErrs.nonEmpty) {
-      Left(
-        s"""Trying to exercise a choice with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}"""
+  ): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val ec =
+      ExercisesContextInfo(
+        targetId = targetId,
+        templateId = templateId,
+        contractKey = mbKey,
+        choiceId = choiceId,
+        consuming = consuming,
+        actingParties = actingParties,
+        chosenValue = chosenValue,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        choiceObservers = choiceObservers,
+        nodeId = nid,
+        parent = context,
+        byKey = byKey,
       )
-    } else {
-      val nid = NodeId(nextNodeIdx)
-      val ec =
-        ExercisesContextInfo(
-          targetId = targetId,
-          templateId = templateId,
-          contractKey = mbKey,
-          choiceId = choiceId,
-          optLocation = optLocation,
-          consuming = consuming,
-          actingParties = actingParties,
-          chosenValue = chosenValue,
-          signatories = signatories,
-          stakeholders = stakeholders,
-          choiceObservers = choiceObservers,
-          nodeId = nid,
-          parent = context,
-          byKey = byKey,
-        )
 
-      Right(
-        mustBeActive(
-          targetId,
-          templateId,
-          copy(
-            nextNodeIdx = nextNodeIdx + 1,
-            context = Context(ec),
-            actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
-            // important: the semantics of Daml dictate that contracts are immediately
-            // inactive as soon as you exercise it. therefore, mark it as consumed now.
-            consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
-            keys = mbKey match {
-              case Some(kWithM) if consuming =>
-                val gkey = GlobalKey(templateId, kWithM.key)
-                keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
-                  // An archive can only mark a key as inactive
-                  // if it was brought into scope before.
-                  case Some(KeyActive(cid)) if cid == targetId =>
-                    keys.updated(gkey, KeyInactive)
-                  // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
-                  // an activeness check when looking it up later.
-                  case _ => keys
-                }
+    mustBeActive(
+      targetId,
+      templateId,
+      copy(
+        actionNodeLocations = actionNodeLocations :+ optLocation,
+        nextNodeIdx = nextNodeIdx + 1,
+        context = Context(ec),
+        actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
+        // important: the semantics of Daml dictate that contracts are immediately
+        // inactive as soon as you exercise it. therefore, mark it as consumed now.
+        consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
+        keys = mbKey match {
+          case Some(kWithM) if consuming =>
+            val gkey = GlobalKey(templateId, kWithM.key)
+            keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
+              // An archive can only mark a key as inactive
+              // if it was brought into scope before.
+              case Some(KeyActive(cid)) if cid == targetId =>
+                keys.updated(gkey, KeyInactive)
+              // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
+              // an activeness check when looking it up later.
               case _ => keys
-            },
-          ),
-        ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(ec), auth)
-      )
-    }
+            }
+          case _ => keys
+        },
+      ),
+    ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, ec), auth)
   }
 
   /** Close normally an exercise context.
@@ -632,7 +621,8 @@ private[lf] case class PartialTransaction(
           context =
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
-          actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
+          actionNodeSeeds =
+            actionNodeSeeds :+ actionNodeSeed, //(NC) pushed by 'beginExercises'; why push again?
         )
       case _ => throw new RuntimeException("abortExercises called in non-exercise context")
     }
@@ -643,7 +633,6 @@ private[lf] case class PartialTransaction(
       targetCoid = ec.targetId,
       templateId = ec.templateId,
       choiceId = ec.choiceId,
-      optLocation = ec.optLocation,
       consuming = ec.consuming,
       actingParties = ec.actingParties,
       chosenValue = ec.chosenValue,
@@ -751,10 +740,15 @@ private[lf] case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: LeafNode, version: TxVersion): PartialTransaction = {
+  def insertLeafNode(
+      node: LeafNode,
+      version: TxVersion,
+      optLocation: Option[Location],
+  ): PartialTransaction = {
     val _ = version
     val nid = NodeId(nextNodeIdx)
     copy(
+      actionNodeLocations = actionNodeLocations :+ optLocation,
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, node),
@@ -762,7 +756,7 @@ private[lf] case class PartialTransaction(
   }
 
   /** Unwind the transaction aborting all incomplete nodes */
-  def unwind: PartialTransaction = {
+  def unwind(): PartialTransaction = {
     @tailrec
     def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)

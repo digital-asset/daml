@@ -4,6 +4,7 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.data.Ref.Location
 import com.daml.lf.value.Value
 
 trait IncompleteTransaction {
@@ -14,4 +15,6 @@ trait IncompleteTransaction {
   type ExerciseNode = Node.NodeExercises[Nid, Cid]
 
   def transaction: TX
+
+  def locationInfo: Map[Nid, Location]
 }

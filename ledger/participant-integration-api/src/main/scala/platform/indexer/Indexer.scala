@@ -3,7 +3,7 @@
 
 package com.daml.platform.indexer
 
-import com.daml.ledger.participant.state.v1.ReadService
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 
 import scala.concurrent.Future
@@ -17,7 +17,7 @@ trait Indexer {
     * @param readService the ReadService to subscribe to
     * @return a handle of IndexFeedHandle or a failed Future
     */
-  def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle]
+  def subscription(readService: state.ReadService): ResourceOwner[IndexFeedHandle]
 
 }
 

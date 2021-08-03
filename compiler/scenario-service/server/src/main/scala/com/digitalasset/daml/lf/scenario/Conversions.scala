@@ -7,7 +7,7 @@ package scenario
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, TraceLog, WarningLog}
+import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
 import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
@@ -180,6 +180,8 @@ final class Conversions(
                 builder.setCrash(s"Contract Id freshness Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
+              case ValueExceedsMaxNesting =>
+                builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
@@ -275,9 +277,10 @@ final class Conversions(
     builder.setMessage(msgAndLoc._1).build
   }
 
-  private[this] def convertSWarningMessage(msg: String): proto.WarningMessage = {
+  private[this] def convertSWarningMessage(warning: Warning): proto.WarningMessage = {
     val builder = proto.WarningMessage.newBuilder
-    builder.setMessage(msg).build
+    warning.commitLocation.map(loc => builder.setCommitLocation(convertLocation(loc)))
+    builder.setMessage(warning.message).build
   }
 
   def convertFailedAuthorization(
@@ -439,7 +442,7 @@ final class Conversions(
     val tx = incomplete.transaction
 
     val builder = proto.PartialTransaction.newBuilder
-      .addAllNodes(tx.nodes.map(convertNode).asJava)
+      .addAllNodes(tx.nodes.map(convertIncompleteTransactionNode(incomplete.locationInfo)).asJava)
       .addAllRoots(tx.roots.toList.map(convertTxNodeId).asJava)
 
     builder.build
@@ -495,7 +498,7 @@ final class Conversions(
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
 
-        create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
+        nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: N.NodeFetch[V.ContractId] =>
         builder.setFetch(
@@ -507,7 +510,7 @@ final class Conversions(
             .build
         )
       case ex: N.NodeExercises[NodeId, V.ContractId] =>
-        ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
+        nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         val exerciseBuilder =
           proto.Node.Exercise.newBuilder
             .setTargetContractId(coidToEventId(ex.targetCoid).toLedgerString)
@@ -532,7 +535,7 @@ final class Conversions(
         builder.setExercise(exerciseBuilder.build)
 
       case lbk: N.NodeLookupByKey[V.ContractId] =>
-        lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
+        nodeInfo.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = proto.Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
           .setKeyWithMaintainers(convertKeyWithMaintainers(lbk.versionedKey))
@@ -553,10 +556,11 @@ final class Conversions(
       .build()
   }
 
-  def convertNode(
-      nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId])
-  ): proto.Node = {
+  def convertIncompleteTransactionNode(
+      locationInfo: Map[NodeId, Ref.Location]
+  )(nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId])): proto.Node = {
     val (nodeId, node) = nodeWithId
+    val optLocation = locationInfo.get(nodeId)
     val builder = proto.Node.newBuilder
     builder
       .setNodeId(proto.NodeId.newBuilder.setId(nodeId.index.toString).build)
@@ -586,7 +590,7 @@ final class Conversions(
         create.versionedKey.foreach(key =>
           createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key))
         )
-        create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
+        optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: N.NodeFetch[V.ContractId] =>
         builder.setFetch(
@@ -598,7 +602,7 @@ final class Conversions(
             .build
         )
       case ex: N.NodeExercises[NodeId, V.ContractId] =>
-        ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
+        optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           proto.Node.Exercise.newBuilder
             .setTargetContractId(coidToEventId(ex.targetCoid).toLedgerString)
@@ -619,7 +623,7 @@ final class Conversions(
         )
 
       case lookup: N.NodeLookupByKey[V.ContractId] =>
-        lookup.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
+        optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = proto.Node.LookupByKey.newBuilder
             .setKeyWithMaintainers(convertKeyWithMaintainers(lookup.versionedKey))

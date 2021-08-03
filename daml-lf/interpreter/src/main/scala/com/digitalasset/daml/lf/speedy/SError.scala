@@ -19,7 +19,7 @@ object SError {
     * expressions are type-checked and the loaded packages have been validated,
     * hence we do not have separate errors for e.g. unknown values.
     */
-  final case class SErrorCrash(where: String, reason: String) extends SError {
+  final case class SErrorCrash(location: String, reason: String) extends SError {
     override def toString = "CRASH: " + reason
   }
 

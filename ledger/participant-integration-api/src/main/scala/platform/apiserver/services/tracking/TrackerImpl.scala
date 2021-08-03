@@ -52,10 +52,7 @@ private[services] final class TrackerImpl(
       .offer(
         Ctx(
           promise,
-          SubmitRequest(
-            request.commands,
-            request.traceContext,
-          ),
+          SubmitRequest(request.commands),
         )
       )
       .andThen {
@@ -99,10 +96,10 @@ private[services] object TrackerImpl {
       .viaMat(tracker)(Keep.both)
       .toMat(Sink.foreach { case Ctx(promise, result, _) =>
         result match {
-          case compl @ Completion(_, Some(Status(Code.OK.value, _, _, _)), _, _) =>
+          case compl @ Completion(_, Some(Status(Code.OK.value, _, _, _)), _) =>
             logger.trace("Completing promise with success")
             promise.trySuccess(compl)
-          case Completion(_, statusO, _, _) =>
+          case Completion(_, statusO, _) =>
             val status = statusO
               .map(status =>
                 GrpcStatus

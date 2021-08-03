@@ -1,13 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger
-package participant.state.v1
+package com.daml.ledger.participant.state.v1
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 
 /** An update to the (abstract) participant state.
   *
@@ -31,8 +31,8 @@ object Update {
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
       recordTime: Timestamp,
-      submissionId: SubmissionId,
-      participantId: ParticipantId,
+      submissionId: Ref.SubmissionId,
+      participantId: Ref.ParticipantId,
       newConfiguration: Configuration,
   ) extends Update {
     override def description: String =
@@ -43,8 +43,8 @@ object Update {
     */
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
-      submissionId: SubmissionId,
-      participantId: ParticipantId,
+      submissionId: Ref.SubmissionId,
+      participantId: Ref.ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String,
   ) extends Update {
@@ -71,11 +71,11 @@ object Update {
     *   The submissionId of the command which requested party to be added.
     */
   final case class PartyAddedToParticipant(
-      party: Party,
+      party: Ref.Party,
       displayName: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
-      submissionId: Option[SubmissionId],
+      submissionId: Option[Ref.SubmissionId],
   ) extends Update {
     override def description: String =
       "party allocation"
@@ -104,8 +104,8 @@ object Update {
     * types needs to be handled for party allocation entry rejects
     */
   final case class PartyAllocationRejected(
-      submissionId: SubmissionId,
-      participantId: ParticipantId,
+      submissionId: Ref.SubmissionId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {
@@ -128,7 +128,7 @@ object Update {
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
       recordTime: Timestamp,
-      submissionId: Option[SubmissionId],
+      submissionId: Option[Ref.SubmissionId],
   ) extends Update {
     override def description: String =
       "package upload"
@@ -144,7 +144,7 @@ object Update {
     *   Reason why the upload was rejected.
     */
   final case class PublicPackageUploadRejected(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {
@@ -178,7 +178,7 @@ object Update {
       optSubmitterInfo: Option[SubmitterInfo],
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
-      transactionId: TransactionId,
+      transactionId: Ref.TransactionId,
       recordTime: Timestamp,
       divulgedContracts: List[DivulgedContract],
       blindingInfo: Option[BlindingInfo],

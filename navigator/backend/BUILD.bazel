@@ -42,7 +42,6 @@ da_scala_library(
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_github_scopt_scopt",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_http",
         "@maven//:com_typesafe_akka_akka_http_core",
@@ -123,7 +122,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-service/lf-value-json",
-        "//ledger/ledger-api-common",
     ],
 )
 

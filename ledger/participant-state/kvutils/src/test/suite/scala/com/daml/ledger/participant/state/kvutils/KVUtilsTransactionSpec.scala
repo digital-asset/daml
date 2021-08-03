@@ -5,11 +5,11 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
-  DamlSubmission,
   DamlTransactionRejectionEntry,
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.v1.{Party, Update}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.ledger.participant.state.v1.Update
 import com.daml.ledger.test.{
   SimplePackageListTestDar,
   SimplePackageOptionalTestDar,
@@ -22,7 +22,7 @@ import com.daml.ledger.test.{
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{FrontStack, SortedLookupList}
+import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
@@ -549,7 +549,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
   }
 
   private def preExecuteCreateSimpleContract(
-      submitter: Party,
+      submitter: Ref.Party,
       seed: Hash,
       simplePackage: SimplePackage,
   ): KVTest[ContractId] =
@@ -571,7 +571,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
     )
 
   private def prepareExerciseReplaceByKey(
-      submitter: Party,
+      submitter: Ref.Party,
       simplePackage: SimplePackage,
   )(
       seed: Hash
@@ -590,7 +590,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
     } yield submission
 
   private def prepareExerciseArchiveCmd(
-      submitter: Party,
+      submitter: Ref.Party,
       simplePackage: SimplePackage,
       contractId: ContractId,
   )(

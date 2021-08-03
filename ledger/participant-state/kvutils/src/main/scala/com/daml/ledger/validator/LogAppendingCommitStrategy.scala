@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -23,7 +23,7 @@ class LogAppendingCommitStrategy[Index](
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
 
   override def commit(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       correlationId: String,
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,

@@ -40,7 +40,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
         tyConAlreadySeen0: Set[Ref.TypeConName],
         tmplsAlreadySeen0: Set[Ref.TypeConName],
     ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
-      def pullPackage(pkgId: Ref.PackageId) =
+      def pullPackage(pkgId: Ref.PackageId, context: language.Reference) =
         ResultNeedPackage(
           pkgId,
           {
@@ -55,7 +55,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 )
               } yield r
             case None =>
-              ResultError(Error.Package.MissingPackage(pkgId))
+              ResultError(Error.Package.MissingPackage(pkgId, context))
           },
         )
 
@@ -81,8 +81,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                     tyConAlreadySeen0 + tyCon,
                     tmplsAlreadySeen0,
                   )
-                case Left(LookupError.Package(pkgId)) =>
-                  pullPackage(pkgId)
+                case Left(LookupError.MissingPackage(pkgId, context)) =>
+                  pullPackage(pkgId, context)
                 case Left(e) =>
                   ResultError(Error.Preprocessing.Lookup(e))
               }
@@ -107,8 +107,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                     if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
                   val typs2 = template.key.fold(typs1)(_.typ :: typs1)
                   go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-                case Left(LookupError.Package(pkgId)) =>
-                  pullPackage(pkgId)
+                case Left(LookupError.MissingPackage(pkgId, context)) =>
+                  pullPackage(pkgId, context)
                 case Left(error) =>
                   ResultError(Error.Preprocessing.Lookup(error))
               }
@@ -180,7 +180,7 @@ private[preprocessing] object Preprocessor {
       try {
         ResultDone(unsafeRun)
       } catch {
-        case Error.Preprocessing.MissingPackage(_) =>
+        case Error.Preprocessing.Lookup(LookupError.MissingPackage(_, _)) =>
           handleMissingPackages.flatMap(_ => start)
         case e: Error.Preprocessing.Error =>
           ResultError(e)

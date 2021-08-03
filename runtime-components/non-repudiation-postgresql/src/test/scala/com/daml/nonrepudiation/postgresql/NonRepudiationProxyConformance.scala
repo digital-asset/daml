@@ -26,7 +26,7 @@ import com.daml.nonrepudiation.testing._
 import com.daml.testing.postgresql.PostgresAroundAll
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.NettyChannelBuilder
-import org.scalatest.OptionValues
+import org.scalatest.{Inside, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -36,7 +36,8 @@ final class NonRepudiationProxyConformance
     extends AsyncFlatSpec
     with Matchers
     with OptionValues
-    with PostgresAroundAll {
+    with PostgresAroundAll
+    with Inside {
 
   behavior of "NonRepudiationProxy"
 
@@ -102,7 +103,9 @@ final class NonRepudiationProxyConformance
       runner.runTests.map { summaries =>
         summaries.foldLeft(succeed) { case (_, LedgerTestSummary(_, name, description, result)) =>
           withClue(s"$name: $description") {
-            result.toOption.value shouldBe a[Result.Succeeded]
+            inside(result) { case Right(r) =>
+              r shouldBe a[Result.Succeeded]
+            }
           }
         }
       }

@@ -9,8 +9,15 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1._
-import com.daml.lf.data.Time
+import com.daml.ledger.participant.state.v1.{
+  PruningResult,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  WriteService,
+}
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.telemetry.TelemetryContext
 
@@ -34,7 +41,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
     )
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
@@ -44,9 +51,9 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
     )
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.allocateParty,
@@ -55,7 +62,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
@@ -65,7 +72,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   ): CompletionStage[PruningResult] =
     Timed.completionStage(
       metrics.daml.services.write.prune,

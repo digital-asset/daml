@@ -7,9 +7,11 @@ module DA.Daml.LF.PrettyScenario
   ( prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
+  , prettyWarningMessage
   , renderScenarioResult
   , renderScenarioError
   , lookupDefLocation
+  , lookupLocationModule
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
   , ModuleRef
@@ -115,6 +117,11 @@ lookupModule world mbPkgId modName = do
          LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
+
+lookupLocationModule :: LF.World -> Location -> Maybe LF.Module
+lookupLocationModule world Location{..} =
+    lookupModule world locationPackage $
+        unmangleModuleName (TL.toStrict locationModule)
 
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
@@ -403,6 +410,8 @@ prettyScenarioErrorError (Just err) =  do
           scenarioError_ContractIdInContractKeyKey
     ScenarioErrorErrorComparableValueError _ ->
       pure "Attend to compare incomparable values"
+    ScenarioErrorErrorValueExceedsMaxNesting _ ->
+          pure "Value exceeds maximum nesting value of 100"
 
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

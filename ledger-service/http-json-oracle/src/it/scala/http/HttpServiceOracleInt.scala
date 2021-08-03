@@ -14,11 +14,11 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with O
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
-  protected[this] lazy val jdbcConfig_ = JdbcConfig(
+  protected[this] def jdbcConfig_ = JdbcConfig(
     driver = "oracle.jdbc.OracleDriver",
     url = oracleJdbcUrl,
     user = oracleUser,
     password = oraclePwd,
-    createSchema = true,
+    dbStartupMode = DbStartupMode.CreateOnly,
   )
 }

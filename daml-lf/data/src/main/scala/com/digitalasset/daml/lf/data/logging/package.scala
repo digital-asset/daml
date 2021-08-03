@@ -3,10 +3,13 @@
 
 package com.daml.lf.data
 
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.daml.logging.entries.{LoggingKey, LoggingValue, ToLoggingKey, ToLoggingValue}
 
 package object logging {
+
+  implicit val `LedgerString to LoggingValue`: ToLoggingValue[LedgerString] =
+    ToLoggingValue.ToStringToLoggingValue
 
   implicit val `Identifier to LoggingValue`: ToLoggingValue[Identifier] =
     ToLoggingValue.ToStringToLoggingValue

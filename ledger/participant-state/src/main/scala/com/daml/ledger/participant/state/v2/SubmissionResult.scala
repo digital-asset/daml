@@ -3,6 +3,9 @@
 
 package com.daml.ledger.participant.state.v2
 
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import io.grpc.{Status, StatusRuntimeException}
+
 sealed abstract class SubmissionResult extends Product with Serializable {
   def description: String
 }
@@ -23,5 +26,20 @@ object SubmissionResult {
   final case class SynchronousError(grpcError: com.google.rpc.status.Status)
       extends SubmissionResult {
     override val description: String = s"Submission failed with error ${grpcError.message}"
+
+    def status: Status = Status.fromCodeValue(grpcError.code).withDescription(grpcError.message)
+
+    def exception: StatusRuntimeException = status.asRuntimeException
+  }
+
+  object SynchronousError {
+    implicit val `SynchronousError to LoggingValue`: ToLoggingValue[SynchronousError] =
+      error =>
+        LoggingValue.Nested.fromEntries(
+          "status" -> LoggingValue.Nested.fromEntries(
+            "code" -> error.grpcError.code,
+            "message" -> error.grpcError.message,
+          )
+        )
   }
 }

@@ -7,13 +7,16 @@ import java.util.UUID
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.lf.data.Ref
 import com.daml.lf.value.ValueOuterClass.Identifier
 import com.google.protobuf.{ByteString, Empty}
 
-private[validator] object TestHelper {
+import scala.concurrent.{ExecutionContext, Future}
 
-  lazy val aParticipantId: ParticipantId = ParticipantId.assertFromString("aParticipantId")
+private[ledger] object TestHelper {
+
+  lazy val aParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("aParticipantId")
 
   def aLogEntryId(): DamlLogEntryId =
     DamlLogEntryId.newBuilder
@@ -85,4 +88,12 @@ private[validator] object TestHelper {
     DamlStateValue.newBuilder
       .setContractKeyState(DamlContractKeyState.newBuilder.setContractId(contractId))
       .build
+
+  class FakeStateAccess[LogResult](mockStateOperations: LedgerStateOperations[LogResult])
+      extends LedgerStateAccess[LogResult] {
+    override def inTransaction[T](
+        body: LedgerStateOperations[LogResult] => Future[T]
+    )(implicit executionContext: ExecutionContext): Future[T] =
+      body(mockStateOperations)
+  }
 }
