@@ -513,19 +513,19 @@ object Config {
           )
 
         // TODO append-only: remove after removing support for the current (mutating) schema
-        opt[Unit]("index-append-only-schema-unsafe")
+        opt[Unit]("index-append-only-schema")
           .optional()
           .hidden()
           .text(
-            s"Use the append-only index database with parallel ingestion. Highly unstable. Should not be used in production."
+            s"Use the append-only index database with parallel ingestion."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 
-        opt[Unit]("mutable-contract-state-cache-unsafe")
+        opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
           .text(
-            "Experimental contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema-unsafe. Should not be used in production."
+            "Contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema."
           )
           .action((_, config) => config.copy(enableMutableContractStateCache = true))
 
@@ -533,20 +533,20 @@ object Config {
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema-unsafe and mutable-contract-state-cache-unsafe. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
 
         checkConfig(config =>
           if (config.enableMutableContractStateCache && !config.enableAppendOnlySchema)
             failure(
-              "mutable-contract-state-cache-unsafe must be enabled in conjunction with index-append-only-schema-unsafe."
+              "mutable-contract-state-cache must be enabled in conjunction with index-append-only-schema."
             )
           else if (
             config.enableInMemoryFanOutForLedgerApi && !(config.enableMutableContractStateCache && config.enableAppendOnlySchema)
           )
             failure(
-              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema-unsafe and mutable-contract-state-cache-unsafe."
+              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache."
             )
           else success
         )
