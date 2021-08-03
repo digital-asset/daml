@@ -328,6 +328,7 @@ alias(
             "@maven//:org_typelevel_cats_core",
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
+            "@maven//:org_typelevel_cats_kernel",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
         ],
         scalacopts = hj_scalacopts,

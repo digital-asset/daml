@@ -22,6 +22,7 @@ import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.metrics.MetricsReporter
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.\/.right
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -81,6 +82,11 @@ private[http] abstract class ConfigCompanion[A, ReadCtx](name: String) {
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
 
+  protected def optionalStringField(m: Map[String, String])(
+      k: String
+  ): Either[String, Option[String]] =
+    right(m.get(k)).toEither
+
   protected def optionalBooleanField(m: Map[String, String])(
       k: String
   ): Either[String, Option[Boolean]] =
@@ -114,6 +120,7 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
+    tablePrefix: String = "",
     dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
 )
 
@@ -131,6 +138,7 @@ private[http] object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
+      s"${indent}tablePrefix -- prefix for table names to avoid collisions, empty by default,\n" +
       s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by start-mode, however if set it will always overrule start-mode.\n" +
       s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
         .mkString(",")}.\n" +
@@ -139,6 +147,7 @@ private[http] object JdbcConfig
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
+        "tablePrefix",
         "create-only",
       )
 
@@ -147,6 +156,7 @@ private[http] object JdbcConfig
     "<JDBC connection url>",
     "<user>",
     "<password>",
+    "<tablePrefix>",
     s"<${DbStartupMode.allConfigValues.mkString("|")}>",
   )
 
@@ -164,6 +174,7 @@ private[http] object JdbcConfig
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
+      tablePrefix <- optionalStringField(x)("tablePrefix")
       createSchema <- optionalBooleanField(x)("createSchema").map(
         _.map { createSchema =>
           import DbStartupMode._
@@ -179,6 +190,7 @@ private[http] object JdbcConfig
       url = url,
       user = user,
       password = password,
+      tablePrefix = tablePrefix getOrElse "",
       dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
     )
 
@@ -187,9 +199,10 @@ private[http] object JdbcConfig
       url: String,
       user: String,
       password: String,
+      tablePrefix: String,
       dbStartupMode: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,start-mode=$dbStartupMode\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix,start-mode=$dbStartupMode\""""
 }
 
 // It is public for Daml Hub

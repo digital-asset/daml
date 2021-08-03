@@ -26,13 +26,14 @@ class HttpServiceWithPostgresIntTest
 
   override def wsConfig: Option[WebsocketConfig] = None
 
+  implicit lazy val logHandler: log.LogHandler = dao.logHandler
+  implicit lazy val jdbcDriver: SupportedJdbcDriver = dao.jdbcDriver
+
   "DbStartupOps" - {
     import doobie.implicits.toSqlInterpolator, DbStartupOps.DbVersionState._, DbStartupOps._,
     DbStartupMode._
 
     implicit lazy val _dao: ContractDao = dao
-    implicit lazy val logHandler: log.LogHandler = dao.logHandler
-    implicit lazy val jdbcDriver: SupportedJdbcDriver = dao.jdbcDriver
 
     def withFreshDb(fun: LoggingContextOf[InstanceUUID] => IO[Assertion]): Future[Assertion] =
       dao
@@ -46,7 +47,9 @@ class HttpServiceWithPostgresIntTest
           res1 <- fromStartupMode(dao, CreateIfNeededAndStart)
           _ = res1 shouldBe true
           version <- dao.transact(
-            sql"SELECT version FROM json_api_schema_version".query[Int].unique
+            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+              .query[Int]
+              .unique
           )
         } yield version shouldBe jdbcDriver.queries.schemaVersion
     }
@@ -64,9 +67,11 @@ class HttpServiceWithPostgresIntTest
         for {
           res1 <- fromStartupMode(dao, CreateOnly)
           _ = res1 shouldBe true
-          _ <- dao.transact(sql"DELETE FROM json_api_schema_version".update.run)
           _ <- dao.transact(
-            sql"INSERT INTO json_api_schema_version(version) VALUES($wrongVersion)".update.run
+            sql"DELETE FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}".update.run
+          )
+          _ <- dao.transact(
+            sql"INSERT INTO ${jdbcDriver.queries.jsonApiSchemaVersionTableName}(version) VALUES($wrongVersion)".update.run
           )
           res2 <- getDbVersionState
         } yield res2 shouldBe Right(Mismatch(jdbcDriver.queries.schemaVersion, wrongVersion))
@@ -88,7 +93,11 @@ class HttpServiceWithPostgresIntTest
           _ = res1 shouldBe true
           res2 <- fromStartupMode(dao, StartOnly)
           _ = res2 shouldBe true
-          versions <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].nel)
+          versions <- dao.transact(
+            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+              .query[Int]
+              .nel
+          )
         } yield {
           Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
         }
@@ -105,8 +114,12 @@ class HttpServiceWithPostgresIntTest
         for {
           res1 <- fromStartupMode(dao, CreateOnly)
           _ = res1 shouldBe true
-          _ <- dao.transact(sql"DELETE FROM json_api_schema_version".update.run)
-          _ <- dao.transact(sql"INSERT INTO json_api_schema_version(version) VALUES(-1)".update.run)
+          _ <- dao.transact(
+            sql"DELETE FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}".update.run
+          )
+          _ <- dao.transact(
+            sql"INSERT INTO ${jdbcDriver.queries.jsonApiSchemaVersionTableName}(version) VALUES(-1)".update.run
+          )
           res2 <- fromStartupMode(dao, StartOnly)
         } yield res2 shouldBe false
     }
@@ -116,7 +129,11 @@ class HttpServiceWithPostgresIntTest
         for {
           res1 <- fromStartupMode(dao, CreateOnly)
           _ = res1 shouldBe true
-          versions <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].nel)
+          versions <- dao.transact(
+            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+              .query[Int]
+              .nel
+          )
         } yield {
           Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
         }
@@ -127,7 +144,11 @@ class HttpServiceWithPostgresIntTest
         for {
           res1 <- fromStartupMode(dao, CreateAndStart)
           _ = res1 shouldBe true
-          versions <- dao.transact(sql"SELECT version FROM json_api_schema_version".query[Int].nel)
+          versions <- dao.transact(
+            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+              .query[Int]
+              .nel
+          )
         } yield {
           Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
         }
@@ -165,7 +186,7 @@ class HttpServiceWithPostgresIntTest
     import dao.jdbcDriver._, queries.Implicits._
 
     val q =
-      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""
+      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM ${jdbcDriver.queries.contractTableName}"""
         .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
 
     dao.transact(q.to[List]).unsafeToFuture()

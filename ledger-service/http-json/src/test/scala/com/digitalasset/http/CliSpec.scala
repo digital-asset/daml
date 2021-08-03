@@ -19,6 +19,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "jdbc:postgresql://localhost:5432/test?&ssl=true",
     "postgres",
     "password",
+    tablePrefix = "",
     DbStartupMode.StartOnly,
   )
   val jdbcConfigString =
@@ -88,6 +89,14 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "should get None when neither CLI nor env variable are provided" in {
       val config = configParser(sharedOptions).getOrElse(fail())
       config.jdbcConfig shouldBe None
+    }
+
+    "should get the table prefix if specified" in {
+      val prefix = "some_fancy_prefix_"
+      val config = configParser(
+        Seq("--query-store-jdbc-config", s"$jdbcConfigString,tablePrefix=$prefix") ++ sharedOptions
+      ).getOrElse(fail())
+      config.jdbcConfig shouldBe Some(jdbcConfig.copy(tablePrefix = prefix))
     }
 
     "DbStartupMode" - {
