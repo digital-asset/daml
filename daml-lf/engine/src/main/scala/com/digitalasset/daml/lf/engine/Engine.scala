@@ -370,6 +370,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           callback(time)
 
         case SResultNeedKey(gk, _, cb) =>
+          onLedger.dependsOnTime = true
           return ResultNeedKey(
             gk,
             { result =>
