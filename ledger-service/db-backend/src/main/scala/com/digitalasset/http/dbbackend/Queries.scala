@@ -40,6 +40,8 @@ sealed abstract class Queries(tablePrefix: String) {
   /** for use when generating predicates */
   protected[this] val contractColumnName: Fragment = sql"payload"
 
+  protected[this] val tablePrefixFr = Fragment.const0(tablePrefix)
+
   /** Table names with prefix * */
 
   val contractTableNameRaw = s"${tablePrefix}contract"
@@ -61,7 +63,7 @@ sealed abstract class Queries(tablePrefix: String) {
     sql"""
       CREATE TABLE
         $contractTableName
-        (contract_id $contractIdType NOT NULL CONSTRAINT contract_k PRIMARY KEY
+        (contract_id $contractIdType NOT NULL CONSTRAINT ${tablePrefixFr}contract_k PRIMARY KEY
         ,tpid $bigIntType NOT NULL REFERENCES $templateIdTableName (tpid)
         ,${jsonColumn(sql"key")}
         ,${jsonColumn(contractColumnName)}
@@ -106,7 +108,7 @@ sealed abstract class Queries(tablePrefix: String) {
     sql"""
       CREATE TABLE
         $templateIdTableName
-        (tpid $bigSerialType NOT NULL CONSTRAINT template_id_k PRIMARY KEY
+        (tpid $bigSerialType NOT NULL CONSTRAINT ${tablePrefixFr}template_id_k PRIMARY KEY
         ,package_id $packageIdType NOT NULL
         ,template_module_name $nameType NOT NULL
         ,template_entity_name $nameType NOT NULL
