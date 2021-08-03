@@ -27,11 +27,15 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
   private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
 
   public CommandSubmissionClientImpl(
-      @NonNull String ledgerId, @NonNull Channel channel, Optional<String> accessToken, Optional<Deadline> deadline) {
+      @NonNull String ledgerId,
+      @NonNull Channel channel,
+      Optional<String> accessToken,
+      Optional<Deadline> deadline) {
     this.ledgerId = ledgerId;
     this.serviceStub =
-        StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel)
-                .withDeadline(deadline.orElse(null)), accessToken);
+        StubHelper.authenticating(
+            CommandSubmissionServiceGrpc.newFutureStub(channel).withDeadline(deadline.orElse(null)),
+            accessToken);
   }
 
   public Single<com.google.protobuf.Empty> submit(

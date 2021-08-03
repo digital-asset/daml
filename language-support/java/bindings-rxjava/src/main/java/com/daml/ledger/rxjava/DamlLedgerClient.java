@@ -5,8 +5,8 @@ package com.daml.ledger.rxjava;
 
 import com.daml.grpc.adapter.SingleThreadExecutionSequencerPool;
 import com.daml.ledger.rxjava.grpc.*;
-import io.grpc.ManagedChannel;
 import io.grpc.Deadline;
+import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
@@ -74,7 +74,8 @@ public final class DamlLedgerClient implements LedgerClient {
     }
 
     public DamlLedgerClient build() {
-      return new DamlLedgerClient(this.builder, this.expectedLedgerId, this.accessToken, this.deadline);
+      return new DamlLedgerClient(
+          this.builder, this.expectedLedgerId, this.accessToken, this.deadline);
     }
   }
 
@@ -114,8 +115,8 @@ public final class DamlLedgerClient implements LedgerClient {
    *     unsecured plaintext connection will be used. Must be an SslContext created for client
    *     applications via {@link GrpcSslContexts#forClient()}.
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or even better
-   *     either {@link DamlLedgerClient#newBuilder}
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
+   *     even better either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
   public static DamlLedgerClient forLedgerIdAndHost(
@@ -133,8 +134,8 @@ public final class DamlLedgerClient implements LedgerClient {
    * ledger-id automatically discovered instead of provided.
    *
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or even better
-   *     either {@link DamlLedgerClient#newBuilder}
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
+   *     even better either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
   public static DamlLedgerClient forHostWithLedgerIdDiscovery(
@@ -180,7 +181,10 @@ public final class DamlLedgerClient implements LedgerClient {
    * @deprecated since 0.13.38, please use {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
-  public DamlLedgerClient(Optional<String> expectedLedgerId, @NonNull ManagedChannel channel, Optional<Deadline> deadline) {
+  public DamlLedgerClient(
+      Optional<String> expectedLedgerId,
+      @NonNull ManagedChannel channel,
+      Optional<Deadline> deadline) {
     this.channel = channel;
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = Optional.empty();
