@@ -12,6 +12,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.configuration.LedgerConfigProvisioner._
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
@@ -24,7 +25,58 @@ import scala.util.{Failure, Success}
   * configuration is only written if the ledger does not already have a configuration.
   *
   * Used by the participant to initialize a new ledger.
+  *
+  * Designed to be used only through the [[owner]] constructor.
   */
+final class LedgerConfigProvisioner private (
+    currentLedgerConfiguration: CurrentLedgerConfiguration,
+    writeService: state.WriteConfigService,
+    timeProvider: TimeProvider,
+    submissionIdGenerator: SubmissionIdGenerator,
+) {
+
+  /** Submits the initial configuration immediately.
+    * The [[owner]] constructor will schedule this with a delay.
+    *
+    * There are several reasons why the change could be rejected:
+    *
+    *   - The participant is not authorized to set the configuration
+    *   - There already is a configuration, it just didn't appear in the index yet
+    *
+    * This method therefore does not try to re-submit the initial configuration in case of failure.
+    */
+  def submitInitialConfig(
+      initialConfiguration: Configuration
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit =
+    if (currentLedgerConfiguration.latestConfiguration.isEmpty) {
+      val submissionId = submissionIdGenerator.generate()
+      withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
+        logger.info("No ledger configuration found, submitting an initial configuration.")
+        DefaultTelemetry
+          .runFutureInSpan(
+            SpanName.LedgerConfigProviderInitialConfig,
+            SpanKind.Internal,
+          ) { implicit telemetryContext =>
+            val maxRecordTime =
+              Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))
+            FutureConverters.toScala(
+              writeService.submitConfiguration(maxRecordTime, submissionId, initialConfiguration)
+            )
+          }
+          .onComplete {
+            case Success(state.SubmissionResult.Acknowledged) =>
+              logger.info("Initial configuration submission was successful.")
+            case Success(result: state.SubmissionResult.SynchronousError) =>
+              withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
+                logger.warn("Initial configuration submission failed.")
+              }
+            case Failure(exception) =>
+              logger.error("Initial configuration submission failed.", exception)
+          }
+      }
+    }
+}
+
 object LedgerConfigProvisioner {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -36,64 +88,25 @@ object LedgerConfigProvisioner {
       submissionIdGenerator: SubmissionIdGenerator,
       scheduler: Scheduler,
       servicesExecutionContext: ExecutionContext,
-  )(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[Unit] = {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] = {
+    implicit val executionContext: ExecutionContext = servicesExecutionContext
+    val provisioner = new LedgerConfigProvisioner(
+      currentLedgerConfiguration,
+      writeService,
+      timeProvider,
+      submissionIdGenerator,
+    )
     ResourceOwner
       .forCancellable(() =>
         scheduler.scheduleOnce(
           ledgerConfiguration.initialConfigurationSubmitDelay.toNanos.nanos,
           new Runnable {
             override def run(): Unit = {
-              if (currentLedgerConfiguration.latestConfiguration.isEmpty)
-                submitInitialConfig(writeService, timeProvider, submissionIdGenerator)(
-                  ledgerConfiguration.initialConfiguration
-                )(servicesExecutionContext, loggingContext)
-              ()
+              provisioner.submitInitialConfig(ledgerConfiguration.initialConfiguration)
             }
           },
-        )(servicesExecutionContext)
+        )
       )
       .map(_ => ())
-  }
-
-  // There are several reasons why the change could be rejected:
-  // - The participant is not authorized to set the configuration
-  // - There already is a configuration, it just didn't appear in the index yet
-  // This method therefore does not try to re-submit the initial configuration in case of failure.
-  private def submitInitialConfig(
-      writeService: state.WriteConfigService,
-      timeProvider: TimeProvider,
-      submissionIdGenerator: SubmissionIdGenerator,
-  )(
-      initialConfiguration: Configuration
-  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit = {
-    val submissionId = submissionIdGenerator.generate()
-    withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
-      logger.info("No ledger configuration found, submitting an initial configuration.")
-      DefaultTelemetry
-        .runFutureInSpan(
-          SpanName.LedgerConfigProviderInitialConfig,
-          SpanKind.Internal,
-        ) { implicit telemetryContext =>
-          FutureConverters.toScala(
-            writeService.submitConfiguration(
-              Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
-              submissionId,
-              initialConfiguration,
-            )
-          )
-        }
-        .onComplete {
-          case Success(state.SubmissionResult.Acknowledged) =>
-            logger.info("Initial configuration submission was successful.")
-          case Success(result: state.SubmissionResult.SynchronousError) =>
-            withEnrichedLoggingContext("error" -> result) { implicit loggingContext =>
-              logger.warn("Initial configuration submission failed.")
-            }
-          case Failure(exception) =>
-            logger.error("Initial configuration submission failed.", exception)
-        }
-    }
   }
 }
