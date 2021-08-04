@@ -25,15 +25,15 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   * This class helps avoiding code duplication and limiting the number of database lookups, as
   * multiple services and validators require the latest ledger config.
   */
-private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private (
+private[apiserver] final class LedgerConfigurationIndexSubscription private (
     configurationLoadTimeout: Duration,
-    index: IndexConfigManagementService,
+    indexService: IndexConfigManagementService,
     scheduler: Scheduler,
     servicesExecutionContext: ExecutionContext,
 )(implicit
     materializer: Materializer,
     loggingContext: LoggingContext,
-) extends CurrentLedgerConfiguration
+) extends LedgerConfigurationSubscription
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -56,7 +56,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   // If the source of configuration changes proves to be a performance bottleneck,
   // it could be replaced by regular polling.
   private[this] def startLoading(): Unit =
-    index
+    indexService
       .lookupConfiguration()
       .map {
         case Some(result) =>
@@ -98,7 +98,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
               randomFactor = 0.1,
             )
           ) { () =>
-            index
+            indexService
               .configurationEntries(latestConfigurationState.get._1)
               .map {
                 case (offset, domain.ConfigurationEntry.Accepted(_, config)) =>
@@ -151,20 +151,20 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   }
 }
 
-private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
+private[apiserver] object LedgerConfigurationIndexSubscription {
   def owner(
       configurationLoadTimeout: Duration,
-      index: IndexConfigManagementService,
+      indexService: IndexConfigManagementService,
       scheduler: Scheduler,
       materializer: Materializer,
       servicesExecutionContext: ExecutionContext,
   )(implicit
       loggingContext: LoggingContext
-  ): ResourceOwner[IndexStreamingCurrentLedgerConfiguration] =
+  ): ResourceOwner[LedgerConfigurationIndexSubscription] =
     ResourceOwner.forCloseable(() =>
-      new IndexStreamingCurrentLedgerConfiguration(
+      new LedgerConfigurationIndexSubscription(
         configurationLoadTimeout,
-        index,
+        indexService,
         scheduler,
         servicesExecutionContext,
       )(materializer, loggingContext)

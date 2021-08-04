@@ -27,7 +27,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.DurationInt
 
-final class LedgerConfigProvisionerSpec
+final class LedgerConfigurationProvisionerSpec
     extends AsyncWordSpec
     with Matchers
     with Eventually
@@ -51,7 +51,7 @@ final class LedgerConfigProvisionerSpec
       )
       val submissionId = Ref.SubmissionId.assertFromString("the submission ID")
 
-      val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+      val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
         override def latestConfiguration: Option[Configuration] = None
       }
       val writeService = mock[state.WriteConfigService]
@@ -61,10 +61,10 @@ final class LedgerConfigProvisionerSpec
       }
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigProvisioner
+      LedgerConfigurationProvisioner
         .owner(
           initialLedgerConfiguration = initialLedgerConfiguration,
-          currentLedgerConfiguration = currentLedgerConfiguration,
+          ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           writeService = writeService,
           timeProvider = timeProvider,
           submissionIdGenerator = submissionIdGenerator,
@@ -98,17 +98,17 @@ final class LedgerConfigProvisionerSpec
         delayBeforeSubmitting = Duration.ofMillis(100),
       )
 
-      val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+      val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
         override def latestConfiguration: Option[Configuration] = Some(currentConfiguration)
       }
       val writeService = mock[state.WriteConfigService]
       val timeProvider = TimeProvider.Constant(Instant.EPOCH)
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigProvisioner
+      LedgerConfigurationProvisioner
         .owner(
           initialLedgerConfiguration = initialLedgerConfiguration,
-          currentLedgerConfiguration = currentLedgerConfiguration,
+          ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           writeService = writeService,
           timeProvider = timeProvider,
           submissionIdGenerator = SubmissionIdGenerator.Random,
@@ -136,17 +136,17 @@ final class LedgerConfigProvisionerSpec
     )
 
     val currentConfiguration = new AtomicReference[Option[Configuration]](None)
-    val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+    val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
       override def latestConfiguration: Option[Configuration] = currentConfiguration.get
     }
     val writeService = mock[state.WriteConfigService]
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-    LedgerConfigProvisioner
+    LedgerConfigurationProvisioner
       .owner(
         initialLedgerConfiguration = initialLedgerConfiguration,
-        currentLedgerConfiguration = currentLedgerConfiguration,
+        ledgerConfigurationSubscription = ledgerConfigurationSubscription,
         writeService = writeService,
         timeProvider = timeProvider,
         submissionIdGenerator = SubmissionIdGenerator.Random,
@@ -178,16 +178,16 @@ final class LedgerConfigProvisionerSpec
       delayBeforeSubmitting = Duration.ofSeconds(1),
     )
 
-    val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+    val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
       override def latestConfiguration: Option[Configuration] = None
     }
     val writeService = mock[state.WriteConfigService]
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-    val owner = LedgerConfigProvisioner.owner(
+    val owner = LedgerConfigurationProvisioner.owner(
       initialLedgerConfiguration = initialLedgerConfiguration,
-      currentLedgerConfiguration = currentLedgerConfiguration,
+      ledgerConfigurationSubscription = ledgerConfigurationSubscription,
       writeService = writeService,
       timeProvider = timeProvider,
       submissionIdGenerator = SubmissionIdGenerator.Random,

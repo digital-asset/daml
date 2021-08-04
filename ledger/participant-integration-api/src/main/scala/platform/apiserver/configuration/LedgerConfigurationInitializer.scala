@@ -15,7 +15,7 @@ import com.daml.platform.configuration.InitialLedgerConfiguration
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
-object LedgerConfigProvider {
+object LedgerConfigurationInitializer {
   def owner(
       initialLedgerConfiguration: InitialLedgerConfiguration,
       configurationLoadTimeout: Duration,
@@ -26,11 +26,11 @@ object LedgerConfigProvider {
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[CurrentLedgerConfiguration] = {
+  ): ResourceOwner[LedgerConfigurationSubscription] = {
     val scheduler = materializer.system.scheduler
     for {
       // First, we acquire the mechanism for looking up the current ledger configuration.
-      currentLedgerConfiguration <- IndexStreamingCurrentLedgerConfiguration.owner(
+      ledgerConfigurationSubscription <- LedgerConfigurationIndexSubscription.owner(
         configurationLoadTimeout,
         indexService,
         scheduler,
@@ -42,9 +42,9 @@ object LedgerConfigProvider {
         case None => ResourceOwner.unit
         case Some(writeService) =>
           val submissionIdGenerator = SubmissionIdGenerator.Random
-          LedgerConfigProvisioner.owner(
+          LedgerConfigurationProvisioner.owner(
             initialLedgerConfiguration,
-            currentLedgerConfiguration,
+            ledgerConfigurationSubscription,
             writeService,
             timeProvider,
             submissionIdGenerator,
@@ -54,7 +54,7 @@ object LedgerConfigProvider {
       }
       // Finally, we wait until either an existing configuration or the provisioned configuration
       // appears on the index.
-      _ <- ResourceOwner.forFuture(() => currentLedgerConfiguration.ready)
-    } yield currentLedgerConfiguration
+      _ <- ResourceOwner.forFuture(() => ledgerConfigurationSubscription.ready)
+    } yield ledgerConfigurationSubscription
   }
 }

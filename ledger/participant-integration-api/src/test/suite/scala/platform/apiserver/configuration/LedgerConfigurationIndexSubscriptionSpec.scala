@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.apiserver.configuration.IndexStreamingCurrentLedgerConfigurationSpec._
+import com.daml.platform.apiserver.configuration.LedgerConfigurationIndexSubscriptionSpec._
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.concurrent.Eventually
@@ -26,7 +26,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-final class IndexStreamingCurrentLedgerConfigurationSpec
+final class LedgerConfigurationIndexSubscriptionSpec
     extends AsyncWordSpec
     with Matchers
     with Eventually
@@ -49,10 +49,10 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
+      LedgerConfigurationIndexSubscription
         .owner(
           configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
+          indexService = index,
           scheduler = scheduler,
           materializer = materializer,
           servicesExecutionContext = system.dispatcher,
@@ -95,10 +95,10 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .thenReturn(Source(configurationEntries).concat(Source.never))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
+      LedgerConfigurationIndexSubscription
         .owner(
           configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
+          indexService = index,
           scheduler = scheduler,
           materializer = materializer,
           servicesExecutionContext = system.dispatcher,
@@ -121,10 +121,10 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val configurationLoadTimeout = 500.millis
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
+      LedgerConfigurationIndexSubscription
         .owner(
           configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
+          indexService = index,
           scheduler = scheduler,
           materializer = materializer,
           servicesExecutionContext = system.dispatcher,
@@ -147,9 +147,9 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      val owner = IndexStreamingCurrentLedgerConfiguration.owner(
+      val owner = LedgerConfigurationIndexSubscription.owner(
         configurationLoadTimeout = configurationLoadTimeout,
-        index = index,
+        indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
@@ -179,10 +179,10 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
+      LedgerConfigurationIndexSubscription
         .owner(
           configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
+          indexService = index,
           scheduler = scheduler,
           materializer = materializer,
           servicesExecutionContext = system.dispatcher,
@@ -198,7 +198,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
   }
 }
 
-object IndexStreamingCurrentLedgerConfigurationSpec {
+object LedgerConfigurationIndexSubscriptionSpec {
   private def offset(value: String): LedgerOffset.Absolute =
     LedgerOffset.Absolute(Ref.LedgerString.assertFromString(value))
 }

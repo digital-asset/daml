@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.configuration
 import com.daml.ledger.configuration.Configuration
 
 /** Makes the current ledger configuration available in a centralized place. */
-trait CurrentLedgerConfiguration {
+trait LedgerConfigurationSubscription {
 
   /** The latest configuration found so far. There may be a delay between an update to the ledger
     * configuration and that configuration becoming available through this method.

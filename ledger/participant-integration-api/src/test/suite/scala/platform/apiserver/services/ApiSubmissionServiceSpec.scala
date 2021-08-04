@@ -35,7 +35,7 @@ import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService
-import com.daml.platform.apiserver.configuration.CurrentLedgerConfiguration
+import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.apiserver.services.ApiSubmissionServiceSpec._
 import com.daml.platform.store.ErrorCause
@@ -343,7 +343,7 @@ object ApiSubmissionServiceSpec {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ApiSubmissionService = {
-    val currentLedgerConfiguration = new CurrentLedgerConfiguration {
+    val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
       override def latestConfiguration: Option[Configuration] =
         Some(Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ZERO))
     }
@@ -370,7 +370,7 @@ object ApiSubmissionServiceSpec {
       partyManagementService = partyManagementService,
       timeProvider = null,
       timeProviderType = null,
-      currentLedgerConfiguration = currentLedgerConfiguration,
+      ledgerConfigurationSubscription = ledgerConfigurationSubscription,
       seedService = SeedService.WeakRandom,
       commandExecutor = commandExecutor,
       configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),

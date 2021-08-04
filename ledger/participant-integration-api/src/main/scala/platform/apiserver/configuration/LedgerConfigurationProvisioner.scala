@@ -12,7 +12,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.configuration.LedgerConfigProvisioner._
+import com.daml.platform.apiserver.configuration.LedgerConfigurationProvisioner._
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
@@ -28,8 +28,8 @@ import scala.util.{Failure, Success}
   *
   * Designed to be used only through the [[owner]] constructor.
   */
-final class LedgerConfigProvisioner private (
-    currentLedgerConfiguration: CurrentLedgerConfiguration,
+final class LedgerConfigurationProvisioner private (
+    ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     submissionIdGenerator: SubmissionIdGenerator,
@@ -48,7 +48,7 @@ final class LedgerConfigProvisioner private (
   def submitInitialConfig(
       initialConfiguration: Configuration
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit =
-    if (currentLedgerConfiguration.latestConfiguration.isEmpty) {
+    if (ledgerConfigurationSubscription.latestConfiguration.isEmpty) {
       val submissionId = submissionIdGenerator.generate()
       withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
         logger.info("No ledger configuration found, submitting an initial configuration.")
@@ -77,12 +77,12 @@ final class LedgerConfigProvisioner private (
     }
 }
 
-object LedgerConfigProvisioner {
+object LedgerConfigurationProvisioner {
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(
       initialLedgerConfiguration: InitialLedgerConfiguration,
-      currentLedgerConfiguration: CurrentLedgerConfiguration,
+      ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       writeService: state.WriteConfigService,
       timeProvider: TimeProvider,
       submissionIdGenerator: SubmissionIdGenerator,
@@ -90,8 +90,8 @@ object LedgerConfigProvisioner {
       servicesExecutionContext: ExecutionContext,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] = {
     implicit val executionContext: ExecutionContext = servicesExecutionContext
-    val provisioner = new LedgerConfigProvisioner(
-      currentLedgerConfiguration,
+    val provisioner = new LedgerConfigurationProvisioner(
+      ledgerConfigurationSubscription,
       writeService,
       timeProvider,
       submissionIdGenerator,
