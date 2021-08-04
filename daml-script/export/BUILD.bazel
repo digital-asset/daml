@@ -83,52 +83,6 @@ da_scala_test(
     ],
 )
 
-da_scala_test(
-    name = "integration-tests",
-    srcs = glob(["src/it/scala/**/*.scala"]),
-    data = [
-        "//compiler/damlc",
-        "//daml-script/daml:daml-script.dar",
-        "//ledger/test-common:dar-files",
-    ],
-    resources = glob(["src/test/resources/**/*"]),
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:io_spray_spray_json",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":export",
-        "//:sdk-version-scala-lib",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-script/export/transaction-eq",
-        "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-resources",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/test-common",
-        "//libs-scala/fs-utils",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_netty_netty_handler",
-    ],
-)
-
 da_scala_binary(
     name = "example-export-client",
     srcs = ["src/example-export/scala/com/daml/script/export/ExampleClient.scala"],
