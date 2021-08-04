@@ -87,9 +87,11 @@ private[apiserver] final class ApiCommandService private (
       logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        ledgerConfigurationSubscription.latestConfiguration.fold[Future[Completion]](
-          Future.failed(ErrorFactories.missingLedgerConfig())
-        )(ledgerConfig => track(request, ledgerConfig))
+        ledgerConfigurationSubscription
+          .latestConfiguration()
+          .fold[Future[Completion]](
+            Future.failed(ErrorFactories.missingLedgerConfig())
+          )(ledgerConfig => track(request, ledgerConfig))
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
@@ -107,7 +109,7 @@ private[apiserver] final class ApiCommandService private (
     val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
     val submitter = TrackerMap.Key(application = appId, parties = parties)
     // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
-    val metricsPrefixFirstParty = parties.toList.sorted.head
+    val metricsPrefixFirstParty = parties.toList.min
     submissionTracker.track(submitter, request) {
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
@@ -210,7 +212,7 @@ private[apiserver] object ApiCommandService {
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
-        ledgerConfigurationSubscription.latestConfiguration.map(_.maxDeduplicationTime),
+        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       generateSubmissionId = SubmissionIdGenerator.Random,
     )
 

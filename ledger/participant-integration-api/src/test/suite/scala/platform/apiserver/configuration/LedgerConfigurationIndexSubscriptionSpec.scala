@@ -59,7 +59,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
         )
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
-            currentLedgerConfiguration.latestConfiguration should be(Some(currentConfiguration))
+            currentLedgerConfiguration.latestConfiguration() should be(Some(currentConfiguration))
             succeed
           }
         }
@@ -106,7 +106,9 @@ final class LedgerConfigurationIndexSubscriptionSpec
         .use { currentLedgerConfiguration =>
           currentLedgerConfiguration.ready.map { _ =>
             eventually {
-              currentLedgerConfiguration.latestConfiguration should be(Some(configurations.last._2))
+              currentLedgerConfiguration.latestConfiguration() should be(
+                Some(configurations.last._2)
+              )
             }
             succeed
           }
@@ -134,7 +136,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
           scheduler.timePasses(1.second)
           currentLedgerConfiguration.ready.isCompleted should be(true)
           currentLedgerConfiguration.ready.map { _ =>
-            currentLedgerConfiguration.latestConfiguration should be(None)
+            currentLedgerConfiguration.latestConfiguration() should be(None)
           }
         }
     }

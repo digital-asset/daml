@@ -52,7 +52,7 @@ final class LedgerConfigurationProvisionerSpec
       val submissionId = Ref.SubmissionId.assertFromString("the submission ID")
 
       val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
-        override def latestConfiguration: Option[Configuration] = None
+        override def latestConfiguration(): Option[Configuration] = None
       }
       val writeService = mock[state.WriteConfigService]
       val timeProvider = TimeProvider.Constant(Instant.EPOCH)
@@ -99,7 +99,7 @@ final class LedgerConfigurationProvisionerSpec
       )
 
       val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
-        override def latestConfiguration: Option[Configuration] = Some(currentConfiguration)
+        override def latestConfiguration(): Option[Configuration] = Some(currentConfiguration)
       }
       val writeService = mock[state.WriteConfigService]
       val timeProvider = TimeProvider.Constant(Instant.EPOCH)
@@ -137,7 +137,7 @@ final class LedgerConfigurationProvisionerSpec
 
     val currentConfiguration = new AtomicReference[Option[Configuration]](None)
     val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
-      override def latestConfiguration: Option[Configuration] = currentConfiguration.get
+      override def latestConfiguration(): Option[Configuration] = currentConfiguration.get
     }
     val writeService = mock[state.WriteConfigService]
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
@@ -179,7 +179,7 @@ final class LedgerConfigurationProvisionerSpec
     )
 
     val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
-      override def latestConfiguration: Option[Configuration] = None
+      override def latestConfiguration(): Option[Configuration] = None
     }
     val writeService = mock[state.WriteConfigService]
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)

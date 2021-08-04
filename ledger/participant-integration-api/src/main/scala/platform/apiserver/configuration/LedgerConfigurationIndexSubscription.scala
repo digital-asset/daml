@@ -143,7 +143,7 @@ private[apiserver] final class LedgerConfigurationIndexSubscription private (
     */
   def ready: Future[Unit] = readyPromise.future
 
-  override def latestConfiguration: Option[Configuration] = latestConfigurationState.get._2
+  override def latestConfiguration(): Option[Configuration] = latestConfigurationState.get._2
 
   override def close(): Unit = {
     scheduledTimeout.cancel()

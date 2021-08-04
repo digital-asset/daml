@@ -11,5 +11,5 @@ trait LedgerConfigurationSubscription {
   /** The latest configuration found so far. There may be a delay between an update to the ledger
     * configuration and that configuration becoming available through this method.
     */
-  def latestConfiguration: Option[Configuration]
+  def latestConfiguration(): Option[Configuration]
 }

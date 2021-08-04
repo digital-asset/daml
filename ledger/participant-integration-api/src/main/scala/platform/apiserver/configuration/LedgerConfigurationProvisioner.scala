@@ -48,7 +48,7 @@ final class LedgerConfigurationProvisioner private (
   def submitInitialConfig(
       initialConfiguration: Configuration
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit =
-    if (ledgerConfigurationSubscription.latestConfiguration.isEmpty) {
+    if (ledgerConfigurationSubscription.latestConfiguration().isEmpty) {
       val submissionId = submissionIdGenerator.generate()
       withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
         logger.info("No ledger configuration found, submitting an initial configuration.")

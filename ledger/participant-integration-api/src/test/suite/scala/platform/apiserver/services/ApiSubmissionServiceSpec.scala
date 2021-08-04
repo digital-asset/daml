@@ -344,7 +344,7 @@ object ApiSubmissionServiceSpec {
       loggingContext: LoggingContext,
   ): ApiSubmissionService = {
     val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
-      override def latestConfiguration: Option[Configuration] =
+      override def latestConfiguration(): Option[Configuration] =
         Some(Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ZERO))
     }
 

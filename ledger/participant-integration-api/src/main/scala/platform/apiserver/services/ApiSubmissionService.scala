@@ -74,7 +74,7 @@ private[apiserver] object ApiSubmissionService {
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
-        ledgerConfigurationSubscription.latestConfiguration.map(_.maxDeduplicationTime),
+        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
     )
@@ -111,7 +111,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
-      ledgerConfigurationSubscription.latestConfiguration
+      ledgerConfigurationSubscription
+        .latestConfiguration()
         .map(deduplicateAndRecordOnLedger(seedService.nextSeed(), request.commands, _))
         .getOrElse(Future.failed(ErrorFactories.missingLedgerConfig()))
         .andThen(logger.logErrorsOnCall[Unit])
