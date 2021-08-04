@@ -46,18 +46,18 @@ final class CompletionServiceWithEmptyLedgerIT
     )
 
   "CommandCompletionService gives sensible ledger end on an empty ledger" in {
-    val lid = ledgerId()
+    val theLedgerId = ledgerId()
     val party = "partyA"
     val completionService = CommandCompletionServiceGrpc.stub(channel)
     for {
-      end <- completionService.completionEnd(CompletionEndRequest(lid.unwrap))
+      end <- completionService.completionEnd(CompletionEndRequest(theLedgerId.unwrap))
       completions <- new StreamConsumer[CompletionStreamResponse](
         completionService.completionStream(
           CompletionStreamRequest(
-            lid.unwrap,
-            MockMessages.applicationId,
-            List(party),
-            Some(end.getOffset),
+            ledgerId = theLedgerId.unwrap,
+            applicationId = MockMessages.applicationId,
+            parties = List(party),
+            offset = Some(end.getOffset),
           ),
           _,
         )
