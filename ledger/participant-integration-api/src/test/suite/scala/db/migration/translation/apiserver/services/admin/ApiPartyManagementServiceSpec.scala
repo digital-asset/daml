@@ -18,6 +18,8 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import com.daml.platform.apiserver.services.admin.ApiPartyManagementServiceSpec._
+import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -73,7 +75,9 @@ class ApiPartyManagementServiceSpec
         }
     }
   }
+}
 
+object ApiPartyManagementServiceSpec {
   private object TestWritePartyService extends state.WritePartyService {
     override def allocateParty(
         hint: Option[Ref.Party],

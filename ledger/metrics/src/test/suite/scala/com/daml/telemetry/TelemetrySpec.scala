@@ -14,8 +14,8 @@ import scala.concurrent.Future
 import scala.util.Try
 
 class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
-
   import TelemetrySpec._
+  import TelemetrySpecBase._
 
   "contextFromGrpcThreadLocalContext" should {
     "return a context" in {
