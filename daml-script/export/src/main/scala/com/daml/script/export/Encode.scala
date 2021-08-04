@@ -142,9 +142,14 @@ private[export] object Encode {
       cidMap: Map[ContractId, String],
       v: Value.Sum,
   ): Doc = {
+    def isTupleRecord(recordId: Identifier): Boolean = {
+      recordId.moduleName == "DA.Types" && recordId.entityName.startsWith("Tuple")
+    }
     def go(v: Value.Sum): Doc =
       v match {
         case Sum.Empty => throw new IllegalArgumentException("Empty value")
+        case Sum.Record(value) if isTupleRecord(value.getRecordId) =>
+          tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         // TODO Handle sums of products properly
         case Sum.Variant(value) =>
