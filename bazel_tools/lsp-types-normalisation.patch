@@ -1,5 +1,5 @@
 diff --git a/src/Language/LSP/Types/Uri.hs b/src/Language/LSP/Types/Uri.hs
-index 8970d37..415c8c9 100644
+index 8970d37..e1a7233 100644
 --- a/src/Language/LSP/Types/Uri.hs
 +++ b/src/Language/LSP/Types/Uri.hs
 @@ -110,12 +110,12 @@ platformAdjustFromUriPath systemOS authority srcPath =
@@ -18,10 +18,11 @@ index 8970d37..415c8c9 100644
  
  {-# WARNING platformAwareFilePathToUri "This function is considered private. Use normalizedUriToFilePath instead." #-}
  platformAwareFilePathToUri :: SystemOS -> FilePath -> Uri
-@@ -187,10 +187,21 @@ instance Hashable NormalizedFilePath where
+@@ -187,10 +187,22 @@ instance Hashable NormalizedFilePath where
  instance IsString NormalizedFilePath where
      fromString = toNormalizedFilePath
  
++-- | Normalise a file path, but always convert to POSIX style file paths.
 +normalise' :: FilePath -> FilePath
 +normalise' fp = nfp
 +  where
