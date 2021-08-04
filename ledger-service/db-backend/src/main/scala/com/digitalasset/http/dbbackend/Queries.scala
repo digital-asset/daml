@@ -727,7 +727,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
   protected[this] override def agreementTextType = sql"NCLOB"
 
   protected[this] override def jsonColumn(name: Fragment) =
-    sql"$name CLOB NOT NULL CONSTRAINT ensure_json_$name CHECK ($name IS JSON)"
+    sql"$name CLOB NOT NULL CONSTRAINT ${tablePrefixFr}ensure_json_$name CHECK ($name IS JSON)"
 
   // See http://www.dba-oracle.com/t_ora_01795_maximum_number_of_expressions_in_a_list_is_1000.htm
   protected[this] override def maxListSize = Some(1000)
