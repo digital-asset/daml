@@ -64,6 +64,8 @@ private[export] object Encode {
               Seq(
                 "instance HasTemplateTypeRep" &: docTplId :& "where _templateTypeRep = GHC.Types.primitive @\"ETemplateTypeRep\"",
                 "instance HasToAnyTemplate" &: docTplId :& "where _toAnyTemplate = GHC.Types.primitive @\"EToAnyTemplate\"",
+              ) ++ tpl.key.toList.map(key =>
+                Doc.text("instance HasToAnyContractKey") & docTplId & encodeAstType(key.typ)
               ) ++
                 tpl.choices.map { case (choiceName, choice) =>
                   val choiceDoc = if (choiceName == "Archive") {
@@ -412,7 +414,6 @@ private[export] object Encode {
       if (isPreLf_1_8(pkgId, pkgLfVersions)) {
         val command = Doc.text("internalCreateAndExerciseCmd")
         val templateId = "@" +: encodeTemplateId(TemplateId(createdEvent.getTemplateId))
-        val typeRepArg = parens("templateTypeRep" &: templateId)
         val tplArg = parens("toAnyTemplate" &: tpl)
         val choiceArg = parens(Doc.text("toAnyChoice") & templateId & choice)
         Doc
