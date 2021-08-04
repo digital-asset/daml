@@ -46,7 +46,7 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-final class IT
+final class ReproducesTransactions
     extends AsyncFreeSpec
     with Matchers
     with AkkaBeforeAndAfterAll

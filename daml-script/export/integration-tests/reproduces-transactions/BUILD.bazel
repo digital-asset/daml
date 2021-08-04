@@ -1,0 +1,52 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_test",
+)
+
+da_scala_test(
+    name = "reproduces-transactions",
+    srcs = ["scala/com/daml/script/export/ReproducesTransactions.scala"],
+    data = [
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+        "//ledger/test-common:dar-files",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-scala-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/export",
+        "//daml-script/export/transaction-eq",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/fs-utils",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_netty_netty_handler",
+    ],
+)
