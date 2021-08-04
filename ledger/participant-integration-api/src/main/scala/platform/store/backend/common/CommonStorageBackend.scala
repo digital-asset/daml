@@ -106,14 +106,23 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           |
           |""".stripMargin
       )
-    )(rs =>
+    )(rs => {
+      val rawLedgerEnd = rs.getString(1) // SQL NULL is mapped to JVM null
+      val rawEventSeqId = rs.getLong(2) // SQL NULL is mapped to JVM 0
+      val rawEventSeqIdIsNull = rs.wasNull()
       StorageBackend.OptionalLedgerEnd(
         lastOffset =
-          if (rs.getString(1) == null) None
-          else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
-        lastEventSeqId = Option(rs.getLong(2)),
+          if (rawLedgerEnd == null)
+            None
+          else
+            Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
+        lastEventSeqId =
+          if (rawEventSeqIdIsNull)
+            None
+          else
+            Some(rawEventSeqId),
       )
-    )
+    })
     queryStatement.close()
     assert(params.size == 1)
     params.head
