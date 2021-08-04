@@ -10,6 +10,8 @@ import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
+import scala.annotation.tailrec
+
 private[preprocessing] final class TransactionPreprocessor(
     compiledPackages: MutableCompiledPackages
 ) {
@@ -85,57 +87,64 @@ private[preprocessing] final class TransactionPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction[NodeId, Cid]
-  ): (ImmArray[speedy.Command], Set[ContractId]) = {
+  ): ImmArray[speedy.Command] = {
 
-    val result = tx.roots.foldLeft(Acc(Set.empty, Set.empty, BackStack.empty)) { (acc, id) =>
-      tx.nodes.get(id) match {
-        case Some(node: Node.GenActionNode[_, Cid]) =>
-          node match {
-            case create: Node.NodeCreate[Cid] =>
-              val (cmd, newCids) =
-                commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
-              acc.update(newCids, List(create.coid), cmd)
-            case exe: Node.NodeExercises[_, Cid] =>
-              val (cmd, newCids) = exe.key match {
-                case Some(key) if exe.byKey =>
-                  commandPreprocessor.unsafePreprocessExerciseByKey(
-                    exe.templateId,
-                    key.key,
-                    exe.choiceId,
-                    exe.chosenValue,
-                  )
-                case _ =>
-                  commandPreprocessor.unsafePreprocessExercise(
-                    exe.templateId,
-                    exe.targetCoid,
-                    exe.choiceId,
-                    exe.chosenValue,
-                  )
-              }
-              val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
-              acc.update(newCids, newLocalCids, cmd)
-            case _: Node.NodeFetch[_] =>
-              invalidRootNode(id, s"Transaction contains a fetch root node $id")
-            case _: Node.NodeLookupByKey[_] =>
-              invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
+    @tailrec
+    def go(
+        nodes: List[(NodeId, Node.GenNode[_, Cid])],
+        acc: BackStack[speedy.Command],
+    ): ImmArray[speedy.Command] =
+      nodes match {
+        case (_, create: Node.NodeCreate[Cid]) :: (_, exe: Node.NodeExercises[_, Cid]) :: tail
+            if create.coid == exe.targetCoid && create.templateId == exe.templateId =>
+          val cmd = commandPreprocessor.unsafePreprocessCreateAndExercise(
+            templateId = create.templateId,
+            createArgument = create.arg,
+            choiceId = exe.choiceId,
+            choiceArgument = exe.chosenValue,
+          )
+          go(tail, acc :+ cmd)
+        case (_, create: Node.NodeCreate[Cid]) :: tail =>
+          val cmd = commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+          go(tail, acc :+ cmd)
+        case (_, exe: Node.NodeExercises[_, Cid]) :: tail =>
+          val cmd = exe.key match {
+            case Some(key) if exe.byKey =>
+              commandPreprocessor.unsafePreprocessExerciseByKey(
+                exe.templateId,
+                key.key,
+                exe.choiceId,
+                exe.chosenValue,
+              )
+            case _ =>
+              commandPreprocessor.unsafePreprocessExercise(
+                exe.templateId,
+                exe.targetCoid,
+                exe.choiceId,
+                exe.chosenValue,
+              )
           }
-        case Some(_: Node.NodeRollback[NodeId]) =>
+          go(tail, acc :+ cmd)
+        case (id, _: Node.NodeFetch[_]) :: _ =>
+          invalidRootNode(id, s"Transaction contains a fetch root node $id")
+        case (id, _: Node.NodeLookupByKey[_]) :: _ =>
+          invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
+        case (id, _: Node.NodeRollback[_]) :: _ =>
           invalidRootNode(id, s"invalid transaction, root refers to a rollback node $id")
+        case Nil =>
+          acc.toImmArray
+      }
+
+    val nodes = tx.roots.iterator.map(id =>
+      tx.nodes.get(id) match {
+        case Some(node) =>
+          id -> node
         case None =>
           invalidRootNode(id, s"invalid transaction, root refers to non-existing node $id")
       }
-    }
+    )
 
-    // The following check ensures that `localCids ∩ globalCids = ∅`.
-    // It is probably not 100% necessary, as the reinterpretation should catch the cases where it is not true.
-    // We still prefer to perform the check here as:
-    //  - it is cheap,
-    //  - it catches obviously buggy transaction,
-    //  - it is easier to reason about "soundness" of preprocessing under the disjointness assumption.
-    if (result.localCids exists result.globalCids)
-      throw Error.Preprocessing.ContractIdFreshness(result.localCids, result.globalCids)
-
-    result.commands.toImmArray -> result.globalCids
+    go(nodes.to(List), BackStack.empty)
   }
 
 }

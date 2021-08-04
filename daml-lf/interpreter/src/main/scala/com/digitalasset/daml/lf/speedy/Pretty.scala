@@ -521,10 +521,9 @@ private[lf] object Pretty {
         case SEScopeExercise(body) =>
           text("exercise") + char('(') + prettySExpr(index)(body) + text(")")
 
-        case x: SEBuiltinRecursiveDefinition => str(x)
-        case x: SEImportValue => str(x)
-        case x: SELabelClosure => str(x)
-        case x: SEDamlException => str(x)
+        case _: SEBuiltinRecursiveDefinition | _: SEImportValue | _: SELabelClosure |
+            _: SEDamlException =>
+          str(e)
       }
   }
 

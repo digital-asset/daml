@@ -6,11 +6,10 @@ package engine
 
 import com.daml.lf.data._
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.{GenTransaction, GlobalKey, Node, NodeId}
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -292,49 +291,6 @@ class ContractDiscriminatorFreshnessCheckSpec
         val r = run(cmd)
         r shouldBe a[Left[_, _]]
         r.left.exists(_.message.contains("Conflicting discriminators")) shouldBe true
-      }
-
-    }
-
-    "fail when preprocessing a transaction when a cid appear before before being created" in {
-
-      val cid0: ContractId = ContractId.V1(crypto.Hash.hashPrivateKey("test"), Bytes.Empty)
-
-      val Right((tx, _)) = submit(
-        ImmArray(
-          command.CreateAndExerciseCommand(
-            tmplId,
-            contractRecord(alice, 1, List.empty),
-            "Identity",
-            Value.ValueContractId(cid0),
-          ),
-          command.CreateCommand(tmplId, contractRecord(alice, 2, List.empty)),
-        ),
-        pcs = (cid => if (cid == cid0) Some(contractInstance(alice, 0, List.empty)) else None),
-        keys = _ => None,
-      )
-
-      val lastCreatedCid = tx.fold(cid0) {
-        case (_, (_, create: Node.NodeCreate[ContractId])) => create.coid
-        case (acc, _) => acc
-      }
-
-      assert(lastCreatedCid != cid0)
-
-      val newNodes = tx.fold(tx.nodes) {
-        case (nodes, (nid, exe: Node.NodeExercises[NodeId, ContractId]))
-            if exe.choiceId == "Identity" =>
-          nodes.updated(nid, exe.copy(chosenValue = Value.ValueContractId(lastCreatedCid)))
-        case (acc, _) => acc
-      }
-
-      val result =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(speedy.Compiler.Config.Dev))
-          .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
-          .consume(_ => None, pkgs, _ => None)
-
-      inside(result) { case Left(Error.Preprocessing(err)) =>
-        err shouldBe a[Error.Preprocessing.ContractIdFreshness]
       }
 
     }

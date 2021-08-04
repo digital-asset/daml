@@ -944,6 +944,17 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBUImportCids(cids: Set[V.ContractId.V1]) extends SBuiltin(1) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      checkToken(args, 0)
+      cids.foreach(machine.addGlobalCid)
+      machine.returnValue = SUnit
+    }
+  }
+
   /** $beginExercise
     *    :: arg                                           0 (choice argument)
     *    -> ContractId arg                                1 (contract to exercise)

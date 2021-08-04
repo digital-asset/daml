@@ -5,13 +5,13 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
-
-import scala.annotation.tailrec
 
 private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) {
 
@@ -20,48 +20,64 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
 
   val valueTranslator = new ValueTranslator(interface)
 
+  private[this] def assertEmpty(
+      location: String,
+      templateId: Identifier,
+      cids: Set[ContractId.V1],
+  ) =
+    cids.foreach { coid =>
+      // The type checking of contractKey done by unsafeTranslateValue should ensure
+      // keyCids is empty
+      throw Error.Preprocessing.Internal(
+        location,
+        s"Unexpected contract IDs in contract key of $templateId: $coid",
+      )
+    }
+
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreate(
       templateId: Ref.Identifier,
-      argument: Value[Value.ContractId],
-  ): (speedy.Command.Create, Set[Value.ContractId]) = {
+      argument: Value[ContractId],
+  ): speedy.Command.Create = {
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
-    speedy.Command.Create(templateId, arg) -> argCids
+    speedy.Command.Create(templateId, arg, argCids)
   }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessExercise(
       templateId: Ref.Identifier,
-      contractId: Value.ContractId,
+      contractId: ContractId,
       choiceId: Ref.ChoiceName,
-      argument: Value[Value.ContractId],
-  ): (speedy.Command.Exercise, Set[Value.ContractId]) = {
+      argument: Value[ContractId],
+  ): speedy.Command.Exercise = {
     val choice = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choice, argument)
-    val cids = argCids + contractId
-    speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg) -> cids
+    val cids = contractId match {
+      case cid: ContractId.V1 => argCids + cid
+      case _: ContractId.V0 => argCids
+    }
+    speedy.Command.Exercise(
+      templateId,
+      SValue.SContractId(contractId),
+      choiceId,
+      arg,
+      cids,
+    )
   }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessExerciseByKey(
       templateId: Ref.Identifier,
-      contractKey: Value[Value.ContractId],
+      contractKey: Value[ContractId],
       choiceId: Ref.ChoiceName,
-      argument: Value[Value.ContractId],
-  ): (speedy.Command.ExerciseByKey, Set[Value.ContractId]) = {
+      argument: Value[ContractId],
+  ): speedy.Command.ExerciseByKey = {
     val choiceArgType = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
     val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
-    keyCids.foreach { coid =>
-      // The type checking of contractKey done by unsafeTranslateValue should ensure
-      // keyCids is empty
-      throw Error.Preprocessing.Internal(
-        NameOf.qualifiedNameOfCurrentFunc,
-        s"Unexpected contract IDs in contract key of $templateId: $coid",
-      )
-    }
-    speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) -> argCids
+    assertEmpty(NameOf.qualifiedNameOfCurrentFunc, templateId, keyCids)
+    speedy.Command.ExerciseByKey(templateId, key, choiceId, arg, argCids)
   }
 
   @throws[Error.Preprocessing.Error]
@@ -70,7 +86,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
       createArgument: Value[Value.ContractId],
       choiceId: Ref.ChoiceName,
       choiceArgument: Value[Value.ContractId],
-  ): (speedy.Command.CreateAndExercise, Set[Value.ContractId]) = {
+  ): speedy.Command.CreateAndExercise = {
     val (createArg, createArgCids) =
       valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), createArgument)
     val choiceArgType = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
@@ -82,7 +98,8 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
         createArg,
         choiceId,
         choiceArg,
-      ) -> (createArgCids | choiceArgCids)
+        createArgCids | choiceArgCids,
+      )
   }
 
   @throws[Error.Preprocessing.Error]
@@ -92,21 +109,14 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
   ): speedy.Command.LookupByKey = {
     val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
-    keyCids.foreach { coid =>
-      // The type checking of contractKey done by unsafeTranslateValue should ensure
-      // keyCids is empty
-      throw Error.Preprocessing.Internal(
-        NameOf.qualifiedNameOfCurrentFunc,
-        s"Unexpected contract IDs in contract key of $templateId: $coid",
-      )
-    }
+    assertEmpty(NameOf.qualifiedNameOfCurrentFunc, templateId, keyCids)
     speedy.Command.LookupByKey(templateId, key)
   }
 
   // returns the speedy translation of an LF command together with all the contract IDs contains inside.
-  private[preprocessing] def unsafePreprocessCommand(
+  private[lf] def unsafePreprocessCommand(
       cmd: command.Command
-  ): (speedy.Command, Set[Value.ContractId]) = {
+  ): speedy.Command = {
     cmd match {
       case command.CreateCommand(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
@@ -127,41 +137,18 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
           choiceArgument,
         )
       case command.FetchCommand(templateId, coid) =>
-        (speedy.Command.Fetch(templateId, SValue.SContractId(coid)), Set(coid))
+        speedy.Command.Fetch(templateId, SValue.SContractId(coid))
       case command.FetchByKeyCommand(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
-        assert(cids.isEmpty)
-        (speedy.Command.FetchByKey(templateId, sKey), Set.empty)
+        assertEmpty(NameOf.qualifiedNameOfCurrentFunc, templateId, cids)
+        speedy.Command.FetchByKey(templateId, sKey)
       case command.LookupByKeyCommand(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
-        assert(cids.isEmpty)
-        (speedy.Command.LookupByKey(templateId, sKey), Set.empty)
+        assertEmpty(NameOf.qualifiedNameOfCurrentFunc, templateId, cids)
+        speedy.Command.LookupByKey(templateId, sKey)
     }
-  }
-
-  @throws[Error.Preprocessing.Error]
-  def unsafePreprocessCommands(
-      cmds: ImmArray[command.ApiCommand]
-  ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
-
-    @tailrec
-    def go(
-        toProcess: FrontStack[command.ApiCommand],
-        processed: BackStack[speedy.Command],
-        acc: Set[Value.ContractId],
-    ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
-      toProcess match {
-        case FrontStackCons(cmd, rest) =>
-          val (speedyCmd, newCids) = unsafePreprocessCommand(cmd)
-          go(rest, processed :+ speedyCmd, acc | newCids)
-        case FrontStack() =>
-          (processed.toImmArray, acc)
-      }
-    }
-
-    go(FrontStack(cmds), BackStack.empty, Set.empty)
   }
 
 }

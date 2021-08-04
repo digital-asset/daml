@@ -5,6 +5,7 @@ package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.ContractId
 
 // ---------------------
 // Preprocessed commands
@@ -18,6 +19,7 @@ object Command {
   final case class Create(
       templateId: Identifier,
       argument: SValue,
+      coids: Set[ContractId.V1],
   ) extends Command
 
   final case class Exercise(
@@ -25,6 +27,7 @@ object Command {
       contractId: SContractId,
       choiceId: ChoiceName,
       argument: SValue,
+      coids: Set[ContractId.V1],
   ) extends Command
 
   final case class ExerciseByKey(
@@ -32,6 +35,7 @@ object Command {
       contractKey: SValue,
       choiceId: ChoiceName,
       argument: SValue,
+      coids: Set[ContractId.V1],
   ) extends Command
 
   final case class Fetch(
@@ -49,6 +53,7 @@ object Command {
       createArgument: SValue,
       choiceId: ChoiceName,
       choiceArgument: SValue,
+      coid: Set[ContractId.V1],
   ) extends Command
 
   final case class LookupByKey(

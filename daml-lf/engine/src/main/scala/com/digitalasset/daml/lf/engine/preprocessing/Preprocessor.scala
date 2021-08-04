@@ -132,7 +132,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
 
   private[engine] def preprocessCommand(
       cmd: command.Command
-  ): Result[(speedy.Command, Set[Value.ContractId])] =
+  ): Result[speedy.Command] =
     safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
       unsafePreprocessCommand(cmd)
     }
@@ -141,14 +141,14 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     */
   def preprocessCommands(
       cmds: data.ImmArray[command.ApiCommand]
-  ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
+  ): Result[ImmArray[speedy.Command]] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
-      unsafePreprocessCommands(cmds)
+      cmds.map(unsafePreprocessCommand)
     }
 
   def translateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction[NodeId, Cid]
-  ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
+  ): Result[ImmArray[speedy.Command]] =
     safelyRun(
       getDependencies(List.empty, tx.rootNodes.toList.map(_.templateId))
     ) {

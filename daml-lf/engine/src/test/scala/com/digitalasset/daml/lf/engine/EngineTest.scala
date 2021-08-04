@@ -682,7 +682,7 @@ class EngineTest
     res shouldBe a[Right[_, _]]
     val interpretResult =
       res
-        .flatMap { case (cmds, globalCids) =>
+        .flatMap(cmds =>
           engine
             .interpretCommands(
               validating = false,
@@ -692,14 +692,14 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
-              globalCids = globalCids,
+              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
               lookupPackage,
               lookupKey,
             )
-        }
+        )
     val Right((tx, txMeta)) = interpretResult
     val Right(submitter) = tx.guessSubmitter
 
@@ -818,7 +818,7 @@ class EngineTest
     res shouldBe a[Right[_, _]]
     val result =
       res
-        .flatMap { case (cmds, globalCids) =>
+        .flatMap(cmds =>
           engine
             .interpretCommands(
               validating = false,
@@ -828,14 +828,14 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
-              globalCids = globalCids,
+              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
               lookupPackage,
               lookupKey,
             )
-        }
+        )
     val Right((tx, txMeta)) = result
 
     "be translated" in {
@@ -918,6 +918,7 @@ class EngineTest
           contractKey = SParty(alice),
           choiceId = ChoiceName.assertFromString("Noop"),
           argument = SValue.SUnit,
+          coids = Set.empty,
         )
       )
       val submitters = Set(alice)
@@ -1039,6 +1040,7 @@ class EngineTest
           SRecord(templateId, ImmArray.empty, ArrayList(SParty(alice))),
           "FetchAfterLookup",
           SRecord(templateId, ImmArray.empty, ArrayList(SInt64(43))),
+          Set.empty,
         )
       )
 
@@ -1099,7 +1101,7 @@ class EngineTest
     res shouldBe a[Right[_, _]]
     val interpretResult =
       res
-        .flatMap { case (cmds, globalCids) =>
+        .flatMap(cmds =>
           engine
             .interpretCommands(
               validating = false,
@@ -1109,14 +1111,14 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = InitialSeeding.TransactionSeed(txSeed),
-              globalCids = globalCids,
+              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
               lookupPackage,
               lookupKey,
             )
-        }
+        )
 
     val Right((tx, txMeta)) = interpretResult
     val Right(submitter) = tx.guessSubmitter
@@ -1379,7 +1381,7 @@ class EngineTest
 
     val txSeed =
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
-    val Right((cmds, globalCids)) = preprocessor
+    val Right(cmds) = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     val Right((rtx, _)) = engine
@@ -1391,7 +1393,7 @@ class EngineTest
         ledgerTime = let,
         submissionTime = submissionTime,
         seeding = InitialSeeding.TransactionSeed(txSeed),
-        globalCids = globalCids,
+        globalCids = Set.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1547,7 +1549,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res
-        .flatMap { case (cmds, globalCids) =>
+        .flatMap(cmds =>
           engine
             .interpretCommands(
               validating = false,
@@ -1557,14 +1559,14 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
-              globalCids = globalCids,
+              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
               lookupPackage,
               lookupKey,
             )
-        }
+        )
 
     }
 
@@ -1949,7 +1951,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val Right((cmds, globalCids)) = preprocessor
+      val Right(cmds) = preprocessor
         .preprocessCommands(
           ImmArray(
             ExerciseCommand(
@@ -1975,7 +1977,7 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = globalCids,
+          globalCids = Set.empty,
         )
         .consume(
           lookupContractMap.get,
@@ -2159,7 +2161,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val Right((cmds, globalCids)) = preprocessor
+      val Right(cmds) = preprocessor
         .preprocessCommands(
           ImmArray(
             CreateAndExerciseCommand(templateId, createArg, "DontExecuteCreate", exerciseArg)
@@ -2176,7 +2178,7 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = globalCids,
+          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
       result shouldBe a[Right[_, _]]
@@ -2193,7 +2195,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val Right((cmds, globalCids)) = preprocessor
+      val Right(cmds) = preprocessor
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -2206,7 +2208,7 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = globalCids,
+          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
       result shouldBe a[Left[_, _]]
@@ -2226,7 +2228,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val Right((cmds, globalCids)) = preprocessor
+      val Right(cmds) = preprocessor
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
       val result = engine
@@ -2238,7 +2240,7 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = globalCids,
+          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -2300,7 +2302,7 @@ class EngineTest
           choice,
           argument,
         )
-        val Right((cmds, globalCids)) = preprocessor
+        val Right(cmds) = preprocessor
           .preprocessCommands(ImmArray(cmd))
           .consume(lookupContract, lookupPackage, lookupKey)
         engine
@@ -2312,7 +2314,7 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = globalCids,
+            globalCids = Set.empty,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
       }
@@ -2422,7 +2424,7 @@ class EngineTest
         }
       def run(cmd: ApiCommand) = {
         val submitters = Set(party)
-        val Right((cmds, globalCids)) = preprocessor
+        val Right(cmds) = preprocessor
           .preprocessCommands(ImmArray(cmd))
           .consume(
             lookupContract,
@@ -2438,7 +2440,7 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = globalCids,
+            globalCids = Set.empty,
           )
           .consume(
             lookupContract,
@@ -2533,7 +2535,7 @@ class EngineTest
         }
       def run(cmd: ApiCommand) = {
         val submitters = Set(party)
-        val Right((cmds, globalCids)) = preprocessor
+        val Right(cmds) = preprocessor
           .preprocessCommands(ImmArray(cmd))
           .consume(
             lookupContract,
@@ -2549,7 +2551,7 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = globalCids,
+            globalCids = Set.empty,
           )
           .consume(
             lookupContract,
@@ -2616,7 +2618,7 @@ class EngineTest
           keyLookups += 1
           lookupKey(key)
         }
-        val Right((cmds, globalCids)) = preprocessor
+        val Right(cmds) = preprocessor
           .preprocessCommands(ImmArray(cmd))
           .consume(
             lookupContract,
@@ -2632,7 +2634,7 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = globalCids,
+            globalCids = Set.empty,
           )
           .consume(
             lookupContract,

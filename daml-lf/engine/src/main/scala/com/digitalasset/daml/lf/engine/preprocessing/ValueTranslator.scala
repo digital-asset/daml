@@ -44,9 +44,9 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value[ContractId],
-  ): (SValue, Set[Value.ContractId]) = {
+  ): (SValue, Set[Value.ContractId.V1]) = {
 
-    val cids = Set.newBuilder[Value.ContractId]
+    val cids = Set.newBuilder[Value.ContractId.V1]
 
     def go(ty0: Type, value0: Value[ContractId], nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
@@ -91,7 +91,12 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                         typeError()
                     }
                   case (BTContractId, ValueContractId(c)) =>
-                    cids += c
+                    c match {
+                      case cV1: ContractId.V1 =>
+                        cids += cV1
+                      case _: ContractId.V0 =>
+                    }
+
                     SValue.SContractId(c)
                   case (BTOptional, ValueOptional(mbValue)) =>
                     mbValue match {
