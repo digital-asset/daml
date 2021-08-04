@@ -52,6 +52,7 @@ object Tests {
   val optional: Vector[LedgerTestSuite] =
     Vector(
       new ParticipantPruningIT,
+      new MultiParticipantDivulgencePruningIT,
       new MultiPartySubmissionIT,
     )
 

@@ -599,7 +599,17 @@ private class JdbcLedgerDao(
       storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(conn)
       storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
       storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+
+      if (pruneAllDivulgedContracts) {
+        storageBackend.updatePrunedAllDivulgenceEventsUpToInclusive(pruneUpToInclusive)(conn)
+      }
+
       logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
+
+      if (pruneAllDivulgedContracts)
+        logger.info(
+          s"Pruned all divulgence events in the ledger api server index db up to ${pruneUpToInclusive.toHexString}"
+        )
     }
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =

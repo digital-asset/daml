@@ -225,17 +225,22 @@ private[backend] object H2StorageBackend
       List(
         SQL"""
           -- Immediate divulgence events
-          WITH
-            to_be_pruned AS(
-              SELECT DISTINCT(event_sequential_id)
-              FROM participant_events_create creates JOIN parties party
-              ON (
-                array_contains(creates.tree_event_witnesses, party.party)
-                AND NOT
-                array_contains(creates.flat_event_witnesses, party.party)
-              )
-              WHERE creates.event_offset <= $pruneUpToInclusive
+          WITH to_be_pruned AS (
+            SELECT DISTINCT(event_sequential_id) AS event_sequential_id
+            FROM participant_events_create creates
+            WHERE event_offset <= $pruneUpToInclusive
+            AND NOT EXISTS (
+              SELECT 1
+              FROM participant_events_create c JOIN parties p
+              ON array_contains(c.flat_event_witnesses, p.party)
+              WHERE
+                c.event_sequential_id = creates.event_sequential_id
+                -- If the party is locally hosted and older than the create event
+                -- it is not a prunable disclosure
+                AND p.is_local
+                AND p.ledger_offset <= c.event_offset
             )
+          )
           DELETE FROM participant_events_create
           WHERE event_sequential_id IN (SELECT event_sequential_id from to_be_pruned)
          """

@@ -204,11 +204,28 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
                                                      |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
                                                      |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
                                                      |""".stripMargin)
+  private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED = SQL("""
+                                                     |update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive={pruned_all_divulgence_up_to_inclusive}
+                                                     |where participant_all_divulged_contracts_pruned_up_to_inclusive < {pruned_all_divulgence_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
+                                                     |""".stripMargin)
 
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
+  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(
+      connection: Connection
+  ): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL_UPDATE_MOST_RECENT_PRUNING
       .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
+      .execute()(connection)
+    ()
+  }
+
+  def updatePrunedAllDivulgenceEventsUpToInclusive(
+      prunedUpToInclusive: Offset
+  )(connection: Connection): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+
+    SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED
+      .on("pruned_all_divulgence_up_to_inclusive" -> prunedUpToInclusive)
       .execute()(connection)
     ()
   }

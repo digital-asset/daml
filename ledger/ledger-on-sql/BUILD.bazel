@@ -428,8 +428,6 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
-        #        TODO divulgence pruning: Make these exclusions default
-        "--exclude=ParticipantPruningIT:PRRetroactiveDivulgences",
     ],
 )
 
@@ -450,8 +448,6 @@ conformance_test(
         "--concurrent-test-runs=2",
         "--timeout-scale-factor=4",
         "--include=ParticipantPruningIT",
-        #        TODO divulgence pruning: Make these exclusions default
-        "--exclude=ParticipantPruningIT:PRRetroactiveDivulgences",
     ],
 )
 
@@ -470,8 +466,6 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
-        #        TODO divulgence pruning: Make these exclusions default
-        "--exclude=ParticipantPruningIT:PRRetroactiveDivulgences",
     ],
 )
 
@@ -487,8 +481,6 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
-        #        TODO divulgence pruning: Make these exclusions default
-        "--exclude=ParticipantPruningIT:PRRetroactiveDivulgences",
     ],
 )
 
