@@ -3,8 +3,6 @@
 
 package com.daml.platform.sandboxnext.services.completion
 
-import java.time.Duration
-
 import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundEach}
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
@@ -12,9 +10,8 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionStreamRequest,
   CompletionStreamResponse,
 }
-import com.daml.platform.ApiOffset
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.testing.StreamConsumer
@@ -25,7 +22,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
 
-final class CompletionServiceWithEmptyLedgerIT
+final class CompletionServiceIT
     extends AsyncWordSpec
     with Matchers
     with Inspectors
@@ -34,23 +31,16 @@ final class CompletionServiceWithEmptyLedgerIT
     with TestCommands
     with SuiteResourceManagementAroundEach {
 
-  // Start with no Daml packages and a large configuration delay, such that we can test the API's
-  // behavior on an empty index.
-  override protected def config: SandboxConfig =
-    super.config.copy(
-      damlPackages = List.empty,
-      ledgerConfig = super.config.ledgerConfig.copy(
-        initialConfigurationSubmitDelay = Duration.ofDays(5)
-      ),
-      implicitPartyAllocation = false,
-    )
-
-  "CommandCompletionService gives sensible ledger end on an empty ledger" in {
+  "CommandCompletionService can stream completions from the beginning" in {
     val lid = ledgerId()
     val party = "partyA"
+    val commandId = "commandId"
+
+    val submissionService = CommandSubmissionServiceGrpc.stub(channel)
     val completionService = CommandCompletionServiceGrpc.stub(channel)
     for {
       end <- completionService.completionEnd(CompletionEndRequest(lid.unwrap))
+      _ <- submissionService.submit(dummyCommands(lid, commandId, party))
       completions <- new StreamConsumer[CompletionStreamResponse](
         completionService.completionStream(
           CompletionStreamRequest(
@@ -64,8 +54,7 @@ final class CompletionServiceWithEmptyLedgerIT
       ).within(2.seconds)
         .map(_.flatMap(_.completions).map(_.commandId))
     } yield {
-      end.getOffset.value.absolute.get shouldBe ApiOffset.begin.toHexString
-      completions shouldBe empty
+      completions shouldBe Vector(commandId)
     }
   }
 }

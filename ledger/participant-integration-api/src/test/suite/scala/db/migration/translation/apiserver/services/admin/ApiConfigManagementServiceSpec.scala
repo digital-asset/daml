@@ -13,6 +13,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
+import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.config_management_service.{
   GetTimeModelRequest,
@@ -33,15 +34,18 @@ import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.timestamp.Timestamp
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.immutable
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 class ApiConfigManagementServiceSpec
     extends AsyncWordSpec
     with Matchers
+    with Inside
     with MockitoSugar
     with ArgumentMatchersSugar
     with TelemetrySpecBase
@@ -70,8 +74,6 @@ class ApiConfigManagementServiceSpec
         ),
         writeService,
         TimeProvider.UTC,
-        LedgerConfiguration.defaultLocalLedger,
-        _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
       apiConfigManagementService.getTimeModel(GetTimeModelRequest.defaultInstance).map { response =>
@@ -81,37 +83,20 @@ class ApiConfigManagementServiceSpec
       }
     }
 
-    "return the default time model if one is not found" in {
-      val initialTimeModel = LedgerTimeModel(
-        avgTransactionLatency = Duration.ofMinutes(5),
-        minSkew = Duration.ofMinutes(3),
-        maxSkew = Duration.ofMinutes(2),
-      ).get
-      val expectedTimeModel = TimeModel.of(
-        avgTransactionLatency = Some(DurationProto.of(5 * 60, 0)),
-        minSkew = Some(DurationProto.of(3 * 60, 0)),
-        maxSkew = Some(DurationProto.of(2 * 60, 0)),
-      )
-
+    "return a `NOT_FOUND` error if a time model is not found" in {
       val writeService = mock[state.WriteConfigService]
       val apiConfigManagementService = ApiConfigManagementService.createApiService(
         EmptyIndexConfigManagementService,
         writeService,
         TimeProvider.UTC,
-        LedgerConfiguration(
-          initialConfiguration =
-            Configuration(aConfigurationGeneration, initialTimeModel, Duration.ZERO),
-          initialConfigurationSubmitDelay = Duration.ZERO,
-          configurationLoadTimeout = Duration.ZERO,
-        ),
-        _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
-      apiConfigManagementService.getTimeModel(GetTimeModelRequest.defaultInstance).map { response =>
-        response.timeModel should be(Some(expectedTimeModel))
-        verifyZeroInteractions(writeService)
-        succeed
-      }
+      apiConfigManagementService
+        .getTimeModel(GetTimeModelRequest.defaultInstance)
+        .transform(Success.apply)
+        .map { response =>
+          response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) => }
+        }
     }
 
     "set a new time model" in {
@@ -148,7 +133,6 @@ class ApiConfigManagementServiceSpec
         indexService,
         writeService,
         timeProvider,
-        LedgerConfiguration.defaultLocalLedger,
       )
 
       apiConfigManagementService
@@ -172,31 +156,17 @@ class ApiConfigManagementServiceSpec
         }
     }
 
-    "set a new time model using the initial configuration if none is indexed yet" in {
+    "refuse to set a new time model if none is indexed yet" in {
       val initialGeneration = LedgerConfiguration.NoGeneration
-      val expectedGeneration = LedgerConfiguration.StartingGeneration
-      val expectedConfiguration = Configuration(
-        generation = expectedGeneration,
-        timeModel = LedgerTimeModel(
-          avgTransactionLatency = Duration.ofSeconds(10),
-          minSkew = Duration.ofSeconds(20),
-          maxSkew = Duration.ofSeconds(40),
-        ).get,
-        maxDeduplicationTime = Duration.ofDays(1),
-      )
 
       val timeProvider = TimeProvider.UTC
       val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
 
-      val (indexService, writeService, currentConfiguration) = fakeServices(
-        startingOffset = 1,
-        submissions = Seq.empty,
-      )
+      val writeService = mock[state.WriteService]
       val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        indexService,
+        EmptyIndexConfigManagementService,
         writeService,
         timeProvider,
-        LedgerConfiguration.defaultLocalLedger,
       )
 
       apiConfigManagementService
@@ -214,9 +184,11 @@ class ApiConfigManagementServiceSpec
             ),
           )
         )
+        .transform(Success.apply)
         .map { response =>
-          response.configurationGeneration should be(expectedGeneration)
-          currentConfiguration() should be(Some(expectedConfiguration))
+          verifyZeroInteractions(writeService)
+          response should matchPattern { case Failure(GrpcException(GrpcStatus.UNAVAILABLE(), _)) =>
+          }
         }
     }
 
@@ -225,7 +197,6 @@ class ApiConfigManagementServiceSpec
         new FakeStreamingIndexConfigManagementService(someConfigurationEntries),
         TestWriteConfigService,
         TimeProvider.UTC,
-        LedgerConfiguration.defaultLocalLedger,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
@@ -304,10 +275,15 @@ object ApiConfigManagementServiceSpec {
   private final class FakeStreamingIndexConfigManagementService(
       entries: immutable.Iterable[(LedgerOffset.Absolute, ConfigurationEntry)]
   ) extends IndexConfigManagementService {
+    private val currentConfiguration =
+      entries.collect { case (offset, ConfigurationEntry.Accepted(_, configuration)) =>
+        offset -> configuration
+      }.lastOption
+
     override def lookupConfiguration()(implicit
         loggingContext: LoggingContext
     ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
-      Future.successful(None)
+      Future.successful(currentConfiguration)
 
     override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])(implicit
         loggingContext: LoggingContext

@@ -267,7 +267,6 @@ private[daml] object ApiServices {
           configManagementService,
           writeService,
           timeProvider,
-          ledgerConfiguration,
         )
 
         val apiParticipantPruningService =

@@ -21,7 +21,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.{ValidationLogger, validation}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
@@ -36,7 +35,6 @@ private[apiserver] final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
-    ledgerConfiguration: LedgerConfiguration,
     submissionIdGenerator: String => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
@@ -44,12 +42,7 @@ private[apiserver] final class ApiConfigManagementService private (
     loggingContext: LoggingContext,
 ) extends ConfigManagementService
     with GrpcApiService {
-
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  private val defaultConfigResponse = configToResponse(
-    ledgerConfiguration.initialConfiguration.copy(generation = LedgerConfiguration.NoGeneration)
-  )
 
   override def close(): Unit = ()
 
@@ -60,19 +53,27 @@ private[apiserver] final class ApiConfigManagementService private (
     logger.info("Getting time model")
     index
       .lookupConfiguration()
-      .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })
+      .flatMap {
+        case Some((_, configuration)) =>
+          Future.successful(configurationToResponse(configuration))
+        case None =>
+          logger.warn(
+            "Could not get the current time model. The index does not yet have the ledger configuration."
+          )
+          Future.failed(ErrorFactories.missingLedgerConfigOnConfigRequest())
+      }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
 
-  private def configToResponse(config: Configuration): GetTimeModelResponse = {
-    val tm = config.timeModel
+  private def configurationToResponse(configuration: Configuration): GetTimeModelResponse = {
+    val timeModel = configuration.timeModel
     GetTimeModelResponse(
-      configurationGeneration = config.generation,
+      configurationGeneration = configuration.generation,
       timeModel = Some(
         TimeModel(
-          avgTransactionLatency = Some(DurationConversion.toProto(tm.avgTransactionLatency)),
-          minSkew = Some(DurationConversion.toProto(tm.minSkew)),
-          maxSkew = Some(DurationConversion.toProto(tm.maxSkew)),
+          avgTransactionLatency = Some(DurationConversion.toProto(timeModel.avgTransactionLatency)),
+          minSkew = Some(DurationConversion.toProto(timeModel.minSkew)),
+          maxSkew = Some(DurationConversion.toProto(timeModel.maxSkew)),
         )
       ),
     )
@@ -94,14 +95,21 @@ private[apiserver] final class ApiConfigManagementService private (
           )
 
           // Lookup latest configuration to check generation and to extend it with the new time model.
-          optConfigAndOffset <- index.lookupConfiguration()
-          ledgerEndBeforeRequest = optConfigAndOffset.map(_._1)
-          currentConfig = optConfigAndOffset.map(_._2)
+          configuration <- index
+            .lookupConfiguration()
+            .flatMap {
+              case Some(result) =>
+                Future.successful(result)
+              case None =>
+                logger.warn(
+                  "Could not get the current time model. The index does not yet have the ledger configuration."
+                )
+                Future.failed(ErrorFactories.missingLedgerConfig())
+            }
+          (ledgerEndBeforeRequest, currentConfig) = configuration
 
           // Verify that we're modifying the current configuration.
-          expectedGeneration = currentConfig
-            .map(_.generation)
-            .getOrElse(LedgerConfiguration.NoGeneration)
+          expectedGeneration = currentConfig.generation
           _ <-
             if (request.configurationGeneration != expectedGeneration) {
               Future.failed(
@@ -117,10 +125,10 @@ private[apiserver] final class ApiConfigManagementService private (
             }
 
           // Create the new extended configuration.
-          newConfig = currentConfig
-            .map(config => config.copy(generation = config.generation + 1))
-            .getOrElse(ledgerConfiguration.initialConfiguration)
-            .copy(timeModel = params.newTimeModel)
+          newConfig = currentConfig.copy(
+            generation = currentConfig.generation + 1,
+            timeModel = params.newTimeModel,
+          )
 
           // Submit configuration to the ledger, and start polling for the result.
           augmentedSubmissionId = submissionIdGenerator(request.submissionId)
@@ -189,7 +197,6 @@ private[apiserver] object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: state.WriteConfigService,
       timeProvider: TimeProvider,
-      ledgerConfiguration: LedgerConfiguration,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
@@ -200,14 +207,13 @@ private[apiserver] object ApiConfigManagementService {
       readBackend,
       writeBackend,
       timeProvider,
-      ledgerConfiguration,
       submissionIdGenerator,
     )
 
   private final class SynchronousResponseStrategy(
       writeConfigService: state.WriteConfigService,
       configManagementService: IndexConfigManagementService,
-      ledgerEnd: Option[LedgerOffset.Absolute],
+      ledgerEnd: LedgerOffset.Absolute,
   )(implicit loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         (Time.Timestamp, Configuration),
@@ -216,7 +222,7 @@ private[apiserver] object ApiConfigManagementService {
       ] {
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
-      Future.successful(ledgerEnd)
+      Future.successful(Some(ledgerEnd))
 
     override def submit(
         submissionId: Ref.SubmissionId,
