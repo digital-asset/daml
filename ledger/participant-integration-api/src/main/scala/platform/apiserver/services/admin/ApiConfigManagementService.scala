@@ -60,7 +60,7 @@ private[apiserver] final class ApiConfigManagementService private (
           logger.warn(
             "Could not get the current time model. The index does not yet have any ledger configuration."
           )
-          Future.failed(ErrorFactories.missingLedgerConfigOnConfigRequest())
+          Future.failed(ErrorFactories.missingLedgerConfigUponRequest())
       }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }

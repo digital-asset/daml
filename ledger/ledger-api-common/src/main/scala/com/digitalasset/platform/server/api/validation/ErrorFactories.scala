@@ -43,7 +43,7 @@ trait ErrorFactories {
   def missingLedgerConfig(): StatusRuntimeException =
     grpcError(Status.UNAVAILABLE.withDescription("The ledger configuration is not available."))
 
-  def missingLedgerConfigOnConfigRequest(): StatusRuntimeException =
+  def missingLedgerConfigUponRequest(): StatusRuntimeException =
     grpcError(Status.NOT_FOUND.withDescription("The ledger configuration is not available."))
 
   def participantPrunedDataAccessed(message: String): StatusRuntimeException =
