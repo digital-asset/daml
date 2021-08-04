@@ -77,8 +77,11 @@ object Dependencies {
   private val providedLibraries: Set[Ref.PackageName] =
     Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
 
-  private def isProvidedLibrary(pkg: Ast.Package): Boolean =
-    pkg.metadata.exists(m => providedLibraries.contains(m.name))
+  private def isProvidedLibrary(pkgId: PackageId, pkg: Ast.Package): Boolean = {
+    pkg.metadata.exists(m =>
+      providedLibraries.contains(m.name)
+    ) || com.daml.lf.language.StablePackages.Ids.contains(pkgId)
+  }
 
   // Return the package-id appropriate for the --package flag if the package is not builtin.
   def toPackages(
@@ -86,8 +89,8 @@ object Dependencies {
       pkgs: Map[PackageId, (ByteString, Ast.Package)],
   ): Option[String] = {
     for {
-      main <- pkgs.get(mainId) if !isProvidedLibrary(main._2)
-      md <- main._2.metadata
-    } yield s"${md.name}-${md.version}"
+      main <- pkgs.get(mainId) if !isProvidedLibrary(mainId, main._2)
+      pkg = main._2.metadata.map(md => s"${md.name}-${md.version}").getOrElse(mainId.toString)
+    } yield pkg
   }
 }
