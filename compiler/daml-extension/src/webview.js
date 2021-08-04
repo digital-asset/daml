@@ -28,6 +28,13 @@ function toggle_view() {
 }
 window.addEventListener('message', event => {
   const message = event.data;
+
+  function showOrHideClassWithName(show, showClass, hideClass, checkBoxId) {
+        document.body.classList.remove(show ? hideClass : showClass);
+        document.body.classList.add(show ? showClass : hideClass);
+        document.getElementById(checkBoxId).checked = show;
+  };
+
   switch (message.command) {
     case 'add_note':
         document.body.classList.remove('hide_note');
@@ -47,25 +54,8 @@ window.addEventListener('message', event => {
           console.log('Unexpected value for select_view: ' + message.value.selected);
           break;
       }
-      if (message.value.showArchived) {
-        document.body.classList.remove('hide_archived');
-        document.body.classList.add('show_archived');
-        document.getElementById('show_archived').checked = true;
-      } else {
-        document.body.classList.remove('show_archived');
-        document.body.classList.add('hide_archived');
-        document.getElementById('show_archived').checked = false;
-      }
-      if (message.value.showDetailedDisclosure) {
-        document.body.classList.remove('hidden_disclosure');
-        document.body.classList.add('show_disclosure');
-        document.getElementById('show_detailed_disclosure').checked = true;
-      } else {
-        document.body.classList.remove('show_disclosure');
-        document.body.classList.add('hidden_disclosure');
-        document.getElementById('show_detailed_disclosure').checked = false;
-      }
-
+      showOrHideClassWithName(message.value.showArchived, 'show_archived', 'hide_archived', 'show_archived')
+      showOrHideClassWithName(message.value.showDetailedDisclosure, 'show_disclosure', 'hidden_disclosure', 'show_detailed_disclosure')
       break;
   }
 });
