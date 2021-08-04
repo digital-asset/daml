@@ -14,11 +14,6 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with O
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
-  protected[this] def jdbcConfig_ = JdbcConfig(
-    driver = "oracle.jdbc.OracleDriver",
-    url = oracleJdbcUrl,
-    user = oracleUser,
-    password = oraclePwd,
-    dbStartupMode = DbStartupMode.CreateOnly,
-  )
+  protected[this] def jdbcConfig_ =
+    OracleIntTest.defaultJdbcConfig(oracleJdbcUrl, oracleUser, oraclePwd)
 }
