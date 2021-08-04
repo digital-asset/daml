@@ -9,7 +9,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 
 class PostgresIntTest
-    extends AbstractDatabaseIntegrationTests
+    extends AbstractDatabaseIntegrationTest
     with PostgresAroundAll
     with Matchers
     with Inside {

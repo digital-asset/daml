@@ -16,7 +16,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
-abstract class AbstractDatabaseIntegrationTests extends AsyncFreeSpecLike with BeforeAndAfterAll {
+abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with BeforeAndAfterAll {
   this: AsyncTestSuite with Matchers with Inside =>
 
   protected def jdbcConfig: JdbcConfig
@@ -167,14 +167,14 @@ abstract class AbstractDatabaseIntegrationTests extends AsyncFreeSpecLike with B
 
   }
 
-  "No collisions appear when creating tables without prefix when tables have been created with prefix prior" in {
+  "No collisions appear when creating tables with prefix when prior tables have been created without prefix" in {
     def removeAndInit(dao: ContractDao)(implicit logHandler: LogHandler = dao.logHandler) = {
       val queries = dao.jdbcDriver.queries
       dao.transact(queries.dropAllTablesIfExist.flatMap(_ => queries.initDatabase))
     }
     for {
-      _ <- removeAndInit(dao)
       _ <- removeAndInit(daoWithoutPrefix)
+      _ <- removeAndInit(dao)
     } yield succeed
   }.unsafeToFuture()
 

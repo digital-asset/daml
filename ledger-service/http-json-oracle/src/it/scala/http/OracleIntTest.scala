@@ -9,7 +9,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 
 class OracleIntTest
-    extends AbstractDatabaseIntegrationTests
+    extends AbstractDatabaseIntegrationTest
     with OracleAroundAll
     with Matchers
     with Inside {
