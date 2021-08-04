@@ -349,7 +349,11 @@ namespace DamlVirtualResourceNoteNotification {
 
 type UriString = string;
 type ScenarioResult = string;
-type SelectedView = string;
+type View = {
+    selected : string;
+    showArchived : boolean;
+    showDetailedDisclosure : boolean;
+  };
 
 class VirtualResourceManager {
     // Note (MK): While it is tempting to switch to Map<Uri, …> for these types
@@ -359,7 +363,7 @@ class VirtualResourceManager {
     // Mapping from URIs to the HTML content of the webview
     private _panelContents: Map<UriString, ScenarioResult> = new Map<UriString, ScenarioResult>();
     // Mapping from URIs to selected view
-    private _panelStates: Map<UriString, SelectedView> = new Map<UriString, SelectedView>();
+    private _panelViews: Map<UriString, View> = new Map<UriString, View>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
     private _webviewFiles : WebviewFiles;
@@ -412,10 +416,17 @@ class VirtualResourceManager {
         );
         panel.webview.onDidReceiveMessage(
             message => {
+                const v = this._panelViews.get(uri) || {selected: 'table', showArchived: false, showDetailedDisclosure: false};
                 switch (message.command) {
-                    case 'selected_view':
-                        this._panelStates.set(uri, message.value);
+                    case 'set_selected_view':
+                        this._panelViews.set(uri, {...v, selected: message.value});
                         break;
+                    case 'set_show_archived':
+                        this._panelViews.set(uri, {...v, showArchived: message.value});
+                        break;
+                    case 'set_show_detailed_disclosure':
+                        this._panelViews.set(uri, {...v, showDetailedDisclosure: message.value});
+                        break
                 }
             }
         );
@@ -431,9 +442,9 @@ class VirtualResourceManager {
             this._panelContents.set(uri, contents);
             // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
             panel.webview.html = contents + "<!-- " + new Date() + " -->";
-            const panelState = this._panelStates.get(uri);
-            if (panelState) {
-                panel.webview.postMessage({command: 'select_view', value: panelState});
+            const panelView = this._panelViews.get(uri);
+            if (panelView) {
+                panel.webview.postMessage({command: 'set_view', value: panelView});
             };
         }
     }
