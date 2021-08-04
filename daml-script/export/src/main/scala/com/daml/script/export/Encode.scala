@@ -415,7 +415,6 @@ private[export] object Encode {
         val typeRepArg = parens("templateTypeRep" &: templateId)
         val tplArg = parens("toAnyTemplate" &: tpl)
         val choiceArg = parens(Doc.text("toAnyChoice") & templateId & choice)
-        command & typeRepArg & tplArg & choiceArg
         Doc
           .stack(Seq(command, tplArg, choiceArg))
           .nested(2)
