@@ -813,35 +813,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   ): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     val conditionalImmediateDivulgencePruning =
-      if (pruneAllDivulgedContracts)
-        List(
-          SQL"""
-          -- Immediate divulgence events
-          WITH
-          	creates_stakeholders AS (
-          		SELECT event_offset, event_sequential_id, unnest(flat_event_witnesses) AS stakeholder
-          		FROM participant_events_create
-          		WHERE event_offset <= $pruneUpToInclusive
-          	),
-            to_be_pruned AS(
-              SELECT DISTINCT(event_sequential_id) AS event_sequential_id
-              FROM creates_stakeholders
-              WHERE NOT EXISTS (
-              	SELECT 1
-              	FROM
-              		creates_stakeholders c INNER JOIN parties p ON c.stakeholder=p.party
-              	WHERE
-              		c.event_sequential_id = creates_stakeholders.event_sequential_id
-              		AND p.is_local
-              		AND p.ledger_offset <= c.event_offset
-              )
-            )
-          DELETE FROM participant_events_create
-          USING to_be_pruned
-          WHERE participant_events_create.event_sequential_id = to_be_pruned.event_sequential_id
-         """
-        )
-      else List.empty
+      pruneImmediateDivulgence(pruneUpToInclusive, pruneAllDivulgedContracts)
 
     val consumingExercisesPruning =
       SQL"""
@@ -898,6 +870,44 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           nonConsumingExercisesPruning,
         )
     }.foreach(_.execute()(connection))
+  }
+
+  // TODO divulgence pruning: Check if specialization for Oracle is needed (as it is for H2)
+  protected[CommonStorageBackend] def pruneImmediateDivulgence(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  ): List[SimpleSql[Row]] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+
+    if (pruneAllDivulgedContracts)
+      List(
+        SQL"""
+          -- Immediate divulgence events
+          WITH
+          	creates_stakeholders AS (
+          		SELECT event_offset, event_sequential_id, unnest(flat_event_witnesses) AS stakeholder
+          		FROM participant_events_create
+          		WHERE event_offset <= $pruneUpToInclusive
+          	),
+            to_be_pruned AS(
+              SELECT DISTINCT(event_sequential_id) AS event_sequential_id
+              FROM creates_stakeholders
+              WHERE NOT EXISTS (
+              	SELECT 1
+              	FROM
+              		creates_stakeholders c INNER JOIN parties p ON c.stakeholder=p.party
+              	WHERE
+              		c.event_sequential_id = creates_stakeholders.event_sequential_id
+              		AND p.is_local
+              		AND p.ledger_offset <= c.event_offset
+              )
+            )
+          DELETE FROM participant_events_create
+          USING to_be_pruned
+          WHERE participant_events_create.event_sequential_id = to_be_pruned.event_sequential_id
+         """
+      )
+    else List.empty
   }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {

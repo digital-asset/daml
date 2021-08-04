@@ -101,28 +101,9 @@ message DivulgedContract {
   // Contract identifier of the divulged contract.
   string contract_id = 1;
 
-  // Compressed contract instance.
   // (message com.digitalasset.daml.lf.transaction.ContractInstance)
   com.daml.lf.transaction.ContractInstance contract_instance = 2;
 }
-
-enum CompressionSchema {
-  COMPRESSION_SCHEMA_NONE = 0;
-  COMPRESSION_SCHEMA_GZIP = 1;
-}
-
-// Generic compressed protobuf message.
-message CompressedMessage {
-  CompressionSchema compression_schema = 1;
-  bytes payload = 2;
-
-  // The fully qualified name of the underlying message,
-  // e.g. for message Baz in protobuf package foo.bar, this is
-  // foo.bar.Baz. Used during decompression to verify that we're
-  // decompressing the correct message.
-  string name = 3;
-}
-
 
 message DamlLogEntryId {
   // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique

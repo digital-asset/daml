@@ -6,8 +6,8 @@ package com.daml.platform.store.backend.h2
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import anorm.SqlParser.get
+import anorm.{NamedParameter, Row, SQL, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -214,4 +214,32 @@ private[backend] object H2StorageBackend
     throw new UnsupportedOperationException("db level locks are not supported for H2")
 
   override def dbLockSupported: Boolean = false
+
+  // Events
+  override def pruneImmediateDivulgence(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  ): List[SimpleSql[Row]] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    if (pruneAllDivulgedContracts) {
+      List(
+        SQL"""
+          -- Immediate divulgence events
+          WITH
+            to_be_pruned AS(
+              SELECT DISTINCT(event_sequential_id)
+              FROM participant_events_create creates JOIN parties party
+              ON (
+                array_contains(creates.tree_event_witnesses, party.party)
+                AND NOT
+                array_contains(creates.flat_event_witnesses, party.party)
+              )
+              WHERE creates.event_offset <= $pruneUpToInclusive
+            )
+          DELETE FROM participant_events_create
+          WHERE event_sequential_id IN (SELECT event_sequential_id from to_be_pruned)
+         """
+      )
+    } else List.empty
+  }
 }
