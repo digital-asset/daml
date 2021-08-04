@@ -758,13 +758,13 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
-      doesTableExist <-
-        sql"""SELECT EXISTS(
-                SELECT * FROM ALL_TABLES
+      count <-
+        sql"""SELECT COUNT(*) FROM DUAL WHERE EXISTS(
+                SELECT 1 FROM ALL_TABLES
                 WHERE TABLE_NAME = '$jsonApiSchemaVersionTableName'
-              )""".query[Boolean].unique
+              )""".query[Int].unique
       version <-
-        if (!doesTableExist) connection.pure(None)
+        if (count <= 0) connection.pure(None)
         else sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
     } yield version
   }
