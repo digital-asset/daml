@@ -390,13 +390,21 @@ private[export] object Encode {
       }
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
       val pkgId = templateId.packageId
-      val exerciseByKeyCmd =
-        if (isPreLf_1_8(pkgId, pkgLfVersions)) { "internalExerciseByKeyCmd" }
-        else { "exerciseByKeyCmd" }
-      val command = Doc.text(exerciseByKeyCmd) & "@" +: qualifyId(templateId)
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+      if (isPreLf_1_8(pkgId, pkgLfVersions)) {
+        val command = Doc.text("internalExerciseByKeyCmd")
+        val templateId = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
+        val typeRepArg = parens("templateTypeRep" &: templateId)
+        val keyArg = parens(Doc.text("toAnyContractKey") & templateId & key)
+        val choiceArg = parens(Doc.text("toAnyChoice") & templateId & choice)
+        command & typeRepArg & keyArg & choiceArg
+        command.lineOrSpace(typeRepArg).lineOrSpace(keyArg).lineOrSpace(choiceArg).nested(2)
+      } else {
+        val command = Doc.text("exerciseByKeyCmd")
+        command & key & choice
+        command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+      }
     case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
       val pkgId = createdEvent.getTemplateId.packageId
       val tpl = encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
