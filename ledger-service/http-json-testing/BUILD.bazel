@@ -55,6 +55,7 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/caching",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
+            "//ledger/ledger-configuration",
             "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-classic",

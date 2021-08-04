@@ -12,9 +12,9 @@ import java.util.concurrent.TimeUnit
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.VersionRange
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
@@ -33,6 +33,7 @@ final case class Config[Extra](
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
+    configurationLoadTimeout: Duration,
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
@@ -66,6 +67,7 @@ object Config {
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
+      configurationLoadTimeout = Duration.ofSeconds(10),
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,

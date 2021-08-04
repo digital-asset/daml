@@ -3,7 +3,8 @@
 
 package com.daml.platform
 
-import com.daml.platform.configuration.LedgerConfiguration
+import java.time.Duration
+
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 
 package object sandbox {
@@ -12,7 +13,7 @@ package object sandbox {
 
   val DefaultConfig: SandboxConfig = SandboxConfig.defaultConfig.copy(
     seeding = None,
-    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    delayBeforeSubmittingLedgerConfiguration = Duration.ZERO,
   )
 
 }

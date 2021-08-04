@@ -158,6 +158,7 @@ da_scala_library(
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-domain",
+            "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-classic",

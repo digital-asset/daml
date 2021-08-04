@@ -86,6 +86,7 @@ da_scala_library(
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-client",
             "//ledger/ledger-api-common",
+            "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),

@@ -364,7 +364,6 @@ final class SandboxServer(
         () => resetAndRestartServer(),
         authorizer,
       )
-      ledgerConfiguration = config.ledgerConfig
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = config.participantId,
@@ -374,7 +373,8 @@ final class SandboxServer(
         engine = engine,
         timeProvider = timeProvider,
         timeProviderType = timeProviderType,
-        ledgerConfiguration = ledgerConfiguration,
+        configurationLoadTimeout = config.configurationLoadTimeout,
+        initialLedgerConfiguration = config.initialLedgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
           implicitPartyAllocation = config.implicitPartyAllocation

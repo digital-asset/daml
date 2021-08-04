@@ -11,11 +11,12 @@ import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration}
+import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
@@ -31,8 +32,10 @@ final case class SandboxConfig(
     participantId: Ref.ParticipantId,
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
+    configurationLoadTimeout: Duration,
+    delayBeforeSubmittingLedgerConfiguration: Duration,
+    timeModel: LedgerTimeModel,
     commandConfig: CommandConfiguration,
-    ledgerConfig: LedgerConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
@@ -57,7 +60,13 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
-)
+) {
+  lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
+    InitialLedgerConfiguration(
+      Configuration.reasonableInitialConfiguration.copy(timeModel = timeModel),
+      delayBeforeSubmittingLedgerConfiguration,
+    )
+}
 
 object SandboxConfig {
   val DefaultPort: Port = Port(6865)
@@ -91,8 +100,10 @@ object SandboxConfig {
       participantId = DefaultParticipantId,
       damlPackages = Nil,
       timeProviderType = None,
+      configurationLoadTimeout = Duration.ofSeconds(10),
+      delayBeforeSubmittingLedgerConfiguration = Duration.ofSeconds(1),
+      timeModel = LedgerTimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
-      ledgerConfig = LedgerConfiguration.defaultLocalLedger,
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,

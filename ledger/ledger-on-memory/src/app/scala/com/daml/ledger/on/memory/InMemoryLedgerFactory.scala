@@ -3,6 +3,8 @@
 
 package com.daml.ledger.on.memory
 
+import java.time.Duration
+
 import akka.stream.Materializer
 import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -13,7 +15,7 @@ import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
@@ -50,8 +52,8 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
     )
   }
 
-  override def ledgerConfig(config: Config[Unit]): LedgerConfiguration =
-    LedgerConfiguration.defaultLocalLedger
+  override def initialLedgerConfig(config: Config[Unit]): InitialLedgerConfiguration =
+    super.initialLedgerConfig(config).copy(delayBeforeSubmitting = Duration.ZERO)
 
   override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
 

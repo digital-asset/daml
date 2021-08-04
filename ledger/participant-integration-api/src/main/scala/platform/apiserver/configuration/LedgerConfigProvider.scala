@@ -10,15 +10,16 @@ import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
-import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.configuration.InitialLedgerConfiguration
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
 object LedgerConfigProvider {
   def owner(
-      ledgerConfiguration: LedgerConfiguration,
-      index: IndexConfigManagementService,
+      initialLedgerConfiguration: InitialLedgerConfiguration,
+      configurationLoadTimeout: Duration,
+      indexService: IndexConfigManagementService,
       optWriteService: Option[state.WriteConfigService],
       timeProvider: TimeProvider,
       servicesExecutionContext: ExecutionContext,
@@ -27,13 +28,11 @@ object LedgerConfigProvider {
       loggingContext: LoggingContext,
   ): ResourceOwner[CurrentLedgerConfiguration] = {
     val scheduler = materializer.system.scheduler
-    val configurationLoadTimeout =
-      Duration.fromNanos(ledgerConfiguration.configurationLoadTimeout.toNanos)
     for {
       // First, we acquire the mechanism for looking up the current ledger configuration.
       currentLedgerConfiguration <- IndexStreamingCurrentLedgerConfiguration.owner(
         configurationLoadTimeout,
-        index,
+        indexService,
         scheduler,
         materializer,
         servicesExecutionContext,
@@ -44,7 +43,7 @@ object LedgerConfigProvider {
         case Some(writeService) =>
           val submissionIdGenerator = SubmissionIdGenerator.Random
           LedgerConfigProvisioner.owner(
-            ledgerConfiguration.initialConfiguration,
+            initialLedgerConfiguration,
             currentLedgerConfiguration,
             writeService,
             timeProvider,

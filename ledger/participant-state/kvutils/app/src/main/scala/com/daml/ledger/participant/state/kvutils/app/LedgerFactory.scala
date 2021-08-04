@@ -3,9 +3,13 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.time.Duration
+import java.util.concurrent.TimeUnit
+
 import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
@@ -13,12 +17,11 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-import java.util.concurrent.TimeUnit
 import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 
@@ -71,6 +74,8 @@ trait ConfigProvider[ExtraConfig] {
       ),
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = config.maxInboundMessageSize,
+      initialLedgerConfiguration = initialLedgerConfig(config),
+      configurationLoadTimeout = config.configurationLoadTimeout,
       eventsPageSize = config.eventsPageSize,
       eventsProcessingParallelism = config.eventsProcessingParallelism,
       portFile = participantConfig.portFile,
@@ -88,8 +93,11 @@ trait ConfigProvider[ExtraConfig] {
   def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default
 
-  def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
-    LedgerConfiguration.defaultRemote
+  def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
+    InitialLedgerConfiguration(
+      configuration = Configuration.reasonableInitialConfiguration,
+      delayBeforeSubmitting = Duration.ofSeconds(5),
+    )
 
   def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 

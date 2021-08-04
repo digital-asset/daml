@@ -10,7 +10,7 @@ import java.time.Duration
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.configuration.IndexConfiguration
+import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration}
 import com.daml.ports.Port
 
 import scala.concurrent.duration.FiniteDuration
@@ -25,6 +25,8 @@ case class ApiServerConfig(
     databaseConnectionTimeout: FiniteDuration,
     tlsConfig: Option[TlsConfiguration],
     maxInboundMessageSize: Int,
+    initialLedgerConfiguration: InitialLedgerConfiguration,
+    configurationLoadTimeout: Duration,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
     portFile: Option[Path],

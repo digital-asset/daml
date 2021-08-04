@@ -30,6 +30,14 @@ object Configuration {
     */
   val protobufVersion: Long = 2L
 
+  val reasonableMaxDeduplicationTime: Duration = Duration.ofDays(1)
+
+  val reasonableInitialConfiguration: Configuration = Configuration(
+    generation = Configuration.StartingGeneration,
+    timeModel = LedgerTimeModel.reasonableDefault,
+    maxDeduplicationTime = reasonableMaxDeduplicationTime,
+  )
+
   def encode(config: Configuration): protobuf.LedgerConfiguration = {
     val tm = config.timeModel
     protobuf.LedgerConfiguration.newBuilder
