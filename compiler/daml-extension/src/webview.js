@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const vscode = acquireVsCodeApi();
-function show_archived_changed() {
-  const isChecked = document.getElementById('show_archived').checked;
-  document.body.classList.toggle('hide_archived', !isChecked);
+
+function toggleCheckbox(checkboxId, classId, cmdId) {
+  const isChecked = document.getElementById(checkboxId).checked;
+  document.body.classList.toggle(classId, !isChecked);
   vscode.postMessage({
-    'command': 'set_show_archived',
+    'command': cmdId,
     'value': isChecked
   });
 }
+
+function show_archived_changed() {
+  toggleCheckbox('show_archived', 'hide_archived', 'set_show_archived')
+}
 function toggle_detailed_disclosure() {
-  const isChecked = document.getElementById('show_detailed_disclosure').checked;
-  document.body.classList.toggle('hidden_disclosure', !isChecked);
-  vscode.postMessage({
-    'command': 'set_show_detailed_disclosure',
-    'value': isChecked
-  });
+  toggleCheckbox('show_detailed_disclosure', 'hidden_disclosure', 'set_show_detailed_disclosure');
 }
 function toggle_view() {
   document.body.classList.toggle('hide_transaction');
