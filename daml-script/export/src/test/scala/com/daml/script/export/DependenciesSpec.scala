@@ -4,7 +4,6 @@
 package com.daml.script.export
 
 import com.daml.lf.language.LanguageVersion._
-
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -20,6 +19,9 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
     }
     "multiple DALFs" in {
       targetLfVersion(Seq(v1_8, v1_11, v1_12)) shouldBe Some(v1_12)
+    }
+    "should be at least 1.7" in {
+      targetLfVersion(Seq(v1_6)) shouldBe Some(v1_7)
     }
   }
   "targetFlag" - {
