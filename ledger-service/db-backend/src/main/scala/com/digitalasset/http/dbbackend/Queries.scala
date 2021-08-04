@@ -760,8 +760,8 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     for {
       doesTableExist <-
         sql"""SELECT EXISTS(
-                SELECT 1 FROM ALL_TABLES
-                WHERE table_name = '$jsonApiSchemaVersionTableName'
+                SELECT * FROM ALL_TABLES
+                WHERE TABLE_NAME = '$jsonApiSchemaVersionTableName'
               )""".query[Boolean].unique
       version <-
         if (!doesTableExist) connection.pure(None)
