@@ -65,7 +65,9 @@ private[export] object Encode {
                 "instance HasTemplateTypeRep" &: docTplId :& "where _templateTypeRep = GHC.Types.primitive @\"ETemplateTypeRep\"",
                 "instance HasToAnyTemplate" &: docTplId :& "where _toAnyTemplate = GHC.Types.primitive @\"EToAnyTemplate\"",
               ) ++ tpl.key.toList.map(key =>
-                Doc.text("instance HasToAnyContractKey") & docTplId & encodeAstType(key.typ)
+                Doc.text("instance HasToAnyContractKey") & docTplId & parens(
+                  encodeAstType(key.typ)
+                ) & Doc.text("where _toAnyContractKey = GHC.Types.primitive @\"EToAnyContractKey\"")
               ) ++
                 tpl.choices.map { case (choiceName, choice) =>
                   val choiceDoc = if (choiceName == "Archive") {
