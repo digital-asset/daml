@@ -1,8 +1,8 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Testing Your App
-****************
+Testing Your Web App
+********************
 
 When developing a UI for your Daml application, you will want to test that user flows work from end to end.
 This means that actions performed in the web UI trigger updates to the ledger and give the desired results on the page.
