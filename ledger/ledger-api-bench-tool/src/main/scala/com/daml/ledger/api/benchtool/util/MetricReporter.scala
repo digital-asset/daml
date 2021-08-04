@@ -28,16 +28,23 @@ object MetricReporter {
         metrics: List[Metric[_]],
         duration: Duration,
     ): String = {
-      def valueFormat(label: String, value: String): String =
-        s"""[$streamName][final-value] $label: $value"""
-      def failureFormat(info: String): String = s"""[$streamName][failure] $info"""
+      def valueFormat(metricName: String, label: String, value: String): String =
+        s"""[$streamName][final-value][$metricName] $label: $value"""
+      def failureFormat(metricName: String, info: String): String =
+        s"""[$streamName][failure][$metricName] $info"""
 
       val reports = metrics.flatMap { metric =>
         val finalValue = metric.finalValue(duration)
 
         val valueLog: Option[String] =
           if (includeInFinalReport(metric))
-            Some(valueFormat(metricName(metric), formattedValue(finalValue)))
+            Some(
+              valueFormat(
+                metricName = metric.name,
+                label = metricLabel(metric),
+                value = formattedValue(finalValue),
+              )
+            )
           else
             None
 
@@ -45,13 +52,17 @@ object MetricReporter {
           .map { case (objective, value) =>
             val info =
               s"${objectiveName(objective)}: required: ${formattedObjectiveValue(objective)}, metered: ${formattedValue(value)}"
-            failureFormat(info)
+            failureFormat(metric.name, info)
           }
 
         valueLog.toList ::: violatedObjective.toList
       }
 
-      val durationLog = valueFormat("Duration [s]", s"${duration.toMillis.toDouble / 1000}")
+      val durationLog = valueFormat(
+        metricName = "Duration",
+        label = "Duration [s]",
+        value = s"${duration.toMillis.toDouble / 1000}",
+      )
       val reportWidth = 80
       val bar = "=" * reportWidth
       s"""
@@ -69,7 +80,7 @@ object MetricReporter {
       case _ => true
     }
 
-    private def metricName(metric: Metric[_]): String = metric match {
+    private def metricLabel(metric: Metric[_]): String = metric match {
       case _: ConsumptionSpeedMetric[_] => "Consumption speed [-]"
       case _: CountRateMetric[_] => "Item rate [item/s]"
       case _: DelayMetric[_] => "Mean delay [s]"
@@ -78,9 +89,9 @@ object MetricReporter {
     }
 
     private def shortMetricReport(value: MetricValue): String =
-      s"${shortMetricName(value)}: ${formattedValue(value)}"
+      s"${shortMetricLabel(value)}: ${formattedValue(value)}"
 
-    private def shortMetricName(value: MetricValue): String = value match {
+    private def shortMetricLabel(value: MetricValue): String = value match {
       case _: ConsumptionSpeedMetric.Value => "speed [-]"
       case _: CountRateMetric.Value => "rate [item/s]"
       case _: DelayMetric.Value => "delay [s]"
