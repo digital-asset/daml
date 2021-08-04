@@ -4,6 +4,8 @@
 package com.daml.lf
 package transaction
 
+import com.daml.nameof.NameOf
+
 object Util {
 
   import value.Value
@@ -63,8 +65,9 @@ object Util {
           if (allowGenMap) {
             ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
           } else {
-            throw new IllegalArgumentException(
-              s"GenMap are not allowed in transaction version $version"
+            InternalError.illegalArgumentException(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"GenMap are not allowed in transaction version $version",
             )
           }
       }

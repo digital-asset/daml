@@ -433,7 +433,12 @@ private[lf] object SBuiltin {
   final case object SBCodePointsToText extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
       val codePoints = getSList(args, 0).map(_.asInstanceOf[SInt64].value)
-      SText(Utf8.pack(codePoints.toImmArray))
+      Utf8.pack(codePoints.toImmArray) match {
+        case Right(value) =>
+          SText(value)
+        case Left(cp) =>
+          crash(s"invalid code point 0x${cp.toHexString}.")
+      }
     }
   }
 

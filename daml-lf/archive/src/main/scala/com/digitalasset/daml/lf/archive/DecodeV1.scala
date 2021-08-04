@@ -133,14 +133,15 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     if (internedList.nonEmpty)
       assertSince(LV.Features.internedDottedNames, "interned dotted names table")
 
-    def outOfRange(id: Int) =
-      Error.Parsing(s"invalid string table index $id")
-
     internedList
       .map(idn =>
         decodeSegments(
           idn.getSegmentsInternedStrList.asScala
-            .map(id => internedStrings.lift(id).getOrElse(throw outOfRange(id)))
+            .map(id =>
+              internedStrings
+                .lift(id)
+                .getOrElse(throw Error.Parsing(s"invalid string table index $id"))
+            )
         )
       )
       .to(ImmArraySeq)

@@ -5,6 +5,7 @@ package com.daml.lf
 package language
 
 import Ast._
+import com.daml.nameof.NameOf
 import data.Ref
 
 object TypeOrdering extends Ordering[Type] {
@@ -100,7 +101,10 @@ object TypeOrdering extends Ordering[Type] {
       case Ast.TStruct(_) => 3
       case Ast.TApp(_, _) => 4
       case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) =>
-        throw new IllegalArgumentException(s"cannot compare types $typ")
+        InternalError.illegalArgumentException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"cannot compare types $typ",
+        )
     }
 
 }

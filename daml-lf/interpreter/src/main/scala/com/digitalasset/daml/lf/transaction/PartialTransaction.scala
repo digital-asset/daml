@@ -18,6 +18,7 @@ import com.daml.lf.transaction.{
   TransactionVersion => TxVersion,
 }
 import com.daml.lf.value.Value
+import com.daml.nameof.NameOf
 
 import scala.collection.immutable.HashMap
 import scala.Ordering.Implicits.infixOrderingOps
@@ -67,14 +68,20 @@ private[lf] object PartialTransaction {
         case Some(Some(value)) =>
           value
         case _ =>
-          throw new RuntimeException(s"seed for ${idx}th root node not provided")
+          InternalError.runtimeException(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"seed for ${idx}th root node not provided",
+          )
       }
     }
   }
 
   private[PartialTransaction] object NoneSeededTransactionRootContext extends RootContextInfo {
     val actionChildSeed: Any => Nothing = { _ =>
-      throw new IllegalStateException(s"the machine is not configure to create transaction")
+      InternalError.runtimeException(
+        NameOf.qualifiedNameOfCurrentFunc,
+        s"the machine is not configure to create transaction",
+      )
     }
   }
 
@@ -605,7 +612,11 @@ private[lf] case class PartialTransaction(
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
         )
-      case _ => throw new RuntimeException("endExercises called in non-exercise context")
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "endExercises called in non-exercise context",
+        )
     }
 
   /** Close a abruptly an exercise context du to an uncaught exception.
@@ -624,7 +635,11 @@ private[lf] case class PartialTransaction(
           actionNodeSeeds =
             actionNodeSeeds :+ actionNodeSeed, //(NC) pushed by 'beginExercises'; why push again?
         )
-      case _ => throw new RuntimeException("abortExercises called in non-exercise context")
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "abortExercises called in non-exercise context",
+        )
     }
 
   private[this] def makeExNode(ec: ExercisesContextInfo): ExerciseNode = {
@@ -672,7 +687,10 @@ private[lf] case class PartialTransaction(
           )
         )
       case _ =>
-        throw new RuntimeException("endTry called in non-catch context")
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "endTry called in non-catch context",
+        )
     }
 
   /** Close abruptly a try context, due to an uncaught exception,
@@ -702,7 +720,11 @@ private[lf] case class PartialTransaction(
             .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
         ).resetActiveState(info.beginState)
-      case _ => throw new RuntimeException("rollbackTry called in non-catch context")
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "rollbackTry called in non-catch context",
+        )
     }
   }
 

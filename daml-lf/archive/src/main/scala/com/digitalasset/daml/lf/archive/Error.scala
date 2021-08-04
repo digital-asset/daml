@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.archive
+package com.daml.lf
+package archive
 
 import java.io.File
 
@@ -9,7 +10,9 @@ sealed abstract class Error(val msg: String) extends RuntimeException(msg)
 
 object Error {
 
-  final case class Internal(location: String, message: String) extends Error(s"IO error: $message")
+  final case class Internal(location: String, message: String)
+      extends Error(s"IO error: $message")
+      with InternalError
 
   final case class IO(location: String, cause: java.io.IOException)
       extends Error(s"IO error: $cause")

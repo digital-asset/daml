@@ -27,9 +27,10 @@ object Error {
     }
 
     final case class Internal(
-        nameOfFunc: String,
+        location: String,
         override val message: String,
     ) extends Error
+        with InternalError
 
     final case class Validation(validationError: validation.ValidationError) extends Error {
       def message: String = validationError.pretty
@@ -84,9 +85,10 @@ object Error {
     }
 
     final case class Internal(
-        nameOfFunc: String,
+        location: String,
         override val message: String,
     ) extends Error
+        with InternalError
 
     final case class Lookup(lookupError: language.LookupError) extends Error {
       override def message: String = lookupError.pretty
@@ -131,9 +133,10 @@ object Error {
     }
 
     final case class Internal(
-        nameOfFunc: String,
+        location: String,
         override val message: String,
     ) extends Error
+        with InternalError
 
     final case class DamlException(error: interpretation.Error) extends Error {
       // TODO https://github.com/digital-asset/daml/issues/9974
