@@ -612,6 +612,10 @@
     - warn: {lhs: null x  , rhs: "False", side: isTuple x, name: Using null on tuple}
     - warn: {lhs: length x, rhs: "1"    , side: isTuple x, name: Using length on tuple}
 
+    # ASSERTIONS
+
+    - warn: {lhs: "assert (x == y)", rhs: "x === y", name: Use === for better error messages}
+
 - group:
     name: generalise
     enabled: false
