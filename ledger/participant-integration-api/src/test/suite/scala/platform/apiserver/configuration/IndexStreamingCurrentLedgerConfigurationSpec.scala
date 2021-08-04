@@ -16,7 +16,7 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.configuration.IndexStreamingCurrentLedgerConfigurationSpec._
-import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.configuration.{InitialLedgerConfiguration, LedgerConfiguration}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.concurrent.Eventually
@@ -44,8 +44,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val currentConfiguration =
         Configuration(7, LedgerTimeModel.reasonableDefault, Duration.ofDays(1))
       val ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
-        initialConfigurationSubmitDelay = Duration.ZERO,
+        initialConfiguration = DummyInitialConfiguration,
         configurationLoadTimeout = Duration.ofSeconds(5),
       )
 
@@ -93,8 +92,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
           offset -> ConfigurationEntry.Accepted(s"submission ID #$index", configuration)
       }
       val ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
-        initialConfigurationSubmitDelay = Duration.ZERO,
+        initialConfiguration = DummyInitialConfiguration,
         configurationLoadTimeout = Duration.ofSeconds(5),
       )
 
@@ -128,8 +126,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       when(index.configurationEntries(None)).thenReturn(Source.never)
 
       val ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
-        initialConfigurationSubmitDelay = Duration.ZERO,
+        initialConfiguration = DummyInitialConfiguration,
         configurationLoadTimeout = Duration.ofMillis(500),
       )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
@@ -158,8 +155,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       when(index.configurationEntries(None)).thenReturn(Source.never)
 
       val ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
-        initialConfigurationSubmitDelay = Duration.ZERO,
+        initialConfiguration = DummyInitialConfiguration,
         configurationLoadTimeout = Duration.ofSeconds(1),
       )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
@@ -194,8 +190,7 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       when(index.configurationEntries(None)).thenReturn(Source.never)
 
       val ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
-        initialConfigurationSubmitDelay = Duration.ZERO,
+        initialConfiguration = DummyInitialConfiguration,
         configurationLoadTimeout = Duration.ofSeconds(1),
       )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
@@ -214,6 +209,11 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
 }
 
 object IndexStreamingCurrentLedgerConfigurationSpec {
+  private val DummyInitialConfiguration = InitialLedgerConfiguration(
+    configuration = Configuration(0, LedgerTimeModel.reasonableDefault, Duration.ZERO),
+    delayBeforeSubmitting = Duration.ZERO,
+  )
+
   private def offset(value: String): LedgerOffset.Absolute =
     LedgerOffset.Absolute(Ref.LedgerString.assertFromString(value))
 }

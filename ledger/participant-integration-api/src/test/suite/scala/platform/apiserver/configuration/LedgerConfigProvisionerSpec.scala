@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
-import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.configuration.{InitialLedgerConfiguration, LedgerConfiguration}
 import com.daml.telemetry.TelemetryContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
@@ -46,8 +46,10 @@ final class LedgerConfigProvisionerSpec
       val configurationToSubmit =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1))
       val ledgerConfiguration = LedgerConfiguration(
-        configurationToSubmit,
-        initialConfigurationSubmitDelay = Duration.ofMillis(100),
+        InitialLedgerConfiguration(
+          configuration = configurationToSubmit,
+          delayBeforeSubmitting = Duration.ofMillis(100),
+        ),
         configurationLoadTimeout = Duration.ZERO,
       )
       val submissionId = Ref.SubmissionId.assertFromString("the submission ID")
@@ -95,9 +97,10 @@ final class LedgerConfigProvisionerSpec
       val currentConfiguration =
         Configuration(6, LedgerTimeModel.reasonableDefault, Duration.ofHours(12))
       val ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration =
-          Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-        initialConfigurationSubmitDelay = Duration.ofMillis(100),
+        initialConfiguration = InitialLedgerConfiguration(
+          configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+          delayBeforeSubmitting = Duration.ofMillis(100),
+        ),
         configurationLoadTimeout = Duration.ZERO,
       )
 
@@ -134,9 +137,10 @@ final class LedgerConfigProvisionerSpec
     val eventualConfiguration =
       Configuration(8, LedgerTimeModel.reasonableDefault, Duration.ofDays(3))
     val ledgerConfiguration = LedgerConfiguration(
-      initialConfiguration =
+      initialConfiguration = InitialLedgerConfiguration(
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-      initialConfigurationSubmitDelay = Duration.ofSeconds(3),
+        Duration.ofSeconds(3),
+      ),
       configurationLoadTimeout = Duration.ZERO,
     )
 
@@ -179,9 +183,10 @@ final class LedgerConfigProvisionerSpec
 
   "not write a configuration if the provisioner is shut down" in {
     val ledgerConfiguration = LedgerConfiguration(
-      initialConfiguration =
-        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-      initialConfigurationSubmitDelay = Duration.ofSeconds(1),
+      initialConfiguration = InitialLedgerConfiguration(
+        configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+        delayBeforeSubmitting = Duration.ofSeconds(1),
+      ),
       configurationLoadTimeout = Duration.ZERO,
     )
 

@@ -40,7 +40,9 @@ final class CompletionServiceWithEmptyLedgerIT
     super.config.copy(
       damlPackages = List.empty,
       ledgerConfig = super.config.ledgerConfig.copy(
-        initialConfigurationSubmitDelay = Duration.ofDays(5)
+        initialConfiguration = super.config.ledgerConfig.initialConfiguration.copy(
+          delayBeforeSubmitting = Duration.ofDays(5)
+        )
       ),
       implicitPartyAllocation = false,
     )

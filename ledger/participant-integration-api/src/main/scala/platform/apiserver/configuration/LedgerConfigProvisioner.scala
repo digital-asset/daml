@@ -99,10 +99,12 @@ object LedgerConfigProvisioner {
     ResourceOwner
       .forCancellable(() =>
         scheduler.scheduleOnce(
-          ledgerConfiguration.initialConfigurationSubmitDelay.toNanos.nanos,
+          ledgerConfiguration.initialConfiguration.delayBeforeSubmitting.toNanos.nanos,
           new Runnable {
             override def run(): Unit = {
-              provisioner.submitInitialConfig(ledgerConfiguration.initialConfiguration)
+              provisioner.submitInitialConfig(
+                ledgerConfiguration.initialConfiguration.configuration
+              )
             }
           },
         )

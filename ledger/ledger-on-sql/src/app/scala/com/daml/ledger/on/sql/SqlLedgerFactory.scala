@@ -26,8 +26,14 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
     jdbcUrl = None
   )
 
-  override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
-    super.ledgerConfig(config).copy(initialConfigurationSubmitDelay = Duration.ZERO)
+  override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration = {
+    val ledgerConfiguration = super.ledgerConfig(config)
+    ledgerConfiguration.copy(
+      initialConfiguration = ledgerConfiguration.initialConfiguration.copy(
+        delayBeforeSubmitting = Duration.ZERO
+      )
+    )
+  }
 
   override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
     parser
