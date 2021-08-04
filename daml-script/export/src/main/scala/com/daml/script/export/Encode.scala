@@ -255,6 +255,18 @@ private[export] object Encode {
   }
 
   private def encodeAstType(ty: Ast.Type): Doc = {
+    def unfoldApp(app: Ast.TApp): (Ast.Type, Seq[Ast.Type]) = {
+      app match {
+        case Ast.TApp(tyfun, arg) =>
+          tyfun match {
+            case app @ Ast.TApp(_, _) =>
+              unfoldApp(app) match {
+                case (tyfun, args) => (tyfun, args :+ arg)
+              }
+            case tyfun => (tyfun, Seq(arg))
+          }
+      }
+    }
     ty match {
       case Ast.TVar(name) => Doc.text(name)
       case Ast.TNat(n) => Doc.text(s"$n")
@@ -274,7 +286,7 @@ private[export] object Encode {
         )
       case Ast.TBuiltin(bt) =>
         Doc.text(bt match {
-          case Ast.BTInt64 => "Int64"
+          case Ast.BTInt64 => "Int"
           case Ast.BTNumeric => "Numeric"
           case Ast.BTText => "Text"
           case Ast.BTTimestamp => "Timestamp"
@@ -296,8 +308,18 @@ private[export] object Encode {
           case Ast.BTRoundingMode => "RoundingMode"
           case Ast.BTBigNumeric => "BigNumeric"
         })
-      case Ast.TApp(tyfun, arg) =>
-        parens(encodeAstType(tyfun)) & parens(encodeAstType(arg))
+      case app @ Ast.TApp(_, _) =>
+        unfoldApp(app) match {
+          case (Ast.TTyCon(tycon), args)
+              if tycon.qualifiedName.module.dottedName == "DA.Types" && tycon.qualifiedName.name.dottedName
+                .startsWith("Tuple") =>
+            tuple(args.map(ty => encodeAstType(ty)))
+          case (tyfun, args) =>
+            encodeAstType(tyfun) & Doc.intercalate(
+              Doc.space,
+              args.toSeq.map(ty => parens(encodeAstType(ty))),
+            )
+        }
       case Ast.TForall(binder, body) =>
         Doc.text("forall") & Doc.text(binder._1) & encodeAstType(body)
       case Ast.TStruct(_) => Doc.empty // TODO[AH] Not needed for type signatures
