@@ -59,7 +59,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
           )
         ),
       )
-      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map(pkgId -> (ByteString.EMPTY, pkg))
+      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map((pkgId, (ByteString.EMPTY, pkg)))
       toPackages(pkgId, pkgs) shouldBe Some("example-pkg-1.0.0")
     }
     "package without metadata" in {
@@ -72,7 +72,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
         languageVersion = LanguageVersion.v1_6,
         metadata = None,
       )
-      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map(pkgId -> (ByteString.EMPTY, pkg))
+      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map((pkgId, (ByteString.EMPTY, pkg)))
       toPackages(pkgId, pkgs) shouldBe Some(
         "e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b"
       )
@@ -92,7 +92,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
           )
         ),
       )
-      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map(pkgId -> (ByteString.EMPTY, pkg))
+      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map((pkgId, (ByteString.EMPTY, pkg)))
       toPackages(pkgId, pkgs) shouldBe None
     }
     "stable-package without metadata" in {
@@ -106,7 +106,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
         languageVersion = LanguageVersion.v1_8,
         metadata = None,
       )
-      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map(pkgId -> (ByteString.EMPTY, pkg))
+      val pkgs: Map[PackageId, (ByteString, Ast.Package)] = Map((pkgId, (ByteString.EMPTY, pkg)))
       toPackages(pkgId, pkgs) shouldBe None
     }
   }
