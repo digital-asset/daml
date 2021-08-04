@@ -21,6 +21,8 @@ final case class Configuration(
 )
 
 object Configuration {
+  val NoGeneration: Long = 0
+  val StartingGeneration: Long = 1
 
   /** Version history:
     * V1: initial version

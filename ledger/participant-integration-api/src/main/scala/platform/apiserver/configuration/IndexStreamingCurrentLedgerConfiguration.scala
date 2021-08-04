@@ -15,9 +15,8 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.configuration.LedgerConfiguration
 
-import scala.concurrent.duration.{DurationInt, DurationLong}
+import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /** Subscribes to ledger configuration updates coming from the index, and makes the latest ledger
@@ -27,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   * multiple services and validators require the latest ledger config.
   */
 private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private (
-    ledgerConfiguration: LedgerConfiguration,
+    configurationLoadTimeout: Duration,
     index: IndexConfigManagementService,
     scheduler: Scheduler,
     servicesExecutionContext: ExecutionContext,
@@ -121,12 +120,12 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
 
   private def giveUpAfterTimeout(): Cancellable = {
     scheduler.scheduleOnce(
-      ledgerConfiguration.configurationLoadTimeout.toNanos.nanos,
+      configurationLoadTimeout.toNanos.nanos,
       new Runnable {
         override def run(): Unit = {
           if (readyPromise.trySuccess(())) {
             logger.warn(
-              s"No ledger configuration found after ${ledgerConfiguration.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+              s"No ledger configuration found after $configurationLoadTimeout. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
             )
           }
           ()
@@ -138,7 +137,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
   /** This future will resolve successfully:
     *
     *   - when a ledger configuration is found, or
-    *   - after [[LedgerConfiguration.configurationLoadTimeout]].
+    *   - after [[configurationLoadTimeout]].
     *
     * Whichever is first.
     */
@@ -154,7 +153,7 @@ private[apiserver] final class IndexStreamingCurrentLedgerConfiguration private 
 
 private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
   def owner(
-      ledgerConfiguration: LedgerConfiguration,
+      configurationLoadTimeout: Duration,
       index: IndexConfigManagementService,
       scheduler: Scheduler,
       materializer: Materializer,
@@ -164,7 +163,7 @@ private[apiserver] object IndexStreamingCurrentLedgerConfiguration {
   ): ResourceOwner[IndexStreamingCurrentLedgerConfiguration] =
     ResourceOwner.forCloseable(() =>
       new IndexStreamingCurrentLedgerConfiguration(
-        ledgerConfiguration,
+        configurationLoadTimeout,
         index,
         scheduler,
         servicesExecutionContext,

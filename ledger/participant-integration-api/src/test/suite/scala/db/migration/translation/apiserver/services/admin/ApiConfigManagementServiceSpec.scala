@@ -12,8 +12,8 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.config_management_service.{
   GetTimeModelRequest,
@@ -28,7 +28,6 @@ import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementServiceSpec._
-import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.duration.{Duration => DurationProto}
@@ -159,7 +158,7 @@ class ApiConfigManagementServiceSpec
     }
 
     "refuse to set a new time model if none is indexed yet" in {
-      val initialGeneration = LedgerConfiguration.NoGeneration
+      val initialGeneration = Configuration.NoGeneration
 
       val timeProvider = TimeProvider.UTC
       val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)

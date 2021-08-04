@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
 
 object LedgerConfigProvider {
   def owner(
@@ -26,27 +27,30 @@ object LedgerConfigProvider {
       loggingContext: LoggingContext,
   ): ResourceOwner[CurrentLedgerConfiguration] = {
     val scheduler = materializer.system.scheduler
+    val configurationLoadTimeout =
+      Duration.fromNanos(ledgerConfiguration.configurationLoadTimeout.toNanos)
     for {
       // First, we acquire the mechanism for looking up the current ledger configuration.
       currentLedgerConfiguration <- IndexStreamingCurrentLedgerConfiguration.owner(
-        ledgerConfiguration = ledgerConfiguration,
-        index = index,
-        scheduler = scheduler,
-        materializer = materializer,
-        servicesExecutionContext = servicesExecutionContext,
+        configurationLoadTimeout,
+        index,
+        scheduler,
+        materializer,
+        servicesExecutionContext,
       )
       // Next, we provision the configuration if one does not already exist on the ledger.
       _ <- optWriteService match {
         case None => ResourceOwner.unit
         case Some(writeService) =>
+          val submissionIdGenerator = SubmissionIdGenerator.Random
           LedgerConfigProvisioner.owner(
-            ledgerConfiguration = ledgerConfiguration,
-            currentLedgerConfiguration = currentLedgerConfiguration,
-            writeService = writeService,
-            timeProvider = timeProvider,
-            submissionIdGenerator = SubmissionIdGenerator.Random,
-            scheduler = scheduler,
-            servicesExecutionContext = servicesExecutionContext,
+            ledgerConfiguration.initialConfiguration,
+            currentLedgerConfiguration,
+            writeService,
+            timeProvider,
+            submissionIdGenerator,
+            scheduler,
+            servicesExecutionContext,
           )
       }
       // Finally, we wait until either an existing configuration or the provisioned configuration

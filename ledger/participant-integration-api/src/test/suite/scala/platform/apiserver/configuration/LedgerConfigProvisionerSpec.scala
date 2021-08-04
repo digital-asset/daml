@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
-import com.daml.platform.configuration.{InitialLedgerConfiguration, LedgerConfiguration}
+import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.telemetry.TelemetryContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
@@ -45,12 +45,9 @@ final class LedgerConfigProvisionerSpec
     "write a ledger configuration to the index if one is not provided" in {
       val configurationToSubmit =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1))
-      val ledgerConfiguration = LedgerConfiguration(
-        InitialLedgerConfiguration(
-          configuration = configurationToSubmit,
-          delayBeforeSubmitting = Duration.ofMillis(100),
-        ),
-        configurationLoadTimeout = Duration.ZERO,
+      val initialLedgerConfiguration = InitialLedgerConfiguration(
+        configuration = configurationToSubmit,
+        delayBeforeSubmitting = Duration.ofMillis(100),
       )
       val submissionId = Ref.SubmissionId.assertFromString("the submission ID")
 
@@ -66,7 +63,7 @@ final class LedgerConfigProvisionerSpec
 
       LedgerConfigProvisioner
         .owner(
-          ledgerConfiguration = ledgerConfiguration,
+          initialLedgerConfiguration = initialLedgerConfiguration,
           currentLedgerConfiguration = currentLedgerConfiguration,
           writeService = writeService,
           timeProvider = timeProvider,
@@ -96,12 +93,9 @@ final class LedgerConfigProvisionerSpec
     "not write a configuration if one is provided" in {
       val currentConfiguration =
         Configuration(6, LedgerTimeModel.reasonableDefault, Duration.ofHours(12))
-      val ledgerConfiguration = LedgerConfiguration(
-        initialConfiguration = InitialLedgerConfiguration(
-          configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-          delayBeforeSubmitting = Duration.ofMillis(100),
-        ),
-        configurationLoadTimeout = Duration.ZERO,
+      val initialLedgerConfiguration = InitialLedgerConfiguration(
+        configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+        delayBeforeSubmitting = Duration.ofMillis(100),
       )
 
       val currentLedgerConfiguration = new CurrentLedgerConfiguration {
@@ -113,7 +107,7 @@ final class LedgerConfigProvisionerSpec
 
       LedgerConfigProvisioner
         .owner(
-          ledgerConfiguration = ledgerConfiguration,
+          initialLedgerConfiguration = initialLedgerConfiguration,
           currentLedgerConfiguration = currentLedgerConfiguration,
           writeService = writeService,
           timeProvider = timeProvider,
@@ -136,12 +130,9 @@ final class LedgerConfigProvisionerSpec
   "not write a configuration if one is provided within the time window" in {
     val eventualConfiguration =
       Configuration(8, LedgerTimeModel.reasonableDefault, Duration.ofDays(3))
-    val ledgerConfiguration = LedgerConfiguration(
-      initialConfiguration = InitialLedgerConfiguration(
-        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-        Duration.ofSeconds(3),
-      ),
-      configurationLoadTimeout = Duration.ZERO,
+    val initialLedgerConfiguration = InitialLedgerConfiguration(
+      Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+      Duration.ofSeconds(3),
     )
 
     val currentConfiguration = new AtomicReference[Option[Configuration]](None)
@@ -154,7 +145,7 @@ final class LedgerConfigProvisionerSpec
 
     LedgerConfigProvisioner
       .owner(
-        ledgerConfiguration = ledgerConfiguration,
+        initialLedgerConfiguration = initialLedgerConfiguration,
         currentLedgerConfiguration = currentLedgerConfiguration,
         writeService = writeService,
         timeProvider = timeProvider,
@@ -182,12 +173,9 @@ final class LedgerConfigProvisionerSpec
   }
 
   "not write a configuration if the provisioner is shut down" in {
-    val ledgerConfiguration = LedgerConfiguration(
-      initialConfiguration = InitialLedgerConfiguration(
-        configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-        delayBeforeSubmitting = Duration.ofSeconds(1),
-      ),
-      configurationLoadTimeout = Duration.ZERO,
+    val initialLedgerConfiguration = InitialLedgerConfiguration(
+      configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+      delayBeforeSubmitting = Duration.ofSeconds(1),
     )
 
     val currentLedgerConfiguration = new CurrentLedgerConfiguration {
@@ -198,7 +186,7 @@ final class LedgerConfigProvisionerSpec
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
     val owner = LedgerConfigProvisioner.owner(
-      ledgerConfiguration = ledgerConfiguration,
+      initialLedgerConfiguration = initialLedgerConfiguration,
       currentLedgerConfiguration = currentLedgerConfiguration,
       writeService = writeService,
       timeProvider = timeProvider,

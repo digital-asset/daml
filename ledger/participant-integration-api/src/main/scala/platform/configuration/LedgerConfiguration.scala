@@ -27,11 +27,8 @@ final case class LedgerConfiguration(
 )
 
 object LedgerConfiguration {
-  val NoGeneration: Long = 0
-  val StartingGeneration: Long = 1
-
   private val reasonableInitialConfiguration: Configuration = Configuration(
-    generation = StartingGeneration,
+    generation = Configuration.StartingGeneration,
     timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
