@@ -476,7 +476,7 @@ haskell-src-exts 1.23.1 : BSD 3-clause "New" or "Revised" License
 haskell-vector v0.12.3.0 : BSD 3-clause "New" or "Revised" License
 haskell-xml 1.9.1.1 : MIT License
 haskell/network 3.1.1.1 : BSD 3-clause "New" or "Revised" License
-HdrHistogram HdrHistogram-2.1.12 : (BSD 2-clause "Simplified" License AND Creative Commons Public Domain Dedication and Certification)
+HdrHistogram 2.1.12 : (BSD 2-clause "Simplified" License AND Creative Commons Public Domain Dedication and Certification)
 heaps 0.4 : BSD 3-clause "New" or "Revised" License
 HikariCP 3.2.0 : Apache License 2.0
 HLint 2.2.11 : BSD 3-clause "New" or "Revised" License
@@ -1633,7 +1633,7 @@ apply to you.
 ---
 
 BSD 2-clause "Simplified" License
-(cheerio-select 1.4.0, constraints 0.13, css-what v5.0.1, CSSselect v4.1.2, domelementtype 2.2.0, DomHandler v4.2.0, domutils v2.6.0, haddock-library 1.10.0, HdrHistogram HdrHistogram-2.1.12, indexed-traversable 0.1.1, Jodd Lagarto 6.0.3, math-functions 0.3.4.2, node-entities 2.0.3, node-entities 2.2.0, nth-check 2.0.0, recursion-schemes v5.2.2.1)
+(cheerio-select 1.4.0, constraints 0.13, css-what v5.0.1, CSSselect v4.1.2, domelementtype 2.2.0, DomHandler v4.2.0, domutils v2.6.0, haddock-library 1.10.0, HdrHistogram 2.1.12, indexed-traversable 0.1.1, Jodd Lagarto 6.0.3, math-functions 0.3.4.2, node-entities 2.0.3, node-entities 2.2.0, nth-check 2.0.0, recursion-schemes v5.2.2.1)
 
 BSD Two Clause License
 ======================
@@ -3388,7 +3388,7 @@ COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.1
 ---
 
 Creative Commons Public Domain Dedication and Certification
-(HdrHistogram HdrHistogram-2.1.12)
+(HdrHistogram 2.1.12)
 
 Creative Commons Public Domain Dedication
 =========================================
