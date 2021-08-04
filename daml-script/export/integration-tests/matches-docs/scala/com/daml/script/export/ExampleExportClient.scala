@@ -11,7 +11,7 @@ import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.{RunnerConfig, RunnerMain}
 
-case class ExampleClientConfig(
+case class ExampleExportClientConfig(
     darPath: File,
     targetPort: Int,
     outputExportDaml: Path,
@@ -19,11 +19,11 @@ case class ExampleClientConfig(
     outputDamlYaml: Path,
 )
 
-object ExampleClientConfig {
-  def parse(args: Array[String]): Option[ExampleClientConfig] =
+object ExampleExportClientConfig {
+  def parse(args: Array[String]): Option[ExampleExportClientConfig] =
     parser.parse(
       args,
-      ExampleClientConfig(
+      ExampleExportClientConfig(
         darPath = null,
         targetPort = -1,
         outputExportDaml = null,
@@ -34,7 +34,7 @@ object ExampleClientConfig {
 
   private def parseExportOut(
       envVar: String
-  ): Either[String, ExampleClientConfig => ExampleClientConfig] = {
+  ): Either[String, ExampleExportClientConfig => ExampleExportClientConfig] = {
     envVar.split(" ").map(s => Paths.get(s)) match {
       case Array(export_daml, args_json, daml_yaml) =>
         Right(c =>
@@ -48,7 +48,7 @@ object ExampleClientConfig {
     }
   }
 
-  private val parser = new scopt.OptionParser[ExampleClientConfig]("script-export") {
+  private val parser = new scopt.OptionParser[ExampleExportClientConfig]("script-export") {
     help("help")
       .text("Show this help message.")
     opt[Int]("target-port")
@@ -73,14 +73,14 @@ object ExampleClientConfig {
   }
 }
 
-object ExampleClient {
+object ExampleExportClient {
   def main(args: Array[String]): Unit = {
-    ExampleClientConfig.parse(args) match {
+    ExampleExportClientConfig.parse(args) match {
       case Some(clientConfig) => main(clientConfig)
       case None => sys.exit(1)
     }
   }
-  def main(clientConfig: ExampleClientConfig): Unit = {
+  def main(clientConfig: ExampleExportClientConfig): Unit = {
     RunnerMain.main(
       RunnerConfig(
         darPath = clientConfig.darPath,
