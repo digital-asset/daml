@@ -71,10 +71,10 @@ object Utf8 {
   }
 
   def unpack(s: String): ImmArray[Long] =
-    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).iterator.to(Iterable))
+    s.codePoints().iterator().asScala.map(_.toLong).to(ImmArray)
 
-  // Converts the List of Unicode code point into a String if all code point are valid.
-  // Returns the first invalid code point as Left otherwise.
+  // Converts the List of Unicode code points into a String if all code points are legal.
+  // Returns the first illegal code point as Left otherwise.
   def pack(codePoints: ImmArray[Long]): Either[Long, String] = {
     val builder = new StringBuilder()
     var illegalCodePoint = Option.empty[Long]
@@ -90,11 +90,11 @@ object Utf8 {
         builder += cp.toChar
       } else if (Character.MAX_VALUE < cp && cp <= Character.MAX_CODE_POINT) {
         // cp is from one of the Supplementary Plans,
-        // then it needs 2 UTF16 Char to be encoded.
+        // then it needs 2 UTF16 Chars to be encoded.
         builder += Character.highSurrogate(cp.toInt)
         builder += Character.lowSurrogate(cp.toInt)
       } else {
-        // cp is an illegal Unicode code point
+        // cp is not a legal Unicode code point
         illegalCodePoint = Some(cp)
       }
     }
