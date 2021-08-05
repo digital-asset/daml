@@ -22,7 +22,7 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, unused}
 import scala.concurrent.duration.FiniteDuration
 
 @nowarn("msg=parameter value config .* is never used") // possibly used in overrides
@@ -90,7 +90,7 @@ trait ConfigProvider[ExtraConfig] {
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
     )
 
-  def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
+  def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default
 
   def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
@@ -99,17 +99,17 @@ trait ConfigProvider[ExtraConfig] {
       delayBeforeSubmitting = Duration.ofSeconds(5),
     )
 
-  def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
+  def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 
-  def authService(config: Config[ExtraConfig]): AuthService =
+  def authService(@unused config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
 
-  def interceptors(config: Config[ExtraConfig]): List[ServerInterceptor] =
+  def interceptors(@unused config: Config[ExtraConfig]): List[ServerInterceptor] =
     List.empty
 
   def createMetrics(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig],
+      @unused config: Config[ExtraConfig],
   ): Metrics = {
     val registryName = participantConfig.participantId + participantConfig.shardName
       .map("-" + _)
