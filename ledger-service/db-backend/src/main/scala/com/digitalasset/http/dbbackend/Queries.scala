@@ -120,7 +120,9 @@ sealed abstract class Queries(tablePrefix: String) {
 
   private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls.reverse
+    initDatabaseDdls
+      .appended(createVersionTable)
+      .reverse
       .collect { case d: Droppable => dropIfExists(d) }
       .traverse_(_.update.run)
   }
@@ -141,7 +143,6 @@ sealed abstract class Queries(tablePrefix: String) {
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
-      createVersionTable,
     )
 
   protected[this] def insertVersion(): ConnectionIO[Unit] =
@@ -154,6 +155,7 @@ sealed abstract class Queries(tablePrefix: String) {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     for {
       _ <- initDatabaseDdls.traverse_(_.create.update.run)
+      _ <- createVersionTable.create.update.run
       _ <- insertVersion()
     } yield ()
   }
@@ -756,18 +758,20 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
-  protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
+  protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] =
     for {
-      count <-
-        sql"""SELECT COUNT(*) FROM DUAL WHERE EXISTS(
-                SELECT 1 FROM ALL_TABLES
-                WHERE TABLE_NAME = '$jsonApiSchemaVersionTableName'
-              )""".query[Int].unique
+      // Note that Oracle table names seem to be somewhat case sensitive,
+      // but are inside the USER_TABLES table all uppercase.
+      res <-
+        sql"""SELECT 1 FROM USER_TABLES
+              WHERE TABLE_NAME = UPPER('$jsonApiSchemaVersionTableName')"""
+          .query[Int]
+          .option
+      _ = println(s"res: $res")
       version <-
-        if (count <= 0) connection.pure(None)
+        if (res.isEmpty) connection.pure(None)
         else sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
     } yield version
-  }
 
   protected[this] type DBContractKey = JsValue
 
