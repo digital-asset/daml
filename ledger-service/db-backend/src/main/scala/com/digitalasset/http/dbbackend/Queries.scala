@@ -99,13 +99,6 @@ sealed abstract class Queries {
     """,
   )
 
-  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
-    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls.reverse
-      .collect { case d: Droppable => dropIfExists(d) }
-      .traverse_(_.update.run)
-  }
-
   private[this] val createVersionTable = CreateTable(
     "json_api_schema_version",
     sql"""
@@ -122,8 +115,16 @@ sealed abstract class Queries {
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
-      createVersionTable,
     )
+
+  private[this] lazy val initDatabaseDdlsAndVersionTable = initDatabaseDdls :+ createVersionTable
+
+  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdlsAndVersionTable.reverse
+      .collect { case d: Droppable => dropIfExists(d) }
+      .traverse_(_.update.run)
+  }
 
   protected[this] def insertVersion(): ConnectionIO[Unit] =
     sql"""
@@ -134,7 +135,7 @@ sealed abstract class Queries {
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     for {
-      _ <- initDatabaseDdls.traverse_(_.create.update.run)
+      _ <- initDatabaseDdlsAndVersionTable.traverse_(_.create.update.run)
       _ <- insertVersion()
     } yield ()
   }
@@ -727,15 +728,19 @@ private object OracleQueries extends Queries {
     super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
   protected[http] override def version(): ConnectionIO[Option[Int]] = {
+    import cats.implicits._
     for {
-      doesTableExist <-
-        sql"""SELECT EXISTS(
-                SELECT 1 FROM ALL_TABLES
-                WHERE table_name = 'json_api_schema_version'
-              )""".query[Boolean].unique
+      // Note that Oracle table names seem to be somewhat case sensitive,
+      // but are inside the USER_TABLES table all uppercase.
+      res <-
+        sql"""SELECT 1 FROM USER_TABLES
+              WHERE TABLE_NAME = UPPER('json_api_schema_version')"""
+          .query[Int]
+          .option
       version <-
-        if (!doesTableExist) connection.pure(None)
-        else sql"SELECT version FROM json_api_schema_version".query[Int].option
+        res.flatTraverse { _ =>
+          sql"SELECT version FROM json_api_schema_version".query[Int].option
+        }
     } yield version
   }
 

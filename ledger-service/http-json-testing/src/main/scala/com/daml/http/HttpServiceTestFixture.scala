@@ -243,13 +243,16 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         Future.successful(a)
     }
 
-  private def initializeDb(c: JdbcConfig)(implicit ec: ExecutionContext): Future[ContractDao] =
+  private def initializeDb(c: JdbcConfig)(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Future[ContractDao] =
     for {
       dao <- Future(ContractDao(c, poolSize = PoolSize.Integration))
-      _ <- {
-        import dao.{jdbcDriver, logHandler}
-        dao.transact(ContractDao.initialize).unsafeToFuture(): Future[Unit]
-      }
+      isSuccess <- DbStartupOps
+        .fromStartupMode(dao, c.dbStartupMode)
+        .unsafeToFuture()
+      _ = if (!isSuccess) throw new Exception("Db startup failed")
     } yield dao
 
   object UseTls extends NewBoolean.Named {
