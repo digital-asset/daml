@@ -73,7 +73,7 @@ trait ConfigProvider[ExtraConfig] {
       ),
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = config.maxInboundMessageSize,
-      initialLedgerConfiguration = initialLedgerConfig(config),
+      initialLedgerConfiguration = Some(initialLedgerConfig(config)),
       configurationLoadTimeout = config.configurationLoadTimeout,
       eventsPageSize = config.eventsPageSize,
       eventsProcessingParallelism = config.eventsProcessingParallelism,

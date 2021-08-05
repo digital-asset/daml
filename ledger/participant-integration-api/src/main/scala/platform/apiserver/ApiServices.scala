@@ -83,7 +83,7 @@ private[daml] object ApiServices {
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       configurationLoadTimeout: Duration,
-      initialLedgerConfiguration: InitialLedgerConfiguration,
+      initialLedgerConfiguration: Option[InitialLedgerConfiguration],
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],

@@ -374,7 +374,7 @@ final class SandboxServer(
         timeProvider = timeProvider,
         timeProviderType = timeProviderType,
         configurationLoadTimeout = config.configurationLoadTimeout,
-        initialLedgerConfiguration = config.initialLedgerConfiguration,
+        initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
           implicitPartyAllocation = config.implicitPartyAllocation

@@ -236,7 +236,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   databaseConnectionTimeout = config.databaseConnectionTimeout,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
-                  initialLedgerConfiguration = config.initialLedgerConfiguration,
+                  initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
                   configurationLoadTimeout = config.configurationLoadTimeout,
                   eventsPageSize = config.eventsPageSize,
                   portFile = config.portFile,
