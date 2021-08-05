@@ -80,6 +80,7 @@ da_scala_library(
         "//daml-lf/data",
         "//ledger/caching",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-configuration",
         "//ledger/participant-integration-api",
         "//libs-scala/ports",
     ],

@@ -10,14 +10,16 @@ import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
-import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.configuration.InitialLedgerConfiguration
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
 
 object LedgerConfigProvider {
   def owner(
-      ledgerConfiguration: LedgerConfiguration,
-      index: IndexConfigManagementService,
+      initialLedgerConfiguration: InitialLedgerConfiguration,
+      configurationLoadTimeout: Duration,
+      indexService: IndexConfigManagementService,
       optWriteService: Option[state.WriteConfigService],
       timeProvider: TimeProvider,
       servicesExecutionContext: ExecutionContext,
@@ -29,24 +31,25 @@ object LedgerConfigProvider {
     for {
       // First, we acquire the mechanism for looking up the current ledger configuration.
       currentLedgerConfiguration <- IndexStreamingCurrentLedgerConfiguration.owner(
-        ledgerConfiguration = ledgerConfiguration,
-        index = index,
-        scheduler = scheduler,
-        materializer = materializer,
-        servicesExecutionContext = servicesExecutionContext,
+        configurationLoadTimeout,
+        indexService,
+        scheduler,
+        materializer,
+        servicesExecutionContext,
       )
       // Next, we provision the configuration if one does not already exist on the ledger.
       _ <- optWriteService match {
         case None => ResourceOwner.unit
         case Some(writeService) =>
+          val submissionIdGenerator = SubmissionIdGenerator.Random
           LedgerConfigProvisioner.owner(
-            ledgerConfiguration = ledgerConfiguration,
-            currentLedgerConfiguration = currentLedgerConfiguration,
-            writeService = writeService,
-            timeProvider = timeProvider,
-            submissionIdGenerator = SubmissionIdGenerator.Random,
-            scheduler = scheduler,
-            servicesExecutionContext = servicesExecutionContext,
+            initialLedgerConfiguration,
+            currentLedgerConfiguration,
+            writeService,
+            timeProvider,
+            submissionIdGenerator,
+            scheduler,
+            servicesExecutionContext,
           )
       }
       // Finally, we wait until either an existing configuration or the provisioned configuration

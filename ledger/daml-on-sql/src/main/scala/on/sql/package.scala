@@ -3,8 +3,9 @@
 
 package com.daml.on
 
+import java.time.Duration
+
 import com.daml.lf.data.Ref
-import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import scalaz.syntax.tag._
 
@@ -14,7 +15,7 @@ package object sql {
 
   private[sql] val DefaultConfig = SandboxConfig.defaultConfig.copy(
     participantId = Ref.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
-    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    delayBeforeSubmittingLedgerConfiguration = Duration.ZERO,
     implicitPartyAllocation = false,
   )
 

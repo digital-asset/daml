@@ -37,7 +37,7 @@ import com.daml.platform.apiserver.services.admin.{
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{
   CommandConfiguration,
-  LedgerConfiguration,
+  InitialLedgerConfiguration,
   PartyConfiguration,
 }
 import com.daml.platform.server.api.services.grpc.{
@@ -51,6 +51,7 @@ import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
+import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] trait ApiServices {
@@ -78,7 +79,8 @@ private[daml] object ApiServices {
       engine: Engine,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      ledgerConfiguration: LedgerConfiguration,
+      configurationLoadTimeout: Duration,
+      initialLedgerConfiguration: InitialLedgerConfiguration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
@@ -109,11 +111,12 @@ private[daml] object ApiServices {
         ledgerId <- Resource.fromFuture(indexService.getLedgerId())
         currentLedgerConfiguration <- LedgerConfigProvider
           .owner(
-            ledgerConfiguration,
-            indexService,
-            optWriteService,
-            timeProvider,
-            servicesExecutionContext,
+            initialLedgerConfiguration = initialLedgerConfiguration,
+            configurationLoadTimeout = ScalaDuration.fromNanos(configurationLoadTimeout.toNanos),
+            indexService = indexService,
+            optWriteService = optWriteService,
+            timeProvider = timeProvider,
+            servicesExecutionContext = servicesExecutionContext,
           )
           .acquire()
         services <- Resource(

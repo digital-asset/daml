@@ -236,11 +236,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   databaseConnectionTimeout = config.databaseConnectionTimeout,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
+                  initialLedgerConfiguration = config.initialLedgerConfiguration,
+                  configurationLoadTimeout = config.configurationLoadTimeout,
                   eventsPageSize = config.eventsPageSize,
                   portFile = config.portFile,
+                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
                   seeding = config.seeding.get,
                   managementServiceTimeout = config.managementServiceTimeout,
-                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
                   enableAppendOnlySchema = false,
                   maxContractStateCacheSize = 0L,
                   maxContractKeyStateCacheSize = 0L,
@@ -253,7 +255,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 partyConfig = PartyConfiguration.default.copy(
                   implicitPartyAllocation = config.implicitPartyAllocation
                 ),
-                ledgerConfig = config.ledgerConfig,
                 optWriteService = Some(writeService),
                 authService = authService,
                 healthChecks = healthChecks + ("indexer" -> indexerReportsHealth),

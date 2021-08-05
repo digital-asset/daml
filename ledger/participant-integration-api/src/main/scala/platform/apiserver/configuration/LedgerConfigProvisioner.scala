@@ -13,7 +13,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.configuration.LedgerConfigProvisioner._
-import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
@@ -81,7 +81,7 @@ object LedgerConfigProvisioner {
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(
-      ledgerConfiguration: LedgerConfiguration,
+      initialLedgerConfiguration: InitialLedgerConfiguration,
       currentLedgerConfiguration: CurrentLedgerConfiguration,
       writeService: state.WriteConfigService,
       timeProvider: TimeProvider,
@@ -99,10 +99,10 @@ object LedgerConfigProvisioner {
     ResourceOwner
       .forCancellable(() =>
         scheduler.scheduleOnce(
-          ledgerConfiguration.initialConfigurationSubmitDelay.toNanos.nanos,
+          initialLedgerConfiguration.delayBeforeSubmitting.toNanos.nanos,
           new Runnable {
             override def run(): Unit = {
-              provisioner.submitInitialConfig(ledgerConfiguration.initialConfiguration)
+              provisioner.submitInitialConfig(initialLedgerConfiguration.configuration)
             }
           },
         )

@@ -407,6 +407,7 @@ test_suite(
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
             "//ledger-service/db-backend",
+            "//ledger/ledger-configuration",
             "//libs-scala/contextualized-logging",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),

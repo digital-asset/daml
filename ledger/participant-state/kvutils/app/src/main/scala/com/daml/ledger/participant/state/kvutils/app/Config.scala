@@ -12,9 +12,9 @@ import java.util.concurrent.TimeUnit
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.VersionRange
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
@@ -33,6 +33,7 @@ final case class Config[Extra](
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
+    configurationLoadTimeout: Duration,
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
@@ -57,6 +58,18 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
+  /** The default delay before submitting an initial configuration.
+    * 5 seconds is typically enough for the participant to look up the current configuration from a
+    * remote ledger.
+    */
+  val DefaultInitialConfigurationSubmissionDelay: Duration = Duration.ofSeconds(5)
+
+  /** The delay before submitting an initial configuration to a local ledger.
+    * 500 milliseconds is typically enough for the participant to look up the current configuration
+    * from a local ledger.
+    */
+  val LocalInitialConfigurationSubmissionDelay: Duration = Duration.ofMillis(500)
+
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
       mode = Mode.Run,
@@ -66,6 +79,7 @@ object Config {
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
+      configurationLoadTimeout = Duration.ofSeconds(10),
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,

@@ -45,7 +45,6 @@ import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -179,7 +178,7 @@ trait AuthMiddlewareFixture
 
   private val authSecret: String = "secret"
   private var resource
-      : OwnedResource[ResourceContext, (AdjustableClock, OAuthServer, ServerBinding)] = null
+      : OwnedResource[ResourceContext, (AdjustableClock, OAuthServer, ServerBinding)] = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -257,11 +256,11 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     LedgerIdMode.Static(LedgerId(this.getClass.getSimpleName))
   private def sandboxConfig: SandboxConfig = sandbox.DefaultConfig.copy(
     port = Port.Dynamic,
-    damlPackages = damlPackages,
     ledgerIdMode = ledgerIdMode,
+    damlPackages = damlPackages,
     timeProviderType = Some(TimeProviderType.Static),
+    delayBeforeSubmittingLedgerConfiguration = JDuration.ZERO,
     authService = authService,
-    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     seeding = Some(Seeding.Weak),
   )
 
@@ -294,7 +293,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
       ),
     )
 
-  private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = null
+  private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -322,9 +321,9 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
 trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected def toxiproxyClient = resource._1
+  protected def toxiproxyClient: ToxiproxyClient = resource._1
 
-  private var resource: (ToxiproxyClient, Process) = null
+  private var resource: (ToxiproxyClient, Process) = _
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeAll(): Unit = {
@@ -358,10 +357,11 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
 trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with SandboxFixture {
   self: Suite =>
 
-  protected def toxiSandboxPort = resource._1
-  protected def toxiSandboxProxy = resource._2
+  protected def toxiSandboxPort: Port = resource._1
 
-  private var resource: (Port, Proxy) = null
+  protected def toxiSandboxProxy: Proxy = resource._2
+
+  private var resource: (Port, Proxy) = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -371,8 +371,8 @@ trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with Sa
     val port = lock.port
     val proxy = toxiproxyClient.createProxy(
       "sandbox",
-      s"${host.getHostName}:${port}",
-      s"${host.getHostName}:${sandboxPort}",
+      s"${host.getHostName}:$port",
+      s"${host.getHostName}:$sandboxPort",
     )
     lock.unlock()
     resource = (port, proxy)
@@ -523,11 +523,9 @@ trait TriggerServiceFixture
               )
               _ = lock.unlock()
             } yield r
-          } {
-            case (_, system) => {
-              system ! Server.Stop
-              system.whenTerminated.map(_ => ())
-            }
+          } { case (_, system) =>
+            system ! Server.Stop
+            system.whenTerminated.map(_ => ())
           }
         } yield binding
     }

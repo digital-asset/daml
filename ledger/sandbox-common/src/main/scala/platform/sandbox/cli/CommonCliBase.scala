@@ -273,12 +273,10 @@ class CommonCliBase(name: LedgerName) {
 
       opt[Long]("max-ledger-time-skew")
         .optional()
-        .action((value, config) => {
-          val timeModel = config.ledgerConfig.initialConfiguration.timeModel
-            .copy(minSkew = Duration.ofSeconds(value), maxSkew = Duration.ofSeconds(value))
-          val ledgerConfig = config.ledgerConfig.initialConfiguration.copy(timeModel = timeModel)
-          config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
-        })
+        .action { (value, config) =>
+          val duration = Duration.ofSeconds(value)
+          config.copy(timeModel = config.timeModel.copy(minSkew = duration, maxSkew = duration))
+        }
         .text(
           s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${LedgerTimeModel.reasonableDefault.maxSkew.getSeconds}."
         )

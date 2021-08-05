@@ -39,9 +39,7 @@ final class CompletionServiceWithEmptyLedgerIT
   override protected def config: SandboxConfig =
     super.config.copy(
       damlPackages = List.empty,
-      ledgerConfig = super.config.ledgerConfig.copy(
-        initialConfigurationSubmitDelay = Duration.ofDays(5)
-      ),
+      delayBeforeSubmittingLedgerConfiguration = Duration.ofDays(5),
       implicitPartyAllocation = false,
     )
 

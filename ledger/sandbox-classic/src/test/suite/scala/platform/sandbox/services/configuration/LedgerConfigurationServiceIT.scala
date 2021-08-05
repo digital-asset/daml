@@ -30,7 +30,7 @@ sealed trait LedgerConfigurationServiceITBase extends AnyWordSpec with Matchers 
             .getLedgerConfiguration
 
         maxDeduplicationTime shouldEqual toProto(
-          config.ledgerConfig.initialConfiguration.maxDeduplicationTime
+          config.initialLedgerConfiguration.configuration.maxDeduplicationTime
         )
       }
     }

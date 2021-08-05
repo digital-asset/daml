@@ -21,12 +21,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  LedgerConfiguration,
-  PartyConfiguration,
-  ServerRole,
-}
+import com.daml.platform.configuration.{CommandConfiguration, PartyConfiguration, ServerRole}
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.services.time.TimeProviderType
@@ -44,7 +39,6 @@ final class StandaloneApiServer(
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
-    ledgerConfig: LedgerConfiguration,
     optWriteService: Option[state.WriteService],
     authService: AuthService,
     healthChecks: HealthChecks,
@@ -106,7 +100,8 @@ final class StandaloneApiServer(
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
             TimeProviderType.Static
           ),
-        ledgerConfiguration = ledgerConfig,
+        configurationLoadTimeout = config.configurationLoadTimeout,
+        initialLedgerConfiguration = config.initialLedgerConfiguration,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
         optTimeServiceBackend = timeServiceBackend,
