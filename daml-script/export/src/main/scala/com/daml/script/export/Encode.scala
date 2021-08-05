@@ -66,7 +66,7 @@ private[export] object Encode {
                 "instance HasToAnyTemplate" &: docTplId :& "where _toAnyTemplate = GHC.Types.primitive @\"EToAnyTemplate\"",
               ) ++ tpl.key.toList.map(key =>
                 Doc.text("instance HasToAnyContractKey") & docTplId & parens(
-                  encodeAstType(key.typ)
+                  encodeType(key.typ)
                 ) & Doc.text("where _toAnyContractKey = GHC.Types.primitive @\"EToAnyContractKey\"")
               ) ++
                 tpl.choices.map { case (choiceName, choice) =>
@@ -82,7 +82,7 @@ private[export] object Encode {
                   System.err.println(s"$choiceName: ${choice.returnType}")
                   // TODO[AH] Handle precendence in encodeAstType
                   Doc.text("instance HasToAnyChoice") & docTplId & choiceDoc & parens(
-                    encodeAstType(choice.returnType)
+                    encodeType(choice.returnType)
                   ) & Doc.text(
                     "where _toAnyChoice = GHC.Types.primitive @\"EToAnyChoice\""
                   )
@@ -254,7 +254,7 @@ private[export] object Encode {
     )
   }
 
-  private def encodeAstType(ty: Ast.Type): Doc = {
+  private def encodeType(ty: Ast.Type): Doc = {
     def unfoldApp(app: Ast.TApp): (Ast.Type, Seq[Ast.Type]) = {
       app match {
         case Ast.TApp(tyfun, arg) =>
@@ -276,7 +276,7 @@ private[export] object Encode {
             .withPackageId(tysyn.packageId)
             .withModuleName(tysyn.qualifiedName.module.dottedName)
             .withEntityName(tysyn.qualifiedName.name.dottedName)
-        ) & Doc.intercalate(Doc.space, args.toSeq.map(ty => parens(encodeAstType(ty))))
+        ) & Doc.intercalate(Doc.space, args.toSeq.map(ty => parens(encodeType(ty))))
       case Ast.TTyCon(tycon) =>
         qualifyId(
           Identifier()
@@ -313,15 +313,15 @@ private[export] object Encode {
           case (Ast.TTyCon(tycon), args)
               if tycon.qualifiedName.module.dottedName == "DA.Types" && tycon.qualifiedName.name.dottedName
                 .startsWith("Tuple") =>
-            tuple(args.map(ty => encodeAstType(ty)))
+            tuple(args.map(ty => encodeType(ty)))
           case (tyfun, args) =>
-            encodeAstType(tyfun) & Doc.intercalate(
+            encodeType(tyfun) & Doc.intercalate(
               Doc.space,
-              args.toSeq.map(ty => parens(encodeAstType(ty))),
+              args.toSeq.map(ty => parens(encodeType(ty))),
             )
         }
       case Ast.TForall(binder, body) =>
-        Doc.text("forall") & Doc.text(binder._1) & encodeAstType(body)
+        Doc.text("forall") & Doc.text(binder._1) & encodeType(body)
       case Ast.TStruct(_) => Doc.empty // TODO[AH] Not needed for type signatures
     }
   }
