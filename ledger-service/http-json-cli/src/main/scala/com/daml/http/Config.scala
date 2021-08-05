@@ -11,7 +11,6 @@ import akka.stream.ThrottleMode
 import com.daml.scalautil.ExceptionOps._
 import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.option._
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{@@, Show, Tag, \/}
 
@@ -21,7 +20,7 @@ import scala.util.Try
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.metrics.MetricsReporter
-import com.typesafe.scalalogging.StrictLogging
+import com.daml.http.dbbackend.JdbcConfig
 import scalaz.\/.right
 
 // The internal transient scopt structure *and* StartSettings; external `start`
@@ -113,96 +112,6 @@ private[http] abstract class ConfigCompanion[A, ReadCtx](name: String) {
         if (d.isDirectory) Right(d)
         else Left(s"Directory does not exist: ${d.getAbsolutePath}")
       }
-}
-
-private[http] final case class JdbcConfig(
-    driver: String,
-    url: String,
-    user: String,
-    password: String,
-    tablePrefix: String = "",
-    dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
-)
-
-private[http] object JdbcConfig
-    extends ConfigCompanion[JdbcConfig, Config.SupportedJdbcDriverNames]("JdbcConfig")
-    with StrictLogging {
-
-  implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, start-mode=${a.dbStartupMode})"
-  )
-
-  def help(implicit supportedJdbcDriverNames: Config.SupportedJdbcDriverNames): String =
-    "Contains comma-separated key-value pairs. Where:\n" +
-      s"${indent}driver -- JDBC driver class name, ${supportedJdbcDriverNames.unwrap.mkString(", ")} supported right now,\n" +
-      s"${indent}url -- JDBC connection URL,\n" +
-      s"${indent}user -- database user name,\n" +
-      s"${indent}password -- database user password,\n" +
-      s"${indent}tablePrefix -- prefix for table names to avoid collisions, empty by default,\n" +
-      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by start-mode, however if set it will always overrule start-mode.\n" +
-      s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
-        .mkString(",")}.\n" +
-      s"${indent}Example: " + helpString(
-        "org.postgresql.Driver",
-        "jdbc:postgresql://localhost:5432/test?&ssl=true",
-        "postgres",
-        "password",
-        "tablePrefix",
-        "create-only",
-      )
-
-  lazy val usage: String = helpString(
-    "<JDBC driver class name>",
-    "<JDBC connection url>",
-    "<user>",
-    "<password>",
-    "<tablePrefix>",
-    s"<${DbStartupMode.allConfigValues.mkString("|")}>",
-  )
-
-  override def create(x: Map[String, String])(implicit
-      readCtx: Config.SupportedJdbcDriverNames
-  ): Either[String, JdbcConfig] =
-    for {
-      driver <- requiredField(x)("driver")
-      Config.SupportedJdbcDrivers(supportedJdbcDriverNames) = readCtx
-      _ <- Either.cond(
-        supportedJdbcDriverNames(driver),
-        (),
-        s"$driver unsupported.  Supported drivers: ${supportedJdbcDriverNames.mkString(", ")}",
-      )
-      url <- requiredField(x)("url")
-      user <- requiredField(x)("user")
-      password <- requiredField(x)("password")
-      tablePrefix <- optionalStringField(x)("tablePrefix")
-      createSchema <- optionalBooleanField(x)("createSchema").map(
-        _.map { createSchema =>
-          import DbStartupMode._
-          logger.warn(
-            s"The option 'createSchema' is deprecated. Please use 'start-mode=${getConfigValue(CreateOnly)}' for 'createSchema=true' and 'start-mode=${getConfigValue(StartOnly)}'  for 'createSchema=false'"
-          )
-          if (createSchema) CreateOnly else StartOnly
-        }: Option[DbStartupMode]
-      )
-      dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("start-mode")
-    } yield JdbcConfig(
-      driver = driver,
-      url = url,
-      user = user,
-      password = password,
-      tablePrefix = tablePrefix getOrElse "",
-      dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
-    )
-
-  private def helpString(
-      driver: String,
-      url: String,
-      user: String,
-      password: String,
-      tablePrefix: String,
-      dbStartupMode: String,
-  ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix,start-mode=$dbStartupMode\""""
 }
 
 // It is public for Daml Hub

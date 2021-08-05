@@ -5,7 +5,7 @@ package com.daml.http
 
 import cats.effect.IO
 import com.daml.http.dbbackend.ConnectionPool.PoolSize
-import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
+import com.daml.http.dbbackend.{ContractDao, JdbcConfig, SupportedJdbcDriver}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
 import doobie.util.log
@@ -43,7 +43,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     implicit lazy val jdbcDriver: SupportedJdbcDriver = dao.jdbcDriver
 
     import doobie.implicits.toSqlInterpolator, DbStartupOps.DbVersionState._, DbStartupOps._,
-    DbStartupMode._
+    com.daml.http.dbbackend.DbStartupMode._
 
     implicit lazy val _dao: ContractDao = dao
 

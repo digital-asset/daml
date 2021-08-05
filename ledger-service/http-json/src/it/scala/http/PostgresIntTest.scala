@@ -4,6 +4,7 @@
 package com.daml.http
 
 import com.daml.http.PostgresIntTest.defaultJdbcConfig
+import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

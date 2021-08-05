@@ -1,9 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.http
-
-import scala.collection.compat._
+package com.daml.http.dbbackend
 
 private[http] sealed trait DbStartupMode
 private[http] object DbStartupMode {

@@ -16,13 +16,13 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     visibility = ["//ledger-service:__subpackages__"],
     deps = [
         "//ledger-service/cli-opts",
         "//ledger/ledger-api-common",
         "//ledger/metrics",
+        "//libs-scala/db-utils",
         "//libs-scala/scala-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_netty_netty_handler",
@@ -45,6 +45,7 @@ da_scala_library(
             ":base",
             "//ledger-service/cli-opts",
             "//ledger/ledger-api-common",
+            "//libs-scala/db-utils",
         ],
     )
     for edition in [

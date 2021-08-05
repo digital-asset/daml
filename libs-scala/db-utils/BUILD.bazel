@@ -10,29 +10,25 @@ load(
 )
 
 da_scala_library(
-    name = "db-backend",
+    name = "db-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
         silencer_plugin,
     ],
     scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:io_spray_spray_json",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:com_github_scopt_scopt",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
-        "@maven//:org_tpolecat_doobie_free",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_effect",
-        "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
-        "@maven//:org_tpolecat_typename",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     scala_runtime_deps = [
         "@maven//:org_tpolecat_doobie_postgres",
     ],
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.daml:http-json-db-backend:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:db-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -40,8 +36,9 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//daml-lf/data",
         "//libs-scala/scala-utils",
+        "@maven//:com_zaxxer_HikariCP",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -50,19 +47,17 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
-        "@maven//:org_tpolecat_doobie_free",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_effect",
-        "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts,
     # data = ["//docs:quickstart-model.dar"],
     deps = [
-        ":db-backend",
+        ":db-utils",
+        "//libs-scala/scala-utils",
     ],
 )
