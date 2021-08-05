@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.stream.Materializer
@@ -96,7 +95,7 @@ trait ConfigProvider[ExtraConfig] {
   def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
     InitialLedgerConfiguration(
       configuration = Configuration.reasonableInitialConfiguration,
-      delayBeforeSubmitting = Duration.ofSeconds(5),
+      delayBeforeSubmitting = Config.DefaultInitialConfigurationSubmissionDelay,
     )
 
   def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
@@ -160,7 +159,6 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
 }
 
 object LedgerFactory {
-
   abstract class KeyValueLedgerFactory[KVL <: KeyValueLedger]
       extends LedgerFactory[KeyValueParticipantState, Unit] {
     override final val defaultExtraConfig: Unit = ()

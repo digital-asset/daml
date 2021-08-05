@@ -30,6 +30,9 @@ object Configuration {
     */
   val protobufVersion: Long = 2L
 
+  /** A duration of 1 day is likely to be longer than any application will keep retrying, barring
+    * very strange events, and should work for most ledger and participant configurations.
+    */
   val reasonableMaxDeduplicationTime: Duration = Duration.ofDays(1)
 
   val reasonableInitialConfiguration: Configuration = Configuration(

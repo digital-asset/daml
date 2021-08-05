@@ -3,8 +3,6 @@
 
 package com.daml.ledger.sandbox
 
-import java.time.Duration
-
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.daml.ledger.resources.ResourceOwner
@@ -34,7 +32,9 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
     )
 
   override def initialLedgerConfig(config: Config[BridgeConfig]): InitialLedgerConfiguration =
-    super.initialLedgerConfig(config).copy(delayBeforeSubmitting = Duration.ofMillis(500))
+    super
+      .initialLedgerConfig(config)
+      .copy(delayBeforeSubmitting = Config.LocalInitialConfigurationSubmissionDelay)
 
   override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
     parser

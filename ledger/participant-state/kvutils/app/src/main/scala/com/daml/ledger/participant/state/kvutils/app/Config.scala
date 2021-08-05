@@ -58,6 +58,18 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
+  /** The default delay before submitting an initial configuration.
+    * 5 seconds is typically enough for the participant to look up the current configuration from a
+    * remote ledger.
+    */
+  val DefaultInitialConfigurationSubmissionDelay: Duration = Duration.ofSeconds(5)
+
+  /** The delay before submitting an initial configuration to a local ledger.
+    * 500 milliseconds is typically enough for the participant to look up the current configuration
+    * from a local ledger.
+    */
+  val LocalInitialConfigurationSubmissionDelay: Duration = Duration.ofMillis(500)
+
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
       mode = Mode.Run,

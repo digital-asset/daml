@@ -3,8 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Duration
-
 import akka.stream.Materializer
 import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -53,7 +51,9 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
   }
 
   override def initialLedgerConfig(config: Config[Unit]): InitialLedgerConfiguration =
-    super.initialLedgerConfig(config).copy(delayBeforeSubmitting = Duration.ofMillis(500))
+    super
+      .initialLedgerConfig(config)
+      .copy(delayBeforeSubmitting = Config.LocalInitialConfigurationSubmissionDelay)
 
   override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
 
