@@ -101,7 +101,7 @@ message Commands {
   // with the same change ID.
   // Must be a valid LedgerString (as described in ``value.proto``).
   //
-  // If omitted, the participant or Daml ledger may set a value of their choice.
+  // If omitted, the participant or the committer may set a value of their choice.
   // Optional
   string submission_id = 14;
 }
