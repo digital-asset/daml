@@ -735,7 +735,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def prune(
       pruneUpTo: LedgerOffset,
       attempts: Int = 10,
-      pruneAllDivulgedContracts: Boolean = false,
+      pruneAllDivulgedContracts: Boolean = true,
   ): Future[PruneResponse] =
     prune(pruneUpTo.getAbsolute, attempts, pruneAllDivulgedContracts)
 

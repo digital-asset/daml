@@ -91,13 +91,24 @@ class MultiParticipantDivulgencePruningIT extends LedgerTestSuite {
       beta: ParticipantTestContext,
       contract: Primitive.ContractId[Contract],
       divulgence: binding.Primitive.ContractId[Divulgence],
-  )(implicit ec: ExecutionContext) =
+  )(implicit ec: ExecutionContext) = {
+    def bobCanFetch = beta.exerciseAndGetContract[Dummy](
+      bob,
+      divulgence.exerciseCanFetch(_, contract),
+    )
+
+    def pruneBetaAtCurrentOffset(
+        pruneAllDivulgedContracts: Boolean = true
+    )(implicit ec: ExecutionContext) =
+      for {
+        offset <- beta.currentEnd()
+        // Dummy create to be able to prune
+        _ <- beta.create(bob, DivulgenceProposal(bob, alice))
+        _ <- beta.prune(offset, pruneAllDivulgedContracts = pruneAllDivulgedContracts)
+      } yield ()
+
     for {
-      // Check that Bob can fetch the contract
-      _ <- beta.exerciseAndGetContract[Dummy](
-        bob,
-        divulgence.exerciseCanFetch(_, contract),
-      )
+      _ <- bobCanFetch
 
       offsetAfter_divulgence_1 <- beta.currentEnd()
 
@@ -107,29 +118,18 @@ class MultiParticipantDivulgencePruningIT extends LedgerTestSuite {
         divulgence.exerciseDivulge(_, contract),
       )
 
-      // Check that Bob can fetch the contract
-      _ <- beta.exerciseAndGetContract[Dummy](
-        bob,
-        divulgence.exerciseCanFetch(_, contract),
-      )
+      _ <- beta.prune(offsetAfter_divulgence_1)
 
-      _ <- beta.prune(offsetAfter_divulgence_1, pruneAllDivulgedContracts = true)
       // Check that Bob can still fetch the contract after pruning the first transaction
-      _ <- beta.exerciseAndGetContract[Dummy](
-        bob,
-        divulgence.exerciseCanFetch(_, contract),
-      )
+      _ <- bobCanFetch
+      _ <- pruneBetaAtCurrentOffset(pruneAllDivulgedContracts = false)
 
-      offsetAfter_divulgence_2 <- beta.currentEnd()
-      // Dummy create to be able to prune
-      _ <- beta.create(bob, DivulgenceProposal(bob, alice))
-      _ <- beta.prune(offsetAfter_divulgence_2, pruneAllDivulgedContracts = true)
+      // Check that Bob can still fetch the contract after pruning the second transaction without all divulged contracts
+      _ <- bobCanFetch
+      _ <- pruneBetaAtCurrentOffset()
 
-      _ <- beta
-        .exerciseAndGetContract[Dummy](
-          bob,
-          divulgence.exerciseCanFetch(_, contract),
-        )
-        .mustFail("Bob cannot access the divulged contract after the second pruning")
+      _ <- bobCanFetch
+        .mustFail("Bob cannot access the divulged contract after all divulgence pruning")
     } yield ()
+  }
 }

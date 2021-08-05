@@ -204,7 +204,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
                                                      |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
                                                      |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
                                                      |""".stripMargin)
-  private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED = SQL("""
+  private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS = SQL("""
                                                      |update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive={pruned_all_divulgence_up_to_inclusive}
                                                      |where participant_all_divulged_contracts_pruned_up_to_inclusive < {pruned_all_divulgence_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
                                                      |""".stripMargin)
@@ -219,12 +219,12 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     ()
   }
 
-  def updatePrunedAllDivulgenceEventsUpToInclusive(
+  def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
 
-    SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED
+    SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS
       .on("pruned_all_divulgence_up_to_inclusive" -> prunedUpToInclusive)
       .execute()(connection)
     ()
@@ -824,40 +824,43 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     """
       .asVectorOf(contractStateRowParser)(connection)
 
+  def arrayContains(arrayColumnName: String, element: String): String =
+    s"$element = any($arrayColumnName)"
+
   // Events
   def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
       connection: Connection
   ): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    val conditionalImmediateDivulgencePruning =
-      pruneImmediateDivulgence(pruneUpToInclusive, pruneAllDivulgedContracts)
+    val conditionalImmediateDivulgencePruning = () =>
+      if (pruneAllDivulgedContracts) {
+        val prunedUpToInclusiveAllDivulged =
+          SQL"""
+             select participant_all_divulged_contracts_pruned_up_to_inclusive
+             from parameters;
+           """
+            .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+              connection
+            )
+            .getOrElse(Offset.beforeBegin)
 
-    val consumingExercisesPruning =
-      SQL"""
-          -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-
-    val nonConsumingExercisesPruning =
-      SQL"""
-          -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-
-    val createsPruning =
-      SQL"""
-          -- Create events (only for contracts archived before the specified offset)
-          delete from participant_events_create delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            )"""
+        List(
+          SQL"""
+            -- Immediate divulgence pruning
+            delete
+            from participant_events_create c
+            where event_offset > $prunedUpToInclusiveAllDivulged
+            and event_offset <= $pruneUpToInclusive
+            and not exists (
+              select 1
+              from parties as p
+              where p.ledger_offset <= c.event_offset
+              and p.is_local
+              and #${arrayContains("c.flat_event_witnesses", "p.party")}
+            )
+         """
+        )
+      } else List.empty
 
     val retroactiveDivulgencesPruning =
       if (pruneAllDivulgedContracts)
@@ -878,53 +881,41 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
                 archive_events.contract_id = delete_events.contract_id
             )"""
 
+    val createsPruning =
+      SQL"""
+          -- Create events (only for contracts archived before the specified offset)
+          delete from participant_events_create delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive and
+            exists (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive AND
+                archive_events.contract_id = delete_events.contract_id
+            )"""
+
+    val consumingExercisesPruning =
+      SQL"""
+          -- Exercise events (consuming)
+          delete from participant_events_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive"""
+
+    val nonConsumingExercisesPruning =
+      SQL"""
+          -- Exercise events (non-consuming)
+          delete from participant_events_non_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive"""
+
     {
-      conditionalImmediateDivulgencePruning ++
-        List(
-          retroactiveDivulgencesPruning,
-          createsPruning,
-          consumingExercisesPruning,
-          nonConsumingExercisesPruning,
-        )
-    }.foreach(_.execute()(connection))
-  }
-
-  // TODO divulgence pruning: Check if specialization for Oracle is needed (as it is for H2)
-  protected[CommonStorageBackend] def pruneImmediateDivulgence(
-      pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
-  ): List[SimpleSql[Row]] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-
-    if (pruneAllDivulgedContracts)
       List(
-        SQL"""
-          -- Immediate divulgence events
-          WITH
-          	creates_stakeholders AS (
-          		SELECT event_offset, event_sequential_id, unnest(flat_event_witnesses) AS stakeholder
-          		FROM participant_events_create
-          		WHERE event_offset <= $pruneUpToInclusive
-          	),
-            to_be_pruned AS(
-              SELECT DISTINCT(event_sequential_id) AS event_sequential_id
-              FROM creates_stakeholders
-              WHERE NOT EXISTS (
-              	SELECT 1
-              	FROM
-              		creates_stakeholders c INNER JOIN parties p ON c.stakeholder=p.party
-              	WHERE
-              		c.event_sequential_id = creates_stakeholders.event_sequential_id
-              		AND p.is_local
-              		AND p.ledger_offset <= c.event_offset
-              )
-            )
-          DELETE FROM participant_events_create
-          USING to_be_pruned
-          WHERE participant_events_create.event_sequential_id = to_be_pruned.event_sequential_id
-         """
-      )
-    else List.empty
+        createsPruning,
+        consumingExercisesPruning,
+        nonConsumingExercisesPruning,
+        retroactiveDivulgencesPruning,
+      ) ++ conditionalImmediateDivulgencePruning()
+    }.foreach(_.execute()(connection))
   }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {

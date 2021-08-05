@@ -62,7 +62,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 private class JdbcLedgerDao(
@@ -594,23 +594,30 @@ private class JdbcLedgerDao(
   override def prune(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-      storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(conn)
-      storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
-      storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    val allDivulgencePruningParticle =
+      if (pruneAllDivulgedContracts) " (including all divulgence events)" else ""
+    logger.info(s"Starting pruning of ledger api server index db$allDivulgencePruningParticle")
 
-      if (pruneAllDivulgedContracts) {
-        storageBackend.updatePrunedAllDivulgenceEventsUpToInclusive(pruneUpToInclusive)(conn)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
+        storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(conn)
+        storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
+        storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+
+        if (pruneAllDivulgedContracts) {
+          storageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(conn)
+        }
       }
-
-      logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
-
-      if (pruneAllDivulgedContracts)
-        logger.info(
-          s"Pruned all divulgence events in the ledger api server index db up to ${pruneUpToInclusive.toHexString}"
-        )
-    }
+      .andThen {
+        case Success(_) =>
+          logger.info(
+            s"Completed pruning of the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}"
+          )
+        case Failure(ex) =>
+          logger.warn("Pruning failed", ex)
+      }(servicesExecutionContext)
+  }
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables)(storageBackend.reset)

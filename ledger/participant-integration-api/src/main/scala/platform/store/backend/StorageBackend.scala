@@ -110,7 +110,7 @@ trait ParameterStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
-  def updatePrunedAllDivulgenceEventsUpToInclusive(
+  def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit
   def prunedUptoInclusive(connection: Connection): Option[Offset]

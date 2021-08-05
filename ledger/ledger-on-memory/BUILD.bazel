@@ -182,7 +182,8 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--index-append-only-schema-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--participant=participant-id=example1,port=6865",
         "--participant=participant-id=example2,port=6866",
     ],

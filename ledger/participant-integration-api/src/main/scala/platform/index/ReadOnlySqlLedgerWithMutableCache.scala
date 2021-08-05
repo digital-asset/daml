@@ -208,6 +208,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             ledgerId = ledgerId,
             ledgerDao = ledgerDao,
             ledgerDaoTransactionsReader = bufferedTransactionsReader,
+            // TODO divulgence pruning: Prune the mutable contract state cache
             pruneBuffers = transactionsBuffer.prune,
             contractStore = contractStore,
             contractStateEventsDispatcher = cacheUpdatesDispatcher,

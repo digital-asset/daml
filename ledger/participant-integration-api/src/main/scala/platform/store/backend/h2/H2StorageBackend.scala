@@ -7,28 +7,15 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.get
-import anorm.{NamedParameter, Row, SQL, SimpleSql, SqlStringInterpolation}
+import anorm.{NamedParameter, SQL, SqlStringInterpolation}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
-import com.daml.platform.store.backend.common.{
-  AppendOnlySchema,
-  CommonStorageBackend,
-  EventStorageBackendTemplate,
-  EventStrategy,
-  InitHookDataSourceProxy,
-  TemplatedStorageBackend,
-}
-import com.daml.platform.store.backend.{
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  DbDto,
-  StorageBackend,
-  common,
-}
+import com.daml.platform.store.backend.common._
+import com.daml.platform.store.backend._
 import javax.sql.DataSource
 
 private[backend] object H2StorageBackend
@@ -215,36 +202,6 @@ private[backend] object H2StorageBackend
 
   override def dbLockSupported: Boolean = false
 
-  // Events
-  override def pruneImmediateDivulgence(
-      pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
-  ): List[SimpleSql[Row]] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    if (pruneAllDivulgedContracts) {
-      List(
-        SQL"""
-          -- Immediate divulgence events
-          WITH to_be_pruned AS (
-            SELECT DISTINCT(event_sequential_id) AS event_sequential_id
-            FROM participant_events_create creates
-            WHERE event_offset <= $pruneUpToInclusive
-            AND NOT EXISTS (
-              SELECT 1
-              FROM participant_events_create c JOIN parties p
-              ON array_contains(c.flat_event_witnesses, p.party)
-              WHERE
-                c.event_sequential_id = creates.event_sequential_id
-                -- If the party is locally hosted and older than the create event
-                -- it is not a prunable disclosure
-                AND p.is_local
-                AND p.ledger_offset <= c.event_offset
-            )
-          )
-          DELETE FROM participant_events_create
-          WHERE event_sequential_id IN (SELECT event_sequential_id from to_be_pruned)
-         """
-      )
-    } else List.empty
-  }
+  override def arrayContains(arrayColumnName: String, element: String): String =
+    s"array_contains($arrayColumnName, $element)"
 }

@@ -313,7 +313,8 @@ private[kvutils] class TransactionCommitter(
         .build,
     )
 
-    val divulgedContracts = updateContractState(transactionEntry, blindingInfo, commitContext)
+    val divulgedContracts =
+      updateContractStateAndComputeDivulgedContracts(transactionEntry, blindingInfo, commitContext)
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace("Transaction accepted.")
@@ -323,7 +324,7 @@ private[kvutils] class TransactionCommitter(
     StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
   }
 
-  private def updateContractState(
+  private def updateContractStateAndComputeDivulgedContracts(
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo,
       commitContext: CommitContext,
