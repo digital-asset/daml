@@ -99,6 +99,13 @@ sealed abstract class Queries {
     """,
   )
 
+  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdls.reverse
+      .collect { case d: Droppable => dropIfExists(d) }
+      .traverse_(_.update.run)
+  }
+
   private[this] val createVersionTable = CreateTable(
     "json_api_schema_version",
     sql"""
@@ -115,16 +122,8 @@ sealed abstract class Queries {
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
+      createVersionTable,
     )
-
-  private[this] lazy val initDatabaseDdlsAndVersionTable = initDatabaseDdls :+ createVersionTable
-
-  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
-    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdlsAndVersionTable.reverse
-      .collect { case d: Droppable => dropIfExists(d) }
-      .traverse_(_.update.run)
-  }
 
   protected[this] def insertVersion(): ConnectionIO[Unit] =
     sql"""
@@ -135,7 +134,7 @@ sealed abstract class Queries {
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     for {
-      _ <- initDatabaseDdlsAndVersionTable.traverse_(_.create.update.run)
+      _ <- initDatabaseDdls.traverse_(_.create.update.run)
       _ <- insertVersion()
     } yield ()
   }
