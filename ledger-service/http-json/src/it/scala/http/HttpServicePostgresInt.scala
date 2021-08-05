@@ -18,13 +18,7 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
   protected lazy val dao = dbbackend.ContractDao(jdbcConfig_, poolSize = PoolSize.Integration)
 
   // has to be lazy because postgresFixture is NOT initialized yet
-  protected[this] def jdbcConfig_ = JdbcConfig(
-    driver = "org.postgresql.Driver",
-    url = postgresDatabase.url,
-    user = "test",
-    password = "",
-    dbStartupMode = DbStartupMode.CreateOnly,
-  )
+  protected[this] def jdbcConfig_ = PostgresIntTest.defaultJdbcConfig(postgresDatabase.url)
 
   override protected def afterAll(): Unit = {
     dao.close()

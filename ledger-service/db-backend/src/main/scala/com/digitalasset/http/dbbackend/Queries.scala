@@ -118,13 +118,6 @@ sealed abstract class Queries(tablePrefix: String) {
     """,
   )
 
-  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
-    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls.reverse
-      .collect { case d: Droppable => dropIfExists(d) }
-      .traverse_(_.update.run)
-  }
-
   private[this] val createVersionTable = CreateTable(
     jsonApiSchemaVersionTableNameRaw,
     sql"""
@@ -141,8 +134,16 @@ sealed abstract class Queries(tablePrefix: String) {
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
-      createVersionTable,
     )
+
+  private[this] lazy val initDatabaseDdlsAndVersionTable = initDatabaseDdls :+ createVersionTable
+
+  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdlsAndVersionTable.reverse
+      .collect { case d: Droppable => dropIfExists(d) }
+      .traverse_(_.update.run)
+  }
 
   protected[this] def insertVersion(): ConnectionIO[Unit] =
     sql"""
@@ -153,7 +154,7 @@ sealed abstract class Queries(tablePrefix: String) {
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     for {
-      _ <- initDatabaseDdls.traverse_(_.create.update.run)
+      _ <- initDatabaseDdlsAndVersionTable.traverse_(_.create.update.run)
       _ <- insertVersion()
     } yield ()
   }
@@ -727,7 +728,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
   protected[this] override def agreementTextType = sql"NCLOB"
 
   protected[this] override def jsonColumn(name: Fragment) =
-    sql"$name CLOB NOT NULL CONSTRAINT ensure_json_$name CHECK ($name IS JSON)"
+    sql"$name CLOB NOT NULL CONSTRAINT ${tablePrefixFr}ensure_json_$name CHECK ($name IS JSON)"
 
   // See http://www.dba-oracle.com/t_ora_01795_maximum_number_of_expressions_in_a_list_is_1000.htm
   protected[this] override def maxListSize = Some(1000)
@@ -757,15 +758,19 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
+    import cats.implicits._
     for {
-      doesTableExist <-
-        sql"""SELECT EXISTS(
-                SELECT 1 FROM ALL_TABLES
-                WHERE table_name = '$jsonApiSchemaVersionTableName'
-              )""".query[Boolean].unique
+      // Note that Oracle table names seem to be somewhat case sensitive,
+      // but are inside the USER_TABLES table all uppercase.
+      res <-
+        sql"""SELECT 1 FROM USER_TABLES
+              WHERE TABLE_NAME = UPPER('$jsonApiSchemaVersionTableName')"""
+          .query[Int]
+          .option
       version <-
-        if (!doesTableExist) connection.pure(None)
-        else sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
+        res.flatTraverse { _ =>
+          sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
+        }
     } yield version
   }
 
