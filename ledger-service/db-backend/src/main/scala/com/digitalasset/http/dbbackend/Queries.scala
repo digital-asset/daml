@@ -136,11 +136,11 @@ sealed abstract class Queries(tablePrefix: String) {
       createContractsTable,
     )
 
+  private[this] val initDatabaseDdlsAndVersionTable = initDatabaseDdls :+ createVersionTable
+
   private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls
-      .:+(createVersionTable)
-      .reverse
+    initDatabaseDdlsAndVersionTable.reverse
       .collect { case d: Droppable => dropIfExists(d) }
       .traverse_(_.update.run)
   }
@@ -154,8 +154,7 @@ sealed abstract class Queries(tablePrefix: String) {
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     for {
-      _ <- initDatabaseDdls.traverse_(_.create.update.run)
-      _ <- createVersionTable.create.update.run
+      _ <- initDatabaseDdlsAndVersionTable.traverse_(_.create.update.run)
       _ <- insertVersion()
     } yield ()
   }
