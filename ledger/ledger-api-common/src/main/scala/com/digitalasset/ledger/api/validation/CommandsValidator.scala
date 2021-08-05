@@ -181,12 +181,12 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
         Left(missingField("command"))
     }
 
-  private def extractOrGenerateSubmissionId(commands: ProtoCommands) = {
-    if (commands.submissionId.isEmpty)
+  private def extractOrGenerateSubmissionId(commands: ProtoCommands) =
+    if (commands.submissionId.isEmpty) {
       domain.SubmissionId(submissionIdGenerator.generate())
-    else
+    } else {
       domain.SubmissionId(Ref.SubmissionId.assertFromString(commands.submissionId))
-  }
+    }
 
 }
 
