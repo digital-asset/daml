@@ -115,7 +115,7 @@ CREATE TABLE participant_command_submissions (
 ---------------------------------------------------------------------------------------------------
 -- Completions table
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE public.participant_command_completions (
+CREATE TABLE participant_command_completions (
     completion_offset VARCHAR NOT NULL,
     record_time TIMESTAMP NOT NULL,
     application_id VARCHAR NOT NULL,

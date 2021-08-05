@@ -10,9 +10,9 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 final class StandaloneIndexerServer(
     readService: state.ReadService,
@@ -20,6 +20,7 @@ final class StandaloneIndexerServer(
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
+    additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
 
@@ -33,6 +34,7 @@ final class StandaloneIndexerServer(
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
+      additionalMigrationPaths,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,
@@ -40,8 +42,6 @@ final class StandaloneIndexerServer(
       config.restartDelay,
     )
     config.startupMode match {
-      case IndexerStartupMode.MigrateOnly =>
-        Resource.successful(() => HealthStatus.healthy)
       case IndexerStartupMode.MigrateAndStart =>
         Resource
           .fromFuture(
@@ -76,6 +76,14 @@ final class StandaloneIndexerServer(
             logger.debug("Waiting for the indexer to validate the schema migrations.")
             () => HealthStatus.healthy
           }
+      case IndexerStartupMode.MigrateOnEmptySchemaAndStart =>
+        Resource
+          .fromFuture(indexerFactory.migrateOnEmptySchema())
+          .flatMap(startIndexer(indexer, _))
+          .map { healthReporter =>
+            logger.debug("Waiting for the indexer to initialize the empty or up-to-date database.")
+            healthReporter
+          }
     }
   }
 
@@ -86,4 +94,20 @@ final class StandaloneIndexerServer(
     indexer
       .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())
       .map { case (indexerHealthReporter, _) => indexerHealthReporter }
+}
+
+object StandaloneIndexerServer {
+
+  // Separate entry point for migrateOnly that serves as an operations rather than a startup command. As such it
+  // does not require any of the configurations of a full-fledged indexer except for the jdbc url.
+  def migrateOnly(
+      jdbcUrl: String,
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean,
+      allowExistingSchema: Boolean = false,
+      additionalMigrationPaths: Seq[String] = Seq.empty,
+  )(implicit rc: ResourceContext, loggingContext: LoggingContext): Future[Unit] = {
+    val flywayMigrations = new FlywayMigrations(jdbcUrl, additionalMigrationPaths)
+    flywayMigrations.migrate(allowExistingSchema, enableAppendOnlySchema)
+  }
 }

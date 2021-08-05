@@ -17,7 +17,10 @@ import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
-private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContext: LoggingContext) {
+private[platform] class FlywayMigrations(
+    jdbcUrl: String,
+    additionalMigrationPaths: Seq[String] = Seq.empty,
+)(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val dbType = DbType.jdbcType(jdbcUrl)
@@ -28,7 +31,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
-        val flyway = configurationBase(dbType, enableAppendOnlySchema)
+        val flyway = configurationBase(dbType, enableAppendOnlySchema, additionalMigrationPaths)
           .dataSource(ds)
           .ignoreFutureMigrations(false)
           .load()
@@ -45,7 +48,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
-        val flyway = configurationBase(dbType, enableAppendOnlySchema)
+        val flyway = configurationBase(dbType, enableAppendOnlySchema, additionalMigrationPaths)
           .dataSource(ds)
           .baselineOnMigrate(allowExistingSchema)
           .baselineVersion(MigrationVersion.fromVersion("0"))
@@ -62,7 +65,9 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
       Future.successful {
-        val flyway = configurationBase(dbType, enableAppendOnlySchema).dataSource(ds).load()
+        val flyway = configurationBase(dbType, enableAppendOnlySchema, additionalMigrationPaths)
+          .dataSource(ds)
+          .load()
         logger.info("Running Flyway clean...")
         flyway.clean()
         logger.info("Flyway schema clean finished successfully.")
@@ -74,7 +79,7 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       enableAppendOnlySchema: Boolean = false
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     dataSource.use { ds =>
-      val flyway = configurationBase(dbType, enableAppendOnlySchema)
+      val flyway = configurationBase(dbType, enableAppendOnlySchema, additionalMigrationPaths)
         .dataSource(ds)
         .ignoreFutureMigrations(false)
         .load()
@@ -108,6 +113,42 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
       } catch {
         case ex: RuntimeException =>
           logger.error(s"Failed to validate and wait only: ${ex.getMessage}", ex)
+          Future.failed(ex)
+      }
+    }
+
+  def migrateOnEmptySchema(
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean = false
+  )(implicit resourceContext: ResourceContext): Future[Unit] =
+    dataSource.use { ds =>
+      val flyway = configurationBase(dbType, enableAppendOnlySchema, additionalMigrationPaths)
+        .dataSource(ds)
+        .ignoreFutureMigrations(false)
+        .load()
+      logger.info(
+        "Ensuring Flyway migration has either not started or there are no pending migrations..."
+      )
+      val flywayInfo = flyway.info()
+
+      (flywayInfo.pending().length, flywayInfo.applied().length) match {
+        case (0, appliedMigrations) =>
+          Future.successful(
+            logger.info(s"No pending migrations with ${appliedMigrations} migrations applied.")
+          )
+        case (pendingMigrations, 0) =>
+          Future.successful {
+            logger.info(
+              s"Running Flyway migration on empty database with ${pendingMigrations} migrations pending..."
+            )
+            val stepsTaken = flyway.migrate()
+            logger.info(
+              s"Flyway schema migration finished successfully, applying $stepsTaken steps on empty database."
+            )
+          }
+        case (pendingMigrations, appliedMigrations) =>
+          val ex = MigrateOnEmptySchema(appliedMigrations, pendingMigrations)
+          logger.warn(ex.getMessage)
           Future.failed(ex)
       }
     }
@@ -156,13 +197,19 @@ private[platform] object FlywayMigrations {
   def configurationBase(
       dbType: DbType,
       enableAppendOnlySchema: Boolean = false,
+      additionalMigrationPaths: Seq[String] = Seq.empty,
   ): FluentConfiguration =
     Flyway
       .configure()
-      .locations(locations(enableAppendOnlySchema, dbType): _*)
+      .locations((locations(enableAppendOnlySchema, dbType) ++ additionalMigrationPaths): _*)
 
   case class ExhaustedRetries(pendingMigrations: Int)
       extends RuntimeException(s"Ran out of retries with ${pendingMigrations} migrations remaining")
   case class StoppedProgressing(pendingMigrations: Int)
       extends RuntimeException(s"Stopped progressing with ${pendingMigrations} migrations")
+  case class MigrateOnEmptySchema(appliedMigrations: Int, pendingMigrations: Int)
+      extends RuntimeException(
+        s"Asked to migrate-on-empty-schema, but encountered neither an empty database with ${appliedMigrations} " +
+          s"migrations already applied nor a fully-migrated databases with ${pendingMigrations} migrations pending."
+      )
 }
