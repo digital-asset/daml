@@ -3,7 +3,7 @@
 
 package com.daml.http.json
 
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Bitraverse, Show, Traverse, \/, \/-}

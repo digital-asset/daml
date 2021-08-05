@@ -20,6 +20,7 @@ da_scala_library(
         "//ledger-service/utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/timer-utils",
+        "//libs-scala/scala-utils",
     ],
 )
 

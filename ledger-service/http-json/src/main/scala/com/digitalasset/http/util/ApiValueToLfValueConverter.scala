@@ -14,7 +14,7 @@ object ApiValueToLfValueConverter {
 
   object Error {
     implicit val ErrorShow: Show[Error] = Show shows { e =>
-      import com.daml.util.ExceptionOps._
+      import com.daml.scalautil.ExceptionOps._
       s"ApiValueToLfValueConverter.Error: ${e.cause.description}"
     }
   }

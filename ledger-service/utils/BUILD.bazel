@@ -26,6 +26,7 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "//libs-scala/scala-utils",
     ],
 )
 

@@ -44,7 +44,7 @@ import com.daml.auth.middleware.api.{
   Response => AuthResponse,
 }
 import com.daml.scalautil.Statement.discard
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Tag
 import scalaz.syntax.traverse._

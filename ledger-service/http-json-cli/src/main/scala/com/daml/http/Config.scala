@@ -8,7 +8,7 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.option._
 import scalaz.syntax.tag._

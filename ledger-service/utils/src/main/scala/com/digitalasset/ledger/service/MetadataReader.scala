@@ -9,7 +9,7 @@ import com.daml.lf.archive.{ArchivePayload, Dar, DarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}

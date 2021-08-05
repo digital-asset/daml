@@ -3,7 +3,7 @@
 
 package com.daml.http.util
 
-import com.daml.util.ExceptionOps
+import com.daml.scalautil.ExceptionOps
 import scalaz.syntax.show._
 import scalaz.{Show, \/}
 
