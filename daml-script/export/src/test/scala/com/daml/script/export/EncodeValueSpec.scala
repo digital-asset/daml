@@ -50,6 +50,31 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
         |    c = 42
         |  c = M.R3""".stripMargin.replace("\r\n", "\n")
     }
+    "tuple" in {
+      def tupleId(n: Int): v.Identifier = v
+        .Identifier()
+        .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+        .withModuleName("DA.Types")
+        .withEntityName(s"Tuple$n")
+      def tuple(vals: v.Value*): v.Value = {
+        v.Value()
+          .withRecord(
+            v.Record()
+              .withRecordId(tupleId(vals.size))
+              .withFields(vals.zipWithIndex.map { case (value, ix) =>
+                v.RecordField().withLabel(s"_$ix").withValue(value)
+              })
+          )
+      }
+      val int1 = v.Value().withInt64(1)
+      val int2 = v.Value().withInt64(2)
+      val int3 = v.Value().withInt64(3)
+      val tuple1 = tuple(int1, int2)
+      val tuple2 = tuple(int1, int2, int3)
+      val tuple3 = tuple(int1, tuple1, tuple2)
+      encodeValue(Map.empty, Map.empty, tuple3.sum).render(80) shouldBe
+        """(1, (1, 2), (1, 2, 3))""".stripMargin.replace("\r\n", "\n")
+    }
     "variant" in {
       val id = v.Identifier("pkg-id", "M", "V")
       val variant =
