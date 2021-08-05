@@ -118,15 +118,6 @@ sealed abstract class Queries(tablePrefix: String) {
     """,
   )
 
-  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
-    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdls
-      .:+(createVersionTable)
-      .reverse
-      .collect { case d: Droppable => dropIfExists(d) }
-      .traverse_(_.update.run)
-  }
-
   private[this] val createVersionTable = CreateTable(
     jsonApiSchemaVersionTableNameRaw,
     sql"""
@@ -144,6 +135,15 @@ sealed abstract class Queries(tablePrefix: String) {
       createOffsetTable,
       createContractsTable,
     )
+
+  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+    initDatabaseDdls
+      .:+(createVersionTable)
+      .reverse
+      .collect { case d: Droppable => dropIfExists(d) }
+      .traverse_(_.update.run)
+  }
 
   protected[this] def insertVersion(): ConnectionIO[Unit] =
     sql"""
