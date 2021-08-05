@@ -727,15 +727,19 @@ private object OracleQueries extends Queries {
     super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
   protected[http] override def version(): ConnectionIO[Option[Int]] = {
+    import cats.implicits._
     for {
-      doesTableExist <-
-        sql"""SELECT EXISTS(
-                SELECT 1 FROM ALL_TABLES
-                WHERE table_name = 'json_api_schema_version'
-              )""".query[Boolean].unique
+      // Note that Oracle table names seem to be somewhat case sensitive,
+      // but are inside the USER_TABLES table all uppercase.
+      res <-
+        sql"""SELECT 1 FROM USER_TABLES
+              WHERE TABLE_NAME = UPPER('json_api_schema_version')"""
+          .query[Int]
+          .option
       version <-
-        if (!doesTableExist) connection.pure(None)
-        else sql"SELECT version FROM json_api_schema_version".query[Int].option
+        res.flatTraverse { _ =>
+          sql"SELECT version FROM json_api_schema_version".query[Int].option
+        }
     } yield version
   }
 
