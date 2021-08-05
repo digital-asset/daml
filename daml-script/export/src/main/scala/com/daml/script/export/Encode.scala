@@ -14,7 +14,6 @@ import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
-
 import spray.json._
 
 private[export] object Encode {
@@ -143,7 +142,9 @@ private[export] object Encode {
       v: Value.Sum,
   ): Doc = {
     def isTupleRecord(recordId: Identifier): Boolean = {
-      recordId.moduleName == "DA.Types" && recordId.entityName.startsWith("Tuple")
+      val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
+      recordId.packageId == daTypesId && recordId.moduleName == "DA.Types" && recordId.entityName
+        .startsWith("Tuple")
     }
     def go(v: Value.Sum): Doc =
       v match {
