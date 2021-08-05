@@ -820,3 +820,4 @@ support.html -> /support/support.html
 release-notes.html -> support/releases.html#release-notes
 support/release-notes.html -> support/releases.html#release-notes
 support/roadmap.html -> support/releases.html#roadmap
+getting-started/testing.html -> app-dev/bindings-ts/testing.html
