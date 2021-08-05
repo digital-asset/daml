@@ -24,6 +24,5 @@ object OracleIntTest {
     user = user,
     password = pwd,
     dbStartupMode = DbStartupMode.CreateOnly,
-    tablePrefix = "some_nice_prefix_",
   )
 }
