@@ -13,8 +13,9 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.configuration.LedgerConfigurationIndexSubscription._
 
 import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -25,37 +26,43 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   * This class helps avoiding code duplication and limiting the number of database lookups, as
   * multiple services and validators require the latest ledger config.
   */
-private[apiserver] final class LedgerConfigurationIndexSubscription private (
-    configurationLoadTimeout: Duration,
+private[apiserver] final class LedgerConfigurationIndexSubscription(
     indexService: IndexConfigManagementService,
     scheduler: Scheduler,
-    servicesExecutionContext: ExecutionContext,
-)(implicit
     materializer: Materializer,
-    loggingContext: LoggingContext,
-) extends LedgerConfigurationSubscription
-    with AutoCloseable {
+    servicesExecutionContext: ExecutionContext,
+) {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(getClass)
 
-  // The latest offset that was read (if any), and the latest ledger configuration found (if any)
-  private type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
-  private val latestConfigurationState = new AtomicReference[StateType](None -> None)
-  private val killSwitch = new AtomicReference[Option[UniqueKillSwitch]](None)
-  private val readyPromise = Promise[Unit]()
+  private final class Subscription(
+      configurationLoadTimeout: Duration
+  )(implicit loggingContext: LoggingContext)
+      extends LedgerConfigurationSubscription
+      with IsReady
+      with Cancellable {
+    // The latest offset that was read (if any), and the latest ledger configuration found (if any)
+    private val latestConfigurationState = new AtomicReference[StateType](None -> None)
+    private val state = new AtomicReference[SubscriptionState](SubscriptionState.LookingUp)
+    private val readyPromise = Promise[Unit]()
 
-  // At startup, do the following:
-  // - Start loading the ledger configuration
-  // - Submit the initial config if none is found after a delay
-  // - Mark the provider as ready if no configuration was found after a timeout
-  private val scheduledTimeout = giveUpAfterTimeout()
-  startLoading()
+    private val scheduledTimeout = {
+      scheduler.scheduleOnce(
+        configurationLoadTimeout.toNanos.nanos,
+        new Runnable {
+          override def run(): Unit = {
+            if (readyPromise.trySuccess(())) {
+              logger.warn(
+                s"No ledger configuration found after $configurationLoadTimeout. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+              )
+            }
+            ()
+          }
+        },
+      )(servicesExecutionContext)
+    }
 
-  // Looks up the latest ledger configuration, then subscribes to a
-  // stream of configuration changes.
-  // If the source of configuration changes proves to be a performance bottleneck,
-  // it could be replaced by regular polling.
-  private[this] def startLoading(): Unit =
+    // Looks up the latest ledger configuration, then subscribes to a stream of configuration changes.
     indexService
       .lookupConfiguration()
       .map {
@@ -77,96 +84,103 @@ private[apiserver] final class LedgerConfigurationIndexSubscription private (
         logger.error("Could not load the ledger configuration.", exception)
       }(servicesExecutionContext)
 
-  private[this] def configFound(
-      offset: LedgerOffset.Absolute,
-      config: Configuration,
-  ): Unit = {
-    scheduledTimeout.cancel()
-    latestConfigurationState.set(Some(offset) -> Some(config))
-    readyPromise.trySuccess(())
-    ()
-  }
-
-  private[this] def startStreamingUpdates(): Unit = {
-    killSwitch.set(
-      Some(
-        RestartSource
-          .withBackoff(
-            RestartSettings(
-              minBackoff = 1.seconds,
-              maxBackoff = 30.seconds,
-              randomFactor = 0.1,
-            )
-          ) { () =>
-            indexService
-              .configurationEntries(latestConfigurationState.get._1)
-              .map {
-                case (offset, domain.ConfigurationEntry.Accepted(_, config)) =>
-                  logger.info(s"New ledger configuration $config found at $offset")
-                  configFound(offset, config)
-                case (offset, domain.ConfigurationEntry.Rejected(_, _, _)) =>
-                  logger.info(s"New ledger configuration rejection found at $offset")
-                  latestConfigurationState.updateAndGet(previous => Some(offset) -> previous._2)
-                  ()
-              }
-          }
-          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .toMat(Sink.ignore)(Keep.left[UniqueKillSwitch, Future[Done]])
-          .run()
-      )
-    )
-    ()
-  }
-
-  private def giveUpAfterTimeout(): Cancellable = {
-    scheduler.scheduleOnce(
-      configurationLoadTimeout.toNanos.nanos,
-      new Runnable {
-        override def run(): Unit = {
-          if (readyPromise.trySuccess(())) {
-            logger.warn(
-              s"No ledger configuration found after $configurationLoadTimeout. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
-            )
-          }
-          ()
+    private def startStreamingUpdates(): Unit = {
+      val killSwitch = RestartSource
+        .withBackoff(
+          RestartSettings(
+            minBackoff = 1.seconds,
+            maxBackoff = 30.seconds,
+            randomFactor = 0.1,
+          )
+        ) { () =>
+          indexService
+            .configurationEntries(latestConfigurationState.get._1)
+            .map {
+              case (offset, domain.ConfigurationEntry.Accepted(_, config)) =>
+                logger.info(s"New ledger configuration $config found at $offset")
+                configFound(offset, config)
+              case (offset, domain.ConfigurationEntry.Rejected(_, _, _)) =>
+                logger.info(s"New ledger configuration rejection found at $offset")
+                latestConfigurationState.updateAndGet(previous => Some(offset) -> previous._2)
+                ()
+            }
         }
-      },
-    )(servicesExecutionContext)
+        .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+        .toMat(Sink.ignore)(Keep.left[UniqueKillSwitch, Future[Done]])
+        .run()(materializer)
+      if (
+        !state.compareAndSet(SubscriptionState.LookingUp, SubscriptionState.Streaming(killSwitch))
+      ) {
+        killSwitch.shutdown()
+      }
+      ()
+    }
+
+    private def configFound(
+        offset: LedgerOffset.Absolute,
+        config: Configuration,
+    ): Unit = {
+      scheduledTimeout.cancel()
+      latestConfigurationState.set(Some(offset) -> Some(config))
+      readyPromise.trySuccess(())
+      ()
+    }
+
+    override def ready: Future[Unit] = readyPromise.future
+
+    override def latestConfiguration(): Option[Configuration] = latestConfigurationState.get._2
+
+    override def cancel(): Boolean = {
+      scheduledTimeout.cancel()
+      state.getAndSet(SubscriptionState.Stopped) match {
+        case SubscriptionState.LookingUp =>
+          true
+        case SubscriptionState.Streaming(killSwitch) =>
+          killSwitch.shutdown()
+          true
+        case SubscriptionState.Stopped =>
+          false
+      }
+    }
+
+    override def isCancelled: Boolean =
+      state.get == SubscriptionState.Stopped
   }
 
-  /** This future will resolve successfully:
-    *
-    *   - when a ledger configuration is found, or
-    *   - after [[configurationLoadTimeout]].
-    *
-    * Whichever is first.
-    */
-  def ready: Future[Unit] = readyPromise.future
-
-  override def latestConfiguration(): Option[Configuration] = latestConfigurationState.get._2
-
-  override def close(): Unit = {
-    scheduledTimeout.cancel()
-    killSwitch.get.foreach(k => k.shutdown())
-  }
+  def subscription(
+      configurationLoadTimeout: Duration
+  )(implicit
+      loggingContext: LoggingContext
+  ): ResourceOwner[LedgerConfigurationSubscription with IsReady] =
+    new ResourceOwner[LedgerConfigurationSubscription with IsReady] {
+      override def acquire()(implicit
+          context: ResourceContext
+      ): Resource[LedgerConfigurationSubscription with IsReady] =
+        Resource(Future {
+          new Subscription(configurationLoadTimeout)
+        }(context.executionContext))(subscription =>
+          Future {
+            subscription.cancel()
+            ()
+          }(context.executionContext)
+        )
+    }
 }
 
 private[apiserver] object LedgerConfigurationIndexSubscription {
-  def owner(
-      configurationLoadTimeout: Duration,
-      indexService: IndexConfigManagementService,
-      scheduler: Scheduler,
-      materializer: Materializer,
-      servicesExecutionContext: ExecutionContext,
-  )(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[LedgerConfigurationIndexSubscription] =
-    ResourceOwner.forCloseable(() =>
-      new LedgerConfigurationIndexSubscription(
-        configurationLoadTimeout,
-        indexService,
-        scheduler,
-        servicesExecutionContext,
-      )(materializer, loggingContext)
-    )
+  private type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
+
+  private sealed trait SubscriptionState
+
+  private object SubscriptionState {
+    case object LookingUp extends SubscriptionState
+
+    final case class Streaming(killSwitch: UniqueKillSwitch) extends SubscriptionState
+
+    case object Stopped extends SubscriptionState
+  }
+
+  trait IsReady {
+    def ready: Future[Unit]
+  }
 }

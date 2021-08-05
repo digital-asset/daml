@@ -49,20 +49,17 @@ final class LedgerConfigurationIndexSubscriptionSpec
         .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigurationIndexSubscription
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          indexService = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.map { _ =>
-            currentLedgerConfiguration.latestConfiguration() should be(Some(currentConfiguration))
-            succeed
-          }
+      new LedgerConfigurationIndexSubscription(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.map { _ =>
+          currentLedgerConfiguration.latestConfiguration() should be(Some(currentConfiguration))
+          succeed
         }
+      }
     }
 
     "stream the latest configuration from the index" in {
@@ -95,24 +92,21 @@ final class LedgerConfigurationIndexSubscriptionSpec
         .thenReturn(Source(configurationEntries).concat(Source.never))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigurationIndexSubscription
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          indexService = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.map { _ =>
-            eventually {
-              currentLedgerConfiguration.latestConfiguration() should be(
-                Some(configurations.last._2)
-              )
-            }
-            succeed
+      new LedgerConfigurationIndexSubscription(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.map { _ =>
+          eventually {
+            currentLedgerConfiguration.latestConfiguration() should be(
+              Some(configurations.last._2)
+            )
           }
+          succeed
         }
+      }
     }
 
     "give up waiting if the configuration takes too long to appear" in {
@@ -123,22 +117,19 @@ final class LedgerConfigurationIndexSubscriptionSpec
       val configurationLoadTimeout = 500.millis
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigurationIndexSubscription
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          indexService = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.isCompleted should be(false)
-          scheduler.timePasses(1.second)
-          currentLedgerConfiguration.ready.isCompleted should be(true)
-          currentLedgerConfiguration.ready.map { _ =>
-            currentLedgerConfiguration.latestConfiguration() should be(None)
-          }
+      new LedgerConfigurationIndexSubscription(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.isCompleted should be(false)
+        scheduler.timePasses(1.second)
+        currentLedgerConfiguration.ready.isCompleted should be(true)
+        currentLedgerConfiguration.ready.map { _ =>
+          currentLedgerConfiguration.latestConfiguration() should be(None)
         }
+      }
     }
 
     "never becomes ready if stopped" in {
@@ -149,14 +140,12 @@ final class LedgerConfigurationIndexSubscriptionSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      val owner = LedgerConfigurationIndexSubscription.owner(
-        configurationLoadTimeout = configurationLoadTimeout,
+      val resource = new LedgerConfigurationIndexSubscription(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
-      )
-      val resource = owner.acquire()
+      ).subscription(configurationLoadTimeout).acquire()
 
       resource.asFuture
         .flatMap { currentLedgerConfiguration =>
@@ -181,21 +170,18 @@ final class LedgerConfigurationIndexSubscriptionSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigurationIndexSubscription
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          indexService = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.transform(Success.apply).map { result =>
-            inside(result) { case Failure(exception) =>
-              exception should be(failure)
-            }
+      new LedgerConfigurationIndexSubscription(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.transform(Success.apply).map { result =>
+          inside(result) { case Failure(exception) =>
+            exception should be(failure)
           }
         }
+      }
     }
   }
 }

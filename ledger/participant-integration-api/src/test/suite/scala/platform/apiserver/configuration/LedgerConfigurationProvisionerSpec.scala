@@ -61,16 +61,13 @@ final class LedgerConfigurationProvisionerSpec
       }
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigurationProvisioner
-        .owner(
-          initialLedgerConfiguration = initialLedgerConfiguration,
-          ledgerConfigurationSubscription = ledgerConfigurationSubscription,
-          writeService = writeService,
-          timeProvider = timeProvider,
-          submissionIdGenerator = submissionIdGenerator,
-          scheduler = scheduler,
-          servicesExecutionContext = system.dispatcher,
-        )
+      new LedgerConfigurationProvisioner(
+        ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+        writeService = writeService,
+        timeProvider = timeProvider,
+        submissionIdGenerator = submissionIdGenerator,
+        scheduler = scheduler,
+      ).submit(initialLedgerConfiguration)
         .use { _ =>
           verify(writeService, never).submitConfiguration(
             any[Timestamp],
@@ -105,16 +102,13 @@ final class LedgerConfigurationProvisionerSpec
       val timeProvider = TimeProvider.Constant(Instant.EPOCH)
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigurationProvisioner
-        .owner(
-          initialLedgerConfiguration = initialLedgerConfiguration,
-          ledgerConfigurationSubscription = ledgerConfigurationSubscription,
-          writeService = writeService,
-          timeProvider = timeProvider,
-          submissionIdGenerator = SubmissionIdGenerator.Random,
-          scheduler = scheduler,
-          servicesExecutionContext = system.dispatcher,
-        )
+      new LedgerConfigurationProvisioner(
+        ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+        writeService = writeService,
+        timeProvider = timeProvider,
+        submissionIdGenerator = SubmissionIdGenerator.Random,
+        scheduler = scheduler,
+      ).submit(initialLedgerConfiguration)
         .use { _ =>
           scheduler.timePasses(1.second)
           verify(writeService, after(100).never()).submitConfiguration(
@@ -143,16 +137,13 @@ final class LedgerConfigurationProvisionerSpec
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-    LedgerConfigurationProvisioner
-      .owner(
-        initialLedgerConfiguration = initialLedgerConfiguration,
-        ledgerConfigurationSubscription = ledgerConfigurationSubscription,
-        writeService = writeService,
-        timeProvider = timeProvider,
-        submissionIdGenerator = SubmissionIdGenerator.Random,
-        scheduler = scheduler,
-        servicesExecutionContext = system.dispatcher,
-      )
+    new LedgerConfigurationProvisioner(
+      ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+      writeService = writeService,
+      timeProvider = timeProvider,
+      submissionIdGenerator = SubmissionIdGenerator.Random,
+      scheduler = scheduler,
+    ).submit(initialLedgerConfiguration)
       .use { _ =>
         scheduler.scheduleOnce(
           2.seconds,
@@ -185,16 +176,13 @@ final class LedgerConfigurationProvisionerSpec
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-    val owner = LedgerConfigurationProvisioner.owner(
-      initialLedgerConfiguration = initialLedgerConfiguration,
+    val resource = new LedgerConfigurationProvisioner(
       ledgerConfigurationSubscription = ledgerConfigurationSubscription,
       writeService = writeService,
       timeProvider = timeProvider,
       submissionIdGenerator = SubmissionIdGenerator.Random,
       scheduler = scheduler,
-      servicesExecutionContext = system.dispatcher,
-    )
-    val resource = owner.acquire()
+    ).submit(initialLedgerConfiguration).acquire()
 
     resource.asFuture
       .flatMap { _ => resource.release() }
