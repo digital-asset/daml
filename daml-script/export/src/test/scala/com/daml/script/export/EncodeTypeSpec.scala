@@ -60,6 +60,8 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
       }
     }
     "composed types" - {
+      val int: Ast.Type = Ast.TBuiltin(Ast.BTInt64)
+      val text: Ast.Type = Ast.TBuiltin(Ast.BTText)
       def tuple(tys: Ast.Type*): Ast.Type = {
         val tupleTyCon: Ast.Type = Ast.TTyCon(
           Ref.TypeConName.assertFromString(
@@ -68,18 +70,32 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
         )
         tys.foldLeft(tupleTyCon) { case (acc, ty) => Ast.TApp(acc, ty) }
       }
+      def list(ty: Ast.Type): Ast.Type = {
+        Ast.TApp(Ast.TBuiltin(Ast.BTList), ty)
+      }
+      def arrow(ty: Ast.Type, tys: Ast.Type*): Ast.Type = {
+        val arrowTy: Ast.Type = Ast.TBuiltin(Ast.BTArrow)
+        val rhs = tys.foldRight(None: Option[Ast.Type => Ast.Type]) {
+          case (ty, None) => Some((hole: Ast.Type) => Ast.TApp(Ast.TApp(arrowTy, hole), ty))
+          case (ty, Some(acc)) => Some((hole: Ast.Type) => Ast.TApp(Ast.TApp(arrowTy, hole), acc(ty)))
+        }
+        rhs match {
+          case Some(acc) => acc(ty)
+          case None => ty
+        }
+      }
       "type synonym application" in {
         val ty = Ast.TSynApp(
           Ref.Identifier.assertFromString(
             "e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Foo"
           ),
           ImmArray(
-            Ast.TBuiltin(Ast.BTInt64),
+            int,
             Ast.TSynApp(
               Ref.Identifier.assertFromString(
                 "e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Bar"
               ),
-              ImmArray(Ast.TBuiltin(Ast.BTText)),
+              ImmArray(text),
             ),
           ),
         )
@@ -89,18 +105,26 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
         val ty = Ast.TApp(
           Ast.TApp(
             Ast.TVar(Ref.Name.assertFromString("foo")),
-            Ast.TBuiltin(Ast.BTInt64),
+            int,
           ),
           Ast.TApp(
             Ast.TVar(Ref.Name.assertFromString("bar")),
-            Ast.TBuiltin(Ast.BTText),
+            text,
           ),
         )
         encodeType(ty).render(80) shouldBe "foo Int (bar Text)"
       }
       "tuple type" in {
-        val ty = tuple(Ast.TBuiltin(Ast.BTInt64), Ast.TBuiltin(Ast.BTText))
+        val ty = tuple(int, text)
         encodeType(ty).render(80) shouldBe "(Int, Text)"
+      }
+      "list type" in {
+        val ty = list(int)
+        encodeType(ty).render(80) shouldBe "[Int]"
+      }
+      "arrow type" in {
+        val ty = arrow(arrow(Ast.TApp(Ast.TVar(Ref.Name.assertFromString("foo")), int), text), int, text)
+        encodeType(ty).render(80) shouldBe "(foo Int -> Text) -> Int -> Text"
       }
     }
   }

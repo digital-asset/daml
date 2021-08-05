@@ -309,11 +309,17 @@ private[export] object Encode {
           case Ast.BTBigNumeric => "BigNumeric"
         })
       case app @ Ast.TApp(_, _) =>
-        val (f, args) = unfoldApp(app)
-        f match {
-          case Ast.TTyCon(tycon) if isTupleName(tycon) =>
+        unfoldApp(app) match {
+          case (Ast.TTyCon(tycon), args) if isTupleName(tycon) =>
             tuple(args.map(ty => encodeType(ty)))
-          case _ =>
+          case (Ast.TBuiltin(Ast.BTList), Seq(arg)) =>
+            brackets(encodeType(arg))
+          case (Ast.TBuiltin(Ast.BTArrow), Seq(a, b)) =>
+            precParens(
+              1,
+              encodeType(a, 2) & Doc.text("->") & encodeType(b)
+            )
+          case (f, args) =>
             precParens(
               10,
               encodeType(f, 11) & Doc.intercalate(
