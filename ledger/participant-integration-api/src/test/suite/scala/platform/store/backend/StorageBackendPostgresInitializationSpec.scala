@@ -19,7 +19,6 @@ final class StorageBackendPostgresInitializationSpec
   behavior of "StorageBackend (initialization)"
 
   it should "correctly handle repeated initialization" in {
-    println("test start")
     val ledgerId = LedgerId("ledger")
     val participantId = ParticipantId(Ref.ParticipantId.assertFromString("participant"))
     val otherLedgerId = LedgerId("otherLedger")
