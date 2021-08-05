@@ -769,8 +769,9 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
           .option
       _ = println(s"res: $res")
       version <-
-        if (res.isEmpty) connection.pure(None)
-        else sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
+        res.flatMap { _ =>
+         sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
+       }
     } yield version
 
   protected[this] type DBContractKey = JsValue
