@@ -7,7 +7,6 @@ import java.time.Duration
 
 import akka.stream.Materializer
 import com.daml.caching
-import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
@@ -28,10 +27,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   )
 
   override def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
-    InitialLedgerConfiguration(
-      configuration = Configuration.reasonableInitialConfiguration,
-      delayBeforeSubmitting = Duration.ZERO,
-    )
+    super.initialLedgerConfig(config).copy(delayBeforeSubmitting = Duration.ofMillis(500))
 
   override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
     parser

@@ -53,7 +53,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
   }
 
   override def initialLedgerConfig(config: Config[Unit]): InitialLedgerConfiguration =
-    super.initialLedgerConfig(config).copy(delayBeforeSubmitting = Duration.ZERO)
+    super.initialLedgerConfig(config).copy(delayBeforeSubmitting = Duration.ofMillis(500))
 
   override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
 
