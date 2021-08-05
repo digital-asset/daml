@@ -23,7 +23,7 @@ final class LedgerConfigurationInitializer(
     servicesExecutionContext: ExecutionContext,
 ) {
   private val scheduler = materializer.system.scheduler
-  private val subscriptionBuilder = new LedgerConfigurationIndexSubscription(
+  private val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
     indexService,
     scheduler,
     materializer,

@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.apiserver.configuration.LedgerConfigurationIndexSubscriptionSpec._
+import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscriptionFromIndexSpec._
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.concurrent.Eventually
@@ -26,7 +26,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-final class LedgerConfigurationIndexSubscriptionSpec
+final class LedgerConfigurationSubscriptionFromIndexSpec
     extends AsyncWordSpec
     with Matchers
     with Eventually
@@ -49,7 +49,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
         .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      new LedgerConfigurationIndexSubscription(
+      new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
@@ -92,7 +92,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
         .thenReturn(Source(configurationEntries).concat(Source.never))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      new LedgerConfigurationIndexSubscription(
+      new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
@@ -117,7 +117,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
       val configurationLoadTimeout = 500.millis
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      new LedgerConfigurationIndexSubscription(
+      new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
@@ -140,7 +140,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      val resource = new LedgerConfigurationIndexSubscription(
+      val resource = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
@@ -170,7 +170,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      new LedgerConfigurationIndexSubscription(
+      new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
@@ -186,7 +186,7 @@ final class LedgerConfigurationIndexSubscriptionSpec
   }
 }
 
-object LedgerConfigurationIndexSubscriptionSpec {
+object LedgerConfigurationSubscriptionFromIndexSpec {
   private def offset(value: String): LedgerOffset.Absolute =
     LedgerOffset.Absolute(Ref.LedgerString.assertFromString(value))
 }

@@ -15,7 +15,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.configuration.LedgerConfigurationIndexSubscription._
+import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscriptionFromIndex._
 
 import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   * This class helps avoiding code duplication and limiting the number of database lookups, as
   * multiple services and validators require the latest ledger config.
   */
-private[apiserver] final class LedgerConfigurationIndexSubscription(
+private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
     indexService: IndexConfigManagementService,
     scheduler: Scheduler,
     materializer: Materializer,
@@ -34,6 +34,25 @@ private[apiserver] final class LedgerConfigurationIndexSubscription(
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)
+
+  def subscription(
+      configurationLoadTimeout: Duration
+  )(implicit
+      loggingContext: LoggingContext
+  ): ResourceOwner[LedgerConfigurationSubscription with IsReady] =
+    new ResourceOwner[LedgerConfigurationSubscription with IsReady] {
+      override def acquire()(implicit
+          context: ResourceContext
+      ): Resource[LedgerConfigurationSubscription with IsReady] =
+        Resource(Future {
+          new Subscription(configurationLoadTimeout)
+        }(context.executionContext))(subscription =>
+          Future {
+            subscription.cancel()
+            ()
+          }(context.executionContext)
+        )
+    }
 
   private final class Subscription(
       configurationLoadTimeout: Duration
@@ -146,28 +165,9 @@ private[apiserver] final class LedgerConfigurationIndexSubscription(
     override def isCancelled: Boolean =
       state.get == SubscriptionState.Stopped
   }
-
-  def subscription(
-      configurationLoadTimeout: Duration
-  )(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[LedgerConfigurationSubscription with IsReady] =
-    new ResourceOwner[LedgerConfigurationSubscription with IsReady] {
-      override def acquire()(implicit
-          context: ResourceContext
-      ): Resource[LedgerConfigurationSubscription with IsReady] =
-        Resource(Future {
-          new Subscription(configurationLoadTimeout)
-        }(context.executionContext))(subscription =>
-          Future {
-            subscription.cancel()
-            ()
-          }(context.executionContext)
-        )
-    }
 }
 
-private[apiserver] object LedgerConfigurationIndexSubscription {
+private[apiserver] object LedgerConfigurationSubscriptionFromIndex {
   private type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
 
   private sealed trait SubscriptionState
