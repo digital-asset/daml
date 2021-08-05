@@ -60,6 +60,14 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
       }
     }
     "composed types" - {
+      def tuple(tys: Ast.Type*): Ast.Type = {
+        val tupleTyCon: Ast.Type = Ast.TTyCon(
+          Ref.TypeConName.assertFromString(
+            "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7:DA.Types:Tuple"
+          )
+        )
+        tys.foldLeft(tupleTyCon) { case (acc, ty) => Ast.TApp(acc, ty) }
+      }
       "type synonym application" in {
         val ty = Ast.TSynApp(
           Ref.Identifier.assertFromString(
@@ -67,19 +75,33 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
           ),
           ImmArray(
             Ast.TBuiltin(Ast.BTInt64),
+            Ast.TSynApp(
+              Ref.Identifier.assertFromString(
+                "e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Bar"
+              ),
+              ImmArray(Ast.TBuiltin(Ast.BTText)),
+            ),
+          ),
+        )
+        encodeType(ty).render(80) shouldBe "Module.Foo Int (Module.Bar Text)"
+      }
+      "type application" in {
+        val ty = Ast.TApp(
+          Ast.TApp(
+            Ast.TVar(Ref.Name.assertFromString("foo")),
+            Ast.TBuiltin(Ast.BTInt64),
+          ),
+          Ast.TApp(
+            Ast.TVar(Ref.Name.assertFromString("bar")),
             Ast.TBuiltin(Ast.BTText),
           ),
         )
-        encodeType(ty).render(80) shouldBe "Module.Foo Int Text"
+        encodeType(ty).render(80) shouldBe "foo Int (bar Text)"
+      }
+      "tuple type" in {
+        val ty = tuple(Ast.TBuiltin(Ast.BTInt64), Ast.TBuiltin(Ast.BTText))
+        encodeType(ty).render(80) shouldBe "(Int, Text)"
       }
     }
-    //"" in {
-    //  def foo(x: Ast.Type): Unit = x match {
-    //    case Ast.TSynApp(tysyn, args) =>
-    //    case Ast.TApp(tyfun, arg) =>
-    //    case Ast.TForall(binder, body) =>
-    //    case Ast.TStruct(fields) =>
-    //  }
-    //}
   }
 }

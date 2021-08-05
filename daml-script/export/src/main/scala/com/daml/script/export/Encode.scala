@@ -10,6 +10,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, Temp
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.script.export.TreeUtils._
@@ -185,15 +186,10 @@ private[export] object Encode {
       cidMap: Map[ContractId, String],
       v: Value.Sum,
   ): Doc = {
-    def isTupleRecord(recordId: Identifier): Boolean = {
-      val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
-      recordId.packageId == daTypesId && recordId.moduleName == "DA.Types" && recordId.entityName
-        .startsWith("Tuple")
-    }
     def go(v: Value.Sum): Doc =
       v match {
         case Sum.Empty => throw new IllegalArgumentException("Empty value")
-        case Sum.Record(value) if isTupleRecord(value.getRecordId) =>
+        case Sum.Record(value) if isTupleId(value.getRecordId) =>
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         // TODO Handle sums of products properly
@@ -254,7 +250,10 @@ private[export] object Encode {
     )
   }
 
-  private[export] def encodeType(ty: Ast.Type): Doc = {
+  private[export] def encodeType(ty: Ast.Type, precCtx: Int = 0): Doc = {
+    def precParens(prec: Int, doc: Doc): Doc =
+      if (prec < precCtx) { parens(doc) }
+      else { doc }
     def unfoldApp(app: Ast.TApp): (Ast.Type, Seq[Ast.Type]) = {
       def go(f: Ast.Type, args: Seq[Ast.Type]): (Ast.Type, Seq[Ast.Type]) = {
         f match {
@@ -268,12 +267,15 @@ private[export] object Encode {
       case Ast.TVar(name) => Doc.text(name)
       case Ast.TNat(n) => Doc.text(s"$n")
       case Ast.TSynApp(tysyn, args) =>
-        qualifyId(
-          Identifier()
-            .withPackageId(tysyn.packageId)
-            .withModuleName(tysyn.qualifiedName.module.dottedName)
-            .withEntityName(tysyn.qualifiedName.name.dottedName)
-        ) & Doc.intercalate(Doc.space, args.toSeq.map(ty => parens(encodeType(ty))))
+        precParens(
+          10,
+          qualifyId(
+            Identifier()
+              .withPackageId(tysyn.packageId)
+              .withModuleName(tysyn.qualifiedName.module.dottedName)
+              .withEntityName(tysyn.qualifiedName.name.dottedName)
+          ) & Doc.intercalate(Doc.space, args.toSeq.map(ty => encodeType(ty, 11))),
+        )
       case Ast.TTyCon(tycon) =>
         qualifyId(
           Identifier()
@@ -307,21 +309,40 @@ private[export] object Encode {
           case Ast.BTBigNumeric => "BigNumeric"
         })
       case app @ Ast.TApp(_, _) =>
-        unfoldApp(app) match {
-          case (Ast.TTyCon(tycon), args)
-              if tycon.qualifiedName.module.dottedName == "DA.Types" && tycon.qualifiedName.name.dottedName
-                .startsWith("Tuple") =>
+        val (f, args) = unfoldApp(app)
+        f match {
+          case Ast.TTyCon(tycon) if isTupleName(tycon) =>
             tuple(args.map(ty => encodeType(ty)))
-          case (tyfun, args) =>
-            encodeType(tyfun) & Doc.intercalate(
-              Doc.space,
-              args.toSeq.map(ty => parens(encodeType(ty))),
+          case _ =>
+            precParens(
+              10,
+              encodeType(f, 11) & Doc.intercalate(
+                Doc.space,
+                args.map(ty => encodeType(ty, 11)),
+              ),
             )
         }
-      case Ast.TForall(binder, body) =>
-        Doc.text("forall") & Doc.text(binder._1) & encodeType(body)
-      case Ast.TStruct(_) => Doc.empty // TODO[AH] Not needed for type signatures
+      case Ast.TForall(_, _) =>
+        // We only need to encode types in type-class instances. Foralls don't occur in that position.
+        throw new NotImplementedError("Encoding of forall types is not implemented")
+      case Ast.TStruct(_) =>
+        // We only need to encode types in type-class instances. Structs don't occur in that position.
+        throw new NotImplementedError("Encoding of struct types is not implemented")
     }
+  }
+
+  private def isTupleId(id: Identifier): Boolean = {
+    val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
+    id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
+  }
+
+  private def isTupleName(name: Ref.Identifier): Boolean = {
+    isTupleId(
+      Identifier()
+        .withPackageId(name.packageId)
+        .withModuleName(name.qualifiedName.module.dottedName)
+        .withEntityName(name.qualifiedName.name.dottedName)
+    )
   }
 
   private def quotes(v: Doc) =
