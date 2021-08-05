@@ -254,18 +254,15 @@ private[export] object Encode {
     )
   }
 
-  private def encodeType(ty: Ast.Type): Doc = {
+  private[export] def encodeType(ty: Ast.Type): Doc = {
     def unfoldApp(app: Ast.TApp): (Ast.Type, Seq[Ast.Type]) = {
-      app match {
-        case Ast.TApp(tyfun, arg) =>
-          tyfun match {
-            case app @ Ast.TApp(_, _) =>
-              unfoldApp(app) match {
-                case (tyfun, args) => (tyfun, args :+ arg)
-              }
-            case tyfun => (tyfun, Seq(arg))
-          }
+      def go(f: Ast.Type, args: Seq[Ast.Type]): (Ast.Type, Seq[Ast.Type]) = {
+        f match {
+          case Ast.TApp(tyfun, arg) => go(tyfun, arg +: args)
+          case _ => (f, args)
+        }
       }
+      go(app, Seq())
     }
     ty match {
       case Ast.TVar(name) => Doc.text(name)
@@ -289,20 +286,21 @@ private[export] object Encode {
           case Ast.BTInt64 => "Int"
           case Ast.BTNumeric => "Numeric"
           case Ast.BTText => "Text"
-          case Ast.BTTimestamp => "Timestamp"
+          case Ast.BTTimestamp => "Time"
           case Ast.BTParty => "Party"
           case Ast.BTUnit => "()"
           case Ast.BTBool => "Bool"
-          case Ast.BTList => "List"
+          case Ast.BTList => "[]"
           case Ast.BTOptional => "Optional"
-          case Ast.BTTextMap => "TextMap"
-          case Ast.BTGenMap => "GenMap"
+          case Ast.BTTextMap => "DA.TextMap.TextMap"
+          case Ast.BTGenMap => "DA.Map.Map"
           case Ast.BTUpdate => "Update"
           case Ast.BTScenario => "Scenario"
           case Ast.BTDate => "Date"
           case Ast.BTContractId => "ContractId"
           case Ast.BTArrow => "(->)"
-          case Ast.BTAny => "Any"
+          case Ast.BTAny =>
+            "Any" // TODO[AH] DA.Internal.LF.Any is not importable. How to handle this?
           case Ast.BTTypeRep => "TypeRep"
           case Ast.BTAnyException => "AnyException"
           case Ast.BTRoundingMode => "RoundingMode"
