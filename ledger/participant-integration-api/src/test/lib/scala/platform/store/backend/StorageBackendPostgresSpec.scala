@@ -40,7 +40,6 @@ private[backend] trait StorageBackendPostgresSpec
   protected var dbDispatcher: DbDispatcher = _
 
   protected def executeSql[T](sql: Connection => T): Future[T] = {
-    println("executeSql")
     dbDispatcher.executeSql(metrics.test.db, None)(sql)
   }
   protected def executeSerializableSql[T](sql: Connection => T): Future[T] = {
@@ -48,7 +47,6 @@ private[backend] trait StorageBackendPostgresSpec
   }
 
   override protected def beforeEach(): Unit = {
-    println("beforeEach")
     super.beforeEach()
 
     // TODO: use a custom execution context, like JdbcLedgeDao.beforeAll()
@@ -68,13 +66,10 @@ private[backend] trait StorageBackendPostgresSpec
         )
         .acquire()
     } yield dispatcher
-    println("before Await")
     dbDispatcher = Await.result(resource.asFuture, 30.seconds)
-    println("after Await")
   }
 
   override protected def afterEach(): Unit = {
-    println("afterEach")
     Await.result(resource.release(), 30.seconds)
     super.afterEach()
   }
