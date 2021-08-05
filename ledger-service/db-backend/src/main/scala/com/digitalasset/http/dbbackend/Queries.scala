@@ -136,7 +136,7 @@ sealed abstract class Queries(tablePrefix: String) {
       createContractsTable,
     )
 
-  private[this] val initDatabaseDdlsAndVersionTable = initDatabaseDdls :+ createVersionTable
+  private[this] lazy val initDatabaseDdlsAndVersionTable = initDatabaseDdls :+ createVersionTable
 
   private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
