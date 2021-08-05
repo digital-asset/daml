@@ -2,8 +2,9 @@
 -- All rights reserved.
 
 module Trace where
+import DA.Assert
 
 main = scenario do
   debug "using traceA in a scenario"
   alice <- traceId <$> getParty "Alice"
-  submit alice $ assert $ traceId 1 == trace "custom trace message" 1
+  traceId 1 === trace "custom trace message" 1

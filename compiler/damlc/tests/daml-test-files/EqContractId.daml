@@ -4,6 +4,8 @@
 
 module EqContractId where
 
+import DA.Assert
+
 template Foo with
     p: Party
   where
@@ -13,5 +15,5 @@ main = scenario do
   alice <- getParty "Alice"
   cid1 <- submit alice do create Foo{p = alice}
   cid2 <- submit alice do create Foo{p = alice}
-  assert $ cid1 == cid1
-  assert $ cid1 /= cid2
+  cid1 === cid1
+  cid1 =/= cid2

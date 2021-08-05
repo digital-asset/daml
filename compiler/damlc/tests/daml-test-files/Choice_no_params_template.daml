@@ -3,6 +3,8 @@
 
 module Choice_no_params_template where
 
+import DA.Assert
+
 template Bond
   with
     issuer : Party
@@ -30,7 +32,7 @@ template Bond
         with otherCid : ContractId Bond
         do
           otherBond <- fetch otherCid
-          assert $ this == otherBond with amount
+          this === otherBond with amount
           archive otherCid
           create $ Bond with amount = amount + otherBond.amount, ..
 

@@ -1,10 +1,9 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- @INFO range=9:3-9:18; Use ===
 
-module ListComprehension where
-
-import DA.Assert
+module Assert where
 
 test = scenario do
-  [n | n <- [1..10], n % 2 == 0] === [2*n | n <- [1..5]]
+  assert (1 == 1)

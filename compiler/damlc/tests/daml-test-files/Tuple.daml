@@ -43,7 +43,7 @@ testThd3 = scenario do
   True === thd3 (1, "A", True)
 
 testCurry3 = scenario do
-    assert $ 123 == curry3 (\(x, y, z) -> x + y + z) 20 3 100
+    123 === curry3 (\(x, y, z) -> x + y + z) 20 3 100
 
 testUncurry3 = scenario do
-    assert $ 123 == uncurry3 (\x y z -> x + y + z) (20, 3, 100)
+    123 === uncurry3 (\x y z -> x + y + z) (20, 3, 100)

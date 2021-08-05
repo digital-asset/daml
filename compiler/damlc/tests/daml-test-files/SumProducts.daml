@@ -4,19 +4,21 @@
 
 module SumProducts where
 
+import DA.Assert
+
 data SumOfProducts
     = Sum1 {field1 : Int, field2 : Text}
     | Sum2
     | Sum3 {field1 : Int, field3 : Optional Text, field4 : Bool}
     | Sum4 Int
-      deriving (Eq,Ord)
+      deriving (Eq,Ord, Show)
 
 main = scenario do
     let sum1 = Sum1 3 "test"
     let sum3 = Sum3 3 None True
     let sum4 = Sum4 5
     let sum4s = map Sum4 [1, 2]
-    assert $ sum1 /= Sum2
+    sum1 =/= Sum2
     assert $ sum1 < Sum2
     assert $ sum3 < sum4
-    assert $ sum1.field1 == sum3.field1
+    sum1.field1 === sum3.field1
