@@ -21,14 +21,15 @@ final case class Configuration(
 )
 
 object Configuration {
-  val NoGeneration: Long = 0
-  val StartingGeneration: Long = 1
+
+  /** The first configuration generation, by convention. */
+  val StartingGeneration = 1L
 
   /** Version history:
     * V1: initial version
     * V2: added maxDeduplicationTime
     */
-  val protobufVersion: Long = 2L
+  val protobufVersion = 2L
 
   /** A duration of 1 day is likely to be longer than any application will keep retrying, barring
     * very strange events, and should work for most ledger and participant configurations.
@@ -36,7 +37,7 @@ object Configuration {
   val reasonableMaxDeduplicationTime: Duration = Duration.ofDays(1)
 
   val reasonableInitialConfiguration: Configuration = Configuration(
-    generation = Configuration.StartingGeneration,
+    generation = StartingGeneration,
     timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = reasonableMaxDeduplicationTime,
   )

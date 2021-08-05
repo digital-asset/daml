@@ -158,7 +158,7 @@ class ApiConfigManagementServiceSpec
     }
 
     "refuse to set a new time model if none is indexed yet" in {
-      val initialGeneration = Configuration.NoGeneration
+      val initialGeneration = 0L
 
       val timeProvider = TimeProvider.UTC
       val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
