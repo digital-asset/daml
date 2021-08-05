@@ -4,5 +4,7 @@
 
 module ListComprehension where
 
+import DA.Assert
+
 test = scenario do
-  assert $ [n | n <- [1..10], n % 2 == 0] == [2*n | n <- [1..5]]
+  [n | n <- [1..10], n % 2 == 0] === [2*n | n <- [1..5]]

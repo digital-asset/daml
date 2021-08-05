@@ -6,6 +6,8 @@
 
 module PatternSynonyms where
 
+import DA.Assert
+
 type Box = Optional
 
 pattern Empty : Box a
@@ -23,5 +25,5 @@ mapOptional f = \case
 
 main = scenario do
   let f : Int -> Text = show
-  assert $ mapOptional f Empty == Empty
-  assert $ mapOptional f (Filled 1) == Filled "1"
+  mapOptional f Empty === Empty
+  mapOptional f (Filled 1) === Filled "1"

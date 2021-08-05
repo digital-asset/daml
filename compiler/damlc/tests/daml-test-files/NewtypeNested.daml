@@ -4,6 +4,7 @@
 
 module NewtypeNested where
 
+import DA.Assert
 import Newtype
 
 newtype Nat' = Nat' Nat
@@ -15,4 +16,4 @@ unNat' : Nat' -> Nat
 unNat' (Nat' n) = n
 
 main = scenario do
-  assert $ unNat (unNat' (mkNat' (mkNat 1))) == 1
+  unNat (unNat' (mkNat' (mkNat 1))) === 1

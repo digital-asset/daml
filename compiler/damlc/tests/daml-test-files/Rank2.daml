@@ -7,9 +7,10 @@
 
 module Rank2 where
 
+import DA.Assert
+
 applyBoth : (forall c . [c] -> [c]) -> ([a], [b]) -> ([a], [b])
 applyBoth f (a,b) = (f a, f b)
 
 main = scenario do
-    alice <- getParty "alice"
-    submit alice $ assert $ applyBoth reverse ([1,2,3],["a","b"]) == ([3,2,1],["b","a"])
+  applyBoth reverse ([1,2,3],["a","b"]) === ([3,2,1],["b","a"])

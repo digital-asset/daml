@@ -7,6 +7,8 @@
 
 module DataTypes where
 
+import DA.Assert
+
 data Rec = Rec with x: Int
 
 newtype RecNT = RecNT with x: Int
@@ -38,17 +40,17 @@ eval = \case
 
 
 main = scenario do
-  assert $ (Rec with x = 5).x == 5
+  (Rec with x = 5).x === 5
 
-  assert $ (RecNT with x = 7).x == 7
+  (RecNT with x = 7).x === 7
 
   assert $ case Unit of {Unit -> True}
 
-  assert $ untag (MkTag 3) == 3
+  untag (MkTag 3) === 3
 
-  assert $ untagNT (MkTagNT 11) == 11
+  untagNT (MkTagNT 11) === 11
 
-  assert $ eval Zero == 0
-  assert $ eval (Num1 13) == 13
-  assert $ eval (Num2 with x = 17) == 17
-  assert $ eval (Plus with x = 19; y = 23) == 42
+  eval Zero === 0
+  eval (Num1 13) === 13
+  eval (Num2 with x = 17) === 17
+  eval (Plus with x = 19; y = 23) === 42

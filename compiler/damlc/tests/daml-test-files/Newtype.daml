@@ -4,6 +4,8 @@
 
 module Newtype where
 
+import DA.Assert
+
 newtype Nat = Nat{unNat : Int}
 
 mkNat : Int -> Nat
@@ -30,7 +32,7 @@ unNat3 : Nat -> Int
 unNat3 n = unNat n
 
 main = scenario do
-  assert $ unNat zero0 == 0
-  assert $ unNat1 one1 == 1
-  assert $ unNat2 (mkNat 2) == 2
-  assert $ unNat3 (unsafeMkNat 3) == 3
+  unNat zero0 === 0
+  unNat1 one1 === 1
+  unNat2 (mkNat 2) === 2
+  unNat3 (unsafeMkNat 3) === 3

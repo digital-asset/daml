@@ -4,6 +4,8 @@
 
 module Iou12 where
 
+import DA.Assert
+
 template Iou
   with
     issuer : Party
@@ -56,7 +58,7 @@ template Iou
           -- Merge two IOUs by aggregating their amounts.
           otherIou <- fetch otherCid
           -- Check the two IOU's are compatible
-          assert $ this == otherIou with amount
+          this === otherIou with amount
           -- Retire the old Iou by transferring to the
           -- issuer and archiving
           transferCid <-
@@ -109,7 +111,7 @@ main = scenario do
   -- Assert things are as they should be
   submit alice do
     aliceIou <- fetch rest
-    assert $ aliceIou == Iou with
+    aliceIou === Iou with
       issuer   = bank
       owner    = alice
       currency = "USD"
@@ -119,7 +121,7 @@ main = scenario do
 
   submit bob do
     bobIou <- fetch iouTotalCid
-    assert $ bobIou == Iou with
+    bobIou === Iou with
       issuer   = bank
       owner    = bob
       currency = "USD"

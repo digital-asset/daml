@@ -4,6 +4,8 @@
 
 module Self2 where
 
+import DA.Assert
+
 template Self2
   with
     p : Party
@@ -33,5 +35,4 @@ main = scenario do
   r <- submit alice do
     cid <- create $ Self2 alice
     exercise cid Foo
-  assert $ r == "ok"
-
+  r === "ok"

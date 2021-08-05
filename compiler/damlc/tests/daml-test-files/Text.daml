@@ -26,11 +26,11 @@ testLength = scenario do
   3 === T.length "abc"
 
 testTrim = scenario do
-    assert $  trim "  digital asset  " == "digital asset"
+     trim "  digital asset  " === "digital asset"
 
 testReplace = scenario do
-    assert $ replace "el" "_" "Hello Bella" == "H_lo B_la"
-    assert $ replace "el" "e" "Hello"       == "Helo"
+    replace "el" "_" "Hello Bella" === "H_lo B_la"
+    replace "el" "e" "Hello"       === "Helo"
 
 testLines = scenario do
   [] === lines ""
@@ -51,20 +51,20 @@ testUnwords = scenario do
   unwords ["one", "two"] === "one two"
 
 testLinesBy = scenario do
-    assert $ linesBy (== "a") "aabbaca"  == ["","","bb","c"]
-    assert $ linesBy (== "a") "aabbacaa" == ["","","bb","c",""]
+    linesBy (== "a") "aabbaca"  === ["","","bb","c"]
+    linesBy (== "a") "aabbacaa" === ["","","bb","c",""]
     assert $ null $ linesBy (== "a") ""
-    assert $ linesBy (== "a") "a"        == [""]
-    assert $ linesBy (== ":") "::xyz:abc::123::" == ["","","xyz","abc","","123",""]
-    assert $ linesBy (== ",") "my,list,here" == ["my","list","here"]
+    linesBy (== "a") "a"        === [""]
+    linesBy (== ":") "::xyz:abc::123::" === ["","","xyz","abc","","123",""]
+    linesBy (== ",") "my,list,here" === ["my","list","here"]
 
 testWordsBy = scenario do
-    assert $ wordsBy (== "a") "aabbaca"  == ["bb","c"]
-    assert $ wordsBy (== "a") "aabbacaa" == ["bb","c"]
+    wordsBy (== "a") "aabbaca"  === ["bb","c"]
+    wordsBy (== "a") "aabbacaa" === ["bb","c"]
     assert $ null $ wordsBy (== "a") ""
     assert $ null $ wordsBy (== "a") "a"
-    assert $ wordsBy (== ":") "::xyz:abc::123::" == ["xyz","abc","123"]
-    assert $ wordsBy (== ",") "my,list,here" == ["my","list","here"]
+    wordsBy (== ":") "::xyz:abc::123::" === ["xyz","abc","123"]
+    wordsBy (== ",") "my,list,here" === ["my","list","here"]
 
 testIntercalate = scenario do
   "1, 2, 3" === intercalate ", " ["1", "2", "3"]
@@ -73,22 +73,22 @@ testIntercalate = scenario do
   "" === intercalate ", " []
 
 testDropPrefix = scenario do
-    assert $ dropPrefix "Mr. " "Mr. Men" == "Men"
-    assert $ dropPrefix "Mr. " "Dr. Men" == "Dr. Men"
+    dropPrefix "Mr. " "Mr. Men" === "Men"
+    dropPrefix "Mr. " "Dr. Men" === "Dr. Men"
 
 testDropSuffix = scenario do
-    assert $ dropSuffix "!" "Hello World!"  == "Hello World"
-    assert $ dropSuffix "!" "Hello World!!" == "Hello World!"
-    assert $ dropSuffix "!" "Hello World."  == "Hello World."
+    dropSuffix "!" "Hello World!"  === "Hello World"
+    dropSuffix "!" "Hello World!!" === "Hello World!"
+    dropSuffix "!" "Hello World."  === "Hello World."
 
 testStripSuffix = scenario do
-    assert $ stripSuffix "bar" "foobar" == Some "foo"
-    assert $ stripSuffix ""    "baz"    == Some "baz"
+    stripSuffix "bar" "foobar" === Some "foo"
+    stripSuffix ""    "baz"    === Some "baz"
     assert $ isNone $ stripSuffix "foo" "quux"
 
 testStripPrefix = scenario do
-    assert $ stripPrefix "foo" "foobar" == Some "bar"
-    assert $ stripPrefix ""    "baz"    == Some "baz"
+    stripPrefix "foo" "foobar" === Some "bar"
+    stripPrefix ""    "baz"    === Some "baz"
     assert $ isNone $ stripPrefix "foo" "quux"
 
 testIsPrefixOf = scenario do

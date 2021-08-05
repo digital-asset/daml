@@ -4,10 +4,12 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
 -- @WARN Modules compiled with the ExistentialQuantification language extension might not work properly with data-dependencies.
--- @ ERROR range=17:1-17:7; Pattern match with existential type.
+-- @ ERROR range=19:1-19:7; Pattern match with existential type.
 
 
 module ExistentialSum where
+
+import DA.Assert
 
 data Foo
   = Bar
@@ -18,5 +20,4 @@ runFoo Bar = 0
 runFoo (Baz _) = 1
 
 main = scenario do
-    alice <- getParty "alice"
-    submit alice $ assert (runFoo (Baz "quux") == 1)
+    runFoo (Baz "quux") === 1

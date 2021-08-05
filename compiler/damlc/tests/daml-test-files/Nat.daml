@@ -3,8 +3,10 @@
 
 module Nat where
 
+import DA.Assert
+
 data Nat = Z | S Nat
-      deriving (Eq,Ord)
+      deriving (Eq,Ord,Show)
 
 
 add : Nat -> Nat -> Nat
@@ -12,5 +14,4 @@ add Z x = x
 add (S x) y = add x (S y)
 
 main = scenario do
-    alice <- getParty "alice"
-    submit alice $ assert $ add (S (S Z)) (S Z) == S (S (S Z))
+    add (S (S Z)) (S Z) === S (S (S Z))
