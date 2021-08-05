@@ -767,7 +767,6 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
               WHERE TABLE_NAME = UPPER('$jsonApiSchemaVersionTableName')"""
           .query[Int]
           .option
-      _ = println(s"res: $res")
       version <-
         res.flatTraverse { _ =>
           sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
