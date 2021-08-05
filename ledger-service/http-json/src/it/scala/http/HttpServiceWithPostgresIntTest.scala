@@ -6,7 +6,6 @@ package com.daml.http
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresAroundAll
 import spray.json.{JsString, JsValue}
-import scala.collection.compat._
 
 import scala.concurrent.Future
 
