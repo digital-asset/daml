@@ -121,7 +121,7 @@ sealed abstract class Queries(tablePrefix: String) {
   private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     initDatabaseDdls
-      .appended(createVersionTable)
+      .:+(createVersionTable)
       .reverse
       .collect { case d: Droppable => dropIfExists(d) }
       .traverse_(_.update.run)
