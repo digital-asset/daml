@@ -758,7 +758,8 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
   protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
 
-  protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] =
+  protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
+    import cats.implicits._
     for {
       // Note that Oracle table names seem to be somewhat case sensitive,
       // but are inside the USER_TABLES table all uppercase.
@@ -769,10 +770,11 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
           .option
       _ = println(s"res: $res")
       version <-
-        res.flatMap { _ =>
-         sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
-       }
+        res.flatTraverse { _ =>
+          sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
+        }
     } yield version
+  }
 
   protected[this] type DBContractKey = JsValue
 
