@@ -237,16 +237,31 @@ object TreeUtils {
   object Command {
     def fromTree(tree: TransactionTree): Seq[Command] = {
       val contractKeys = mutable.HashMap.empty[ContractId, Value]
+      def addContractKey(createdEvent: CreatedEvent): Unit = {
+        createdEvent.contractKey.foreach { contractKey =>
+          contractKeys += ContractId(createdEvent.contractId) -> contractKey
+        }
+      }
+      def removeArchivedContractKey(exercisedEvent: ExercisedEvent): Unit = {
+        if (exercisedEvent.consuming) {
+          contractKeys -= ContractId(exercisedEvent.contractId)
+        }
+      }
+      def updateContractKeys(ev: Kind): Unit = {
+        traverseEventInTree(ev, tree) {
+          case (_, Kind.Empty) => ()
+          case (_, Kind.Created(createdEvent)) => addContractKey(createdEvent)
+          case (_, Kind.Exercised(exercisedEvent)) => removeArchivedContractKey(exercisedEvent)
+        }
+      }
       val rootEvents = tree.rootEventIds.map(tree.eventsById(_).kind)
       val commands = ListBuffer.empty[Command]
       rootEvents.foreach {
         case Kind.Empty =>
         case Kind.Created(createdEvent) =>
-          createdEvent.contractKey.foreach { contractKey =>
-            contractKeys += ContractId(createdEvent.contractId) -> contractKey
-          }
           commands += CreateCommand(createdEvent)
-        case Kind.Exercised(exercisedEvent) =>
+          addContractKey(createdEvent)
+        case ev @ Kind.Exercised(exercisedEvent) =>
           val optCreateAndExercise = commands.lastOption.flatMap {
             case CreateCommand(createdEvent)
                 if createdEvent.contractId == exercisedEvent.contractId =>
@@ -266,6 +281,7 @@ object TreeUtils {
                 case None => commands += ExerciseCommand(exercisedEvent)
               }
           }
+          updateContractKeys(ev)
       }
       commands.toSeq
     }
