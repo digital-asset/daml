@@ -692,7 +692,6 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
-              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
@@ -828,7 +827,6 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
-              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
@@ -932,7 +930,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -971,7 +968,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -1007,7 +1003,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -1055,7 +1050,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -1111,7 +1105,6 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = InitialSeeding.TransactionSeed(txSeed),
-              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
@@ -1393,7 +1386,6 @@ class EngineTest
         ledgerTime = let,
         submissionTime = submissionTime,
         seeding = InitialSeeding.TransactionSeed(txSeed),
-        globalCids = Set.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1559,7 +1551,6 @@ class EngineTest
               ledgerTime = let,
               submissionTime = let,
               seeding = seeding,
-              globalCids = Set.empty,
             )
             .consume(
               lookupContract,
@@ -1836,7 +1827,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -1977,7 +1967,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = Set.empty,
         )
         .consume(
           lookupContractMap.get,
@@ -2178,7 +2167,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
       result shouldBe a[Right[_, _]]
@@ -2208,7 +2196,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
       result shouldBe a[Left[_, _]]
@@ -2240,7 +2227,6 @@ class EngineTest
           ledgerTime = now,
           submissionTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
-          globalCids = Set.empty,
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
@@ -2314,7 +2300,6 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = Set.empty,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
       }
@@ -2440,7 +2425,6 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = Set.empty,
           )
           .consume(
             lookupContract,
@@ -2551,7 +2535,6 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = Set.empty,
           )
           .consume(
             lookupContract,
@@ -2634,7 +2617,6 @@ class EngineTest
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
-            globalCids = Set.empty,
           )
           .consume(
             lookupContract,

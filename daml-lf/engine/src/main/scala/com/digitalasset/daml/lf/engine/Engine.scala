@@ -105,7 +105,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-          globalCids = Set.empty,
         ) map { case (tx, meta) =>
           // Annotate the transaction with the package dependencies. Since
           // all commands are actions on a contract template, with a fully typed
@@ -180,7 +179,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        globalCids = Set.empty,
       )
 
     } yield result
@@ -271,7 +269,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-      globalCids: Set[Value.ContractId],
+      globalCids: Set[Value.ContractId] = Set.empty,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val sexpr = compiledPackages.compiler.unsafeCompile(commands)
     interpretExpression(
