@@ -104,7 +104,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
           .values()
           .toList
           .filterNot(c =>
-            c == Code.UNRECOGNIZED || CommandRetryFlow.RETRYABLE_ERROR_CODES.contains(c.getNumber)
+            c == Code.UNRECOGNIZED || CommandRetryFlow.RETRYABLE_ERROR_CODES
+              .contains(c.getNumber) || c == Code.OK
           )
       val failedSubmissions = codesToFail.map { code =>
         submitRequest(code.getNumber, Instant.ofEpochSecond(45)) map { result =>

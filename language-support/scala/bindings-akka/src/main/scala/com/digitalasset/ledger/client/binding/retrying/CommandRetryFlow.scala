@@ -74,9 +74,10 @@ object CommandRetryFlow {
                     _,
                   ) =>
                 result match {
-                  case Left(value) =>
-                    value match {
-                      case CompletionResponse.NotOkResponse(_, status) =>
+                  case Left(completionFailure) =>
+                    completionFailure match {
+                      case CompletionResponse.NotOkResponse(_, status)
+                          if RETRYABLE_ERROR_CODES.contains(status.code) =>
                         if (
                           (firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime
                         ) {
@@ -87,13 +88,13 @@ object CommandRetryFlow {
                             firstSubmissionTime,
                           )
                           PROPAGATE_PORT
-                        } else if (RETRYABLE_ERROR_CODES.contains(status.code)) {
+                        } else {
                           RetryLogger.logNonFatal(request, status, nrOfRetries)
                           RETRY_PORT
-                        } else {
-                          RetryLogger.logFatal(request, status, nrOfRetries)
-                          PROPAGATE_PORT
                         }
+                      case CompletionResponse.NotOkResponse(_, status) =>
+                        RetryLogger.logFatal(request, status, nrOfRetries)
+                        PROPAGATE_PORT
                       case CompletionResponse.TimeoutResponse(_) =>
                         PROPAGATE_PORT
                       case CompletionResponse.NoStatusInResponse(commandId) =>
