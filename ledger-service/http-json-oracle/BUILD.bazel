@@ -54,6 +54,7 @@ da_scala_test(
         "//ledger-service/http-json-testing:ee",
         "//ledger-service/jwt",
         "//ledger-service/utils",
+        "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
     ],
