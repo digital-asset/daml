@@ -41,9 +41,9 @@ final class LedgerConfigurationInitializer(
       // First, we acquire the mechanism for looking up the current ledger configuration.
       ledgerConfigurationSubscription <- subscriptionBuilder.subscription(configurationLoadTimeout)
       // Next, we provision the configuration if one does not already exist on the ledger.
-      _ <- optWriteService.zip(initialLedgerConfiguration) match {
-        case None => ResourceOwner.unit
-        case Some((writeService, initialConfiguration)) =>
+      _ <- (optWriteService, initialLedgerConfiguration) match {
+        case (None, _) | (_, None) => ResourceOwner.unit
+        case (Some(writeService), Some(initialConfiguration)) =>
           val submissionIdGenerator = SubmissionIdGenerator.Random
           new LedgerConfigurationProvisioner(
             ledgerConfigurationSubscription,
