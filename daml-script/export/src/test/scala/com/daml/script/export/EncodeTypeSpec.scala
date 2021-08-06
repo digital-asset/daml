@@ -92,7 +92,7 @@ private object AstSyntax {
     }
   }
   def synApp(syn: Ref.TypeSynName, args: Ast.Type*): Ast.Type = {
-    Ast.TSynApp(syn, ImmArray(args: _*))
+    Ast.TSynApp(syn, ImmArray(args))
   }
   def tuple(tys: Ast.Type*): Ast.Type = {
     val tupleTyCon: Ast.Type = Ast.TTyCon(
