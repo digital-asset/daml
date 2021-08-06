@@ -9,10 +9,8 @@ import com.daml.platform.common.MismatchException
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-final class StorageBackendPostgresInitializationSpec
-    extends AsyncFlatSpec
-    with StorageBackendPostgresSpec
-    with Matchers {
+private[backend] trait StorageBackendTestsInitialization[DB_BATCH] extends Matchers {
+  this: AsyncFlatSpec with StorageBackendSpec[DB_BATCH] =>
 
   behavior of "StorageBackend (initialization)"
 
@@ -24,7 +22,7 @@ final class StorageBackendPostgresInitializationSpec
 
     for {
       _ <- executeSql(
-        storageBackend.initializeParameters(
+        backend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
@@ -32,7 +30,7 @@ final class StorageBackendPostgresInitializationSpec
         )
       )
       error1 <- executeSql(
-        storageBackend.initializeParameters(
+        backend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = participantId,
@@ -40,7 +38,7 @@ final class StorageBackendPostgresInitializationSpec
         )
       ).failed
       error2 <- executeSql(
-        storageBackend.initializeParameters(
+        backend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = otherParticipantId,
@@ -48,7 +46,7 @@ final class StorageBackendPostgresInitializationSpec
         )
       ).failed
       error3 <- executeSql(
-        storageBackend.initializeParameters(
+        backend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = otherParticipantId,
@@ -56,7 +54,7 @@ final class StorageBackendPostgresInitializationSpec
         )
       ).failed
       _ <- executeSql(
-        storageBackend.initializeParameters(
+        backend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
