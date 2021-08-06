@@ -274,6 +274,7 @@ da_scala_test_suite(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//libs-scala/scala-utils",
+        "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_typesafe_config",
