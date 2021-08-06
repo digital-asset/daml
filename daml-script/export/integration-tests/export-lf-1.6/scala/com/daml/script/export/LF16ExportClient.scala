@@ -111,16 +111,6 @@ object LF16ExportClient {
     val run: Future[Unit] = for {
       dar <- Future.fromTry(DarDecoder.readArchiveFromFile(darPath).toTry)
       mainPackageId = dar.main._1
-      archiveId = value
-        .Identifier()
-        .withPackageId("d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662")
-        .withModuleName("DA.Internal.Template")
-        .withEntityName("Archive")
-      tuple2Id = value
-        .Identifier()
-        .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
-        .withModuleName("DA.Types")
-        .withEntityName("Tuple2")
       lf16TemplateId = value
         .Identifier()
         .withPackageId(mainPackageId)
@@ -162,20 +152,11 @@ object LF16ExportClient {
                         .CreateCommand()
                         .withTemplateId(lf16TemplateId)
                         .withCreateArguments(
-                          value
-                            .Record()
-                            .withFields(
-                              Seq(
-                                value
-                                  .RecordField()
-                                  .withLabel("issuer")
-                                  .withValue(value.Value().withParty(alice.party)),
-                                value
-                                  .RecordField()
-                                  .withLabel("count")
-                                  .withValue(value.Value().withInt64(0)),
-                              )
-                            )
+                          LF.record(
+                            lf16TemplateId,
+                            "issuer" -> value.Value().withParty(alice.party),
+                            "count" -> value.Value().withInt64(0),
+                          )
                         )
                     )
                 )
@@ -246,7 +227,7 @@ object LF16ExportClient {
                           value
                             .Value()
                             .withRecord(
-                              value.Record().withRecordId(archiveId)
+                              value.Record().withRecordId(LF.archiveId)
                             )
                         )
                     )
@@ -308,7 +289,7 @@ object LF16ExportClient {
                         .ExerciseByKeyCommand()
                         .withTemplateId(lf16TemplateId)
                         .withContractKey(
-                          LF16.tuple(
+                          LF.tuple(
                             value.Value().withParty(alice.party),
                             value.Value().withInt64(1),
                           )
@@ -402,25 +383,32 @@ object LF16ExportClient {
   }
 }
 
-object LF16 {
-  def tupleRecordId(n: Int): value.Identifier =
+object LF {
+  val archiveId = value
+    .Identifier()
+    .withPackageId("d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662")
+    .withModuleName("DA.Internal.Template")
+    .withEntityName("Archive")
+  def tupleId(n: Int): value.Identifier =
     value
       .Identifier()
       .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
       .withModuleName("DA.Types")
       .withEntityName(s"Tuple$n")
+  def record(id: value.Identifier, fields: (String, value.Value)*): value.Record =
+    value
+      .Record()
+      .withRecordId(id)
+      .withFields(fields.map { case (lbl, v) =>
+        value
+          .RecordField()
+          .withLabel(lbl)
+          .withValue(v)
+      })
   def tuple(vals: value.Value*): value.Value =
     value
       .Value()
       .withRecord(
-        value
-          .Record()
-          .withRecordId(tupleRecordId(vals.size))
-          .withFields(vals.zipWithIndex.map { case (v, ix) =>
-            value
-              .RecordField()
-              .withLabel(s"_$ix")
-              .withValue(v)
-          })
+        record(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_$ix", v) }: _*)
       )
 }
