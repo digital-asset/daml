@@ -95,7 +95,10 @@ final class CommandClient(
   def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
   ): Future[
-    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[NotUsed, Context]]
+    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[
+      NotUsed,
+      Context,
+    ]]
   ] = {
     for {
       tracker <- trackCommandsUnbounded[Context](parties, token)
@@ -115,7 +118,10 @@ final class CommandClient(
   def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
   ): Future[
-    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[NotUsed, Context]]
+    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[
+      NotUsed,
+      Context,
+    ]]
   ] =
     for {
       ledgerEnd <- getCompletionEnd(token)

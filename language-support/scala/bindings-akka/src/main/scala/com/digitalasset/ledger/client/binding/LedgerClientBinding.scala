@@ -13,7 +13,10 @@ import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId, Party}
 import com.daml.ledger.api.refinements.{CompositeCommand, CompositeCommandAdapter}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
+import com.daml.ledger.api.v1.ledger_identity_service.{
+  GetLedgerIdentityRequest,
+  LedgerIdentityServiceGrpc,
+}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient

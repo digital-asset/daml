@@ -15,11 +15,11 @@ import scala.collection.immutable
 import scala.util.Try
 
 private[tracker] final case class CommandTrackerShape[Context](
-                                                                submitRequestIn: Inlet[Ctx[Context, SubmitRequest]],
-                                                                submitRequestOut: Outlet[Ctx[(Context, String), SubmitRequest]],
-                                                                commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]],
-                                                                resultOut: Outlet[Ctx[Context, CompletionResponse]],
-                                                                offsetOut: Outlet[LedgerOffset],
+    submitRequestIn: Inlet[Ctx[Context, SubmitRequest]],
+    submitRequestOut: Outlet[Ctx[(Context, String), SubmitRequest]],
+    commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]],
+    resultOut: Outlet[Ctx[Context, CompletionResponse]],
+    offsetOut: Outlet[LedgerOffset],
 ) extends Shape {
 
   override def inlets: immutable.Seq[Inlet[_]] = Vector(submitRequestIn, commandResultIn)

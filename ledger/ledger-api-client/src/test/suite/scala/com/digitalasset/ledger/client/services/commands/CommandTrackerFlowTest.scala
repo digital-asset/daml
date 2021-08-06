@@ -80,10 +80,10 @@ class CommandTrackerFlowTest
   )
 
   private case class Handle(
-                             submissions: TestPublisher.Probe[Ctx[Int, SubmitRequest]],
-                             completions: TestSubscriber.Probe[Ctx[Int, CompletionResponse]],
-                             whatever: Future[Map[String, Int]],
-                             completionsStreamMock: CompletionStreamMock,
+      submissions: TestPublisher.Probe[Ctx[Int, SubmitRequest]],
+      completions: TestSubscriber.Probe[Ctx[Int, CompletionResponse]],
+      whatever: Future[Map[String, Int]],
+      completionsStreamMock: CompletionStreamMock,
   )
 
   private class CompletionStreamMock() {
