@@ -4,6 +4,7 @@
 package com.daml.ledger.client.services.commands.tracker
 
 import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.grpc.GrpcStatuses
 import com.google.protobuf.Any
 import com.google.rpc
 import com.google.rpc.status.{Status => StatusProto}
@@ -20,7 +21,11 @@ object CompletionResponse {
     def metadata: Map[String, String] = Map.empty
   }
   final case class NotOkResponse(commandId: String, grpcStatus: StatusProto)
-      extends CompletionFailure
+      extends CompletionFailure {
+    override def metadata: Map[String, String] = Map(
+      GrpcStatuses.DefiniteAnswerKey -> GrpcStatuses.isDefiniteAnswer(grpcStatus).toString
+    )
+  }
   final case class TimeoutResponse(commandId: String) extends CompletionFailure
   final case class NoStatusInResponse(commandId: String) extends CompletionFailure
 

@@ -33,6 +33,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-resources",
+        "//ledger/ledger-grpc",
         "//ledger/metrics",
         "//libs-scala/concurrent",
         "//libs-scala/grpc-utils",
