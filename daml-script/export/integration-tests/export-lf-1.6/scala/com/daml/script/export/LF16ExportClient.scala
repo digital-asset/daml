@@ -145,82 +145,46 @@ object LF16ExportClient {
             "issuer" -> value.Value().withParty(alice.party),
             "count" -> value.Value().withInt64(0),
           ),
-        )
+        ),
       )
       cid = tx.events(0).event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
-      resp <- client.commandServiceClient.submitAndWaitForTransaction(
-        command_service
-          .SubmitAndWaitRequest()
-          .withCommands(
-            commands
-              .Commands()
-              .withLedgerId(ledgerId)
-              .withApplicationId(ledgerConfig.applicationId)
-              .withCommandId("exercise-Lf16-Increment")
-              .withActAs(Seq(alice.party))
-              .withCommands(
-                Seq(
-                  ApiCommand
-                    .exercise(lf16TemplateId, cid, "Increment", ApiValue.record(lf16IncrementId))
-                )
-              )
-          )
+      tx <- apiClient.submit(
+        "exercise-Lf16-Increment",
+        Seq(alice.party),
+        ApiCommand.exercise(lf16TemplateId, cid, "Increment", ApiValue.record(lf16IncrementId)),
       )
-      _ = System.err.println(s"${resp}")
-      cid = resp.getTransaction.events.find(_.event.isCreated).get.event.created.get.contractId
+      cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
-      resp <- client.commandServiceClient.submitAndWaitForTransaction(
-        command_service
-          .SubmitAndWaitRequest()
-          .withCommands(
-            commands
-              .Commands()
-              .withLedgerId(ledgerId)
-              .withApplicationId(ledgerConfig.applicationId)
-              .withCommandId("archive-Lf16")
-              .withActAs(Seq(alice.party))
-              .withCommands(Seq(ApiCommand.archive(lf16TemplateId, cid)))
-          )
+      _ <- apiClient.submit(
+        "archive-Lf16",
+        Seq(alice.party),
+        ApiCommand.archive(lf16TemplateId, cid),
       )
-      _ = System.err.println(s"${resp}")
-      resp <- client.commandServiceClient.submitAndWaitForTransaction(
-        command_service
-          .SubmitAndWaitRequest()
-          .withCommands(
-            commands
-              .Commands()
-              .withLedgerId(ledgerId)
-              .withApplicationId(ledgerConfig.applicationId)
-              .withCommandId("createAndExercise-exerciseByKey-Lf16-Increment")
-              .withActAs(Seq(alice.party))
-              .withCommands(
-                Seq(
-                  ApiCommand.createAndExercise(
-                    lf16TemplateId,
-                    ApiValue.recordRec(
-                      lf16TemplateId,
-                      "issuer" -> value.Value().withParty(alice.party),
-                      "count" -> value.Value().withInt64(0),
-                    ),
-                    "Increment",
-                    ApiValue.record(lf16IncrementId),
-                  ),
-                  ApiCommand.exerciseByKey(
-                    lf16TemplateId,
-                    ApiValue.tuple(
-                      value.Value().withParty(alice.party),
-                      value.Value().withInt64(1),
-                    ),
-                    "Increment",
-                    ApiValue.record(lf16IncrementId),
-                  ),
-                )
-              )
-          )
+      tx <- apiClient.submit(
+        "createAndExercise-exerciseByKey-Lf16-Increment",
+        Seq(alice.party),
+        ApiCommand.createAndExercise(
+          lf16TemplateId,
+          ApiValue.recordRec(
+            lf16TemplateId,
+            "issuer" -> value.Value().withParty(alice.party),
+            "count" -> value.Value().withInt64(0),
+          ),
+          "Increment",
+          ApiValue.record(lf16IncrementId),
+        ),
+        ApiCommand.exerciseByKey(
+          lf16TemplateId,
+          ApiValue.tuple(
+            value.Value().withParty(alice.party),
+            value.Value().withInt64(1),
+          ),
+          "Increment",
+          ApiValue.record(lf16IncrementId),
+        ),
       )
-      _ = System.err.println(s"${resp}")
-      cid = resp.getTransaction.events.find(_.event.isCreated).get.event.created.get.contractId
+      cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
     } yield ()
     run
@@ -385,19 +349,26 @@ object ApiCommand {
 }
 
 case class ApiClient(applicationId: String, ledgerId: String, ledgerClient: LedgerClient) {
-  def submit(commandId: String, actAs: Seq[String], cmds: commands.Command*)(implicit ec: ExecutionContext): Future[transaction.Transaction] = {
-    ledgerClient.commandServiceClient.submitAndWaitForTransaction(
-      command_service
-        .SubmitAndWaitRequest()
-        .withCommands(
-          commands
-            .Commands()
-            .withLedgerId(ledgerId)
-            .withApplicationId(applicationId)
-            .withCommandId(commandId)
-            .withActAs(actAs)
-            .withCommands(cmds)
-        )
-    ).map(_.getTransaction)
+  def submit(commandId: String, actAs: Seq[String], cmds: commands.Command*)(implicit
+      ec: ExecutionContext
+  ): Future[transaction.Transaction] = {
+    ledgerClient.commandServiceClient
+      .submitAndWaitForTransaction(
+        command_service
+          .SubmitAndWaitRequest()
+          .withCommands(
+            commands
+              .Commands()
+              .withLedgerId(ledgerId)
+              .withApplicationId(applicationId)
+              .withCommandId(commandId)
+              .withActAs(actAs)
+              .withCommands(cmds)
+          )
+      )
+      .map { resp =>
+        System.err.println(s"RESP $resp")
+        resp.getTransaction
+      }
   }
 }
