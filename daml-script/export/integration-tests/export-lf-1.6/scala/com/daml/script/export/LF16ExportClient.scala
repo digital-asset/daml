@@ -129,7 +129,6 @@ object LF16ExportClient {
         port = ledgerPort,
       )
       alice <- client.allocateParty("Alice", "Alice")
-      _ = System.err.println(s"$alice")
       tx <- client.submit(
         "create-LF16",
         Seq(alice.party),
@@ -143,14 +142,12 @@ object LF16ExportClient {
         ),
       )
       cid = tx.events(0).event.created.get.contractId
-      _ = System.err.println(s"ID: $cid")
       tx <- client.submit(
         "exercise-Lf16-Increment",
         Seq(alice.party),
         ApiCommand.exercise(lf16TemplateId, cid, "Increment", ApiValue.record(lf16IncrementId)),
       )
       cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
-      _ = System.err.println(s"ID: $cid")
       _ <- client.submit(
         "archive-Lf16",
         Seq(alice.party),
@@ -177,7 +174,6 @@ object LF16ExportClient {
         ),
       )
       cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
-      _ = System.err.println(s"ID: $cid")
     } yield ()
     run.onComplete { _ => sys.terminate() }
     val _ = Await.result(sys.whenTerminated, Duration.Inf)
@@ -347,7 +343,6 @@ case class ApiClient(applicationId: String, ledgerId: String, ledgerClient: Ledg
   def submit(commandId: String, actAs: Seq[String], cmds: commands.Command*)(implicit
       ec: ExecutionContext
   ): Future[transaction.Transaction] = {
-    System.err.println(s"SUBMIT $cmds")
     ledgerClient.commandServiceClient
       .submitAndWaitForTransaction(
         command_service
@@ -362,10 +357,7 @@ case class ApiClient(applicationId: String, ledgerId: String, ledgerClient: Ledg
               .withCommands(cmds)
           )
       )
-      .map { resp =>
-        System.err.println(s"RESP $resp")
-        resp.getTransaction
-      }
+      .map(_.getTransaction)
   }
 }
 
