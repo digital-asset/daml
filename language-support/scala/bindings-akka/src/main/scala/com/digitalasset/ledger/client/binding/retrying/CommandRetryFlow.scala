@@ -70,39 +70,34 @@ object CommandRetryFlow {
             {
               case Ctx(
                     RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
-                    result,
+                    Left(CompletionResponse.NotOkResponse(_, status)),
+                    _,
+                  ) if RETRYABLE_ERROR_CODES.contains(status.code) =>
+                if ((firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime) {
+                  RetryLogger.logStopRetrying(
+                    request,
+                    status,
+                    nrOfRetries,
+                    firstSubmissionTime,
+                  )
+                  PROPAGATE_PORT
+                } else {
+                  RetryLogger.logNonFatal(request, status, nrOfRetries)
+                  RETRY_PORT
+                }
+              case Ctx(
+                    RetryInfo(request, nrOfRetries, _, _),
+                    Left(CompletionResponse.NotOkResponse(_, status)),
                     _,
                   ) =>
-                result match {
-                  case Left(completionFailure) =>
-                    completionFailure match {
-                      case CompletionResponse.NotOkResponse(_, status)
-                          if RETRYABLE_ERROR_CODES.contains(status.code) =>
-                        if (
-                          (firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime
-                        ) {
-                          RetryLogger.logStopRetrying(
-                            request,
-                            status,
-                            nrOfRetries,
-                            firstSubmissionTime,
-                          )
-                          PROPAGATE_PORT
-                        } else {
-                          RetryLogger.logNonFatal(request, status, nrOfRetries)
-                          RETRY_PORT
-                        }
-                      case CompletionResponse.NotOkResponse(_, status) =>
-                        RetryLogger.logFatal(request, status, nrOfRetries)
-                        PROPAGATE_PORT
-                      case CompletionResponse.TimeoutResponse(_) =>
-                        PROPAGATE_PORT
-                      case CompletionResponse.NoStatusInResponse(commandId) =>
-                        statusNotFoundError(commandId)
-                    }
-                  case Right(_) =>
-                    PROPAGATE_PORT
-                }
+                RetryLogger.logFatal(request, status, nrOfRetries)
+                PROPAGATE_PORT
+              case Ctx(_, Left(CompletionResponse.TimeoutResponse(_)), _) =>
+                PROPAGATE_PORT
+              case Ctx(_, Left(CompletionResponse.NoStatusInResponse(commandId)), _) =>
+                statusNotFoundError(commandId)
+              case Ctx(_, Right(_), _) =>
+                PROPAGATE_PORT
             },
           )
         )
