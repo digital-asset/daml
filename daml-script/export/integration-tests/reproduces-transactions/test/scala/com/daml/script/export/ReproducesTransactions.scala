@@ -46,7 +46,7 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-final class ReproducesTransactions
+trait ReproducesTransactions
     extends AsyncFreeSpec
     with Matchers
     with AkkaBeforeAndAfterAll
@@ -290,10 +290,12 @@ final class ReproducesTransactions
       } yield ()
   }
 
+  def numParties: Int
+  def skip: Int
+  def description: String
+
   "Generated export for IOU transfer compiles" - {
-    "offset 0 - empty ACS" in { testOffset(2, 0)(testIou) }
-    "offset 2 - skip split" in { testOffset(2, 2)(testIou) }
-    "offset 4 - no trees" in { testOffset(2, 4)(testIou) }
+    s"offset $skip - $description" in { testOffset(numParties, skip)(testIou) }
   }
 
   private def transactionFilter(ps: Ref.Party*) =
