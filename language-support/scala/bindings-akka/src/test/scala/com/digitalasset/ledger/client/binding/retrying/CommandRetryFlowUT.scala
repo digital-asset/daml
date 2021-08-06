@@ -90,7 +90,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
 
   CommandRetryFlow.getClass.getSimpleName should {
 
-    "propagete OK status" in {
+    "propagate OK status" in {
       submitRequest(Code.OK_VALUE, Instant.ofEpochSecond(45)) map { result =>
         inside(result) { case Seq(Ctx(context, Right(_), _)) =>
           context.nrOfRetries shouldBe 0
