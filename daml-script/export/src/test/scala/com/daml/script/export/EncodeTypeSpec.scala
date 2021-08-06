@@ -77,7 +77,8 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
         val arrowTy: Ast.Type = Ast.TBuiltin(Ast.BTArrow)
         val rhs = tys.foldRight(None: Option[Ast.Type => Ast.Type]) {
           case (ty, None) => Some((hole: Ast.Type) => Ast.TApp(Ast.TApp(arrowTy, hole), ty))
-          case (ty, Some(acc)) => Some((hole: Ast.Type) => Ast.TApp(Ast.TApp(arrowTy, hole), acc(ty)))
+          case (ty, Some(acc)) =>
+            Some((hole: Ast.Type) => Ast.TApp(Ast.TApp(arrowTy, hole), acc(ty)))
         }
         rhs match {
           case Some(acc) => acc(ty)
@@ -123,7 +124,8 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
         encodeType(ty).render(80) shouldBe "[Int]"
       }
       "arrow type" in {
-        val ty = arrow(arrow(Ast.TApp(Ast.TVar(Ref.Name.assertFromString("foo")), int), text), int, text)
+        val ty =
+          arrow(arrow(Ast.TApp(Ast.TVar(Ref.Name.assertFromString("foo")), int), text), int, text)
         encodeType(ty).render(80) shouldBe "(foo Int -> Text) -> Int -> Text"
       }
     }

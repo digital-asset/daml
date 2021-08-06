@@ -317,7 +317,7 @@ private[export] object Encode {
           case (Ast.TBuiltin(Ast.BTArrow), Seq(a, b)) =>
             precParens(
               1,
-              encodeType(a, 2) & Doc.text("->") & encodeType(b)
+              encodeType(a, 2) & Doc.text("->") & encodeType(b),
             )
           case (f, args) =>
             precParens(
