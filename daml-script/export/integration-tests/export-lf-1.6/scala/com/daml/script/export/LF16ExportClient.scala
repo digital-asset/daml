@@ -189,11 +189,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(
-                              value
-                                .Record()
-                                .withRecordId(lf16IncrementId)
-                            )
+                            .withRecord(LF.record(lf16IncrementId))
                         )
                     )
                 )
@@ -226,9 +222,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(
-                              value.Record().withRecordId(LF.archiveId)
-                            )
+                            .withRecord(LF.record(LF.archiveId))
                         )
                     )
                 )
@@ -275,11 +269,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(
-                              value
-                                .Record()
-                                .withRecordId(lf16IncrementId)
-                            )
+                            .withRecord(LF.record(lf16IncrementId))
                         )
                     ),
                   commands
@@ -298,10 +288,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(
-                              value
-                                .Record()
-                                .withRecordId(lf16IncrementId)
+                            .withRecord(LF.record(lf16IncrementId)
                             )
                         )
                     ),
