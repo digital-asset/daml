@@ -6,7 +6,6 @@ package com.daml.http.dbbackend
 import cats.instances.list._
 import doobie.util.log.LogHandler
 import com.daml.doobie.logging.Slf4jLogHandler
-import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.testing.oracle, oracle.{OracleAround, User}
