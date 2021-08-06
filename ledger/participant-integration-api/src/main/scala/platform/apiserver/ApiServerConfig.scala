@@ -25,7 +25,7 @@ case class ApiServerConfig(
     databaseConnectionTimeout: FiniteDuration,
     tlsConfig: Option[TlsConfiguration],
     maxInboundMessageSize: Int,
-    initialLedgerConfiguration: InitialLedgerConfiguration,
+    initialLedgerConfiguration: Option[InitialLedgerConfiguration],
     configurationLoadTimeout: Duration,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
