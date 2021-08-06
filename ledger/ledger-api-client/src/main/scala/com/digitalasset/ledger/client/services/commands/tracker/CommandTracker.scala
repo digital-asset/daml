@@ -8,10 +8,11 @@ import java.time.{Instant, Duration => JDuration}
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
+import CompletionResponse.CompletionResponse
 import com.daml.ledger.api.v1.command_submission_service._
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.services.commands.CompletionStreamElement
+import com.daml.ledger.client.services.commands.{CompletionStreamElement, tracker}
 import com.daml.util.Ctx
 import com.google.protobuf.duration.{Duration => ProtoDuration}
 import com.google.protobuf.empty.Empty
@@ -58,8 +59,8 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
     Outlet[Ctx[(Context, String), SubmitRequest]]("submitRequestOut")
   val commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]] =
     Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]]("commandResultIn")
-  val resultOut: Outlet[Ctx[Context, Completion]] =
-    Outlet[Ctx[Context, Completion]]("resultOut")
+  val resultOut: Outlet[Ctx[Context, CompletionResponse]] =
+    Outlet[Ctx[Context, CompletionResponse]]("resultOut")
   val offsetOut: Outlet[LedgerOffset] =
     Outlet[LedgerOffset]("offsetOut")
 
@@ -166,7 +167,9 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
         },
       )
 
-      private def pushResultOrPullCommandResultIn(compl: Option[Ctx[Context, Completion]]): Unit = {
+      private def pushResultOrPullCommandResultIn(
+          compl: Option[Ctx[Context, CompletionResponse]]
+      ): Unit = {
         // The command tracker detects timeouts outside the regular pull/push
         // mechanism of the input/output ports. Basically the timeout
         // detection jumps the line when emitting outputs on `resultOut`. If it
@@ -211,7 +214,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
           ) { commands =>
             val commandId = commands.commandId
             logger.trace("Begin tracking of command {}", commandId)
-            if (pendingCommands.get(commandId).nonEmpty) {
+            if (pendingCommands.contains(commandId)) {
               // TODO return an error identical to the server side duplicate command error once that's defined.
               throw new IllegalStateException(
                 s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
@@ -250,11 +253,10 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
               List(
                 Ctx(
                   trackingData.context,
-                  Completion(
-                    trackingData.commandId,
-                    Some(
-                      com.google.rpc.status.Status(RpcStatus.ABORTED.getCode.value(), "Timeout")
-                    ),
+                  Left(
+                    CompletionResponse.TimeoutResponse(
+                      commandId = trackingData.commandId
+                    )
                   ),
                 )
               )
@@ -277,19 +279,19 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
 
         logger.trace("Handling {} {}", errorText, completion.commandId: Any)
         pendingCommands.remove(commandId).map { t =>
-          Ctx(t.context, completion)
+          Ctx(t.context, tracker.CompletionResponse(completion))
         }
       }
 
       private def getOutputForTerminalStatusCode(
           commandId: String,
           status: Status,
-      ): Option[Ctx[Context, Completion]] = {
+      ): Option[Ctx[Context, CompletionResponse]] = {
         logger.trace("Handling failure of command {}", commandId)
         pendingCommands
           .remove(commandId)
           .map { t =>
-            Ctx(t.context, Completion(commandId, Some(status)))
+            Ctx(t.context, tracker.CompletionResponse(Completion(commandId, Some(status))))
           }
           .orElse {
             logger.trace("Platform signaled failure for unknown command {}", commandId)

@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.codahale.metrics.Counter
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.CompletionResponse
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -17,7 +18,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
@@ -74,7 +74,7 @@ final class CommandClient(
     */
   def trackSingleCommand(submitRequest: SubmitRequest, token: Option[String] = None)(implicit
       mat: Materializer
-  ): Future[Completion] = {
+  ): Future[CompletionResponse] = {
     implicit val executionContext: ExecutionContextExecutor = mat.executionContext
     val effectiveActAs = CommandsValidator.effectiveSubmitters(submitRequest.getCommands).actAs
     for {
@@ -95,7 +95,7 @@ final class CommandClient(
   def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
   ): Future[
-    Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[NotUsed, Context]]
+    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[NotUsed, Context]]
   ] = {
     for {
       tracker <- trackCommandsUnbounded[Context](parties, token)
@@ -115,7 +115,7 @@ final class CommandClient(
   def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
   ): Future[
-    Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[NotUsed, Context]]
+    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[NotUsed, Context]]
   ] =
     for {
       ledgerEnd <- getCompletionEnd(token)
@@ -139,7 +139,7 @@ final class CommandClient(
       if (effectiveActAs.subsetOf(allowedParties)) elem
       else
         throw new IllegalArgumentException(
-          s"Attempted submission and tracking of command ${commands.commandId} by parties ${effectiveActAs} while some of those parties are not part of the subscription set $allowedParties."
+          s"Attempted submission and tracking of command ${commands.commandId} by parties $effectiveActAs while some of those parties are not part of the subscription set $allowedParties."
         )
     }
 

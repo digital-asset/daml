@@ -3,21 +3,19 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import akka.{Done, NotUsed}
 import akka.stream.scaladsl.{Flow, Keep, Sink, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
+import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.CompletionResponse
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
 import com.daml.platform.server.api.ApiException
 import com.daml.util.Ctx
-import com.google.rpc.code.Code
-import com.google.rpc.status.Status
 import io.grpc.{Status => GrpcStatus}
 
 import scala.concurrent.duration._
@@ -39,15 +37,15 @@ private[services] final class TrackerImpl(
   override def track(request: SubmitAndWaitRequest)(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Completion] = {
+  ): Future[CompletionResponse] = {
     logger.trace("Tracking command")
-    val promise = Promise[Completion]()
+    val promise = Promise[CompletionResponse]()
     submitNewRequest(request, promise)
   }
 
-  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(implicit
-      ec: ExecutionContext
-  ): Future[Completion] = {
+  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[CompletionResponse])(
+      implicit ec: ExecutionContext
+  ): Future[CompletionResponse] = {
     queue
       .offer(
         Ctx(
@@ -76,9 +74,9 @@ private[services] object TrackerImpl {
 
   def apply(
       tracker: Flow[
-        Ctx[Promise[Completion], SubmitRequest],
-        Ctx[Promise[Completion], Completion],
-        Materialized[NotUsed, Promise[Completion]],
+        Ctx[Promise[CompletionResponse], SubmitRequest],
+        Ctx[Promise[CompletionResponse], CompletionResponse],
+        Materialized[NotUsed, Promise[CompletionResponse]],
       ],
       inputBufferSize: Int,
       capacityCounter: Counter,
@@ -95,24 +93,10 @@ private[services] object TrackerImpl {
       )
       .viaMat(tracker)(Keep.both)
       .toMat(Sink.foreach { case Ctx(promise, result, _) =>
-        result match {
-          case compl @ Completion(_, Some(Status(Code.OK.value, _, _, _)), _) =>
-            logger.trace("Completing promise with success")
-            promise.trySuccess(compl)
-          case Completion(_, statusO, _) =>
-            val status = statusO
-              .map(status =>
-                GrpcStatus
-                  .fromCodeValue(status.code)
-                  .withDescription(status.message)
-              )
-              .getOrElse(
-                GrpcStatus.INTERNAL
-                  .withDescription("Missing status in completion response.")
-              )
-
-            logger.trace(s"Completing promise with failure: $status")
-            promise.tryFailure(status.asException())
+        logger.trace("Completing promise")
+        val didCompletePromise = promise.trySuccess(result)
+        if (!didCompletePromise) {
+          logger.trace("Failed to complete promise")
         }
         ()
       })(Keep.both)
@@ -146,5 +130,5 @@ private[services] object TrackerImpl {
     new TrackerImpl(queue, done)
   }
 
-  type QueueInput = Ctx[Promise[Completion], SubmitRequest]
+  type QueueInput = Ctx[Promise[CompletionResponse], SubmitRequest]
 }

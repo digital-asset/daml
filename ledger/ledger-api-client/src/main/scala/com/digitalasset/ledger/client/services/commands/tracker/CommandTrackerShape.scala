@@ -5,9 +5,9 @@ package com.daml.ledger.client.services.commands.tracker
 
 import akka.stream.{Inlet, Outlet, Shape}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.CompletionStreamElement
+import CompletionResponse.CompletionResponse
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 
@@ -15,11 +15,11 @@ import scala.collection.immutable
 import scala.util.Try
 
 private[tracker] final case class CommandTrackerShape[Context](
-    submitRequestIn: Inlet[Ctx[Context, SubmitRequest]],
-    submitRequestOut: Outlet[Ctx[(Context, String), SubmitRequest]],
-    commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]],
-    resultOut: Outlet[Ctx[Context, Completion]],
-    offsetOut: Outlet[LedgerOffset],
+                                                                submitRequestIn: Inlet[Ctx[Context, SubmitRequest]],
+                                                                submitRequestOut: Outlet[Ctx[(Context, String), SubmitRequest]],
+                                                                commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]],
+                                                                resultOut: Outlet[Ctx[Context, CompletionResponse]],
+                                                                offsetOut: Outlet[LedgerOffset],
 ) extends Shape {
 
   override def inlets: immutable.Seq[Inlet[_]] = Vector(submitRequestIn, commandResultIn)

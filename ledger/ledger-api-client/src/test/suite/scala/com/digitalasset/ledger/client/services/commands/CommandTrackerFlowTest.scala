@@ -22,15 +22,19 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  NotOkResponse,
+  CompletionResponse,
+}
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
-import io.grpc.{Status => GrpcStatus}
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.OptionValues
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -56,7 +60,7 @@ class CommandTrackerFlowTest
   private val shortDuration = JDuration.ofSeconds(1L)
 
   private lazy val submissionSource = TestSource.probe[Ctx[Int, SubmitRequest]]
-  private lazy val resultSink = TestSink.probe[Ctx[Int, Completion]](system)
+  private lazy val resultSink = TestSink.probe[Ctx[Int, CompletionResponse]](system)
 
   private val mrt = Instant.EPOCH.plus(shortDuration)
   private val commandId = "commandId"
@@ -76,10 +80,10 @@ class CommandTrackerFlowTest
   )
 
   private case class Handle(
-      submissions: TestPublisher.Probe[Ctx[Int, SubmitRequest]],
-      completions: TestSubscriber.Probe[Ctx[Int, Completion]],
-      whatever: Future[Map[String, Int]],
-      completionsStreamMock: CompletionStreamMock,
+                             submissions: TestPublisher.Probe[Ctx[Int, SubmitRequest]],
+                             completions: TestSubscriber.Probe[Ctx[Int, CompletionResponse]],
+                             whatever: Future[Map[String, Int]],
+                             completionsStreamMock: CompletionStreamMock,
   )
 
   private class CompletionStreamMock() {
@@ -210,9 +214,8 @@ class CommandTrackerFlowTest
         submissions.sendNext(submitRequest)
 
         val failureCompletion =
-          Completion(
-            commandId,
-            Some(Status(Code.RESOURCE_EXHAUSTED.value)),
+          Left(
+            NotOkResponse(commandId = commandId, grpcStatus = Status(Code.RESOURCE_EXHAUSTED.value))
           )
 
         results.expectNext(Ctx(context, failureCompletion))
@@ -236,7 +239,7 @@ class CommandTrackerFlowTest
             Some(Status(Code.ABORTED.value)),
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
-        results.requestNext().value shouldEqual completion
+        results.requestNext().value shouldEqual CompletionResponse(completion)
         succeed
       }
 
@@ -255,7 +258,7 @@ class CommandTrackerFlowTest
             Some(Status(Code.ABORTED.value)),
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
-        results.requestNext().value shouldEqual completion
+        results.requestNext().value shouldEqual CompletionResponse(completion)
       }
 
     }
@@ -295,7 +298,7 @@ class CommandTrackerFlowTest
 
         completionStreamMock.send(successfulCompletion(commandId))
 
-        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        results.expectNext(Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, ""))))
         succeed
       }
 
@@ -310,9 +313,10 @@ class CommandTrackerFlowTest
           shortDuration.getSeconds.seconds * 3,
           Ctx(
             context,
-            Completion(
-              timedOutCommandId,
-              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
+            Left(
+              CompletionResponse.TimeoutResponse(
+                timedOutCommandId
+              )
             ),
           ),
         )
@@ -339,9 +343,10 @@ class CommandTrackerFlowTest
           3.seconds,
           Ctx(
             context,
-            Completion(
-              timedOutCommandId,
-              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
+            Left(
+              CompletionResponse.TimeoutResponse(
+                timedOutCommandId
+              )
             ),
           ),
         )
@@ -352,7 +357,7 @@ class CommandTrackerFlowTest
         // The order below is important to reproduce the issue described in DPP-285.
         results.expectNoMessage()
         results.request(1)
-        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        results.expectNext(Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, ""))))
         succeed
       }
 
@@ -370,7 +375,7 @@ class CommandTrackerFlowTest
         completionStreamMock.send(successfulCompletion(commandId))
         completionStreamMock.send(successfulCompletion(commandId))
 
-        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        results.expectNext(Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, ""))))
         results.expectNoMessage(1.second)
         succeed
       }
@@ -385,14 +390,20 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submitRequest)
 
+        val status = Status(Code.INVALID_ARGUMENT.value)
         val failureCompletion =
           Completion(
             commandId,
-            Some(Status(Code.INVALID_ARGUMENT.value)),
+            Some(status),
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(failureCompletion))
 
-        results.expectNext(Ctx(context, failureCompletion))
+        results.expectNext(
+          Ctx(
+            context,
+            Left(CompletionResponse.NotOkResponse(commandId = commandId, grpcStatus = status)),
+          )
+        )
         succeed
       }
     }
@@ -419,7 +430,7 @@ class CommandTrackerFlowTest
 
         results.expectNextUnorderedN(commandIds.map { commandId =>
           val successCompletion =
-            Completion(commandId, Some(Status()))
+            Right(CompletionResponse.CompletionSuccess(commandId, ""))
           Ctx(context, successCompletion)
         })
         succeed
@@ -450,10 +461,7 @@ class CommandTrackerFlowTest
             _ = results.expectNext(
               Ctx(
                 context,
-                Completion(
-                  commandId,
-                  Some(Status()),
-                ),
+                Right(CompletionResponse.CompletionSuccess(commandId, "")),
               )
             )
           } yield ()

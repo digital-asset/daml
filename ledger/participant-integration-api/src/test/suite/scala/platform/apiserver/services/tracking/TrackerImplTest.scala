@@ -16,14 +16,13 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.logging.LoggingContext
-import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterEach, Succeeded}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{BeforeAndAfterEach, Succeeded}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -49,7 +48,9 @@ class TrackerImplTest
     val (q, sink) = Source
       .queue[TrackerImpl.QueueInput](1, OverflowStrategy.dropNew)
       .map { in =>
-        in.context.success(Completion(in.value.getCommands.commandId, Some(RpcStatus())))
+        in.context.success(
+          Right(CompletionResponse.CompletionSuccess(in.value.getCommands.commandId, ""))
+        )
         NotUsed
       }
       .toMat(TestSink.probe[NotUsed])(Keep.both)

@@ -12,12 +12,8 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId, Party}
 import com.daml.ledger.api.refinements.{CompositeCommand, CompositeCommandAdapter}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.ledger_identity_service.{
-  GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc,
-}
+import com.daml.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
@@ -25,6 +21,7 @@ import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
 import com.daml.ledger.client.binding.util.Slf4JLogger
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.CompletionResponse
 import com.daml.util.Ctx
 import io.grpc.ManagedChannel
 import io.grpc.netty.NegotiationType.TLS
@@ -84,7 +81,7 @@ class LedgerClientBinding(
       .via(DomainTransactionMapper(decoder))
   }
 
-  type CommandTrackingFlow[C] = Flow[Ctx[C, CompositeCommand], Ctx[C, Completion], NotUsed]
+  type CommandTrackingFlow[C] = Flow[Ctx[C, CompositeCommand], Ctx[C, CompletionResponse], NotUsed]
 
   private val compositeCommandAdapter = new CompositeCommandAdapter(
     LedgerId(ledgerClient.ledgerId.unwrap),
@@ -115,7 +112,7 @@ class LedgerClientBinding(
     retryInfo.request
   }
 
-  type CommandsFlow[C] = Flow[Ctx[C, CompositeCommand], Ctx[C, Completion], NotUsed]
+  type CommandsFlow[C] = Flow[Ctx[C, CompositeCommand], Ctx[C, CompletionResponse], NotUsed]
 
   def commands[C](party: Party)(implicit ec: ExecutionContext): Future[CommandsFlow[C]] = {
     for {

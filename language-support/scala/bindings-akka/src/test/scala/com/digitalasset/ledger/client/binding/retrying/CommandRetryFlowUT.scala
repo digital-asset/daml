@@ -11,18 +11,24 @@ import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  NotOkResponse,
+  CompletionResponse,
+}
 import com.daml.ledger.client.testing.AkkaTest
 import com.daml.util.Ctx
 import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.annotation.nowarn
 import scala.concurrent.Future
 
-class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
+class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with Inside {
 
   /** Uses the status received in the context for the first time,
     * then replies OK status as the ledger effective time is stepped.
@@ -32,13 +38,15 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       .map {
         case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands)), _) =>
           if (commands.deduplicationTime.get.nanos == 0) {
-            Ctx(context, Completion(commands.commandId, Some(status)))
+            Ctx(context, CompletionResponse(Completion(commands.commandId, Some(status))))
           } else {
             Ctx(
               context,
-              Completion(
-                commands.commandId,
-                Some(status.copy(code = Code.OK_VALUE)),
+              CompletionResponse(
+                Completion(
+                  commands.commandId,
+                  Some(status.copy(code = Code.OK_VALUE)),
+                )
               ),
             )
           }
@@ -49,8 +57,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
   private val timeProvider = TimeProvider.Constant(Instant.ofEpochSecond(60))
   private val maxRetryTime = Duration.ofSeconds(30)
 
-  @nowarn("msg=parameter value completion .* is never used") // matches createGraph signature
-  private def createRetry(retryInfo: RetryInfo[Status], completion: Completion) = {
+  @nowarn("msg=parameter value response .* is never used") // matches createGraph signature
+  private def createRetry(retryInfo: RetryInfo[Status], response: CompletionResponse) = {
     val commands = retryInfo.request.commands.get
     val dedupTime = commands.deduplicationTime.get
     val newDedupTime = dedupTime.copy(nanos = dedupTime.nanos + 1)
@@ -91,7 +99,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       submitRequest(Code.OK_VALUE, Instant.ofEpochSecond(45)) map { result =>
         result.size shouldBe 1
         result.head.context.nrOfRetries shouldBe 0
-        result.head.value.status.get.code shouldBe Code.OK_VALUE
+        result.head.value shouldBe Symbol("right")
       }
     }
 
@@ -107,7 +115,9 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
         submitRequest(code.getNumber, Instant.ofEpochSecond(45)) map { result =>
           result.size shouldBe 1
           result.head.context.nrOfRetries shouldBe 0
-          result.head.value.status.get.code shouldBe code.getNumber
+          inside(result.head.value) { case Left(NotOkResponse(_, grpcStatus)) =>
+            grpcStatus.code shouldBe code.getNumber
+          }
         }
       }
       Future.sequence(failedSubmissions).map(_ => succeed)
@@ -117,7 +127,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       submitRequest(Code.RESOURCE_EXHAUSTED_VALUE, Instant.ofEpochSecond(45)) map { result =>
         result.size shouldBe 1
         result.head.context.nrOfRetries shouldBe 1
-        result.head.value.status.get.code shouldBe Code.OK_VALUE
+        result.head.value shouldBe Symbol("right")
       }
     }
 
@@ -125,7 +135,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       submitRequest(Code.UNAVAILABLE_VALUE, Instant.ofEpochSecond(45)) map { result =>
         result.size shouldBe 1
         result.head.context.nrOfRetries shouldBe 1
-        result.head.value.status.get.code shouldBe Code.OK_VALUE
+        result.head.value shouldBe Symbol("right")
       }
     }
 
@@ -133,7 +143,9 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       submitRequest(Code.RESOURCE_EXHAUSTED_VALUE, Instant.ofEpochSecond(15)) map { result =>
         result.size shouldBe 1
         result.head.context.nrOfRetries shouldBe 0
-        result.head.value.status.get.code shouldBe Code.RESOURCE_EXHAUSTED_VALUE
+        inside(result.head.value) { case Left(NotOkResponse(_, grpcStatus)) =>
+          grpcStatus.code shouldBe Code.RESOURCE_EXHAUSTED_VALUE.intValue
+        }
       }
     }
 

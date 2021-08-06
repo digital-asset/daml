@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.services.tracking
 
 import akka.stream.QueueOfferResult
 import com.daml.platform.server.api.ApiException
-import com.google.rpc.status.Status
 import io.grpc.{Status => GrpcStatus}
 
 import scala.concurrent.Promise
@@ -44,9 +43,6 @@ private[tracking] object HandleOfferResult {
       Some(GrpcStatus.ABORTED.withDescription("Queue closed"))
     case Success(QueueOfferResult.Enqueued) => None // Promise will be completed downstream.
   }
-
-  def toStatusMessage: PartialFunction[Try[QueueOfferResult], Status] =
-    toGrpcStatus.andThen(_.fold(Status())(e => Status(e.getCode.value(), e.getDescription)))
 
   def completePromise(promise: Promise[_]): PartialFunction[Try[QueueOfferResult], Unit] =
     toGrpcStatus.andThen(_.foreach(s => promise.tryFailure(new ApiException(s))))
