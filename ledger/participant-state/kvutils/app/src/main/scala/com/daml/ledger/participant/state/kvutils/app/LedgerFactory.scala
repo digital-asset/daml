@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.stream.Materializer
@@ -95,7 +96,11 @@ trait ConfigProvider[ExtraConfig] {
   def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
     InitialLedgerConfiguration(
       configuration = Configuration.reasonableInitialConfiguration,
-      delayBeforeSubmitting = Config.DefaultInitialConfigurationSubmissionDelay,
+      // If a new index database is added to an already existing ledger,
+      // a zero delay will likely produce a "configuration rejected" ledger entry,
+      // because at startup the indexer hasn't ingested any configuration change yet.
+      // Override this setting for distributed ledgers where you want to avoid these superfluous entries.
+      delayBeforeSubmitting = Duration.ZERO,
     )
 
   def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None

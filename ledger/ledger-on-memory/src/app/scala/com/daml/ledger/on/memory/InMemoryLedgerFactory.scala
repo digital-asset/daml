@@ -13,7 +13,6 @@ import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
@@ -49,11 +48,6 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       createMetrics(participantConfig, config),
     )
   }
-
-  override def initialLedgerConfig(config: Config[Unit]): InitialLedgerConfiguration =
-    super
-      .initialLedgerConfig(config)
-      .copy(delayBeforeSubmitting = Config.LocalInitialConfigurationSubmissionDelay)
 
   override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
 
