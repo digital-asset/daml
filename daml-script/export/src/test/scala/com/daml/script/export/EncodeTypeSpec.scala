@@ -109,6 +109,10 @@ private object AstSyntax {
   val text: Ast.Type = Ast.TBuiltin(Ast.BTText)
   val vFoo: Ast.Type = Ast.TVar(Ref.Name.assertFromString("foo"))
   val vBar: Ast.Type = Ast.TVar(Ref.Name.assertFromString("bar"))
-  val nFoo: Ref.Identifier = Ref.TypeSynName.assertFromString("e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Foo")
-  val nBar: Ref.Identifier = Ref.TypeSynName.assertFromString("e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Bar")
+  val nFoo: Ref.Identifier = Ref.TypeSynName.assertFromString(
+    "e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Foo"
+  )
+  val nBar: Ref.Identifier = Ref.TypeSynName.assertFromString(
+    "e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Bar"
+  )
 }
