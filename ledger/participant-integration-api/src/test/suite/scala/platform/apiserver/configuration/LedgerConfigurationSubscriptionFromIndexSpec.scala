@@ -48,18 +48,21 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
       when(index.lookupConfiguration())
         .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
-
-      new LedgerConfigurationSubscriptionFromIndex(
+      val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
-      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
-        currentLedgerConfiguration.ready.map { _ =>
-          currentLedgerConfiguration.latestConfiguration() should be(Some(currentConfiguration))
-          succeed
+      )
+
+      subscriptionBuilder
+        .subscription(configurationLoadTimeout)
+        .use { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.map { _ =>
+            currentLedgerConfiguration.latestConfiguration() should be(Some(currentConfiguration))
+            succeed
+          }
         }
-      }
     }
 
     "stream the latest configuration from the index" in {
@@ -91,22 +94,25 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
       when(index.configurationEntries(None))
         .thenReturn(Source(configurationEntries).concat(Source.never))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
-
-      new LedgerConfigurationSubscriptionFromIndex(
+      val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
-      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
-        currentLedgerConfiguration.ready.map { _ =>
-          eventually {
-            currentLedgerConfiguration.latestConfiguration() should be(
-              Some(configurations.last._2)
-            )
+      )
+
+      subscriptionBuilder
+        .subscription(configurationLoadTimeout)
+        .use { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.map { _ =>
+            eventually {
+              currentLedgerConfiguration.latestConfiguration() should be(
+                Some(configurations.last._2)
+              )
+            }
+            succeed
           }
-          succeed
         }
-      }
     }
 
     "give up waiting if the configuration takes too long to appear" in {
@@ -116,20 +122,23 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
 
       val configurationLoadTimeout = 500.millis
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
-
-      new LedgerConfigurationSubscriptionFromIndex(
+      val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
-      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
-        currentLedgerConfiguration.ready.isCompleted should be(false)
-        scheduler.timePasses(1.second)
-        currentLedgerConfiguration.ready.isCompleted should be(true)
-        currentLedgerConfiguration.ready.map { _ =>
-          currentLedgerConfiguration.latestConfiguration() should be(None)
+      )
+
+      subscriptionBuilder
+        .subscription(configurationLoadTimeout)
+        .use { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.isCompleted should be(false)
+          scheduler.timePasses(1.second)
+          currentLedgerConfiguration.ready.isCompleted should be(true)
+          currentLedgerConfiguration.ready.map { _ =>
+            currentLedgerConfiguration.latestConfiguration() should be(None)
+          }
         }
-      }
     }
 
     "never becomes ready if stopped" in {
@@ -140,12 +149,15 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      val resource = new LedgerConfigurationSubscriptionFromIndex(
+      val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
-      ).subscription(configurationLoadTimeout).acquire()
+      )
+      val resource = subscriptionBuilder
+        .subscription(configurationLoadTimeout)
+        .acquire()
 
       resource.asFuture
         .flatMap { currentLedgerConfiguration =>
@@ -160,28 +172,33 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
         }
     }
 
-    "readiness fails if lookup fails" in {
-      val failure = new RuntimeException("It failed.")
+    "fail to subscribe if the initial lookup fails" in {
+      val lookupFailure = new RuntimeException("It failed.")
 
       val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration()).thenReturn(Future.failed(failure))
+      when(index.lookupConfiguration()).thenReturn(Future.failed(lookupFailure))
       when(index.configurationEntries(None)).thenReturn(Source.never)
 
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
-
-      new LedgerConfigurationSubscriptionFromIndex(
+      val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
-      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
-        currentLedgerConfiguration.ready.transform(Success.apply).map { result =>
+      )
+      val resource = subscriptionBuilder
+        .subscription(configurationLoadTimeout)
+        .acquire()
+
+      resource.asFuture
+        .andThen { case _ => resource.release() }
+        .transform(Success.apply)
+        .map { result =>
           inside(result) { case Failure(exception) =>
-            exception should be(failure)
+            exception should be(lookupFailure)
           }
         }
-      }
     }
   }
 }

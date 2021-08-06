@@ -16,18 +16,12 @@ import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 
 object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
     jdbcUrl = None
   )
-
-  override def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
-    super
-      .initialLedgerConfig(config)
-      .copy(delayBeforeSubmitting = Config.LocalInitialConfigurationSubmissionDelay)
 
   override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
     parser

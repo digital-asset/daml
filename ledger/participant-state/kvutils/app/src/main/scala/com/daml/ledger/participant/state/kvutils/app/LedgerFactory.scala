@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.stream.Materializer
@@ -95,7 +96,7 @@ trait ConfigProvider[ExtraConfig] {
   def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
     InitialLedgerConfiguration(
       configuration = Configuration.reasonableInitialConfiguration,
-      delayBeforeSubmitting = Config.DefaultInitialConfigurationSubmissionDelay,
+      delayBeforeSubmitting = Duration.ZERO,
     )
 
   def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
