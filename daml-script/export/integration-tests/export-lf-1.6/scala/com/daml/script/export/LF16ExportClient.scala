@@ -14,8 +14,6 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.lf.data.Ref
-//import akka.stream.Materializer
 import com.daml.fs.Utils.deleteRecursively
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.v1.command_service
@@ -110,39 +108,17 @@ object LF16ExportClient {
     implicit val seq: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(
       "lf16-export-client"
     )
-    //implicit val mat: Materializer = Materializer(sys)
     val run: Future[Unit] = for {
       dar <- Future.fromTry(DarDecoder.readArchiveFromFile(darPath).toTry)
       mainPackageId = dar.main._1
-      archiveId = dar.all
-        .collectFirst(Function.unlift({ case (pkgId, pkg) =>
-          val daInternalTemplateName = Ref.ModuleName.assertFromString("DA.Internal.Template")
-          val archiveName = Ref.DottedName.assertFromString("Archive")
-          for {
-            mod <- pkg.modules.get(daInternalTemplateName)
-            _ <- mod.definitions.get(archiveName)
-          } yield (value
-            .Identifier()
-            .withPackageId(pkgId)
-            .withModuleName(daInternalTemplateName.dottedName)
-            .withEntityName(archiveName.dottedName))
-        }))
-        .get
-      tuple2Id = dar.all
-        .collectFirst(Function.unlift({ case (pkgId, pkg) =>
-          val daTypesName = Ref.ModuleName.assertFromString("DA.Types")
-          val tuple2Name = Ref.DottedName.assertFromString("Tuple2")
-          for {
-            mod <- pkg.modules.get(daTypesName)
-            _ <- mod.definitions.get(tuple2Name)
-          } yield (value
-            .Identifier()
-            .withPackageId(pkgId)
-            .withModuleName(daTypesName.dottedName)
-            .withEntityName(tuple2Name.dottedName))
-        }))
-        .get
-      _ = System.err.println(s"!!! DA.Types.Tuple2: $tuple2Id")
+      archiveId = value.Identifier()
+        .withPackageId("d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662")
+        .withModuleName("DA.Internal.Template")
+        .withEntityName("Archive")
+      tuple2Id = value.Identifier()
+        .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+        .withModuleName("DA.Types")
+        .withEntityName("Tuple2")
       lf16TemplateId = value
         .Identifier()
         .withPackageId(mainPackageId)
