@@ -19,7 +19,7 @@ object DBConfig {
   val SupportedJdbcDrivers = Tag.of[SupportedJdbcDrivers]
 }
 
-private[http] final case class JdbcConfig(
+final case class JdbcConfig(
     driver: String,
     url: String,
     user: String,
@@ -29,17 +29,19 @@ private[http] final case class JdbcConfig(
     dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
 )
 
-private[http] abstract class ConfigCompanion[A, ReadCtx](name: String) {
+abstract class ConfigCompanion[A, ReadCtx](name: String) {
   import com.daml.scalautil.ExceptionOps._
 
   protected val indent: String = List.fill(8)(" ").mkString
 
-  protected[this] def create(x: Map[String, String])(implicit readCtx: ReadCtx): Either[String, A]
+  protected[this] def create(x: Map[String, String], defaultDriver: Option[String])(implicit
+      readCtx: ReadCtx
+  ): Either[String, A]
 
-  private[http] implicit final def `read instance`(implicit ctx: ReadCtx): scopt.Read[A] =
+  implicit final def `read instance`(implicit ctx: ReadCtx): scopt.Read[A] =
     scopt.Read.reads { s =>
       val x = implicitly[scopt.Read[Map[String, String]]].reads(s)
-      create(x).fold(e => throw new IllegalArgumentException(e), identity)
+      create(x, None).fold(e => throw new IllegalArgumentException(e), identity)
     }
 
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
@@ -78,7 +80,7 @@ private[http] abstract class ConfigCompanion[A, ReadCtx](name: String) {
       }
 }
 
-private[http] object JdbcConfig
+object JdbcConfig
     extends ConfigCompanion[JdbcConfig, DBConfig.SupportedJdbcDriverNames]("JdbcConfig")
     with StrictLogging {
 
@@ -114,11 +116,13 @@ private[http] object JdbcConfig
     s"<${DbStartupMode.allConfigValues.mkString("|")}>",
   )
 
-  override def create(x: Map[String, String])(implicit
+  override def create(x: Map[String, String], defaultDriver: Option[String] = None)(implicit
       readCtx: DBConfig.SupportedJdbcDriverNames
   ): Either[String, JdbcConfig] =
     for {
-      driver <- requiredField(x)("driver")
+      driver <-
+        if (defaultDriver.isDefined) Right(x.getOrElse("driver", defaultDriver.get))
+        else requiredField(x)("driver")
       DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames) = readCtx
       _ <- Either.cond(
         supportedJdbcDriverNames(driver),
