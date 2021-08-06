@@ -73,6 +73,7 @@ lowerCommands = \case
         commandsParty = "", -- deprecated in favor of actAs
         commandsActAs = Vector.fromList $ map unParty actAs,
         commandsReadAs = Vector.fromList $ map unParty readAs,
+        commandsSubmissionId = unSubmissionId (fromMaybe (SubmissionId "") sid),
         commandsDeduplicationTime = dedupTime,
         commandsCommands = Vector.fromList $ map lowerCommand coms,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,

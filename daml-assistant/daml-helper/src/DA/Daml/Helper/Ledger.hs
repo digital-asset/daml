@@ -491,6 +491,7 @@ reset args = do
                     , dedupTime = Nothing
                     , minLeTimeAbs = Nothing
                     , minLeTimeRel = Nothing
+                    , sid = Nothing
                     }
             errOrEmpty <- L.submit cmds
             case errOrEmpty of

@@ -46,7 +46,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
-      submissionId = domain.SubmissionId(submissionIdGenerator.generate())
+      submissionId = extractOrGenerateSubmissionId(commands)
       submitters <- CommandsValidator.validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
@@ -180,6 +180,14 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       case ProtoEmpty =>
         Left(missingField("command"))
     }
+
+  private def extractOrGenerateSubmissionId(commands: ProtoCommands) =
+    if (commands.submissionId.isEmpty) {
+      domain.SubmissionId(submissionIdGenerator.generate())
+    } else {
+      domain.SubmissionId(Ref.SubmissionId.assertFromString(commands.submissionId))
+    }
+
 }
 
 object CommandsValidator {
