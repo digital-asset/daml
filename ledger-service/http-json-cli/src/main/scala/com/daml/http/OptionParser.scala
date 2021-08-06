@@ -5,8 +5,7 @@ package com.daml.http
 
 import java.nio.file.Paths
 
-import com.daml.http.dbbackend.JdbcConfig
-import com.daml.http.dbbackend.{DBConfig => DBConfig}
+import com.daml.http.dbbackend.{JdbcConfig, DBConfig}
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scopt.{Read, RenderingMode}

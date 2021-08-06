@@ -16,13 +16,19 @@ object Connection {
 
   type T = Transactor.Aux[IO, Unit]
 
-  def connect(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
+  def connect(cfg: JdbcConfig)(implicit
       cs: ContextShift[IO]
   ): T =
     Transactor
-      .fromDriverManager[IO](jdbcDriver, jdbcUrl, username, password)(IO.ioConcurrentEffect(cs), cs)
+      .fromDriverManager[IO](cfg.driver, cfg.url, cfg.user, cfg.password)(
+        IO.ioConcurrentEffect(cs),
+        cs,
+      )
 }
 
+/*
+  TODO below values are hardcoded for now, refactor to be picked up as cli flags/ props later.
+ */
 object ConnectionPool {
 
   final val MinIdle = 8

@@ -26,6 +26,7 @@ import scalaz.std.scalaFuture._
 import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
+
 import Config.QueryStoreIndex
 
 import scala.concurrent.duration.{Duration, _}
