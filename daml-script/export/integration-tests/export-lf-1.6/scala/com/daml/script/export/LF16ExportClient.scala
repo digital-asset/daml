@@ -153,7 +153,7 @@ object LF16ExportClient {
         Seq(alice.party),
         ApiCommand.archive(lf16TemplateId, cid),
       )
-      tx <- client.submit(
+      _ <- client.submit(
         "createAndExercise-exerciseByKey-Lf16-Increment",
         Seq(alice.party),
         ApiCommand.createAndExercise(
@@ -173,7 +173,6 @@ object LF16ExportClient {
           ApiValue.record(lf16IncrementId),
         ),
       )
-      cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
     } yield ()
     run.onComplete { _ => sys.terminate() }
     val _ = Await.result(sys.whenTerminated, Duration.Inf)
