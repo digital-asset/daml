@@ -152,7 +152,7 @@ object LF16ExportClient {
                         .CreateCommand()
                         .withTemplateId(lf16TemplateId)
                         .withCreateArguments(
-                          LF.recordRec(
+                          ApiValue.recordRec(
                             lf16TemplateId,
                             "issuer" -> value.Value().withParty(alice.party),
                             "count" -> value.Value().withInt64(0),
@@ -186,7 +186,7 @@ object LF16ExportClient {
                         .withTemplateId(lf16TemplateId)
                         .withContractId(cid)
                         .withChoice("Increment")
-                        .withChoiceArgument(LF.record(lf16IncrementId))
+                        .withChoiceArgument(ApiValue.record(lf16IncrementId))
                     )
                 )
               )
@@ -215,7 +215,7 @@ object LF16ExportClient {
                         .withTemplateId(lf16TemplateId)
                         .withContractId(cid)
                         .withChoice("Archive")
-                        .withChoiceArgument(LF.record(LF.archiveId))
+                        .withChoiceArgument(ApiValue.record(ApiValue.archiveId))
                     )
                 )
               )
@@ -258,7 +258,7 @@ object LF16ExportClient {
                             )
                         )
                         .withChoice("Increment")
-                        .withChoiceArgument(LF.record(lf16IncrementId))
+                        .withChoiceArgument(ApiValue.record(lf16IncrementId))
                     ),
                   commands
                     .Command()
@@ -267,13 +267,13 @@ object LF16ExportClient {
                         .ExerciseByKeyCommand()
                         .withTemplateId(lf16TemplateId)
                         .withContractKey(
-                          LF.tuple(
+                          ApiValue.tuple(
                             value.Value().withParty(alice.party),
                             value.Value().withInt64(1),
                           )
                         )
                         .withChoice("Increment")
-                        .withChoiceArgument(LF.record(lf16IncrementId))
+                        .withChoiceArgument(ApiValue.record(lf16IncrementId))
                     ),
                 )
               )
@@ -353,7 +353,7 @@ object LF16ExportClient {
   }
 }
 
-object LF {
+object ApiValue {
   val archiveId = value
     .Identifier()
     .withPackageId("d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662")
