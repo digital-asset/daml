@@ -8,7 +8,7 @@ import com.google.protobuf.Any
 import com.google.rpc
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status.Code
-import io.grpc.{Status, StatusRuntimeException, protobuf}
+import io.grpc.{StatusRuntimeException, protobuf}
 
 import scala.jdk.CollectionConverters.MapHasAsJava
 
