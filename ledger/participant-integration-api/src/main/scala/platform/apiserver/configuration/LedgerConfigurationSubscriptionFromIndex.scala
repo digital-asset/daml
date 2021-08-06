@@ -72,19 +72,19 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
       with IsReady {
     private val readyPromise = Promise[Unit]()
 
-    private val (latestConfigurationState, scheduledTimeout) = startingConfiguration match {
+    private val (currentState, scheduledTimeout) = startingConfiguration match {
       case Some((offset, configuration)) =>
         logger.info(
           s"Initial ledger configuration lookup found configuration $configuration at $offset. Looking for new ledger configurations from this offset."
         )
         readyPromise.trySuccess(())
-        val configurationState: StateType = Some(offset) -> Some(configuration)
-        (new AtomicReference[StateType](configurationState), Cancellable.alreadyCancelled)
+        val state = State.ConfigurationFound(offset, configuration)
+        (new AtomicReference[State](state), Cancellable.alreadyCancelled)
       case None =>
         logger.info(
           s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning."
         )
-        val configurationState: StateType = None -> None
+        val state = State.NoConfiguration
         val scheduledTimeout = scheduler.scheduleOnce(
           configurationLoadTimeout.toNanos.nanos,
           new Runnable {
@@ -98,7 +98,7 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
             }
           },
         )(servicesExecutionContext)
-        (new AtomicReference[StateType](configurationState), scheduledTimeout)
+        (new AtomicReference[State](state), scheduledTimeout)
     }
 
     private val killSwitch = RestartSource
@@ -110,17 +110,23 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
         )
       ) { () =>
         indexService
-          .configurationEntries(latestConfigurationState.get._1)
+          .configurationEntries(currentState.get.latestOffset)
           .map {
-            case (offset, domain.ConfigurationEntry.Accepted(_, config)) =>
-              logger.info(s"New ledger configuration $config found at $offset")
+            case (offset, domain.ConfigurationEntry.Accepted(_, configuration)) =>
+              logger.info(s"New ledger configuration $configuration found at $offset")
               scheduledTimeout.cancel()
-              latestConfigurationState.set(Some(offset) -> Some(config))
+              currentState.set(State.ConfigurationFound(offset, configuration))
               readyPromise.trySuccess(())
               ()
-            case (offset, domain.ConfigurationEntry.Rejected(_, _, _)) =>
+            case (offset, _: domain.ConfigurationEntry.Rejected) =>
               logger.info(s"New ledger configuration rejection found at $offset")
-              latestConfigurationState.updateAndGet(previous => Some(offset) -> previous._2)
+              // We only care about updating; we ignore the return value.
+              currentState.updateAndGet {
+                case State.NoConfiguration | State.OnlyRejectedConfigurations(_) =>
+                  State.OnlyRejectedConfigurations(offset)
+                case State.ConfigurationFound(_, configuration) =>
+                  State.ConfigurationFound(offset, configuration)
+              }
               ()
           }
       }
@@ -130,7 +136,8 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
 
     override def ready: Future[Unit] = readyPromise.future
 
-    override def latestConfiguration(): Option[Configuration] = latestConfigurationState.get._2
+    override def latestConfiguration(): Option[Configuration] =
+      currentState.get.latestConfiguration
 
     def stop(): Unit = {
       scheduledTimeout.cancel()
@@ -140,7 +147,32 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
 }
 
 private[apiserver] object LedgerConfigurationSubscriptionFromIndex {
-  private type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
+  private sealed trait State {
+    def latestOffset: Option[LedgerOffset.Absolute]
+
+    def latestConfiguration: Option[Configuration]
+  }
+
+  private object State {
+    case object NoConfiguration extends State {
+      override val latestOffset: Option[LedgerOffset.Absolute] = None
+
+      override val latestConfiguration: Option[Configuration] = None
+    }
+
+    final case class OnlyRejectedConfigurations(offset: LedgerOffset.Absolute) extends State {
+      override val latestOffset: Option[LedgerOffset.Absolute] = Some(offset)
+
+      override val latestConfiguration: Option[Configuration] = None
+    }
+
+    final case class ConfigurationFound(offset: LedgerOffset.Absolute, configuration: Configuration)
+        extends State {
+      override val latestOffset: Option[LedgerOffset.Absolute] = Some(offset)
+
+      override val latestConfiguration: Option[Configuration] = Some(configuration)
+    }
+  }
 
   trait IsReady {
     def ready: Future[Unit]
