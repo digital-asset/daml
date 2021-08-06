@@ -441,20 +441,18 @@ private[export] object Encode {
       }
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
       val pkgId = templateId.packageId
+      val templateIdArg = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
       if (isPreLf_1_8(pkgId, pkgLfVersions)) {
         val command = Doc.text("internalExerciseByKeyCmd")
-        val templateId = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
-        val typeRepArg = parens("templateTypeRep" &: templateId)
-        val keyArg = parens(Doc.text("toAnyContractKey") & templateId & key)
-        val choiceArg = parens(Doc.text("toAnyChoice") & templateId & choice)
-        command & typeRepArg & keyArg & choiceArg
+        val typeRepArg = parens("templateTypeRep" &: templateIdArg)
+        val keyArg = parens(Doc.text("toAnyContractKey") & templateIdArg & key)
+        val choiceArg = parens(Doc.text("toAnyChoice") & templateIdArg & choice)
         command.lineOrSpace(typeRepArg).lineOrSpace(keyArg).lineOrSpace(choiceArg).nested(2)
       } else {
         val command = Doc.text("exerciseByKeyCmd")
-        command & key & choice
-        command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+        command.lineOrSpace(templateIdArg).lineOrSpace(key).lineOrSpace(choice).nested(2)
       }
     case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
       val pkgId = createdEvent.getTemplateId.packageId
