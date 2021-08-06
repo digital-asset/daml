@@ -10,7 +10,6 @@ import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.caching
@@ -20,7 +19,11 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+  TimedLedgerWriter,
+}
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{
@@ -132,6 +135,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           metrics = metrics,
         )
 
+        authService = config.authService.getOrElse(AuthServiceWildcard)
+        servicesExecutionContext <- ResourceOwner.forExecutorService(() =>
+          ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
+        )
         apiServer <- ResettableResourceOwner[
           ResourceContext,
           ApiServer,
@@ -164,15 +171,18 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ),
                 timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               )
-              ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-              readService = new TimedReadService(new AdaptedV1ReadService(ledger), metrics)
-              writeService = new TimedWriteService(new AdaptedV1WriteService(ledger), metrics)
-              healthChecks = new HealthChecks(
-                "read" -> readService,
-                "write" -> writeService,
+              readService = new TimedReadService(
+                new AdaptedV1ReadService(KeyValueParticipantStateReader(readerWriter, metrics)),
+                metrics,
               )
-              ledgerId <- ResourceOwner.forFuture(() =>
-                readService.ledgerInitialConditions().runWith(Sink.head).map(_.ledgerId)
+              writeService = new TimedWriteService(
+                new AdaptedV1WriteService(
+                  new KeyValueParticipantStateWriter(
+                    new TimedLedgerWriter(readerWriter, metrics),
+                    metrics,
+                  )
+                ),
+                metrics,
               )
               _ <-
                 if (isReset) {
@@ -184,10 +194,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     )
                     .map(_ => ())
                 }
-              servicesExecutionContext <- ResourceOwner
-                .forExecutorService(() => Executors.newWorkStealingPool())
-                .map(ExecutionContext.fromExecutorService)
-              indexerReportsHealth <- new StandaloneIndexerServer(
+              indexer <- new StandaloneIndexerServer(
                 readService = readService,
                 config = IndexerConfig(
                   participantId = config.participantId,
@@ -204,8 +211,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 metrics = metrics,
                 lfValueTranslationCache = lfValueTranslationCache,
               )
-              authService = config.authService.getOrElse(AuthServiceWildcard)
-              promise = Promise[Unit]()
+              healthChecks = new HealthChecks(
+                "read" -> readService,
+                "write" -> writeService,
+                "indexer" -> indexer,
+              )
+              // Required to tie the loop between the API server and the reset service.
+              apiServerServicesClosed = Promise[Unit]()
               resetService = {
                 val clock = Clock.systemUTC()
                 val authorizer =
@@ -217,7 +229,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     // Otherwise we end up in deadlock, because the server won't shut down until
                     // all requests are completed.
                     reset()
-                    promise.future
+                    apiServerServicesClosed.future
                   },
                   authorizer,
                 )
@@ -257,7 +269,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ),
                 optWriteService = Some(writeService),
                 authService = authService,
-                healthChecks = healthChecks + ("indexer" -> indexerReportsHealth),
+                healthChecks = healthChecks,
                 metrics = metrics,
                 timeServiceBackend = timeServiceBackend,
                 otherServices = List(resetService),
@@ -265,7 +277,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 servicesExecutionContext = servicesExecutionContext,
                 lfValueTranslationCache = lfValueTranslationCache,
               )
-              _ = promise.completeWith(apiServer.servicesClosed())
+              _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
             } yield {
               Banner.show(Console.out)
               logger.withoutContext.info(
