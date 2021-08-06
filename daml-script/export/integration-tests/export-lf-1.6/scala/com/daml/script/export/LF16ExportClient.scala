@@ -145,20 +145,13 @@ object LF16ExportClient {
               .withActAs(Seq(alice.party))
               .withCommands(
                 Seq(
-                  commands
-                    .Command()
-                    .withCreate(
-                      commands
-                        .CreateCommand()
-                        .withTemplateId(lf16TemplateId)
-                        .withCreateArguments(
-                          ApiValue.recordRec(
-                            lf16TemplateId,
-                            "issuer" -> value.Value().withParty(alice.party),
-                            "count" -> value.Value().withInt64(0),
-                          )
-                        )
+                  ApiCommand.create(lf16TemplateId,
+                    ApiValue.recordRec(
+                      lf16TemplateId,
+                      "issuer" -> value.Value().withParty(alice.party),
+                      "count" -> value.Value().withInt64(0),
                     )
+                  )
                 )
               )
           )
@@ -176,20 +169,7 @@ object LF16ExportClient {
               .withApplicationId(ledgerConfig.applicationId)
               .withCommandId("exercise-Lf16-Increment")
               .withActAs(Seq(alice.party))
-              .withCommands(
-                Seq(
-                  commands
-                    .Command()
-                    .withExercise(
-                      commands
-                        .ExerciseCommand()
-                        .withTemplateId(lf16TemplateId)
-                        .withContractId(cid)
-                        .withChoice("Increment")
-                        .withChoiceArgument(ApiValue.record(lf16IncrementId))
-                    )
-                )
-              )
+              .withCommands(Seq(ApiCommand.exercise(lf16TemplateId, cid, "Increment", ApiValue.record(lf16IncrementId))))
           )
       )
       _ = System.err.println(s"${resp}")
@@ -205,24 +185,10 @@ object LF16ExportClient {
               .withApplicationId(ledgerConfig.applicationId)
               .withCommandId("archive-Lf16")
               .withActAs(Seq(alice.party))
-              .withCommands(
-                Seq(
-                  commands
-                    .Command()
-                    .withExercise(
-                      commands
-                        .ExerciseCommand()
-                        .withTemplateId(lf16TemplateId)
-                        .withContractId(cid)
-                        .withChoice("Archive")
-                        .withChoiceArgument(ApiValue.record(ApiValue.archiveId))
-                    )
-                )
-              )
+              .withCommands(Seq(ApiCommand.archive(lf16TemplateId, cid)))
           )
       )
       _ = System.err.println(s"${resp}")
-      // TODO[AH] Needs two creates followed by an exercise of the first contract to trigger exerciseByKey
       resp <- client.commandServiceClient.submitAndWaitForTransaction(
         command_service
           .SubmitAndWaitRequest()
@@ -235,46 +201,25 @@ object LF16ExportClient {
               .withActAs(Seq(alice.party))
               .withCommands(
                 Seq(
-                  commands
-                    .Command()
-                    .withCreateAndExercise(
-                      commands
-                        .CreateAndExerciseCommand()
-                        .withTemplateId(lf16TemplateId)
-                        .withCreateArguments(
-                          value
-                            .Record()
-                            .withFields(
-                              Seq(
-                                value
-                                  .RecordField()
-                                  .withLabel("issuer")
-                                  .withValue(value.Value().withParty(alice.party)),
-                                value
-                                  .RecordField()
-                                  .withLabel("count")
-                                  .withValue(value.Value().withInt64(0)),
-                              )
-                            )
-                        )
-                        .withChoice("Increment")
-                        .withChoiceArgument(ApiValue.record(lf16IncrementId))
+                  ApiCommand.createAndExercise(
+                    lf16TemplateId,
+                    ApiValue.recordRec(
+                      lf16TemplateId,
+                      "issuer" -> value.Value().withParty(alice.party),
+                      "count" -> value.Value().withInt64(0)
                     ),
-                  commands
-                    .Command()
-                    .withExerciseByKey(
-                      commands
-                        .ExerciseByKeyCommand()
-                        .withTemplateId(lf16TemplateId)
-                        .withContractKey(
-                          ApiValue.tuple(
-                            value.Value().withParty(alice.party),
-                            value.Value().withInt64(1),
-                          )
-                        )
-                        .withChoice("Increment")
-                        .withChoiceArgument(ApiValue.record(lf16IncrementId))
+                    "Increment",
+                    ApiValue.record(lf16IncrementId)
+                  ),
+                  ApiCommand.exerciseByKey(
+                    lf16TemplateId,
+                    ApiValue.tuple(
+                      value.Value().withParty(alice.party),
+                      value.Value().withInt64(1),
                     ),
+                    "Increment",
+                    ApiValue.record(lf16IncrementId),
+                  ),
                 )
               )
           )
@@ -354,11 +299,6 @@ object LF16ExportClient {
 }
 
 object ApiValue {
-  val archiveId = value
-    .Identifier()
-    .withPackageId("d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662")
-    .withModuleName("DA.Internal.Template")
-    .withEntityName("Archive")
   def tupleId(n: Int): value.Identifier =
     value
       .Identifier()
@@ -380,4 +320,56 @@ object ApiValue {
   def tuple(vals: value.Value*): value.Value = {
     record(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_$ix", v) }: _*)
   }
+}
+
+object ApiCommand {
+  val archiveId = value
+    .Identifier()
+    .withPackageId("d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662")
+    .withModuleName("DA.Internal.Template")
+    .withEntityName("Archive")
+  def create(tplId: value.Identifier, args: value.Record): commands.Command =
+    commands
+      .Command()
+      .withCreate(
+        commands
+          .CreateCommand()
+          .withTemplateId(tplId)
+          .withCreateArguments(args)
+      )
+  def exercise(tplId: value.Identifier, cid: String, choice: String, arg: value.Value): commands.Command =
+    commands
+      .Command()
+      .withExercise(
+        commands
+          .ExerciseCommand()
+          .withTemplateId(tplId)
+          .withContractId(cid)
+          .withChoice(choice)
+          .withChoiceArgument(arg)
+      )
+  def archive(tplId: value.Identifier, cid: String): commands.Command =
+    exercise(tplId, cid, "Archive", ApiValue.record(archiveId))
+  def createAndExercise(tplId: value.Identifier, tplArgs: value.Record, choice: String, choiceArg: value.Value): commands.Command =
+    commands
+      .Command()
+      .withCreateAndExercise(
+        commands
+          .CreateAndExerciseCommand()
+          .withTemplateId(tplId)
+          .withCreateArguments(tplArgs)
+          .withChoice(choice)
+          .withChoiceArgument(choiceArg)
+      )
+  def exerciseByKey(tplId: value.Identifier, key: value.Value, choice: String, arg: value.Value): commands.Command =
+    commands
+      .Command()
+      .withExerciseByKey(
+        commands
+          .ExerciseByKeyCommand()
+          .withTemplateId(tplId)
+          .withContractKey(key)
+          .withChoice(choice)
+          .withChoiceArgument(arg)
+      )
 }
