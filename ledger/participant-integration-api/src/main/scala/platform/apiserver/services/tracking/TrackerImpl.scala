@@ -93,10 +93,13 @@ private[services] object TrackerImpl {
       )
       .viaMat(tracker)(Keep.both)
       .toMat(Sink.foreach { case Ctx(promise, result, _) =>
-        logger.trace("Completing promise")
         val didCompletePromise = promise.trySuccess(result)
         if (!didCompletePromise) {
-          logger.trace("Failed to complete promise")
+          logger.trace(
+            "Promise was already completed, could not propagate the completion for the command."
+          )
+        } else {
+          logger.trace("Completed promise with the result of command.")
         }
         ()
       })(Keep.both)

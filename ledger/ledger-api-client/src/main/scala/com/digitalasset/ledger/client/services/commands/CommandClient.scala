@@ -50,6 +50,12 @@ final class CommandClient(
     logger: Logger = LoggerFactory.getLogger(getClass),
 )(implicit esf: ExecutionSequencerFactory) {
 
+  type TrackCommandFlow[Context] =
+    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[
+      NotUsed,
+      Context,
+    ]]
+
   /** Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
     * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
     */
@@ -94,12 +100,7 @@ final class CommandClient(
     */
   def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
-  ): Future[
-    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[
-      NotUsed,
-      Context,
-    ]]
-  ] = {
+  ): Future[TrackCommandFlow[Context]] = {
     for {
       tracker <- trackCommandsUnbounded[Context](parties, token)
     } yield {
@@ -117,12 +118,7 @@ final class CommandClient(
     */
   def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
-  ): Future[
-    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[
-      NotUsed,
-      Context,
-    ]]
-  ] =
+  ): Future[TrackCommandFlow[Context]] =
     for {
       ledgerEnd <- getCompletionEnd(token)
     } yield {

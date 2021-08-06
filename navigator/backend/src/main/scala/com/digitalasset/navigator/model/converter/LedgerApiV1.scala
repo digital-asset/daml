@@ -17,7 +17,6 @@ import com.daml.navigator.{model => Model}
 import com.daml.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
 import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue}
 
-import com.google.rpc.code.Code
 import scalaz.Tag
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.traverse._

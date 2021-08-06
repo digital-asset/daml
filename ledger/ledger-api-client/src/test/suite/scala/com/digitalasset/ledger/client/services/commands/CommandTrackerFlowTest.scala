@@ -24,8 +24,8 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_B
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
-  NotOkResponse,
   CompletionResponse,
+  NotOkResponse,
 }
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
@@ -64,6 +64,11 @@ class CommandTrackerFlowTest
 
   private val mrt = Instant.EPOCH.plus(shortDuration)
   private val commandId = "commandId"
+  private val abortedCompletion =
+    Completion(
+      commandId,
+      Some(Status(Code.ABORTED.value)),
+    )
   private val context = 1
   private val submitRequest = newSubmitRequest(commandId)
   private def newSubmitRequest(commandId: String, dedupTime: Option[JDuration] = None) = Ctx(
@@ -233,14 +238,10 @@ class CommandTrackerFlowTest
 
         results.expectNoMessage(3.seconds)
 
-        val completion =
-          Completion(
-            commandId,
-            Some(Status(Code.ABORTED.value)),
-          )
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
-        results.requestNext().value shouldEqual CompletionResponse(completion)
-        succeed
+        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        results.requestNext().value shouldEqual Left(
+          NotOkResponse(commandId, Status(Code.ABORTED.value))
+        )
       }
 
       "swallow error if not terminal, then output completion when it arrives" in {
@@ -252,13 +253,10 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submitRequest)
 
-        val completion =
-          Completion(
-            commandId,
-            Some(Status(Code.ABORTED.value)),
-          )
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
-        results.requestNext().value shouldEqual CompletionResponse(completion)
+        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        results.requestNext().value shouldEqual Left(
+          NotOkResponse(commandId, Status(Code.ABORTED.value))
+        )
       }
 
     }

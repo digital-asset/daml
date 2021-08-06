@@ -105,7 +105,8 @@ final class CommandStaticTimeIT
               )
             )
         } yield {
-          result shouldBe Symbol("right")
+          result should matchPattern { case Right(_) =>
+          }
         }
       }
 

@@ -177,17 +177,15 @@ private[apiserver] final class ApiCommandService private (
       resp.fold(
         failure => Future.failed(CompletionResponse.toException(failure)),
         { resp =>
-          {
-            val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-            val txRequest = GetTransactionByIdRequest(
-              request.getCommands.ledgerId,
-              resp.transactionId,
-              effectiveActAs.toList,
-            )
-            services
-              .getFlatTransactionById(txRequest)
-              .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
-          }
+          val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
+          val txRequest = GetTransactionByIdRequest(
+            request.getCommands.ledgerId,
+            resp.transactionId,
+            effectiveActAs.toList,
+          )
+          services
+            .getFlatTransactionById(txRequest)
+            .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
         },
       )
     }
@@ -199,17 +197,15 @@ private[apiserver] final class ApiCommandService private (
       resp.fold(
         failure => Future.failed(CompletionResponse.toException(failure)),
         { resp =>
-          {
-            val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-            val txRequest = GetTransactionByIdRequest(
-              request.getCommands.ledgerId,
-              resp.transactionId,
-              effectiveActAs.toList,
-            )
-            services
-              .getTransactionById(txRequest)
-              .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
-          }
+          val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
+          val txRequest = GetTransactionByIdRequest(
+            request.getCommands.ledgerId,
+            resp.transactionId,
+            effectiveActAs.toList,
+          )
+          services
+            .getTransactionById(txRequest)
+            .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
         },
       )
     }

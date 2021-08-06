@@ -13,8 +13,8 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
-  NotOkResponse,
   CompletionResponse,
+  NotOkResponse,
 }
 import com.daml.ledger.client.testing.AkkaTest
 import com.daml.util.Ctx
@@ -42,12 +42,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
           } else {
             Ctx(
               context,
-              CompletionResponse(
-                Completion(
-                  commands.commandId,
-                  Some(status.copy(code = Code.OK_VALUE)),
-                )
-              ),
+              Right(CompletionResponse.CompletionSuccess(commands.commandId, "")),
             )
           }
         case x =>
@@ -97,9 +92,9 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
 
     "propagete OK status" in {
       submitRequest(Code.OK_VALUE, Instant.ofEpochSecond(45)) map { result =>
-        result.size shouldBe 1
-        result.head.context.nrOfRetries shouldBe 0
-        result.head.value shouldBe Symbol("right")
+        inside(result) { case Seq(Ctx(context, Right(_), _)) =>
+          context.nrOfRetries shouldBe 0
+        }
       }
     }
 
@@ -125,17 +120,17 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
 
     "retry RESOURCE_EXHAUSTED status" in {
       submitRequest(Code.RESOURCE_EXHAUSTED_VALUE, Instant.ofEpochSecond(45)) map { result =>
-        result.size shouldBe 1
-        result.head.context.nrOfRetries shouldBe 1
-        result.head.value shouldBe Symbol("right")
+        inside(result) { case Seq(Ctx(context, Right(_), _)) =>
+          context.nrOfRetries shouldBe 1
+        }
       }
     }
 
     "retry UNAVAILABLE status" in {
       submitRequest(Code.UNAVAILABLE_VALUE, Instant.ofEpochSecond(45)) map { result =>
-        result.size shouldBe 1
-        result.head.context.nrOfRetries shouldBe 1
-        result.head.value shouldBe Symbol("right")
+        inside(result) { case Seq(Ctx(context, Right(_), _)) =>
+          context.nrOfRetries shouldBe 1
+        }
       }
     }
 

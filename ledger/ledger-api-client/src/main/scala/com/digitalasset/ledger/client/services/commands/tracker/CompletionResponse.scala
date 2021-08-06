@@ -8,7 +8,7 @@ import com.google.protobuf.Any
 import com.google.rpc
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status.Code
-import io.grpc.{StatusRuntimeException, protobuf}
+import io.grpc.{Status, StatusRuntimeException, protobuf}
 
 import scala.jdk.CollectionConverters.MapHasAsJava
 
@@ -21,26 +21,24 @@ object CompletionResponse {
       extends CompletionFailure
   final case class TimeoutResponse(commandId: String) extends CompletionFailure
   final case class NoStatusInResponse(commandId: String) extends CompletionFailure
+  final case class StartingExecutionFailure(status: Status) extends CompletionFailure
 
   final case class CompletionSuccess(commandId: String, transactionId: String)
 
-  def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] = {
+  def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] =
     completion.status match {
-      case Some(grpcStatus) =>
-        if (Code.OK.value() == grpcStatus.code) {
-          Right(
-            CompletionSuccess(
-              commandId = completion.commandId,
-              transactionId = completion.transactionId,
-            )
+      case Some(grpcStatus) if Code.OK.value() == grpcStatus.code =>
+        Right(
+          CompletionSuccess(
+            commandId = completion.commandId,
+            transactionId = completion.transactionId,
           )
-        } else {
-          Left(NotOkResponse(completion.commandId, grpcStatus))
-        }
+        )
+      case Some(grpcStatus) =>
+        Left(NotOkResponse(completion.commandId, grpcStatus))
       case None =>
         Left(NoStatusInResponse(completion.commandId))
     }
-  }
 
   def toException(response: CompletionResponse.CompletionFailure): StatusRuntimeException = {
     val errorInfo = rpc.ErrorInfo.newBuilder().putAllMetadata(response.metadata.asJava).build()
