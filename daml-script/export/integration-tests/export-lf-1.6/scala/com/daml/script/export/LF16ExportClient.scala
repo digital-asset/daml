@@ -122,15 +122,15 @@ object LF16ExportClient {
         .withPackageId(mainPackageId)
         .withModuleName("LF16")
         .withEntityName("Increment")
-      apiClient <- ApiClient(
+      client <- ApiClient(
         applicationId = "lf16-export-client",
         ledgerId = ledgerId,
         host = "localhost",
         port = ledgerPort,
       )
-      alice <- apiClient.allocateParty("Alice", "Alice")
+      alice <- client.allocateParty("Alice", "Alice")
       _ = System.err.println(s"$alice")
-      tx <- apiClient.submit(
+      tx <- client.submit(
         "create-LF16",
         Seq(alice.party),
         ApiCommand.create(
@@ -144,19 +144,19 @@ object LF16ExportClient {
       )
       cid = tx.events(0).event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
-      tx <- apiClient.submit(
+      tx <- client.submit(
         "exercise-Lf16-Increment",
         Seq(alice.party),
         ApiCommand.exercise(lf16TemplateId, cid, "Increment", ApiValue.record(lf16IncrementId)),
       )
       cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
-      _ <- apiClient.submit(
+      _ <- client.submit(
         "archive-Lf16",
         Seq(alice.party),
         ApiCommand.archive(lf16TemplateId, cid),
       )
-      tx <- apiClient.submit(
+      tx <- client.submit(
         "createAndExercise-exerciseByKey-Lf16-Increment",
         Seq(alice.party),
         ApiCommand.createAndExercise(
