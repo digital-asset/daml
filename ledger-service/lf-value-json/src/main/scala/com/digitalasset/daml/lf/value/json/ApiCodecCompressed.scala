@@ -136,7 +136,14 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       case Model.DamlLfPrimType.Timestamp => { case JsString(v) =>
         V.ValueTimestamp(assertDE(Time.Timestamp fromString v))
       }
-      case Model.DamlLfPrimType.Date => { case JsString(v) => V.ValueDate.fromIso8601(v) }
+      case Model.DamlLfPrimType.Date => { case JsString(v) =>
+        try {
+          V.ValueDate.fromIso8601(v)
+        } catch {
+          case _: java.time.format.DateTimeParseException | _: IllegalArgumentException =>
+            throw DeserializationException(s"Invalid date: $v")
+        }
+      }
       case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
       case Model.DamlLfPrimType.List => { case JsArray(v) =>
         V.ValueList(
