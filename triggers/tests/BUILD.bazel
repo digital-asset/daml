@@ -26,7 +26,6 @@ DAML_LF_VERSIONS = [
             glob(["**/*.daml"]) + [
                 "//triggers/daml:daml-trigger%s.dar" % suffix,
                 "//daml-script/daml:daml-script%s.dar" % suffix,
-                "//docs:source/triggers/template-root/src/CopyTrigger.daml",
             ],
         outs = ["acs%s.dar" % suffix],
         cmd = """
@@ -44,7 +43,7 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/TemplateIdFilter.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Time.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
-      cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
       cat << EOF > $$TMP_DIR/daml.yaml

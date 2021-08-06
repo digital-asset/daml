@@ -631,16 +631,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "copy-trigger-template",
-    srcs = glob(
-        ["source/triggers/template-root/**"],
-        exclude = ["**/*~"],
-    ),
-    strip_prefix = "source/triggers/template-root",
-    visibility = ["//visibility:public"],
-)
-
-pkg_tar(
     name = "script-example-template",
     srcs = glob(
         ["source/daml-script/template-root/**"],
@@ -651,6 +641,5 @@ pkg_tar(
 )
 
 exports_files([
-    "source/triggers/template-root/src/CopyTrigger.daml",
     "source/daml-script/template-root/src/ScriptExample.daml",
 ])
