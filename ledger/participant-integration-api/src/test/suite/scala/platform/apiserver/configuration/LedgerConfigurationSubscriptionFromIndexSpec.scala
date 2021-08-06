@@ -16,6 +16,7 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscriptionFromIndexSpec._
+import com.daml.timer.Delayed
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.concurrent.Eventually
@@ -108,6 +109,101 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
             eventually {
               currentLedgerConfiguration.latestConfiguration() should be(
                 Some(configurations.last._2)
+              )
+            }
+            succeed
+          }
+        }
+    }
+
+    "not use the configuration from a rejection" in {
+      val configurationEntries = List(
+        offset("0123") -> ConfigurationEntry.Rejected(
+          submissionId = "submission ID",
+          rejectionReason = "rejected because we felt like it",
+          proposedConfiguration = Configuration(
+            generation = 10,
+            timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ZERO),
+            maxDeduplicationTime = Duration.ZERO,
+          ),
+        )
+      )
+      val configurationLoadTimeout = 5.seconds
+
+      val index = mock[IndexConfigManagementService]
+      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
+      when(index.configurationEntries(None))
+        .thenReturn(Source(configurationEntries).concat(Source.never))
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
+      val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      )
+
+      subscriptionBuilder
+        .subscription(configurationLoadTimeout)
+        .use { currentLedgerConfiguration =>
+          Delayed.by(100.millis)(()).map { _ =>
+            currentLedgerConfiguration.latestConfiguration() should be(None)
+            currentLedgerConfiguration.ready.isCompleted should be(false)
+            succeed
+          }
+        }
+    }
+
+    "discard rejections once an accepted configuration has been found" in {
+      val acceptedConfiguration = Configuration(
+        generation = 10,
+        timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(10)),
+        maxDeduplicationTime = Duration.ZERO,
+      )
+      val configurationEntries = List(
+        offset("0010") -> ConfigurationEntry.Rejected(
+          submissionId = "submission ID #1",
+          rejectionReason = "rejected #1",
+          proposedConfiguration = Configuration(
+            generation = 9,
+            timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(5)),
+            maxDeduplicationTime = Duration.ZERO,
+          ),
+        ),
+        offset("0020") -> ConfigurationEntry.Accepted(
+          submissionId = "submission ID #2",
+          configuration = acceptedConfiguration,
+        ),
+        offset("01ef") -> ConfigurationEntry.Rejected(
+          "submission ID #3",
+          "rejected #3",
+          Configuration(
+            generation = 11,
+            timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(15)),
+            maxDeduplicationTime = Duration.ZERO,
+          ),
+        ),
+      )
+      val configurationLoadTimeout = 5.seconds
+
+      val index = mock[IndexConfigManagementService]
+      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
+      when(index.configurationEntries(None))
+        .thenReturn(Source(configurationEntries).concat(Source.never))
+      val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
+      val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      )
+
+      subscriptionBuilder
+        .subscription(configurationLoadTimeout)
+        .use { currentLedgerConfiguration =>
+          currentLedgerConfiguration.ready.map { _ =>
+            eventually {
+              currentLedgerConfiguration.latestConfiguration() should be(
+                Some(acceptedConfiguration)
               )
             }
             succeed
