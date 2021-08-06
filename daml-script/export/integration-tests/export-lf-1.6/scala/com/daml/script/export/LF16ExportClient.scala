@@ -18,6 +18,7 @@ import com.daml.fs.Utils.deleteRecursively
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.v1.command_service
 import com.daml.ledger.api.v1.commands
+import com.daml.ledger.api.v1.transaction
 import com.daml.ledger.api.v1.value
 import com.daml.lf.archive.DarDecoder
 
@@ -133,32 +134,20 @@ object LF16ExportClient {
         displayName = Some("Alice"),
       )
       _ = System.err.println(s"$alice")
-      resp <- client.commandServiceClient.submitAndWaitForTransaction(
-        command_service
-          .SubmitAndWaitRequest()
-          .withCommands(
-            commands
-              .Commands()
-              .withLedgerId(ledgerId)
-              .withApplicationId(ledgerConfig.applicationId)
-              .withCommandId("create-LF16")
-              .withActAs(Seq(alice.party))
-              .withCommands(
-                Seq(
-                  ApiCommand.create(
-                    lf16TemplateId,
-                    ApiValue.recordRec(
-                      lf16TemplateId,
-                      "issuer" -> value.Value().withParty(alice.party),
-                      "count" -> value.Value().withInt64(0),
-                    ),
-                  )
-                )
-              )
-          )
+      apiClient = ApiClient(ledgerConfig.applicationId, ledgerId, client)
+      tx <- apiClient.submit(
+        "create-LF16",
+        Seq(alice.party),
+        ApiCommand.create(
+          lf16TemplateId,
+          ApiValue.recordRec(
+            lf16TemplateId,
+            "issuer" -> value.Value().withParty(alice.party),
+            "count" -> value.Value().withInt64(0),
+          ),
+        )
       )
-      _ = System.err.println(s"${resp}")
-      cid = resp.getTransaction.events(0).event.created.get.contractId
+      cid = tx.events(0).event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
       resp <- client.commandServiceClient.submitAndWaitForTransaction(
         command_service
@@ -393,4 +382,22 @@ object ApiCommand {
           .withChoice(choice)
           .withChoiceArgument(arg)
       )
+}
+
+case class ApiClient(applicationId: String, ledgerId: String, ledgerClient: LedgerClient) {
+  def submit(commandId: String, actAs: Seq[String], cmds: commands.Command*)(implicit ec: ExecutionContext): Future[transaction.Transaction] = {
+    ledgerClient.commandServiceClient.submitAndWaitForTransaction(
+      command_service
+        .SubmitAndWaitRequest()
+        .withCommands(
+          commands
+            .Commands()
+            .withLedgerId(ledgerId)
+            .withApplicationId(applicationId)
+            .withCommandId(commandId)
+            .withActAs(actAs)
+            .withCommands(cmds)
+        )
+    ).map(_.getTransaction)
+  }
 }
