@@ -152,7 +152,7 @@ object LF16ExportClient {
                         .CreateCommand()
                         .withTemplateId(lf16TemplateId)
                         .withCreateArguments(
-                          LF.record(
+                          LF.recordRec(
                             lf16TemplateId,
                             "issuer" -> value.Value().withParty(alice.party),
                             "count" -> value.Value().withInt64(0),
@@ -189,7 +189,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(LF.record(lf16IncrementId))
+                            .withRecord(LF.recordRec(lf16IncrementId))
                         )
                     )
                 )
@@ -222,7 +222,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(LF.record(LF.archiveId))
+                            .withRecord(LF.recordRec(LF.archiveId))
                         )
                     )
                 )
@@ -269,7 +269,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(LF.record(lf16IncrementId))
+                            .withRecord(LF.recordRec(lf16IncrementId))
                         )
                     ),
                   commands
@@ -288,7 +288,7 @@ object LF16ExportClient {
                         .withChoiceArgument(
                           value
                             .Value()
-                            .withRecord(LF.record(lf16IncrementId)
+                            .withRecord(LF.recordRec(lf16IncrementId)
                             )
                         )
                     ),
@@ -382,7 +382,7 @@ object LF {
       .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
       .withModuleName("DA.Types")
       .withEntityName(s"Tuple$n")
-  def record(id: value.Identifier, fields: (String, value.Value)*): value.Record =
+  def recordRec(id: value.Identifier, fields: (String, value.Value)*): value.Record =
     value
       .Record()
       .withRecordId(id)
@@ -396,6 +396,6 @@ object LF {
     value
       .Value()
       .withRecord(
-        record(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_$ix", v) }: _*)
+        recordRec(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_$ix", v) }: _*)
       )
 }
