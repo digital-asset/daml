@@ -12,31 +12,29 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.configuration.LedgerConfigProvisioner._
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.DurationLong
+import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.util.{Failure, Success}
 
 /** Writes a default ledger configuration to the ledger, after a configurable delay. The
   * configuration is only written if the ledger does not already have a configuration.
   *
   * Used by the participant to initialize a new ledger.
-  *
-  * Designed to be used only through the [[owner]] constructor.
   */
-final class LedgerConfigProvisioner private (
-    currentLedgerConfiguration: CurrentLedgerConfiguration,
+final class LedgerConfigurationProvisioner(
+    ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     submissionIdGenerator: SubmissionIdGenerator,
+    scheduler: Scheduler,
 ) {
+  private val logger = ContextualizedLogger.get(getClass)
 
-  /** Submits the initial configuration immediately.
-    * The [[owner]] constructor will schedule this with a delay.
+  /** Submits the initial configuration after the specified delay.
     *
     * There are several reasons why the change could be rejected:
     *
@@ -45,10 +43,29 @@ final class LedgerConfigProvisioner private (
     *
     * This method therefore does not try to re-submit the initial configuration in case of failure.
     */
-  def submitInitialConfig(
+  def submit(
+      initialLedgerConfiguration: InitialLedgerConfiguration
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[Unit] =
+    ResourceOwner
+      .forCancellable(() =>
+        scheduler.scheduleOnce(
+          ScalaDuration.fromNanos(initialLedgerConfiguration.delayBeforeSubmitting.toNanos),
+          new Runnable {
+            override def run(): Unit = {
+              submitImmediately(initialLedgerConfiguration.configuration)
+            }
+          },
+        )
+      )
+      .map(_ => ())
+
+  private def submitImmediately(
       initialConfiguration: Configuration
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Unit =
-    if (currentLedgerConfiguration.latestConfiguration.isEmpty) {
+    if (ledgerConfigurationSubscription.latestConfiguration().isEmpty) {
       val submissionId = submissionIdGenerator.generate()
       withEnrichedLoggingContext("submissionId" -> submissionId) { implicit loggingContext =>
         logger.info("No ledger configuration found, submitting an initial configuration.")
@@ -75,38 +92,4 @@ final class LedgerConfigProvisioner private (
           }
       }
     }
-}
-
-object LedgerConfigProvisioner {
-  private val logger = ContextualizedLogger.get(getClass)
-
-  def owner(
-      initialLedgerConfiguration: InitialLedgerConfiguration,
-      currentLedgerConfiguration: CurrentLedgerConfiguration,
-      writeService: state.WriteConfigService,
-      timeProvider: TimeProvider,
-      submissionIdGenerator: SubmissionIdGenerator,
-      scheduler: Scheduler,
-      servicesExecutionContext: ExecutionContext,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] = {
-    implicit val executionContext: ExecutionContext = servicesExecutionContext
-    val provisioner = new LedgerConfigProvisioner(
-      currentLedgerConfiguration,
-      writeService,
-      timeProvider,
-      submissionIdGenerator,
-    )
-    ResourceOwner
-      .forCancellable(() =>
-        scheduler.scheduleOnce(
-          initialLedgerConfiguration.delayBeforeSubmitting.toNanos.nanos,
-          new Runnable {
-            override def run(): Unit = {
-              provisioner.submitInitialConfig(initialLedgerConfiguration.configuration)
-            }
-          },
-        )
-      )
-      .map(_ => ())
-  }
 }

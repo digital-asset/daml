@@ -27,7 +27,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.DurationInt
 
-final class LedgerConfigProvisionerSpec
+final class LedgerConfigurationProvisionerSpec
     extends AsyncWordSpec
     with Matchers
     with Eventually
@@ -51,8 +51,8 @@ final class LedgerConfigProvisionerSpec
       )
       val submissionId = Ref.SubmissionId.assertFromString("the submission ID")
 
-      val currentLedgerConfiguration = new CurrentLedgerConfiguration {
-        override def latestConfiguration: Option[Configuration] = None
+      val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
+        override def latestConfiguration(): Option[Configuration] = None
       }
       val writeService = mock[state.WriteConfigService]
       val timeProvider = TimeProvider.Constant(Instant.EPOCH)
@@ -61,16 +61,13 @@ final class LedgerConfigProvisionerSpec
       }
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigProvisioner
-        .owner(
-          initialLedgerConfiguration = initialLedgerConfiguration,
-          currentLedgerConfiguration = currentLedgerConfiguration,
-          writeService = writeService,
-          timeProvider = timeProvider,
-          submissionIdGenerator = submissionIdGenerator,
-          scheduler = scheduler,
-          servicesExecutionContext = system.dispatcher,
-        )
+      new LedgerConfigurationProvisioner(
+        ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+        writeService = writeService,
+        timeProvider = timeProvider,
+        submissionIdGenerator = submissionIdGenerator,
+        scheduler = scheduler,
+      ).submit(initialLedgerConfiguration)
         .use { _ =>
           verify(writeService, never).submitConfiguration(
             any[Timestamp],
@@ -98,23 +95,20 @@ final class LedgerConfigProvisionerSpec
         delayBeforeSubmitting = Duration.ofMillis(100),
       )
 
-      val currentLedgerConfiguration = new CurrentLedgerConfiguration {
-        override def latestConfiguration: Option[Configuration] = Some(currentConfiguration)
+      val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
+        override def latestConfiguration(): Option[Configuration] = Some(currentConfiguration)
       }
       val writeService = mock[state.WriteConfigService]
       val timeProvider = TimeProvider.Constant(Instant.EPOCH)
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      LedgerConfigProvisioner
-        .owner(
-          initialLedgerConfiguration = initialLedgerConfiguration,
-          currentLedgerConfiguration = currentLedgerConfiguration,
-          writeService = writeService,
-          timeProvider = timeProvider,
-          submissionIdGenerator = SubmissionIdGenerator.Random,
-          scheduler = scheduler,
-          servicesExecutionContext = system.dispatcher,
-        )
+      new LedgerConfigurationProvisioner(
+        ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+        writeService = writeService,
+        timeProvider = timeProvider,
+        submissionIdGenerator = SubmissionIdGenerator.Random,
+        scheduler = scheduler,
+      ).submit(initialLedgerConfiguration)
         .use { _ =>
           scheduler.timePasses(1.second)
           verify(writeService, after(100).never()).submitConfiguration(
@@ -136,23 +130,20 @@ final class LedgerConfigProvisionerSpec
     )
 
     val currentConfiguration = new AtomicReference[Option[Configuration]](None)
-    val currentLedgerConfiguration = new CurrentLedgerConfiguration {
-      override def latestConfiguration: Option[Configuration] = currentConfiguration.get
+    val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
+      override def latestConfiguration(): Option[Configuration] = currentConfiguration.get
     }
     val writeService = mock[state.WriteConfigService]
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-    LedgerConfigProvisioner
-      .owner(
-        initialLedgerConfiguration = initialLedgerConfiguration,
-        currentLedgerConfiguration = currentLedgerConfiguration,
-        writeService = writeService,
-        timeProvider = timeProvider,
-        submissionIdGenerator = SubmissionIdGenerator.Random,
-        scheduler = scheduler,
-        servicesExecutionContext = system.dispatcher,
-      )
+    new LedgerConfigurationProvisioner(
+      ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+      writeService = writeService,
+      timeProvider = timeProvider,
+      submissionIdGenerator = SubmissionIdGenerator.Random,
+      scheduler = scheduler,
+    ).submit(initialLedgerConfiguration)
       .use { _ =>
         scheduler.scheduleOnce(
           2.seconds,
@@ -178,23 +169,20 @@ final class LedgerConfigProvisionerSpec
       delayBeforeSubmitting = Duration.ofSeconds(1),
     )
 
-    val currentLedgerConfiguration = new CurrentLedgerConfiguration {
-      override def latestConfiguration: Option[Configuration] = None
+    val ledgerConfigurationSubscription = new LedgerConfigurationSubscription {
+      override def latestConfiguration(): Option[Configuration] = None
     }
     val writeService = mock[state.WriteConfigService]
     val timeProvider = TimeProvider.Constant(Instant.EPOCH)
     val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-    val owner = LedgerConfigProvisioner.owner(
-      initialLedgerConfiguration = initialLedgerConfiguration,
-      currentLedgerConfiguration = currentLedgerConfiguration,
+    val resource = new LedgerConfigurationProvisioner(
+      ledgerConfigurationSubscription = ledgerConfigurationSubscription,
       writeService = writeService,
       timeProvider = timeProvider,
       submissionIdGenerator = SubmissionIdGenerator.Random,
       scheduler = scheduler,
-      servicesExecutionContext = system.dispatcher,
-    )
-    val resource = owner.acquire()
+    ).submit(initialLedgerConfiguration).acquire()
 
     resource.asFuture
       .flatMap { _ => resource.release() }

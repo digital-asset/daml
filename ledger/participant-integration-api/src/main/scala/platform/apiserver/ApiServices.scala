@@ -21,7 +21,10 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.configuration.{CurrentLedgerConfiguration, LedgerConfigProvider}
+import com.daml.platform.apiserver.configuration.{
+  LedgerConfigurationInitializer,
+  LedgerConfigurationSubscription,
+}
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
@@ -105,20 +108,22 @@ private[daml] object ApiServices {
     private val configManagementService: IndexConfigManagementService = indexService
     private val submissionService: IndexSubmissionService = indexService
 
+    private val configurationInitializer = new LedgerConfigurationInitializer(
+      indexService = indexService,
+      optWriteService = optWriteService,
+      timeProvider = timeProvider,
+      materializer = materializer,
+      servicesExecutionContext = servicesExecutionContext,
+    )
+
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
       for {
         ledgerId <- Resource.fromFuture(indexService.getLedgerId())
-        currentLedgerConfiguration <- LedgerConfigProvider
-          .owner(
-            initialLedgerConfiguration = initialLedgerConfiguration,
-            configurationLoadTimeout = ScalaDuration.fromNanos(configurationLoadTimeout.toNanos),
-            indexService = indexService,
-            optWriteService = optWriteService,
-            timeProvider = timeProvider,
-            servicesExecutionContext = servicesExecutionContext,
-          )
-          .acquire()
+        currentLedgerConfiguration <- configurationInitializer.initialize(
+          initialLedgerConfiguration = initialLedgerConfiguration,
+          configurationLoadTimeout = ScalaDuration.fromNanos(configurationLoadTimeout.toNanos),
+        )
         services <- Resource(
           Future(createServices(ledgerId, currentLedgerConfiguration)(servicesExecutionContext))
         )(services =>
@@ -134,7 +139,7 @@ private[daml] object ApiServices {
 
     private def createServices(
         ledgerId: LedgerId,
-        currentLedgerConfiguration: CurrentLedgerConfiguration,
+        ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService, metrics)
@@ -164,7 +169,7 @@ private[daml] object ApiServices {
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,
-          currentLedgerConfiguration,
+          ledgerConfigurationSubscription,
           apiCompletionService,
           apiTransactionService,
         )
@@ -190,7 +195,7 @@ private[daml] object ApiServices {
 
     private def intitializeWriteServiceBackedApiServices(
         ledgerId: LedgerId,
-        currentLedgerConfiguration: CurrentLedgerConfiguration,
+        ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         apiCompletionService: GrpcCommandCompletionService,
         apiTransactionService: GrpcTransactionService,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
@@ -218,7 +223,7 @@ private[daml] object ApiServices {
           partyManagementService,
           timeProvider,
           timeProviderType,
-          currentLedgerConfiguration,
+          ledgerConfigurationSubscription,
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
@@ -247,7 +252,7 @@ private[daml] object ApiServices {
             apiTransactionService.getFlatTransactionById,
           ),
           timeProvider,
-          currentLedgerConfiguration,
+          ledgerConfigurationSubscription,
           metrics,
         )
 

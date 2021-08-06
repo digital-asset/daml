@@ -32,7 +32,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.apiserver.configuration.CurrentLedgerConfiguration
+import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.daml.platform.server.api.ApiException
@@ -51,7 +51,7 @@ import scala.util.Try
 private[apiserver] final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
-    currentLedgerConfiguration: CurrentLedgerConfiguration,
+    ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     metrics: Metrics,
 )(implicit
     materializer: Materializer,
@@ -87,9 +87,11 @@ private[apiserver] final class ApiCommandService private (
       logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        currentLedgerConfiguration.latestConfiguration.fold[Future[Completion]](
-          Future.failed(ErrorFactories.missingLedgerConfig())
-        )(ledgerConfig => track(request, ledgerConfig))
+        ledgerConfigurationSubscription
+          .latestConfiguration()
+          .fold[Future[Completion]](
+            Future.failed(ErrorFactories.missingLedgerConfig())
+          )(ledgerConfig => track(request, ledgerConfig))
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
@@ -107,7 +109,7 @@ private[apiserver] final class ApiCommandService private (
     val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
     val submitter = TrackerMap.Key(application = appId, parties = parties)
     // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
-    val metricsPrefixFirstParty = parties.toList.sorted.head
+    val metricsPrefixFirstParty = parties.toList.min
     submissionTracker.track(submitter, request) {
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
@@ -197,7 +199,7 @@ private[apiserver] object ApiCommandService {
       configuration: Configuration,
       services: LocalServices,
       timeProvider: TimeProvider,
-      currentLedgerConfiguration: CurrentLedgerConfiguration,
+      ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
@@ -205,12 +207,12 @@ private[apiserver] object ApiCommandService {
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
-      new ApiCommandService(services, configuration, currentLedgerConfiguration, metrics),
+      new ApiCommandService(services, configuration, ledgerConfigurationSubscription, metrics),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
-        currentLedgerConfiguration.latestConfiguration.map(_.maxDeduplicationTime),
+        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       generateSubmissionId = SubmissionIdGenerator.Random,
     )
 

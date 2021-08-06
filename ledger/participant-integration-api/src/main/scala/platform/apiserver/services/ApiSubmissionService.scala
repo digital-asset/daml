@@ -23,7 +23,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.SeedService
-import com.daml.platform.apiserver.configuration.CurrentLedgerConfiguration
+import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -48,7 +48,7 @@ private[apiserver] object ApiSubmissionService {
       partyManagementService: IndexPartyManagementService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      currentLedgerConfiguration: CurrentLedgerConfiguration,
+      ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
@@ -64,7 +64,7 @@ private[apiserver] object ApiSubmissionService {
         partyManagementService,
         timeProvider,
         timeProviderType,
-        currentLedgerConfiguration,
+        ledgerConfigurationSubscription,
         seedService,
         commandExecutor,
         configuration,
@@ -74,7 +74,7 @@ private[apiserver] object ApiSubmissionService {
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
-        currentLedgerConfiguration.latestConfiguration.map(_.maxDeduplicationTime),
+        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
     )
@@ -91,7 +91,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     partyManagementService: IndexPartyManagementService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
-    currentLedgerConfiguration: CurrentLedgerConfiguration,
+    ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
@@ -111,7 +111,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
-      currentLedgerConfiguration.latestConfiguration
+      ledgerConfigurationSubscription
+        .latestConfiguration()
         .map(deduplicateAndRecordOnLedger(seedService.nextSeed(), request.commands, _))
         .getOrElse(Future.failed(ErrorFactories.missingLedgerConfig()))
         .andThen(logger.logErrorsOnCall[Unit])

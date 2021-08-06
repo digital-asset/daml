@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.apiserver.configuration.IndexStreamingCurrentLedgerConfigurationSpec._
+import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscriptionFromIndexSpec._
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.concurrent.Eventually
@@ -26,7 +26,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-final class IndexStreamingCurrentLedgerConfigurationSpec
+final class LedgerConfigurationSubscriptionFromIndexSpec
     extends AsyncWordSpec
     with Matchers
     with Eventually
@@ -49,20 +49,17 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.map { _ =>
-            currentLedgerConfiguration.latestConfiguration should be(Some(currentConfiguration))
-            succeed
-          }
+      new LedgerConfigurationSubscriptionFromIndex(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.map { _ =>
+          currentLedgerConfiguration.latestConfiguration() should be(Some(currentConfiguration))
+          succeed
         }
+      }
     }
 
     "stream the latest configuration from the index" in {
@@ -95,22 +92,21 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
         .thenReturn(Source(configurationEntries).concat(Source.never))
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.map { _ =>
-            eventually {
-              currentLedgerConfiguration.latestConfiguration should be(Some(configurations.last._2))
-            }
-            succeed
+      new LedgerConfigurationSubscriptionFromIndex(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.map { _ =>
+          eventually {
+            currentLedgerConfiguration.latestConfiguration() should be(
+              Some(configurations.last._2)
+            )
           }
+          succeed
         }
+      }
     }
 
     "give up waiting if the configuration takes too long to appear" in {
@@ -121,22 +117,19 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val configurationLoadTimeout = 500.millis
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.isCompleted should be(false)
-          scheduler.timePasses(1.second)
-          currentLedgerConfiguration.ready.isCompleted should be(true)
-          currentLedgerConfiguration.ready.map { _ =>
-            currentLedgerConfiguration.latestConfiguration should be(None)
-          }
+      new LedgerConfigurationSubscriptionFromIndex(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.isCompleted should be(false)
+        scheduler.timePasses(1.second)
+        currentLedgerConfiguration.ready.isCompleted should be(true)
+        currentLedgerConfiguration.ready.map { _ =>
+          currentLedgerConfiguration.latestConfiguration() should be(None)
         }
+      }
     }
 
     "never becomes ready if stopped" in {
@@ -147,14 +140,12 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      val owner = IndexStreamingCurrentLedgerConfiguration.owner(
-        configurationLoadTimeout = configurationLoadTimeout,
-        index = index,
+      val resource = new LedgerConfigurationSubscriptionFromIndex(
+        indexService = index,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
-      )
-      val resource = owner.acquire()
+      ).subscription(configurationLoadTimeout).acquire()
 
       resource.asFuture
         .flatMap { currentLedgerConfiguration =>
@@ -179,26 +170,23 @@ final class IndexStreamingCurrentLedgerConfigurationSpec
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
-      IndexStreamingCurrentLedgerConfiguration
-        .owner(
-          configurationLoadTimeout = configurationLoadTimeout,
-          index = index,
-          scheduler = scheduler,
-          materializer = materializer,
-          servicesExecutionContext = system.dispatcher,
-        )
-        .use { currentLedgerConfiguration =>
-          currentLedgerConfiguration.ready.transform(Success.apply).map { result =>
-            inside(result) { case Failure(exception) =>
-              exception should be(failure)
-            }
+      new LedgerConfigurationSubscriptionFromIndex(
+        indexService = index,
+        scheduler = scheduler,
+        materializer = materializer,
+        servicesExecutionContext = system.dispatcher,
+      ).subscription(configurationLoadTimeout).use { currentLedgerConfiguration =>
+        currentLedgerConfiguration.ready.transform(Success.apply).map { result =>
+          inside(result) { case Failure(exception) =>
+            exception should be(failure)
           }
         }
+      }
     }
   }
 }
 
-object IndexStreamingCurrentLedgerConfigurationSpec {
+object LedgerConfigurationSubscriptionFromIndexSpec {
   private def offset(value: String): LedgerOffset.Absolute =
     LedgerOffset.Absolute(Ref.LedgerString.assertFromString(value))
 }
