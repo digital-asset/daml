@@ -10,6 +10,7 @@ import com.daml.extractor.services.ExtractorFixture
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundEach
+import com.daml.timer.RetryStrategy
 import io.grpc.Status
 import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -56,7 +57,9 @@ class VeryLargeArchiveSpec
     runWithInboundLimit(failMB * 1024 * 1024) {
       fail("shouldn't successfully run")
     }.recover {
-      case GrpcException((GrpcStatus(Status.Code.`RESOURCE_EXHAUSTED`, Some(description)), _)) =>
+      case RetryStrategy.FailedRetryException(
+            GrpcException((GrpcStatus(Status.Code.`RESOURCE_EXHAUSTED`, Some(description)), _))
+          ) =>
         description should startWith("gRPC message exceeds maximum size")
     }
   }
