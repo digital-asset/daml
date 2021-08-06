@@ -173,23 +173,40 @@ object LF16ExportClient {
           "Increment",
           ApiValue.record(lf16IncrementId),
         ),
-        ApiCommand.exerciseByKey(
-          lf16TemplateId,
-          ApiValue.tuple(
-            value.Value().withParty(alice.party),
-            value.Value().withInt64(1),
-          ),
-          "Increment",
-          ApiValue.record(lf16IncrementId),
-        ),
+        commands
+          .Command()
+          .withExerciseByKey(
+            commands
+              .ExerciseByKeyCommand()
+              .withTemplateId(lf16TemplateId)
+              .withContractKey(
+                value.Value()
+                  .withRecord(
+                    value
+                      .Record()
+                      .withRecordId(ApiValue.tupleId(2))
+                      .withFields(
+                        Seq(
+                          value.RecordField()
+                            .withLabel("_1")
+                            .withValue(value.Value().withParty(alice.party)),
+                          value.RecordField()
+                            .withLabel("_2")
+                            .withValue(value.Value().withInt64(1)),
+                        )
+                      )
+                  )
+              )
+              .withChoice("Increment")
+              .withChoiceArgument(ApiValue.record(lf16IncrementId)),
+          )
       )
       cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
     } yield ()
-    run .onComplete { _ => sys.terminate() }
+    run.onComplete { _ => sys.terminate() }
     val _ = Await.result(sys.whenTerminated, Duration.Inf)
-    val _ = Await.result(run, Duration.Inf)
-    ()
+    Await.result(run, Duration.Inf)
   }
 
   private def generateExport(
