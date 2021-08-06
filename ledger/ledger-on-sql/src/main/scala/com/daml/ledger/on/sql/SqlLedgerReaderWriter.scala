@@ -106,11 +106,9 @@ object SqlLedgerReaderWriter {
         uninitializedDatabase <- Database.owner(jdbcUrl, metrics).acquire()
         database <- Resource.fromFuture(
           if (resetOnStartup) uninitializedDatabase.migrateAndReset().removeExecutionContext
-          else sc.Future.successful(uninitializedDatabase.migrate())
+          else sc.Future(uninitializedDatabase.migrate())
         )
-        ledgerId <- Resource.fromFuture(
-          updateOrRetrieveLedgerId(ledgerId, database).removeExecutionContext
-        )
+        _ <- Resource.fromFuture(updateOrCheckLedgerId(ledgerId, database).removeExecutionContext)
         dispatcher <- new DispatcherOwner(database).acquire()
         validator = SubmissionValidator.createForTimeMode(
           ledgerStateAccess = new SqlLedgerStateAccess(database, metrics),
@@ -143,10 +141,10 @@ object SqlLedgerReaderWriter {
     }
   }
 
-  private def updateOrRetrieveLedgerId(
+  private def updateOrCheckLedgerId(
       providedLedgerId: LedgerId,
       database: Database,
-  ): Future[Database.Writer, LedgerId] =
+  ): Future[Database.Writer, Unit] =
     database.inWriteTransaction("retrieve_ledger_id") { queries =>
       Future.fromTry(
         queries
@@ -160,7 +158,7 @@ object SqlLedgerReaderWriter {
                 )
               )
             } else {
-              Success(ledgerId)
+              Success(())
             }
           }
       )
