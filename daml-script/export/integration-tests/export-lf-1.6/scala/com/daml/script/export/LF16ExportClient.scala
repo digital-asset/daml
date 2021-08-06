@@ -145,12 +145,13 @@ object LF16ExportClient {
               .withActAs(Seq(alice.party))
               .withCommands(
                 Seq(
-                  ApiCommand.create(lf16TemplateId,
+                  ApiCommand.create(
+                    lf16TemplateId,
                     ApiValue.recordRec(
                       lf16TemplateId,
                       "issuer" -> value.Value().withParty(alice.party),
                       "count" -> value.Value().withInt64(0),
-                    )
+                    ),
                   )
                 )
               )
@@ -169,7 +170,12 @@ object LF16ExportClient {
               .withApplicationId(ledgerConfig.applicationId)
               .withCommandId("exercise-Lf16-Increment")
               .withActAs(Seq(alice.party))
-              .withCommands(Seq(ApiCommand.exercise(lf16TemplateId, cid, "Increment", ApiValue.record(lf16IncrementId))))
+              .withCommands(
+                Seq(
+                  ApiCommand
+                    .exercise(lf16TemplateId, cid, "Increment", ApiValue.record(lf16IncrementId))
+                )
+              )
           )
       )
       _ = System.err.println(s"${resp}")
@@ -206,10 +212,10 @@ object LF16ExportClient {
                     ApiValue.recordRec(
                       lf16TemplateId,
                       "issuer" -> value.Value().withParty(alice.party),
-                      "count" -> value.Value().withInt64(0)
+                      "count" -> value.Value().withInt64(0),
                     ),
                     "Increment",
-                    ApiValue.record(lf16IncrementId)
+                    ApiValue.record(lf16IncrementId),
                   ),
                   ApiCommand.exerciseByKey(
                     lf16TemplateId,
@@ -337,7 +343,12 @@ object ApiCommand {
           .withTemplateId(tplId)
           .withCreateArguments(args)
       )
-  def exercise(tplId: value.Identifier, cid: String, choice: String, arg: value.Value): commands.Command =
+  def exercise(
+      tplId: value.Identifier,
+      cid: String,
+      choice: String,
+      arg: value.Value,
+  ): commands.Command =
     commands
       .Command()
       .withExercise(
@@ -350,7 +361,12 @@ object ApiCommand {
       )
   def archive(tplId: value.Identifier, cid: String): commands.Command =
     exercise(tplId, cid, "Archive", ApiValue.record(archiveId))
-  def createAndExercise(tplId: value.Identifier, tplArgs: value.Record, choice: String, choiceArg: value.Value): commands.Command =
+  def createAndExercise(
+      tplId: value.Identifier,
+      tplArgs: value.Record,
+      choice: String,
+      choiceArg: value.Value,
+  ): commands.Command =
     commands
       .Command()
       .withCreateAndExercise(
@@ -361,7 +377,12 @@ object ApiCommand {
           .withChoice(choice)
           .withChoiceArgument(choiceArg)
       )
-  def exerciseByKey(tplId: value.Identifier, key: value.Value, choice: String, arg: value.Value): commands.Command =
+  def exerciseByKey(
+      tplId: value.Identifier,
+      key: value.Value,
+      choice: String,
+      arg: value.Value,
+  ): commands.Command =
     commands
       .Command()
       .withExerciseByKey(
