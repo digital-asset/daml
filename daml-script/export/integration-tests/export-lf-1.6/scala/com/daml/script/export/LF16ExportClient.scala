@@ -186,11 +186,7 @@ object LF16ExportClient {
                         .withTemplateId(lf16TemplateId)
                         .withContractId(cid)
                         .withChoice("Increment")
-                        .withChoiceArgument(
-                          value
-                            .Value()
-                            .withRecord(LF.recordRec(lf16IncrementId))
-                        )
+                        .withChoiceArgument(LF.record(lf16IncrementId))
                     )
                 )
               )
@@ -219,11 +215,7 @@ object LF16ExportClient {
                         .withTemplateId(lf16TemplateId)
                         .withContractId(cid)
                         .withChoice("Archive")
-                        .withChoiceArgument(
-                          value
-                            .Value()
-                            .withRecord(LF.recordRec(LF.archiveId))
-                        )
+                        .withChoiceArgument(LF.record(LF.archiveId))
                     )
                 )
               )
@@ -266,11 +258,7 @@ object LF16ExportClient {
                             )
                         )
                         .withChoice("Increment")
-                        .withChoiceArgument(
-                          value
-                            .Value()
-                            .withRecord(LF.recordRec(lf16IncrementId))
-                        )
+                        .withChoiceArgument(LF.record(lf16IncrementId))
                     ),
                   commands
                     .Command()
@@ -285,12 +273,7 @@ object LF16ExportClient {
                           )
                         )
                         .withChoice("Increment")
-                        .withChoiceArgument(
-                          value
-                            .Value()
-                            .withRecord(LF.recordRec(lf16IncrementId)
-                            )
-                        )
+                        .withChoiceArgument(LF.record(lf16IncrementId))
                     ),
                 )
               )
@@ -392,10 +375,9 @@ object LF {
           .withLabel(lbl)
           .withValue(v)
       })
-  def tuple(vals: value.Value*): value.Value =
-    value
-      .Value()
-      .withRecord(
-        recordRec(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_$ix", v) }: _*)
-      )
+  def record(id: value.Identifier, fields: (String, value.Value)*): value.Value =
+    value.Value().withRecord(recordRec(id, fields: _*))
+  def tuple(vals: value.Value*): value.Value = {
+    record(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_$ix", v) }: _*)
+  }
 }
