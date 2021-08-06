@@ -20,6 +20,7 @@ import com.daml.ledger.api.v1.command_service
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.transaction
 import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.domain
 import com.daml.lf.archive.DarDecoder
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -121,19 +122,14 @@ object LF16ExportClient {
         .withPackageId(mainPackageId)
         .withModuleName("LF16")
         .withEntityName("Increment")
-      ledgerConfig = LedgerClientConfiguration(
+      apiClient <- ApiClient(
         applicationId = "lf16-export-client",
-        ledgerIdRequirement = LedgerIdRequirement.none,
-        commandClient = CommandClientConfiguration.default,
-        sslContext = None,
+        ledgerId = ledgerId,
+        host = "localhost",
+        port = ledgerPort,
       )
-      client <- LedgerClient.singleHost("localhost", ledgerPort, ledgerConfig)
-      alice <- client.partyManagementClient.allocateParty(
-        hint = Some("Alice"),
-        displayName = Some("Alice"),
-      )
+      alice <- apiClient.allocateParty("Alice", "Alice")
       _ = System.err.println(s"$alice")
-      apiClient = ApiClient(ledgerConfig.applicationId, ledgerId, client)
       tx <- apiClient.submit(
         "create-LF16",
         Seq(alice.party),
@@ -274,7 +270,7 @@ object ApiValue {
     record(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_${ix + 1}", v) }: _*)
   }
   def party(p: String): value.Value = value.Value().withParty(p)
-  def int(i: Int): value.Value = value.Value().withInt64(i)
+  def int(i: Long): value.Value = value.Value().withInt64(i)
 }
 
 object ApiCommand {
@@ -345,6 +341,9 @@ object ApiCommand {
 }
 
 case class ApiClient(applicationId: String, ledgerId: String, ledgerClient: LedgerClient) {
+  def allocateParty(hint: String, displayName: String): Future[domain.PartyDetails] = {
+    ledgerClient.partyManagementClient.allocateParty(Some(hint), Some(displayName))
+  }
   def submit(commandId: String, actAs: Seq[String], cmds: commands.Command*)(implicit
       ec: ExecutionContext
   ): Future[transaction.Transaction] = {
@@ -367,5 +366,25 @@ case class ApiClient(applicationId: String, ledgerId: String, ledgerClient: Ledg
         System.err.println(s"RESP $resp")
         resp.getTransaction
       }
+  }
+}
+
+object ApiClient {
+  def apply(
+      applicationId: String,
+      ledgerId: String,
+      host: String,
+      port: Int,
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[ApiClient] = {
+    val ledgerConfig = LedgerClientConfiguration(
+      applicationId = applicationId,
+      ledgerIdRequirement = LedgerIdRequirement.none,
+      commandClient = CommandClientConfiguration.default,
+      sslContext = None,
+    )
+    LedgerClient
+      .singleHost(host, port, ledgerConfig)
+      .map(ledgerClient => new ApiClient(applicationId, ledgerId, ledgerClient))
+
   }
 }
