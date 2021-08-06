@@ -7,6 +7,7 @@ import java.time.Duration
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}

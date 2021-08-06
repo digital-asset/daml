@@ -1,0 +1,53 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "ledger-grpc",
+    srcs = glob(["src/main/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.daml:ledger-grpc:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [
+    ],
+    runtime_deps = [],
+    deps = [
+        "//language-support/scala/bindings",
+        "//ledger/ledger-offset",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+filegroup(
+    name = "sources",
+    srcs = glob(["src/main/**/*.scala"]),
+    visibility = ["//visibility:public"],
+)
+
+da_scala_test_suite(
+    name = "ledger-grpc-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    resources = glob(["src/test/resources/*"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+    ],
+    deps = [
+        ":ledger-grpc",
+        "//daml-lf/data",
+        "//ledger/ledger-offset",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)

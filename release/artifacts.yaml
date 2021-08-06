@@ -137,6 +137,8 @@
   type: jar-proto
 - target: //ledger/ledger-offset:ledger-offset
   type: jar-scala
+- target: //ledger/ledger-grpc:ledger-grpc
+  type: jar-scala
 - target: //ledger/ledger-on-memory:ledger-on-memory
   type: jar-scala
 - target: //ledger/ledger-on-memory:ledger-on-memory-app
