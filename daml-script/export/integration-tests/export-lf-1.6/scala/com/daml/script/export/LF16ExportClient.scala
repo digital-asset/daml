@@ -141,8 +141,8 @@ object LF16ExportClient {
           lf16TemplateId,
           ApiValue.recordRec(
             lf16TemplateId,
-            "issuer" -> value.Value().withParty(alice.party),
-            "count" -> value.Value().withInt64(0),
+            "issuer" -> ApiValue.party(alice.party),
+            "count" -> ApiValue.int(0),
           ),
         ),
       )
@@ -167,15 +167,15 @@ object LF16ExportClient {
           lf16TemplateId,
           ApiValue.recordRec(
             lf16TemplateId,
-            "issuer" -> value.Value().withParty(alice.party),
-            "count" -> value.Value().withInt64(0),
+            "issuer" -> ApiValue.party(alice.party),
+            "count" -> ApiValue.int(0),
           ),
           "Increment",
           ApiValue.record(lf16IncrementId),
         ),
         ApiCommand.exerciseByKey(
           lf16TemplateId,
-          ApiValue.tuple(value.Value().withParty(alice.party), value.Value().withInt64(1)),
+          ApiValue.tuple(ApiValue.party(alice.party), ApiValue.int(1)),
           "Increment",
           ApiValue.record(lf16IncrementId),
         ),
@@ -273,6 +273,8 @@ object ApiValue {
   def tuple(vals: value.Value*): value.Value = {
     record(tupleId(vals.size), vals.zipWithIndex.map { case (v, ix) => (s"_${ix + 1}", v) }: _*)
   }
+  def party(p: String): value.Value = value.Value().withParty(p)
+  def int(i: Int): value.Value = value.Value().withInt64(i)
 }
 
 object ApiCommand {
