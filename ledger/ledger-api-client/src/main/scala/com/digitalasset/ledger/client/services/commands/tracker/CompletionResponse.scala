@@ -10,7 +10,7 @@ import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status.Code
 import io.grpc.{StatusRuntimeException, protobuf}
 
-import scala.jdk.CollectionConverters.MapHasAsJava
+import scala.jdk.CollectionConverters._
 
 object CompletionResponse {
   type CompletionResponse = Either[CompletionFailure, CompletionSuccess]
