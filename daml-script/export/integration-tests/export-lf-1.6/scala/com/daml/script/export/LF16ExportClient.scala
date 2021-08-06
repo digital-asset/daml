@@ -111,11 +111,13 @@ object LF16ExportClient {
     val run: Future[Unit] = for {
       dar <- Future.fromTry(DarDecoder.readArchiveFromFile(darPath).toTry)
       mainPackageId = dar.main._1
-      archiveId = value.Identifier()
+      archiveId = value
+        .Identifier()
         .withPackageId("d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662")
         .withModuleName("DA.Internal.Template")
         .withEntityName("Archive")
-      tuple2Id = value.Identifier()
+      tuple2Id = value
+        .Identifier()
         .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
         .withModuleName("DA.Types")
         .withEntityName("Tuple2")
@@ -306,33 +308,10 @@ object LF16ExportClient {
                         .ExerciseByKeyCommand()
                         .withTemplateId(lf16TemplateId)
                         .withContractKey(
-                          value
-                            .Value()
-                            .withRecord(
-                              value
-                                .Record()
-                                .withRecordId(tuple2Id)
-                                .withFields(
-                                  Seq(
-                                    value
-                                      .RecordField()
-                                      .withLabel("_1")
-                                      .withValue(
-                                        value
-                                          .Value()
-                                          .withParty(alice.party)
-                                      ),
-                                    value
-                                      .RecordField()
-                                      .withLabel("_2")
-                                      .withValue(
-                                        value
-                                          .Value()
-                                          .withInt64(1)
-                                      ),
-                                  )
-                                )
-                            )
+                          LF16.tuple(
+                            value.Value().withParty(alice.party),
+                            value.Value().withInt64(1),
+                          )
                         )
                         .withChoice("Increment")
                         .withChoiceArgument(
@@ -421,4 +400,27 @@ object LF16ExportClient {
       deleteRecursively(tmpDir)
     }
   }
+}
+
+object LF16 {
+  def tupleRecordId(n: Int): value.Identifier =
+    value
+      .Identifier()
+      .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+      .withModuleName("DA.Types")
+      .withEntityName(s"Tuple$n")
+  def tuple(vals: value.Value*): value.Value =
+    value
+      .Value()
+      .withRecord(
+        value
+          .Record()
+          .withRecordId(tupleRecordId(vals.size))
+          .withFields(vals.zipWithIndex.map { case (v, ix) =>
+            value
+              .RecordField()
+              .withLabel(s"_$ix")
+              .withValue(v)
+          })
+      )
 }
