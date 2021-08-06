@@ -21,7 +21,6 @@ object CompletionResponse {
       extends CompletionFailure
   final case class TimeoutResponse(commandId: String) extends CompletionFailure
   final case class NoStatusInResponse(commandId: String) extends CompletionFailure
-  final case class StartingExecutionFailure(status: Status) extends CompletionFailure
 
   final case class CompletionSuccess(commandId: String, transactionId: String)
 
