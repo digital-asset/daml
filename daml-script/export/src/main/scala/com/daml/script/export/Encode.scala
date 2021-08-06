@@ -295,7 +295,7 @@ private[export] object Encode {
           case Ast.BTRoundingMode => "RoundingMode"
           case Ast.BTBigNumeric => "BigNumeric"
         })
-      case app @ Ast.TApp(_, _) =>
+      case app: Ast.TApp =>
         unfoldApp(app) match {
           case (Ast.TTyCon(tycon), args) if isTupleName(tycon) =>
             tuple(args.map(ty => encodeType(ty)))
@@ -307,13 +307,8 @@ private[export] object Encode {
               encodeType(a, 2) & Doc.text("->") & encodeType(b),
             )
           case (f, args) =>
-            precParens(
-              10,
-              encodeType(f, 11) & Doc.intercalate(
-                Doc.space,
-                args.map(ty => encodeType(ty, 11)),
-              ),
-            )
+            val argsDoc = Doc.spread(args.map(ty => encodeType(ty, 11)))
+            precParens(10, encodeType(f, 11) & argsDoc)
         }
       case Ast.TForall(_, _) =>
         // We only need to encode types in type-class instances. Foralls don't occur in that position.
