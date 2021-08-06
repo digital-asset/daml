@@ -297,7 +297,7 @@ private[export] object Encode {
         })
       case app: Ast.TApp =>
         unfoldApp(app) match {
-          case (Ast.TTyCon(tycon), args) if isTupleName(tycon) =>
+          case (Ast.TTyCon(tycon), args) if isTupleRefId(tycon) =>
             tuple(args.map(ty => encodeType(ty)))
           case (Ast.TBuiltin(Ast.BTList), Seq(arg)) =>
             brackets(encodeType(arg))
@@ -324,7 +324,7 @@ private[export] object Encode {
     id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
   }
 
-  private def isTupleName(name: Ref.Identifier): Boolean = {
+  private def isTupleRefId(name: Ref.Identifier): Boolean = {
     isTupleId(
       Identifier()
         .withPackageId(name.packageId)
