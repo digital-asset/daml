@@ -24,7 +24,6 @@ import com.daml.lf.archive.DarDecoder
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
-import scala.util.control.NonFatal
 
 case class LF16ExportClientConfig(
     darPath: File,
@@ -187,10 +186,9 @@ object LF16ExportClient {
       cid = tx.events.find(_.event.isCreated).get.event.created.get.contractId
       _ = System.err.println(s"ID: $cid")
     } yield ()
-    run
-      .recoverWith { case NonFatal(fail) => Future { println(fail) } }
-      .onComplete(_ => sys.terminate())
-    Await.result(sys.whenTerminated, Duration.Inf)
+    run .onComplete { _ => sys.terminate() }
+    val _ = Await.result(sys.whenTerminated, Duration.Inf)
+    val _ = Await.result(run, Duration.Inf)
     ()
   }
 
@@ -352,6 +350,7 @@ case class ApiClient(applicationId: String, ledgerId: String, ledgerClient: Ledg
   def submit(commandId: String, actAs: Seq[String], cmds: commands.Command*)(implicit
       ec: ExecutionContext
   ): Future[transaction.Transaction] = {
+    System.err.println(s"SUBMIT $cmds")
     ledgerClient.commandServiceClient
       .submitAndWaitForTransaction(
         command_service
