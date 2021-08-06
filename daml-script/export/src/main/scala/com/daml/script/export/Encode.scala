@@ -267,22 +267,9 @@ private[export] object Encode {
       case Ast.TVar(name) => Doc.text(name)
       case Ast.TNat(n) => Doc.text(s"$n")
       case Ast.TSynApp(tysyn, args) =>
-        precParens(
-          10,
-          qualifyId(
-            Identifier()
-              .withPackageId(tysyn.packageId)
-              .withModuleName(tysyn.qualifiedName.module.dottedName)
-              .withEntityName(tysyn.qualifiedName.name.dottedName)
-          ) & Doc.intercalate(Doc.space, args.toSeq.map(ty => encodeType(ty, 11))),
-        )
-      case Ast.TTyCon(tycon) =>
-        qualifyId(
-          Identifier()
-            .withPackageId(tycon.packageId)
-            .withModuleName(tycon.qualifiedName.module.dottedName)
-            .withEntityName(tycon.qualifiedName.name.dottedName)
-        )
+        val argsDoc = Doc.spread(args.toSeq.map(ty => encodeType(ty, 11)))
+        precParens(10, qualifyRefId(tysyn) & argsDoc)
+      case Ast.TTyCon(tycon) => qualifyRefId(tycon)
       case Ast.TBuiltin(bt) =>
         Doc.text(bt match {
           case Ast.BTInt64 => "Int"
@@ -409,6 +396,14 @@ private[export] object Encode {
 
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
+
+  private def qualifyRefId(id: Ref.Identifier): Doc =
+    qualifyId(
+      Identifier()
+        .withPackageId(id.packageId)
+        .withModuleName(id.qualifiedName.module.dottedName)
+        .withEntityName(id.qualifiedName.name.dottedName)
+    )
 
   private def encodeTemplateId(id: TemplateId): Doc =
     qualifyId(TemplateId.unwrap(id))
