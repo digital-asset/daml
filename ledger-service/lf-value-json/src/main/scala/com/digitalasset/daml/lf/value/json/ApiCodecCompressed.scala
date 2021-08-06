@@ -140,7 +140,8 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
         try {
           V.ValueDate.fromIso8601(v)
         } catch {
-          case _: Exception => throw DeserializationException(s"Invalid date: $v")
+          case _: java.time.format.DateTimeParseException | _: IllegalArgumentException =>
+            throw DeserializationException(s"Invalid date: $v")
         }
       }
       case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
