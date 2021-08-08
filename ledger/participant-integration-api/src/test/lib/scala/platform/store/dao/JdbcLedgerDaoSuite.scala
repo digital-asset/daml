@@ -27,6 +27,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Future
@@ -37,6 +38,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   this: AsyncTestSuite =>
 
   protected implicit final val loggingContext: LoggingContext = LoggingContext.ForTesting
+  protected implicit final val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   val previousOffset: AtomicReference[Option[Offset]] =
     new AtomicReference[Option[Offset]](Option.empty)

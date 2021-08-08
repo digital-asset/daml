@@ -19,14 +19,13 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
-import com.daml.platform.store.appendonlydao.events.TracingUtils.endSpanOnTermination
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{Transaction => TxUpdate}
-import com.daml.platform.store.utils.Telemetry
+import com.daml.telemetry.{SpanAttribute, SpanKind, TelemetryContext}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -47,13 +46,17 @@ private[events] class BufferedTransactionsReader(
       endInclusive: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
 
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, filter, verbose)(
       toApiTx = toFlatTransaction,
       apiResponseCtor = GetTransactionsResponse(_),
-      fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
+      fetchTransactions =
+        delegate.getFlatTransactions(_, _, _, _)(loggingContext, telemetryContext),
       sourceTimer = metrics.daml.services.index.streamsBuffer.getFlatTransactions,
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.flatTransactionsBuffered,
@@ -69,7 +72,8 @@ private[events] class BufferedTransactionsReader(
       requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
     logger.debug(
       s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)"
@@ -78,7 +82,8 @@ private[events] class BufferedTransactionsReader(
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, requestingParties, verbose)(
       toApiTx = toTransactionTree,
       apiResponseCtor = GetTransactionTreesResponse(_),
-      fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
+      fetchTransactions =
+        delegate.getTransactionTrees(_, _, _, _)(loggingContext, telemetryContext),
       sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
@@ -162,29 +167,34 @@ private[platform] object BufferedTransactionsReader {
       totalRetrievedCounter: Counter,
       outputStreamBufferSize: Int,
       bufferSizeCounter: Counter,
-  )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, API_RESPONSE), NotUsed] = {
     def tracedBufferedSource(
         slice: Vector[(Offset, TransactionLogUpdate)]
-    ): Source[(Offset, API_RESPONSE), NotUsed] = {
-      val span =
-        Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
-
-      Source
-        .fromIterator(() => slice.iterator)
-        // Using collect + mapAsync as an alternative to the non-existent collectAsync
-        .collect { case (offset, tx: TxUpdate) =>
-          toApiTx(tx, filter, verbose).map(offset -> _)
-        }
-        // Note that it is safe to use high parallelism for mapAsync as long
-        // as the Futures executed within are running on a bounded thread pool
-        .mapAsync(32)(identity)
-        .async
-        .collect { case (offset, Some(tx)) =>
-          resolvedFromBufferCounter.inc()
-          offset -> apiResponseCtor(Seq(tx))
-        }
-        .watchTermination()(endSpanOnTermination(span))
-    }
+    ): Source[(Offset, API_RESPONSE), NotUsed] =
+      telemetryContext.runSourceInNewSpan(
+        qualifiedNameOfCurrentFunc,
+        SpanKind.Internal,
+        SpanAttribute.OffsetFrom -> startExclusive.toHexString,
+        SpanAttribute.OffsetTo -> endInclusive.toHexString,
+      ) { _ =>
+        Source
+          .fromIterator(() => slice.iterator)
+          // Using collect + mapAsync as an alternative to the non-existent collectAsync
+          .collect { case (offset, tx: TxUpdate) =>
+            toApiTx(tx, filter, verbose).map(offset -> _)
+          }
+          // Note that it is safe to use high parallelism for mapAsync as long
+          // as the Futures executed within are running on a bounded thread pool
+          .mapAsync(32)(identity)
+          .async
+          .collect { case (offset, Some(tx)) =>
+            resolvedFromBufferCounter.inc()
+            offset -> apiResponseCtor(Seq(tx))
+          }
+      }
 
     val transactionsSource = Timed.source(
       sourceTimer, {

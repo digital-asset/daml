@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
 
@@ -25,11 +26,13 @@ trait TransactionService {
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
 
-  def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
+  def getTransactions(req: GetTransactionsRequest)(implicit
+      telemetryContext: TelemetryContext
+  ): Source[GetTransactionsResponse, NotUsed]
 
   def getTransactionTrees(
       req: GetTransactionTreesRequest
-  ): Source[GetTransactionTreesResponse, NotUsed]
+  )(implicit telemetryContext: TelemetryContext): Source[GetTransactionTreesResponse, NotUsed]
 
   def getTransactionById(req: GetTransactionByIdRequest): Future[GetTransactionResponse]
 

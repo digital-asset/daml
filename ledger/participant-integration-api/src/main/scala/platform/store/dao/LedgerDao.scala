@@ -36,6 +36,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
 
@@ -45,7 +46,10 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -58,7 +62,8 @@ private[platform] trait LedgerDaoTransactionsReader {
       requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
 
   /** An unfiltered stream of generic ledger updates.

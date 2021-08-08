@@ -33,7 +33,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
-import com.daml.telemetry.{SpanAttribute, Spans}
+import com.daml.telemetry.{SpanAttribute, SpanKind, Spans, TelemetryContext}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -85,59 +85,65 @@ private[dao] final class TransactionsReader(
       endInclusive: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val span =
-      Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
-    logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
+    telemetryContext.runSourceInNewSpan(
+      qualifiedNameOfCurrentFunc,
+      SpanKind.Internal,
+      SpanAttribute.OffsetFrom -> startExclusive.toHexString,
+      SpanAttribute.OffsetTo -> endInclusive.toHexString,
+    ) { currentSpan =>
+      logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
 
-    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
+      val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        logger.debug(s"getFlatTransactions query($range)")
-        QueryNonPruned.executeSqlOrThrow(
-          EventsTableFlatEvents
-            .preparePagedGetFlatTransactions(sqlFunctions)(
-              range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-              filter = filter,
-              pageSize = pageSize,
-            )
-            .executeSql,
-          range.startExclusive._1,
-          pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
-    }
-
-    val events: Source[EventsTable.Entry[Event], NotUsed] =
-      Source
-        .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            verbose,
-            dbMetrics.getFlatTransactions,
-            query,
-            nextPageRange[Event](requestedRange.endInclusive),
-          )(requestedRange)
-        })
-        .mapMaterializedValue(_ => NotUsed)
-
-    groupContiguous(events)(by = _.transactionId)
-      .mapConcat { events =>
-        val response = EventsTable.Entry.toGetTransactionsResponse(events)
-        response.map(r => offsetFor(r) -> r)
-      }
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
-      .wireTap(_ match {
-        case (_, response) =>
-          response.transactions.foreach(txn =>
-            Spans.addEventToSpan(
-              telemetry.Event("transaction", TraceIdentifiers.fromTransaction(txn)),
-              span,
-            )
+      val query = (range: EventsRange[(Offset, Long)]) => {
+        implicit connection: Connection =>
+          logger.debug(s"getFlatTransactions query($range)")
+          QueryNonPruned.executeSqlOrThrow(
+            EventsTableFlatEvents
+              .preparePagedGetFlatTransactions(sqlFunctions)(
+                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
+                filter = filter,
+                pageSize = pageSize,
+              )
+              .executeSql,
+            range.startExclusive._1,
+            pruned =>
+              s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
           )
-      })
-      .watchTermination()(endSpanOnTermination(span))
-  }
+      }
+
+      val events: Source[EventsTable.Entry[Event], NotUsed] =
+        Source
+          .futureSource(requestedRangeF.map { requestedRange =>
+            streamEvents(
+              verbose,
+              dbMetrics.getFlatTransactions,
+              query,
+              nextPageRange[Event](requestedRange.endInclusive),
+            )(requestedRange)
+          })
+          .mapMaterializedValue(_ => NotUsed)
+
+      groupContiguous(events)(by = _.transactionId)
+        .mapConcat { events =>
+          val response = EventsTable.Entry.toGetTransactionsResponse(events)
+          response.map(r => offsetFor(r) -> r)
+        }
+        .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+        .wireTap(_ match {
+          case (_, response) =>
+            response.transactions.foreach(txn =>
+              Spans.addEventToSpan(
+                telemetry.Event("transaction", TraceIdentifiers.fromTransaction(txn)),
+                currentSpan,
+              )
+            )
+        })
+    }
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -167,10 +173,14 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit
-      loggingContext: LoggingContext
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val span =
-      Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = telemetryContext.runSourceInNewSpan(
+    qualifiedNameOfCurrentFunc,
+    SpanKind.Internal,
+    SpanAttribute.OffsetFrom -> startExclusive.toHexString,
+    SpanAttribute.OffsetTo -> endInclusive.toHexString,
+  ) { currentSpan =>
     logger.debug(
       s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)"
     )
@@ -217,11 +227,10 @@ private[dao] final class TransactionsReader(
           response.transactions.foreach(txn =>
             Spans.addEventToSpan(
               telemetry.Event("transaction", TraceIdentifiers.fromTransactionTree(txn)),
-              span,
+              currentSpan,
             )
           )
       })
-      .watchTermination()(endSpanOnTermination(span))
   }
 
   override def lookupTransactionTreeById(

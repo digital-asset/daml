@@ -5,6 +5,7 @@ package com.daml.telemetry
 
 import java.util.{HashMap => jHashMap, Map => jMap}
 
+import akka.stream.scaladsl.Source
 import com.daml.dec.DirectExecutionContext
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context
@@ -35,6 +36,14 @@ trait TelemetryContext {
   )(
       body: TelemetryContext => Future[T]
   ): Future[T]
+
+  def runSourceInNewSpan[Out, Mat](
+      spanName: String,
+      kind: SpanKind,
+      attributes: (SpanAttribute, String)*
+  )(
+      body: Span => Source[Out, Mat]
+  ): Source[Out, Mat]
 
   /** Creates a new span and runs the computation inside it.
     * The new span has its parent set as the span associated with the current context.
@@ -169,6 +178,25 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   }
 
   override def openTelemetryContext: Context = Context.current.`with`(span)
+
+  override def runSourceInNewSpan[Out, Mat](
+      spanName: String,
+      kind: SpanKind,
+      attributes: (SpanAttribute, String)*
+  )(body: Span => Source[Out, Mat]): Source[Out, Mat] = {
+    val subSpan = createSubSpan(spanName, kind, attributes: _*)
+    body(subSpan)
+      .watchTermination() { case (mat, done) =>
+        done.onComplete {
+          case Failure(exception) =>
+            span.recordException(exception)
+            span.end()
+          case Success(_) =>
+            span.end()
+        }(DirectExecutionContext)
+        mat
+      }
+  }
 }
 
 object DefaultTelemetryContext {
@@ -234,4 +262,12 @@ object NoOpTelemetryContext extends TelemetryContext {
   override def encodeMetadata(): jMap[String, String] = new jHashMap()
 
   override def openTelemetryContext: Context = Context.root.`with`(Span.getInvalid)
+
+  override def runSourceInNewSpan[Out, Mat](
+      spanName: String,
+      kind: SpanKind,
+      attributes: (SpanAttribute, String)*
+  )(body: Span => Source[Out, Mat]): Source[Out, Mat] = {
+    body(Span.getInvalid)
+  }
 }

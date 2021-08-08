@@ -16,6 +16,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -42,6 +43,9 @@ final class GrpcTransactionService(
   override protected def getTransactionsSource(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] = {
+    implicit val telemetryContext: TelemetryContext =
+      DefaultTelemetry.contextFromGrpcThreadLocalContext()
+
     logger.debug("Received new transaction request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validate(request, ledgerEnd)
@@ -58,6 +62,9 @@ final class GrpcTransactionService(
   override protected def getTransactionTreesSource(
       request: GetTransactionsRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
+    implicit val telemetryContext: TelemetryContext =
+      DefaultTelemetry.contextFromGrpcThreadLocalContext()
+
     logger.debug("Received new transaction tree request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validateTree(request, ledgerEnd)

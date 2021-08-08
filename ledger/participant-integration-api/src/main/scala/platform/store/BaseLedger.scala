@@ -37,6 +37,7 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.telemetry.TelemetryContext
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -65,12 +66,16 @@ private[platform] abstract class BaseLedger(
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(transactionsReader.getFlatTransactions(_, _, filter, verbose)),
       endInclusive,
     )
+  }
 
   override def transactionTrees(
       startExclusive: Option[Offset],
@@ -78,7 +83,8 @@ private[platform] abstract class BaseLedger(
       requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),

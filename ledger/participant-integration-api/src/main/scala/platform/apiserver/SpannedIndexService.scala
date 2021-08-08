@@ -34,7 +34,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.telemetry.{Event, Spans}
+import com.daml.telemetry.{Event, Spans, TelemetryContext}
 
 import scala.concurrent.Future
 
@@ -82,7 +82,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[GetTransactionsResponse, NotUsed] =
     delegate
       .transactions(begin, endAt, filter, verbose)
       .wireTap(
@@ -98,7 +101,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[GetTransactionTreesResponse, NotUsed] =
     delegate
       .transactionTrees(begin, endAt, filter, verbose)
       .wireTap(

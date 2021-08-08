@@ -35,6 +35,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
 
@@ -92,7 +93,10 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[GetTransactionsResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.transactions,
       delegate.transactions(begin, endAt, filter, verbose),
@@ -103,7 +107,10 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[GetTransactionTreesResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.transactionTrees,
       delegate.transactionTrees(begin, endAt, filter, verbose),

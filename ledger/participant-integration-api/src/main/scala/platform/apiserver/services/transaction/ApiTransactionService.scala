@@ -28,6 +28,7 @@ import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.telemetry.TelemetryContext
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -72,7 +73,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getTransactions(
       request: GetTransactionsRequest
-  ): Source[GetTransactionsResponse, NotUsed] = {
+  )(implicit telemetryContext: TelemetryContext): Source[GetTransactionsResponse, NotUsed] = {
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
@@ -92,7 +93,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
-  ): Source[GetTransactionTreesResponse, NotUsed] = {
+  )(implicit telemetryContext: TelemetryContext): Source[GetTransactionTreesResponse, NotUsed] = {
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),

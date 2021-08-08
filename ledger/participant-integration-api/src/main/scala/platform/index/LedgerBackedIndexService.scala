@@ -45,7 +45,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.PartyLedgerEntry
-import com.daml.telemetry.{SpanAttribute, Spans}
+import com.daml.telemetry.{SpanAttribute, Spans, TelemetryContext}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
@@ -74,7 +74,10 @@ private[platform] final class LedgerBackedIndexService(
       endInclusive: Option[LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[GetTransactionTreesResponse, NotUsed] =
     between(startExclusive, endInclusive)((from, to) => {
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -97,7 +100,10 @@ private[platform] final class LedgerBackedIndexService(
       endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[GetTransactionsResponse, NotUsed] =
     between(startExclusive, endInclusive)((from, to) => {
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)

@@ -8,18 +8,7 @@ import com.daml.telemetry.{OpenTelemetryTracer, SpanAttribute}
 import io.opentelemetry.api.trace.Span
 
 object Telemetry {
-
   object Transactions {
-    def createSpan(startExclusive: Offset, endInclusive: Offset)(
-        fullyQualifiedFunctionName: String
-    ): Span =
-      OpenTelemetryTracer
-        .spanBuilder(fullyQualifiedFunctionName)
-        .setNoParent()
-        .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
-        .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toHexString)
-        .startSpan()
-
     def createSpan(activeAt: Offset)(fullyQualifiedFunctionName: String): Span =
       OpenTelemetryTracer
         .spanBuilder(fullyQualifiedFunctionName)

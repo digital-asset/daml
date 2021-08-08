@@ -29,6 +29,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
 
@@ -42,14 +43,20 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       requestingParties: Set[Party],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionTreesResponse), NotUsed]
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
 
   def ledgerEnd()(implicit loggingContext: LoggingContext): Offset
 

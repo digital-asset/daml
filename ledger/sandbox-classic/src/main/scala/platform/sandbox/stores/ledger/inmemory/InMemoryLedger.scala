@@ -67,6 +67,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import com.daml.platform.{ApiOffset, index}
+import com.daml.telemetry.TelemetryContext
 import io.grpc.Status
 import scalaz.syntax.tag.ToTagOps
 
@@ -108,7 +109,10 @@ private[sandbox] final class InMemoryLedger(
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Ref.Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
       .flatMapConcat {
@@ -138,7 +142,8 @@ private[sandbox] final class InMemoryLedger(
       requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)

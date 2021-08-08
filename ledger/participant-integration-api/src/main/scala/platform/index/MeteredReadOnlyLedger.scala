@@ -31,6 +31,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
 
@@ -46,7 +47,10 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     ledger.flatTransactions(startExclusive, endInclusive, filter, verbose)
 
   override def transactionTrees(
@@ -55,7 +59,8 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       requestingParties: Set[Party],
       verbose: Boolean,
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     ledger.transactionTrees(startExclusive, endInclusive, requestingParties, verbose)
 
