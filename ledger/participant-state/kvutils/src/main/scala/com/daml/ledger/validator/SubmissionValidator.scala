@@ -195,7 +195,7 @@ class SubmissionValidator[LogResult] private[validator] (
                       (key, valueBytes.map(stateValueCache.getOrAcquire(_, stateValueFromRaw)))
                     }
                     .toMap
-                  _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
+                  _ <- verifyAllInputsArePresent(readInputs)
                 } yield readInputs,
               )
               logEntryAndState <- Timed.future(
@@ -239,21 +239,15 @@ class SubmissionValidator[LogResult] private[validator] (
         )
     }
 
-  private def verifyAllInputsArePresent[T](
-      declaredInputs: collection.Seq[DamlStateKey],
-      readInputs: DamlStateMap,
-  ): Future[Unit] = {
+  private def verifyAllInputsArePresent[T](readInputs: Map[DamlStateKey, Option[DamlStateValue]]) =
     if (checkForMissingInputs) {
-      val missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-      if (missingInputs.nonEmpty) {
-        Future.failed(MissingInputState(missingInputs.map(rawKey).toSeq))
-      } else {
+      val missingInputs = readInputs.filter(_._2.isEmpty)
+      if (missingInputs.nonEmpty)
+        Future.failed(MissingInputState(missingInputs.view.keys.map(rawKey).toSeq))
+      else
         Future.unit
-      }
-    } else {
+    } else
       Future.unit
-    }
-  }
 
   private def flattenInputStates(
       inputs: DamlStateMap
