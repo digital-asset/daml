@@ -79,6 +79,8 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
       .thenApply(adaptSubmissionResult)
 
   override def currentHealth(): HealthStatus = delegate.currentHealth()
+
+  override def isDeduplicationEnabled: Boolean = true
 }
 
 private[v2] object AdaptedV1WriteService {

@@ -80,8 +80,7 @@ private[apiserver] object ApiSubmissionService {
     )
 
   final case class Configuration(
-      implicitPartyAllocation: Boolean,
-      commandDeduplicationEnabled: Boolean,
+      implicitPartyAllocation: Boolean
   )
 
 }
@@ -115,7 +114,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       ledgerConfigurationSubscription
         .latestConfiguration()
         .fold(Future.failed[Unit](ErrorFactories.missingLedgerConfig()))(ledgerConfiguration => {
-          if (configuration.commandDeduplicationEnabled) {
+          if (writeService.isDeduplicationEnabled) {
             deduplicateAndRecordOnLedger(
               seedService.nextSeed(),
               request.commands,

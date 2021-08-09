@@ -25,8 +25,6 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   *        For how long the command service will keep an active command tracker for a given party.
   *        A longer retention period allows to not instantiate a new tracker for a party that seldom acts.
   *        A shorter retention period allows to quickly remove unused trackers.
-  *   @param deduplicationEnabled
-  *        Whether command deduplication is enabled or not.
   */
 final case class CommandConfiguration(
     inputBufferSize: Int,
@@ -34,7 +32,6 @@ final case class CommandConfiguration(
     maxCommandsInFlight: Int,
     limitMaxCommandsInFlight: Boolean,
     retentionPeriod: FiniteDuration,
-    deduplicationEnabled: Boolean,
 )
 
 object CommandConfiguration {
@@ -47,6 +44,5 @@ object CommandConfiguration {
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
       retentionPeriod = DefaultTrackerRetentionPeriod,
-      deduplicationEnabled = true,
     )
 }

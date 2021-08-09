@@ -440,6 +440,7 @@ object ApiSubmissionServiceSpec {
         Some(Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ZERO))
     }
 
+    when(writeService.isDeduplicationEnabled).thenReturn(deduplicationEnabled)
     when(
       mockIndexSubmissionService.deduplicateCommand(
         any[CommandId],
@@ -465,7 +466,7 @@ object ApiSubmissionServiceSpec {
       seedService = SeedService.WeakRandom,
       commandExecutor = commandExecutor,
       configuration = ApiSubmissionService
-        .Configuration(implicitPartyAllocation, commandDeduplicationEnabled = deduplicationEnabled),
+        .Configuration(implicitPartyAllocation),
       metrics = new Metrics(new MetricRegistry),
     )
   }
