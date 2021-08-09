@@ -6,9 +6,11 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.util.regex.Pattern
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import munit.{Assertions => MUnit, ComparisonFailException}
+import com.daml.timer.RetryStrategy
+import munit.{ComparisonFailException, Assertions => MUnit}
 import io.grpc.Status
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
@@ -44,8 +46,11 @@ object Assertions {
     *      the regex matches some part of the message or there is no message and the pattern is
     *      None.
     */
+  @tailrec
   def assertGrpcError(t: Throwable, expectedCode: Status.Code, optPattern: Option[Pattern]): Unit =
     (t, optPattern) match {
+      case (RetryStrategy.FailedRetryException(cause), _) =>
+        assertGrpcError(cause, expectedCode, optPattern)
       case (GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _), Some(pattern)) =>
         if (pattern.matcher(msg).find()) {
           ()
