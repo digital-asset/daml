@@ -30,6 +30,26 @@ object UpdateNormalizer {
   }
 }
 
+/** Normalizes the expected and/or actual updates based on their counterparts.
+  * Useful when scalar update normalization is not possible.
+  * (e.g. ensure contents of one update are a superset of the ones in the other update)
+  */
+trait PairwiseUpdateNormalizer {
+  def normalize(expectedUpdate: Update, actualUpdate: Update): (Update, Update)
+}
+
+object PairwiseUpdateNormalizer {
+  def normalize(
+      expectedUpdate: Update,
+      actualUpdate: Update,
+      normalizers: Iterable[PairwiseUpdateNormalizer],
+  ): (Update, Update) = {
+    normalizers.foldLeft(expectedUpdate -> actualUpdate) { case ((expected, actual), normalizer) =>
+      normalizer.normalize(expected, actual)
+    }
+  }
+}
+
 /** Ignores the record time set later by post-execution because it's unimportant.
   * We only care about the update type and content.
   */

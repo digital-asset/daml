@@ -21,6 +21,7 @@ final class ReadServiceStateUpdateComparison(
     actualReadService: ReplayingReadService,
     expectedUpdateNormalizers: Iterable[UpdateNormalizer],
     actualUpdateNormalizers: Iterable[UpdateNormalizer],
+    pairwiseUpdateNormalizers: Iterable[PairwiseUpdateNormalizer],
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -50,6 +51,7 @@ final class ReadServiceStateUpdateComparison(
                 actualUpdate,
                 expectedUpdateNormalizers,
                 actualUpdateNormalizers,
+                pairwiseUpdateNormalizers,
               ),
             )
           )
@@ -77,9 +79,15 @@ object ReadServiceStateUpdateComparison {
       actualUpdate: Update,
       expectedUpdateNormalizers: Iterable[UpdateNormalizer],
       actualUpdateNormalizers: Iterable[UpdateNormalizer],
+      pairwiseUpdateNormalizers: Iterable[PairwiseUpdateNormalizer],
   ): Future[Unit] = {
-    val expectedNormalizedUpdate = normalize(expectedUpdate, expectedUpdateNormalizers)
-    val actualNormalizedUpdate = normalize(actualUpdate, actualUpdateNormalizers)
+
+    val (expectedNormalizedUpdate, actualNormalizedUpdate) = PairwiseUpdateNormalizer.normalize(
+      normalize(expectedUpdate, expectedUpdateNormalizers),
+      normalize(actualUpdate, actualUpdateNormalizers),
+      pairwiseUpdateNormalizers,
+    )
+
     if (expectedNormalizedUpdate != actualNormalizedUpdate) {
       Future.failed(
         new ComparisonFailureException(
