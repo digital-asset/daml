@@ -105,8 +105,7 @@ final class CommandStaticTimeIT
               )
             )
         } yield {
-          result should matchPattern { case Right(_) =>
-          }
+          result shouldBe a[Right[_, _]]
         }
       }
 
