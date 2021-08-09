@@ -13,7 +13,6 @@ import io.grpc.{StatusRuntimeException, protobuf}
 import scala.jdk.CollectionConverters._
 
 object CompletionResponse {
-  type CompletionResponse = Either[CompletionFailure, CompletionSuccess]
   sealed trait CompletionFailure {
     def metadata: Map[String, String] = Map.empty
   }

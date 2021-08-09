@@ -8,10 +8,13 @@ import java.time.{Instant, Duration => JDuration}
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import CompletionResponse.CompletionResponse
 import com.daml.ledger.api.v1.command_submission_service._
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.ledger.client.services.commands.{CompletionStreamElement, tracker}
 import com.daml.util.Ctx
 import com.google.protobuf.duration.{Duration => ProtoDuration}
@@ -59,8 +62,8 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
     Outlet[Ctx[(Context, String), SubmitRequest]]("submitRequestOut")
   val commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]] =
     Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]]("commandResultIn")
-  val resultOut: Outlet[Ctx[Context, CompletionResponse]] =
-    Outlet[Ctx[Context, CompletionResponse]]("resultOut")
+  val resultOut: Outlet[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] =
+    Outlet[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]]("resultOut")
   val offsetOut: Outlet[LedgerOffset] =
     Outlet[LedgerOffset]("offsetOut")
 
@@ -168,7 +171,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       )
 
       private def pushResultOrPullCommandResultIn(
-          compl: Option[Ctx[Context, CompletionResponse]]
+          compl: Option[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]]
       ): Unit = {
         // The command tracker detects timeouts outside the regular pull/push
         // mechanism of the input/output ports. Basically the timeout
@@ -286,7 +289,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       private def getOutputForTerminalStatusCode(
           commandId: String,
           status: Status,
-      ): Option[Ctx[Context, CompletionResponse]] = {
+      ): Option[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
         logger.trace("Handling failure of command {}", commandId)
         pendingCommands
           .remove(commandId)

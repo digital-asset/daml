@@ -8,7 +8,10 @@ import akka.stream.{Materializer, OverflowStrategy}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
@@ -37,15 +40,18 @@ private[services] final class TrackerImpl(
   override def track(request: SubmitAndWaitRequest)(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[CompletionResponse] = {
+  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
     logger.trace("Tracking command")
-    val promise = Promise[CompletionResponse]()
+    val promise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     submitNewRequest(request, promise)
   }
 
-  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[CompletionResponse])(
-      implicit ec: ExecutionContext
-  ): Future[CompletionResponse] = {
+  private def submitNewRequest(
+      request: SubmitAndWaitRequest,
+      promise: Promise[Either[CompletionFailure, CompletionSuccess]],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
     queue
       .offer(
         Ctx(
@@ -74,9 +80,12 @@ private[services] object TrackerImpl {
 
   def apply(
       tracker: Flow[
-        Ctx[Promise[CompletionResponse], SubmitRequest],
-        Ctx[Promise[CompletionResponse], CompletionResponse],
-        Materialized[NotUsed, Promise[CompletionResponse]],
+        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest],
+        Ctx[
+          Promise[Either[CompletionFailure, CompletionSuccess]],
+          Either[CompletionFailure, CompletionSuccess],
+        ],
+        Materialized[NotUsed, Promise[Either[CompletionFailure, CompletionSuccess]]],
       ],
       inputBufferSize: Int,
       capacityCounter: Counter,
@@ -133,5 +142,5 @@ private[services] object TrackerImpl {
     new TrackerImpl(queue, done)
   }
 
-  type QueueInput = Ctx[Promise[CompletionResponse], SubmitRequest]
+  type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest]
 }

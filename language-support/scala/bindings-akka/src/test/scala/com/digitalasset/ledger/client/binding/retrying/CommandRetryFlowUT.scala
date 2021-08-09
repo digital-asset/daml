@@ -13,7 +13,8 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
-  CompletionResponse,
+  CompletionFailure,
+  CompletionSuccess,
   NotOkResponse,
 }
 import com.daml.ledger.client.testing.AkkaTest
@@ -53,7 +54,10 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
   private val maxRetryTime = Duration.ofSeconds(30)
 
   @nowarn("msg=parameter value response .* is never used") // matches createGraph signature
-  private def createRetry(retryInfo: RetryInfo[Status], response: CompletionResponse) = {
+  private def createRetry(
+      retryInfo: RetryInfo[Status],
+      response: Either[CompletionFailure, CompletionSuccess],
+  ) = {
     val commands = retryInfo.request.commands.get
     val dedupTime = commands.deduplicationTime.get
     val newDedupTime = dedupTime.copy(nanos = dedupTime.nanos + 1)

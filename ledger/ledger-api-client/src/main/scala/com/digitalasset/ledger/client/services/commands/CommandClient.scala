@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.codahale.metrics.Counter
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.CompletionResponse
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -23,15 +22,19 @@ import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import org.slf4j.{Logger, LoggerFactory}
+import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
-import scalaz.syntax.tag._
 
 /** Enables easy access to command services and high level operations on top of them.
   *
@@ -51,10 +54,14 @@ final class CommandClient(
 )(implicit esf: ExecutionSequencerFactory) {
 
   type TrackCommandFlow[Context] =
-    Flow[Ctx[Context, SubmitRequest], Ctx[Context, CompletionResponse], Materialized[
-      NotUsed,
-      Context,
-    ]]
+    Flow[
+      Ctx[Context, SubmitRequest],
+      Ctx[Context, Either[CompletionFailure, CompletionSuccess]],
+      Materialized[
+        NotUsed,
+        Context,
+      ],
+    ]
 
   /** Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
     * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
@@ -80,7 +87,7 @@ final class CommandClient(
     */
   def trackSingleCommand(submitRequest: SubmitRequest, token: Option[String] = None)(implicit
       mat: Materializer
-  ): Future[CompletionResponse] = {
+  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
     implicit val executionContext: ExecutionContextExecutor = mat.executionContext
     val effectiveActAs = CommandsValidator.effectiveSubmitters(submitRequest.getCommands).actAs
     for {

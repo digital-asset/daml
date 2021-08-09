@@ -24,7 +24,8 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_B
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
-  CompletionResponse,
+  CompletionFailure,
+  CompletionSuccess,
   NotOkResponse,
 }
 import com.daml.util.Ctx
@@ -60,7 +61,8 @@ class CommandTrackerFlowTest
   private val shortDuration = JDuration.ofSeconds(1L)
 
   private lazy val submissionSource = TestSource.probe[Ctx[Int, SubmitRequest]]
-  private lazy val resultSink = TestSink.probe[Ctx[Int, CompletionResponse]](system)
+  private lazy val resultSink =
+    TestSink.probe[Ctx[Int, Either[CompletionFailure, CompletionSuccess]]](system)
 
   private val mrt = Instant.EPOCH.plus(shortDuration)
   private val commandId = "commandId"
@@ -86,7 +88,7 @@ class CommandTrackerFlowTest
 
   private case class Handle(
       submissions: TestPublisher.Probe[Ctx[Int, SubmitRequest]],
-      completions: TestSubscriber.Probe[Ctx[Int, CompletionResponse]],
+      completions: TestSubscriber.Probe[Ctx[Int, Either[CompletionFailure, CompletionSuccess]]],
       whatever: Future[Map[String, Int]],
       completionsStreamMock: CompletionStreamMock,
   )

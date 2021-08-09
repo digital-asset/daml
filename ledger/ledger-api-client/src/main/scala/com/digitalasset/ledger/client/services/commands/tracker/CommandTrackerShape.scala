@@ -7,7 +7,10 @@ import akka.stream.{Inlet, Outlet, Shape}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.CompletionStreamElement
-import CompletionResponse.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 
@@ -18,7 +21,7 @@ private[tracker] final case class CommandTrackerShape[Context](
     submitRequestIn: Inlet[Ctx[Context, SubmitRequest]],
     submitRequestOut: Outlet[Ctx[(Context, String), SubmitRequest]],
     commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]],
-    resultOut: Outlet[Ctx[Context, CompletionResponse]],
+    resultOut: Outlet[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]],
     offsetOut: Outlet[LedgerOffset],
 ) extends Shape {
 

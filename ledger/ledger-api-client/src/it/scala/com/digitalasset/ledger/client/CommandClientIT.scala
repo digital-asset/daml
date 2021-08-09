@@ -29,8 +29,9 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.api.v1.value.{Record, RecordField}
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
   NotOkResponse,
-  CompletionResponse,
 }
 import com.daml.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
 import com.daml.ledger.client.services.testing.time.StaticTime
@@ -148,7 +149,9 @@ final class CommandClientIT
       .runWith(Sink.seq)
       .map(_.last) // one element is guaranteed
 
-  private def submitCommand(req: SubmitRequest): Future[CompletionResponse] =
+  private def submitCommand(
+      req: SubmitRequest
+  ): Future[Either[CompletionFailure, CompletionSuccess]] =
     commandClient().flatMap(_.trackSingleCommand(req))
 
   private def assertCommandFailsWithCode(

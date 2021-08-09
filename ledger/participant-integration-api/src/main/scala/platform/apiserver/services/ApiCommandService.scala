@@ -11,7 +11,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.SubmissionIdGenerator
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.CompletionResponse
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -28,6 +27,10 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.ledger.configuration.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -81,7 +84,7 @@ private[apiserver] final class ApiCommandService private (
 
   private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext
-  ): Future[CompletionResponse] =
+  ): Future[Either[CompletionFailure, CompletionSuccess]] =
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
       logging.partyString(request.getCommands.party),
@@ -91,7 +94,7 @@ private[apiserver] final class ApiCommandService private (
       if (running) {
         ledgerConfigurationSubscription
           .latestConfiguration()
-          .fold[Future[CompletionResponse]](
+          .fold[Future[Either[CompletionFailure, CompletionSuccess]]](
             Future.failed(ErrorFactories.missingLedgerConfig())
           )(ledgerConfig => track(request, ledgerConfig))
       } else {
@@ -104,7 +107,9 @@ private[apiserver] final class ApiCommandService private (
   private def track(
       request: SubmitAndWaitRequest,
       ledgerConfig: LedgerConfiguration,
-  )(implicit loggingContext: LoggingContext): Future[CompletionResponse] = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
     val appId = request.getCommands.applicationId
     // Note: command completions are returned as long as at least one of the original submitters
     // is specified in the command completion request.
@@ -116,22 +121,23 @@ private[apiserver] final class ApiCommandService private (
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
       } yield {
-        val tracker = CommandTrackerFlow[Promise[CompletionResponse], NotUsed](
-          services.submissionFlow,
-          offset =>
-            services
-              .getCompletionSource(
-                CompletionStreamRequest(
-                  configuration.ledgerId.unwrap,
-                  appId,
-                  parties.toList,
-                  Some(offset),
+        val tracker =
+          CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
+            services.submissionFlow,
+            offset =>
+              services
+                .getCompletionSource(
+                  CompletionStreamRequest(
+                    configuration.ledgerId.unwrap,
+                    appId,
+                    parties.toList,
+                    Some(offset),
+                  )
                 )
-              )
-              .mapConcat(CommandCompletionSource.toStreamElements),
-          ledgerEnd,
-          () => ledgerConfig.maxDeduplicationTime,
-        )
+                .mapConcat(CommandCompletionSource.toStreamElements),
+            ledgerEnd,
+            () => ledgerConfig.maxDeduplicationTime,
+          )
         val trackingFlow =
           if (configuration.limitMaxCommandsInFlight)
             MaxInFlight(
@@ -246,8 +252,8 @@ private[apiserver] object ApiCommandService {
 
   final case class LocalServices(
       submissionFlow: Flow[
-        Ctx[(Promise[CompletionResponse], String), SubmitRequest],
-        Ctx[(Promise[CompletionResponse], String), Try[Empty]],
+        Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), SubmitRequest],
+        Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), Try[Empty]],
         NotUsed,
       ],
       getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
