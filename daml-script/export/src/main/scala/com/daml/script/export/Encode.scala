@@ -32,23 +32,20 @@ private[export] object Encode {
   }
 
   def encodeExport(export: Export): Doc = {
-    encodeModuleHeader(export.moduleRefs) /
-      Doc.hardLine +
-      encodePartyType() /
-      Doc.hardLine +
-      encodeLookupParty() /
-      Doc.hardLine +
-      encodeAllocateParties(export.partyMap) /
-      Doc.hardLine +
-      encodeContractsType() /
-      Doc.hardLine +
-      encodeLookupContract() /
-      Doc.hardLine +
-      encodeArgsType() /
-      Doc.hardLine +
-      encodeTestExport() /
-      Doc.hardLine +
-      encodeExportActions(export)
+    Doc.intercalate(
+      Doc.line + Doc.hardLine,
+      Seq(
+        encodeModuleHeader(export.moduleRefs),
+        encodePartyType(),
+        encodeLookupParty(),
+        encodeAllocateParties(export.partyMap),
+        encodeContractsType(),
+        encodeLookupContract(),
+        encodeArgsType(),
+        encodeTestExport(),
+        encodeExportActions(export),
+      ),
+    )
   }
 
   private def encodeExportActions(export: Export): Doc = {
