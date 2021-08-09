@@ -34,23 +34,25 @@ class CommandSubmissionClientImplTest
   behavior of "[3.1] CommandSubmissionClientImpl.submit"
 
   it should "timeout after deadline exceeded" in {
-    ledgerServices.withCommandSubmissionClient(Future.never, deadline = Optional.of(Deadline.after(5, TimeUnit.SECONDS))) {
-      (client, serviceImpl) =>
-        val commands = genCommands(List.empty)
-        expectDeadlineExceeded(
-          client
-            .submit(
-              commands.getWorkflowId,
-              commands.getApplicationId,
-              commands.getCommandId,
-              commands.getParty,
-              commands.getCommands,
-            )
-            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-            .blockingGet()
-        )
-        val receivedCommands = serviceImpl.getSubmittedRequest.value.getCommands
-        receivedCommands.ledgerId shouldBe ledgerServices.ledgerId
+    ledgerServices.withCommandSubmissionClient(
+      Future.never,
+      deadline = Optional.of(Deadline.after(5, TimeUnit.SECONDS)),
+    ) { (client, serviceImpl) =>
+      val commands = genCommands(List.empty)
+      expectDeadlineExceeded(
+        client
+          .submit(
+            commands.getWorkflowId,
+            commands.getApplicationId,
+            commands.getCommandId,
+            commands.getParty,
+            commands.getCommands,
+          )
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingGet()
+      )
+      val receivedCommands = serviceImpl.getSubmittedRequest.value.getCommands
+      receivedCommands.ledgerId shouldBe ledgerServices.ledgerId
     }
   }
 

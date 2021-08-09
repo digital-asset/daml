@@ -124,7 +124,7 @@ final class LedgerServices(val ledgerId: String) {
       response: Future[Empty],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
-      deadline: java.util.Optional[Deadline] = java.util.Optional.empty[Deadline]
+      deadline: java.util.Optional[Deadline] = java.util.Optional.empty[Deadline],
   )(f: (CommandSubmissionClientImpl, CommandSubmissionServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
       CommandSubmissionServiceImpl.createWithRef(response, authorizer)(executionContext)
