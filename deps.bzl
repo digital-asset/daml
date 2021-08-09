@@ -33,10 +33,27 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "67a7ac178a73d1d5ff4c2b0663a8eda6dfcbbc56"
 rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1a6086f"
 
-rules_haskell_version = "60ed30aab00e9ffa2e2fe19e59f7de885f029556"
-rules_haskell_sha256 = "a9c94b1fb61e1e341b7544305e9b0a359594779f797fddfcfcd447709c7c9820"
-rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
-rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
+rules_haskell_version = "e444e82d3c354da7b7b09d26a65f14226730c5c1"
+rules_haskell_sha256 = "3f3ddedb66c3fc13f62536c5d0865b7cd6a881a0cd8cfa149c32e47e3f7156c5"
+rules_haskell_patches = [
+    # This is a daml specific patch and not upstreamable.
+    "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
+    # This should be made configurable in rules_haskell.
+    # Remove this patch once that's available.
+    "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+]
+rules_nixpkgs_version = "c40b35f73e5ab1c0096d95abf63027a3b8054061"
+rules_nixpkgs_sha256 = "47fffc870a25d82deedb887c32481a43a12f56b51e5002773046f81fbe3ea9df"
+rules_nixpkgs_patches = [
+    # On CI and locally we observe occasional segmantation faults
+    # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
+    # can cause such segmentation faults. Since Nix 2.3.2 it is
+    # possible to disable HTTP2 via a command-line flag, which
+    # reportedly solves the issue. See
+    # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
+    "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
+]
+
 buildifier_version = "4.0.0"
 buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
@@ -79,23 +96,7 @@ def daml_deps():
             name = "rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
-            patches = [
-                # Update and remove this patch once this is upstreamed.
-                # See https://github.com/tweag/rules_haskell/pull/1281
-                "@com_github_digital_asset_daml//bazel_tools:haskell-strict-source-names.patch",
-                # The fake libs issue should be fixed in upstream rules_haskell
-                # or GHC. Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
-                # This is a daml specific patch and not upstreamable.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                # This should be made configurable in rules_haskell.
-                # Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # Can be removed once https://github.com/tweag/rules_haskell/pull/1464 is merged.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-windows.patch",
-                # Should be upstreamed.
-                "@com_github_digital_asset_daml//bazel_tools:haskell_protobuf_source.patch",
-            ],
+            patches = rules_haskell_patches,
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
         )
@@ -106,17 +107,7 @@ def daml_deps():
             strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
-            patches = [
-                # On CI and locally we observe occasional segmantation faults
-                # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
-                # can cause such segmentation faults. Since Nix 2.3.2 it is
-                # possible to disable HTTP2 via a command-line flag, which
-                # reportedly solves the issue. See
-                # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
-                "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
-                # Already upstreamed to rules-nixpkgs. Remove on next upgrade.
-                "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
-            ],
+            patches = rules_nixpkgs_patches,
             patch_args = ["-p1"],
         )
 
