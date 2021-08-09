@@ -38,7 +38,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
-  ReplayedNodeMissing,
+  ReplayMismatch,
   SubmittedTransaction,
   TransactionVersion,
 }
@@ -156,7 +156,7 @@ class ModelConformanceValidatorSpec
       ).thenReturn(
         ResultError(
           LfError.Validation.ReplayMismatch(
-            ReplayedNodeMissing(aTransaction._1, aTransaction._2, anotherTransaction._1)
+            ReplayMismatch(aTransaction._1, anotherTransaction._1)
           )
         )
       )

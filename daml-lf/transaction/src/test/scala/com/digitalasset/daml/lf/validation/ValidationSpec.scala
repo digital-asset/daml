@@ -450,8 +450,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
           nodeB <- tweakNode.run(nodeMapA(nid))
         } yield {
           val nodeMapB = nodeMapA + (nid -> nodeB)
-          val txB = GenTransaction(nodeMapB, roots)
-          TransactionVersion.asVersionedTransaction(txB)
+          VersionedTransaction(vtx.version, nodeMapB, roots)
         }
     }
   }
