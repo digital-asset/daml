@@ -171,6 +171,13 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
+featureGenericTemplates :: Feature
+featureGenericTemplates = Feature
+    { featureName = "Generic Templates"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_GENERIC_TEMPLATES"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "DAML Experimental"
@@ -194,6 +201,7 @@ allFeatures =
     , featureTypeInterning
     , featureBigNumeric
     , featureExceptions
+    , featureGenericTemplates
     , featureExperimental
     ]
 

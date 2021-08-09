@@ -348,7 +348,14 @@ convertRationalBigNumeric num denom = case numericFromRational rational of
         invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals" ()
 
 data TemplateBinds = TemplateBinds
-    { tbTyCon :: Maybe GHC.TyCon
+    { tbForalls :: Maybe [GHC.TyCoVar]
+        -- ^ "foralls", i.e. free type variables, in scraped instances
+    , tbDFunArgs :: Maybe [GHC.Type]
+        -- ^ instance dependencies (e.g. for each type param t, we'll need Typeable t)
+    , tbTyCon :: Maybe GHC.TyCon
+        -- ^ template type constructor
+    , tbArgs :: Maybe [GHC.Type]
+        -- ^ template type args (in instance declaration)
     , tbSignatory :: Maybe (GHC.Expr Var)
     , tbEnsure :: Maybe (GHC.Expr Var)
     , tbAgreement :: Maybe (GHC.Expr Var)
@@ -362,29 +369,37 @@ data TemplateBinds = TemplateBinds
 
 emptyTemplateBinds :: TemplateBinds
 emptyTemplateBinds = TemplateBinds
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing
     Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing
 
 scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
 scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
     [ (mkTypeCon [getOccText (GHC.tyConName tpl)], fn)
     | (name, expr) <- binds
     , Just (tpl, fn) <- pure $ case name of
-        HasSignatoryDFunId tpl ->
-            Just (tpl, \tb -> tb { tbTyCon = Just tpl, tbSignatory = Just expr })
-        HasEnsureDFunId tpl ->
+        -- TODO: ensure that foralls/dfunargs/args are consistent somehow
+        -- for all the scraped bindings (except for Show, which is derived).
+        HasSignatoryDFunId foralls dfunArgs tpl args ->
+            Just (tpl, \tb -> tb
+                { tbForalls = Just foralls
+                , tbDFunArgs = Just dfunArgs
+                , tbTyCon = Just tpl
+                , tbArgs = Just args
+                , tbSignatory = Just expr
+                })
+        HasEnsureDFunId _foralls _dfunArgs tpl _args ->
             Just (tpl, \tb -> tb { tbEnsure = Just expr })
-        HasAgreementDFunId tpl ->
+        HasAgreementDFunId _foralls _dfunArgs tpl _args ->
             Just (tpl, \tb -> tb { tbAgreement = Just expr })
-        HasObserverDFunId tpl ->
+        HasObserverDFunId _foralls _dfunArgs tpl _args ->
             Just (tpl, \tb -> tb { tbObserver = Just expr })
-        HasArchiveDFunId tpl ->
+        HasArchiveDFunId _foralls _dfunArgs tpl _args ->
             Just (tpl, \tb -> tb { tbArchive = Just expr })
-        HasKeyDFunId tpl key ->
+        HasKeyDFunId _foralls _dfunArgs tpl _args key ->
             Just (tpl, \tb -> tb { tbKeyType = Just key, tbKey = Just expr })
-        HasMaintainerDFunId tpl _key ->
+        HasMaintainerDFunId _foralls _dfunArgs tpl _args _key ->
             Just (tpl, \tb -> tb { tbMaintainer = Just expr })
-        ShowDFunId tpl ->
+        ShowDFunId _foralls _dfunArgs tpl _args ->
             Just (tpl, \tb -> tb { tbShow = Just name })
         _ -> Nothing
     ]
@@ -679,7 +694,10 @@ convertTemplateDefs env =
 
 convertTemplate :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM Template
 convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
-    | Just tplTyCon <- tbTyCon
+    | Just _foralls <- tbForalls
+    , Just _dfunArgs <- tbDFunArgs
+    , Just tplTyCon <- tbTyCon
+    , Just _args <- tbArgs
     , Just fSignatory <- tbSignatory
     , Just fObserver <- tbObserver
     , Just fEnsure <- tbEnsure
@@ -700,7 +718,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
 
   where
     wrapPrecondition b
-        | envLfVersion env`supports` featureExceptions
+        | envLfVersion env `supports` featureExceptions
         = case tbShow of
             Nothing ->
                 error ("Missing Show instance for template: " <> show tplTypeCon)
@@ -714,7 +732,8 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
                             `ETmApp` EBuiltin (BEText "Template precondition violated: " )
                             `ETmApp`
                                 (EStructProj (FieldName "m_show")
-                                    (EVal (Qualified PRSelf (envLFModuleName env) (convVal showDict)))
+                                    (applyTbArgs $ -- TODO: Also pass Show instances for arguments ... ?
+                                        EVal (Qualified PRSelf (envLFModuleName env) (convVal showDict)))
                                 `ETmApp` EUnit
                                 `ETmApp` EVar this)
                     ]
@@ -722,6 +741,16 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         | otherwise
         = b
 
+    applyTbArgs expr
+        | Just args <- tbArgs =
+            foldl applyTbArg expr args
+        | otherwise =
+            error "damlc error: Expected tbArgs to be defined."
+
+    applyTbArg expr arg = -- TODO: Incorporate much better with ConvertM.
+        case getTyVar_maybe arg of
+            Nothing -> error "Expected type var for generic template argument."
+            Just v -> expr `ETyApp` TVar (TypeVarName (getOccText v))
 
 convertTemplateKey :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}
@@ -759,6 +788,10 @@ useSingleMethodDict :: Env -> GHC.Expr Var -> (LF.Expr -> t) -> ConvertM t
 useSingleMethodDict env (Cast ghcExpr _) f = do
     lfExpr <- convertExpr env ghcExpr
     pure (f lfExpr)
+useSingleMethodDict env (Lam name x) f | isTyVar name = do
+    -- TODO handle type variables for generic templates in a safer way
+    (env', _) <- bindTypeVar env name
+    useSingleMethodDict env' x f
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 

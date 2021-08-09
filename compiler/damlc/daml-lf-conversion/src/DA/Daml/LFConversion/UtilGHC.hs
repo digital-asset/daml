@@ -133,36 +133,36 @@ pattern DesugarDFunId tyCoVars dfunArgs name classArgs <-
     )
 
 pattern HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasObserverDFunId,
-    HasArchiveDFunId, ShowDFunId :: TyCon -> GHC.Var
+    HasArchiveDFunId, ShowDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> TyCon -> [GHC.Type] -> GHC.Var
 
-pattern HasSignatoryDFunId templateTyCon <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasSignatory")
-        [splitTyConApp_maybe -> Just (templateTyCon, [])]
-pattern HasEnsureDFunId templateTyCon <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasEnsure")
-        [splitTyConApp_maybe -> Just (templateTyCon, [])]
-pattern HasAgreementDFunId templateTyCon <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasAgreement")
-        [splitTyConApp_maybe -> Just (templateTyCon, [])]
-pattern HasObserverDFunId templateTyCon <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasObserver")
-        [splitTyConApp_maybe -> Just (templateTyCon, [])]
-pattern HasArchiveDFunId templateTyCon <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasArchive")
-        [splitTyConApp_maybe -> Just (templateTyCon, [])]
-pattern ShowDFunId tyCon <-
-    DesugarDFunId [] [] (NameIn GHC_Show "Show")
-        [splitTyConApp_maybe -> Just (tyCon, [])]
+pattern HasSignatoryDFunId tyCoVars dfunArgs templateTyCon args <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn DA_Internal_Template_Functions "HasSignatory")
+        [splitTyConApp_maybe -> Just (templateTyCon, args)]
+pattern HasEnsureDFunId tyCoVars dfunArgs templateTyCon args <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn DA_Internal_Template_Functions "HasEnsure")
+        [splitTyConApp_maybe -> Just (templateTyCon, args)]
+pattern HasAgreementDFunId tyCoVars dfunArgs templateTyCon args <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn DA_Internal_Template_Functions "HasAgreement")
+        [splitTyConApp_maybe -> Just (templateTyCon, args)]
+pattern HasObserverDFunId tyCoVars dfunArgs templateTyCon args <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn DA_Internal_Template_Functions "HasObserver")
+        [splitTyConApp_maybe -> Just (templateTyCon, args)]
+pattern HasArchiveDFunId tyCoVars dfunArgs templateTyCon args <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn DA_Internal_Template_Functions "HasArchive")
+        [splitTyConApp_maybe -> Just (templateTyCon, args)]
+pattern ShowDFunId tyCoVars dfunArgs tyCon args <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn GHC_Show "Show")
+        [splitTyConApp_maybe -> Just (tyCon, args)]
 
-pattern HasKeyDFunId, HasMaintainerDFunId :: TyCon -> Type -> GHC.Var
+pattern HasKeyDFunId, HasMaintainerDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> TyCon -> [GHC.Type] -> Type -> GHC.Var
 
-pattern HasKeyDFunId templateTyCon keyTy <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasKey")
-        [ splitTyConApp_maybe -> Just (templateTyCon, [])
+pattern HasKeyDFunId tyCoVars dfunArgs templateTyCon args keyTy <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn DA_Internal_Template_Functions "HasKey")
+        [ splitTyConApp_maybe -> Just (templateTyCon, args)
         , keyTy ]
-pattern HasMaintainerDFunId templateTyCon keyTy <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasMaintainer")
-        [ splitTyConApp_maybe -> Just (templateTyCon, [])
+pattern HasMaintainerDFunId tyCoVars dfunArgs templateTyCon args keyTy <-
+    DesugarDFunId tyCoVars dfunArgs (NameIn DA_Internal_Template_Functions "HasMaintainer")
+        [ splitTyConApp_maybe -> Just (templateTyCon, args)
         , keyTy ]
 
 pattern HasMessageDFunId :: TyCon -> GHC.Var

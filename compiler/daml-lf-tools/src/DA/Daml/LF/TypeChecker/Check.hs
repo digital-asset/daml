@@ -796,39 +796,45 @@ checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
       (_, TScenario _) -> pure ()
       _ -> throwWithContext (EExpectedScenarioType typ)
 
-checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -> m ()
-checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBinder (param, paramType) retType upd) = do
+checkTemplateChoice :: MonadGamma m => Type -> TemplateChoice -> m ()
+checkTemplateChoice tplType (TemplateChoice _loc _ _ controllers mbObservers selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
   introExprVar param paramType $ checkExpr controllers (TList TParty)
   introExprVar param paramType $ do
     whenJust mbObservers $ \observers -> do
-      _checkFeature featureChoiceObservers
+      checkFeature featureChoiceObservers
       checkExpr observers (TList TParty)
-  introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
+  introExprVar selfBinder (TContractId tplType) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
 
 checkTemplate :: MonadGamma m => Module -> Template -> m ()
 checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey) = do
   let tcon = Qualified PRSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
-  unless (null tparams) $ throwWithContext (EExpectedTemplatableType tpl)
+  unless (null tparams) $ do
+    checkFeatureOrThrow featureGenericTemplates (EExpectedTemplatableType tpl)
   _ <- match _DataRecord (EExpectedTemplatableType tpl) dataCons
-  introExprVar param (TCon tcon) $ do
-    withPart TPPrecondition $ checkExpr precond TBool
-    withPart TPSignatories $ checkExpr signatories (TList TParty)
-    withPart TPObservers $ checkExpr observers (TList TParty)
-    withPart TPAgreement $ checkExpr text TText
-    for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
+  let tplType = TConApp tcon (map (TVar . fst) tparams)
+  introTypeVars tparams $ -- TODO: pass type reps as well?
+    introExprVar param tplType $ do
+      withPart TPPrecondition $ checkExpr precond TBool
+      withPart TPSignatories $ checkExpr signatories (TList TParty)
+      withPart TPObservers $ checkExpr observers (TList TParty)
+      withPart TPAgreement $ checkExpr text TText
+      for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tplType c
   whenJust mbKey $ checkTemplateKey param tcon
   where
     withPart p = withContext (ContextTemplate m t p)
 
-_checkFeature :: MonadGamma m => Feature -> m ()
-_checkFeature feature = do
+checkFeature :: MonadGamma m => Feature -> m ()
+checkFeature feature = checkFeatureOrThrow feature (EUnsupportedFeature feature)
+
+checkFeatureOrThrow :: MonadGamma m => Feature -> Error -> m ()
+checkFeatureOrThrow feature err = do
     version <- getLfVersion
     unless (version `supports` feature) $
-        throwWithContext $ EUnsupportedFeature feature
+        throwWithContext err
 
 checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> TemplateKey -> m ()
 checkTemplateKey param tcon TemplateKey{..} = do

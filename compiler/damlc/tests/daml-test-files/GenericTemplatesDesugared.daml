@@ -1,0 +1,60 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_GENERIC_TEMPLATES
+-- \QUERY-LF [ .modules[].templates[] ] | length == 1
+
+-- | Test that desugared generic templates are picked up during LF conversion.
+module GenericTemplatesDesugared where
+
+data MyTemplate t1 t2 =
+    MyTemplate with
+        p : Party
+        x1 : t1
+        x2 : t2
+
+-- The derived show instance has Show constraints for t1 and t2
+-- which we can't really deal with right now in LFConversion (TODO)
+-- so this instance is manually implemented.
+instance Show (MyTemplate t1 t2) where
+    show MyTemplate{..} = "MyTemplate ..."
+
+instance DA.Internal.Desugar.HasSignatory (MyTemplate t1 t2) where
+    signatory MyTemplate{..} = [p]
+
+instance DA.Internal.Desugar.HasObserver (MyTemplate t1 t2) where
+    observer MyTemplate{..} = []
+
+instance DA.Internal.Desugar.HasEnsure (MyTemplate t1 t2) where
+    ensure MyTemplate{..} = True
+
+instance DA.Internal.Desugar.HasAgreement (MyTemplate t1 t2) where
+    agreement MyTemplate{..} = ""
+
+instance DA.Internal.Desugar.HasCreate (MyTemplate t1 t2) where
+    create = error "UCreateGeneric" -- GHC.Types.primitive @"UCreateGeneric"
+
+instance DA.Internal.Desugar.HasFetch (MyTemplate t1 t2) where
+    fetch = error "UFetchGeneric" -- GHC.Types.primitive @"UFetchGeneric"
+
+instance DA.Internal.Desugar.HasArchive (MyTemplate t1 t2) where
+    archive cid = exercise cid Archive
+
+instance DA.Internal.Desugar.HasTemplateTypeRep (MyTemplate t1 t2) where
+    _templateTypeRep = error "ETemplateTypeRepGeneric" -- GHC.Types.primitive @"ETemplateTypeRepGeneric"
+
+instance DA.Internal.Desugar.HasToAnyTemplate (MyTemplate t1 t2) where
+    _toAnyTemplate = error "EToAnyTemplateGeneric" -- GHC.Types.primitive @"EToAnyTemplateGeneric"
+
+instance DA.Internal.Desugar.HasFromAnyTemplate (MyTemplate t1 t2) where
+    _fromAnyTemplate = error "EFromAnyTemplateGeneric" -- GHC.Types.primitive @"EFromAnyTemplateGeneric"
+
+instance DA.Internal.Desugar.HasExercise (MyTemplate t1 t2) Archive () where
+    exercise = error "UExerciseGeneric" -- GHC.Types.Primitive @"UExerciseGeneric"
+
+instance DA.Internal.Desugar.HasToAnyChoice (MyTemplate t1 t2) Archive () where
+    _toAnyChoice = error "EToAnyChoiceGeneric" -- GHC.Types.Primitive @"EToAnyChoiceGeneric"
+
+instance DA.Internal.Desugar.HasFromAnyChoice (MyTemplate t1 t2) Archive () where
+    _fromAnyChoice = error "EFromAnyChoiceGeneric" -- GHC.Types.Primitive @"EFromAnyChoiceGeneric"
+
