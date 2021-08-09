@@ -57,7 +57,7 @@ steps:
       GZIP=-9 tar --force-local -c -z -f "build-event-logs.tar.gz" "$(pipeline_id)"
       date="$(echo $(pipeline_id) | cut -c1-7)/$(echo $(pipeline_id) | cut -c9-10)"
       gcs "$GCRED" cp "build-event-logs.tar.gz" "gs://daml-data/bazel-metrics/$date/$(pipeline_id).tar.gz"
-    condition: succeededOrFailed()
+    condition: and(succeededOrFailed(), eq(variables['System.PullRequest.IsFork'], 'False'))
     displayName: 'Upload Bazel metrics'
     env:
       GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
