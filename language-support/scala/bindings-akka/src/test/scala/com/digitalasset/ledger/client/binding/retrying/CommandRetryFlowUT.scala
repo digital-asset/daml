@@ -109,9 +109,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
           )
       val failedSubmissions = codesToFail.map { code =>
         submitRequest(code.getNumber, Instant.ofEpochSecond(45)) map { result =>
-          result.size shouldBe 1
-          result.head.context.nrOfRetries shouldBe 0
-          inside(result.head.value) { case Left(NotOkResponse(_, grpcStatus)) =>
+          inside(result) { case Seq(Ctx(context, Left(NotOkResponse(_, grpcStatus)), _)) =>
+            context.nrOfRetries shouldBe 0
             grpcStatus.code shouldBe code.getNumber
           }
         }
@@ -137,9 +136,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
 
     "stop retrying after maxRetryTime" in {
       submitRequest(Code.RESOURCE_EXHAUSTED_VALUE, Instant.ofEpochSecond(15)) map { result =>
-        result.size shouldBe 1
-        result.head.context.nrOfRetries shouldBe 0
-        inside(result.head.value) { case Left(NotOkResponse(_, grpcStatus)) =>
+        inside(result) { case Seq(Ctx(context, Left(NotOkResponse(_, grpcStatus)), _)) =>
+          context.nrOfRetries shouldBe 0
           grpcStatus.code shouldBe Code.RESOURCE_EXHAUSTED_VALUE.intValue
         }
       }
