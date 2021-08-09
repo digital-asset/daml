@@ -3,6 +3,7 @@
 
 package com.daml.script.export
 
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.value.Value
 import com.daml.script.export.TreeUtils.SubmitSimpleMulti
@@ -30,7 +31,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           )
         )
         .toSubmit
-      encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+      encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
         """tree <- submitTreeMulti [alice_0, bob_0] [] do
           |  createCmd Module.Template
           |  exerciseCmd contract_0_1 (Module.Choice ())""".stripMargin.replace("\r\n", "\n")
@@ -47,7 +48,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """_ <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace("\r\n", "\n")
       }
@@ -66,7 +67,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """submit alice_0 do
             |  _ <- createCmd Module.Template
             |  _ <- createCmd Module.Template
@@ -92,7 +93,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())""".stripMargin.replace("\r\n", "\n")
       }
@@ -107,7 +108,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """contract_0_0 <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
@@ -129,7 +130,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """(contract_1_0, contract_1_1) <- submit alice_0 do
             |  contract_1_0 <- createCmd Module.Template
             |  contract_1_1 <- createCmd Module.Template
@@ -169,7 +170,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())
             |  exerciseCmd contract_0_1 (Module.Choice ())
@@ -208,7 +209,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  createCmd Module.Template
             |  createCmd Module.Template
@@ -243,7 +244,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSubmit
-        encodeSubmit(parties, cidMap, cidRefs, submit).render(80) shouldBe
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
           """tree <- submitTree alice_0 do
             |  createAndExerciseCmd
             |    Module.Template
@@ -289,7 +290,13 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             )
           )
           .toSimpleCommands
-        encodeSubmit(parties, cidMap, cidRefs, SubmitSimpleMulti(commands, parties.keySet))
+        encodeSubmit(
+          parties,
+          cidMap,
+          cidRefs,
+          Set.empty,
+          SubmitSimpleMulti(commands, parties.keySet),
+        )
           .render(80) shouldBe
           """(contract_0_0, contract_0_2, contract_0_4) <- submitMulti [alice_0, bob_0] [] do
             |  contract_0_0 <- createCmd Module.Template
@@ -298,6 +305,133 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             |    Module.Template
             |    (Module.Choice ())
             |  pure (contract_0_0, contract_0_2, contract_0_4)""".stripMargin.replace(
+            "\r\n",
+            "\n",
+          )
+      }
+    }
+    "handling contracts missing instances" - {
+      "create" in {
+        val parties = Map(
+          Party("Alice") -> "alice_0"
+        )
+        val cidMap = Map.empty[ContractId, String]
+        val cidRefs = Set.empty[ContractId]
+        val missingInstances = Set(ApiTypes.TemplateId(TestData.defaultTemplateId))
+        val submit = TestData
+          .Tree(
+            Seq[TestData.Event](
+              TestData.Created(ContractId("cid1"), submitters = Seq(Party("Alice")))
+            )
+          )
+          .toSubmit
+        encodeSubmit(parties, cidMap, cidRefs, missingInstances, submit).render(80) shouldBe
+          """_ <- submit alice_0 do
+            |  internalCreateCmd (toAnyTemplate Module.Template)""".stripMargin.replace(
+            "\r\n",
+            "\n",
+          )
+      }
+      "exercise" in {
+        val parties = Map(
+          Party("Alice") -> "alice_0"
+        )
+        val cidMap = Map(
+          ContractId("cid1") -> "contract_0_0"
+        )
+        val cidRefs = Set.empty[ContractId]
+        val missingInstances = Set(ApiTypes.TemplateId(TestData.defaultTemplateId))
+        val submit = TestData
+          .Tree(
+            Seq[TestData.Event](
+              TestData.Exercised(
+                ContractId("cid1"),
+                Seq.empty[TestData.Event],
+                actingParties = Seq(Party("Alice")),
+              )
+            )
+          )
+          .toSubmit
+        encodeSubmit(parties, cidMap, cidRefs, missingInstances, submit).render(80) shouldBe
+          """tree <- submitTree alice_0 do
+            |  internalExerciseCmd
+            |    (templateTypeRep @Module.Template)
+            |    (coerceContractId contract_0_0)
+            |    (toAnyChoice @Module.Template (Module.Choice ()))""".stripMargin
+            .replace("\r\n", "\n")
+      }
+      "createAndExercise" in {
+        val parties = Map(
+          Party("Alice") -> "alice_0"
+        )
+        val cidMap = Map(
+          ContractId("cid1") -> "contract_0_0"
+        )
+        val cidRefs = Set.empty[ContractId]
+        val missingInstances = Set(ApiTypes.TemplateId(TestData.defaultTemplateId))
+        val submit = TestData
+          .Tree(
+            Seq[TestData.Event](
+              TestData.Created(ContractId("cid1"), submitters = Seq(Party("Alice"))),
+              TestData.Exercised(
+                ContractId("cid1"),
+                Seq.empty[TestData.Event],
+                actingParties = Seq(Party("Alice")),
+              ),
+            )
+          )
+          .toSubmit
+        encodeSubmit(parties, cidMap, cidRefs, missingInstances, submit).render(80) shouldBe
+          """tree <- submitTree alice_0 do
+            |  internalCreateAndExerciseCmd
+            |    (toAnyTemplate Module.Template)
+            |    (toAnyChoice @Module.Template (Module.Choice ()))""".stripMargin.replace(
+            "\r\n",
+            "\n",
+          )
+      }
+      "exerciseByKey" in {
+        val parties = Map(
+          Party("Alice") -> "alice_0"
+        )
+        val cidMap = Map(
+          ContractId("cid1") -> "contract_0_0",
+          ContractId("cid2") -> "contract_0_1",
+        )
+        val cidRefs = Set.empty[ContractId]
+        val missingInstances = Set(ApiTypes.TemplateId(TestData.defaultTemplateId))
+        val submit = TestData
+          .Tree(
+            Seq[TestData.Event](
+              TestData.Exercised(
+                ContractId("cid1"),
+                Seq[TestData.Event](
+                  TestData.Created(
+                    ContractId("cid2"),
+                    submitters = Seq(Party("Alice")),
+                    contractKey = Some(Value().withParty("Alice")),
+                  )
+                ),
+                actingParties = Seq(Party("Alice")),
+              ),
+              TestData.Exercised(
+                ContractId("cid2"),
+                Seq.empty[TestData.Event],
+                actingParties = Seq(Party("Alice")),
+              ),
+            )
+          )
+          .toSubmit
+        encodeSubmit(parties, cidMap, cidRefs, missingInstances, submit).render(80) shouldBe
+          """tree <- submitTree alice_0 do
+            |  internalExerciseCmd
+            |    (templateTypeRep @Module.Template)
+            |    (coerceContractId contract_0_0)
+            |    (toAnyChoice @Module.Template (Module.Choice ()))
+            |  internalExerciseByKeyCmd
+            |    (templateTypeRep @Module.Template)
+            |    (toAnyContractKey @Module.Template alice_0)
+            |    (toAnyChoice @Module.Template (Module.Choice ()))""".stripMargin.replace(
             "\r\n",
             "\n",
           )

@@ -55,7 +55,13 @@ private[export] object Encode {
       (Doc.text("export Args{parties, contracts} = do") /
         stackNonEmpty(
           export.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ export.actions.map(
-            encodeAction(export.partyMap, export.cidMap, export.cidRefs, _)
+            encodeAction(
+              export.partyMap,
+              export.cidMap,
+              export.cidRefs,
+              export.missingInstances.keySet,
+              _,
+            )
           ) :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -278,38 +284,74 @@ private[export] object Encode {
   private def encodeCmd(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
+      missingInstances: Set[TemplateId],
       cmd: Command,
   ): Doc = cmd match {
     case CreateCommand(createdEvent) =>
-      encodeCreatedEvent(partyMap, cidMap, createdEvent)
+      encodeCreatedEvent(partyMap, cidMap, missingInstances, createdEvent)
     case ExerciseCommand(exercisedEvent) =>
-      val command = Doc.text("exerciseCmd")
       val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      command & cid & choice
+      if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
+        val command = Doc.text("internalExerciseCmd")
+        val tplIdArg = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
+        val typeRepArg = parens("templateTypeRep" &: tplIdArg)
+        val cidArg = parens("coerceContractId" &: cid)
+        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+        Doc.stack(Seq(command, typeRepArg, cidArg, choiceArg)).nested(2)
+      } else {
+        val command = Doc.text("exerciseCmd")
+        command & cid & choice
+      }
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
-      val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+      if (missingInstances.contains(TemplateId(templateId))) {
+        val command = Doc.text("internalExerciseByKeyCmd")
+        val tplIdArg = "@" +: encodeTemplateId(TemplateId(templateId))
+        val typeRepArg = parens("templateTypeRep" &: tplIdArg)
+        val keyArg = parens(Doc.text("toAnyContractKey") & tplIdArg & key)
+        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+        Doc.stack(Seq(command, typeRepArg, keyArg, choiceArg)).nested(2)
+      } else {
+        val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
+        command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+      }
     case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
-      Doc
-        .stack(
-          Seq(
-            Doc.text("createAndExerciseCmd"),
-            encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments),
-            encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
-          )
-        )
-        .nested(2)
+      val tpl = encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+      if (missingInstances.contains(TemplateId(createdEvent.getTemplateId))) {
+        val command = Doc.text("internalCreateAndExerciseCmd")
+        val tplIdArg = "@" +: encodeTemplateId(TemplateId(createdEvent.getTemplateId))
+        val tplArg = parens("toAnyTemplate" &: tpl)
+        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+        Doc
+          .stack(Seq(command, tplArg, choiceArg))
+          .nested(2)
+      } else {
+        val command = Doc.text("createAndExerciseCmd")
+        Doc
+          .stack(Seq(command, tpl, choice))
+          .nested(2)
+      }
   }
 
   private def encodeCreatedEvent(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
+      missingInstances: Set[TemplateId],
       created: CreatedEvent,
-  ): Doc =
-    Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
+  ): Doc = {
+    val tpl = encodeRecord(partyMap, cidMap, created.getCreateArguments)
+    if (missingInstances.contains(TemplateId(created.getTemplateId))) {
+      val command = Doc.text("internalCreateCmd")
+      val tplArg = parens("toAnyTemplate" &: tpl)
+      command & tplArg
+    } else {
+      val command = Doc.text("createCmd")
+      command & encodeRecord(partyMap, cidMap, created.getCreateArguments)
+    }
+  }
 
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
     (Doc.text("let") & encodeCid(cidMap, c.cid) & Doc.text("=") & encodePath(
@@ -322,6 +364,7 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       submit: SubmitSimple,
   ): Doc = {
     val cids = submit.simpleCommands.map(_.contractId)
@@ -351,7 +394,7 @@ private[export] object Encode {
       } else {
         Doc.empty
       }
-      bind + encodeCmd(partyMap, cidMap, cmd)
+      bind + encodeCmd(partyMap, cidMap, missingInstances, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
     ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
@@ -365,11 +408,13 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       submit: Submit,
   ): Doc = {
     submit match {
-      case simple: SubmitSimple => encodeSubmitSimple(partyMap, cidMap, cidRefs, simple)
-      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, tree)
+      case simple: SubmitSimple =>
+        encodeSubmitSimple(partyMap, cidMap, cidRefs, missingInstances, simple)
+      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, missingInstances, tree)
     }
   }
 
@@ -377,6 +422,7 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       submit: SubmitTree,
   ): Doc = {
     val cids = treeCreatedCids(submit.tree)
@@ -384,7 +430,7 @@ private[export] object Encode {
     val treeBind = Doc
       .stack(
         ("tree <-" &: encodeSubmitCall(partyMap, submit) :& "do") +:
-          submit.commands.map(encodeCmd(partyMap, cidMap, _))
+          submit.commands.map(encodeCmd(partyMap, cidMap, missingInstances, _))
       )
       .hang(2)
     val cidBinds = referencedCids.map(bindCid(cidMap, _))
@@ -395,11 +441,12 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       action: Action,
   ): Doc = {
     action match {
       case SetTime(timestamp) => encodeSetTime(timestamp)
-      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, submit)
+      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, missingInstances, submit)
     }
   }
 
