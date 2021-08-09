@@ -56,7 +56,6 @@ da_scala_test(
         "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts,
-    # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-utils",
         "//libs-scala/scala-utils",
