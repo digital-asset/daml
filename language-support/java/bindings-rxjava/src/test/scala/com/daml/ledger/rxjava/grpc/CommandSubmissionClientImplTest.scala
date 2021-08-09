@@ -10,6 +10,7 @@ import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identif
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
+import io.grpc.Deadline
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -31,6 +32,29 @@ class CommandSubmissionClientImplTest
   }
 
   behavior of "[3.1] CommandSubmissionClientImpl.submit"
+
+  it should "timeout after deadline exceeded" in {
+    ledgerServices.withCommandSubmissionClient(
+      Future.never,
+      deadline = Optional.of(Deadline.after(5, TimeUnit.SECONDS)),
+    ) { (client, serviceImpl) =>
+      val commands = genCommands(List.empty)
+      expectDeadlineExceeded(
+        client
+          .submit(
+            commands.getWorkflowId,
+            commands.getApplicationId,
+            commands.getCommandId,
+            commands.getParty,
+            commands.getCommands,
+          )
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingGet()
+      )
+      val receivedCommands = serviceImpl.getSubmittedRequest.value.getCommands
+      receivedCommands.ledgerId shouldBe ledgerServices.ledgerId
+    }
+  }
 
   it should "send a commands to the ledger" in {
     ledgerServices.withCommandSubmissionClient(Future.successful(Empty.defaultInstance)) {

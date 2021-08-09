@@ -13,6 +13,7 @@ import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.google.protobuf.Empty;
 import io.grpc.Channel;
+import io.grpc.Deadline;
 import io.reactivex.Single;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,10 +27,15 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
   private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
 
   public CommandSubmissionClientImpl(
-      @NonNull String ledgerId, @NonNull Channel channel, Optional<String> accessToken) {
+      @NonNull String ledgerId,
+      @NonNull Channel channel,
+      Optional<String> accessToken,
+      Optional<Deadline> deadline) {
     this.ledgerId = ledgerId;
     this.serviceStub =
-        StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
+        StubHelper.authenticating(
+            CommandSubmissionServiceGrpc.newFutureStub(channel).withDeadline(deadline.orElse(null)),
+            accessToken);
   }
 
   public Single<com.google.protobuf.Empty> submit(
