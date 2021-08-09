@@ -279,7 +279,6 @@ class ApiSubmissionServiceSpec
       ) -> Status.INVALID_ARGUMENT,
       ErrorCause.LedgerTime(0) -> Status.ABORTED,
     )
-    val commandId = new AtomicInteger()
     val mockCommandExecutor = mock[CommandExecutor]
 
     val service = newSubmissionService(
@@ -291,23 +290,7 @@ class ApiSubmissionServiceSpec
 
     Future
       .sequence(errorsToStatuses.map { case (error, code) =>
-        val submitRequest = SubmitRequest(
-          Commands(
-            ledgerId = LedgerId("ledger-id"),
-            workflowId = None,
-            applicationId = DomainMocks.applicationId,
-            commandId = CommandId(
-              Ref.CommandId.assertFromString(s"commandId-${commandId.incrementAndGet()}")
-            ),
-            submissionId =
-              SubmissionId(Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)),
-            actAs = Set.empty,
-            readAs = Set.empty,
-            submittedAt = Instant.MIN,
-            deduplicationDuration = Duration.ZERO,
-            commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
-          )
-        )
+        val submitRequest = newSubmitRequest()
         when(
           mockCommandExecutor.execute(
             eqTo(submitRequest.commands),
@@ -327,6 +310,92 @@ class ApiSubmissionServiceSpec
         succeed
       }
   }
+
+  behavior of "command deduplication"
+
+  it should "use deduplication if enabled" in {
+    val partyManagementService = mock[IndexPartyManagementService]
+    val writeService = mock[state.WriteService]
+    val indexSubmissionService = mock[IndexSubmissionService]
+    val mockCommandExecutor = mock[CommandExecutor]
+
+    when(
+      mockCommandExecutor.execute(
+        any[Commands],
+        any[Hash],
+        any[Configuration],
+      )(any[ExecutionContext], any[LoggingContext])
+    ).thenReturn(
+      Future.failed(
+        new RuntimeException
+      ) // we don't care about the result, deduplication already happened
+    )
+
+    val service =
+      newSubmissionService(
+        writeService,
+        partyManagementService,
+        implicitPartyAllocation = true,
+        deduplicationEnabled = true,
+        mockIndexSubmissionService = indexSubmissionService,
+        commandExecutor = mockCommandExecutor,
+      )
+
+    val submitRequest = newSubmitRequest()
+    service
+      .submit(submitRequest)
+      .transform(_ => {
+        verify(indexSubmissionService).deduplicateCommand(
+          any[CommandId],
+          any[List[Ref.Party]],
+          any[Instant],
+          any[Instant],
+        )(any[LoggingContext])
+        Success(succeed)
+      })
+  }
+
+  it should "not use deduplication when disabled" in {
+    val partyManagementService = mock[IndexPartyManagementService]
+    val writeService = mock[state.WriteService]
+    val indexSubmissionService = mock[IndexSubmissionService]
+    val mockCommandExecutor = mock[CommandExecutor]
+
+    when(
+      mockCommandExecutor.execute(
+        any[Commands],
+        any[Hash],
+        any[Configuration],
+      )(any[ExecutionContext], any[LoggingContext])
+    ).thenReturn(
+      Future.failed(
+        new RuntimeException
+      ) // we don't care about the result, deduplication already happened
+    )
+
+    val service =
+      newSubmissionService(
+        writeService,
+        partyManagementService,
+        implicitPartyAllocation = true,
+        deduplicationEnabled = false,
+        mockIndexSubmissionService = indexSubmissionService,
+        commandExecutor = mockCommandExecutor,
+      )
+
+    val submitRequest = newSubmitRequest()
+    service
+      .submit(submitRequest)
+      .transform(_ => {
+        verify(indexSubmissionService, never).deduplicateCommand(
+          any[CommandId],
+          any[List[Ref.Party]],
+          any[Instant],
+          any[Instant],
+        )(any[LoggingContext])
+        Success(succeed)
+      })
+  }
 }
 
 object ApiSubmissionServiceSpec {
@@ -334,11 +403,34 @@ object ApiSubmissionServiceSpec {
   import ArgumentMatchersSugar._
   import MockitoSugar._
 
+  val commandId = new AtomicInteger()
+
+  private def newSubmitRequest() = {
+    SubmitRequest(
+      Commands(
+        ledgerId = LedgerId("ledger-id"),
+        workflowId = None,
+        applicationId = DomainMocks.applicationId,
+        commandId = CommandId(
+          Ref.CommandId.assertFromString(s"commandId-${commandId.incrementAndGet()}")
+        ),
+        submissionId = SubmissionId(Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)),
+        actAs = Set.empty,
+        readAs = Set.empty,
+        submittedAt = Instant.MIN,
+        deduplicationDuration = Duration.ZERO,
+        commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
+      )
+    )
+  }
+
   private def newSubmissionService(
       writeService: state.WriteService,
       partyManagementService: IndexPartyManagementService,
       implicitPartyAllocation: Boolean,
       commandExecutor: CommandExecutor = null,
+      deduplicationEnabled: Boolean = true,
+      mockIndexSubmissionService: IndexSubmissionService = mock[IndexSubmissionService],
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -348,9 +440,8 @@ object ApiSubmissionServiceSpec {
         Some(Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ZERO))
     }
 
-    val indexSubmissionService = mock[IndexSubmissionService]
     when(
-      indexSubmissionService.deduplicateCommand(
+      mockIndexSubmissionService.deduplicateCommand(
         any[CommandId],
         anyList[Ref.Party],
         any[Instant],
@@ -358,7 +449,7 @@ object ApiSubmissionServiceSpec {
       )(any[LoggingContext])
     ).thenReturn(Future.successful(CommandDeduplicationNew))
     when(
-      indexSubmissionService.stopDeduplicatingCommand(
+      mockIndexSubmissionService.stopDeduplicatingCommand(
         any[CommandId],
         anyList[Ref.Party],
       )(any[LoggingContext])
@@ -366,14 +457,15 @@ object ApiSubmissionServiceSpec {
 
     new ApiSubmissionService(
       writeService = writeService,
-      submissionService = indexSubmissionService,
+      submissionService = mockIndexSubmissionService,
       partyManagementService = partyManagementService,
       timeProvider = null,
       timeProviderType = null,
       ledgerConfigurationSubscription = ledgerConfigurationSubscription,
       seedService = SeedService.WeakRandom,
       commandExecutor = commandExecutor,
-      configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),
+      configuration = ApiSubmissionService
+        .Configuration(implicitPartyAllocation, commandDeduplicationEnabled = deduplicationEnabled),
       metrics = new Metrics(new MetricRegistry),
     )
   }

@@ -227,7 +227,8 @@ private[daml] object ApiServices {
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation
+            partyConfig.implicitPartyAllocation,
+            commandConfig.deduplicationEnabled,
           ),
           metrics,
         )

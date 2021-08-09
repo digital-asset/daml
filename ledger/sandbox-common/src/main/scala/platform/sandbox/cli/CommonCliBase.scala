@@ -249,6 +249,13 @@ class CommonCliBase(name: LedgerName) {
           "The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
         )
 
+      opt[Boolean]("command-deduplication-enabled")
+        .optional()
+        .action((value, config) =>
+          config.copy(commandConfig = config.commandConfig.copy(deduplicationEnabled = value))
+        )
+        .text("Enable or disable command deduplication. Default is enabled.")
+
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(

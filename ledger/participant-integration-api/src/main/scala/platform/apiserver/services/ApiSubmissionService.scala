@@ -80,7 +80,8 @@ private[apiserver] object ApiSubmissionService {
     )
 
   final case class Configuration(
-      implicitPartyAllocation: Boolean
+      implicitPartyAllocation: Boolean,
+      commandDeduplicationEnabled: Boolean,
   )
 
 }
@@ -113,8 +114,18 @@ private[apiserver] final class ApiSubmissionService private[services] (
       logger.trace(s"Commands: ${request.commands.commands.commands}")
       ledgerConfigurationSubscription
         .latestConfiguration()
-        .map(deduplicateAndRecordOnLedger(seedService.nextSeed(), request.commands, _))
-        .getOrElse(Future.failed(ErrorFactories.missingLedgerConfig()))
+        .fold(Future.failed[Unit](ErrorFactories.missingLedgerConfig()))(ledgerConfiguration => {
+          if (configuration.commandDeduplicationEnabled) {
+            deduplicateAndRecordOnLedger(
+              seedService.nextSeed(),
+              request.commands,
+              ledgerConfiguration,
+            )
+          } else {
+            evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
+              .transform(handleSubmissionResult)
+          }
+        })
         .andThen(logger.logErrorsOnCall[Unit])
     }
 
