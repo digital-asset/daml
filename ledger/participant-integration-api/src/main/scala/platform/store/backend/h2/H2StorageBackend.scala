@@ -197,7 +197,32 @@ private[backend] object H2StorageBackend
       connectionInitHook: Option[Connection => Unit],
   )(implicit loggingContext: LoggingContext): DataSource = {
     val h2DataSource = new org.h2.jdbcx.JdbcDataSource()
-    h2DataSource.setUrl(jdbcUrl)
+
+    // H2 (org.h2.jdbcx.JdbcDataSource) does not support setting the user/password within the jdbcUrl, so remove
+    // those properties from the url if present and set them separately. This helps run canton tests which set
+    // user/password. Note that Postgres and Oracle support user/password in the URLs, so we don't bother exposing
+    // user/password configs separately from the url just for h2 which is anyway not supported for production.
+    def setKeyValueAndRemoveFromUrl(url: String, key: String, setter: String => Unit): String = {
+      val separator = ";"
+      url.toLowerCase.indexOf(separator + key + "=") match {
+        case -1 => url
+        case i =>
+          val valueBegin = i + 1 + key.length + 1 // separator, key, "="
+          val (value, shortenedUrl) = url.indexOf(separator, i + 1) match {
+            case -1 => (url.substring(valueBegin), url.take(i))
+            case next =>
+              (url.substring(valueBegin, next), url.take(i) + url.takeRight(url.length - next))
+          }
+          setter(value)
+          shortenedUrl
+      }
+    }
+
+    val urlNoUser = setKeyValueAndRemoveFromUrl(jdbcUrl, "user", h2DataSource.setUser)
+    val urlNoUserNoPassword =
+      setKeyValueAndRemoveFromUrl(urlNoUser, "password", h2DataSource.setPassword)
+    h2DataSource.setUrl(urlNoUserNoPassword)
+
     InitHookDataSourceProxy(h2DataSource, connectionInitHook.toList)
   }
 
