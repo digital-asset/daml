@@ -100,11 +100,9 @@ private[events] object TransactionLogUpdatesConversions {
         val witnessesMatchingWildcards =
           event.flatEventWitnesses.intersect(wildcardParties).nonEmpty
 
-        lazy val templateSpecificPartiesMatchingTemplateId = templateSpecificParties
+        witnessesMatchingWildcards || templateSpecificParties
           .get(event.templateId)
           .exists(_.intersect(event.flatEventWitnesses).nonEmpty)
-
-        witnessesMatchingWildcards || templateSpecificPartiesMatchingTemplateId
       }
 
     private def toFlatEvent(
