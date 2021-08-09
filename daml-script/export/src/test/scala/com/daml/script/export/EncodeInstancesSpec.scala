@@ -1,0 +1,85 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.script.export
+
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.{value => V}
+import com.daml.lf.language.Ast
+import com.daml.script.export.Dependencies.TemplateInstanceSpec
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
+
+class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
+  import Encode._
+  import AstSyntax._
+
+  "encodeMissingInstances" - {
+    "template only" in {
+      val tplId = ApiTypes.TemplateId(
+        V.Identifier().withPackageId("pkg-id").withModuleName("Module").withEntityName("Template")
+      )
+      val spec = TemplateInstanceSpec(
+        key = None,
+        choices = Map.empty,
+      )
+      encodeMissingInstances(tplId, spec).render(80) shouldBe
+        """{- Module.Template is defined in a package using LF version 1.7 or earlier.
+          |   These packages don't provide the required type class instances to generate
+          |   ledger commands. The following defines replacement instances. -}
+          |instance HasTemplateTypeRep Module.Template where
+          |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+          |instance HasToAnyTemplate Module.Template where
+          |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"""".stripMargin.replace(
+          "\r\n",
+          "\n",
+        )
+    }
+    "template with choices" in {
+      val tplId = ApiTypes.TemplateId(
+        V.Identifier().withPackageId("pkg-id").withModuleName("Module").withEntityName("Template")
+      )
+      val spec = TemplateInstanceSpec(
+        key = None,
+        choices = Map(
+          ApiTypes.Choice("Archive") -> unit,
+          ApiTypes.Choice("Choice") -> (contractId :@ Ast.TTyCon(nFoo)),
+        ),
+      )
+      encodeMissingInstances(tplId, spec).render(80) shouldBe
+        """{- Module.Template is defined in a package using LF version 1.7 or earlier.
+          |   These packages don't provide the required type class instances to generate
+          |   ledger commands. The following defines replacement instances. -}
+          |instance HasTemplateTypeRep Module.Template where
+          |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+          |instance HasToAnyTemplate Module.Template where
+          |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+          |instance HasToAnyChoice Module.Template Archive () where
+          |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+          |instance HasToAnyChoice Module.Template Module.Choice (ContractId Module.Foo) where
+          |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"""".stripMargin.replace("\r\n", "\n")
+    }
+  }
+  "template with contract key" in {
+    val tplId = ApiTypes.TemplateId(
+      V.Identifier().withPackageId("pkg-id").withModuleName("Module").withEntityName("Template")
+    )
+    val spec = TemplateInstanceSpec(
+      key = Some(tuple(party, int)),
+      choices = Map.empty,
+    )
+    encodeMissingInstances(tplId, spec).render(80) shouldBe
+      """{- Module.Template is defined in a package using LF version 1.7 or earlier.
+        |   These packages don't provide the required type class instances to generate
+        |   ledger commands. The following defines replacement instances. -}
+        |instance HasTemplateTypeRep Module.Template where
+        |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+        |instance HasToAnyTemplate Module.Template where
+        |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+        |instance HasToAnyContractKey Module.Template (Party, Int) where
+        |  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"""".stripMargin.replace(
+        "\r\n",
+        "\n",
+      )
+  }
+}

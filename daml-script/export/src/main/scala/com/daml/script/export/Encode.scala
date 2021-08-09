@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.lf.language.Ast
+import com.daml.script.export.Dependencies.TemplateInstanceSpec
 import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
@@ -44,8 +45,39 @@ private[export] object Encode {
         encodeArgsType(),
         encodeTestExport(),
         encodeExportActions(export),
-      ),
+      ) ++ export.missingInstances.map { case (tplId, spec) => encodeMissingInstances(tplId, spec) },
     )
+  }
+
+  private[export] def encodeMissingInstances(tplId: TemplateId, spec: TemplateInstanceSpec): Doc = {
+    val tplIdDoc = encodeTemplateId(tplId)
+    def primInstance(name: String, parms: Doc): Doc = {
+      val cls = Doc.text(s"Has${name.capitalize}")
+      val fun = Doc.text(s"_$name")
+      val prim = Doc.text(s"E${name.capitalize}")
+      (Doc.text("instance") & cls & parms & Doc.text("where") /
+        fun & Doc.text("= GHC.Types.primitive @") + quotes(prim)).nested(2)
+    }
+    val header =
+      (Doc.text("{-") &
+        tplIdDoc & Doc.paragraph(
+          "is defined in a package using LF version 1.7 or earlier. " +
+            "These packages don't provide the required type class instances to generate ledger commands. " +
+            "The following defines replacement instances."
+        ) & Doc.text("-}")).nested(3)
+    val tplInstances = Seq(
+      primInstance("templateTypeRep", tplIdDoc),
+      primInstance("toAnyTemplate", tplIdDoc),
+    )
+    val keyInstances =
+      spec.key.toList.map(key => primInstance("toAnyContractKey", tplIdDoc & encodeType(key, 11)))
+    val choiceInstances = spec.choices.map { case (choice, ret) =>
+      val choiceDoc = if (choice == "Archive") { Doc.text("Archive") }
+      else { qualifyId(TemplateId.unwrap(tplId).copy().withEntityName(Choice.unwrap(choice))) }
+      val retDoc = encodeType(ret, 11)
+      primInstance("toAnyChoice", tplIdDoc & choiceDoc & retDoc)
+    }
+    Doc.stack(Seq(header) ++ tplInstances ++ keyInstances ++ choiceInstances)
   }
 
   private def encodeExportActions(export: Export): Doc = {
