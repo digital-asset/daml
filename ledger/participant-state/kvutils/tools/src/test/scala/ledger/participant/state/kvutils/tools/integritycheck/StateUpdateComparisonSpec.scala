@@ -17,9 +17,12 @@ import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, NodeId}
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AsyncWordSpec
+
+import scala.concurrent.Future
 
 final class StateUpdateComparisonSpec
     extends AsyncWordSpec
@@ -48,16 +51,16 @@ final class StateUpdateComparisonSpec
         RejectionReasonV0.SubmitterCannotActViaParticipant("a") -> RejectionReasonV0
           .SubmitterCannotActViaParticipant("b"),
       )
-      forAll(rejectionReasons) { case (left, right) =>
-        ReadServiceStateUpdateComparison
-          .compareUpdates(
-            aCommandRejectedUpdate.copy(reason = left),
-            aCommandRejectedUpdate.copy(reason = right),
-            expectedUpdateNormalizers = Iterable.empty,
-            actualUpdateNormalizers = Iterable.empty,
-          )
-          .map(_ => succeed)
-      }
+      forAll(rejectionReasons)(compareCommandRejectionReasons)
+    }
+
+    "conflate Disputed, InvalidLedgerTime and Inconsistent for CommandRejected updates" in {
+      val rejectionReasons = Table(
+        ("Left", "Right"),
+        RejectionReasonV0.Disputed("a") -> RejectionReasonV0.Inconsistent("a"),
+        RejectionReasonV0.InvalidLedgerTime("a") -> RejectionReasonV0.Inconsistent("a"),
+      )
+      forAll(rejectionReasons)(compareCommandRejectionReasons)
     }
 
     "ignore blinding info for TransactionAccepted updates" in {
@@ -135,7 +138,7 @@ final class StateUpdateComparisonSpec
   private lazy val aKeyMaintainer = "maintainer"
   private lazy val aDummyValue = TransactionBuilder.record("field" -> "value")
 
-  def buildATransaction(withFetchAndLookupByKeyNodes: Boolean): CommittedTransaction = {
+  private def buildATransaction(withFetchAndLookupByKeyNodes: Boolean): CommittedTransaction = {
     val builder = new TransactionBuilder()
     val create1 = create("#someContractId")
     val create2 = create("#otherContractId")
@@ -177,4 +180,17 @@ final class StateUpdateComparisonSpec
         TransactionBuilder.record(maintainer -> key)
       },
     )
+
+  private def compareCommandRejectionReasons(
+      left: RejectionReasonV0,
+      right: RejectionReasonV0,
+  ): Future[Assertion] =
+    ReadServiceStateUpdateComparison
+      .compareUpdates(
+        aCommandRejectedUpdate.copy(reason = left),
+        aCommandRejectedUpdate.copy(reason = right),
+        expectedUpdateNormalizers = Iterable.empty,
+        actualUpdateNormalizers = Iterable.empty,
+      )
+      .map(_ => succeed)
 }

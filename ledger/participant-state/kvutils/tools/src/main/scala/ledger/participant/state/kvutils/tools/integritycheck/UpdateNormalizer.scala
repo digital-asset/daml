@@ -19,6 +19,7 @@ object UpdateNormalizer {
   private val MandatoryNormalizers = List(
     RecordTimeNormalizer,
     RejectionReasonDescriptionNormalizer,
+    CommandRejectionRedesignNormalizer,
     ConfigurationChangeRejectionNormalizer,
   )
 
@@ -72,7 +73,24 @@ object RejectionReasonDescriptionNormalizer extends UpdateNormalizer {
   }
 }
 
-/** Rejection reason strings should always be ignored as they can change arbitrarily. */
+/** Rejection reasons `Disputed`, `InvalidLedgerTime` and `Inconsistent` are being conflated
+  *  as their usage has been re-designed in SDK 1.16.0-snapshot.20210727.7476.0.b5e9d861 [KVL-1015].
+  */
+object CommandRejectionRedesignNormalizer extends UpdateNormalizer {
+  override def normalize(update: Update): Update = update match {
+    case commandRejected @ Update.CommandRejected(_, _, reason) =>
+      val newReason = reason match {
+        case RejectionReasonV0.Disputed(description) =>
+          RejectionReasonV0.Inconsistent(description)
+        case RejectionReasonV0.InvalidLedgerTime(description) =>
+          RejectionReasonV0.Inconsistent(description)
+        case _ => reason
+      }
+      commandRejected.copy(reason = newReason)
+    case _ => update
+  }
+}
+
 object ConfigurationChangeRejectionNormalizer extends UpdateNormalizer {
   override def normalize(update: Update): Update = update match {
     case u: Update.ConfigurationChangeRejected => u.copy(rejectionReason = "")
