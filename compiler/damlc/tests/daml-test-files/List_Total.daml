@@ -1,0 +1,51 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module List_Total where
+
+import DA.List.Total
+import DA.Assert
+
+testHead = scenario do
+  Left "head: empty list" === head @(Either Text) @Int []
+  Some 1 === head [1, 2, 3]
+
+testTail = scenario do
+  Left "tail: empty list" === tail @(Either Text) @Int []
+  Some [2, 3] === tail [1, 2, 3]
+
+testInit = scenario do
+  Left "init: empty list" === init @(Either Text) @Int []
+  Some [1, 2] === init [1, 2, 3]
+
+testDoubleBang = scenario do
+  Left "(!!): index too large" === [1, 2, 3] !! 4
+  Some 2 === [1, 2, 3] !! 1
+
+testFoldl1 = scenario do
+  Left "foldl1: empty list" === foldl1 @(Either Text) @Int (-) []
+  Some (-4) === foldl1 (-) [1, 2, 3]
+
+testFoldr1 = scenario do
+  Left "foldr1: empty list" === foldr1 @(Either Text) @Int (-) []
+  Some 2 === foldr1 (-) [1, 2, 3]
+
+testFoldBalanced1 = scenario do
+  Left "foldBalanced1: empty list" === foldBalanced1 @(Either Text) @Int (+) []
+  Some 6 === foldBalanced1 (+) [1, 2, 3]
+
+testMinimumOn = scenario do
+  Left "minimumOn: empty list" === minimumOn @(Either Text) @Int @Int negate []
+  Some 3 === minimumOn negate [1, 2, 3]
+
+testMaximumOn = scenario do
+  Left "maximumOn: empty list" === maximumOn @(Either Text) @Int @Int negate []
+  Some 1 === maximumOn negate [1, 2, 3]
+
+testBy = scenario do
+  Left "minimumBy: empty list" === minimumBy @(Either Text) @Int compare []
+  Left "maximumBy: empty list" === maximumBy @(Either Text) @Int compare []
+  let cmp = (\x y -> compare (fst x) (fst y))
+  let ls = [(2, 3), (4, 1), (1, 4)]
+  Right (1, 4) === minimumBy @(Either Text) cmp ls
+  Some (4, 1) === maximumBy cmp ls
