@@ -114,8 +114,6 @@ def daml_deps():
                 # reportedly solves the issue. See
                 # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
                 "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
-                # Already upstreamed to rules-nixpkgs. Remove on next upgrade.
-                "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
             ],
             patch_args = ["-p1"],
         )
