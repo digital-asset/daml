@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
 
-exports_files(glob(["create-daml-app-test-resources/*"]))
+exports_files(glob(["create-daml-app-test-resources/*"]) + ["copy-trigger/src/CopyTrigger.daml"])
 
 # Split out into a separate rule so we can cheaply include this in the
 # live-preview.
@@ -49,6 +49,7 @@ genrule(
             "create-daml-app/**",
             "quickstart-java/**",
             "quickstart-scala/**",
+            "copy-trigger/**",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
     ) + [
@@ -64,7 +65,12 @@ genrule(
         OUT=templates-tarball
 
         # templates in templates dir
-        for d in skeleton empty-skeleton create-daml-app quickstart-scala quickstart-java; do
+        for d in skeleton \
+                 empty-skeleton \
+                 create-daml-app \
+                 quickstart-scala \
+                 quickstart-java \
+                 copy-trigger; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             for f in gitattributes gitignore dlint.yaml; do

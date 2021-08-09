@@ -354,7 +354,7 @@ argWhitelist = S.fromList
     , "install", "latest", "project"
     , "uninstall"
     , "studio", "never", "always", "published"
-    , "new", "skeleton", "empty-skeleton", "quickstart-java", "quickstart-scala", "copy-trigger"
+    , "new", "skeleton", "empty-skeleton", "quickstart-java", "quickstart-scala"
     , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
     , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
     , "migrate"
