@@ -17,11 +17,11 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
@@ -29,6 +29,8 @@ private[events] object TransactionLogUpdatesConversions {
     def apply(
         tx: TransactionLogUpdate.Transaction,
         filter: FilterRelation,
+        wildcardParties: Set[String],
+        templateSpecificParties: Map[events.Identifier, Set[String]],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -36,7 +38,9 @@ private[events] object TransactionLogUpdatesConversions {
         executionContext: ExecutionContext,
     ): Future[Option[FlatTransaction]] = {
       val transactionEvents = tx.events
-      val filtered = transactionEvents.filter(FlatTransactionPredicate(_, filter))
+      val filtered = transactionEvents.filter(
+        FlatTransactionPredicate(_, wildcardParties, templateSpecificParties)
+      )
 
       filtered.headOption
         .map { first =>
@@ -82,20 +86,11 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private val FlatTransactionPredicate =
-      (event: TransactionLogUpdate.Event, filter: FilterRelation) => {
-        val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
-        val wildcardParties = parties.keySet.map(_.toString)
-
-        val templateSpecificParties = partiesTemplates
-          .foldLeft(Map.empty[Ref.Identifier, mutable.Builder[String, Set[String]]]) {
-            case (acc, (k, vs)) =>
-              vs.foldLeft(acc) { case (a, v) =>
-                a + (v -> (a.getOrElse(v, Set.newBuilder) += k))
-              }
-          }
-          .view
-          .map { case (k, v) => k -> v.result() }
-          .toMap
+      (
+          event: TransactionLogUpdate.Event,
+          wildcardParties: Set[String],
+          templateSpecificParties: Map[events.Identifier, Set[String]],
+      ) => {
 
         val witnessesMatchingWildcards =
           event.flatEventWitnesses.intersect(wildcardParties).nonEmpty

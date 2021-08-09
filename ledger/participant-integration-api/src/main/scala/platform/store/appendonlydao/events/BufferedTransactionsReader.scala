@@ -18,6 +18,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
+import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
@@ -26,12 +27,19 @@ import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{Transaction => TxUpdate}
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
     val transactionsBuffer: EventsBuffer[Offset, TransactionLogUpdate],
-    toFlatTransaction: (TxUpdate, FilterRelation, Boolean) => Future[Option[FlatTransaction]],
+    toFlatTransaction: (
+        TxUpdate,
+        FilterRelation,
+        Set[String],
+        Map[events.Identifier, Set[String]],
+        Boolean,
+    ) => Future[Option[FlatTransaction]],
     toTransactionTree: (TxUpdate, Set[Party], Boolean) => Future[Option[TransactionTree]],
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
@@ -44,9 +52,23 @@ private[events] class BufferedTransactionsReader(
       endInclusive: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+    val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
+    val wildcardParties = parties.keySet.map(_.toString)
+
+    val templateSpecificParties: Map[events.Identifier, Set[String]] = partiesTemplates
+      .foldLeft(Map.empty[Ref.Identifier, mutable.Builder[String, Set[String]]]) {
+        case (acc, (k, vs)) =>
+          vs.foldLeft(acc) { case (a, v) =>
+            a + (v -> (a.getOrElse(v, Set.newBuilder) += k))
+          }
+      }
+      .view
+      .map { case (k, v) => k -> v.result() }
+      .toMap
+
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, filter, verbose)(
-      toApiTx = toFlatTransaction,
+      toApiTx = toFlatTransaction(_, _, wildcardParties, templateSpecificParties, _),
       apiResponseCtor = GetTransactionsResponse(_),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
       toApiTxTimer = metrics.daml.services.index.streamsBuffer.toFlatTransactions,
@@ -59,6 +81,7 @@ private[events] class BufferedTransactionsReader(
         metrics.daml.services.index.flatTransactionsBufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
+  }
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -135,7 +158,7 @@ private[platform] object BufferedTransactionsReader {
       delegate = delegate,
       transactionsBuffer = transactionsBuffer,
       toFlatTransaction =
-        TransactionLogUpdatesConversions.ToFlatTransaction(_, _, _, lfValueTranslation),
+        TransactionLogUpdatesConversions.ToFlatTransaction(_, _, _, _, _, lfValueTranslation),
       toTransactionTree =
         TransactionLogUpdatesConversions.ToTransactionTree(_, _, _, lfValueTranslation),
       metrics = metrics,
