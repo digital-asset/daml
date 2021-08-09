@@ -124,8 +124,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       )
     })
     queryStatement.close()
-    assert(params.size == 1)
-    params.head
+    params.headOption.getOrElse(StorageBackend.OptionalLedgerEnd(None, None))
   }
 
   private def fetch[T](resultSet: ResultSet)(parse: ResultSet => T): Vector[T] = {
