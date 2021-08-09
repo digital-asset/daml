@@ -80,9 +80,6 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
-                # The fake libs issue should be fixed in upstream rules_haskell
-                # or GHC. Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
                 # This should be made configurable in rules_haskell.
