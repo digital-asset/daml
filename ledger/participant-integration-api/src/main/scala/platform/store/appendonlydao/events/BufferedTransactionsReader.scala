@@ -49,6 +49,7 @@ private[events] class BufferedTransactionsReader(
       toApiTx = toFlatTransaction,
       apiResponseCtor = GetTransactionsResponse(_),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
+      toApiTxTimer = metrics.daml.services.index.streamsBuffer.toFlatTransactions,
       sourceTimer = metrics.daml.services.index.streamsBuffer.getFlatTransactions,
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.flatTransactionsBuffered,
@@ -71,6 +72,7 @@ private[events] class BufferedTransactionsReader(
       toApiTx = toTransactionTree,
       apiResponseCtor = GetTransactionTreesResponse(_),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
+      toApiTxTimer = metrics.daml.services.index.streamsBuffer.toTransactionTrees,
       sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
@@ -151,6 +153,7 @@ private[platform] object BufferedTransactionsReader {
       apiResponseCtor: Seq[API_TX] => API_RESPONSE,
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       sourceTimer: Timer,
+      toApiTxTimer: Timer,
       resolvedFromBufferCounter: Counter,
       totalRetrievedCounter: Counter,
       outputStreamBufferSize: Int,
@@ -163,7 +166,7 @@ private[platform] object BufferedTransactionsReader {
         .fromIterator(() => slice.iterator)
         // Using collect + mapAsync as an alternative to the non-existent collectAsync
         .collect { case (offset, tx: TxUpdate) =>
-          toApiTx(tx, filter, verbose).map(offset -> _)
+          Timed.future(toApiTxTimer, toApiTx(tx, filter, verbose).map(offset -> _))
         }
         // Note that it is safe to use high parallelism for mapAsync as long
         // as the Futures executed within are running on a bounded thread pool
