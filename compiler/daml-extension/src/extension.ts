@@ -8,16 +8,13 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as cp from 'child_process';
-import * as tmp from 'tmp';
-import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
-import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode';
+import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, ExecuteCommandRequest } from 'vscode-languageclient';
+import { Uri, ViewColumn, window, QuickPickOptions, ExtensionContext, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
 import * as util from 'util';
 import fetch from 'node-fetch';
 import { getOrd } from 'fp-ts/lib/Array';
 import { ordNumber } from 'fp-ts/lib/Ord';
-import {Key} from 'readline';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
