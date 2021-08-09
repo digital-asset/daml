@@ -9,7 +9,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.ExceptionHandler
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import scalaz.std.stream.unfold
 import scalaz.{@@, Tag}
 import spray.json._

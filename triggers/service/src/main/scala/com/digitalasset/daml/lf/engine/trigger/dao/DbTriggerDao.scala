@@ -4,20 +4,20 @@
 package com.daml.lf.engine.trigger.dao
 
 import java.util.UUID
-import java.util.concurrent.Executors.newWorkStealingPool
-
-import cats.effect.{Blocker, ContextShift, IO}
+import cats.effect.{ContextShift, IO}
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.http.dbbackend.ConnectionPool.PoolSize._
+import com.daml.http.dbbackend.ConnectionPool.PoolSize
+import com.daml.http.dbbackend.{ConnectionPool, JdbcConfig}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.{ArchivePayloadParser, Dar}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
-import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+import com.daml.lf.engine.trigger.RunningTrigger
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.{Get, log}
-import doobie.{Fragment, Put, Transactor}
+import doobie.{Fragment, Put}
 import scalaz.Tag
 import java.io.{Closeable, IOException}
 
@@ -30,47 +30,9 @@ import scala.util.Try
 import scala.language.existentials
 import scala.util.control.NonFatal
 
-object Connection {
-
-  private[dao] type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
-
-  private[dao] def connect(c: JdbcConfig, poolSize: PoolSize)(implicit
-      ec: ExecutionContext,
-      cs: ContextShift[IO],
-  ): (DataSource with Closeable, T) = {
-    val ds = dataSource(c, poolSize)
-    (
-      ds,
-      Transactor
-        .fromDataSource[IO](
-          ds,
-          connectEC = ec,
-          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize),
-        )(IO.ioConcurrentEffect(cs), cs),
-    )
-  }
-
-  type PoolSize = Int
-  object PoolSize {
-    val IntegrationTest = 2
-    val Production = 8
-  }
-
-  private[this] def dataSource(jc: JdbcConfig, poolSize: PoolSize) = {
-    import jc._
-    val c = new HikariConfig
-    c.setJdbcUrl(url)
-    c.setUsername(user)
-    c.setPassword(password)
-    c.setMaximumPoolSize(poolSize)
-    c.setIdleTimeout(10000) // ms, minimum according to log, defaults to 600s
-    new HikariDataSource(c)
-  }
-}
-
 abstract class DbTriggerDao protected (
     dataSource: DataSource with Closeable,
-    xa: Connection.T,
+    xa: ConnectionPool.T,
     migrationsDir: String,
 ) extends RunningTriggerDao {
 
@@ -287,7 +249,7 @@ abstract class DbTriggerDao protected (
     )
 }
 
-final class DbTriggerDaoPostgreSQL(dataSource: DataSource with Closeable, xa: Connection.T)
+final class DbTriggerDaoPostgreSQL(dataSource: DataSource with Closeable, xa: ConnectionPool.T)
     extends DbTriggerDao(dataSource, xa, "postgres") {
   import doobie.postgres.implicits._
 
@@ -305,7 +267,7 @@ final class DbTriggerDaoPostgreSQL(dataSource: DataSource with Closeable, xa: Co
   }
 }
 
-final class DbTriggerDaoOracle(dataSource: DataSource with Closeable, xa: Connection.T)
+final class DbTriggerDaoOracle(dataSource: DataSource with Closeable, xa: ConnectionPool.T)
     extends DbTriggerDao(dataSource, xa, "oracle") {
   override val uuidPut: Put[UUID] = Put[String].contramap(_.toString)
   override val uuidGet: Get[UUID] = Get[String].map(UUID.fromString(_))
@@ -323,10 +285,9 @@ final class DbTriggerDaoOracle(dataSource: DataSource with Closeable, xa: Connec
 }
 
 object DbTriggerDao {
-  import Connection.PoolSize, PoolSize.Production
 
   private val supportedJdbcDrivers
-      : Map[String, (DataSource with Closeable, Connection.T) => DbTriggerDao] = Map(
+      : Map[String, (DataSource with Closeable, ConnectionPool.T) => DbTriggerDao] = Map(
     "org.postgresql.Driver" -> ((d, xa) => new DbTriggerDaoPostgreSQL(d, xa)),
     "oracle.jdbc.OracleDriver" -> ((d, xa) => new DbTriggerDaoOracle(d, xa)),
   )
@@ -338,7 +299,7 @@ object DbTriggerDao {
       ec: ExecutionContext
   ): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-    val (ds, conn) = Connection.connect(c, poolSize)
+    val (ds, conn) = ConnectionPool.connect(c, poolSize)
     val driver = supportedJdbcDrivers
       .get(c.driver)
       .getOrElse(throw new IllegalArgumentException(s"Unsupported JDBC driver ${c.driver}"))

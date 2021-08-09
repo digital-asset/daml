@@ -34,7 +34,7 @@ import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.show._

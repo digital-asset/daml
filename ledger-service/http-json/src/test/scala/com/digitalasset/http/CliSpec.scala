@@ -5,6 +5,7 @@ package com.daml.http
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.http.dbbackend.{JdbcConfig, DbStartupMode}
 
 final class CliSpec extends AnyFreeSpec with Matchers {
 
@@ -20,7 +21,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "postgres",
     "password",
     tablePrefix = "",
-    DbStartupMode.StartOnly,
+    dbStartupMode = DbStartupMode.StartOnly,
   )
   val jdbcConfigString =
     "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"

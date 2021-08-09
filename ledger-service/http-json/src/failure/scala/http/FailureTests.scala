@@ -372,7 +372,8 @@ final class FailureTests
 
   "fromStartupMode should not succeed for any input when the connection to the db is broken" in {
     import cats.effect.IO
-    import DbStartupOps._, DbStartupMode._
+    import DbStartupOps._, com.daml.http.dbbackend.DbStartupMode._,
+    com.daml.http.dbbackend.JdbcConfig
     val dao = dbbackend.ContractDao(
       JdbcConfig(
         driver = jdbcConfig_.driver,

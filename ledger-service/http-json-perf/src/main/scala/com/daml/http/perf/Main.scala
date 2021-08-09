@@ -13,7 +13,8 @@ import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
 import com.daml.http.domain.{JwtPayload, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
-import com.daml.http.{DbStartupMode, EndpointsCompanion, HttpService, JdbcConfig}
+import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
+import com.daml.http.{EndpointsCompanion, HttpService}
 import com.daml.jwt.domain.Jwt
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresDatabase

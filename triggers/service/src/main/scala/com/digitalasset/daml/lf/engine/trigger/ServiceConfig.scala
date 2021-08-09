@@ -10,7 +10,7 @@ import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
-import scalaz.Show
+import com.daml.http.dbbackend.{DBConfig, JdbcConfig}
 
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
@@ -39,66 +39,6 @@ private[trigger] final case class ServiceConfig(
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
 )
-
-final case class JdbcConfig(
-    driver: String,
-    url: String,
-    user: String,
-    password: String,
-)
-
-object JdbcConfig {
-  implicit val showInstance: Show[JdbcConfig] =
-    Show.shows(a => s"JdbcConfig(url=${a.url}, user=${a.user})")
-
-  def create(
-      x: Map[String, String],
-      supportedJdbcDriverNames: Set[String],
-  ): Either[String, JdbcConfig] =
-    for {
-      url <- requiredField(x)("url")
-      user <- requiredField(x)("user")
-      password <- requiredField(x)("password")
-      driver = x.get("driver").getOrElse(defaultDriver)
-      _ <- Either.cond(
-        supportedJdbcDriverNames(driver),
-        (),
-        s"$driver unsupported. Supported drivers: ${supportedJdbcDriverNames.mkString(", ")}",
-      )
-    } yield JdbcConfig(
-      driver = driver,
-      url = url,
-      user = user,
-      password = password,
-    )
-
-  private val defaultDriver: String = "org.postgresql.Driver"
-
-  private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
-    m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
-
-  lazy val usage: String =
-    helpString("<JDBC driver class name>", "<JDBC connection url>", "<user>", "<password>")
-
-  def help(supportedJdbcDriverNames: Set[String]): String =
-    "Contains comma-separated key-value pairs. Where:\n" +
-      s"${indent}url -- JDBC connection URL, beginning with jdbc:postgresql,\n" +
-      s"${indent}user -- user name for database user with permissions to create tables,\n" +
-      s"${indent}password -- password of database user,\n" +
-      s"${indent}driver -- JDBC driver class name, supported drivers: ${supportedJdbcDriverNames
-        .mkString(", ")}, defaults to org.postgresql.Driver\n" +
-      s"${indent}Example: " + helpString(
-        "org.postgresql.Driver",
-        "jdbc:postgresql://localhost:5432/triggers",
-        "operator",
-        "password",
-      )
-
-  private def helpString(driver: String, url: String, user: String, password: String): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password\""""
-
-  private val indent: String = List.fill(8)(" ").mkString
-}
 
 private[trigger] object ServiceConfig {
   private val DefaultHttpPort: Int = 8088
@@ -229,14 +169,20 @@ private[trigger] object ServiceConfig {
     opt[Map[String, String]]("jdbc")
       .action((x, c) =>
         c.copy(jdbcConfig =
-          Some(JdbcConfig.create(x, supportedJdbcDriverNames).fold(e => sys.error(e), identity))
+          Some(
+            JdbcConfig
+              .create(x, defaultDriver = Some("org.postgresql.Driver"))(
+                DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames)
+              )
+              .fold(e => sys.error(e), identity)
+          )
         )
       )
       .optional()
-      .text(JdbcConfig.help(supportedJdbcDriverNames))
+      .text(JdbcConfig.help(DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames)))
       .text(
         "JDBC configuration parameters. If omitted the service runs without a database. " + JdbcConfig
-          .help(supportedJdbcDriverNames)
+          .help(DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames))
       )
 
     cmd("init-db")

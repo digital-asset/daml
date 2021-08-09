@@ -4,6 +4,7 @@
 package com.daml.http
 
 import com.daml.http.OracleIntTest.defaultJdbcConfig
+import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.testing.oracle.OracleAroundAll
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

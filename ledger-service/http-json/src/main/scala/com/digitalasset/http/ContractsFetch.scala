@@ -29,7 +29,7 @@ import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
 import com.daml.http.util.IdentifierConverters.apiIdentifier
 import com.daml.http.util.Logging.{InstanceUUID}
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}

@@ -4,7 +4,6 @@
 package com.daml.http.dbbackend
 
 import cats.effect.{Blocker, ContextShift, IO}
-import com.daml.http.JdbcConfig
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie._
 
@@ -27,32 +26,34 @@ object Connection {
       )
 }
 
+/*
+  TODO below values are hardcoded for now, refactor to be picked up as cli flags/ props later.
+ */
 object ConnectionPool {
 
-  /*
-  TODO:
-   - The ConnectionPool and JDBCConfig objects are duplicated w.r.t trigger service, this needs to be refactored to a
-   generic library in libs-scala
-   - below values are hardcoded for now, refactor to be picked up as cli flags/ props later.
-   */
-
   final val MinIdle = 8
-  final val IdleTimeout = 10000
-  final val ConnectionTimeout = 5000
+  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
+  final val ConnectionTimeout = 5000L
 
   type PoolSize = Int
   object PoolSize {
-    val Production = 10
     val Integration = 2
+    val Production = 8
   }
 
   type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
-  def connect(cfg: JdbcConfig, poolSize: PoolSize)(implicit
+  def connect(
+      c: JdbcConfig,
+      poolSize: PoolSize,
+      minIdle: Int = MinIdle,
+      idleTimeout: Long = IdleTimeout,
+      connectionTimeout: Long = ConnectionTimeout,
+  )(implicit
       ec: ExecutionContext,
       cs: ContextShift[IO],
   ): (DataSource with Closeable, T) = {
-    val ds = dataSource(cfg, poolSize)
+    val ds = dataSource(c, poolSize, minIdle, idleTimeout, connectionTimeout)
     (
       ds,
       Transactor
@@ -64,18 +65,22 @@ object ConnectionPool {
     )
   }
 
-  def dataSource(cfg: JdbcConfig, poolSize: PoolSize) = {
-
-    val c = new HikariConfig()
-    c.setJdbcUrl(cfg.url)
-    c.setUsername(cfg.user)
-    c.setAutoCommit(false)
-    c.setPassword(cfg.password)
-    c.setMinimumIdle(MinIdle)
-    c.setPoolName("json-api-jdbc-pool")
-    c.setConnectionTimeout(ConnectionTimeout)
+  private[this] def dataSource(
+      jc: JdbcConfig,
+      poolSize: PoolSize,
+      minIdle: Int,
+      idleTimeout: Long,
+      connectionTimeout: Long,
+  ) = {
+    import jc._
+    val c = new HikariConfig
+    c.setJdbcUrl(url)
+    c.setUsername(user)
+    c.setPassword(password)
+    c.setMinimumIdle(minIdle)
+    c.setConnectionTimeout(connectionTimeout)
     c.setMaximumPoolSize(poolSize)
-    c.setIdleTimeout(IdleTimeout) // ms, minimum according to log, defaults to 600s
+    c.setIdleTimeout(idleTimeout)
     new HikariDataSource(c)
   }
 }

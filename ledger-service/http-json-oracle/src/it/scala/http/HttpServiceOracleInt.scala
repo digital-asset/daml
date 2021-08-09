@@ -4,6 +4,7 @@
 package com.daml.http
 
 import com.daml.testing.oracle.OracleAroundAll
+import com.daml.http.dbbackend.JdbcConfig
 
 import org.scalatest.Inside
 import org.scalatest.AsyncTestSuite

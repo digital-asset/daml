@@ -5,6 +5,7 @@ package com.daml.http
 
 import java.nio.file.Paths
 
+import com.daml.http.dbbackend.{JdbcConfig, DBConfig}
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scopt.{Read, RenderingMode}
@@ -13,7 +14,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 class OptionParser(getEnvVar: String => Option[String])(implicit
-    supportedJdbcDriverNames: Config.SupportedJdbcDriverNames
+    supportedJdbcDriverNames: DBConfig.SupportedJdbcDriverNames
 ) extends scopt.OptionParser[Config]("http-json-binary")
     with StrictLogging {
 

@@ -6,7 +6,7 @@ package com.daml.http.dbbackend
 import cats.effect._
 import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
-import com.daml.http.{JdbcConfig, domain}
+import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
 import com.daml.scalautil.nonempty.+-:
 import doobie.LogHandler

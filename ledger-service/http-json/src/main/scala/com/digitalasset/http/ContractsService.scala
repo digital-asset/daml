@@ -26,7 +26,7 @@ import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRespons
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import scalaz.Id.Id
 import scalaz.std.option._
 import scalaz.syntax.show._

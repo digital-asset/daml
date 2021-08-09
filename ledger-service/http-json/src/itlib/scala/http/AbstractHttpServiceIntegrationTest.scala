@@ -15,6 +15,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.data.Ref
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}

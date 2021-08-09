@@ -5,7 +5,7 @@ package com.daml.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
 import scalaz._

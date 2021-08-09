@@ -24,6 +24,7 @@ import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthS
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.clock.AdjustableClock
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.http.dbbackend.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
@@ -410,7 +411,7 @@ trait TriggerDaoPostgresFixture
   private lazy val jdbcConfig_ =
     JdbcConfig("org.postgresql.Driver", postgresDatabase.url, "operator", "password")
   private lazy val triggerDao =
-    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.IntegrationTest)
+    DbTriggerDao(jdbcConfig_, poolSize = ConnectionPool.PoolSize.Integration)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {
@@ -444,7 +445,7 @@ trait TriggerDaoOracleFixture
   // TODO For whatever reason we need a larger pool here, otherwise
   // the connection deadlocks. I have no idea why :(
   private lazy val triggerDao =
-    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.Production)
+    DbTriggerDao(jdbcConfig_, poolSize = ConnectionPool.PoolSize.Production)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {

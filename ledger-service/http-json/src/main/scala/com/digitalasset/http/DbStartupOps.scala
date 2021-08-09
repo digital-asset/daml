@@ -8,6 +8,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import cats.effect.IO
 import com.daml.http.util.Logging.InstanceUUID
 import doobie.LogHandler
+import com.daml.http.dbbackend.DbStartupMode
 
 object DbStartupOps {
 

@@ -10,6 +10,7 @@ import java.time.Clock
 import akka.http.scaladsl.model.Uri
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.AbstractHttpServiceIntegrationTestFuns.{dar1, dar2}
+import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc

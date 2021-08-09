@@ -3,9 +3,11 @@
 
 package com.daml.http
 
+import com.daml.http.dbbackend.DBConfig
+
 object Cli extends CliBase {
   override protected def configParser(getEnvVar: String => Option[String])(implicit
-      supportedJdbcDriverNames: Config.SupportedJdbcDriverNames
+      supportedJdbcDriverNames: DBConfig.SupportedJdbcDriverNames
   ): OptionParser =
     new OptionParser(getEnvVar)
 }
