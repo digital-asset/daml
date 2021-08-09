@@ -10,7 +10,9 @@ import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, Temp
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
+import com.daml.lf.language.Ast
 import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
@@ -147,15 +149,10 @@ private[export] object Encode {
       cidMap: Map[ContractId, String],
       v: Value.Sum,
   ): Doc = {
-    def isTupleRecord(recordId: Identifier): Boolean = {
-      val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
-      recordId.packageId == daTypesId && recordId.moduleName == "DA.Types" && recordId.entityName
-        .startsWith("Tuple")
-    }
     def go(v: Value.Sum): Doc =
       v match {
         case Sum.Empty => throw new IllegalArgumentException("Empty value")
-        case Sum.Record(value) if isTupleRecord(value.getRecordId) =>
+        case Sum.Record(value) if isTupleId(value.getRecordId) =>
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         // TODO Handle sums of products properly
@@ -213,6 +210,89 @@ private[export] object Encode {
       Doc.text("DA.Time.time ") + encodeLocalDate(timestamp.toLocalDate) + Doc.text(" ") + Doc.text(
         formatter.format(timestamp)
       )
+    )
+  }
+
+  private[export] def encodeType(ty: Ast.Type, precCtx: Int = 0): Doc = {
+    def precParens(prec: Int, doc: Doc): Doc =
+      if (prec < precCtx) { parens(doc) }
+      else { doc }
+    def unfoldApp(app: Ast.TApp): (Ast.Type, Seq[Ast.Type]) = {
+      def go(f: Ast.Type, args: Seq[Ast.Type]): (Ast.Type, Seq[Ast.Type]) = {
+        f match {
+          case Ast.TApp(tyfun, arg) => go(tyfun, arg +: args)
+          case _ => (f, args)
+        }
+      }
+      go(app, Seq())
+    }
+    ty match {
+      case Ast.TVar(name) => Doc.text(name)
+      case Ast.TNat(n) => Doc.text(s"$n")
+      case Ast.TSynApp(tysyn, args) =>
+        val argsDoc = Doc.spread(args.toSeq.map(ty => encodeType(ty, 11)))
+        precParens(10, qualifyRefId(tysyn) & argsDoc)
+      case Ast.TTyCon(tycon) => qualifyRefId(tycon)
+      case Ast.TBuiltin(bt) =>
+        Doc.text(bt match {
+          case Ast.BTInt64 => "Int"
+          case Ast.BTNumeric => "Numeric"
+          case Ast.BTText => "Text"
+          case Ast.BTTimestamp => "Time"
+          case Ast.BTParty => "Party"
+          case Ast.BTUnit => "()"
+          case Ast.BTBool => "Bool"
+          case Ast.BTList => "[]"
+          case Ast.BTOptional => "Optional"
+          case Ast.BTTextMap => "DA.TextMap.TextMap"
+          case Ast.BTGenMap => "DA.Map.Map"
+          case Ast.BTUpdate => "Update"
+          case Ast.BTScenario => "Scenario"
+          case Ast.BTDate => "Date"
+          case Ast.BTContractId => "ContractId"
+          case Ast.BTArrow => "(->)"
+          case Ast.BTAny =>
+            "Any" // TODO[AH] DA.Internal.LF.Any is not importable. How to handle this?
+          case Ast.BTTypeRep => "TypeRep"
+          case Ast.BTAnyException => "AnyException"
+          case Ast.BTRoundingMode => "RoundingMode"
+          case Ast.BTBigNumeric => "BigNumeric"
+        })
+      case app: Ast.TApp =>
+        unfoldApp(app) match {
+          case (Ast.TTyCon(tycon), args) if isTupleRefId(tycon) =>
+            tuple(args.map(ty => encodeType(ty)))
+          case (Ast.TBuiltin(Ast.BTList), Seq(arg)) =>
+            brackets(encodeType(arg))
+          case (Ast.TBuiltin(Ast.BTArrow), Seq(a, b)) =>
+            precParens(
+              1,
+              encodeType(a, 2) & Doc.text("->") & encodeType(b),
+            )
+          case (f, args) =>
+            val argsDoc = Doc.spread(args.map(ty => encodeType(ty, 11)))
+            precParens(10, encodeType(f, 11) & argsDoc)
+        }
+      case Ast.TForall(_, _) =>
+        // We only need to encode types in type-class instances. Foralls don't occur in that position.
+        throw new NotImplementedError("Encoding of forall types is not implemented")
+      case Ast.TStruct(_) =>
+        // We only need to encode types in type-class instances. Structs don't occur in that position.
+        throw new NotImplementedError("Encoding of struct types is not implemented")
+    }
+  }
+
+  private def isTupleId(id: Identifier): Boolean = {
+    val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
+    id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
+  }
+
+  private def isTupleRefId(name: Ref.Identifier): Boolean = {
+    isTupleId(
+      Identifier()
+        .withPackageId(name.packageId)
+        .withModuleName(name.qualifiedName.module.dottedName)
+        .withEntityName(name.qualifiedName.name.dottedName)
     )
   }
 
@@ -274,6 +354,14 @@ private[export] object Encode {
 
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
+
+  private def qualifyRefId(id: Ref.Identifier): Doc =
+    qualifyId(
+      Identifier()
+        .withPackageId(id.packageId)
+        .withModuleName(id.qualifiedName.module.dottedName)
+        .withEntityName(id.qualifiedName.name.dottedName)
+    )
 
   private def encodeTemplateId(id: TemplateId): Doc =
     qualifyId(TemplateId.unwrap(id))
