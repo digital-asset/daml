@@ -12,11 +12,7 @@ import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDeta
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationResult,
-  InitializationResult,
-  PackageDetails,
-}
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
@@ -225,7 +221,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
   override def initialize(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-  )(implicit loggingContext: LoggingContext): Future[InitializationResult] =
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.initialize(ledgerId, participantId)
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =

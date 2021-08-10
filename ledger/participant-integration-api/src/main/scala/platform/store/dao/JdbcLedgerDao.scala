@@ -31,7 +31,6 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
   CommandDeduplicationResult,
-  InitializationResult,
   PackageDetails,
 }
 import com.daml.ledger.participant.state.{v2 => state}
@@ -146,7 +145,7 @@ private class JdbcLedgerDao(
   override def initialize(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-  )(implicit loggingContext: LoggingContext): Future[InitializationResult] =
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
       implicit connection =>
         queries.enforceSynchronousCommit
@@ -159,17 +158,17 @@ private class JdbcLedgerDao(
             // ledgerId is not null, this is the case where the the parameters table is empty
             ParametersTable.setLedgerId(ledgerId.unwrap)(connection)
             ParametersTable.setParticipantId(participantId.unwrap)(connection)
-            InitializationResult.New
+            ()
           case (Some(`ledgerId`), None) =>
             logger.warn(
               s"Found partially initialized database with ledgerId=$ledgerId, but no participantId"
             )
             ParametersTable.setParticipantId(participantId.unwrap)(connection)
-            InitializationResult.New
+            ()
           case (Some(`ledgerId`), Some(`participantId`)) =>
-            InitializationResult.AlreadyExists
+            ()
           case (Some(lid), pid) =>
-            InitializationResult.Mismatch(lid, pid)
+            throw new RuntimeException(s"Mismatch $lid, $pid")
         }
     }
 

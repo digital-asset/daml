@@ -18,11 +18,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{
-  ContractStore,
-  InitializationResult,
-  PackageDetails,
-}
+import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -33,7 +29,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.common.{LedgerIdMode, MismatchException}
+import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.CurrentOffset
 import com.daml.platform.packages.InMemoryPackageStore
@@ -47,7 +43,6 @@ import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
-import com.daml.resources.ProgramResource.StartupException
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 
@@ -112,7 +107,9 @@ private[sandbox] object SqlLedger {
           case SqlStartMode.MigrateAndStart =>
             Resource.unit
         }
-        ledgerId <- Resource.fromFuture(initialize(dao))
+        existingLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
+        existingParticipantId <- Resource.fromFuture(dao.lookupParticipantId())
+        ledgerId <- Resource.fromFuture(initialize(dao, existingLedgerId, existingParticipantId))
         ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
         ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
@@ -136,47 +133,40 @@ private[sandbox] object SqlLedger {
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
     private def initialize(
-        dao: LedgerWriteDao
+        dao: LedgerWriteDao,
+        existingLedgerIdO: Option[LedgerId],
+        existingParticipantIdO: Option[ParticipantId],
     )(implicit executionContext: ExecutionContext): Future[LedgerId] = {
       val ledgerId = providedLedgerId.or(LedgerIdGenerator.generateRandomId(name))
-      for {
-        initResult <- dao.initialize(ledgerId, participantId)
-        result <- initResult match {
-          case InitializationResult.AlreadyExists =>
-            initializeExistingLedger(ledgerId, participantId)
-          case InitializationResult.New =>
-            initializeNewLedger(dao, ledgerId, participantId)
-          case InitializationResult.Mismatch(existingLedgerId, Some(`participantId`))
-              if providedLedgerId == LedgerIdMode.Dynamic =>
-            logger.info(
-              s"Found existing ledger id '$existingLedgerId' matching participant id '$participantId'"
-            )
-            Future.successful(existingLedgerId)
-          case InitializationResult.Mismatch(_, Some(existingParticipantId))
-              if existingParticipantId != participantId =>
-            Future.failed(new MismatchException.ParticipantId(existingParticipantId, participantId))
-          case InitializationResult.Mismatch(existingLedgerId, _) if existingLedgerId != ledgerId =>
-            Future.failed(
-              new MismatchException.LedgerId(existingLedgerId, ledgerId) with StartupException
-            )
-          case InitializationResult.Mismatch(lid, pid) =>
-            sys.error(s"Impossible InitializationResult.Mismatch($lid, $pid)")
-        }
-      } yield result
+      (providedLedgerId, existingLedgerIdO, existingParticipantIdO) match {
+        case (_, None, _) =>
+          initializeNewLedger(dao, ledgerId, participantId)
+        case (LedgerIdMode.Dynamic, Some(existingLedgerId), Some(`participantId`)) =>
+          // In dynamic ledgerId mode, reuse the existing ledgerId if the participantId matches
+          logger.info(
+            s"Found existing ledger id '${existingLedgerId}' matching participant id '$participantId'"
+          )
+          initializeExistingLedger(dao, existingLedgerId, participantId)
+        case (_, Some(_), _) =>
+          initializeExistingLedger(dao, ledgerId, participantId)
+      }
     }
 
     private def initializeExistingLedger(
+        dao: LedgerWriteDao,
         ledgerId: LedgerId,
         participantId: ParticipantId,
-    ): Future[LedgerId] = {
-      logger.info(s"Found existing ledger id '$ledgerId and participant id '$participantId'")
+    )(implicit executionContext: ExecutionContext): Future[LedgerId] = {
+      logger.info(s"Resuming node with ledger id '$ledgerId and participant id '$participantId'")
       if (initialLedgerEntries.nonEmpty) {
         logger.warn(Owner.nonEmptyLedgerEntriesWarningMessage)
       }
       if (packages.listLfPackagesSync().nonEmpty) {
         logger.warn(Owner.nonEmptyPackagesWarningMessage)
       }
-      Future.successful(ledgerId)
+      for {
+        _ <- dao.initialize(ledgerId, participantId)
+      } yield ledgerId
     }
 
     private def initializeNewLedger(
@@ -187,12 +177,15 @@ private[sandbox] object SqlLedger {
       logger.info(
         s"Initializing node with ledger id '$ledgerId' and participant id '$participantId'"
       )
-      initializeLedgerEntries(
-        initialLedgerEntries,
-        timeProvider,
-        packages,
-        dao,
-      ).map(_ => ledgerId)
+      for {
+        _ <- dao.initialize(ledgerId, participantId)
+        _ <- initializeLedgerEntries(
+          initialLedgerEntries,
+          timeProvider,
+          packages,
+          dao,
+        )
+      } yield ledgerId
     }
 
     private def initializeLedgerEntries(
