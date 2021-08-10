@@ -1,0 +1,1254 @@
+diff --git a/haskell/BUILD.bazel b/haskell/BUILD.bazel
+index 152cb497..6f89cde9 100644
+--- a/haskell/BUILD.bazel
++++ b/haskell/BUILD.bazel
+@@ -111,13 +111,6 @@ runghc(
+     visibility = ["//visibility:public"],
+ )
+ 
+-py_binary(
+-    name = "ls_modules",
+-    srcs = ["private/ls_modules.py"],
+-    visibility = ["//visibility:public"],
+-    deps = [":package_configuration"],
+-)
+-
+ sh_binary(
+     name = "ghc_wrapper",
+     srcs = ["private/ghc_wrapper.sh"],
+diff --git a/haskell/defs.bzl b/haskell/defs.bzl
+index 82bfee1c..a4d8de49 100644
+--- a/haskell/defs.bzl
++++ b/haskell/defs.bzl
+@@ -87,11 +87,6 @@ _haskell_common_attrs = {
+         allow_single_file = True,
+         default = Label("@rules_haskell//haskell:private/ghci_repl_wrapper.sh"),
+     ),
+-    "_ls_modules": attr.label(
+-        executable = True,
+-        cfg = "host",
+-        default = Label("@rules_haskell//haskell:ls_modules"),
+-    ),
+     "_version_macros": attr.label(
+         executable = True,
+         cfg = "host",
+@@ -142,6 +137,10 @@ def _mk_binary_rule(**kwargs):
+         main_function = attr.string(
+             default = "Main.main",
+         ),
++        main_file = attr.label(
++            allow_single_file = True,
++            mandatory = False,
++        ),
+         version = attr.string(),
+     )
+ 
+@@ -269,10 +268,29 @@ def haskell_binary(
+         worker = None,
+         linkstatic = True,
+         main_function = "Main.main",
++        main_file = None,
+         version = None,
+         **kwargs):
+     """Build an executable from Haskell source.
+ 
++    Haskell source file names must match their module names. E.g.
++    ```
++    My/Module.hs  -->  module My.Module
++    ```
++    Any invalid path prefix is stripped. E.g.
++    ```
++    Some/prefix/My/Module.hs  -->  module My.Module
++    ```
++
++    Binary targets require a main module named `Main` or with the module name
++    defined by `main_function`. If `main_file` is specified then it must have
++    the main module name. Otherwise, the following heuristics define the main
++    module file.
++
++    - The source file that matches the main module name. E.g. `Main.hs`.
++    - The source file that matches no valid module name. E.g. `exe.hs`.
++    - The only source file of the target.
++
+     Every `haskell_binary` target also defines an optional REPL target that is
+     not built by default, but can be built on request. The name of the REPL
+     target is the same as the name of binary with `"@repl"` added at the end.
+@@ -297,7 +315,7 @@ def haskell_binary(
+     Args:
+       name: A unique name for this rule.
+       src_strip_prefix: DEPRECATED. Attribute has no effect.
+-      srcs: Haskell source files.
++      srcs: Haskell source files. File names must match module names, see above.
+       extra_srcs: Extra (non-Haskell) source files that will be needed at compile time (e.g. by Template Haskell).
+       deps: List of other Haskell libraries to be linked to this target.
+       data: See [Bazel documentation](https://docs.bazel.build/versions/master/be/common-definitions.html#common.data).,
+@@ -311,6 +329,7 @@ def haskell_binary(
+       worker: Experimental. Worker binary employed by Bazel's persistent worker mode. See [use-cases documentation](https://rules-haskell.readthedocs.io/en/latest/haskell-use-cases.html#persistent-worker-mode-experimental).
+       linkstatic: Link dependencies statically wherever possible. Some system libraries may still be linked dynamically, as are libraries for which there is no static library. So the resulting executable will still be dynamically linked, hence only mostly static.
+       main_function: A function with type `IO _`, either the qualified name of a function from any module or the bare name of a function from a `Main` module. It is also possible to give the qualified name of any module exposing a `main` function.
++      main_file: The source file that defines the `Main` module or the module containing `main_function`.
+       version: Executable version. If this is specified, CPP version macros will be generated for this build.
+       **kwargs: Common rule attributes. See [Bazel documentation](https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes).
+     """
+@@ -332,6 +351,7 @@ def haskell_binary(
+         worker = worker,
+         linkstatic = linkstatic,
+         main_function = main_function,
++        main_file = main_file,
+         version = version,
+         **kwargs
+     )
+@@ -373,6 +393,7 @@ def haskell_test(
+         worker = None,
+         linkstatic = True,
+         main_function = "Main.main",
++        main_file = None,
+         version = None,
+         expected_covered_expressions_percentage = -1,
+         expected_uncovered_expression_count = -1,
+@@ -382,6 +403,24 @@ def haskell_test(
+         **kwargs):
+     """Build a test suite.
+ 
++    Haskell source file names must match their module names. E.g.
++    ```
++    My/Module.hs  -->  module My.Module
++    ```
++    Any invalid path prefix is stripped. E.g.
++    ```
++    Some/prefix/My/Module.hs  -->  module My.Module
++    ```
++
++    Binary targets require a main module named `Main` or with the module name
++    defined by `main_function`. If `main_file` is specified then it must have
++    the main module name. Otherwise, the following heuristics define the main
++    module file.
++
++    - The source file that matches the main module name. E.g. `Main.hs`.
++    - The source file that matches no valid module name. E.g. `exe.hs`.
++    - The only source file of the target.
++
+     Additionally, it accepts [all common bazel test rule
+     fields][bazel-test-attrs]. This allows you to influence things like
+     timeout and resource allocation for the test.
+@@ -391,7 +430,7 @@ def haskell_test(
+     Args:
+       name: A unique name for this rule.
+       src_strip_prefix: DEPRECATED. Attribute has no effect.
+-      srcs: Haskell source files.
++      srcs: Haskell source files. File names must match module names, see above.
+       extra_srcs: Extra (non-Haskell) source files that will be needed at compile time (e.g. by Template Haskell).
+       deps: List of other Haskell libraries to be linked to this target.
+       data: See [Bazel documentation](https://docs.bazel.build/versions/master/be/common-definitions.html#common.data).,
+@@ -405,6 +444,7 @@ def haskell_test(
+       worker: Experimental. Worker binary employed by Bazel's persistent worker mode. See [use-cases documentation](https://rules-haskell.readthedocs.io/en/latest/haskell-use-cases.html#persistent-worker-mode-experimental).
+       linkstatic: Link dependencies statically wherever possible. Some system libraries may still be linked dynamically, as are libraries for which there is no static library. So the resulting executable will still be dynamically linked, hence only mostly static.
+       main_function: A function with type `IO _`, either the qualified name of a function from any module or the bare name of a function from a `Main` module. It is also possible to give the qualified name of any module exposing a `main` function.
++      main_file: The source file that defines the `Main` module or the module containing `main_function`.
+       version: Executable version. If this is specified, CPP version macros will be generated for this build.
+       expected_covered_expressions_percentage: The expected percentage of expressions covered by testing.
+       expected_uncovered_expression_count: The expected number of expressions which are not covered by testing.
+@@ -439,6 +479,7 @@ def haskell_test(
+         worker = worker,
+         linkstatic = linkstatic,
+         main_function = main_function,
++        main_file = main_file,
+         version = version,
+         expected_covered_expressions_percentage = expected_covered_expressions_percentage,
+         expected_uncovered_expression_count = expected_uncovered_expression_count,
+@@ -495,6 +536,15 @@ def haskell_library(
+         **kwargs):
+     """Build a library from Haskell source.
+ 
++    Haskell source file names must match their module names. E.g.
++    ```
++    My/Module.hs  -->  module My.Module
++    ```
++    Any invalid path prefix is stripped. E.g.
++    ```
++    Some/prefix/My/Module.hs  -->  module My.Module
++    ```
++
+     Every `haskell_library` target also defines an optional REPL target that is
+     not built by default, but can be built on request. It works the same way as
+     for `haskell_binary`.
+@@ -518,7 +568,7 @@ def haskell_library(
+     Args:
+       name: A unique name for this rule.
+       src_strip_prefix: DEPRECATED. Attribute has no effect.
+-      srcs: Haskell source files.
++      srcs: Haskell source files. File names must match module names, see above.
+       extra_srcs: Extra (non-Haskell) source files that will be needed at compile time (e.g. by Template Haskell).
+       deps: List of other Haskell libraries to be linked to this target.
+       modules: List of extra haskell_module() dependencies to be linked into this library.
+diff --git a/haskell/private/actions/compile.bzl b/haskell/private/actions/compile.bzl
+index b3e81f57..2f117e0d 100644
+--- a/haskell/private/actions/compile.bzl
++++ b/haskell/private/actions/compile.bzl
+@@ -10,7 +10,6 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
+ load(
+     ":private/path_utils.bzl",
+     "declare_compiled",
+-    "module_name",
+     "target_unique_name",
+ )
+ load(":private/pkg_id.bzl", "pkg_id")
+@@ -105,7 +104,7 @@ def _process_hsc_file(hs, cc, hsc_flags, hsc_inputs, hsc_file):
+ 
+     return hs_out, idir
+ 
+-def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs, import_dir_map, extra_srcs, user_compile_flags, with_profiling, my_pkg_id, version, plugins, non_default_plugins, preprocessors):
++def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs, module_map, import_dir_map, extra_srcs, user_compile_flags, output_mode, with_profiling, my_pkg_id, version, plugins, non_default_plugins, preprocessors):
+     """Compute variables common to all compilation targets (binary and library).
+ 
+     Returns:
+@@ -115,8 +114,8 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+         inputs: default inputs
+         input_manifests: input manifests
+         outputs: default outputs
+-        objects_dir: object files directory
+-        interfaces_dir: interface files directory
++        object_files: object files
++        interface_files: interface files
+         source_files: set of files that contain Haskell modules
+         boot_files: set of Haskell boot files
+         extra_source_files: depset of non-Haskell source files
+@@ -138,32 +137,51 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+     ]
+     compile_flags += cc_args
+ 
++    # Determine file directories.
++    #
++    # objects|interfaces_dir is the directory relative to the package.
++    # objects|interfaces_dir_flag is the directory relative to the execroot.
+     interface_dir_raw = "_iface"
+     object_dir_raw = "_obj"
+-
+-    # Declare file directories.
+-    #
+-    # NOTE: We could have used -outputdir here and a single output
+-    # directory. But keeping interface and object files separate has
+-    # one advantage: if interface files are invariant under
+-    # a particular code change, then we don't need to rebuild
+-    # downstream.
+     if my_pkg_id:
+         # If we're compiling a package, put the interfaces inside the
+         # package directory.
+-        interfaces_dir = hs.actions.declare_directory(
+-            paths.join(
+-                pkg_id.to_string(my_pkg_id),
+-                interface_dir_raw,
+-            ),
+-        )
++        interfaces_dir = paths.join(pkg_id.to_string(my_pkg_id), interface_dir_raw)
+     else:
+-        interfaces_dir = hs.actions.declare_directory(
+-            paths.join(interface_dir_raw, hs.name),
+-        )
+-    objects_dir = hs.actions.declare_directory(
+-        paths.join(object_dir_raw, hs.name),
+-    )
++        interfaces_dir = paths.join(interface_dir_raw, hs.name)
++    objects_dir = paths.join(object_dir_raw, hs.name)
++    interfaces_dir_flag = paths.join(hs.bin_dir.path, hs.package_root, interfaces_dir)
++    objects_dir_flag = paths.join(hs.bin_dir.path, hs.package_root, objects_dir)
++
++    # Determine file extensions.
++    if with_profiling:
++        interface_exts = [".p_hi"]
++        object_exts = [".p_o"]
++    elif output_mode == "dynamic-too":
++        interface_exts = [".hi", ".dyn_hi"]
++        object_exts = [".o", ".dyn_o"]
++    elif output_mode == "dynamic":
++        interface_exts = [".hi"]
++        object_exts = [".dyn_o"]
++    else:
++        interface_exts = [".hi"]
++        object_exts = [".o"]
++
++    # Declare output files.
++    interface_files = [
++        hs.actions.declare_file(paths.join(interfaces_dir, filename))
++        for (module_name, module_info) in module_map.items()
++        for interface_ext in interface_exts
++        for filename_prefix in [module_name.replace(".", "/") + interface_ext]
++        for filename in [filename_prefix, filename_prefix + "-boot" if module_info.boot else None]
++        if filename
++    ]
++    object_files = [
++        hs.actions.declare_file(paths.join(objects_dir, filename))
++        for module_name in module_map.keys()
++        for object_ext in object_exts
++        for filename in [module_name.replace(".", "/") + object_ext]
++    ]
+ 
+     # Default compiler flags.
+     compile_flags += hs.toolchain.ghcopts
+@@ -285,9 +303,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+     # Output directories
+     args.add_all([
+         "-odir",
+-        objects_dir.path,
++        objects_dir_flag,
+         "-hidir",
+-        interfaces_dir.path,
++        interfaces_dir_flag,
+     ])
+ 
+     # Interface files with profiling have to have the extension "p_hi":
+@@ -358,9 +376,9 @@ def _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs,
+             plugin_tool_inputs,
+         ]),
+         input_manifests = preprocessors.input_manifests + plugin_tool_input_manifests,
+-        objects_dir = objects_dir,
+-        interfaces_dir = interfaces_dir,
+-        outputs = [objects_dir, interfaces_dir],
++        object_files = object_files,
++        interface_files = interface_files,
++        outputs = object_files + interface_files,
+         source_files = source_files,
+         boot_files = boot_files,
+         extra_source_files = extra_source_files,
+@@ -391,7 +409,7 @@ def compile_binary(
+         dep_info,
+         plugin_dep_info,
+         srcs,
+-        ls_modules,
++        module_map,
+         import_dir_map,
+         extra_srcs,
+         user_compile_flags,
+@@ -413,7 +431,7 @@ def compile_binary(
+         source_files: set of Haskell source files
+         boot_files: set of Haskell boot files
+     """
+-    c = _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs, import_dir_map, extra_srcs, user_compile_flags, with_profiling, my_pkg_id = None, version = version, plugins = plugins, non_default_plugins = non_default_plugins, preprocessors = preprocessors)
++    c = _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs, module_map, import_dir_map, extra_srcs, user_compile_flags, "dynamic" if dynamic else "static", with_profiling, my_pkg_id = None, version = version, plugins = plugins, non_default_plugins = non_default_plugins, preprocessors = preprocessors)
+     c.args.add_all(["-main-is", main_function])
+     if dynamic:
+         # For binaries, GHC creates .o files even for code to be
+@@ -425,10 +443,9 @@ def compile_binary(
+     coverage_data = []
+     if inspect_coverage:
+         c.args.add_all(_hpc_compiler_args(hs))
+-        for src_file in srcs:
+-            module = module_name(hs, src_file)
++        for (module, info) in module_map.items():
+             mix_file = hs.actions.declare_file("{name}_.hpc/{module}.mix".format(name = hs.name, module = module))
+-            coverage_data.append(_coverage_datum(mix_file, src_file, hs.label))
++            coverage_data.append(_coverage_datum(mix_file, info.src, hs.label))
+ 
+     hs.toolchain.actions.run_ghc(
+         hs,
+@@ -443,7 +460,7 @@ def compile_binary(
+     )
+ 
+     return struct(
+-        objects_dir = c.objects_dir,
++        object_files = c.object_files,
+         source_files = c.source_files,
+         boot_files = c.boot_files,
+         extra_source_files = c.extra_source_files,
+@@ -460,6 +477,7 @@ def compile_library(
+         dep_info,
+         plugin_dep_info,
+         srcs,
++        module_map,
+         import_dir_map,
+         extra_srcs,
+         user_compile_flags,
+@@ -483,7 +501,7 @@ def compile_library(
+         boot_files: set of Haskell boot files
+         import_dirs: import directories that should make all modules visible (for GHCi)
+     """
+-    c = _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs, import_dir_map, extra_srcs, user_compile_flags, with_profiling, my_pkg_id = my_pkg_id, version = my_pkg_id.version, plugins = plugins, non_default_plugins = non_default_plugins, preprocessors = preprocessors)
++    c = _compilation_defaults(hs, cc, java, posix, dep_info, plugin_dep_info, srcs, module_map, import_dir_map, extra_srcs, user_compile_flags, "dynamic-too" if with_shared else "static", with_profiling, my_pkg_id = my_pkg_id, version = my_pkg_id.version, plugins = plugins, non_default_plugins = non_default_plugins, preprocessors = preprocessors)
+     if with_shared:
+         c.args.add("-dynamic-too")
+ 
+@@ -495,11 +513,10 @@ def compile_library(
+     coverage_data = []
+     if hs.coverage_enabled:
+         c.args.add_all(_hpc_compiler_args(hs))
+-        for src_file in srcs:
+-            pkg_id_string = pkg_id.to_string(my_pkg_id)
+-            module = module_name(hs, src_file)
++        pkg_id_string = pkg_id.to_string(my_pkg_id)
++        for (module, info) in module_map.items():
+             mix_file = hs.actions.declare_file("{name}_.hpc/{pkg}/{module}.mix".format(name = hs.name, pkg = pkg_id_string, module = module))
+-            coverage_data.append(_coverage_datum(mix_file, src_file, hs.label))
++            coverage_data.append(_coverage_datum(mix_file, info.src, hs.label))
+ 
+     if srcs:
+         hs.toolchain.actions.run_ghc(
+@@ -513,16 +530,10 @@ def compile_library(
+             env = c.env,
+             arguments = c.args,
+         )
+-    else:
+-        hs.actions.run_shell(
+-            inputs = c.inputs,
+-            outputs = c.outputs,
+-            command = "exit 0",
+-        )
+ 
+     return struct(
+-        interfaces_dir = c.interfaces_dir,
+-        objects_dir = c.objects_dir,
++        interface_files = c.interface_files,
++        object_files = c.object_files,
+         compile_flags = c.compile_flags,
+         source_files = c.source_files,
+         boot_files = c.boot_files,
+@@ -530,70 +541,3 @@ def compile_library(
+         import_dirs = c.import_dirs,
+         coverage_data = coverage_data,
+     )
+-
+-def list_exposed_modules(
+-        hs,
+-        ls_modules,
+-        modules,
+-        other_modules,
+-        exposed_modules_reexports,
+-        interfaces_dir,
+-        with_profiling):
+-    """Construct file listing the exposed modules of this package.
+-
+-    Args:
+-      hs: The Haskell context.
+-      ls_modules: The ls_modules.py executable.
+-      modules: List of haskell_module()s. This feature is experimental.
+-      other_modules: List of hidden modules.
+-      exposed_modules_reexports: List of re-exported modules.
+-      interfaces_dir: The directory containing the interface files.
+-      with_profiling: Whether we're building in profiling mode.
+-
+-    Returns:
+-      File: File holding the package ceonfiguration exposed-modules value.
+-    """
+-    hidden_modules_file = hs.actions.declare_file(
+-        target_unique_name(hs, "hidden-modules"),
+-    )
+-    hs.actions.write(
+-        output = hidden_modules_file,
+-        content = ", ".join(other_modules),
+-    )
+-    reexported_modules_file = hs.actions.declare_file(
+-        target_unique_name(hs, "reexported-modules"),
+-    )
+-    hs.actions.write(
+-        output = reexported_modules_file,
+-        content = ", ".join(exposed_modules_reexports),
+-    )
+-    exposed_modules_file = hs.actions.declare_file(
+-        target_unique_name(hs, "exposed-modules"),
+-    )
+-    hs.actions.run(
+-        inputs = [
+-            interfaces_dir,
+-            hs.toolchain.global_pkg_db,
+-            hidden_modules_file,
+-            reexported_modules_file,
+-        ] + [
+-            m[HaskellModuleInfo].interface_file
+-            for m in modules
+-        ],
+-        outputs = [exposed_modules_file],
+-        executable = ls_modules,
+-        arguments = [
+-            str(with_profiling),
+-            ":".join(
+-                [interfaces_dir.path] + [
+-                    m[HaskellModuleInfo].import_dir
+-                    for m in modules
+-                ],
+-            ),
+-            hs.toolchain.global_pkg_db.path,
+-            hidden_modules_file.path,
+-            reexported_modules_file.path,
+-            exposed_modules_file.path,
+-        ],
+-    )
+-    return exposed_modules_file
+diff --git a/haskell/private/actions/link.bzl b/haskell/private/actions/link.bzl
+index 3c902475..c0f94ba9 100644
+--- a/haskell/private/actions/link.bzl
++++ b/haskell/private/actions/link.bzl
+@@ -35,43 +35,6 @@ def merge_parameter_files(hs, file1, file2):
+     )
+     return params_file
+ 
+-def _create_objects_dir_manifest(hs, posix, objects_dir, extra_objects, dynamic, with_profiling):
+-    suffix = ".dynamic.manifest" if dynamic else ".static.manifest"
+-    objects_dir_manifest = hs.actions.declare_file(
+-        objects_dir.basename + suffix,
+-        sibling = objects_dir,
+-    )
+-
+-    if with_profiling:
+-        ext = "p_o"
+-    elif dynamic:
+-        ext = "dyn_o"
+-    else:
+-        ext = "o"
+-    hs.actions.run_shell(
+-        inputs = [objects_dir],
+-        outputs = [objects_dir_manifest],
+-
+-        # Note: The output of `find` is not stable. The order of the
+-        # lines in the output depend on the filesystem. By using
+-        # `sort`, we force the output to be stable. This is mandatory
+-        # for efficient caching. See
+-        # https://github.com/tweag/rules_haskell/issues/1126.
+-        command = """
+-        "{cat}" <("{find}" {dir} -name '*.{ext}') <(echo -n "{extra}") | "{sort}" > {out}
+-        """.format(
+-            find = posix.commands["find"],
+-            sort = posix.commands["sort"],
+-            cat = posix.commands["cat"],
+-            dir = objects_dir.path,
+-            ext = ext,
+-            extra = "\n".join([e.path for e in extra_objects]),
+-            out = objects_dir_manifest.path,
+-        ),
+-    )
+-
+-    return objects_dir_manifest
+-
+ def link_binary(
+         hs,
+         cc,
+@@ -79,7 +42,7 @@ def link_binary(
+         dep_info,
+         extra_srcs,
+         compiler_flags,
+-        objects_dir,
++        object_files,
+         dynamic,
+         with_profiling,
+         version):
+@@ -157,14 +120,7 @@ def link_binary(
+         "-optl-Wno-unused-command-line-argument",
+     ])
+ 
+-    objects_dir_manifest = _create_objects_dir_manifest(
+-        hs,
+-        posix,
+-        objects_dir,
+-        [],
+-        dynamic = dynamic,
+-        with_profiling = with_profiling,
+-    )
++    args.add_all(object_files)
+ 
+     if hs.toolchain.is_darwin:
+         args.add("-optl-Wl,-headerpad_max_install_names")
+@@ -183,14 +139,13 @@ def link_binary(
+             depset(extra_srcs),
+             dep_info.package_databases,
+             dep_info.hs_libraries,
+-            depset([cache_file, objects_dir]),
++            depset([cache_file] + object_files),
+             pkg_info_inputs,
+             depset(static_libs + dynamic_libs),
+         ]),
+         outputs = [executable],
+         mnemonic = "HaskellLinkBinary",
+         arguments = args,
+-        params_file = objects_dir_manifest,
+         env = dicts.add(hs.env, cc.env),
+     )
+ 
+@@ -250,33 +205,22 @@ def _so_extension(hs):
+     """
+     return "dylib" if hs.toolchain.is_darwin else "so"
+ 
+-def link_library_static(hs, cc, posix, dep_info, objects_dir, extra_objects, my_pkg_id, with_profiling):
++def link_library_static(hs, cc, posix, dep_info, object_files, my_pkg_id, with_profiling):
+     """Link a static library for the package using given object files.
+ 
+     Returns:
+       File: Produced static library.
+     """
++    object_files = [obj for obj in object_files if obj.extension != "dyn_o"]
+     static_library = hs.actions.declare_file(
+         "lib{0}.a".format(pkg_id.library_name(hs, my_pkg_id, prof_suffix = with_profiling)),
+     )
+-    objects_dir_manifest = _create_objects_dir_manifest(
+-        hs,
+-        posix,
+-        objects_dir,
+-        extra_objects,
+-        dynamic = False,
+-        with_profiling = with_profiling,
+-    )
+     args = hs.actions.args()
+-    inputs = [objects_dir, objects_dir_manifest] + extra_objects + cc.files
++    inputs = object_files + cc.files
++    args.add_all(["qc", static_library])
++    args.add_all(object_files)
+ 
+     if hs.toolchain.is_darwin:
+-        # On Darwin, ar doesn't support params files.
+-        args.add_all([
+-            static_library,
+-            objects_dir_manifest.path,
+-        ])
+-
+         # TODO Get ar location from the CC toolchain. This is
+         # complicated by the fact that the CC toolchain does not
+         # always use ar, and libtool has an entirely different CLI.
+@@ -285,18 +229,13 @@ def link_library_static(hs, cc, posix, dep_info, objects_dir, extra_objects, my_
+             inputs = inputs,
+             outputs = [static_library],
+             mnemonic = "HaskellLinkStaticLibrary",
+-            command = "{ar} qc $1 $(< $2)".format(ar = cc.tools.ar),
++            command = "{ar} $@".format(ar = cc.tools.ar),
+             arguments = [args],
+ 
+             # Use the default macosx toolchain
+             env = {"SDKROOT": "macosx"},
+         )
+     else:
+-        args.add_all([
+-            "qc",
+-            static_library,
+-            "@" + objects_dir_manifest.path,
+-        ])
+         hs.actions.run(
+             inputs = inputs,
+             outputs = [static_library],
+@@ -307,12 +246,13 @@ def link_library_static(hs, cc, posix, dep_info, objects_dir, extra_objects, my_
+ 
+     return static_library
+ 
+-def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, objects_dir, extra_objects, my_pkg_id, compiler_flags):
++def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, object_files, my_pkg_id, compiler_flags):
+     """Link a dynamic library for the package using given object files.
+ 
+     Returns:
+       File: Produced dynamic library.
+     """
++    object_files = [obj for obj in object_files if obj.extension == "dyn_o"]
+ 
+     dynamic_library = hs.actions.declare_file(
+         "lib{0}-ghc{1}.{2}".format(
+@@ -352,20 +292,12 @@ def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, objects_dir, extra
+ 
+     args.add_all(["-o", dynamic_library.path])
+ 
+-    # Profiling not supported for dynamic libraries.
+-    objects_dir_manifest = _create_objects_dir_manifest(
+-        hs,
+-        posix,
+-        objects_dir,
+-        extra_objects,
+-        dynamic = True,
+-        with_profiling = False,
+-    )
++    args.add_all(object_files)
+ 
+     hs.toolchain.actions.run_ghc(
+         hs,
+         cc,
+-        inputs = depset([cache_file, objects_dir] + extra_objects, transitive = [
++        inputs = depset([cache_file] + object_files, transitive = [
+             extra_srcs,
+             dep_info.package_databases,
+             dep_info.hs_libraries,
+@@ -375,7 +307,6 @@ def link_library_dynamic(hs, cc, posix, dep_info, extra_srcs, objects_dir, extra
+         outputs = [dynamic_library],
+         mnemonic = "HaskellLinkDynamicLibrary",
+         arguments = args,
+-        params_file = objects_dir_manifest,
+         env = dicts.add(hs.env, cc.env),
+     )
+ 
+diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
+index bfcc9500..8309d84f 100644
+--- a/haskell/private/actions/package.bzl
++++ b/haskell/private/actions/package.bzl
+@@ -50,7 +50,7 @@ def package(
+         dep_info,
+         with_shared,
+         modules,
+-        exposed_modules_file,
++        exposed_modules,
+         other_modules,
+         my_pkg_id,
+         has_hs_library):
+@@ -63,7 +63,7 @@ def package(
+       libraries_to_link: list of LibraryToLink.
+       with_shared: Whether to link dynamic libraries.
+       modules: List of haskell_module()s. This feature is experimental.
+-      exposed_modules_file: File holding list of exposed modules.
++      exposed_modules: List of exposed modules.
+       other_modules: List of hidden modules.
+       my_pkg_id: Package id object for this package.
+       has_hs_library: Whether hs-libraries should be non-null.
+@@ -88,9 +88,8 @@ def package(
+         extra_dynamic_lib_dirs = extra_lib_dirs
+ 
+     # Create a file from which ghc-pkg will create the actual package
+-    # from. List of exposed modules generated below.
+-    metadata_file = hs.actions.declare_file(target_unique_name(hs, "metadata"))
+-    write_package_conf(hs, metadata_file, {
++    # from.
++    write_package_conf(hs, conf_file, {
+         "name": my_pkg_id.package_name,
+         "version": my_pkg_id.version,
+         "id": pkg_id.to_string(my_pkg_id),
+@@ -114,26 +113,10 @@ def package(
+             "ws2_32",
+         ] if hs.toolchain.is_windows else []),
+         "depends": hs.package_ids,
++        # TODO[AH] Add haskell_module modules
++        "exposed-modules": exposed_modules,
+     })
+ 
+-    # Combine exposed modules and other metadata to form the package
+-    # configuration file.
+-
+-    hs.actions.run_shell(
+-        inputs = [metadata_file, exposed_modules_file],
+-        outputs = [conf_file],
+-        command = """
+-            "$1" $2 > $4
+-            echo "exposed-modules: `"$1" $3`" >> $4
+-""",
+-        arguments = [
+-            posix.commands["cat"],
+-            metadata_file.path,
+-            exposed_modules_file.path,
+-            conf_file.path,
+-        ],
+-    )
+-
+     cache_file = ghc_pkg_recache(hs, posix, conf_file)
+ 
+     return conf_file, cache_file
+diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
+index 0f08c6fd..a5043c67 100644
+--- a/haskell/private/haskell_impl.bzl
++++ b/haskell/private/haskell_impl.bzl
+@@ -11,10 +11,6 @@ load(
+     "all_dependencies_package_ids",
+ )
+ load(":cc.bzl", "cc_interop_info")
+-load(
+-    ":private/actions/compile.bzl",
+-    "list_exposed_modules",
+-)
+ load(
+     ":private/actions/info.bzl",
+     "compile_info_output_groups",
+@@ -35,6 +31,7 @@ load(":private/java.bzl", "java_interop_info")
+ load(":private/mode.bzl", "is_profiling_enabled")
+ load(
+     ":private/path_utils.bzl",
++    "determine_module_names",
+     "get_dynamic_hs_lib_name",
+     "get_lib_extension",
+     "get_static_hs_lib_name",
+@@ -181,6 +178,7 @@ def _haskell_binary_common_impl(ctx, is_test):
+ 
+     with_profiling = is_profiling_enabled(hs)
+     srcs_files, import_dir_map = _prepare_srcs(ctx.attr.srcs)
++    module_map = determine_module_names(srcs_files, True, ctx.attr.main_function, ctx.file.main_file)
+     inspect_coverage = _should_inspect_coverage(ctx, hs, is_test)
+ 
+     dynamic = not ctx.attr.linkstatic
+@@ -203,7 +201,7 @@ def _haskell_binary_common_impl(ctx, is_test):
+         dep_info,
+         plugin_dep_info,
+         srcs = srcs_files,
+-        ls_modules = ctx.executable._ls_modules,
++        module_map = module_map,
+         import_dir_map = import_dir_map,
+         extra_srcs = depset(ctx.files.extra_srcs),
+         user_compile_flags = user_compile_flags,
+@@ -232,7 +230,7 @@ def _haskell_binary_common_impl(ctx, is_test):
+         dep_info,
+         ctx.files.extra_srcs,
+         user_compile_flags,
+-        c.objects_dir,
++        c.object_files,
+         dynamic = dynamic,
+         with_profiling = with_profiling,
+         version = ctx.attr.version,
+@@ -374,6 +372,7 @@ def haskell_library_impl(ctx):
+ 
+     with_profiling = is_profiling_enabled(hs)
+     srcs_files, import_dir_map = _prepare_srcs(ctx.attr.srcs)
++    module_map = determine_module_names(srcs_files)
+ 
+     non_empty = srcs_files or modules
+ 
+@@ -401,6 +400,7 @@ def haskell_library_impl(ctx):
+         dep_info,
+         plugin_dep_info,
+         srcs = srcs_files,
++        module_map = module_map,
+         import_dir_map = import_dir_map,
+         extra_srcs = depset(ctx.files.extra_srcs),
+         user_compile_flags = user_compile_flags,
+@@ -414,15 +414,10 @@ def haskell_library_impl(ctx):
+ 
+     other_modules = ctx.attr.hidden_modules
+     exposed_modules_reexports = _exposed_modules_reexports(ctx.attr.reexported_modules)
+-    exposed_modules_file = list_exposed_modules(
+-        hs,
+-        ls_modules = ctx.executable._ls_modules,
+-        modules = modules,
+-        other_modules = other_modules,
+-        exposed_modules_reexports = exposed_modules_reexports,
+-        interfaces_dir = c.interfaces_dir,
+-        with_profiling = with_profiling,
+-    )
++    # TODO[AH] Add haskell_module modules.
++    exposed_modules = set.from_list(module_map.keys() + exposed_modules_reexports)
++    set.mutable_difference(exposed_modules, set.from_list(other_modules))
++    exposed_modules = set.to_list(exposed_modules)
+ 
+     if non_empty:
+         static_library = link_library_static(
+@@ -430,8 +425,7 @@ def haskell_library_impl(ctx):
+             cc,
+             posix,
+             dep_info,
+-            c.objects_dir,
+-            extra_objects,
++            c.object_files + extra_objects,
+             my_pkg_id,
+             with_profiling = with_profiling,
+         )
+@@ -445,8 +439,7 @@ def haskell_library_impl(ctx):
+             posix,
+             dep_info,
+             depset(ctx.files.extra_srcs),
+-            c.objects_dir,
+-            extra_objects,
++            c.object_files + extra_objects,
+             my_pkg_id,
+             user_compile_flags,
+         )
+@@ -460,14 +453,14 @@ def haskell_library_impl(ctx):
+         dep_info,
+         with_shared,
+         modules,
+-        exposed_modules_file,
++        exposed_modules,
+         other_modules,
+         my_pkg_id,
+         non_empty,
+     )
+ 
+     interface_dirs = depset(
+-        direct = [c.interfaces_dir] + [m[HaskellModuleInfo].interface_file for m in modules],
++        direct = c.interface_files + [m[HaskellModuleInfo].interface_file for m in modules],
+         transitive = [dep_info.interface_dirs],
+     )
+ 
+diff --git a/haskell/private/ls_modules.py b/haskell/private/ls_modules.py
+deleted file mode 100755
+index 5d99d801..00000000
+--- a/haskell/private/ls_modules.py
++++ /dev/null
+@@ -1,108 +0,0 @@
+-#!/usr/bin/env python3
+-#
+-# Create a list of exposed modules (including reexported modules)
+-# given a directory full of interface files and the content of the
+-# global package database (to mine the versions of all prebuilt
+-# dependencies). The exposed modules are filtered using a provided
+-# list of hidden modules, and augmented with reexport declarations.
+-
+-from __future__ import unicode_literals, print_function
+-
+-import collections
+-import fnmatch
+-import itertools
+-import os
+-import re
+-import sys
+-import io
+-
+-import package_configuration
+-
+-if len(sys.argv) != 7:
+-    sys.exit("Usage: %s <WITH_PROFILING> <DIRECTORIES> <GLOBAL_PKG_DB> <HIDDEN_MODS_FILE> <REEXPORTED_MODS_FILE> <RESULT_FILE>" % sys.argv[0])
+-
+-with_profiling = sys.argv[1] == 'True'
+-roots = sys.argv[2]
+-global_pkg_db_dump = sys.argv[3]
+-hidden_modules_file = sys.argv[4]
+-reexported_modules_file = sys.argv[5]
+-results_file = sys.argv[6]
+-
+-with io.open(global_pkg_db_dump, "r", encoding='utf8') as f:
+-    name_id_pairs = [
+-        (pkg.name, pkg.id)
+-        for pkg in package_configuration.parse_package_database_dump(f)
+-    ]
+-
+-# compute duplicate, i.e. package name associated with multiples ids
+-names = [name for (name, _) in name_id_pairs]
+-duplicates = set()
+-if len(names) != len(set(names)):
+-    duplicates = set([
+-        name for name, count in collections.Counter(names).items()
+-        if count > 1
+-    ])
+-
+-# This associate pkg name to pkg id
+-pkg_ids_map = dict(name_id_pairs)
+-
+-with io.open(hidden_modules_file, "r", encoding='utf8') as f:
+-    hidden_modules = [mod.strip() for mod in f.read().split(",")]
+-
+-with io.open(reexported_modules_file, "r", encoding='utf8') as f:
+-    raw_reexported_modules = (
+-        mod.strip() for mod in f.read().split(",") if mod.strip()
+-    )
+-    # Substitute package ids for package names in reexports, because
+-    # GHC really wants package ids.
+-    regexp = re.compile("from (%s):" % "|".join(map(re.escape, pkg_ids_map)))
+-
+-    def replace_pkg_by_pkgid(match):
+-        pkgname = match.group(1)
+-
+-        if pkgname in duplicates:
+-            sys.exit(
+-                "\n".join([
+-                    "Multiple versions of the following packages installed: ",
+-                    ", ".join(duplicates),
+-                    "\nThe following was explictly used: " + pkgname,
+-                    "\nThis is not currently supported.",
+-                ])
+-            )
+-
+-        return "from %s:" % pkg_ids_map[pkgname]
+-
+-    reexported_modules = (
+-        regexp.sub(replace_pkg_by_pkgid, mod)
+-        for mod in raw_reexported_modules
+-    )
+-
+-def handle_walk_error(e):
+-    print("""
+-Failed to list interface files:
+-    {}
+-On Windows you may need to enable long file path support:
+-    Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
+-    """.strip().format(e), file=sys.stderr)
+-    exit(1)
+-
+-modules = (
+-    # replace directory separators by . to generate module names
+-    # / and \ are respectively the separators for unix (linux / darwin) and windows systems
+-    os.path.splitext(os.path.relpath(g, start=root))[0]
+-        .replace("/",".")
+-        .replace("\\",".")
+-    for root in roots.split(":")
+-    for path, dirs, files in os.walk(root, onerror=handle_walk_error)
+-    for f in fnmatch.filter(files, '*.p_hi' if with_profiling else '*.hi')
+-    for g in [os.path.join(path, f)]
+-)
+-
+-exposed_modules = (
+-    m
+-    for m in modules
+-    if m not in hidden_modules
+-)
+-
+-with io.open(results_file, "w", encoding='utf8') as f:
+-    f.write(", ".join(itertools.chain(exposed_modules, reexported_modules)))
+diff --git a/haskell/private/path_utils.bzl b/haskell/private/path_utils.bzl
+index edfd7bcf..1fb8b559 100644
+--- a/haskell/private/path_utils.bzl
++++ b/haskell/private/path_utils.bzl
+@@ -3,31 +3,152 @@
+ load("@bazel_skylib//lib:paths.bzl", "paths")
+ load(":private/set.bzl", "set")
+ 
+-def module_name(hs, f, rel_path = None):
+-    """Given Haskell source file path, turn it into a dot-separated module name.
++def is_haskell_extension(extension):
++    """Whether the given extension defines a Haskell source file."""
++    return extension in ["hs", "hs-boot", "hsc", "lhs", "lhs-boot"]
+ 
+-    module_name(
+-      hs,
+-      "some-workspace/some-package/src/Foo/Bar/Baz.hs",
+-    ) => "Foo.Bar.Baz"
++def is_valid_module_component(component):
++    """Whether the given string is a valid Haskell module name component.
+ 
+-    Args:
+-      hs:  Haskell context.
+-      f:   Haskell source file.
+-      rel_path: Explicit relative path from import root to the module, or None
+-        if it should be deduced.
++    Based on the logic in `Cabal.Distribution.ModuleName.validModuleComponent`.
++    """
++    if len(component) == 0:
++        # Must not be empty
++        return False
++    if not (component[0].isalpha() and component[0].isupper()):
++        # Must start with an upper case alphabetic character
++        return False
++    for char in component.elems():
++        # Must consist of alphanumeric characters or _ or '
++        if not (char.isalnum() or char == "_" or char == "'"):
++            return False
++    return True
+ 
+-    Returns:
+-      string: Haskell module name.
++def longest_valid_module_name(path):
++    """Determine the expected module name from a source file path.
++
++    Takes the longest suffix of valid module name components. E.g.
++
++      src/Hierarchical/Module.hs --> Hierarchical.Module
++      src/Prefix/invalid/Valid/Module.hs --> Valid.Module
++
++    Returns the empty string if no valid module name component was found.
+     """
++    components = paths.split_extension(path)[0].split("/")
++    cutoff = 0
++    for i in range(len(components), 0, -1):
++        if not is_valid_module_component(components[i - 1]):
++            cutoff = i
++            break
++    return ".".join(components[cutoff:len(components)])
+ 
+-    rpath = rel_path
++def infer_main_module(main_function):
++    """Infer the name of the module containing the main function.
+ 
+-    if not rpath:
+-        rpath = _rel_path_to_module(hs, f)
++    This defaults to `Main` unless `main_function` specifies a different
++    module name.
++    """
++    components = main_function.split(".")
++    for i in range(len(components)):
++        if not is_valid_module_component(components[i]):
++            break
++    if i == 0:
++        return "Main"
++    else:
++        return ".".join(components[0:i])
++
++def _module_map_insert(module_map, module_name, module_file, is_boot = False):
++    entry = module_map.get(module_name, struct(src = None, boot = None))
++    if is_boot:
++        if entry.boot:
++            fail("Found two boot files for module %s: %s and %s" % (module_name, entry.boot, module_file))
++        module_map[module_name] = struct(
++            boot = module_file,
++            src = entry.src,
++        )
++    else:
++        if entry.src:
++            fail("Found two source files for module %s: %s and %s" % (module_name, entry.src, module_file))
++        module_map[module_name] = struct(
++            boot = entry.boot,
++            src = module_file,
++        )
++
++def determine_module_names(src_files, is_binary = False, main_function = "", main_file = None):
++    """Determine a mapping from module names to source files.
++
++    The module name is inferred from the source file name. See
++    `longest_valid_module_name` for details.
++
++    If the target is a binary then a main module is required. The main module's
++    name is `Main` unless `main_function` specifies another module name. If
++    `main_file` is specified then it must use that main module name. If
++    `main_file` is not specified then we use the following heuristics to
++    determine the main module:
++    * A source file's `longest_valid_module_name` is the main module name.
++      E.g. `Main.hs`.
++    * One source file's path does not yield a valid module name.
++      E.g. `exe.hs`.
++    * The target has only a single Haskell source file.
++      E.g. `App.hs`.
++
++    Args:
++      src_files: sequence of File, source files.
++      is_binary: bool, whether target requires a main module.
++      main_function: string, optional, the `main_function` attribute to a Haskell binary rule.
++      main_file: File, optional, the `main_file` attribute to a Haskell binary rule.
+ 
+-    (hsmod, _) = paths.split_extension(rpath.replace("/", "."))
+-    return hsmod
++    Returns:
++      dict(module_name: module_info):
++        module_name: string, the Haskell module name.
++        module_info: struct(src, boot):
++          src: File, the module source file.
++          boot: File, optional, the boot file for cyclic module dependencies.
++    """
++    module_map = {}
++    undetermined = []
++
++    for src in src_files:
++        if not is_haskell_extension(src.extension) or src == main_file:
++            continue
++        module_name = longest_valid_module_name(src.short_path)
++        if not module_name:
++            undetermined.append(src)
++        else:
++            _module_map_insert(module_map, module_name, src, is_boot = src.short_path.endswith("-boot"))
++
++    if is_binary:
++        main_module = infer_main_module(main_function)
++        if main_file:
++            _module_map_insert(module_map, main_module, main_file)
++        elif not main_module in module_map:
++            if len(undetermined) == 1:
++                _module_map_insert(module_map, main_module, undetermined.pop())
++            elif len(module_map) == 1:
++                (_, entry) = module_map.popitem()
++                module_map[main_module] = entry
++            else:
++                fail("""\
++No source file defining the main module '{main_module}'.
++You may need to set the 'main_file' attribute.
++""".format(main_module = main_module))
++
++    if undetermined:
++        fail("""\
++Could not determine module names for:
++{undetermined}
++The file name must match the module name.
++E.g. `src/My/Module.hs` for `My.Module`.
++""".format(undetermined = "\n".join(["  %s" % src for src in undetermined])))
++
++    boot_only = [entry.boot for entry in module_map.values() if not entry.src]
++    if boot_only:
++        fail("""\
++Found boot file without matching source file:
++{boot_files}
++""".format(boot_files = "\n".join(["  %s" % boot for boot in boot_only])))
++
++    return module_map
+ 
+ def target_unique_name(hs, name_prefix):
+     """Make a target-unique name.
+@@ -52,32 +173,6 @@ def target_unique_name(hs, name_prefix):
+     """
+     return "{0}-{1}".format(name_prefix, hs.name)
+ 
+-def module_unique_name(hs, source_file, name_prefix):
+-    """Make a target- and module- unique name.
+-
+-    module_unique_name(
+-      hs,
+-      "some-workspace/some-package/src/Foo/Bar/Baz.hs",
+-      "libdir"
+-    ) => "libdir-foo-Foo.Bar.Baz"
+-
+-    This is quite similar to `target_unique_name` but also uses a path built
+-    from `source_file` to prevent clashes with other names produced using the
+-    same `name_prefix`.
+-
+-    Args:
+-      hs:          Haskell context.
+-      source_file: Source file name.
+-      name_prefix: Template for the name.
+-
+-    Returns:
+-      string: Target- and source-unique name.
+-    """
+-    return "{0}-{1}".format(
+-        target_unique_name(hs, name_prefix),
+-        module_name(hs, source_file),
+-    )
+-
+ def declare_compiled(hs, src, ext, directory = None, rel_path = None):
+     """Given a Haskell-ish source file, declare its output.
+ 
+diff --git a/haskell/private/set.bzl b/haskell/private/set.bzl
+index f5c6220f..66fbd572 100644
+--- a/haskell/private/set.bzl
++++ b/haskell/private/set.bzl
+@@ -89,6 +89,20 @@ def _mutable_union(s0, s1):
+     s0._set_items.update(s1._set_items)
+     return s0
+ 
++def _mutable_difference(s0, s1):
++    """Modify set `s0` removing elements from `s1` from it.
++
++    Args:
++      s0: One set.
++      s1: Another set.
++
++    Result:
++      set, difference of the two sets.
++    """
++    for item in s1._set_items.keys():
++        s0._set_items.pop(item)
++    return s0
++
+ def _map(s, f):
+     """Map elements of given set using a function.
+ 
+@@ -143,6 +157,7 @@ set = struct(
+     mutable_insert = _mutable_insert,
+     union = _union,
+     mutable_union = _mutable_union,
++    mutable_difference = _mutable_difference,
+     map = _map,
+     from_list = _from_list,
+     to_list = _to_list,
+diff --git a/haskell/protobuf.bzl b/haskell/protobuf.bzl
+index ec80511a..abc84c47 100644
+--- a/haskell/protobuf.bzl
++++ b/haskell/protobuf.bzl
+@@ -193,7 +193,6 @@ def _haskell_proto_aspect_impl(target, ctx):
+         bin_dir = ctx.bin_dir,
+         disabled_features = ctx.rule.attr.features,
+         executable = struct(
+-            _ls_modules = ctx.executable._ls_modules,
+             _ghc_wrapper = ctx.executable._ghc_wrapper,
+             worker = None,
+         ),
+@@ -280,11 +279,6 @@ _haskell_proto_aspect = aspect(
+             allow_single_file = True,
+             default = Label("@rules_haskell//haskell:private/ghci_repl_wrapper.sh"),
+         ),
+-        "_ls_modules": attr.label(
+-            executable = True,
+-            cfg = "host",
+-            default = Label("@rules_haskell//haskell:ls_modules"),
+-        ),
+         "_cc_toolchain": attr.label(
+             default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
+         ),
+diff --git a/tests/haddock_protobuf/HelloWorld.hs b/tests/haddock_protobuf/HelloWorld.hs
+index ae300ffd..2ca5916e 100644
+--- a/tests/haddock_protobuf/HelloWorld.hs
++++ b/tests/haddock_protobuf/HelloWorld.hs
+@@ -1,4 +1,4 @@
+-module Bar (bar) where
++module HelloWorld (bar) where
+ 
+ import Proto.Tests.HaddockProtobuf.HelloWorld
+ 
+diff --git a/tests/version-macros/BUILD.bazel b/tests/version-macros/BUILD.bazel
+index 73d1fddd..6f8c6fd4 100644
+--- a/tests/version-macros/BUILD.bazel
++++ b/tests/version-macros/BUILD.bazel
+@@ -54,6 +54,7 @@ haskell_test(
+         "MainC2hs.hs",
+         ":c2hs-lib",
+     ],
++    main_file = "MainC2hs.hs",
+     tags = [
+         # See https://github.com/tweag/rules_haskell/issues/1486
+         "dont_test_on_darwin_with_bindist",
