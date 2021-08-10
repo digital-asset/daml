@@ -59,8 +59,13 @@ object Config {
         loadSdkConfig(useDatabase).left
           .flatMap {
             case ConfigNotFound(_) =>
-              logger.warn("SDK config does not exist. Falling back to Navigator config file.")
-              loadNavigatorConfig(configFile, useDatabase)
+              logger.info("SDK config does not exist. Falling back to Navigator config file.")
+              loadNavigatorConfig(configFile, useDatabase) match {
+                case Left(ConfigNotFound(_)) =>
+                  logger.info("No config file found. Using default config")
+                  Right(Config())
+                case r => r
+              }
             case e: ConfigReadError =>
               logger.warn(s"SDK config exists, but is not usable: ${e.reason}")
               Left(e)
