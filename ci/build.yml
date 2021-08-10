@@ -30,7 +30,7 @@ jobs:
         export BOTO_CONFIG=/dev/null
           # 90 minutes should provide enough overlap for an hourly
         # cronjob.
-        ./bazel-bin/ci/cron/cron bazel-cache --age 3000 --delete
+        ./bazel-bin/ci/cron/cron bazel-cache --age 90 --delete
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - template: tell-slack-failed.yml
