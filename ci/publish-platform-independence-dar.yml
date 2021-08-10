@@ -1,0 +1,12 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  platform: ''
+
+steps:
+  - task: PublishBuildArtifacts@1
+    inputs:
+        pathtoPublish: bazel-bin/compiler/damlc/tests/platform-independence.dar
+        artifactName: platform-independence-dar-${{parameters.platform}}
+
