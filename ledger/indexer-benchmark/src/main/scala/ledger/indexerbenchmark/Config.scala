@@ -30,7 +30,7 @@ object Config {
     updateCount = None,
     updateSource = "",
     metricsReporter = None,
-    metricsReportingInterval = Duration.ofSeconds(10),
+    metricsReportingInterval = Duration.ofSeconds(1),
     indexerConfig = IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
       jdbcUrl = "",
