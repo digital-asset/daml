@@ -754,8 +754,13 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     sql"""CREATE INDEX $stakeholdersIndexName ON $contractStakeholdersViewName (tpid, stakeholder)"""
   )
 
+  private[this] val indexPayload = CreateIndex(sql"""
+    CREATE SEARCH INDEX ${tablePrefixFr}payload_json_idx
+    ON $contractTableName (payload) FOR JSON
+    PARAMETERS('DATAGUIDE OFF')""")
+
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex)
+    super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex, indexPayload)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     import cats.implicits._
