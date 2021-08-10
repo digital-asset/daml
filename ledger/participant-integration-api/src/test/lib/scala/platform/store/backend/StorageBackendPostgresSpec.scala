@@ -42,9 +42,6 @@ private[backend] trait StorageBackendPostgresSpec
   protected def executeSql[T](sql: Connection => T): Future[T] = {
     dbDispatcher.executeSql(metrics.test.db, None)(sql)
   }
-  protected def executeSerializableSql[T](sql: Connection => T): Future[T] = {
-    dbDispatcher.executeSql(metrics.test.db, Some(Connection.TRANSACTION_SERIALIZABLE))(sql)
-  }
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
