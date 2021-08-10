@@ -84,11 +84,11 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:kvutils-tests-lib:__VERSION__"],
     visibility = [
@@ -142,12 +142,14 @@ da_scala_test_suite(
     ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
