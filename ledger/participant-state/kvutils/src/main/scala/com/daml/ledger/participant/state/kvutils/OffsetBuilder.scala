@@ -55,7 +55,7 @@ object OffsetBuilder {
     Offset.fromByteArray(bytes.toByteArray)
   }
 
-  // Doesn't call `split` because it's used a lot, so it's worth optimizing a little.
+  // `highestIndex` is used a lot, so it's worth optimizing a little rather than reusing `split`.
   def highestIndex(offset: Offset): Long = {
     val stream = new DataInputStream(new ByteArrayInputStream(offset.toByteArray))
     stream.readLong()
