@@ -147,36 +147,30 @@ private class JdbcLedgerDao(
       ledgerId: LedgerId,
       participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[InitializationResult] =
-    dbDispatcher.executeSql(
-      metrics.daml.index.db.initializeLedgerParameters
-    ) { implicit connection =>
-      queries.enforceSynchronousCommit
-      val previousLedgerId = ParametersTable.getLedgerId(connection)
-      // If there is no ledgerId, we can't look up the participantId
-      val previousParticipantId =
-        previousLedgerId.flatMap(_ => ParametersTable.getParticipantId(connection))
-      logger.info(
-        s"initialize($ledgerId, $participantId) found ($previousLedgerId, $previousParticipantId)"
-      )
-      (previousLedgerId, previousParticipantId) match {
-        case (None, _) =>
-          // ledgerId is not null, this is the case where the the parameters table is empty
-          logger.info(s"ParametersTable.setLedgerId($ledgerId)")
-          ParametersTable.setLedgerId(ledgerId.unwrap)(connection)
-          logger.info(s"ParametersTable.setParticipantId($participantId)")
-          ParametersTable.setParticipantId(participantId.unwrap)(connection)
-          InitializationResult.New
-        case (Some(`ledgerId`), None) =>
-          logger.warn(
-            s"Found partially initialized database with ledgerId=$ledgerId, but no participantId"
-          )
-          ParametersTable.setParticipantId(participantId.unwrap)(connection)
-          InitializationResult.New
-        case (Some(`ledgerId`), Some(`participantId`)) =>
-          InitializationResult.AlreadyExists
-        case (Some(lid), pid) =>
-          InitializationResult.Mismatch(lid, pid)
-      }
+    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
+      implicit connection =>
+        queries.enforceSynchronousCommit
+        val previousLedgerId = ParametersTable.getLedgerId(connection)
+        // If there is no ledgerId, we can't look up the participantId
+        val previousParticipantId =
+          previousLedgerId.flatMap(_ => ParametersTable.getParticipantId(connection))
+        (previousLedgerId, previousParticipantId) match {
+          case (None, _) =>
+            // ledgerId is not null, this is the case where the the parameters table is empty
+            ParametersTable.setLedgerId(ledgerId.unwrap)(connection)
+            ParametersTable.setParticipantId(participantId.unwrap)(connection)
+            InitializationResult.New
+          case (Some(`ledgerId`), None) =>
+            logger.warn(
+              s"Found partially initialized database with ledgerId=$ledgerId, but no participantId"
+            )
+            ParametersTable.setParticipantId(participantId.unwrap)(connection)
+            InitializationResult.New
+          case (Some(`ledgerId`), Some(`participantId`)) =>
+            InitializationResult.AlreadyExists
+          case (Some(lid), pid) =>
+            InitializationResult.Mismatch(lid, pid)
+        }
     }
 
   override def lookupLedgerConfiguration()(implicit

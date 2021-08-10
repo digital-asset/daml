@@ -40,7 +40,7 @@ private[backend] trait StorageBackendPostgresSpec
   protected var dbDispatcher: DbDispatcher = _
 
   protected def executeSql[T](sql: Connection => T): Future[T] = {
-    dbDispatcher.executeSql(metrics.test.db, None)(sql)
+    dbDispatcher.executeSql(metrics.test.db)(sql)
   }
 
   override protected def beforeEach(): Unit = {
