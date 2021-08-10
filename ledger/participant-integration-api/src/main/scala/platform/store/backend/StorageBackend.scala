@@ -109,8 +109,10 @@ trait ParameterStorageBackend {
     *  - Ledger identity parameters are written at most once, and are never overwritten.
     *  No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
-    *  This method is atomic. The above mentioned behavior must always work correctly,
-    *  independent of the default transaction isolation level.
+    *  This method is NOT save to call concurrently. Use either explicit locking
+    *  (see [[DBLockStorageBackend.tryAcquire]]) or a SERIALIZABLE transaction isolation level
+    *  to make sure the above described behavior works correctly if multiple users try to call this
+    *  method at the same time.
     */
   def initializeParameters(params: StorageBackend.IdentityParams)(
       connection: Connection

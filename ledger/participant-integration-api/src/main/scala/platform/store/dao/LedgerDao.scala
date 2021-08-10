@@ -241,8 +241,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     *  - If identity parameters are stored, then they are compared to the given ones.
     *  - Ledger identity parameters are written at most once, and are never overwritten.
     *
-    *  This method is atomic. The above mentioned behavior will work correctly,
-    *  even under heavy concurrency.
+    *  This method is NOT save to call concurrently.
     *
     *  This method must succeed at least once before other LedgerWriteDao methods may be used.
     *

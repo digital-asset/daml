@@ -9,7 +9,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
-import scala.util.Success
 
 final class StorageBackendPostgresInitializationSpec
     extends AsyncFlatSpec
@@ -66,27 +65,38 @@ final class StorageBackendPostgresInitializationSpec
   }
 
   it should "not allow duplicate initialization" in {
+    // This test only works if the storage backend supports exclusive locks
+    assume(storageBackend.dbLockSupported)
+
     val params = StorageBackend.IdentityParams(
       ledgerId = LedgerId("ledger"),
       participantId = ParticipantId(Ref.ParticipantId.assertFromString("participant")),
     )
     val n: Int = 64
+    val lockId = storageBackend.lock(1)
+    val lockMode = DBLockStorageBackend.LockMode.Exclusive
 
     for {
       result <- Future.sequence(
         Vector.fill(n)(
-          // Note: the StorageBackend.initializeParameters() call may fail if it conflicts with another concurrent call
-          // The StorageBackend currently doesn't retry the SQL transaction,
-          // the RecoveringIndexer would be responsible for a retry
-          executeSerializableSql(storageBackend.initializeParameters(params))
-            .transform(x => Success(x.toEither))
+          // Note: the StorageBackend.initializeParameters() call is not save to call concurrently,
+          // we need an external mechanism to prevent duplicate initialization
+          executeSql { conn =>
+            storageBackend
+              .tryAcquire(lockId, lockMode)(conn)
+              .map(lock => {
+                val result = storageBackend.initializeParameters(params)(conn)
+                storageBackend.release(lock)(conn)
+                result
+              })
+          }
         )
       )
     } yield {
-      result.collect { case Right(StorageBackend.InitializationResult.New) =>
+      result.collect { case Some(StorageBackend.InitializationResult.New) =>
         true
       } should have length 1
-      result.collect { case Right(StorageBackend.InitializationResult.Mismatch(_, _)) =>
+      result.collect { case Some(StorageBackend.InitializationResult.Mismatch(_, _)) =>
         true
       } should have length 0
     }
