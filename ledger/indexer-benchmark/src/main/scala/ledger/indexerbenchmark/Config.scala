@@ -23,6 +23,7 @@ case class Config(
     metricsReportingInterval: Duration,
     indexerConfig: IndexerConfig,
     waitForUserInput: Boolean,
+    minUpdateRate: Option[Long],
 )
 
 object Config {
@@ -38,6 +39,7 @@ object Config {
       enableAppendOnlySchema = true,
     ),
     waitForUserInput = false,
+    minUpdateRate = None,
   )
 
   private[this] val Parser: OptionParser[Config] =
@@ -106,6 +108,12 @@ object Config {
           "If enabled, the app will wait for user input after the benchmark has finished, but before cleaning up resources. Use to inspect the contents of an ephemeral index database."
         )
         .action((value, config) => config.copy(waitForUserInput = value))
+
+      opt[Long]("min-update-rate")
+        .text(
+          "Minimum value of the processed updates per second. If not satisfied the application will report an error."
+        )
+        .action((value, config) => config.copy(minUpdateRate = Some(value)))
 
       opt[MetricsReporter]("metrics-reporter")
         .optional()

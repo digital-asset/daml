@@ -104,6 +104,12 @@ class IndexerBenchmark() {
       } yield {
         val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
         val updates: Long = metrics.daml.parallelIndexer.updates.getCount
+        val updateRate: Double = updates / duration
+        val minimumUpdateRateFailureInfo: String = config.minUpdateRate match {
+          case Some(requiredMinUpdateRate) if (requiredMinUpdateRate > updateRate) =>
+            s"[failure][UpdateRate] Minimum number of updates per second: required: $requiredMinUpdateRate, metered: $updateRate"
+          case _ => ""
+        }
         println(
           s"""
              |--------------------------------------------------------------------------------
@@ -113,6 +119,7 @@ class IndexerBenchmark() {
              |Input:
              |  source:   ${config.updateSource}
              |  count:    ${config.updateCount}
+             |  required updates/sec: ${config.minUpdateRate.getOrElse("-")}
              |  jdbcUrl:  ${config.indexerConfig.jdbcUrl}
              |
              |Indexer parameters:
@@ -128,7 +135,8 @@ class IndexerBenchmark() {
              |Result:
              |  duration:    $duration
              |  updates:     $updates
-             |  updates/sec: ${updates / duration}
+             |  updates/sec: $updateRate
+             |$minimumUpdateRateFailureInfo
              |
              |Other metrics:
              |  inputMapping.batchSize:     ${histogramToString(
