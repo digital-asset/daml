@@ -7,6 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{value => V}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Util._
 import com.daml.script.`export`.Dependencies.ChoiceInstanceSpec
 import com.daml.script.export.Dependencies.TemplateInstanceSpec
 import org.scalatest.freespec.AnyFreeSpec
@@ -52,8 +53,8 @@ class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
       val spec = TemplateInstanceSpec(
         key = None,
         choices = Map(
-          ApiTypes.Choice("Archive") -> ChoiceInstanceSpec(tArchive, unit),
-          ApiTypes.Choice("Choice") -> ChoiceInstanceSpec(choiceArg, contractId :@ Ast.TTyCon(nFoo)),
+          ApiTypes.Choice("Archive") -> ChoiceInstanceSpec(tArchive, TUnit),
+          ApiTypes.Choice("Choice") -> ChoiceInstanceSpec(choiceArg, TContractId(Ast.TTyCon(nFoo))),
         ),
       )
       encodeMissingInstances(tplId, spec).render(80) shouldBe
@@ -75,7 +76,7 @@ class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
       V.Identifier().withPackageId("pkg-id").withModuleName("Module").withEntityName("Template")
     )
     val spec = TemplateInstanceSpec(
-      key = Some(tuple(party, int)),
+      key = Some(tuple(TParty, TInt64)),
       choices = Map.empty,
     )
     encodeMissingInstances(tplId, spec).render(80) shouldBe

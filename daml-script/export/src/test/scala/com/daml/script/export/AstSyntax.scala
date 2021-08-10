@@ -5,40 +5,22 @@ package com.daml.script.export
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Util._
 
 private[export] object AstSyntax {
-  implicit class AstApp(private val lhs: Ast.Type) extends AnyVal {
-    def :@(rhs: Ast.Type): Ast.Type = {
-      Ast.TApp(lhs, rhs)
-    }
-  }
   implicit class AstArrow(private val rhs: Ast.Type) extends AnyVal {
     def =>:(lhs: Ast.Type): Ast.Type = {
-      val arrowTy: Ast.Type = Ast.TBuiltin(Ast.BTArrow)
-      Ast.TApp(Ast.TApp(arrowTy, lhs), rhs)
+      TFun(lhs, rhs)
     }
   }
-  def synApp(syn: Ref.TypeSynName, args: Ast.Type*): Ast.Type = {
-    Ast.TSynApp(syn, ImmArray(args))
-  }
   def tuple(tys: Ast.Type*): Ast.Type = {
-    val tupleTyCon: Ast.Type = Ast.TTyCon(
-      Ref.TypeConName.assertFromString(
-        "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7:DA.Types:Tuple"
-      )
+    val tupleName = Ref.TypeConName.assertFromString(
+      "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7:DA.Types:Tuple"
     )
-    tys.foldLeft(tupleTyCon) { case (acc, ty) => acc :@ ty }
+    TTyConApp(tupleName, ImmArray(tys))
   }
-  def list(ty: Ast.Type): Ast.Type = {
-    Ast.TBuiltin(Ast.BTList) :@ ty
-  }
-  val unit: Ast.Type = Ast.TBuiltin(Ast.BTUnit)
-  val int: Ast.Type = Ast.TBuiltin(Ast.BTInt64)
-  val text: Ast.Type = Ast.TBuiltin(Ast.BTText)
-  val party: Ast.Type = Ast.TBuiltin(Ast.BTParty)
-  val contractId: Ast.Type = Ast.TBuiltin(Ast.BTContractId)
-  val vFoo: Ast.Type = Ast.TVar(Ref.Name.assertFromString("foo"))
-  val vBar: Ast.Type = Ast.TVar(Ref.Name.assertFromString("bar"))
+  val vFoo: Ref.Name = Ref.Name.assertFromString("foo")
+  val vBar: Ref.Name = Ref.Name.assertFromString("bar")
   val tArchive: Ast.Type = Ast.TTyCon(
     Ref.TypeConName.assertFromString(
       "d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662:DA.Internal.Template:Archive"

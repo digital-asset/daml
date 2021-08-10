@@ -3,7 +3,10 @@
 
 package com.daml.script.export
 
+import com.daml.lf.data.ImmArray
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.TSynApp
+import com.daml.lf.language.Util._
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -43,7 +46,7 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
     }
     "simple types" - {
       "type variable" in {
-        encodeType(vFoo).render(80) shouldBe "foo"
+        encodeType(Ast.TVar(vFoo)).render(80) shouldBe "foo"
       }
       "natural number" in {
         encodeType(Ast.TNat.values(2)).render(80) shouldBe "2"
@@ -54,23 +57,23 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
     }
     "composed types" - {
       "type synonym application" in {
-        val ty = synApp(nFoo, int, synApp(nBar, text))
+        val ty = TSynApp(nFoo, ImmArray(TInt64, TSynApp(nBar, ImmArray(TText))))
         encodeType(ty).render(80) shouldBe "Module.Foo Int (Module.Bar Text)"
       }
       "type application" in {
-        val ty = vFoo :@ int :@ (vBar :@ text)
+        val ty = TTVarApp(vFoo, ImmArray(TInt64, TTVarApp(vBar, ImmArray(TText))))
         encodeType(ty).render(80) shouldBe "foo Int (bar Text)"
       }
       "tuple type" in {
-        val ty = tuple(int, text, vFoo :@ int)
+        val ty = tuple(TInt64, TText, TTVarApp(vFoo, ImmArray(TInt64)))
         encodeType(ty).render(80) shouldBe "(Int, Text, foo Int)"
       }
       "list type" in {
-        val ty = list(int)
+        val ty = TList(TInt64)
         encodeType(ty).render(80) shouldBe "[Int]"
       }
       "arrow type" in {
-        val ty = (vFoo :@ int =>: text) =>: int =>: text
+        val ty = (TTVarApp(vFoo, ImmArray(TInt64)) =>: TText) =>: TInt64 =>: TText
         encodeType(ty).render(80) shouldBe "(foo Int -> Text) -> Int -> Text"
       }
     }
