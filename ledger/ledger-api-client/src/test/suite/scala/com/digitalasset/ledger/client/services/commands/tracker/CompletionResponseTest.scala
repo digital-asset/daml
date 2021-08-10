@@ -50,7 +50,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
       }
 
       "handle timeout" in {
-        CompletionResponse.toCompletion(Left(TimeoutResponse(commandId))) shouldEqual (Completion(
+        CompletionResponse.toCompletion(Left(TimeoutResponse(commandId))) shouldEqual Completion(
           commandId = commandId,
           status = Some(
             Status(
@@ -58,7 +58,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
               message = "Timeout",
             )
           ),
-        ))
+        )
       }
     }
   }
