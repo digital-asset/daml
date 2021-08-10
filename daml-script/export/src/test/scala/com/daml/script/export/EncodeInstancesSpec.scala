@@ -17,6 +17,14 @@ class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
   import Encode._
   import AstSyntax._
 
+  private val headerComment =
+    """{- Module.Template is defined in a package using LF version 1.7 or earlier.
+       |   These packages don't provide the required type class instances to generate
+       |   ledger commands. The following defines replacement instances. -}""".stripMargin.replace(
+      "\r\n",
+      "\n",
+    )
+
   "encodeMissingInstances" - {
     "template only" in {
       val tplId = ApiTypes.TemplateId(
@@ -27,13 +35,11 @@ class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
         choices = Map.empty,
       )
       encodeMissingInstances(tplId, spec).render(80) shouldBe
-        """{- Module.Template is defined in a package using LF version 1.7 or earlier.
-          |   These packages don't provide the required type class instances to generate
-          |   ledger commands. The following defines replacement instances. -}
-          |instance HasTemplateTypeRep Module.Template where
-          |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-          |instance HasToAnyTemplate Module.Template where
-          |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"""".stripMargin.replace(
+        s"""$headerComment
+           |instance HasTemplateTypeRep Module.Template where
+           |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+           |instance HasToAnyTemplate Module.Template where
+           |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"""".stripMargin.replace(
           "\r\n",
           "\n",
         )
@@ -58,39 +64,36 @@ class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
         ),
       )
       encodeMissingInstances(tplId, spec).render(80) shouldBe
-        """{- Module.Template is defined in a package using LF version 1.7 or earlier.
-          |   These packages don't provide the required type class instances to generate
-          |   ledger commands. The following defines replacement instances. -}
-          |instance HasTemplateTypeRep Module.Template where
-          |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-          |instance HasToAnyTemplate Module.Template where
-          |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-          |instance HasToAnyChoice Module.Template DA.Internal.Template.Archive () where
-          |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-          |instance HasToAnyChoice Module.Template Module.Choice (ContractId Module.Foo) where
-          |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"""".stripMargin.replace("\r\n", "\n")
+        s"""$headerComment
+           |instance HasTemplateTypeRep Module.Template where
+           |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+           |instance HasToAnyTemplate Module.Template where
+           |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+           |instance HasToAnyChoice Module.Template DA.Internal.Template.Archive () where
+           |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+           |instance HasToAnyChoice Module.Template Module.Choice (ContractId Module.Foo) where
+           |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"""".stripMargin
+          .replace("\r\n", "\n")
     }
-  }
-  "template with contract key" in {
-    val tplId = ApiTypes.TemplateId(
-      V.Identifier().withPackageId("pkg-id").withModuleName("Module").withEntityName("Template")
-    )
-    val spec = TemplateInstanceSpec(
-      key = Some(tuple(TParty, TInt64)),
-      choices = Map.empty,
-    )
-    encodeMissingInstances(tplId, spec).render(80) shouldBe
-      """{- Module.Template is defined in a package using LF version 1.7 or earlier.
-        |   These packages don't provide the required type class instances to generate
-        |   ledger commands. The following defines replacement instances. -}
-        |instance HasTemplateTypeRep Module.Template where
-        |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
-        |instance HasToAnyTemplate Module.Template where
-        |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-        |instance HasToAnyContractKey Module.Template (Party, Int) where
-        |  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"""".stripMargin.replace(
-        "\r\n",
-        "\n",
+    "template with contract key" in {
+      val tplId = ApiTypes.TemplateId(
+        V.Identifier().withPackageId("pkg-id").withModuleName("Module").withEntityName("Template")
       )
+      val spec = TemplateInstanceSpec(
+        key = Some(tuple(TParty, TInt64)),
+        choices = Map.empty,
+      )
+      encodeMissingInstances(tplId, spec).render(80) shouldBe
+        s"""$headerComment
+           |instance HasTemplateTypeRep Module.Template where
+           |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+           |instance HasToAnyTemplate Module.Template where
+           |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+           |instance HasToAnyContractKey Module.Template (Party, Int) where
+           |  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"""".stripMargin.replace(
+          "\r\n",
+          "\n",
+        )
+    }
   }
 }
