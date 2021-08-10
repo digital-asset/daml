@@ -127,3 +127,11 @@ Daml Documentation
    support/releases
    support/compatibility
    support/support
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
+   :caption: Operating Daml Connect
+
+   ops-connect/index
