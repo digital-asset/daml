@@ -292,7 +292,7 @@ private[appendonlydao] final class TransactionsReader(
         range
       }
       // Dispatch database fetches in parallel
-      .mapAsync(eventProcessingParallelism) { range =>
+      .mapAsync(1) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
           queryNonPruned.executeSql(
             query = storageBackend.rawEvents(
@@ -308,7 +308,7 @@ private[appendonlydao] final class TransactionsReader(
       .mapConcat(identity)
       .async
       // Decode transaction log updates in parallel
-      .mapAsync(eventProcessingParallelism) { raw =>
+      .mapAsync(4) { raw =>
         Timed.future(
           metrics.daml.index.decodeTransactionLogUpdate,
           Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),

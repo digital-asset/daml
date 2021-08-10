@@ -198,7 +198,7 @@ private[platform] object BufferedTransactionsReader {
         }
         // Note that it is safe to use high parallelism for mapAsync as long
         // as the Futures executed within are running on a bounded thread pool
-        .mapAsync(32)(identity)
+        .mapAsync(8)(identity)
         .async
         .collect { case (offset, Some(tx)) =>
           resolvedFromBufferCounter.inc()
