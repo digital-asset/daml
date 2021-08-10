@@ -4,7 +4,6 @@
 package com.daml.lf
 package transaction
 
-import scala.collection.compat._
 private final class Validation[Nid, Cid]() {
 
   /** Whether `replayed` is the result of reinterpreting this transaction.
