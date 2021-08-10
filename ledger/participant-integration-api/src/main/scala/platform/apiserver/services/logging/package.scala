@@ -96,4 +96,6 @@ package object logging {
   private[services] def verbose(v: Boolean): LoggingEntry =
     "verbose" -> v
 
+  private[services] def correlationId(correlationId: String): LoggingEntry =
+    "correlationId" -> correlationId
 }

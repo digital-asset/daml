@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver.services.transaction
 
+import java.util.UUID
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -79,12 +81,15 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactions(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] = {
+    val correlationId = UUID.randomUUID().toString
+
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.filters(request.filter),
       logging.verbose(request.verbose),
+      logging.correlationId(correlationId),
     ) { implicit loggingContext =>
       logger.info("Received request for transactions.")
     }
@@ -94,17 +99,27 @@ private[apiserver] final class ApiTransactionService private (
       .via(logger.debugStream(transactionsLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
+      .watchTermination() { case (mat, done) =>
+        withEnrichedLoggingContext(logging.correlationId(correlationId)) {
+          implicit loggingContext =>
+            done.andThen { case _ => logger.info("Transactions subscription finished.") }
+            mat
+        }
+      }
   }
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
+    val correlationId = UUID.randomUUID().toString
+
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
       logging.verbose(request.verbose),
+      logging.correlationId(correlationId),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction trees.")
     }
@@ -119,6 +134,13 @@ private[apiserver] final class ApiTransactionService private (
       .via(logger.debugStream(transactionTreesLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
+      .watchTermination() { case (mat, done) =>
+        withEnrichedLoggingContext(logging.correlationId(correlationId)) {
+          implicit loggingContext =>
+            done.andThen { case _ => logger.info("Transaction trees subscription finished.") }
+            mat
+        }
+      }
   }
 
   override def getTransactionByEventId(

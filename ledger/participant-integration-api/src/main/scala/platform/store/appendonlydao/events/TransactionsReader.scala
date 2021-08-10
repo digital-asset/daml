@@ -514,10 +514,12 @@ private[appendonlydao] final class TransactionsReader(
       else {
         val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
           dispatcher.executeSql(queryMetric)(query(range1))
-        rawEvents.flatMap(es =>
-          Timed.future(
-            future = Future.traverse(es)(deserializeEntry(verbose)),
-            timer = queryMetric.translationTimer,
+        rawEvents.flatMap(
+          Future.traverse(_)(entry =>
+            Timed.future(
+              future = deserializeEntry(verbose)(entry),
+              timer = queryMetric.translationTimer,
+            )
           )
         )
       }
