@@ -5,10 +5,13 @@ package com.daml.platform.store.interfaces
 
 import java.time.Instant
 
+import com.daml.ledger.api.v1.value
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.ledger.EventId
+import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -66,6 +69,9 @@ object TransactionLogUpdate {
     def submitters: Set[String]
     def templateId: Identifier
     def contractId: ContractId
+
+    val eventIdLedgerString: Ref.LedgerString = eventId.toLedgerString
+    val templateIdApi: value.Identifier = LfEngineToApi.toApiIdentifier(templateId)
   }
 
   final case class CreatedEvent(
@@ -110,5 +116,7 @@ object TransactionLogUpdate {
       exerciseArgument: LfValue.VersionedValue[ContractId],
       exerciseResult: Option[LfValue.VersionedValue[ContractId]],
       consuming: Boolean,
-  ) extends Event
+  ) extends Event {
+    val choiceRefName: IdString.Name = Ref.Name.assertFromString(choice)
+  }
 }

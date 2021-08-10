@@ -12,11 +12,9 @@ import com.daml.ledger.api.v1.transaction.{
   Transaction => FlatTransaction,
 }
 import com.daml.ledger.api.v1.{event => apiEvent}
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
-import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
@@ -158,9 +156,9 @@ private[events] object TransactionLogUpdatesConversions {
         apiEvent.Event(
           apiEvent.Event.Event.Created(
             apiEvent.CreatedEvent(
-              eventId = createdEvent.eventId.toLedgerString,
+              eventId = createdEvent.eventIdLedgerString,
               contractId = createdEvent.contractId.coid,
-              templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+              templateId = Some(createdEvent.templateIdApi),
               contractKey = maybeContractKey,
               createArguments = Some(createArguments),
               witnessParties = requestingParties.view.filter(createdEvent.flatEventWitnesses).toSeq,
@@ -180,9 +178,9 @@ private[events] object TransactionLogUpdatesConversions {
       apiEvent.Event(
         apiEvent.Event.Event.Archived(
           apiEvent.ArchivedEvent(
-            eventId = exercisedEvent.eventId.toLedgerString,
+            eventId = exercisedEvent.eventIdLedgerString,
             contractId = exercisedEvent.contractId.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            templateId = Some(exercisedEvent.templateIdApi),
             witnessParties = requestingParties.view.filter(exercisedEvent.flatEventWitnesses).toSeq,
           )
         )
@@ -274,7 +272,7 @@ private[events] object TransactionLogUpdatesConversions {
         lfValueTranslation.enricher
           .enrichChoiceArgument(
             exercisedEvent.templateId,
-            Ref.Name.assertFromString(exercisedEvent.choice),
+            exercisedEvent.choiceRefName,
             value.value,
           )
 
@@ -290,7 +288,7 @@ private[events] object TransactionLogUpdatesConversions {
           val choiceResultEnricher = (value: Value) =>
             lfValueTranslation.enricher.enrichChoiceResult(
               exercisedEvent.templateId,
-              Ref.Name.assertFromString(exercisedEvent.choice),
+              exercisedEvent.choiceRefName,
               value.value,
             )
 
@@ -311,9 +309,9 @@ private[events] object TransactionLogUpdatesConversions {
       } yield TreeEvent(
         TreeEvent.Kind.Exercised(
           apiEvent.ExercisedEvent(
-            eventId = exercisedEvent.eventId.toLedgerString,
+            eventId = exercisedEvent.eventIdLedgerString,
             contractId = exercisedEvent.contractId.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            templateId = Some(exercisedEvent.templateIdApi),
             choice = exercisedEvent.choice,
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,
@@ -368,9 +366,9 @@ private[events] object TransactionLogUpdatesConversions {
       } yield TreeEvent(
         TreeEvent.Kind.Created(
           apiEvent.CreatedEvent(
-            eventId = createdEvent.eventId.toLedgerString,
+            eventId = createdEvent.eventIdLedgerString,
             contractId = createdEvent.contractId.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+            templateId = Some(createdEvent.templateIdApi),
             contractKey = maybeContractKey,
             createArguments = Some(createArguments),
             witnessParties = requestingParties.view.filter(createdEvent.treeEventWitnesses).toSeq,
