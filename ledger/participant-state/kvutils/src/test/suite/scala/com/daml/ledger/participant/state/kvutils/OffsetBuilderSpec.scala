@@ -68,21 +68,17 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
 
     "convert back and forth" in {
       forAll { (highest: Long, middle: Int, lowest: Int) =>
-        whenever(highest >= 0 && middle >= 0 && lowest >= 0) {
-          val offset = OffsetBuilder.fromLong(highest, middle, lowest)
-          OffsetBuilder.highestIndex(offset) should be(highest)
-          OffsetBuilder.middleIndex(offset) should be(middle)
-          OffsetBuilder.lowestIndex(offset) should be(lowest)
-        }
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+        OffsetBuilder.highestIndex(offset) should be(highest)
+        OffsetBuilder.middleIndex(offset) should be(middle)
+        OffsetBuilder.lowestIndex(offset) should be(lowest)
       }
     }
 
     "always has the same length" in {
       forAll { (highest: Long, middle: Int, lowest: Int) =>
-        whenever(highest >= 0 && middle >= 0 && lowest >= 0) {
-          val offset = OffsetBuilder.fromLong(highest, middle, lowest)
-          offset.bytes.length should be(OffsetBuilder.end)
-        }
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+        offset.bytes.length should be(OffsetBuilder.end)
       }
     }
   }
