@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.lf.language.Ast
-import com.daml.script.export.Dependencies.TemplateInstanceSpec
+import com.daml.script.export.Dependencies.{ChoiceInstanceSpec, TemplateInstanceSpec}
 import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
@@ -71,9 +71,8 @@ private[export] object Encode {
     )
     val keyInstances =
       spec.key.toList.map(key => primInstance("toAnyContractKey", tplIdDoc & encodeType(key, 11)))
-    val choiceInstances = spec.choices.map { case (choice, ret) =>
-      val choiceDoc = if (choice == "Archive") { Doc.text("Archive") }
-      else { qualifyId(TemplateId.unwrap(tplId).copy().withEntityName(Choice.unwrap(choice))) }
+    val choiceInstances = spec.choices.values.map { case ChoiceInstanceSpec(arg, ret) =>
+      val choiceDoc = encodeType(arg, 11)
       val retDoc = encodeType(ret, 11)
       primInstance("toAnyChoice", tplIdDoc & choiceDoc & retDoc)
     }

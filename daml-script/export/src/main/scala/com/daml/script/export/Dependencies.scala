@@ -50,9 +50,13 @@ object Dependencies {
   def lfMissingInstances(version: LanguageVersion): Boolean =
     LanguageVersion.Ordering.lt(version, LanguageVersion.v1_8)
 
+  final case class ChoiceInstanceSpec(
+      arg: Ast.Type,
+      ret: Ast.Type,
+  )
   final case class TemplateInstanceSpec(
       key: Option[Ast.Type],
-      choices: Map[ApiTypes.Choice, Ast.Type],
+      choices: Map[ApiTypes.Choice, ChoiceInstanceSpec],
   )
 
   /** Extract all templates that are missing instances due to their package's LF version.
@@ -78,7 +82,10 @@ object Dependencies {
             map += tplId -> TemplateInstanceSpec(
               key = tpl.key.map(_.typ),
               choices = tpl.choices.map { case (name, choice) =>
-                ApiTypes.Choice(name: String) -> choice.returnType
+                ApiTypes.Choice(name: String) -> ChoiceInstanceSpec(
+                  choice.argBinder._2,
+                  choice.returnType,
+                )
               },
             )
           }

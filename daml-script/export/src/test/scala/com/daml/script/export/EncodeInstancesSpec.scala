@@ -5,7 +5,9 @@ package com.daml.script.export
 
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{value => V}
+import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
+import com.daml.script.`export`.Dependencies.ChoiceInstanceSpec
 import com.daml.script.export.Dependencies.TemplateInstanceSpec
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -37,13 +39,21 @@ class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
     }
     "template with choices" in {
       val tplId = ApiTypes.TemplateId(
-        V.Identifier().withPackageId("pkg-id").withModuleName("Module").withEntityName("Template")
+        V.Identifier()
+          .withPackageId("e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b")
+          .withModuleName("Module")
+          .withEntityName("Template")
+      )
+      val choiceArg = Ast.TTyCon(
+        Ref.TypeConName.assertFromString(
+          "e7b2c7155f6dd6fc569c2325be821f1269186a540d0408b9a0c9e30406f6b64b:Module:Choice"
+        )
       )
       val spec = TemplateInstanceSpec(
         key = None,
         choices = Map(
-          ApiTypes.Choice("Archive") -> unit,
-          ApiTypes.Choice("Choice") -> (contractId :@ Ast.TTyCon(nFoo)),
+          ApiTypes.Choice("Archive") -> ChoiceInstanceSpec(tArchive, unit),
+          ApiTypes.Choice("Choice") -> ChoiceInstanceSpec(choiceArg, contractId :@ Ast.TTyCon(nFoo)),
         ),
       )
       encodeMissingInstances(tplId, spec).render(80) shouldBe
@@ -54,7 +64,7 @@ class EncodeInstancesSpec extends AnyFreeSpec with Matchers {
           |  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
           |instance HasToAnyTemplate Module.Template where
           |  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
-          |instance HasToAnyChoice Module.Template Archive () where
+          |instance HasToAnyChoice Module.Template DA.Internal.Template.Archive () where
           |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
           |instance HasToAnyChoice Module.Template Module.Choice (ContractId Module.Foo) where
           |  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"""".stripMargin.replace("\r\n", "\n")
