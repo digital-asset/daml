@@ -105,11 +105,15 @@ class IndexerBenchmark() {
         val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
         val updates: Long = metrics.daml.parallelIndexer.updates.getCount
         val updateRate: Double = updates / duration
-        val minimumUpdateRateFailureInfo: String = config.minUpdateRate match {
-          case Some(requiredMinUpdateRate) if (requiredMinUpdateRate > updateRate) =>
-            s"[failure][UpdateRate] Minimum number of updates per second: required: $requiredMinUpdateRate, metered: $updateRate"
-          case _ => ""
-        }
+        val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
+          config.minUpdateRate match {
+            case Some(requiredMinUpdateRate) if (requiredMinUpdateRate > updateRate) =>
+              (
+                true,
+                s"[failure][UpdateRate] Minimum number of updates per second: required: $requiredMinUpdateRate, metered: $updateRate",
+              )
+            case _ => (false, "")
+          }
         println(
           s"""
              |--------------------------------------------------------------------------------
@@ -136,7 +140,7 @@ class IndexerBenchmark() {
              |  duration:    $duration
              |  updates:     $updates
              |  updates/sec: $updateRate
-             |$minimumUpdateRateFailureInfo
+             |  $minimumUpdateRateFailureInfo
              |
              |Other metrics:
              |  inputMapping.batchSize:     ${histogramToString(
@@ -165,6 +169,8 @@ class IndexerBenchmark() {
           println(s"Index database is still running at ${config.indexerConfig.jdbcUrl}.")
           StdIn.readLine("Press <enter> to terminate this process.")
         }
+
+        if (failure) throw new RuntimeException("Indexer Benchmark failure.")
         ()
       }
       resource.asFuture
@@ -207,25 +213,29 @@ object IndexerBenchmark {
   def runAndExit(
       args: Array[String],
       updates: Config => Future[Iterator[(Offset, Update)]],
-  ): Unit = {
-    val config: Config = Config.parse(args).getOrElse {
-      sys.exit(1)
+  ): Unit =
+    Config.parse(args) match {
+      case Some(config) => IndexerBenchmark.runAndExit(config, updates)
+      case None => sys.exit(1)
     }
-    IndexerBenchmark.runAndExit(config, updates)
-  }
 
   def runAndExit(
       config: Config,
       updates: Config => Future[Iterator[(Offset, Update)]],
   ): Unit = {
-    val result = if (config.indexerConfig.jdbcUrl.isEmpty) {
-      new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
-    } else {
-      new IndexerBenchmark().run(updates, config)
-    }
+    val result: Future[Unit] =
+      (if (config.indexerConfig.jdbcUrl.isEmpty) {
+         new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
+       } else {
+         new IndexerBenchmark().run(updates, config)
+       }).recover { case ex =>
+        println(s"Error: ${ex.getMessage}")
+        sys.exit(1)
+      }(scala.concurrent.ExecutionContext.Implicits.global)
+
     Await.result(result, Duration(100, "hour"))
     println("Done.")
     // TODO: some actor system or thread pool is still running, preventing a shutdown
-    System.exit(0)
+    sys.exit(0)
   }
 }
