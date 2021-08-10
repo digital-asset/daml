@@ -18,7 +18,6 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
   CommandDeduplicationResult,
-  InitializationResult,
   PackageDetails,
 }
 import com.daml.ledger.participant.state.{v2 => state}
@@ -138,7 +137,7 @@ private class JdbcLedgerDao(
   override def initialize(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-  )(implicit loggingContext: LoggingContext): Future[InitializationResult] =
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
       implicit connection =>
         storageBackend.initializeParameters(
@@ -147,15 +146,10 @@ private class JdbcLedgerDao(
             participantId = participantId,
           )
         )(connection) match {
-          // Note: StorageBackend should not depend on LedgerDao, and we can't expose
-          // StorageBackend.IdentityUpdateResult in LedgerDao, at least not until the mutable schema is deleted.
-          // For atomicity reasons, the logic of comparing IDs needs to be done in StorageEngine.
-          // We therefore end up duplicating the IdentityUpdateResult ADT.
-          case StorageBackend.InitializationResult.AlreadyExists =>
-            InitializationResult.AlreadyExists
-          case StorageBackend.InitializationResult.New => InitializationResult.New
+          case StorageBackend.InitializationResult.AlreadyExists => ()
+          case StorageBackend.InitializationResult.New => ()
           case StorageBackend.InitializationResult.Mismatch(lid, pid) =>
-            InitializationResult.Mismatch(lid, pid)
+            throw new RuntimeException(s"Mismatch $lid, $pid")
         }
     }
 

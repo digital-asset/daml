@@ -10,14 +10,12 @@ import akka.stream._
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.InitializationResult
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.ParallelIndexerFactory
 import com.daml.platform.store.DbType.{
@@ -230,39 +228,10 @@ object JdbcIndexer {
           _ = logger.info(
             s"Attempting to initialize with ledger ID $providedLedgerId and participant ID $providedParticipantId"
           )
-          _ <- dao
-            .initialize(
-              ledgerId = providedLedgerId,
-              participantId = providedParticipantId,
-            )
-            .flatMap {
-              case InitializationResult.New =>
-                logger.info(
-                  s"Initialized new index database with ledger ID $providedLedgerId and participant ID $providedParticipantId"
-                )
-                Future.unit
-              case InitializationResult.AlreadyExists =>
-                logger.info(
-                  s"Found existing index database with ledger ID $providedLedgerId and participant ID $providedParticipantId"
-                )
-                Future.unit
-              case InitializationResult.Mismatch(existingLedgerId, _)
-                  if existingLedgerId != providedLedgerId =>
-                logger.warn(
-                  s"Existing ledger ID $existingLedgerId did not match expected ledger ID $providedLedgerId "
-                )
-                Future.failed(new MismatchException.LedgerId(existingLedgerId, providedLedgerId))
-              case InitializationResult.Mismatch(_, Some(existingParticipantId))
-                  if existingParticipantId != providedParticipantId =>
-                logger.warn(
-                  s"Existing participant ID $existingParticipantId did not match expected participant ID $providedParticipantId "
-                )
-                Future.failed(
-                  new MismatchException.ParticipantId(existingParticipantId, providedParticipantId)
-                )
-              case InitializationResult.Mismatch(lid, pid) =>
-                sys.error(s"Impossible InitializationResult.Mismatch($lid, $pid)")
-            }
+          _ <- dao.initialize(
+            ledgerId = providedLedgerId,
+            participantId = providedParticipantId,
+          )
           initialLedgerEnd <- dao.lookupInitialLedgerEnd()
         } yield initialLedgerEnd
       }

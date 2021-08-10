@@ -115,19 +115,4 @@ package v2 {
   final case class CommandDeduplicationDuplicate(deduplicateUntil: Instant)
       extends CommandDeduplicationResult
 
-  sealed abstract class InitializationResult
-  object InitializationResult {
-
-    /** The stored ledgerId and participantId both contained the expected value. */
-    case object AlreadyExists extends InitializationResult
-
-    /** Either the stored ledgerId or the stored participantId contained an unexpected value. */
-    final case class Mismatch(
-        existingLedgerId: LedgerId,
-        existingParticipantId: Option[ParticipantId],
-    ) extends InitializationResult
-
-    /** The stored ledgerId and/or participantId was empty. It was updated to the expected value. */
-    case object New extends InitializationResult
-  }
 }
