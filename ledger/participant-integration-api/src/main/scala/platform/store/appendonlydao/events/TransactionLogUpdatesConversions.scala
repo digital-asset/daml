@@ -45,9 +45,10 @@ private[events] object TransactionLogUpdatesConversions {
       filtered.headOption
         .map { first =>
           val events = removeTransient(filtered)
+          val requestingParties = filter.keySet.map(_.toString)
 
           Future
-            .traverse(events)(toFlatEvent(_, filter.keySet, verbose, lfValueTranslation))
+            .traverse(events)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
             .map(_.collect { case Some(value) => value })
             .map { flatEvents =>
               // Allows emitting flat transactions with no events, a use-case needed
@@ -57,10 +58,7 @@ private[events] object TransactionLogUpdatesConversions {
                 Some(
                   FlatTransaction(
                     transactionId = first.transactionId,
-                    commandId = getCommandId(
-                      events,
-                      filter.keySet,
-                    ),
+                    commandId = getCommandId(events, requestingParties),
                     workflowId = first.workflowId,
                     effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
                     events = flatEvents,
@@ -92,17 +90,17 @@ private[events] object TransactionLogUpdatesConversions {
           templateSpecificParties: Map[events.Identifier, Set[String]],
       ) => {
 
-        val witnessesMatchingWildcards =
-          event.flatEventWitnesses.intersect(wildcardParties).nonEmpty
+        val stakeholdersMatchingParties =
+          event.flatEventWitnesses.exists(wildcardParties)
 
-        witnessesMatchingWildcards || templateSpecificParties
+        stakeholdersMatchingParties || templateSpecificParties
           .get(event.templateId)
-          .exists(_.intersect(event.flatEventWitnesses).nonEmpty)
+          .exists(_.exists(event.flatEventWitnesses))
       }
 
     private def toFlatEvent(
         event: TransactionLogUpdate.Event,
-        requestingParties: Set[Party],
+        requestingParties: Set[String],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -121,7 +119,7 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def createdToFlatEvent(
-        requestingParties: Set[Party],
+        requestingParties: Set[String],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
@@ -165,9 +163,7 @@ private[events] object TransactionLogUpdatesConversions {
               templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
               contractKey = maybeContractKey,
               createArguments = Some(createArguments),
-              witnessParties = createdEvent.flatEventWitnesses
-                .intersect(requestingParties.map(_.toString))
-                .toSeq,
+              witnessParties = requestingParties.view.filter(createdEvent.flatEventWitnesses).toSeq,
               signatories = createdEvent.createSignatories.toSeq,
               observers = createdEvent.createObservers.toSeq,
               agreementText = createdEvent.createAgreementText.orElse(Some("")),
@@ -178,7 +174,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def exercisedToFlatEvent(
-        requestingParties: Set[Party],
+        requestingParties: Set[String],
         exercisedEvent: ExercisedEvent,
     ): apiEvent.Event =
       apiEvent.Event(
@@ -187,9 +183,7 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
-            witnessParties = exercisedEvent.flatEventWitnesses
-              .intersect(requestingParties.map(_.toString))
-              .toSeq,
+            witnessParties = requestingParties.view.filter(exercisedEvent.flatEventWitnesses).toSeq,
           )
         )
       )
@@ -198,7 +192,7 @@ private[events] object TransactionLogUpdatesConversions {
   object ToTransactionTree {
     def apply(
         tx: TransactionLogUpdate.Transaction,
-        requestingParties: Set[Party],
+        requestingParties: Set[String],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -231,10 +225,7 @@ private[events] object TransactionLogUpdatesConversions {
             Some(
               TransactionTree(
                 transactionId = tx.transactionId,
-                commandId = getCommandId(
-                  filteredForVisibility,
-                  requestingParties,
-                ),
+                commandId = getCommandId(filteredForVisibility, requestingParties),
                 workflowId = tx.workflowId,
                 effectiveAt = Some(instantToTimestamp(tx.effectiveAt)),
                 offset = ApiOffset.toApiString(tx.offset),
@@ -246,7 +237,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def toTransactionTreeEvent(
-        requestingParties: Set[Party],
+        requestingParties: Set[String],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
     )(event: TransactionLogUpdate.Event)(implicit
@@ -269,8 +260,9 @@ private[events] object TransactionLogUpdatesConversions {
             exercisedEvent,
           )
       }
+
     private def exercisedToTransactionTreeEvent(
-        requestingParties: Set[Party],
+        requestingParties: Set[String],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         exercisedEvent: ExercisedEvent,
@@ -326,9 +318,7 @@ private[events] object TransactionLogUpdatesConversions {
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,
             consuming = exercisedEvent.consuming,
-            witnessParties = exercisedEvent.treeEventWitnesses
-              .intersect(requestingParties.map(_.toString))
-              .toSeq,
+            witnessParties = requestingParties.view.filter(exercisedEvent.treeEventWitnesses).toSeq,
             childEventIds = exercisedEvent.children,
             exerciseResult = maybeExerciseResult,
           )
@@ -337,7 +327,7 @@ private[events] object TransactionLogUpdatesConversions {
     }
 
     private def createdToTransactionTreeEvent(
-        requestingParties: Set[Party],
+        requestingParties: Set[String],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
         createdEvent: CreatedEvent,
@@ -383,9 +373,7 @@ private[events] object TransactionLogUpdatesConversions {
             templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
             contractKey = maybeContractKey,
             createArguments = Some(createArguments),
-            witnessParties = createdEvent.treeEventWitnesses
-              .intersect(requestingParties.map(_.toString))
-              .toSeq,
+            witnessParties = requestingParties.view.filter(createdEvent.treeEventWitnesses).toSeq,
             signatories = createdEvent.createSignatories.toSeq,
             observers = createdEvent.createObservers.toSeq,
             agreementText = createdEvent.createAgreementText.orElse(Some("")),
@@ -394,16 +382,10 @@ private[events] object TransactionLogUpdatesConversions {
       )
     }
 
-    private val TransactionTreePredicate: Set[Party] => TransactionLogUpdate.Event => Boolean =
+    private val TransactionTreePredicate: Set[String] => TransactionLogUpdate.Event => Boolean =
       requestingParties => {
-        case createdEvent: CreatedEvent =>
-          createdEvent.treeEventWitnesses
-            .intersect(requestingParties.map(_.toString))
-            .nonEmpty
-        case exercised: ExercisedEvent =>
-          exercised.treeEventWitnesses
-            .intersect(requestingParties.map(_.toString))
-            .nonEmpty
+        case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
+        case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
       }
   }
 
@@ -412,14 +394,11 @@ private[events] object TransactionLogUpdatesConversions {
 
   private def getCommandId(
       flatTransactionEvents: Vector[TransactionLogUpdate.Event],
-      requestingParties: Set[Party],
+      requestingParties: Set[String],
   ) =
     flatTransactionEvents
       .collectFirst {
-        case event
-            if event.submitters
-              .intersect(requestingParties.map(_.toString))
-              .nonEmpty =>
+        case event if requestingParties.exists(event.submitters) =>
           event.commandId
       }
       .getOrElse("")

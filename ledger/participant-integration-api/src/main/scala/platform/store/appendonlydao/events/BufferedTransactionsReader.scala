@@ -18,6 +18,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
+import com.daml.platform.store.appendonlydao
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -40,7 +41,7 @@ private[events] class BufferedTransactionsReader(
         Map[events.Identifier, Set[String]],
         Boolean,
     ) => Future[Option[FlatTransaction]],
-    toTransactionTree: (TxUpdate, Set[Party], Boolean) => Future[Option[TransactionTree]],
+    toTransactionTree: (TxUpdate, Set[String], Boolean) => Future[Option[TransactionTree]],
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
@@ -56,19 +57,10 @@ private[events] class BufferedTransactionsReader(
     val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
     val wildcardParties = parties.keySet.map(_.toString)
 
-    val templateSpecificParties: Map[events.Identifier, Set[String]] = partiesTemplates
-      .foldLeft(Map.empty[Ref.Identifier, mutable.Builder[String, Set[String]]]) {
-        case (acc, (k, vs)) =>
-          vs.foldLeft(acc) { case (a, v) =>
-            a + (v -> (a.getOrElse(v, Set.newBuilder) += k))
-          }
-      }
-      .view
-      .map { case (k, v) => k -> v.result() }
-      .toMap
+    val templatesParties = invertMapping(partiesTemplates)
 
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, filter, verbose)(
-      toApiTx = toFlatTransaction(_, _, wildcardParties, templateSpecificParties, _),
+      toApiTx = toFlatTransaction(_, _, wildcardParties, templatesParties, _),
       apiResponseCtor = GetTransactionsResponse(_),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
       toApiTxTimer = metrics.daml.services.index.streamsBuffer.toFlatTransactions,
@@ -92,7 +84,8 @@ private[events] class BufferedTransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     getTransactions(transactionsBuffer)(startExclusive, endInclusive, requestingParties, verbose)(
-      toApiTx = toTransactionTree,
+      toApiTx = (tx: TxUpdate, requestingParties: Set[Party], verbose) =>
+        toTransactionTree(tx, requestingParties.map(_.toString), verbose),
       apiResponseCtor = GetTransactionTreesResponse(_),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
       toApiTxTimer = metrics.daml.services.index.streamsBuffer.toTransactionTrees,
@@ -139,6 +132,18 @@ private[events] class BufferedTransactionsReader(
     throw new UnsupportedOperationException(
       s"getTransactionLogUpdates is not supported on ${getClass.getSimpleName}"
     )
+
+  private def invertMapping(partiesTemplates: Map[Party, Set[appendonlydao.events.Identifier]]) =
+    partiesTemplates
+      .foldLeft(Map.empty[appendonlydao.events.Identifier, mutable.Builder[String, Set[String]]]) {
+        case (acc, (k, vs)) =>
+          vs.foldLeft(acc) { case (a, v) =>
+            a + (v -> (a.getOrElse(v, Set.newBuilder) += k))
+          }
+      }
+      .view
+      .map { case (k, v) => k -> v.result() }
+      .toMap
 }
 
 private[platform] object BufferedTransactionsReader {
