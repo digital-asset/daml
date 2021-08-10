@@ -30,7 +30,6 @@ class EncodeTypeSpec extends AnyFreeSpec with Matchers {
         Ast.BTDate -> "Date",
         Ast.BTContractId -> "ContractId",
         Ast.BTArrow -> "(->)",
-        Ast.BTAny -> "Any",
         Ast.BTTypeRep -> "TypeRep",
         Ast.BTAnyException -> "AnyException",
         Ast.BTRoundingMode -> "RoundingMode",

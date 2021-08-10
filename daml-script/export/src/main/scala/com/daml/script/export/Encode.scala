@@ -281,7 +281,9 @@ private[export] object Encode {
           case Ast.BTContractId => "ContractId"
           case Ast.BTArrow => "(->)"
           case Ast.BTAny =>
-            "Any" // TODO[AH] DA.Internal.LF.Any is not importable. How to handle this?
+            // We only need to encode types in type-class instances of serializable types.
+            // DA.Internal.LF.Any is not serializable and also cannot be imported.
+            throw new NotImplementedError("Encoding of Any is not implemented")
           case Ast.BTTypeRep => "TypeRep"
           case Ast.BTAnyException => "AnyException"
           case Ast.BTRoundingMode => "RoundingMode"
