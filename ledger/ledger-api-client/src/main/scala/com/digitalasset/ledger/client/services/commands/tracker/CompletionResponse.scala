@@ -21,7 +21,20 @@ object CompletionResponse {
   final case class TimeoutResponse(commandId: String) extends CompletionFailure
   final case class NoStatusInResponse(commandId: String) extends CompletionFailure
 
-  final case class CompletionSuccess(commandId: String, transactionId: String)
+  final case class CompletionSuccess(
+      commandId: String,
+      transactionId: String,
+      originalStatus: StatusProto,
+  )
+
+  object CompletionSuccess {
+
+    /** In most cases we're not interested in the original grpc status, as it's used only to keep backwards compatibility
+      */
+    def unapply(success: CompletionSuccess): Option[(String, String)] = {
+      Some(success.commandId, success.transactionId)
+    }
+  }
 
   def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] =
     completion.status match {
@@ -30,6 +43,7 @@ object CompletionResponse {
           CompletionSuccess(
             commandId = completion.commandId,
             transactionId = completion.transactionId,
+            grpcStatus,
           )
         )
       case Some(grpcStatus) =>
@@ -37,6 +51,31 @@ object CompletionResponse {
       case None =>
         Left(NoStatusInResponse(completion.commandId))
     }
+
+  /** For backwards compatibility, clients that are too coupled to [[Completion]] as a type can convert back from [[Either[CompletionFailure, CompletionSuccess]]]
+    */
+  def toCompletion(response: Either[CompletionFailure, CompletionSuccess]): Completion = {
+    response match {
+      case Left(failure) =>
+        failure match {
+          case NotOkResponse(commandId, grpcStatus) =>
+            Completion(commandId = commandId, status = Some(grpcStatus))
+          case TimeoutResponse(commandId) =>
+            Completion(
+              commandId = commandId,
+              status = Some(StatusProto(Code.ABORTED.value(), "Timeout")),
+            )
+          case NoStatusInResponse(commandId) =>
+            Completion(commandId = commandId)
+        }
+      case Right(success) =>
+        Completion(
+          commandId = success.commandId,
+          transactionId = success.transactionId,
+          status = Some(success.originalStatus),
+        )
+    }
+  }
 
   def toException(response: CompletionResponse.CompletionFailure): StatusRuntimeException = {
     val errorInfo = rpc.ErrorInfo.newBuilder().putAllMetadata(response.metadata.asJava).build()

@@ -43,7 +43,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
           } else {
             Ctx(
               context,
-              Right(CompletionResponse.CompletionSuccess(commands.commandId, "")),
+              Right(CompletionResponse.CompletionSuccess(commands.commandId, "", status)),
             )
           }
         case x =>

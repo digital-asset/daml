@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.logging.LoggingContext
+import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
@@ -49,7 +50,9 @@ class TrackerImplTest
       .queue[TrackerImpl.QueueInput](1, OverflowStrategy.dropNew)
       .map { in =>
         in.context.success(
-          Right(CompletionResponse.CompletionSuccess(in.value.getCommands.commandId, ""))
+          Right(
+            CompletionResponse.CompletionSuccess(in.value.getCommands.commandId, "", StatusProto())
+          )
         )
         NotUsed
       }

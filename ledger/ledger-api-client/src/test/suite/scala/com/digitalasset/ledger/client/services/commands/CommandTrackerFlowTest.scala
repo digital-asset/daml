@@ -71,6 +71,7 @@ class CommandTrackerFlowTest
       commandId,
       Some(Status(Code.ABORTED.value)),
     )
+  private val successStatus = Status(Code.OK.value)
   private val context = 1
   private val submitRequest = newSubmitRequest(commandId)
   private def newSubmitRequest(commandId: String, dedupTime: Option[JDuration] = None) = Ctx(
@@ -298,7 +299,9 @@ class CommandTrackerFlowTest
 
         completionStreamMock.send(successfulCompletion(commandId))
 
-        results.expectNext(Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, ""))))
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
         succeed
       }
 
@@ -357,7 +360,9 @@ class CommandTrackerFlowTest
         // The order below is important to reproduce the issue described in DPP-285.
         results.expectNoMessage()
         results.request(1)
-        results.expectNext(Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, ""))))
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
         succeed
       }
 
@@ -375,7 +380,9 @@ class CommandTrackerFlowTest
         completionStreamMock.send(successfulCompletion(commandId))
         completionStreamMock.send(successfulCompletion(commandId))
 
-        results.expectNext(Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, ""))))
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
         results.expectNoMessage(1.second)
         succeed
       }
@@ -430,7 +437,7 @@ class CommandTrackerFlowTest
 
         results.expectNextUnorderedN(commandIds.map { commandId =>
           val successCompletion =
-            Right(CompletionResponse.CompletionSuccess(commandId, ""))
+            Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus))
           Ctx(context, successCompletion)
         })
         succeed
@@ -461,7 +468,7 @@ class CommandTrackerFlowTest
             _ = results.expectNext(
               Ctx(
                 context,
-                Right(CompletionResponse.CompletionSuccess(commandId, "")),
+                Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)),
               )
             )
           } yield ()
@@ -501,7 +508,7 @@ class CommandTrackerFlowTest
   }
 
   private def successfulCompletion(commandId: String) =
-    CompletionStreamElement.CompletionElement(Completion(commandId, Some(Status())))
+    CompletionStreamElement.CompletionElement(Completion(commandId, Some(successStatus)))
 
   private def checkPoint(ledgerOffset: LedgerOffset) =
     CompletionStreamElement.CheckpointElement(
