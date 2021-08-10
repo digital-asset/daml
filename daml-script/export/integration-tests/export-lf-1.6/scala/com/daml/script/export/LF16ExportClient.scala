@@ -25,6 +25,7 @@ import com.daml.lf.archive.DarDecoder
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
 
 case class LF16ExportClientConfig(
     darPath: File,
@@ -219,7 +220,9 @@ object LF16ExportClient {
     val zipOut = new ZipOutputStream(out)
     def addFile(file: File): Unit = {
       val path = src.toPath.relativize(file.toPath)
-      val entry = new ZipEntry(path.toString)
+      // Section "4.4.17 file name" in ZIP specification https://pkware.cachefly.net/webdocs/APPNOTE/APPNOTE-6.3.9.TXT
+      // > All slashes MUST be forward slashes '/' as opposed to backwards slashes '\' [...]
+      val entry = new ZipEntry(path.iterator.asScala.mkString("/"))
       entry.setTime(0)
       zipOut.putNextEntry(entry)
       Files.copy(file.toPath, zipOut)
