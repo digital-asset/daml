@@ -111,10 +111,10 @@ private[apiserver] final class ApiSubmissionService private[services] (
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
-      ledgerConfigurationSubscription
-        .latestConfiguration()
-        .fold(Future.failed[Unit](ErrorFactories.missingLedgerConfig()))(ledgerConfiguration => {
-          if (writeService.isDeduplicationEnabled) {
+      val evaluatedCommand = ledgerConfigurationSubscription
+        .latestConfiguration() match {
+        case Some(ledgerConfiguration) =>
+          if (writeService.isApiDeduplicationEnabled) {
             deduplicateAndRecordOnLedger(
               seedService.nextSeed(),
               request.commands,
@@ -124,7 +124,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
             evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
               .transform(handleSubmissionResult)
           }
-        })
+        case None => Future.failed[Unit](ErrorFactories.missingLedgerConfig())
+      }
+      evaluatedCommand
         .andThen(logger.logErrorsOnCall[Unit])
     }
 

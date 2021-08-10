@@ -440,7 +440,7 @@ object ApiSubmissionServiceSpec {
         Some(Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ZERO))
     }
 
-    when(writeService.isDeduplicationEnabled).thenReturn(deduplicationEnabled)
+    when(writeService.isApiDeduplicationEnabled).thenReturn(deduplicationEnabled)
     when(
       mockIndexSubmissionService.deduplicateCommand(
         any[CommandId],

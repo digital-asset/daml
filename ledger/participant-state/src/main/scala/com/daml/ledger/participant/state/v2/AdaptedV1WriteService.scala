@@ -80,7 +80,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
 
   override def currentHealth(): HealthStatus = delegate.currentHealth()
 
-  override def isDeduplicationEnabled: Boolean = true
+  override def isApiDeduplicationEnabled: Boolean = true
 }
 
 private[v2] object AdaptedV1WriteService {
