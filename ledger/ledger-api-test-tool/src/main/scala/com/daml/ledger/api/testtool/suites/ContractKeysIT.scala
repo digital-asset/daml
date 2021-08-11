@@ -367,7 +367,7 @@ final class ContractKeysIT extends LedgerTestSuite {
   })
 
   test(
-    "CKDisclosedContractKeyReusability",
+    "CKDisclosedContractKeyReusabilityBasic",
     "Subsequent disclosed contracts can use the same contract key",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {

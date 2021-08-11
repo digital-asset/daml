@@ -13,11 +13,23 @@ class NamesSpec extends AnyWordSpec with Matchers {
     "only contain letters" in {
       all(allTestSuiteNames) should fullyMatch regex """[A-Za-z]+""".r
     }
+
+    "not be a prefix of any other name, so that each suite can be included independently" in {
+      allTestSuiteNames.foreach { name =>
+        all(allTestSuiteNames - name) should not startWith name
+      }
+    }
   }
 
   "test identifiers" should {
     "only contain letters and numbers, and start with a letter" in {
       all(allTestIdentifiers) should fullyMatch regex """[A-Za-z][A-Za-z0-9]*""".r
+    }
+
+    "not be a prefix of any other name, so that each test can be included independently" in {
+      allTestIdentifiers.foreach { testIdentifier =>
+        all(allTestIdentifiers - testIdentifier) should not startWith testIdentifier
+      }
     }
   }
 }

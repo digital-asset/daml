@@ -1001,7 +1001,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXSingleMultiSameTrees",
+    "TXSingleMultiSameTreesBasic",
     "The same transaction trees should be served regardless of subscribing as one or multiple parties",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
