@@ -56,9 +56,11 @@ private[store] object ParametersTable {
     )
 
   def getParticipantId(connection: Connection): Option[ParticipantId] =
-    SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.single)(
-      connection
-    )
+    SQL"select #$ParticipantIdColumnName from #$TableName"
+      .as(ParticipantIdParser.singleOpt)(
+        connection
+      )
+      .flatten
 
   def setParticipantId(participantId: String)(connection: Connection): Unit =
     discard(
