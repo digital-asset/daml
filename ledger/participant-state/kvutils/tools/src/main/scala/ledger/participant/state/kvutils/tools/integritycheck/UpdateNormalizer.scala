@@ -43,11 +43,10 @@ object PairwiseUpdateNormalizer {
       expectedUpdate: Update,
       actualUpdate: Update,
       normalizers: Iterable[PairwiseUpdateNormalizer],
-  ): (Update, Update) = {
+  ): (Update, Update) =
     normalizers.foldLeft(expectedUpdate -> actualUpdate) { case ((expected, actual), normalizer) =>
       normalizer.normalize(expected, actual)
     }
-  }
 }
 
 /** Ignores the record time set later by post-execution because it's unimportant.
