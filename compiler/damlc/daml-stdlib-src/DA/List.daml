@@ -31,7 +31,11 @@ module DA.List
   , replace
   , sort
   , sortBy
+  , minimumBy
+  , maximumBy
   , sortOn
+  , minimumOn
+  , maximumOn
   , stripPrefix
   , stripSuffix
   , stripInfix
@@ -112,6 +116,26 @@ sortBy : (a -> a -> Ordering) -> [a] -> [a]
 sortBy _ [] = []
 sortBy cmp xs = foldBalanced1 (mergeBy cmp) (map (:: []) xs)
 
+-- | `minimumBy f xs` returns the first element `x` of `xs` for which `f x y`
+-- is either `LT` or `EQ` for all other `y` in `xs`. `xs` must be non-empty.
+minimumBy : (a -> a -> Ordering) -> [a] -> a
+minimumBy _ [] = error "minimumBy: empty list"
+minimumBy f (x::xs) = foldl keep_min x xs
+  where keep_min acc e = case f acc e of
+                           LT -> acc
+                           EQ -> acc
+                           GT -> e
+
+-- | `maximumBy f xs` returns the first element `x` of `xs` for which `f x y`
+-- is either `GT` or `EQ` for all other `y` in `xs`. `xs` must be non-empty.
+maximumBy : (a -> a -> Ordering) -> [a] -> a
+maximumBy _ [] = error "maximumBy: empty list"
+maximumBy f (x::xs) = foldl keep_max x xs
+  where keep_max acc e = case f acc e of
+                           LT -> e
+                           EQ -> acc
+                           GT -> acc
+
 -- | Sort a list by comparing the results of a key function applied to
 -- each element. `sortOn f` is equivalent to `sortBy (comparing f)`,
 -- but has the performance advantage of only evaluating `f` once for
@@ -124,6 +148,28 @@ sortOn : Ord k => (a -> k) -> [a] -> [a]
 sortOn f = map snd . sortBy (compare `on` fst) . map (\x -> (f x, x))
   where
     on op f x y = f x `op` f y
+
+-- | `minimumOn f xs` returns the first element `x` of `xs` for which `f x`
+-- is smaller than or equal to any other `f y` for `y` in `xs`. `xs` must be
+-- non-empty.
+minimumOn : Ord k => (a -> k) -> [a] -> a
+minimumOn _ [] = error "minimumOn: empty list"
+minimumOn f (x::xs) = fst $ foldl keep_min (x, f x) xs
+  where keep_min (m, km) e = let ke = f e
+                             in if ke < km
+                                then (e, ke)
+                                else (m, km)
+
+-- | `maximumOn f xs` returns the first element `x` of `xs` for which `f x`
+-- is greater than or equal to any other `f y` for `y` in `xs`. `xs` must be
+-- non-empty.
+maximumOn : Ord k => (a -> k) -> [a] -> a
+maximumOn _ [] = error "maximumOn: empty list"
+maximumOn f (x::xs) = fst $ foldl keep_max (x, f x) xs
+  where keep_max (m, km) e = let ke = f e
+                             in if ke > km
+                                then (e, ke)
+                                else (m, km)
 
 -- | Merge two sorted lists using into a single, sorted whole, allowing
 -- the programmer to specify the comparison function.
