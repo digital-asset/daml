@@ -32,7 +32,7 @@ object CompletionResponse {
     /** In most cases we're not interested in the original grpc status, as it's used only to keep backwards compatibility
       */
     def unapply(success: CompletionSuccess): Option[(String, String)] = {
-      Some(success.commandId, success.transactionId)
+      Some(success.commandId -> success.transactionId)
     }
   }
 
