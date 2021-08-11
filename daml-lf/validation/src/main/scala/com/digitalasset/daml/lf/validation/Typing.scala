@@ -13,6 +13,7 @@ import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
 
 import scala.annotation.tailrec
+import scala.Ordering.Implicits.infixOrderingOps
 
 private[validation] object Typing {
 
@@ -286,8 +287,9 @@ private[validation] object Typing {
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
       val env = Env(langVersion, interface, ContextTemplate(tyConName), Map.empty)
       handleLookup(env.ctx, interface.lookupDataType(tyConName)) match {
-        case DDataType(_, ImmArray(), DataRecord(_)) =>
-          env.checkTemplate(tyConName, template)
+        case DDataType(_, params, DataRecord(_))
+            if params.isEmpty || langVersion >= LanguageVersion.Features.genericTemplates =>
+          env.checkTemplate(tyConName, params, template)
         case _ =>
           throw EExpectedTemplatableType(env.ctx, tyConName)
       }
@@ -390,7 +392,7 @@ private[validation] object Typing {
       fields.values.foreach(checkType(_, KStar))
     }
 
-    private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
+    private def checkChoice(tplType: Type, choice: TemplateChoice): Unit =
       choice match {
         case TemplateChoice(
               name @ _,
@@ -408,21 +410,32 @@ private[validation] object Typing {
           choiceObservers.foreach(
             introExprVar(param, paramType).checkExpr(_, TParties)
           )
-          introExprVar(selfBinder, TContractId(TTyCon(tplName)))
+          introExprVar(selfBinder, TContractId(tplType))
             .introExprVar(param, paramType)
             .checkExpr(update, TUpdate(returnType))
           ()
       }
 
-    def checkTemplate(tplName: TypeConName, template: Template): Unit = {
+    def checkTemplate(
+        tplName: TypeConName,
+        typeParams: ImmArray[(Name, Kind)],
+        template: Template,
+    ): Unit = {
       val Template(param, precond, signatories, agreementText, choices, observers, mbKey) =
         template
-      val env = introExprVar(param, TTyCon(tplName))
+      val tplType = typeParams.foldLeft[Type](TTyCon(tplName)) { case (acc, (name, _)) =>
+        TApp(acc, TVar(name))
+      }
+      val env = typeParams
+        .foldLeft[Env](this) { case (acc, (name, kind)) =>
+          acc.introTypeVar(name, kind)
+        }
+        .introExprVar(param, tplType) // TODO introduce typereps as well?
       env.checkExpr(precond, TBool)
       env.checkExpr(signatories, TParties)
       env.checkExpr(observers, TParties)
       env.checkExpr(agreementText, TText)
-      choices.values.foreach(env.checkChoice(tplName, _))
+      choices.values.foreach(env.checkChoice(tplType, _))
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkExpr(key.body, key.typ)
