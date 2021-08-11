@@ -29,20 +29,15 @@ final class RecordTimeIT extends LedgerTestSuite {
         )
       }
       checkpoints <- ledger.checkpoints(operations, ledger.begin)()
-      recordTimes = checkpoints.flatMap(_.recordTime)
     } yield {
-      val monotonicallyIncreasing = recordTimes
-        .foldLeft((true, None: Option[ProtoTimestamp])) {
-          case (false, _) -> _ => (false, None)
-          case (true, None) -> firstTimestamp => (true, Some(firstTimestamp))
-          case (true, Some(previousTimestamp)) -> newTimestamp =>
-            TimestampConverters
-              .asJavaInstant(previousTimestamp)
-              .isBefore(TimestampConverters.asJavaInstant(newTimestamp)) ->
-              Some(newTimestamp)
-        }
-        ._1
-      assert(monotonicallyIncreasing, "record time is not monotonically increasing")
+      val recordTimes = checkpoints
+        .flatMap(_.recordTime)
+        .map(TimestampConverters.asJavaInstant)
+      val monotonicallyIncreasing = recordTimes.sorted == recordTimes
+      assert(
+        monotonicallyIncreasing,
+        s"record times are not monotonically increasing: $recordTimes",
+      )
     }
   })
 }
