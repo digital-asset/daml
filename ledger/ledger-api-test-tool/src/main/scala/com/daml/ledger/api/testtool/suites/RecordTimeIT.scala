@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import scalapb.TimestampConverters
 
 import scala.concurrent.Future
