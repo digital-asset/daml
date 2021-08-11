@@ -16,7 +16,7 @@ class NamesSpec extends AnyWordSpec with Matchers {
 
     "not be a prefix of any other name, so that each suite can be included independently" in {
       allTestSuiteNames.foreach { name =>
-        all(allTestSuiteNames - name) should not startWith name
+        all(allTestSuiteNames.toSet - name) should not startWith name
       }
     }
   }
@@ -28,16 +28,25 @@ class NamesSpec extends AnyWordSpec with Matchers {
 
     "not be a prefix of any other name, so that each test can be included independently" in {
       allTestIdentifiers.foreach { testIdentifier =>
-        all(allTestIdentifiers - testIdentifier) should not startWith testIdentifier
+        all(allTestIdentifiers.toSet - testIdentifier) should not startWith testIdentifier
+      }
+    }
+  }
+
+  "full test names" should {
+    "be unique" in {
+      allTestNames.foreach { name =>
+        allTestNames.filter(_ == name) should have size 1
       }
     }
   }
 }
 
 object NamesSpec {
-  private val allTestSuites = (Tests.default() ++ Tests.optional ++ Tests.retired).toSet
-  private val allTestSuiteNames = allTestSuites.map(_.name)
+  private val allTestSuites = Tests.default() ++ Tests.optional ++ Tests.retired
+  private val allTestSuiteNames = allTestSuites.map(_.name).sorted
 
   private val allTests = allTestSuites.flatMap(_.tests)
   private val allTestIdentifiers = allTests.map(_.shortIdentifier)
+  private val allTestNames = allTests.map(_.name).sorted
 }
