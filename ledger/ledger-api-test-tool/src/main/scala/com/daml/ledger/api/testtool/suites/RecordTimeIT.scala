@@ -14,7 +14,7 @@ import scala.concurrent.Future
 
 final class RecordTimeIT extends LedgerTestSuite {
   test(
-    "RecordTimeMonotonicallyIncreasing",
+    "RTMonotonicallyIncreasing",
     "Record Time increases monotonically",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
