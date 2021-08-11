@@ -31,8 +31,8 @@ object UpdateNormalizer {
 }
 
 /** Normalizes the expected and/or actual updates based on their counterparts.
-  * Useful when scalar update normalization is not possible.
-  * (e.g. ensure contents of one update are a superset of the ones in the other update)
+  * Useful when independent update normalization is not possible
+  * (e.g. ensuring that the content of the actual update is a super-set of the content of the expected update).
   */
 trait PairwiseUpdateNormalizer {
   def normalize(expectedUpdate: Update, actualUpdate: Update): (Update, Update)

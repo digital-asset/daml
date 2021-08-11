@@ -34,7 +34,7 @@ final class StateUpdateComparisonSpec
       val right = aConfigurationChangeRejected.copy(rejectionReason = "another reason")
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, List.empty, List.empty, List.empty)
+        .compareUpdates(left, right, Iterable.empty, Iterable.empty, Iterable.empty)
         .map(_ => succeed)
     }
 
