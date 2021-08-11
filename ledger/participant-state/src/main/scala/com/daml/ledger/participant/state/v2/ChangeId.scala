@@ -7,22 +7,20 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 
 /** Identifier for ledger changes used by command deduplication
+  * Equality is defined in terms of the cryptographic hash.
   *
   * @see ReadService.stateUpdates for the command deduplication guarantee
   */
-final class ChangeId(
+final case class ChangeId(
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
     actAs: Set[Ref.Party],
-) extends scala.Equals {
+) {
 
   /** A stable hash of the change id.
     * Suitable for storing in persistent storage.
     */
   val hash: Hash = Hash.hashChangeId(applicationId, commandId, actAs)
-
-  @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
-  override def canEqual(that: Any): Boolean = that.isInstanceOf[ChangeId]
 
   override def equals(that: Any): Boolean = that match {
     case other: ChangeId =>
@@ -32,16 +30,4 @@ final class ChangeId(
   }
 
   override def hashCode(): Int = hash.hashCode()
-
-  override def toString: String =
-    s"ChangeId(applicationId=$applicationId, command ID=$commandId, actAs={${actAs.mkString(", ")}})"
-}
-
-object ChangeId {
-  def apply(
-      applicationId: Ref.ApplicationId,
-      commandId: Ref.CommandId,
-      actAs: Set[Ref.Party],
-  ): ChangeId =
-    new ChangeId(applicationId, commandId, actAs)
 }
