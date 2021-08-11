@@ -8,7 +8,7 @@ import com.google.protobuf.Any
 import com.google.rpc
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status.Code
-import io.grpc.{StatusRuntimeException, protobuf}
+import io.grpc.{StatusException, protobuf}
 
 import scala.jdk.CollectionConverters._
 
@@ -77,7 +77,7 @@ object CompletionResponse {
     }
   }
 
-  def toException(response: CompletionResponse.CompletionFailure): StatusRuntimeException = {
+  def toException(response: CompletionResponse.CompletionFailure): StatusException = {
     val errorInfo = rpc.ErrorInfo.newBuilder().putAllMetadata(response.metadata.asJava).build()
     val details = Any.pack(errorInfo)
     val status = response match {
@@ -91,7 +91,7 @@ object CompletionResponse {
           .setCode(Code.INTERNAL.value())
           .setMessage("Missing status in completion response.")
     }
-    protobuf.StatusProto.toStatusRuntimeException(
+    protobuf.StatusProto.toStatusException(
       status
         .addDetails(details)
         .build()
