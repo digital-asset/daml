@@ -41,12 +41,12 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 3,
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 3,
+      size           = 0,
     }
   ]
 }
@@ -67,6 +67,7 @@ resource "google_compute_instance_template" "hoogle" {
   metadata_startup_script = <<STARTUP
 #! /bin/bash
 set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get -y upgrade
 ### stackdriver
