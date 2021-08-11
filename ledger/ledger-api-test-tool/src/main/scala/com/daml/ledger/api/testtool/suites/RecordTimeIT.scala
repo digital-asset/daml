@@ -34,7 +34,7 @@ final class RecordTimeIT extends LedgerTestSuite {
         .map(TimestampConverters.asJavaInstant)
       val monotonicallyIncreasing = recordTimes.sorted == recordTimes
       assert(
-        monotonicallyIncreasing,
+        recordTimes.sorted == recordTimes,
         s"record times are not monotonically increasing: $recordTimes",
       )
     }
