@@ -19,7 +19,7 @@ import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
 import com.daml.platform.store.cache.{EventsBuffer, MutableCacheBackedContractStore}
@@ -74,8 +74,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
       Dispatcher.owner(
         name = "transaction-log-updates",
-        zeroIndex =
-          (Offset.beforeBegin, 0L), // TODO: append-only: FIXME consolidating parameters table
+        zeroIndex = (Offset.beforeBegin, EventSequentialId.zero),
         headAtInitialization = (ledgerEnd, evtSeqId),
       )
     }

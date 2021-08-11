@@ -15,6 +15,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
@@ -399,6 +400,6 @@ private[platform] object MutableCacheBackedContractStore {
 
     def get: Option[(Offset, EventSequentialId)] = offsetRef.get()
 
-    def getSequentialId: EventSequentialId = get.map(_._2).getOrElse(0L)
+    def getSequentialId: EventSequentialId = get.map(_._2).getOrElse(EventSequentialId.zero)
   }
 }
