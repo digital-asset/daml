@@ -98,4 +98,6 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       submissionId: Ref.SubmissionId,
   ): CompletionStage[state.PruningResult] =
     CompletableFuture.completedFuture(state.PruningResult.NotPruned(Status.UNIMPLEMENTED))
+
+  override def isApiDeduplicationEnabled: Boolean = true
 }

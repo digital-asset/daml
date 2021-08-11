@@ -81,4 +81,6 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
+
+  override def isApiDeduplicationEnabled: Boolean = delegate.isApiDeduplicationEnabled
 }
