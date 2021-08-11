@@ -223,7 +223,7 @@ object Hash {
   }
 
   // The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
-  // Each purpose should be used at most one.
+  // Each purpose should be used at most once.
   private[crypto] case class Purpose(id: Byte)
 
   private[crypto] object Purpose {
