@@ -38,7 +38,19 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/      @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
 /ledger-api/  @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
 
-/ledger/participant-state/kvutils/ @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
+/ledger/ledger-api-common/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
+/ledger/ledger-api-domain/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
+/ledger/ledger-api-health/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
+/ledger/ledger-api-test-tool/       @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
+/ledger/ledger-configuration/       @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
+/ledger/ledger-offset/              @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
+
+/ledger/ledger-on-memory/           @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
+/ledger/ledger-on-sql/              @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
+/ledger/participant-state/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
+/ledger/participant-state-index/    @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
+/ledger/participant-state-metrics/  @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
+/ledger/sandbox/                    @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
 
 /runtime-components/    @stefanobaghino-da @cocreature
 
