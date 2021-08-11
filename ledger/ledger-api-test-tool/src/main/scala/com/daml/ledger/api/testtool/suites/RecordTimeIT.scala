@@ -34,9 +34,13 @@ final class RecordTimeIT extends LedgerTestSuite {
         .flatMap(_.recordTime)
         .map(TimestampConverters.asJavaInstant)
       assertLength("As many record times as submissions", operations, recordTimes)
+      val unsorted = recordTimes
+        .zip(recordTimes.sorted)
+        .filter { case (produced, sorted) => produced != sorted }
+        .map(_._1)
       assert(
-        recordTimes.sorted == recordTimes,
-        s"record times are not monotonically increasing: $recordTimes",
+        unsorted.isEmpty,
+        s"some record times are not monotonically increasing: $unsorted", // Instants will be printed in instant ISO format
       )
     }
   })
