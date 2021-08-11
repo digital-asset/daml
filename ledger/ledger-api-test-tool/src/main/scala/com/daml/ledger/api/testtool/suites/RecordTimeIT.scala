@@ -18,9 +18,9 @@ final class RecordTimeIT extends LedgerTestSuite {
     "Record Time increases monotonically",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val operations = 50
+    val submissions = 50
     for {
-      _ <- Future.traverse(1 to operations) { number =>
+      _ <- Future.traverse(1 to submissions) { number =>
         ledger.allocateParty(
           partyIdHint = Some(
             s"recordTimeMonotonicallyIncreasing_${number}_" + Random.alphanumeric.take(100).mkString
@@ -28,12 +28,12 @@ final class RecordTimeIT extends LedgerTestSuite {
           displayName = Some(s"Clone $number"),
         )
       }
-      checkpoints <- ledger.checkpoints(operations, ledger.begin)(party)
+      checkpoints <- ledger.checkpoints(submissions, ledger.begin)(party)
     } yield {
       val recordTimes = checkpoints
         .flatMap(_.recordTime.toList)
         .map(TimestampConverters.asJavaInstant)
-      assertLength("As many record times as submissions", operations, recordTimes)
+      assertLength("As many record times as submissions", submissions, recordTimes)
       val unsorted = recordTimes
         .zip(recordTimes.sorted)
         .filter { case (produced, sorted) => produced != sorted }
