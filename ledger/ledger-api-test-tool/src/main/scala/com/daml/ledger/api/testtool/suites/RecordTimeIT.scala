@@ -34,7 +34,7 @@ final class RecordTimeIT extends LedgerTestSuite {
         .map(_._1)
       assert(
         unsorted.isEmpty,
-        s"some record times are not monotonically increasing: $unsorted", // Instants will be printed in instant ISO format
+        s"some record times are not monotonically increasing: $unsorted", // Instants will be printed in ISO format
       )
     }
   })
