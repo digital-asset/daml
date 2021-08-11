@@ -40,6 +40,7 @@ object Tests {
       new PackageServiceIT,
       new PartyManagementServiceIT,
       new RaceConditionIT,
+      new RecordTimeIT,
       new SemanticTests,
       new TransactionServiceIT,
       new ValueLimitsIT,
