@@ -19,12 +19,12 @@ final class RecordTimeIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val submissions = 100
-
     for {
+      startOffset <- ledger.currentEnd()
       _ <- Future.traverse(1 to submissions) { _ =>
         ledger.create(party, Dummy(party))
       }
-      checkpoints <- ledger.checkpoints(submissions, ledger.begin)(party)
+      checkpoints <- ledger.checkpoints(submissions, startOffset)(party)
     } yield {
 
       val recordTimes = checkpoints
