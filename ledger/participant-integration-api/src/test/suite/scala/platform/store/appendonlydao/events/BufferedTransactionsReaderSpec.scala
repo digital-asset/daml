@@ -96,6 +96,7 @@ class BufferedTransactionsReaderSpec
           toApiTx = toApiTx,
           apiResponseCtor = apiResponseCtor,
           fetchTransactions = fetchTransactions,
+          toApiTxTimer = metrics.daml.services.index.streamsBuffer.toTransactionTrees,
           sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
           resolvedFromBufferCounter =
             metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
