@@ -31,7 +31,7 @@ final class RecordTimeIT extends LedgerTestSuite {
       checkpoints <- ledger.checkpoints(operations, ledger.begin)()
     } yield {
       val recordTimes = checkpoints
-        .flatMap(_.recordTime)
+        .flatMap(_.recordTime.toList)
         .map(TimestampConverters.asJavaInstant)
       assertLength("As many record times as submissions", operations, recordTimes)
       val unsorted = recordTimes
