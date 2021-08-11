@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import scalapb.TimestampConverters
 
@@ -32,7 +33,7 @@ final class RecordTimeIT extends LedgerTestSuite {
       val recordTimes = checkpoints
         .flatMap(_.recordTime)
         .map(TimestampConverters.asJavaInstant)
-      val monotonicallyIncreasing = recordTimes.sorted == recordTimes
+      assertLength("As many record times as submissions", operations, recordTimes)
       assert(
         recordTimes.sorted == recordTimes,
         s"record times are not monotonically increasing: $recordTimes",
