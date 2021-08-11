@@ -20,19 +20,17 @@ final class RecordTimeIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val submissions = 100
     for {
-      startOffset <- ledger.currentEnd()
       _ <- Future.traverse(1 to submissions) { _ =>
         ledger.create(party, Dummy(party))
       }
-      checkpoints <- ledger.checkpoints(submissions, startOffset)(party)
+      checkpoints <- ledger.checkpoints(submissions, ledger.begin)(party)
     } yield {
+      assertLength(s"At least $submissions checkpoints available", submissions, checkpoints)
 
       val recordTimes = checkpoints
         .collect { case Checkpoint(Some(recordTime), Some(offset)) => recordTime -> offset }
         .sortBy(_._2.getAbsolute)
         .map { case (recordTime, _) => TimestampConverters.asJavaInstant(recordTime) }
-      assertLength("As many record times as submissions", submissions, recordTimes)
-
       val wronglySortedRecordTimes = recordTimes
         .zip(recordTimes.sorted)
         .filter { case (produced, sorted) => produced != sorted }
