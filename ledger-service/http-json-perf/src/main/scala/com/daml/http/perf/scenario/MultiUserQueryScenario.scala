@@ -3,20 +3,27 @@
 
 package com.daml.http.perf.scenario
 
+import com.daml.http.perf.scenario.MultiUserQueryScenario._
 import io.gatling.core.Predef._
+import io.gatling.core.structure.PopulationBuilder
 import io.gatling.http.Predef._
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
-import scala.util.Random
 
 private[scenario] trait HasRandomCurrency {
-  private val rng = new scala.util.Random(123456789)
+  protected val rng = new scala.util.Random(123456789)
   final val currencies = List("USD", "GBP", "EUR", "CHF", "AUD")
 
   def randomCurrency(): String = {
     this.synchronized { rng.shuffle(currencies).head }
   }
+}
+
+object MultiUserQueryScenario {
+  sealed trait RunMode { def name: String }
+  case object PopulateCache extends RunMode { val name = "populateCache" }
+  case object FetchByKey extends RunMode { val name = "fetchByKey" }
+  case object FetchByQuery extends RunMode { val name = "fetchByQuery" }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -26,19 +33,28 @@ class MultiUserQueryScenario
     with HasRandomAmount
     with HasRandomCurrency {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private def getEnvValueAsInt(key: String, default: Int) = {
+    sys.env.get(key).map(_.toInt).getOrElse(default)
+  }
 
   //hardcoded for now , needs to be made configurable on cli
-  private val numRecords = 100000
-  private val numQueries = 1000
-  private val numWriters = 10
-  private val numReaders = 100
+  private val numRecords = getEnvValueAsInt("NUM_RECORDS", 100000)
+  private val numQueries = getEnvValueAsInt("NUM_QUERIES", 1000)
+  private val numWriters = getEnvValueAsInt("NUM_WRITERS", 10)
+  private val numReaders = getEnvValueAsInt("NUM_READERS", 100)
+  private val runModeString = sys.env.getOrElse("RUN_MODE", "populateCache")
 
-  private val msgIds = Range(0, numRecords).toList
-  private val msgIdIter = msgIds.iterator
+  def runMode(mode: String): RunMode = {
+    mode match {
+      case PopulateCache.name => PopulateCache
+      case FetchByKey.name => FetchByKey
+      case FetchByQuery.name => FetchByQuery
+    }
+  }
 
-  def incrementalId = msgIdIter.next()
-  def queryId: Int = Random.shuffle(msgIds).head
+  private val msgIds = (1 to numRecords).toList
+
+  private def queryId: Int = rng.shuffle(msgIds).head
 
   private val createRequest =
     http("CreateCommand")
@@ -51,11 +67,11 @@ class MultiUserQueryScenario
     "owner": "Alice",
     "currency": "${currency}",
     "amount": "${amount}",
-    "observers": []
+    "observers": ["Bob", "Trent"]
   }
 }"""))
 
-  private val queryRequest =
+  private val fetchByQueryRequest =
     http("SyncIdQueryRequest")
       .post("/v1/query")
       .body(StringBody("""{
@@ -63,27 +79,33 @@ class MultiUserQueryScenario
           "query": {"id": "${id}"}
       }"""))
 
-  private val writeScn = scenario("Write100kContracts")
-    .repeat(numRecords / numWriters) {
-      feed(
-        Iterator.continually(
-          Map(
-            "id" -> String.valueOf(incrementalId),
-            "currency" -> randomCurrency(),
-            "amount" -> randomAmount(),
+  private val writeScn = {
+    val iter = msgIds.iterator
+    scenario("Write100kContracts")
+      .repeat(numRecords / numWriters) {
+        feed(
+          Iterator.continually(
+            Map(
+              "id" -> String.valueOf(iter.next()),
+              "currency" -> randomCurrency(),
+              "amount" -> randomAmount(),
+            )
           )
         )
-      )
-        .exec(createRequest)
-    }
+          .exec(createRequest)
+      }
+  }
 
-  private val idReadScn = scenario("MultipleReadersQueryScenario")
-    .repeat(numQueries / numReaders) {
-      feed(Iterator.continually(Map("id" -> String.valueOf(queryId))))
-        .exec(queryRequest)
-    }
+  private val fetchByQueryScn = {
+    val iter = msgIds.iterator
+    scenario("MultipleReadersByQueryScenario")
+      .repeat(numQueries / numReaders) {
+        feed(Iterator.continually(Map("id" -> String.valueOf(iter.next()))))
+          .exec(fetchByQueryRequest)
+      }
+  }
 
-  private val fetchRequest =
+  private val fetchByKeyRequest =
     http("SyncFetchRequest")
       .post("/v1/fetch")
       .body(StringBody("""{
@@ -103,40 +125,48 @@ class MultiUserQueryScenario
       }"""))
 
   // Scenario to fetch a subset of the ACS population
-  private val currQueryScn = scenario("MultipleReadersCurrQueryScenario")
-    .repeat(numQueries / numReaders) {
-      feed(Iterator.continually(Map("currency" -> randomCurrency())))
-        .exec(currencyQueryRequest)
-    }
+  private def currQueryScn(numIterations: Int, curr: () => String) =
+    scenario("MultipleReadersCurrQueryScenario")
+      .repeat(numIterations) {
+        feed(Iterator.continually(Map("currency" -> curr())))
+          .exec(currencyQueryRequest)
+      }
 
   //fetch by key scenario
-  private val fetchScn = scenario("MultipleReadersFetchScenario")
+  private val fetchByKeyScn = scenario("MultipleReadersByKeyScenario")
     .repeat(numQueries / numReaders) {
       feed(Iterator.continually(Map("id" -> String.valueOf(queryId))))
-        .exec(fetchRequest)
+        .exec(fetchByKeyRequest)
     }
 
-  logger.debug(s"Scenarios defined $fetchScn $currQueryScn $idReadScn $writeScn")
+  def getPopulationBuilder(runMode: RunMode): PopulationBuilder = {
+    runMode match {
+      case PopulateCache =>
+        val currIter = currencies.iterator
+        writeScn
+          .inject(atOnceUsers(numWriters))
+          .andThen(
+            currQueryScn(numIterations = currencies.size, () => currIter.next())
+              .inject(
+                nothingFor(2.seconds),
+                atOnceUsers(1),
+              )
+          )
+      case FetchByKey =>
+        fetchByKeyScn.inject(
+          nothingFor(5.seconds),
+          atOnceUsers(numReaders / 2),
+          rampUsers(numReaders / 2).during(10.seconds),
+        )
+      case FetchByQuery =>
+        fetchByQueryScn.inject(
+          nothingFor(2.seconds),
+          atOnceUsers(numReaders),
+        )
+    }
+  }
+
   setUp(
-    writeScn
-      .inject(atOnceUsers(numWriters))
-      .andThen(
-//      fetchScn.inject(
-//        nothingFor(5.seconds),
-//        atOnceUsers(numReaders/2),
-//        rampUsers(numReaders/2).during(10.seconds)).andThen(
-//        idReadScn.inject(
-//          nothingFor(2.seconds),
-//          atOnceUsers(numReaders)).andThen(
-//          currQueryScn.inject(
-//            nothingFor(2.seconds),
-//            atOnceUsers(numReaders))
-//        )
-//      )
-        idReadScn.inject(nothingFor(5.seconds), atOnceUsers(numReaders))
-//      fetchScn.inject(
-//        nothingFor(5.seconds),
-//        atOnceUsers(numReaders))
-      )
+    getPopulationBuilder(runMode(runModeString))
   ).protocols(httpProtocol)
 }
