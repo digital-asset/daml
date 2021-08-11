@@ -24,6 +24,8 @@ import com.daml.platform.store.Conversions.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.common.MismatchException
 import com.daml.platform.store.Conversions
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
@@ -36,6 +38,8 @@ import scala.collection.mutable
 import scalaz.syntax.tag._
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
+
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   // Ingestion
 
@@ -153,34 +157,57 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   override def initializeParameters(
       params: StorageBackend.IdentityParams
-  )(connection: Connection): StorageBackend.InitializationResult = {
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Try[Unit] = {
     // Note: this method is the only one that inserts a row into the parameters table
-    // To prevent inserting more than one row, we can:
-    // - get an exclusive lock for the whole table (H2 does not support table locks)
-    // - add a unique constraint or trigger to the table (might have a performance impact)
-    // - read all rows before inserting a new row, while using serializable isolation level
-    // We use the last approach (the isolation level is set by the caller).
     val previous = ledgerIdentity(connection)
     val ledgerId = params.ledgerId
     val participantId = params.participantId
     previous match {
       case StorageBackend.OptionalIdentityParams(None, _) =>
         // ledgerId is not null, this is the case where the the parameters table is empty
+        logger.info(
+          s"Initializing new database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
+        )
         discard(
           SQL"insert into #$TableName(#$LedgerIdColumnName, #$ParticipantIdColumnName) values(${ledgerId.unwrap}, ${participantId.unwrap: String})"
             .execute()(connection)
         )
-        StorageBackend.InitializationResult.New
+        Success(())
       case StorageBackend.OptionalIdentityParams(Some(`ledgerId`), None) =>
+        logger.info(
+          s"Found existing database for ledgerId '${params.ledgerId}', initializing participantId '${params.participantId}'"
+        )
         discard(
           SQL"update #$TableName set #$ParticipantIdColumnName=${participantId.unwrap: String}"
             .execute()(connection)
         )
-        StorageBackend.InitializationResult.New
+        Success(())
       case StorageBackend.OptionalIdentityParams(Some(`ledgerId`), Some(`participantId`)) =>
-        StorageBackend.InitializationResult.AlreadyExists
-      case StorageBackend.OptionalIdentityParams(Some(lid), pid) =>
-        StorageBackend.InitializationResult.Mismatch(lid, pid)
+        logger.info(
+          s"Found existing database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
+        )
+        Success(())
+      case StorageBackend.OptionalIdentityParams(_, Some(existing))
+          if existing != params.participantId =>
+        logger.error(
+          s"Found existing database with mismatching participantId: existing '$existing', provided '${params.participantId}'"
+        )
+        Failure(
+          new MismatchException.ParticipantId(
+            existing = existing,
+            provided = params.participantId,
+          )
+        )
+      case StorageBackend.OptionalIdentityParams(Some(existing), _) =>
+        logger.error(
+          s"Found existing database with mismatching ledgerId: existing '$existing', provided '${params.ledgerId}'"
+        )
+        Failure(
+          new MismatchException.LedgerId(
+            existing = existing,
+            provided = params.ledgerId,
+          )
+        )
     }
   }
 

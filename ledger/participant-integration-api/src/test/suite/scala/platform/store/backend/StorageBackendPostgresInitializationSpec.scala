@@ -5,10 +5,12 @@ package com.daml.platform.store.backend
 
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.lf.data.Ref
+import com.daml.platform.common.MismatchException
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 final class StorageBackendPostgresInitializationSpec
     extends AsyncFlatSpec
@@ -51,16 +53,25 @@ final class StorageBackendPostgresInitializationSpec
       result4 <- executeSql(
         storageBackend.initializeParameters(
           StorageBackend.IdentityParams(
+            ledgerId = otherLedgerId,
+            participantId = otherParticipantId,
+          )
+        )
+      )
+      result5 <- executeSql(
+        storageBackend.initializeParameters(
+          StorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
           )
         )
       )
     } yield {
-      result1 shouldBe StorageBackend.InitializationResult.New
-      result2 shouldBe StorageBackend.InitializationResult.Mismatch(ledgerId, Some(participantId))
-      result3 shouldBe StorageBackend.InitializationResult.Mismatch(ledgerId, Some(participantId))
-      result4 shouldBe StorageBackend.InitializationResult.AlreadyExists
+      result1 should matchPattern { case Success(_) => }
+      result2 should matchPattern { case Failure(MismatchException.LedgerId(_, _)) => }
+      result3 should matchPattern { case Failure(MismatchException.ParticipantId(_, _)) => }
+      result4 should matchPattern { case Failure(MismatchException.ParticipantId(_, _)) => }
+      result5 should matchPattern { case Success(_) => }
     }
   }
 
@@ -93,10 +104,7 @@ final class StorageBackendPostgresInitializationSpec
         )
       )
     } yield {
-      result.collect { case Some(StorageBackend.InitializationResult.New) =>
-        true
-      } should have length 1
-      result.collect { case Some(StorageBackend.InitializationResult.Mismatch(_, _)) =>
+      result.collect { case Some(Failure(_)) =>
         true
       } should have length 0
     }

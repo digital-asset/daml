@@ -138,20 +138,16 @@ private class JdbcLedgerDao(
       ledgerId: LedgerId,
       participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
-      implicit connection =>
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.initializeLedgerParameters) { implicit connection =>
         storageBackend.initializeParameters(
           StorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
           )
-        )(connection) match {
-          case StorageBackend.InitializationResult.AlreadyExists => ()
-          case StorageBackend.InitializationResult.New => ()
-          case StorageBackend.InitializationResult.Mismatch(lid, pid) =>
-            throw new RuntimeException(s"Mismatch $lid, $pid")
-        }
-    }
+        )(connection)
+      }
+      .flatMap(result => Future.fromTry(result))(DEC)
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext

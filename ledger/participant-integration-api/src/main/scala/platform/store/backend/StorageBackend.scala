@@ -109,14 +109,11 @@ trait ParameterStorageBackend {
     *  - Ledger identity parameters are written at most once, and are never overwritten.
     *  No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
-    *  This method is NOT save to call concurrently. Use either explicit locking
-    *  (see [[DBLockStorageBackend.tryAcquire]]) or a SERIALIZABLE transaction isolation level
-    *  to make sure the above described behavior works correctly if multiple users try to call this
-    *  method at the same time.
+    *  This method is NOT safe to call concurrently.
     */
-  def initializeParameters(params: StorageBackend.IdentityParams)(
-      connection: Connection
-  ): StorageBackend.InitializationResult
+  def initializeParameters(params: StorageBackend.IdentityParams)(connection: Connection)(implicit
+      loggingContext: LoggingContext
+  ): Try[Unit]
   def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams
 }
 
@@ -297,22 +294,6 @@ object StorageBackend {
       ledgerId: Option[LedgerId],
       participantId: Option[ParticipantId],
   )
-
-  sealed abstract class InitializationResult
-  object InitializationResult {
-
-    /** The stored ledgerId and participantId both contained the expected value. */
-    case object AlreadyExists extends InitializationResult
-
-    /** Either the stored ledgerId or the stored participantId contained an unexpected value. */
-    final case class Mismatch(
-        existingLedgerId: LedgerId,
-        existingParticipantId: Option[ParticipantId],
-    ) extends InitializationResult
-
-    /** The stored ledgerId and/or participantId was empty. It was updated to the expected value. */
-    case object New extends InitializationResult
-  }
 
   case class RawContractState(
       templateId: Option[String],

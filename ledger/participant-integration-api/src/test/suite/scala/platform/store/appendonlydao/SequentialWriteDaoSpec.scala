@@ -10,8 +10,9 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
-import com.daml.platform.store.backend.StorageBackend.{OptionalLedgerEnd, LedgerEnd}
+import com.daml.platform.store.backend.StorageBackend.{LedgerEnd, OptionalLedgerEnd}
 import com.daml.platform.store.backend.{
   DbDto,
   IngestionStorageBackend,
@@ -21,6 +22,8 @@ import com.daml.platform.store.backend.{
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.util.Try
 
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
@@ -105,7 +108,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     override def initializeParameters(params: StorageBackend.IdentityParams)(
         connection: Connection
-    ): StorageBackend.InitializationResult =
+    )(implicit loggingContext: LoggingContext): Try[Unit] =
       throw new UnsupportedOperationException
 
     override def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams =
