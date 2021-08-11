@@ -22,6 +22,7 @@ import com.daml.ledger.api.v1.transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.domain
 import com.daml.lf.archive.DarDecoder
+import com.daml.SdkVersion
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -198,7 +199,7 @@ object LF16ExportClient {
           parties = Seq("Alice"),
           exportType = Some(
             Config.EmptyExportScript.copy(
-              sdkVersion = "0.0.0",
+              sdkVersion = SdkVersion.sdkVersion,
               outputPath = outputPath,
             )
           ),

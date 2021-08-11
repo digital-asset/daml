@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.Duration
 
+import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.{RunnerConfig, RunnerMain}
@@ -107,7 +108,7 @@ object ExampleExportClient {
           parties = Seq("Alice", "Bob"),
           exportType = Some(
             Config.EmptyExportScript.copy(
-              sdkVersion = "0.0.0",
+              sdkVersion = SdkVersion.sdkVersion,
               outputPath = outputPath,
             )
           ),

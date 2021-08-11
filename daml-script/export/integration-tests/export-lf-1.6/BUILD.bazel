@@ -33,6 +33,7 @@ da_scala_binary(
         "@maven//:com_github_scopt_scopt",
     ],
     deps = [
+        "//:sdk-version-scala-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -79,6 +80,7 @@ DAMLC=$$(canonicalize_rlocation $(rootpath //compiler/damlc))
 unzip $$(canonicalize_rlocation $(rootpath :lf16-export.zip)) -d $$tmpdir
 cp -L $$(canonicalize_rlocation $(rootpath //daml-script/daml:daml-script-1.7.dar)) $$tmpdir/
 sed -i.bak 's/daml-script/daml-script-1.7.dar/' $$tmpdir/daml.yaml
+cat $$tmpdir/daml.yaml
 DAML_PROJECT=$$tmpdir $$DAMLC build
 """,
     data = [
