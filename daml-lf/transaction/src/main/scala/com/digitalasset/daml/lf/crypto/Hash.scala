@@ -232,6 +232,7 @@ object Hash {
     val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
     val ContractInstance = Purpose(5)
+    val ChangeId = Purpose(6)
   }
 
   // package private for testing purpose.
@@ -332,6 +333,17 @@ object Hash {
       arg: Value[Value.ContractId],
   ): Either[String, Hash] =
     handleError(assertHashContractInstance(templateId, arg))
+
+  def hashChangeId(
+      applicationId: Ref.ApplicationId,
+      commandId: Ref.CommandId,
+      actAs: Set[Ref.Party],
+  ): Hash =
+    builder(Purpose.ChangeId, noCid2String)
+      .add(applicationId)
+      .add(commandId)
+      .addStringSet(actAs)
+      .build
 
   def deriveSubmissionSeed(
       nonce: Hash,
