@@ -34,7 +34,7 @@ class StateUpdateExporterSpec
   import StateUpdateExporterSpec._
 
   private[this] implicit val materializer: Materializer = Materializer(system)
-  private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
+  private[this] implicit val ec: ExecutionContext = materializer.executionContext
 
   override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
