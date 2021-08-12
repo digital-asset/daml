@@ -72,8 +72,8 @@ class Normalization[Nid, Cid] {
 
       case old: NodeCreate[_] =>
         old
-          .copy(arg = normValue(old.arg))
-          .copy(key = old.key.map(normKWM))
+          .copy(arg = normValue(old.version)(old.arg))
+          .copy(key = old.key.map(normKWM(old.version)))
 
       case old: NodeFetch[_] =>
         (if (old.version >= TransactionVersion.minByKey) {
@@ -82,7 +82,7 @@ class Normalization[Nid, Cid] {
            old.copy(byKey = false)
          })
           .copy(
-            key = old.key.map(normKWM)
+            key = old.key.map(normKWM(old.version))
           )
 
       case old: NodeExercises[_, _] =>
@@ -92,14 +92,14 @@ class Normalization[Nid, Cid] {
            old.copy(byKey = false)
          })
           .copy(
-            chosenValue = normValue(old.chosenValue),
-            exerciseResult = old.exerciseResult.map(normValue),
-            key = old.key.map(normKWM),
+            chosenValue = normValue(old.version)(old.chosenValue),
+            exerciseResult = old.exerciseResult.map(normValue(old.version)),
+            key = old.key.map(normKWM(old.version)),
           )
 
       case old: NodeLookupByKey[_] =>
         old.copy(
-          key = normKWM(old.key)
+          key = normKWM(old.version)(old.key)
         )
 
       case old: NodeRollback[_] => old
@@ -107,53 +107,14 @@ class Normalization[Nid, Cid] {
     }
   }
 
-  // It's ok to code this in stack unaware fashion, as values  have a depth limit of 100
-  private def normValue(x: Val): Val = {
-    x match {
-
-      // recursive cases (with normalization)
-      case V.ValueRecord(_, fields) =>
-        V.ValueRecord(
-          tycon = None, //norm
-          fields = fields.map { case (_, v) =>
-            (
-              None, //norm
-              normValue(v),
-            )
-          },
-        )
-
-      case V.ValueVariant(_, variant, v) =>
-        V.ValueVariant(
-          None, //norm
-          variant,
-          normValue(v),
-        )
-
-      // other recursive cases
-      case V.ValueList(list) => V.ValueList(list.map(normValue))
-      case V.ValueOptional(opt) => V.ValueOptional(opt.map(normValue))
-      case V.ValueGenMap(entries) =>
-        V.ValueGenMap(entries.map { case (k, v) => (normValue(k), normValue(v)) })
-      case V.ValueTextMap(x) => V.ValueTextMap(x.mapValue(normValue))
-
-      // non-recursive cases (with normalization)
-      case V.ValueEnum(_, cons) =>
-        V.ValueEnum(
-          None, //norm
-          cons,
-        )
-
-      // non-recursive cases
-      case V.ValueContractId(_) => x
-      case _: V.ValueCidlessLeaf => x
-    }
+  private def normValue(version: TransactionVersion)(x: Val): Val = {
+    Util.assertNormalizeValue(x, version)
   }
 
-  private def normKWM(x: KWM): KWM = {
+  private def normKWM(version: TransactionVersion)(x: KWM): KWM = {
     x match {
       case KeyWithMaintainers(key, maintainers) =>
-        KeyWithMaintainers(normValue(key), maintainers)
+        KeyWithMaintainers(normValue(version)(key), maintainers)
     }
   }
 
