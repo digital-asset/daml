@@ -2,6 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_library_suite",
+    "da_scala_test_suite",
+    "silencer_plugin",
+)
+load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
@@ -11,20 +19,8 @@ load(
     "lf_version_configuration_versions",
 )
 load(
-    "//bazel_tools:scala.bzl",
-    "da_scala_library",
-    "da_scala_library_suite",
-)
-load(
     "//language-support/scala/codegen:codegen.bzl",
     "dar_to_scala",
-)
-load(
-    "//bazel_tools:scala.bzl",
-    "da_scala_binary",
-    "da_scala_library",
-    "da_scala_test_suite",
-    "silencer_plugin",
 )
 load(
     ":conformance.bzl",
@@ -190,6 +186,21 @@ da_scala_binary(
     ]
     for lf_version in lf_version_configuration_versions
 ]
+
+da_scala_test_suite(
+    name = "ledger-api-test-tool-unit-tests",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":ledger-api-test-tool-default-lib",
+        ":ledger-api-test-tool-default-tests",
+        "//daml-lf/data",
+    ],
+)
 
 conformance_test(
     name = "ssl-test",

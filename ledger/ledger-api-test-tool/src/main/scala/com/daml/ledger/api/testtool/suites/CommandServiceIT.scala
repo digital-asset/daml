@@ -176,7 +176,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSduplicateSubmitAndWaitForTransaction",
+    "CSduplicateSubmitAndWaitForTransactionData",
     "SubmitAndWaitForTransaction should fail on duplicate requests",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>

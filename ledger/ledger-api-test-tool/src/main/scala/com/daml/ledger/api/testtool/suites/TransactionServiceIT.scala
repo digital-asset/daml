@@ -1001,7 +1001,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXSingleMultiSameTrees",
+    "TXSingleMultiSameTreesBasic",
     "The same transaction trees should be served regardless of subscribing as one or multiple parties",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
@@ -1218,7 +1218,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXTransactionTreeByIdWrongLedgerId",
+    "TXLedgerEndWrongLedgerId",
     "The ledgerEnd endpoint should reject calls with the wrong ledger identifier",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -1276,7 +1276,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXTransactionTreeByIdNotFound",
+    "TXTransactionTreeByIdWithoutParty",
     "Return INVALID_ARGUMENT when looking up a transaction tree by identifier without specifying a party",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -1356,7 +1356,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXFlatTransactionByIdNotFound",
+    "TXFlatTransactionByIdWithoutParty",
     "Return INVALID_ARGUMENT when looking up a flat transaction by identifier without specifying a party",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -1452,7 +1452,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXTransactionTreeByEventIdNotFound",
+    "TXTransactionTreeByEventIdWithoutParty",
     "Return INVALID_ARGUMENT when looking up a transaction tree by event identifier without specifying a party",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -1526,7 +1526,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "TXFlatTransactionByEventIdNotFound",
+    "TXFlatTransactionByEventIdWithoutParty",
     "Return INVALID_ARGUMENT when looking up a flat transaction by event identifier without specifying a party",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
