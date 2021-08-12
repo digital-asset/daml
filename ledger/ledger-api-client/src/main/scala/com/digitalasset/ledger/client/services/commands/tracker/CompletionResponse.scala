@@ -28,14 +28,15 @@ object CompletionResponse {
     */
   private[daml] sealed trait TrackedCompletionFailure
 
-  private[daml] final case class ExecutedCompletionFailure(failure: CompletionFailure)
+  /** The request was successfully executed after it was enqueued but the [[Completion]] was not successful
+    */
+  private[daml] final case class QueueCompletionFailure(failure: CompletionFailure)
       extends TrackedCompletionFailure
 
   /** Represents the failure to add to the execution queue.
     * @param status - gRPC status chosen based on the reason why adding to the queue failed
     */
-  private[daml] final case class StartingExecutionFailure(status: Status)
-      extends TrackedCompletionFailure
+  private[daml] final case class QueueSubmitFailure(status: Status) extends TrackedCompletionFailure
   final case class CompletionSuccess(
       commandId: String,
       transactionId: String,
@@ -94,11 +95,14 @@ object CompletionResponse {
 
   private[daml] def toException(response: TrackedCompletionFailure): StatusException = {
     response match {
-      case ExecutedCompletionFailure(failure) =>
+      case QueueCompletionFailure(failure) =>
         toException(failure)
-      case StartingExecutionFailure(status) =>
+      case QueueSubmitFailure(status) =>
         val protoStatus =
-          rpc.Status.newBuilder().setCode(status.getCode.value()).setMessage(status.getDescription)
+          rpc.Status
+            .newBuilder()
+            .setCode(status.getCode.value())
+            .setMessage(Option(status.getDescription).getOrElse("Failed to submit request"))
         buildException(Map.empty[String, String], protoStatus)
     }
   }

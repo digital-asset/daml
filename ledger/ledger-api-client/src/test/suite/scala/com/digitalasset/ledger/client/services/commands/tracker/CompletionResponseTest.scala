@@ -7,10 +7,13 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   NoStatusInResponse,
   NotOkResponse,
+  QueueCompletionFailure,
+  QueueSubmitFailure,
   TimeoutResponse,
 }
 import com.google.protobuf.any.Any
 import com.google.rpc.status.Status
+import io.grpc
 import io.grpc.Status.Code
 import io.grpc.Status.Code.OK
 import org.scalatest.matchers.should.Matchers
@@ -63,6 +66,23 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
           ),
         )
       }
+
+    }
+
+    "convert to exception" should {
+
+      "convert queue completion failure" in {
+        val exception =
+          CompletionResponse.toException(QueueCompletionFailure(TimeoutResponse(commandId)))
+        exception.getStatus.getCode shouldBe Code.ABORTED
+      }
+
+      "convert queue submit failure" in {
+        val exception =
+          CompletionResponse.toException(QueueSubmitFailure(grpc.Status.RESOURCE_EXHAUSTED))
+        exception.getStatus.getCode shouldBe Code.RESOURCE_EXHAUSTED
+      }
+
     }
   }
 }

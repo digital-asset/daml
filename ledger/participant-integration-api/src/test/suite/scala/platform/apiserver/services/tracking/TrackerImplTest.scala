@@ -9,17 +9,14 @@ import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.{Done, NotUsed}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  IsStatusException,
-  TestingException,
-}
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.QueueSubmitFailure
 import com.daml.logging.LoggingContext
 import com.google.rpc.status.{Status => StatusProto}
-import io.grpc.Status
+import io.grpc.Status.Code
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -87,7 +84,12 @@ class TrackerImplTest
       "return a RESOURCE_EXHAUSTED error" in {
 
         sut.track(input(1))
-        whenReady(sut.track(input(2)).failed)(IsStatusException(Status.RESOURCE_EXHAUSTED))
+        whenReady(sut.track(input(2)))(failure => {
+          failure should matchPattern {
+            case Left(QueueSubmitFailure(statusCode))
+                if statusCode.getCode == Code.RESOURCE_EXHAUSTED =>
+          }
+        })
       }
     }
 
@@ -96,7 +98,11 @@ class TrackerImplTest
       "return an ABORTED error" in {
 
         queue.complete()
-        whenReady(sut.track(input(2)).failed)(IsStatusException(Status.ABORTED))
+        whenReady(sut.track(input(2)))(failure => {
+          failure should matchPattern {
+            case Left(QueueSubmitFailure(statusCode)) if statusCode.getCode == Code.ABORTED =>
+          }
+        })
       }
     }
 
@@ -105,7 +111,11 @@ class TrackerImplTest
       "return an ABORTED error" in {
 
         queue.fail(TestingException("The queue fails with this error."))
-        whenReady(sut.track(input(2)).failed)(IsStatusException(Status.ABORTED))
+        whenReady(sut.track(input(2)))(failure => {
+          failure should matchPattern {
+            case Left(QueueSubmitFailure(statusCode)) if statusCode.getCode == Code.ABORTED =>
+          }
+        })
       }
     }
   }
