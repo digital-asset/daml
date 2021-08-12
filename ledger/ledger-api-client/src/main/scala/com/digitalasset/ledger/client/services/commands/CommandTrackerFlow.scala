@@ -9,9 +9,12 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
 import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
 import com.daml.ledger.api.v1.command_submission_service._
-import com.daml.ledger.api.v1.completion._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CommandTracker
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.slf4j.LoggerFactory
@@ -41,7 +44,10 @@ object CommandTrackerFlow {
       startingOffset: LedgerOffset,
       maxDeduplicationTime: () => JDuration,
       backOffDuration: FiniteDuration = 1.second,
-  ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[
+  ): Flow[Ctx[Context, SubmitRequest], Ctx[
+    Context,
+    Either[CompletionFailure, CompletionSuccess],
+  ], Materialized[
     SubmissionMat,
     Context,
   ]] = {

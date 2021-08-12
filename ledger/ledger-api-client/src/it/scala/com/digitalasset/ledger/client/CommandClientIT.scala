@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
@@ -21,27 +22,30 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest,
 }
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.api.v1.value.{Record, RecordField}
 import com.daml.ledger.client.configuration.CommandClientConfiguration
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+  NotOkResponse,
+}
 import com.daml.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.platform.common.LedgerIdMode
-import com.daml.dec.DirectExecutionContext
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
-import org.scalatest.time.Span
-import org.scalatest.time.SpanSugar._
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.Span
+import org.scalatest.time.SpanSugar._
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
@@ -56,7 +60,8 @@ final class CommandClientIT
     with SandboxFixture
     with Matchers
     with SuiteResourceManagementAroundAll
-    with TryValues {
+    with TryValues
+    with Inside {
 
   private val defaultCommandClientConfiguration =
     CommandClientConfiguration(
@@ -144,7 +149,9 @@ final class CommandClientIT
       .runWith(Sink.seq)
       .map(_.last) // one element is guaranteed
 
-  private def submitCommand(req: SubmitRequest): Future[Completion] =
+  private def submitCommand(
+      req: SubmitRequest
+  ): Future[Either[CompletionFailure, CompletionSuccess]] =
     commandClient().flatMap(_.trackSingleCommand(req))
 
   private def assertCommandFailsWithCode(
@@ -152,9 +159,11 @@ final class CommandClientIT
       expectedErrorCode: Code,
       expectedMessageSubString: String,
   ): Future[Assertion] =
-    submitCommand(submitRequest).map { completion =>
-      completion.getStatus.code should be(expectedErrorCode.value)
-      completion.getStatus.message should include(expectedMessageSubString)
+    submitCommand(submitRequest).map { result =>
+      inside(result) { case Left(NotOkResponse(_, grpcStatus)) =>
+        grpcStatus.code should be(expectedErrorCode.value)
+        grpcStatus.message should include(expectedMessageSubString)
+      }
     }(DirectExecutionContext)
 
   /** Reads a set of command IDs expected in the given client after the given checkpoint.

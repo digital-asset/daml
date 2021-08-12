@@ -17,7 +17,6 @@ import com.daml.navigator.{model => Model}
 import com.daml.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
 import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue}
 
-import com.google.rpc.code.Code
 import scalaz.Tag
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.traverse._
@@ -431,21 +430,6 @@ case object LedgerApiV1 {
       case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
       case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)
     }
-
-  def readCompletion(completion: V1.completion.Completion): Result[Option[Model.CommandStatus]] = {
-    for {
-      status <- Converter.checkExists("Completion.status", completion.status)
-    } yield {
-      val code = Code.fromValue(status.code)
-
-      if (code == Code.OK)
-        // The completion does not contain the new transaction created by this command.
-        // Do not report completion, the command result will be updated from the transaction stream.
-        None
-      else
-        Some(Model.CommandStatusError(code.toString(), status.message))
-    }
-  }
 
   // ------------------------------------------------------------------------------------------------------------------
   // Write methods (Model -> V1)
