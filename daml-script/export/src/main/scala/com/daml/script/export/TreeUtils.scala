@@ -504,7 +504,9 @@ object TreeUtils {
       )
     case Sum.Enum(value) => Set(value.getEnumId)
     case Sum.GenMap(value) =>
-      value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
+      Set(Identifier().withModuleName("DA.Map").withEntityName("Map")).union(
+        value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
+      )
   }
 
   def isTupleId(id: Identifier): Boolean = {
