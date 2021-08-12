@@ -469,7 +469,12 @@ object TreeUtils {
   def valueRefs(v: Value.Sum): Set[Identifier] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) =>
-      Set(value.getRecordId).union(value.fields.foldMap(f => valueRefs(f.getValue.sum)))
+      val fieldRefs = value.fields.foldMap(f => valueRefs(f.getValue.sum))
+      if (isTupleId(value.getRecordId)) {
+        fieldRefs
+      } else {
+        Set(value.getRecordId).union(fieldRefs)
+      }
     case Sum.Variant(value) => Set(value.getVariantId).union(valueRefs(value.getValue.sum))
     case Sum.ContractId(_) => Set()
     case Sum.List(value) => value.elements.foldMap(v => valueRefs(v.sum))
