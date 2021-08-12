@@ -140,7 +140,7 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
         Map.empty,
         v.Value.Sum.Map(v.Map(Seq(v.Map.Entry("key", Some(v.Value().withText("value")))))),
       ).render(80) shouldBe
-        "(TextMap.fromList [(\"key\", \"value\")])"
+        "(DA.TextMap.fromList [(\"key\", \"value\")])"
     }
     "enum" in {
       val id = v.Identifier("pkg-id", "M", "E")

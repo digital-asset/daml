@@ -216,7 +216,7 @@ private[export] object Encode {
           }
         case Sum.Map(m) =>
           parens(
-            Doc.text("TextMap.fromList ") +
+            Doc.text("DA.TextMap.fromList ") +
               list(m.entries.map(e => pair(go(Value.Sum.Text(e.key)), go(e.getValue.sum))))
           )
         case Sum.Enum(value) =>
