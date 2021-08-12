@@ -48,9 +48,9 @@ object CompletionResponse {
 
     /** In most cases we're not interested in the original grpc status, as it's used only to keep backwards compatibility
       */
-    def unapply(success: CompletionSuccess): Option[(String, String)] = {
-      Some(success.commandId -> success.transactionId)
-    }
+    def unapply(success: CompletionSuccess): Option[(String, String)] = Some(
+      success.commandId -> success.transactionId
+    )
   }
 
   def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] =
@@ -71,7 +71,7 @@ object CompletionResponse {
 
   /** For backwards compatibility, clients that are too coupled to [[Completion]] as a type can convert back from [[Either[CompletionFailure, CompletionSuccess]]]
     */
-  def toCompletion(response: Either[CompletionFailure, CompletionSuccess]): Completion = {
+  def toCompletion(response: Either[CompletionFailure, CompletionSuccess]): Completion =
     response match {
       case Left(failure) =>
         failure match {
@@ -92,9 +92,8 @@ object CompletionResponse {
           status = Some(success.originalStatus),
         )
     }
-  }
 
-  private[daml] def toException(response: TrackedCompletionFailure): StatusException = {
+  private[daml] def toException(response: TrackedCompletionFailure): StatusException =
     response match {
       case QueueCompletionFailure(failure) =>
         toException(failure)
@@ -106,7 +105,6 @@ object CompletionResponse {
             .setMessage(Option(status.getDescription).getOrElse("Failed to submit request"))
         buildException(Map.empty[String, String], protoStatus)
     }
-  }
 
   def toException(response: CompletionResponse.CompletionFailure): StatusException = {
     val metadata = response.metadata
@@ -124,17 +122,15 @@ object CompletionResponse {
     )
   }
 
-  private def extractStatus(response: CompletionFailure) = {
-    response match {
-      case CompletionResponse.NotOkResponse(_, grpcStatus) =>
-        rpc.Status.newBuilder().setCode(grpcStatus.code).setMessage(grpcStatus.message)
-      case CompletionResponse.TimeoutResponse(_) =>
-        rpc.Status.newBuilder().setCode(Code.ABORTED.value()).setMessage("Timeout")
-      case CompletionResponse.NoStatusInResponse(_) =>
-        rpc.Status
-          .newBuilder()
-          .setCode(Code.INTERNAL.value())
-          .setMessage("Missing status in completion response.")
-    }
+  private def extractStatus(response: CompletionFailure) = response match {
+    case CompletionResponse.NotOkResponse(_, grpcStatus) =>
+      rpc.Status.newBuilder().setCode(grpcStatus.code).setMessage(grpcStatus.message)
+    case CompletionResponse.TimeoutResponse(_) =>
+      rpc.Status.newBuilder().setCode(Code.ABORTED.value()).setMessage("Timeout")
+    case CompletionResponse.NoStatusInResponse(_) =>
+      rpc.Status
+        .newBuilder()
+        .setCode(Code.INTERNAL.value())
+        .setMessage("Missing status in completion response.")
   }
 }

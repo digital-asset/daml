@@ -20,7 +20,7 @@ import io.grpc.Status.Code
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.{BeforeAndAfterEach, Succeeded}
+import org.scalatest.{BeforeAndAfterEach, Inside, Succeeded}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -31,7 +31,8 @@ class TrackerImplTest
     with Matchers
     with BeforeAndAfterEach
     with ScalaFutures
-    with AkkaBeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll
+    with Inside {
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
 
@@ -85,9 +86,8 @@ class TrackerImplTest
 
         sut.track(input(1))
         whenReady(sut.track(input(2)))(failure => {
-          failure should matchPattern {
-            case Left(QueueSubmitFailure(statusCode))
-                if statusCode.getCode == Code.RESOURCE_EXHAUSTED =>
+          inside(failure) { case Left(QueueSubmitFailure(statusCode)) =>
+            statusCode.getCode should be(Code.RESOURCE_EXHAUSTED)
           }
         })
       }
@@ -99,8 +99,8 @@ class TrackerImplTest
 
         queue.complete()
         whenReady(sut.track(input(2)))(failure => {
-          failure should matchPattern {
-            case Left(QueueSubmitFailure(statusCode)) if statusCode.getCode == Code.ABORTED =>
+          inside(failure) { case Left(QueueSubmitFailure(statusCode)) =>
+            statusCode.getCode should be(Code.ABORTED)
           }
         })
       }
@@ -112,8 +112,8 @@ class TrackerImplTest
 
         queue.fail(TestingException("The queue fails with this error."))
         whenReady(sut.track(input(2)))(failure => {
-          failure should matchPattern {
-            case Left(QueueSubmitFailure(statusCode)) if statusCode.getCode == Code.ABORTED =>
+          inside(failure) { case Left(QueueSubmitFailure(statusCode)) =>
+            statusCode.getCode should be(Code.ABORTED)
           }
         })
       }
