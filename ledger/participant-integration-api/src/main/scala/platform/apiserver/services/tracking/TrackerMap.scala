@@ -7,7 +7,10 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{CompletionSuccess, TrackedCompletionFailure}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionSuccess,
+  TrackedCompletionFailure,
+}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import org.slf4j.LoggerFactory
 
