@@ -23,8 +23,6 @@ import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Try
-
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
   behavior of "SequentialWriteDaoImpl"
@@ -108,7 +106,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     override def initializeParameters(params: StorageBackend.IdentityParams)(
         connection: Connection
-    )(implicit loggingContext: LoggingContext): Try[Unit] =
+    )(implicit loggingContext: LoggingContext): Unit =
       throw new UnsupportedOperationException
 
     override def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams =

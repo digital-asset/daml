@@ -113,7 +113,7 @@ trait ParameterStorageBackend {
     */
   def initializeParameters(params: StorageBackend.IdentityParams)(connection: Connection)(implicit
       loggingContext: LoggingContext
-  ): Try[Unit]
+  ): Unit
   def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams
 }
 
