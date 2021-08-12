@@ -8,7 +8,7 @@ import java.time.Instant
 import java.util.Date
 
 import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, get, int, long, str}
-import anorm.{Macro, RowParser, SQL, SqlParser, SqlStringInterpolation, ~}
+import anorm.{Macro, RowParser, SQL, SqlParser, SqlQuery, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -54,29 +54,31 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Ingestion
 
-  private val preparedDeleteIngestionOverspillEntries: List[String] =
+  private val SQL_DELETE_OVERSPILL_ENTRIES: List[SqlQuery] =
     List(
-      "DELETE FROM configuration_entries WHERE ledger_offset > ?",
-      "DELETE FROM package_entries WHERE ledger_offset > ?",
-      "DELETE FROM packages WHERE ledger_offset > ?",
-      "DELETE FROM participant_command_completions WHERE completion_offset > ?",
-      "DELETE FROM participant_events_divulgence WHERE event_offset > ?",
-      "DELETE FROM participant_events_create WHERE event_offset > ?",
-      "DELETE FROM participant_events_consuming_exercise WHERE event_offset > ?",
-      "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > ?",
-      "DELETE FROM parties WHERE ledger_offset > ?",
-      "DELETE FROM party_entries WHERE ledger_offset > ?",
+      SQL("DELETE FROM configuration_entries WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM package_entries WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM packages WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_command_completions WHERE completion_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_events_divulgence WHERE event_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_events_create WHERE event_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_events_consuming_exercise WHERE event_offset > {ledger_offset}"),
+      SQL(
+        "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
+      ),
+      SQL("DELETE FROM parties WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
     )
 
   override def initializeIngestion(connection: Connection): StorageBackend.OptionalLedgerEnd = {
     val result @ StorageBackend.OptionalLedgerEnd(offset, _) = ledgerEnd(connection)
 
     offset.foreach { existingOffset =>
-      preparedDeleteIngestionOverspillEntries.foreach { preparedStatementString =>
-        val preparedStatement = connection.prepareStatement(preparedStatementString)
-        preparedStatement.setString(1, existingOffset.toHexString)
-        preparedStatement.execute()
-        preparedStatement.close()
+      SQL_DELETE_OVERSPILL_ENTRIES.foreach { query =>
+        import com.daml.platform.store.Conversions.OffsetToStatement
+        query
+          .on("ledger_offset" -> existingOffset)
+          .execute()(connection)
         ()
       }
     }
