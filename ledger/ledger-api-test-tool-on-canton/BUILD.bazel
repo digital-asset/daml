@@ -82,7 +82,8 @@ conformance_test(
         ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
         # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
         ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
-        ",DeeplyNestedValueIT",
+        ",ExceptionsIT:ExRollbackDuplicateKeyCreated,ExceptionsIT:ExRollbackDuplicateKeyArchived" +
+        ",ExceptionRaceConditionIT:RWArchiveVsRollbackFailedLookupByKey,ExceptionRaceConditionIT:RWArchiveVsRollbackFailedLookupByKey,ExceptionRaceConditionIT:RWArchiveVsRollbackFailedLookupByKey"
     ],
 ) if not is_windows else None
 
