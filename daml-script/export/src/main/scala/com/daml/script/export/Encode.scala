@@ -312,20 +312,6 @@ private[export] object Encode {
     }
   }
 
-  private def isTupleId(id: Identifier): Boolean = {
-    val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
-    id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
-  }
-
-  private def isTupleRefId(name: Ref.Identifier): Boolean = {
-    isTupleId(
-      Identifier()
-        .withPackageId(name.packageId)
-        .withModuleName(name.qualifiedName.module.dottedName)
-        .withEntityName(name.qualifiedName.name.dottedName)
-    )
-  }
-
   private def quotes(v: Doc) =
     "\"" +: v :+ "\""
 

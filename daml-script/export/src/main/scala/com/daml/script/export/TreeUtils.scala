@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Graphs
@@ -485,6 +486,20 @@ object TreeUtils {
     case Sum.Enum(value) => Set(value.getEnumId)
     case Sum.GenMap(value) =>
       value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
+  }
+
+  def isTupleId(id: Identifier): Boolean = {
+    val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
+    id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
+  }
+
+  def isTupleRefId(name: Ref.Identifier): Boolean = {
+    isTupleId(
+      Identifier()
+        .withPackageId(name.packageId)
+        .withModuleName(name.qualifiedName.module.dottedName)
+        .withEntityName(name.qualifiedName.name.dottedName)
+    )
   }
 
   def valueCids(v: Value.Sum): Set[ContractId] = v match {
