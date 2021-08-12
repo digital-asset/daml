@@ -100,7 +100,7 @@ build:windows-ci --remote_accept_cached=true
 # will parallelize up to the number of logical cores. This can cause flakyness
 # in timing sensitive tests.
 build:windows-ci --jobs=4
-build:windows-ci --ram_utilization_factor=50
+build:windows-ci --local_ram_resources=HOST_RAM*.50
 
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
