@@ -302,6 +302,8 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 grpc_version = "1.35.0"
 
+load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "scala_version")
+
 # We base our Maven artifacts on the latest stable release
 # for now. In principle, we could setup one Maven workspace
 # per SDK version but that is a bit painful to setup and
@@ -320,9 +322,9 @@ maven_install(
         "io.grpc:grpc-protobuf:{}".format(grpc_version),
         "io.grpc:grpc-services:{}".format(grpc_version),
         "io.grpc:grpc-stub:{}".format(grpc_version),
-        "com.github.scopt:scopt_2.13:3.7.1",
-        "org.wartremover:wartremover_2.13.5:2.4.13",
-        "io.spray:spray-json_2.13:1.3.5",
+        "com.github.scopt:scopt_{}:3.7.1".format(scala_major_version),
+        "org.wartremover:wartremover_{}:2.4.16".format(scala_version),
+        "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
     ],
     maven_install_json = "@compatibility//:maven_install.json",
     repositories = [
@@ -336,7 +338,6 @@ load("@maven//:defs.bzl", "pinned_maven_install")
 pinned_maven_install()
 
 load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
-load("@scala_version//:index.bzl", "scala_artifacts", "scala_version")
 
 scala_config(scala_version)
 
