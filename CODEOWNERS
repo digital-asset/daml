@@ -50,6 +50,7 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 
 /ledger/ledger-on-memory/           @digital-asset/kv-committer
 /ledger/ledger-on-sql/              @digital-asset/kv-committer
+/ledger/participant-state/kvutils/  @digital-asset/kv-committer
 /ledger/sandbox/                    @digital-asset/kv-committer
 
 /runtime-components/    @stefanobaghino-da @cocreature
