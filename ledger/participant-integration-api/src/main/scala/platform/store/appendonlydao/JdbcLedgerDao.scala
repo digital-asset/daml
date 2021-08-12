@@ -83,6 +83,11 @@ private class JdbcLedgerDao(
 
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
+  /** Returns a failed Future if the Dao is connected to an incompatible storage (e.g., database version too old). */
+  def checkCompatibility()(implicit loggingContext: LoggingContext): Future[Unit] =
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.checkCompatibility)(storageBackend.checkCompatibility)
+
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.getLedgerId)(
@@ -877,26 +882,28 @@ private[platform] object JdbcLedgerDao {
         connectionTimeout,
         metrics,
       )
-    } yield new JdbcLedgerDao(
-      dbDispatcher,
-      servicesExecutionContext,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      validate,
-      metrics,
-      lfValueTranslationCache,
-      validatePartyAllocation,
-      enricher,
-      sequentialWriteDao(
-        participantId,
-        lfValueTranslationCache,
+      ledgerDao = new JdbcLedgerDao(
+        dbDispatcher,
+        servicesExecutionContext,
+        eventsPageSize,
+        eventsProcessingParallelism,
+        validate,
         metrics,
-        compressionStrategy,
+        lfValueTranslationCache,
+        validatePartyAllocation,
+        enricher,
+        sequentialWriteDao(
+          participantId,
+          lfValueTranslationCache,
+          metrics,
+          compressionStrategy,
+          storageBackend,
+        ),
+        participantId,
         storageBackend,
-      ),
-      participantId,
-      storageBackend,
-    )
+      )
+      _ <- ResourceOwner.forFuture(ledgerDao.checkCompatibility)
+    } yield ledgerDao
   }
 
   val acceptType = "accept"

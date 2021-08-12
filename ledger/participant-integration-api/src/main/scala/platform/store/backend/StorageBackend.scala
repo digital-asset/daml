@@ -63,6 +63,8 @@ trait StorageBackend[DB_BATCH]
     * The result is a database that looks the same as a freshly created database with Flyway migrations applied.
     */
   def resetAll(connection: Connection): Unit
+
+  def checkCompatibility(connection: Connection)(implicit loggingContext: LoggingContext): Unit
 }
 
 trait IngestionStorageBackend[DB_BATCH] {
