@@ -53,9 +53,6 @@ da_scala_library(
     versioned_scala_deps = {
         "2.12": [
             "@maven//:org_scalatest_scalatest_core",
-            "@maven//:org_scalatest_scalatest_matchers_core",
-            "@maven//:org_scalatest_scalatest_shouldmatchers",
-            "@maven//:org_scalatest_scalatest_wordspec",
             "@maven//:org_scalactic_scalactic",
         ],
     },
