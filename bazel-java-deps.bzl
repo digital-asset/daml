@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
-# $ bazel run @unpinned_maven//:pin && DAML_SCALA_VERSION=2.12.13 bazel run @unpinned_maven//:pin
+# $ bazel run @unpinned_maven//:pin && DAML_SCALA_VERSION=2.12.14 bazel run @unpinned_maven//:pin
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
@@ -48,7 +48,7 @@ def install_java_deps():
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
             "com.github.ben-manes.caffeine:caffeine:2.8.0",
-            "com.github.ghik:silencer-plugin_{}:1.7.3".format(scala_version),
+            "com.github.ghik:silencer-plugin_{}:1.7.5".format(scala_version),
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
@@ -182,12 +182,12 @@ def install_java_deps():
             "org.seleniumhq.selenium:selenium-java:3.12.0",
             "org.slf4j:slf4j-api:1.7.26",
             "org.slf4j:slf4j-simple:1.7.26",
-            "org.typelevel:kind-projector_{}:0.11.3".format(scala_version),
+            "org.typelevel:kind-projector_{}:0.13.0".format(scala_version),
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-hikari_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
-            "org.wartremover:wartremover_{}:2.4.13".format(scala_version),
+            "org.wartremover:wartremover_{}:2.4.16".format(scala_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
             "com.fasterxml.jackson.core:jackson-core:2.12.0",
             "com.fasterxml.jackson.core:jackson-databind:2.12.0",
