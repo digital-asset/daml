@@ -30,6 +30,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
+  TrackedCompletionFailure,
 }
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.ledger.configuration.{Configuration => LedgerConfiguration}
@@ -84,7 +85,7 @@ private[apiserver] final class ApiCommandService private (
 
   private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext
-  ): Future[Either[CompletionFailure, CompletionSuccess]] =
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
       logging.partyString(request.getCommands.party),
@@ -94,7 +95,7 @@ private[apiserver] final class ApiCommandService private (
       if (running) {
         ledgerConfigurationSubscription
           .latestConfiguration()
-          .fold[Future[Either[CompletionFailure, CompletionSuccess]]](
+          .fold[Future[Either[TrackedCompletionFailure, CompletionSuccess]]](
             Future.failed(ErrorFactories.missingLedgerConfig())
           )(ledgerConfig => track(request, ledgerConfig))
       } else {
@@ -109,7 +110,7 @@ private[apiserver] final class ApiCommandService private (
       ledgerConfig: LedgerConfiguration,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     val appId = request.getCommands.applicationId
     // Note: command completions are returned as long as at least one of the original submitters
     // is specified in the command completion request.

@@ -7,10 +7,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
-  CompletionFailure,
-  CompletionSuccess,
-}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{CompletionSuccess, TrackedCompletionFailure}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import org.slf4j.LoggerFactory
 
@@ -61,7 +58,7 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(implic
 
   def track(submitter: TrackerMap.Key, request: SubmitAndWaitRequest)(
       newTracker: => Future[Tracker]
-  )(implicit ec: ExecutionContext): Future[Either[CompletionFailure, CompletionSuccess]] =
+  )(implicit ec: ExecutionContext): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
     // double-checked locking
     trackerBySubmitter
       .getOrElse(

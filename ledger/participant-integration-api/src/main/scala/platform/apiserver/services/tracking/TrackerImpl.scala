@@ -11,6 +11,8 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
+  ExecutedCompletionFailure,
+  TrackedCompletionFailure,
 }
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -40,22 +42,28 @@ private[services] final class TrackerImpl(
   override def track(request: SubmitAndWaitRequest)(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     logger.trace("Tracking command")
-    val promise = Promise[Either[CompletionFailure, CompletionSuccess]]()
+    val promise = Promise[Either[TrackedCompletionFailure, CompletionSuccess]]()
     submitNewRequest(request, promise)
   }
 
   private def submitNewRequest(
       request: SubmitAndWaitRequest,
-      promise: Promise[Either[CompletionFailure, CompletionSuccess]],
+      promise: Promise[Either[TrackedCompletionFailure, CompletionSuccess]],
   )(implicit
       ec: ExecutionContext
-  ): Future[Either[CompletionFailure, CompletionSuccess]] = {
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
+    promise.completeWith(
+      trackedPromise.future.map(
+        _.left.map(completionFailure => ExecutedCompletionFailure(completionFailure))
+      )
+    )
     queue
       .offer(
         Ctx(
-          promise,
+          trackedPromise,
           SubmitRequest(request.commands),
         )
       )

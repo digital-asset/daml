@@ -8,11 +8,14 @@ import com.google.protobuf.Any
 import com.google.rpc
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status.Code
-import io.grpc.{StatusException, protobuf}
+import io.grpc.{Status, StatusException, protobuf}
 
 import scala.jdk.CollectionConverters._
 
 object CompletionResponse {
+
+  /** Represents failures from executing the submission through GRPC
+    */
   sealed trait CompletionFailure {
     def metadata: Map[String, String] = Map.empty
   }
@@ -21,6 +24,18 @@ object CompletionResponse {
   final case class TimeoutResponse(commandId: String) extends CompletionFailure
   final case class NoStatusInResponse(commandId: String) extends CompletionFailure
 
+  /** Represents failures from tracking submissions that were sent to the execution queue
+    */
+  private[daml] sealed trait TrackedCompletionFailure
+
+  private[daml] final case class ExecutedCompletionFailure(failure: CompletionFailure)
+      extends TrackedCompletionFailure
+
+  /** Represents the failure to add to the execution queue.
+    * @param status - Grpc status chosen based on the reason why adding to the queue failed
+    */
+  private[daml] final case class StartingExecutionFailure(status: Status)
+      extends TrackedCompletionFailure
   final case class CompletionSuccess(
       commandId: String,
       transactionId: String,
@@ -77,10 +92,35 @@ object CompletionResponse {
     }
   }
 
+  private[daml] def toException(response: TrackedCompletionFailure): StatusException = {
+    response match {
+      case ExecutedCompletionFailure(failure) =>
+        toException(failure)
+      case StartingExecutionFailure(status) =>
+        val protoStatus =
+          rpc.Status.newBuilder().setCode(status.getCode.value()).setMessage(status.getDescription)
+        buildException(Map.empty[String, String], protoStatus)
+    }
+  }
+
   def toException(response: CompletionResponse.CompletionFailure): StatusException = {
-    val errorInfo = rpc.ErrorInfo.newBuilder().putAllMetadata(response.metadata.asJava).build()
+    val metadata = response.metadata
+    val status = extractStatus(response)
+    buildException(metadata, status)
+  }
+
+  private def buildException(metadata: Map[String, String], status: rpc.Status.Builder) = {
+    val errorInfo = rpc.ErrorInfo.newBuilder().putAllMetadata(metadata.asJava).build()
     val details = Any.pack(errorInfo)
-    val status = response match {
+    protobuf.StatusProto.toStatusException(
+      status
+        .addDetails(details)
+        .build()
+    )
+  }
+
+  private def extractStatus(response: CompletionFailure) = {
+    response match {
       case CompletionResponse.NotOkResponse(_, grpcStatus) =>
         rpc.Status.newBuilder().setCode(grpcStatus.code).setMessage(grpcStatus.message)
       case CompletionResponse.TimeoutResponse(_) =>
@@ -91,10 +131,5 @@ object CompletionResponse {
           .setCode(Code.INTERNAL.value())
           .setMessage("Missing status in completion response.")
     }
-    protobuf.StatusProto.toStatusException(
-      status
-        .addDetails(details)
-        .build()
-    )
   }
 }
