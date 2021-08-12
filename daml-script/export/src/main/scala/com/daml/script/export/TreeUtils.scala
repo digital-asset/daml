@@ -498,7 +498,10 @@ object TreeUtils {
     case Sum.Unit(_) => Set()
     case Sum.Date(_) => Set(Identifier().withModuleName("DA.Date").withEntityName("Date"))
     case Sum.Optional(value) => value.value.foldMap(v => valueRefs(v.sum))
-    case Sum.Map(value) => value.entries.foldMap(e => valueRefs(e.getValue.sum))
+    case Sum.Map(value) =>
+      Set(Identifier().withModuleName("DA.TextMap").withEntityName("TextMap")).union(
+        value.entries.foldMap(e => valueRefs(e.getValue.sum))
+      )
     case Sum.Enum(value) => Set(value.getEnumId)
     case Sum.GenMap(value) =>
       value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
