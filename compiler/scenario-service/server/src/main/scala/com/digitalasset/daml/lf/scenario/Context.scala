@@ -223,6 +223,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           )
         )
       case Failure(e: Error) => handleFailure(e)
+      case Failure(e: Runner.InterpretationError) => {
+        handleFailure(Error.RunnerException(e.error))
+      }
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)

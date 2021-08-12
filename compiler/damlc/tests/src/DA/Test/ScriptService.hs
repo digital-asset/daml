@@ -901,6 +901,9 @@ main =
                     , "           error \"\""
                     , "         catch"
                     , "           (GeneralError _) -> pure ()"
+                    , "    choice Fail : ()"
+                    , "      controller p"
+                    , "      do assert False"
                     , "test = do"
                     , "  p <- allocateParty \"p\""
                     , "  cid <- submit p $ createCmd (T p)"
@@ -908,9 +911,15 @@ main =
                     , "  r <- query @T p"
                     , "  r === [(cid, T p)]"
                     , "  pure ()"
+                    , "unhandledOffLedger = script $ assert False"
+                    , "unhandledOnLedger = script $ do"
+                    , "  p <- allocateParty \"p\""
+                    , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
                 expectScriptSuccess rs (vr "test") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
+                expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
+                expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
