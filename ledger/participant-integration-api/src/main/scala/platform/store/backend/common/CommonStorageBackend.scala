@@ -165,7 +165,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   override def initializeParameters(
       params: StorageBackend.IdentityParams
-  )(connection: Connection)(implicit loggingContext: LoggingContext): Try[Unit] = {
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Unit = {
     // Note: this method is the only one that inserts a row into the parameters table
     val previous = ledgerIdentity(connection)
     val ledgerId = params.ledgerId
@@ -180,7 +180,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           SQL"insert into #$TableName(#$LedgerIdColumnName, #$ParticipantIdColumnName) values(${ledgerId.unwrap}, ${participantId.unwrap: String})"
             .execute()(connection)
         )
-        Success(())
       case StorageBackend.OptionalIdentityParams(Some(`ledgerId`), None) =>
         logger.info(
           s"Found existing database for ledgerId '${params.ledgerId}', initializing participantId '${params.participantId}'"
@@ -189,32 +188,26 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           SQL"update #$TableName set #$ParticipantIdColumnName=${participantId.unwrap: String}"
             .execute()(connection)
         )
-        Success(())
       case StorageBackend.OptionalIdentityParams(Some(`ledgerId`), Some(`participantId`)) =>
         logger.info(
           s"Found existing database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
         )
-        Success(())
       case StorageBackend.OptionalIdentityParams(_, Some(existing))
           if existing != params.participantId =>
         logger.error(
           s"Found existing database with mismatching participantId: existing '$existing', provided '${params.participantId}'"
         )
-        Failure(
-          new MismatchException.ParticipantId(
-            existing = existing,
-            provided = params.participantId,
-          )
+        throw MismatchException.ParticipantId(
+          existing = existing,
+          provided = params.participantId,
         )
       case StorageBackend.OptionalIdentityParams(Some(existing), _) =>
         logger.error(
           s"Found existing database with mismatching ledgerId: existing '$existing', provided '${params.ledgerId}'"
         )
-        Failure(
-          new MismatchException.LedgerId(
-            existing = existing,
-            provided = params.ledgerId,
-          )
+        throw MismatchException.LedgerId(
+          existing = existing,
+          provided = params.ledgerId,
         )
     }
   }

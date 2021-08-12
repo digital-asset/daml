@@ -147,7 +147,6 @@ private class JdbcLedgerDao(
           )
         )(connection)
       }
-      .flatMap(result => Future.fromTry(result))(DEC)
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
