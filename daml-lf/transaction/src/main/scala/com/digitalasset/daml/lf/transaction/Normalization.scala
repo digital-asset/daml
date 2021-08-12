@@ -137,6 +137,13 @@ class Normalization[Nid, Cid] {
         V.ValueGenMap(entries.map { case (k, v) => (normValue(k), normValue(v)) })
       case V.ValueTextMap(x) => V.ValueTextMap(x.mapValue(normValue))
 
+      // non-recursive cases (with normalization)
+      case V.ValueEnum(_, cons) =>
+        V.ValueEnum(
+          None, //norm
+          cons,
+        )
+
       // non-recursive cases
       case V.ValueContractId(_) => x
       case _: V.ValueCidlessLeaf => x
