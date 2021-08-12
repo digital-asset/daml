@@ -197,7 +197,8 @@ class TransactionSpec
       } yield node
 
     "is reflexive" in forAll(genEmptyNode) { n =>
-      isReplayedBy(n, n) shouldBe Right(())
+      val tx = Normalization.normalizeTx(genTrans(n))
+      Validation.isReplayedBy(tx, tx) shouldBe Right(())
     }
 
     "fail if version is different" in {

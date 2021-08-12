@@ -13,32 +13,25 @@ private final class Validation[Nid, Cid]() {
     *   the root nodes of [[recorded]].
     * @note This function is symmetric
     *
-    * 'isReplayedBy' normalizes both arguments, and then determines structural equality.
+    * 'isReplayedBy' normalizes its 2nd argument, and then determines structural equality.
     *
     * The RIGHT `replayed` arg must be normalized because the engine currently does not.
-    *
-    * The LEFT `recorded` arg is normalized for the sake of test cases which do not ensure
-    * normalization. In reality, the recorded arg passed to `isReplayedBy` should come
-    * from a deserialized transaction, which will always be normalized.
     */
 
   private def isReplayedBy(
       recorded: VersionedTransaction[Nid, Cid],
       replayed: VersionedTransaction[Nid, Cid],
   ): Either[ReplayMismatch[Nid, Cid], Unit] = {
-    val normalizer = new Normalization[Nid, Cid]()
-    val recordedN = normalizer.normalizeTx(recorded)
-    val replayedN = normalizer.normalizeTx(replayed)
-    if (recordedN == replayedN) {
+    val replayedN = Normalization.normalizeTx(replayed)
+    if (recorded == replayedN) {
       Right(())
     } else {
-      Left(ReplayMismatch(recordedN, replayedN))
+      Left(ReplayMismatch(recorded, replayedN))
     }
   }
 }
 
 object Validation {
-  //TODO: remove 'isReplayedBy' and instead have caller directly perform normalization + equality test
   def isReplayedBy[Nid, Cid](
       recorded: VersionedTransaction[Nid, Cid],
       replayed: VersionedTransaction[Nid, Cid],

@@ -151,3 +151,9 @@ class Normalization[Nid, Cid] {
   }
 
 }
+
+object Normalization {
+  def normalizeTx[Nid, Cid](tx: VersionedTransaction[Nid, Cid]): VersionedTransaction[Nid, Cid] = {
+    new Normalization().normalizeTx(tx)
+  }
+}

@@ -222,7 +222,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       (rtx, _) = result
       validationResult <-
         transaction.Validation
-          .isReplayedBy(tx, rtx)
+          .isReplayedBy(transaction.Normalization.normalizeTx(tx), rtx)
           .fold(
             e => ResultError(Error.Validation.ReplayMismatch(e)),
             _ => ResultDone.Unit,

@@ -28,7 +28,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   // A 'Tweak[X]' is a family of (small) modifications to a value of type X.
   //
   // This test file constructs tweaks for 'VersionedTransaction' (VTX) and classifies them
-  // as either SIGNIFICANT or INSIGNIFICANT (as reported by `isReplayedBy`).
+  // as either SIGNIFICANT or INSIGNIFICANT (as reported by 'isReplayedBy').
   //
   // We aim to tweak every field of every ActionNode in a TX.
   //
@@ -186,7 +186,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       )
     }
 
-  private def preTweakedVTXs: Seq[VTX] = flatVTXs ++ nestedVTXs
+  private def preTweakedVTXs: Seq[VTX] = {
+    // we ensure the preTweaked txs are properly normalized.
+    (flatVTXs ++ nestedVTXs).map(Normalization.normalizeTx)
+  }
 
   private def runTweak(tweak: Tweak[VTX]): Seq[(VTX, VTX)] =
     for {

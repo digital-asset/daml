@@ -24,7 +24,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
-import com.daml.lf.transaction.Validation.isReplayedBy
+import com.daml.lf.transaction.{Normalization, Validation, ReplayMismatch}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
@@ -2747,6 +2747,14 @@ object EngineTest {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
+  }
+
+  private def isReplayedBy[Nid, Cid](
+      recorded: VersionedTransaction[Nid, Cid],
+      replayed: VersionedTransaction[Nid, Cid],
+  ): Either[ReplayMismatch[Nid, Cid], Unit] = {
+    // we normalize the LEFT arg before calling isReplayedBy to mimic the effect of serialization
+    Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
   private def reinterpret(
