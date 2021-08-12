@@ -74,15 +74,14 @@ private[services] final class TrackerImpl(
         case QueueOfferResult.QueueClosed =>
           failedQueueSubmission(GrpcStatus.ABORTED.withDescription("Queue closed"))
       }
-      .recoverWith(PartialFunction.fromFunction(transformQueueSubmissionExceptions))
+      .recoverWith(transformQueueSubmissionExceptions)
   }
 
-  private def failedQueueSubmission(status: GrpcStatus) = {
+  private def failedQueueSubmission(status: GrpcStatus) =
     Future.successful(Left(QueueSubmitFailure(status)))
-  }
 
   private def transformQueueSubmissionExceptions
-      : Function[Throwable, Future[Either[TrackedCompletionFailure, CompletionSuccess]]] = {
+      : PartialFunction[Throwable, Future[Either[TrackedCompletionFailure, CompletionSuccess]]] = {
     case i: IllegalStateException
         if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
       failedQueueSubmission(
