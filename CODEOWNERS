@@ -35,22 +35,22 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 
 /ledger-service/    @S11001001 @cocreature @stefanobaghino-da
 
-/ledger/      @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
-/ledger-api/  @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
+/ledger/      @digital-asset/kv-participant
+/ledger-api/  @digital-asset/kv-participant
 
-/ledger/ledger-api-common/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
-/ledger/ledger-api-domain/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
-/ledger/ledger-api-health/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
-/ledger/ledger-api-test-tool/       @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
-/ledger/ledger-configuration/       @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
-/ledger/ledger-offset/              @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @mziolekda @nmarton-da @rautenrieth-da @SamirTalwar-DA @tudor-da
+/ledger/ledger-api-common/          @digital-asset/kv-committer @digital-asset/kv-participant
+/ledger/ledger-api-domain/          @digital-asset/kv-committer @digital-asset/kv-participant
+/ledger/ledger-api-health/          @digital-asset/kv-committer @digital-asset/kv-participant
+/ledger/ledger-api-test-tool/       @digital-asset/kv-committer @digital-asset/kv-participant
+/ledger/ledger-configuration/       @digital-asset/kv-committer @digital-asset/kv-participant
+/ledger/ledger-offset/              @digital-asset/kv-committer @digital-asset/kv-participant
 
-/ledger/ledger-on-memory/           @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
-/ledger/ledger-on-sql/              @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
-/ledger/participant-state/          @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
-/ledger/participant-state-index/    @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
-/ledger/participant-state-metrics/  @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
-/ledger/sandbox/                    @fabiotudone-da @gerolf-da @hubert-da @miklos-da @nicu-da @SamirTalwar-DA
+/ledger/ledger-on-memory/           @digital-asset/kv-committer
+/ledger/ledger-on-sql/              @digital-asset/kv-committer
+/ledger/participant-state/          @digital-asset/kv-committer
+/ledger/participant-state-index/    @digital-asset/kv-committer
+/ledger/participant-state-metrics/  @digital-asset/kv-committer
+/ledger/sandbox/                    @digital-asset/kv-committer
 
 /runtime-components/    @stefanobaghino-da @cocreature
 
