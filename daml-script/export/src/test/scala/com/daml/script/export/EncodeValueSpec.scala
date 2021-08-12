@@ -153,7 +153,7 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
           Seq(v.GenMap.Entry(Some(v.Value().withInt64(42)), Some(v.Value().withText("value"))))
         )
       )
-      encodeValue(Map.empty, Map.empty, m).render(80) shouldBe "(Map.fromList [(42, \"value\")])"
+      encodeValue(Map.empty, Map.empty, m).render(80) shouldBe "(DA.Map.fromList [(42, \"value\")])"
     }
   }
 }

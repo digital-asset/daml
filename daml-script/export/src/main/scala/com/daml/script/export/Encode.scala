@@ -223,7 +223,7 @@ private[export] object Encode {
           qualifyId(value.getEnumId.copy(entityName = value.constructor))
         case Sum.GenMap(m) =>
           parens(
-            Doc.text("Map.fromList ") + list(
+            Doc.text("DA.Map.fromList ") + list(
               m.entries.map(e => pair(go(e.getKey.sum), go(e.getValue.sum)))
             )
           )
