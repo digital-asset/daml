@@ -40,7 +40,6 @@ object Tests {
       new PackageServiceIT,
       new PartyManagementServiceIT,
       new RaceConditionIT,
-      new RecordTimeIT,
       new SemanticTests,
       new TransactionServiceIT,
       new ValueLimitsIT,
@@ -54,6 +53,7 @@ object Tests {
     Vector(
       new ParticipantPruningIT,
       new MultiPartySubmissionIT,
+      new RecordTimeIT,
     )
 
   val retired: Vector[LedgerTestSuite] =
