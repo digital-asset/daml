@@ -86,7 +86,10 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
@@ -113,6 +116,7 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -140,7 +144,7 @@ da_scala_library(
         scala_deps = [
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:org_scalacheck_scalacheck",
-            "@maven//:org_scalatestplus_scalacheck_1_14",
+            "@maven//:org_scalatestplus_scalacheck_1_15",
             "@maven//:org_scalaz_scalaz_core",
         ],
         deps = [

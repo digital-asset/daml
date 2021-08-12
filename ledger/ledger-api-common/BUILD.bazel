@@ -59,7 +59,10 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     visibility = ["//ledger:__subpackages__"],
@@ -69,6 +72,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-domain",
         "//libs-scala/concurrent",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -85,7 +89,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_testkit",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
@@ -127,5 +134,6 @@ da_scala_test_suite(
         "@maven//:org_awaitility_awaitility",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

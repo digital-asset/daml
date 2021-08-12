@@ -41,7 +41,10 @@ da_scala_test_suite(
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [":testing-dar-%s" % target for target in ENCODER_LF_VERSIONS],
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
@@ -61,6 +64,7 @@ da_scala_test_suite(
         "//daml-lf/validation",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

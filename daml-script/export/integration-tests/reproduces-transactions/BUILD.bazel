@@ -20,7 +20,10 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_freespec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
@@ -48,6 +51,7 @@ da_scala_library(
         "//libs-scala/ports",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -58,7 +62,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_freespec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
@@ -88,5 +95,6 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

@@ -192,13 +192,17 @@ da_scala_test_suite(
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         ":ledger-api-test-tool-default-lib",
         ":ledger-api-test-tool-default-tests",
         "//daml-lf/data",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

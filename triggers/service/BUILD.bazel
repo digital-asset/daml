@@ -153,7 +153,10 @@ da_scala_library(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_akka_akka_actor_typed",
         "@maven//:com_typesafe_akka_akka_http_core",
@@ -193,6 +196,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -205,7 +209,10 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:com_typesafe_akka_akka_http_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
     ],
@@ -234,6 +241,7 @@ da_scala_test_suite(
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -243,7 +251,10 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:com_typesafe_akka_akka_http_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = [] if oracle_testing else ["manual"],
@@ -272,6 +283,7 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

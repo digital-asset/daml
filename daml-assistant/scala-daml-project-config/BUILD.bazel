@@ -32,9 +32,13 @@ da_scala_test_suite(
         "src/test/**/*Test.scala",
     ]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     deps = [
         ":scala-daml-project-config",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

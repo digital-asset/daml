@@ -168,8 +168,11 @@ da_scala_test_suite(
         "@maven//:org_sangria_graphql_sangria",
         "@maven//:org_sangria_graphql_sangria_marshalling_api",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = navigator_scalacopts,
@@ -199,6 +202,7 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
         "@maven//:com_typesafe_config",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

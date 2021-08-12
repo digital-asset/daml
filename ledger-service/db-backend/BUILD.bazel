@@ -51,7 +51,10 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
@@ -64,5 +67,6 @@ da_scala_test(
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-backend",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

@@ -49,7 +49,10 @@ da_scala_library(
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     visibility = [
         "//visibility:public",
@@ -63,5 +66,6 @@ da_scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

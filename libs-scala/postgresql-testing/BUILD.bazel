@@ -15,7 +15,7 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
     ],
     versioned_scala_deps = {
         "2.12": [
@@ -31,5 +31,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:commons_io_commons_io",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

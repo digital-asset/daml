@@ -67,7 +67,10 @@ da_scala_test(
         "//ledger/test-common/test-certificates",
     ],
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_freespec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_typelevel_paiges_core",
     ],
     visibility = ["//visibility:public"],
@@ -79,5 +82,6 @@ da_scala_test(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
