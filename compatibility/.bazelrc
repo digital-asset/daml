@@ -2,7 +2,10 @@
 # flag: --noremote_accept_cached
 build:darwin --remote_http_cache=https://bazel-cache.da-ext.net
 build:linux --remote_http_cache=https://bazel-cache.da-ext.net/ubuntu_20_04
+# Don't push local build results to the remote cache.
 build --remote_upload_local_results=false
+# Do still push local build results to the local disk cache.
+build --incompatible_remote_results_ignore_disk=true
 # Enable the disk cache in addition to the http cache.
 build:linux --disk_cache=.bazel-cache/disk
 build:darwin --disk_cache=.bazel-cache/disk
