@@ -14,7 +14,7 @@ import scala.jdk.CollectionConverters._
 
 object CompletionResponse {
 
-  /** Represents failures from executing the submission through gRPC
+  /** Represents failures from executing submissions through gRPC.
     */
   sealed trait CompletionFailure {
     def metadata: Map[String, String] = Map.empty
@@ -24,19 +24,20 @@ object CompletionResponse {
   final case class TimeoutResponse(commandId: String) extends CompletionFailure
   final case class NoStatusInResponse(commandId: String) extends CompletionFailure
 
-  /** Represents failures from tracking submissions that were sent to the execution queue
+  /** Represents failures of submissions throughout the execution queue.
     */
   private[daml] sealed trait TrackedCompletionFailure
 
-  /** The request was successfully executed after it was enqueued but the [[Completion]] was not successful
+  /** The submission was executed after it was enqueued but was not successful.
     */
   private[daml] final case class QueueCompletionFailure(failure: CompletionFailure)
       extends TrackedCompletionFailure
 
-  /** Represents the failure to add to the execution queue.
+  /** The submission could not be added to the execution queue.
     * @param status - gRPC status chosen based on the reason why adding to the queue failed
     */
   private[daml] final case class QueueSubmitFailure(status: Status) extends TrackedCompletionFailure
+
   final case class CompletionSuccess(
       commandId: String,
       transactionId: String,
