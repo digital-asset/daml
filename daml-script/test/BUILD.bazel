@@ -114,7 +114,10 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
@@ -149,6 +152,7 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_auth0_java_jwt",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

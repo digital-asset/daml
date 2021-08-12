@@ -52,12 +52,10 @@ da_scala_library(
     srcs = glob(["src/test/{}/**/*.scala".format(scala_major_version)]),
     versioned_scala_deps = {
         "2.12": [
-            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalatest_scalatest_core",
             "@maven//:org_scalactic_scalactic",
         ],
     },
-    deps = [
-    ],
 )
 
 da_scala_test_suite(
@@ -71,7 +69,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_akka_akka_stream_testkit",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     scalacopts = [
         "-P:silencer:lineContentFilters=import Compat._",
@@ -88,6 +89,7 @@ da_scala_test_suite(
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

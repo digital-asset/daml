@@ -70,7 +70,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_actor_typed",
         "@maven//:com_typesafe_akka_akka_actor_testkit_typed",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -83,5 +86,6 @@ da_scala_test_suite(
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

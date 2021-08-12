@@ -26,11 +26,15 @@ da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_freespec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":transaction-eq",
         "//language-support/scala/bindings",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

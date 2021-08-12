@@ -63,7 +63,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -91,6 +94,7 @@ da_scala_test_suite(
         "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

@@ -38,7 +38,7 @@ da_scala_test(
     srcs = glob(["src/test/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
     scalacopts = lf_scalacopts,
     visibility = [

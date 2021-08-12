@@ -88,8 +88,11 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = common_scalacopts,
@@ -100,5 +103,6 @@ da_scala_test_suite(
         "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/logging-entries",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

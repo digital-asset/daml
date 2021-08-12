@@ -48,7 +48,10 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_typelevel_cats_core",
@@ -59,5 +62,6 @@ da_scala_test(
     deps = [
         ":db-utils",
         "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
