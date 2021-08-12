@@ -39,12 +39,14 @@ object TreeUtils {
   def contractsReferences(contracts: Iterable[CreatedEvent]): Set[PackageId] = {
     contracts
       .foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
+      .filter(i => i.packageId.nonEmpty)
       .map(i => PackageId.assertFromString(i.packageId))
   }
 
   def treesReferences(transactions: Iterable[TransactionTree]): Set[PackageId] = {
     transactions
       .foldMap(treeRefs(_))
+      .filter(i => i.packageId.nonEmpty)
       .map(i => PackageId.assertFromString(i.packageId))
   }
 
@@ -466,6 +468,11 @@ object TreeUtils {
     case Kind.Exercised(value) => valueRefs(value.getChoiceArgument.sum)
   }
 
+  /** All identifiers referenced by the given value that require a module import.
+    *
+    * Note, the package-id component of the identifier may be empty if there is no
+    * corresponding package-id available. E.g. DA.Time.Time incurred by Timestamp values.
+    */
   def valueRefs(v: Value.Sum): Set[Identifier] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) =>
@@ -481,11 +488,15 @@ object TreeUtils {
     case Sum.Int64(_) => Set()
     case Sum.Numeric(_) => Set()
     case Sum.Text(_) => Set()
-    case Sum.Timestamp(_) => Set()
+    case Sum.Timestamp(_) =>
+      Set(
+        Identifier().withModuleName("DA.Date").withEntityName("Date"),
+        Identifier().withModuleName("DA.Time").withEntityName("Time"),
+      )
     case Sum.Party(_) => Set()
     case Sum.Bool(_) => Set()
     case Sum.Unit(_) => Set()
-    case Sum.Date(_) => Set()
+    case Sum.Date(_) => Set(Identifier().withModuleName("DA.Date").withEntityName("Date"))
     case Sum.Optional(value) => value.value.foldMap(v => valueRefs(v.sum))
     case Sum.Map(value) => value.entries.foldMap(e => valueRefs(e.getValue.sum))
     case Sum.Enum(value) => Set(value.getEnumId)
