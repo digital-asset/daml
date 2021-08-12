@@ -14,7 +14,7 @@ import scala.jdk.CollectionConverters._
 
 object CompletionResponse {
 
-  /** Represents failures from executing the submission through GRPC
+  /** Represents failures from executing the submission through gRPC
     */
   sealed trait CompletionFailure {
     def metadata: Map[String, String] = Map.empty
@@ -32,7 +32,7 @@ object CompletionResponse {
       extends TrackedCompletionFailure
 
   /** Represents the failure to add to the execution queue.
-    * @param status - Grpc status chosen based on the reason why adding to the queue failed
+    * @param status - gRPC status chosen based on the reason why adding to the queue failed
     */
   private[daml] final case class StartingExecutionFailure(status: Status)
       extends TrackedCompletionFailure
