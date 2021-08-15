@@ -729,7 +729,7 @@ Mockito v3.6.28 : MIT License
 mockito-scala 1.16.3 : MIT License
 Modernizr v3.11.7 : MIT License
 module-deps 6.2.3 : MIT License
-Moment JavaScript Date Library 2.29.1 : MIT License
+moment/moment 2.29.1 : MIT License
 monad-control 1.0.2.3 : BSD 3-clause "New" or "Revised" License
 monad-logger 0.3.36 : MIT License
 monad-loops 0.4.3 : Public Domain
@@ -8810,7 +8810,7 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(Moment JavaScript Date Library 2.29.1)
+(moment/moment 2.29.1)
 
 Copyright (c) JS Foundation and other contributors
 
