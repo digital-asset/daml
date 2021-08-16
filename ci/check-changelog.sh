@@ -13,7 +13,7 @@ contains_changelog () {
 
         END { print flag }
     "
-    [[ 2 == $(git show -s --format=%B $1 | awk "$awk_script") ]]
+    [[ 2 == $(git show -s --format=%b $1 | awk "$awk_script") ]]
 }
 
 is_dependabot_pr() {
