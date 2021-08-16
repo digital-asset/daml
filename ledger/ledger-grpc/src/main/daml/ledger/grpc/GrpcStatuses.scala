@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.v2
+package com.daml.ledger.grpc
 
 import com.daml.ledger.offset.Offset
 import com.google.rpc.error_details.ErrorInfo
@@ -22,7 +22,7 @@ object GrpcStatuses {
       }
     }
 
-  def isDefiniteAnswer(errorInfo: ErrorInfo): Boolean =
+  private def isDefiniteAnswer(errorInfo: ErrorInfo): Boolean =
     errorInfo.metadata.get(DefiniteAnswerKey).exists(value => java.lang.Boolean.valueOf(value))
 
   def completeWithOffset(

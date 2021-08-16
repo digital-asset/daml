@@ -1,10 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.v2
+package com.daml.ledger.grpc
 
+import com.daml.ledger.grpc.GrpcStatuses.{CompletionOffsetKey, DefiniteAnswerKey}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.GrpcStatuses.{CompletionOffsetKey, DefiniteAnswerKey}
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
 import com.google.rpc.status.Status
