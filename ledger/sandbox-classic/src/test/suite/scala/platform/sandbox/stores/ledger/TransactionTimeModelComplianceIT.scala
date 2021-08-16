@@ -8,6 +8,7 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -96,7 +97,7 @@ class TransactionTimeModelComplianceIT
       actAs = List(Ref.Party.assertFromString("submitter")),
       applicationId = Ref.ApplicationId.assertFromString("appId"),
       commandId = Ref.CommandId.assertFromString(commandId + UUID.randomUUID().toString),
-      deduplicationPeriod = state.DeduplicationPeriod.DeduplicationDuration(JDuration.ZERO),
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(JDuration.ZERO),
       submissionId = Ref.SubmissionId.assertFromString(submissionId),
       ledgerConfiguration = configuration,
     )

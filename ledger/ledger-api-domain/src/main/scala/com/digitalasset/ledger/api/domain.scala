@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
@@ -200,7 +200,7 @@ object domain {
       *
       * This means that the underlying ledger and its validation logic
       * considered the transaction potentially invalid. This can be due to a bug
-      * in the submission or validiation logic, or due to malicious behaviour.
+      * in the submission or validation logic, or due to malicious behaviour.
       */
     final case class Disputed(description: String) extends RejectionReason
 
@@ -283,11 +283,9 @@ object domain {
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplicationDuration: Duration,
+      deduplication: DeduplicationPeriod,
       commands: LfCommands,
-  ) {
-    lazy val deduplicateUntil: Instant = submittedAt.plus(deduplicationDuration)
-  }
+  )
 
   object Commands {
 
@@ -302,7 +300,7 @@ object domain {
         "actAs" -> commands.actAs,
         "readAs" -> commands.readAs,
         "submittedAt" -> commands.submittedAt,
-        "deduplicationDuration" -> commands.deduplicationDuration,
+        "deduplication" -> commands.deduplication,
       )
   }
 
