@@ -16,6 +16,7 @@ import com.daml.timer.RetryStrategy
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 object LedgerClientBase {
@@ -59,22 +60,31 @@ trait LedgerClientBase {
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
       lc: LoggingContextOf[InstanceUUID],
-  ): Future[LedgerClientBase.Error \/ DamlLedgerClient] =
+  ): Future[LedgerClientBase.Error \/ DamlLedgerClient] = {
+    logger.info(
+      s"Attempting to connect to the ledger $ledgerHost:$ledgerPort ($maxInitialConnectRetryAttempts attempts)"
+    )
     RetryStrategy
       .constant(maxInitialConnectRetryAttempts, 1.seconds) { (i, _) =>
-        logger.info(s"""Attempting to connect to the ledger $ledgerHost:$ledgerPort
-           | (attempt $i/$maxInitialConnectRetryAttempts)""".stripMargin)
-        buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
+        val client = buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
+        client.onComplete {
+          case Success(_) =>
+            logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts succeeded!""")
+          case Failure(NonFatal(e)) =>
+            logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts failed: ${e.description}""")
+        }
+        client
       }
       .map(_.right)
       .recover { case NonFatal(e) =>
         \/.left(
           LedgerClientBase.Error(
-            s"""Maximum initial connection retry attempts($maxInitialConnectRetryAttempts) reached,
+            s"""Maximum initial connection retry attempts ($maxInitialConnectRetryAttempts) reached,
                | Cannot connect to ledger server: ${e.description}""".stripMargin
           )
         )
       }
+  }
 
   def apply(
       ledgerHost: String,
