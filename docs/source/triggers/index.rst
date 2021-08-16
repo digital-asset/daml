@@ -53,11 +53,9 @@ That should fool anyone and pass the Turing test, easily.
 Daml Trigger Basics
 ===================
 
-Having defined what our Daml trigger is supposed to do, we can now
-move on to its implementation. A Daml trigger is a regular Daml
-project that you can build using ``daml build``. To get access to the
-API used to build a trigger, you need to add the ``daml-triggers``
-library to the ``dependencies`` field in ``daml.yaml``:
+A Daml trigger is a regular Daml project that you can build using ``daml
+build``. To get access to the API used to build a trigger, you need to add the
+``daml-trigger`` library to the ``dependencies`` field in ``daml.yaml``:
 
 .. literalinclude:: /_templates/gsg-trigger/daml.yaml.template
   :language: yaml
