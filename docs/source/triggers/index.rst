@@ -325,20 +325,21 @@ reference to which message it's responding to. This may or may not be what we
 want.
 
 If this simple deduplication is not suited to your use-case, you have two other
-tools at your disposal. The first one is the ``getCommandsInflight`` action
-(`doc <https://docs.daml.com/triggers/api/Daml-Trigger.html#function-daml-trigger-getcommandsinflight-32524>`__),
-which returns all of the commands this instance of the trigger runner has sent
-and that have not yet been resolved (i.e. either committed or failed). You can
-then build your own logic based on this list, the ACS, and possibly your own
-trigger state.
-
-The last tool you have at your disposal is the second argument to the ``emitCommands`` action
+tools at your disposal. The first one is the second argument to the
+``emitCommands`` action
 (`doc <https://docs.daml.com/triggers/api/Daml-Trigger.html#function-daml-trigger-emitcommands-10563>`__),
 which is a list of contract IDs. These IDs will be filtered out of any ACS
 ``query`` made by this trigger until the commands submitted as part of the same
 ``emitCommands`` call have completed. If your trigger is based on seeing
 certain contracts, this can be a simple, effective way to prevent triggering it
 multiple times.
+
+The last tool you have at your disposal is the ``getCommandsInflight`` action
+(`doc <https://docs.daml.com/triggers/api/Daml-Trigger.html#function-daml-trigger-getcommandsinflight-32524>`__),
+which returns all of the commands this instance of the trigger runner has sent
+and that have not yet been resolved (i.e. either committed or failed). You can
+then build your own logic based on this list, the ACS, and possibly your own
+trigger state.
 
 Finally, do keep in mind that all of these mechanisms rely on internal state
 from the trigger runner, which keeps track of which commands it has sent and
