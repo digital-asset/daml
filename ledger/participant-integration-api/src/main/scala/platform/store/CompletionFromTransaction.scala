@@ -14,20 +14,15 @@ import com.daml.lf.data.Ref
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.store.Conversions.RejectionReasonOps
 import com.daml.platform.store.entries.LedgerEntry
-import com.google.rpc.status.Status
+import com.google.rpc.status.{Status => StatusProto}
+import io.grpc.Status
 
 // Turn a stream of transactions into a stream of completions for a given application and set of parties
 // TODO Restrict the scope of this to com.daml.platform.store.dao when
 // TODO - the in-memory sandbox is gone
 private[platform] object CompletionFromTransaction {
-
-  def toApiCheckpoint(recordTime: Instant, offset: Offset): Some[Checkpoint] =
-    Some(
-      Checkpoint(
-        recordTime = Some(fromInstant(recordTime)),
-        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toApiString))),
-      )
-    )
+  private val OkStatus = StatusProto.of(Status.Code.OK.value(), "", Seq.empty)
+  private val RejectionTransactionId = ""
 
   // Filter completions for transactions for which we have the full submitter information: appId, submitter, cmdId
   // This doesn't make a difference for the sandbox (because it represents the ledger backend + api server in single package).
@@ -53,17 +48,39 @@ private[platform] object CompletionFromTransaction {
             _,
           ),
         ) if actAs.exists(parties) =>
-      offset -> CompletionStreamResponse(
-        checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(Completion(commandId, Some(Status()), transactionId)),
-      )
+      offset -> acceptedCompletion(recordTime, offset, commandId, transactionId)
 
     case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, _, actAs, reason))
         if actAs.exists(parties) =>
       val status = reason.toParticipantStateRejectionReason.status
-      offset -> CompletionStreamResponse(
-        checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(Completion(commandId, Some(status))),
-      )
+      offset -> rejectedCompletion(recordTime, offset, commandId, status)
   }
+
+  def acceptedCompletion(
+      recordTime: Instant,
+      offset: Offset,
+      commandId: String,
+      transactionId: String,
+  ): CompletionStreamResponse =
+    CompletionStreamResponse.of(
+      checkpoint = Some(toApiCheckpoint(recordTime, offset)),
+      completions = Seq(Completion.of(commandId, Some(OkStatus), transactionId)),
+    )
+
+  def rejectedCompletion(
+      recordTime: Instant,
+      offset: Offset,
+      commandId: String,
+      status: StatusProto,
+  ): CompletionStreamResponse =
+    CompletionStreamResponse.of(
+      checkpoint = Some(toApiCheckpoint(recordTime, offset)),
+      completions = Seq(Completion.of(commandId, Some(status), RejectionTransactionId)),
+    )
+
+  private def toApiCheckpoint(recordTime: Instant, offset: Offset): Checkpoint =
+    Checkpoint.of(
+      recordTime = Some(fromInstant(recordTime)),
+      offset = Some(LedgerOffset.of(LedgerOffset.Value.Absolute(offset.toApiString))),
+    )
 }
