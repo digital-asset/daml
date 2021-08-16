@@ -347,7 +347,7 @@ for which it's not seen a completion. They will all fail to deduplicate if that
 internal state is lost, e.g. if the trigger runner is shut down and a new one
 is started. As such, these deduplication mechanisms should be seen as an
 optimization rather than a requirement for correctness. The Daml model should
-be deisnged such that duplicated commands are either rejected (e.g. using keys
+be designed such that duplicated commands are either rejected (e.g. using keys
 or relying on changing contract IDs) or benign.
 
 Authentication
