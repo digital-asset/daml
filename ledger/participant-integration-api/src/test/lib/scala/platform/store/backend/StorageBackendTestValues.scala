@@ -45,6 +45,11 @@ private[backend] object StorageBackendTestValues {
     .setPayload(ByteString.copyFromUtf8("payload 1"))
     .build
 
+  // This is not a valid serialization of a Daml-Lf value. This is ok.
+  // The tests never deserialize Daml-Lf values, we the just need some non-empty array
+  // because Oracle converts empty arrays to NULL, which then breaks non-null constraints.
+  val someSerializedDamlLfValue: Array[Byte] = Array.fill[Byte](8)(15)
+
   def dtoConfiguration(offset: Offset): List[DbDto] = List(
     DbDto.ConfigurationEntry(
       ledger_offset = offset.toHexString,
@@ -124,7 +129,7 @@ private[backend] object StorageBackendTestValues {
       template_id = Some(someTemplateId.toString),
       flat_event_witnesses = Set(signatory, observer),
       tree_event_witnesses = Set(signatory, observer),
-      create_argument = Some(Array.emptyByteArray),
+      create_argument = Some(someSerializedDamlLfValue),
       create_signatories = Some(Set(signatory)),
       create_observers = Some(Set(observer)),
       create_agreement_text = None,
@@ -169,8 +174,8 @@ private[backend] object StorageBackendTestValues {
       tree_event_witnesses = Set(signatory, actor),
       create_key_value = None,
       exercise_choice = Some("exercise_choice"),
-      exercise_argument = Some(Array.emptyByteArray),
-      exercise_result = Some(Array.emptyByteArray),
+      exercise_argument = Some(someSerializedDamlLfValue),
+      exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Some(Set(actor)),
       exercise_child_event_ids = Some(Set.empty),
       create_key_value_compression = None,
@@ -199,7 +204,7 @@ private[backend] object StorageBackendTestValues {
       contract_id = contractId,
       template_id = Some(someTemplateId.toString),
       tree_event_witnesses = Set(divulgee),
-      create_argument = Some(Array.emptyByteArray),
+      create_argument = Some(someSerializedDamlLfValue),
       create_argument_compression = None,
       event_sequential_id = eventSequentialId,
     )
@@ -248,8 +253,8 @@ private[backend] object StorageBackendTestValues {
         tree_event_witnesses = Set("signatory"),
         create_key_value = None,
         exercise_choice = Some("exercise_choice"),
-        exercise_argument = Some(Array.emptyByteArray),
-        exercise_result = Some(Array.emptyByteArray),
+        exercise_argument = Some(someSerializedDamlLfValue),
+        exercise_result = Some(someSerializedDamlLfValue),
         exercise_actors = Some(Set("signatory")),
         exercise_child_event_ids = Some(
           Set(
@@ -279,8 +284,8 @@ private[backend] object StorageBackendTestValues {
         tree_event_witnesses = Set("signatory"),
         create_key_value = None,
         exercise_choice = Some("exercise_choice"),
-        exercise_argument = Some(Array.emptyByteArray),
-        exercise_result = Some(Array.emptyByteArray),
+        exercise_argument = Some(someSerializedDamlLfValue),
+        exercise_result = Some(someSerializedDamlLfValue),
         exercise_actors = Some(Set("signatory")),
         exercise_child_event_ids = Some(Set.empty),
         create_key_value_compression = None,
@@ -302,7 +307,7 @@ private[backend] object StorageBackendTestValues {
         template_id = Some(someTemplateId.toString),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
-        create_argument = Some(Array.emptyByteArray),
+        create_argument = Some(someSerializedDamlLfValue),
         create_signatories = Some(Set("signatory")),
         create_observers = Some(Set("observer")),
         create_agreement_text = None,
@@ -321,7 +326,7 @@ private[backend] object StorageBackendTestValues {
         contract_id = "contract_id4",
         template_id = Some(someTemplateId.toString),
         tree_event_witnesses = Set("divulgee"),
-        create_argument = Some(Array.emptyByteArray),
+        create_argument = Some(someSerializedDamlLfValue),
         create_argument_compression = Some(0),
         event_sequential_id = eventSequentialId + 3,
       ),
