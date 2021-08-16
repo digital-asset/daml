@@ -228,37 +228,40 @@ Let's walk through the ``rule`` code line-by-line:
 - We use the ``query`` function to get all of the ``Message`` templates visible
   to the current party (``p``; in our case this will be ``bob``). Per the
   `documentation </triggers/api/Daml-Trigger.html#function-daml-trigger-query-2759>`_,
-  this returns a list of tuples (contract id, payload).
+  this returns a list of tuples (contract id, payload), which we store as
+  ``message_contracts``.
 - We then `map </daml/stdlib/Prelude.html#function-ghc-base-map-40302>`_ the
   `snd </daml/stdlib/Prelude.html#function-da-internal-prelude-snd-86578>`_
   function on the result to get only the payloads, i.e. the actual data of the
   messages we can see.
 - We print, as a ``debug`` message, the number of messages we can see.
-- On the next line, we sort the messages on the ``receivedAt`` field
-  (`maximumOn </daml/stdlib/DA-List-Total.html#function-da-list-total-maximumon-67732>`_),
-  then take the
-  `last </daml/stdlib/DA-List-Total.html#function-da-list-total-last-89790>`_
-  one (sorting order is ascending).
+- On the next line, get the message with the highest ``receivedAt`` field
+  (`maximumOn </daml/stdlib/DA-List-Total.html#function-da-list-total-maximumon-67732>`_).
 - We then print another debug message, this time printing the message our code
   has identified as "the last message visible to the current party". If you run
   this, you'll see that ``lastMessage`` is actually a ``Optional Message``. This
-  is because the `last </daml/stdlib/DA-List-Total.html#function-da-list-total-last-89790>`_
-  function will return the last element from a list *if* the list has at least
-  one element, but it needs to still do something sensible if the list is
-  empty, like returning ``None``.
-- We then check what we actually have in ``lastMessage``.
-- If there is some message, then we need to check whether the message has been
-  sent *to* or *by* the party running the trigger (with the current Daml model,
-  it has to be one or the other, as messages are only visible to the sender and
-  receiver).
-- If the message was sent *to* the current party, then we want to reply to it.
-  In order to do that, we need to find the ``User`` contract for the sender. We
-  start by getting the list of all ``User`` contracts we know about, which will
-  be all users who follow the party running the trigger. As for ``Message``
-  contracts earlier, the result of ``query @User`` is going to be a list of
-  tuples with (contract id, payload). The big difference is that this time we
-  actually want to keep the contract ids, as that is what we'll use to send a
-  message back.
+  is because the `maximumOn </daml/stdlib/DA-List-Total.html#function-da-list-total-maximumon-67732>`_
+  function will return the element from a list for which the given functions
+  produces the highest value *if* the list has at least one element, but it
+  needs to still do something sensible if the list is empty; in this case, it
+  would return ``None``.
+- When ``lastMessage`` is ``Some m``
+  (`whenSome </daml/stdlib/DA-Optional.html#function-da-optional-whensome-23804>`_),
+  we execute the given function.  Otherwise, ``lastMessage`` is ``None`` and we
+  implicitly do nothing.
+- Next, we need to check whether the message has been sent *to* or *by* the
+  party running the trigger (with the current Daml model, it has to be one or
+  the other, as messages are only visible to the sender and receiver).
+  `when </daml/stdlib/DA-Action.html#function-da-action-when-53144>`_ the
+  expression ``m.receiver == p`` is ``True``, we execute the following block of
+  code, otherwise we sent the message so we do nothing.
+- We need to find the ``User`` contract for the sender. We start by getting the
+  list of all ``User`` contracts we know about, which will be all users who
+  follow the party running the trigger (and that party's own ``User``
+  contract). As for ``Message`` contracts earlier, the result of ``query
+  @User`` is going to be a list of tuples with (contract id, payload). The big
+  difference is that this time we actually want to keep the contract ids, as
+  that is what we'll use to send a message back.
 - We print the list of users we just fetched, as a debug message.
 - We create a function to identify the user we are looking for.
 - We get the user contract by applying our ``isSender`` function as a
@@ -266,25 +269,18 @@ Let's walk through the ``rule`` code line-by-line:
   on the list of users, and then taking the
   `head <daml/stdlib/DA-List-Total.html#function-da-list-total-head-74336>`_
   of that list, i.e. its first element.
-- Just like  ``last``, ``head`` will return an ``Optional a``, so the next step
-  is to check whether we have actually found the relevant ``User`` contract. In
-  most cases we should find it, but remember that users can send us a message if
-  *we* follow *them*, whereas we can only answer if *they* follow *us*.
-- If ``replyTo`` is ``None``, then the sender is not, or no longer, following
-  us, and we can't respond. In that case we just do nothing, which we indicate by
-  returning ``pure ()``.
-- If we did find some ``User`` contrac to reply to, we extract the
-  corresponding contract id (first element of the tuple) and discard the
-  payload (second element), and we
+- Just like  ``maximumOn``, ``head`` will return an ``Optional a``, so the next
+  step is to check whether we have actually found the relevant ``User``
+  contract. In most cases we should find it, but remember that users can send
+  us a message if *we* follow *them*, whereas we can only answer if *they*
+  follow *us*.
+- If we did find some ``User`` contract to reply to, we extract the
+  corresponding contract id (first element of the tuple, ``sender``) and
+  discard the payload (second element, ``_``), and we
   `exercise <triggers/api/Daml-Trigger.html#function-daml-trigger-dedupexercise-37617>`_
   the ``SendMessage`` choice, passing in the current party ``p`` as the sender.
   See below for additional information on what that ``dedup`` in the name of the
   command means.
-- If the receiver of the last message was not the current party, then the last
-  message was sent by it and we don't need to reply to ourselves, so we do
-  nothing.
-- Finally, if we had not found any message at all, and thus ``lastMessage`` was
-  ``None``, we have nothing to do.
 
 Deduplication
 =============

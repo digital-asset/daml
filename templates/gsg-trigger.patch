@@ -1,12 +1,14 @@
 diff -Naur create-daml-app/daml/ChatBot.daml gsg-trigger/daml/ChatBot.daml
 --- create-daml-app/daml/ChatBot.daml	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/daml/ChatBot.daml	2021-08-12 18:27:14.000000000 +0200
-@@ -0,0 +1,33 @@
++++ gsg-trigger/daml/ChatBot.daml	2021-08-16 13:05:51.000000000 +0200
+@@ -0,0 +1,29 @@
 +module ChatBot where
 +
 +import qualified Daml.Trigger as T
 +import qualified User
 +import qualified DA.List.Total as List
++import DA.Action (when)
++import DA.Optional (whenSome)
 +
 +autoReply : T.Trigger ()
 +autoReply = T.Trigger
@@ -18,26 +20,20 @@ diff -Naur create-daml-app/daml/ChatBot.daml gsg-trigger/daml/ChatBot.daml
 +      debug $ "Messages so far: " <> show (length messages)
 +      let lastMessage = List.maximumOn (.receivedAt) messages
 +      debug $ "Last message: " <> show lastMessage
-+      case lastMessage of
-+        Some m ->
-+          if m.receiver == p
-+          then do
-+            users <- T.query @User.User
-+            debug users
-+            let isSender = (\user -> user.username == m.sender)
-+            let replyTo = List.head $ filter (\(_, user) -> isSender user) users
-+            case replyTo of
-+              None -> pure ()
-+              Some (sender, _) -> do
-+                T.dedupExercise sender (User.SendMessage p "Please, tell me more about that.")
-+          else pure ()
-+        None -> pure ()
++      whenSome lastMessage $ \m ->
++        when (m.receiver == p) $ do
++          users <- T.query @User.User
++          debug users
++          let isSender = (\user -> user.username == m.sender)
++          let replyTo = List.head $ filter (\(_, user) -> isSender user) users
++          whenSome replyTo $ \(sender, _) ->
++            T.dedupExercise sender (User.SendMessage p "Please, tell me more about that.")
 +  , registeredTemplates = T.AllInDar
 +  , heartbeat = None
 +  }
 diff -Naur create-daml-app/daml/NoOp.daml gsg-trigger/daml/NoOp.daml
 --- create-daml-app/daml/NoOp.daml	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/daml/NoOp.daml	2021-08-12 14:37:47.000000000 +0200
++++ gsg-trigger/daml/NoOp.daml	2021-08-16 13:02:52.000000000 +0200
 @@ -0,0 +1,13 @@
 +module NoOp where
 +
@@ -54,7 +50,7 @@ diff -Naur create-daml-app/daml/NoOp.daml gsg-trigger/daml/NoOp.daml
 +  heartbeat = None
 diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
 --- create-daml-app/daml/User.daml	2021-08-12 14:36:31.000000000 +0200
-+++ gsg-trigger/daml/User.daml	2021-08-12 14:39:42.000000000 +0200
++++ gsg-trigger/daml/User.daml	2021-08-16 13:02:52.000000000 +0200
 @@ -25,3 +25,24 @@
          archive self
          create this with following = userToFollow :: following
@@ -82,7 +78,7 @@ diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
 +-- MESSAGE_END
 diff -Naur create-daml-app/daml.yaml.template gsg-trigger/daml.yaml.template
 --- create-daml-app/daml.yaml.template	2021-05-12 10:23:33.000000000 +0200
-+++ gsg-trigger/daml.yaml.template	2021-08-12 14:07:53.000000000 +0200
++++ gsg-trigger/daml.yaml.template	2021-08-16 13:02:52.000000000 +0200
 @@ -6,10 +6,12 @@
  - Alice
  - Bob
