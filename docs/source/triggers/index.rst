@@ -30,6 +30,12 @@ executed separately from the ledger, they do not need to be uploaded
 to the ledger and they do not allow you to do anything that any other
 ledger client could not do.
 
+
+If you don't want to follow along, but still want to get the final code
+for this section to play with, you can get it by running::
+
+      daml new --template-name=gsg-trigger create-daml-app
+
 Sample Trigger
 ==============
 
@@ -53,12 +59,10 @@ project that you can build using ``daml build``. To get access to the
 API used to build a trigger, you need to add the ``daml-triggers``
 library to the ``dependencies`` field in ``daml.yaml``:
 
-.. code-block:: yaml
-
-    dependencies:
-    - daml-prim
-    - daml-stdlib
-    - daml-trigger
+.. literalinclude:: /_templates/gsg-trigger/daml.yaml.template
+  :language: yaml
+  :start-after: # trigger-dependencies-begin
+  :end-before: # trigger-dependencies-end
 
 **Note**: In the specific case of the Getting Started Guide, this is already
 included as part of the ``create-daml-app`` template.
@@ -135,21 +139,8 @@ Running a No-Op Trigger
 To implement a no-op trigger, one could write the following in a separate
 ``daml/ChatBot.daml`` file:
 
-.. code-block:: daml
-
-    module ChatBot where
-
-    import qualified Daml.Trigger as T
-
-    autoReply : T.Trigger ()
-    autoReply = T.Trigger with
-      initialize = pure ()
-      updateState = \_ -> pure ()
-      rule = \_ -> do
-        debug "triggered"
-        pure ()
-      registeredTemplates = T.AllInDar
-      heartbeat = None
+.. literalinclude:: /_templates/gsg-trigger/daml/NoOp.daml
+  :language: daml
 
 In the context of the Getting Started app, if you write the above file, then
 run ``daml start`` and ``npm start`` as usual, and then set up the trigger
@@ -158,7 +149,7 @@ with:
 .. code-block:: bash
 
     daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
-                 --trigger-name ChatBot:autoReply \
+                 --trigger-name NoOp:noOp \
                  --ledger-host localhost \
                  --ledger-port 6865 \
                  --ledger-party "bob"
@@ -187,31 +178,19 @@ given the current structure of a message. In order to solve that, we need to
 add a ``Time`` field to ``Message``, which can be done by editing the
 ``Message`` template in ``daml/User.daml`` to look like:
 
-.. code-block:: daml
-
-    template Message with
-      sender: Party
-      receiver: Party
-      content: Text
-      receivedAt: Time
-    where
-      signatory sender, receiver
+.. literalinclude:: /_templates/gsg-trigger/daml/User.daml
+  :language: daml
+  :start-after: -- MESSAGE_BEGIN
+  :end-before: -- MESSAGE_END
 
 This should result in Daml Studio reporting an error in the ``SendMessage``
 choice, as it now needs to set the ``receivedAt`` field. Here is the updated
 code for ``SendMessage``:
 
-.. code-block:: daml
-
-    -- New definition for SendMessage
-        nonconsuming choice SendMessage: ContractId Message with
-            sender: Party
-            content: Text
-          controller sender
-          do
-            assertMsg "Designated user must follow you back to send a message" (elem sender following)
-            now <- getTime
-            create Message with sender, receiver = username, content, receivedAt = now
+.. literalinclude:: /_templates/gsg-trigger/daml/User.daml
+  :language: daml
+  :start-after: -- SEND_BEGIN
+  :end-before: -- SEND_END
 
 The ``getTime`` action (`doc </daml/stdlib/Prelude.html#function-da-internal-lf-gettime-99334>`__)
 returns the time at which the command was received by the sandbox. In more
@@ -228,46 +207,22 @@ AutoReply
 
 Open up the trigger code again (``daml/ChatBot.daml``), and change it to:
 
-.. code-block:: daml
-
-    module ChatBot where
-
-    import qualified Daml.Trigger as T
-    import qualified User
-    import qualified DA.List.Total as List
-
-    autoReply : T.Trigger ()
-    autoReply = T.Trigger
-      { initialize = pure ()
-      , updateState = \_ -> pure ()
-      , rule = \p -> do
-          message_contracts <- T.query @User.Message
-          let messages = map snd message_contracts
-          debug $ "Messages so far: " <> show (length messages)
-          let lastMessage = List.last $ List.sortOn (.receivedAt) messages
-          debug $ "Last message: " <> show lastMessage
-          case lastMessage of
-            Some m ->
-              if m.receiver == p
-              then do
-                users <- T.query @User.User
-                debug users
-                let isSender = (\user -> user.username == m.sender)
-                let replyTo = List.head $ filter (\(_, user) -> isSender user) users
-                case replyTo of
-                  None -> pure ()
-                  Some (sender, _) -> do
-                    T.dedupExercise sender (User.SendMessage p "Please, tell me more about that.")
-              else pure ()
-            None -> pure ()
-      , registeredTemplates = T.AllInDar
-      , heartbeat = None
-      }
+.. literalinclude:: /_templates/gsg-trigger/daml/ChatBot.daml
+  :language: daml
 
 Refresh ``daml start`` by pressing ``r`` (followed by ``Enter`` on Windows) in
-its terminal, then kill (CTRL-C) the trigger and start it again. Play a bit
-with ``alice`` and ``bob`` in your browser, to get a feel for how the
-trigger works. Watch both the messages in-browser and the debug statements
+its terminal, then start the trigger with:
+
+.. code-block:: bash
+
+    daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
+                 --trigger-name ChatBot:autoReply \
+                 --ledger-host localhost \
+                 --ledger-port 6865 \
+                 --ledger-party "bob"
+
+Play a bit with ``alice`` and ``bob`` in your browser, to get a feel for how
+the trigger works. Watch both the messages in-browser and the debug statements
 printed by the trigger runner.
 
 Let's walk through the ``rule`` code line-by-line:
@@ -282,7 +237,8 @@ Let's walk through the ``rule`` code line-by-line:
   messages we can see.
 - We print, as a ``debug`` message, the number of messages we can see.
 - On the next line, we sort the messages on the ``receivedAt`` field
-  (`sortOn </daml/stdlib/DA-List.html#function-da-list-sorton-1185>`_), then take the
+  (`maximumOn </daml/stdlib/DA-List-Total.html#function-da-list-total-maximumon-67732>`_),
+  then take the
   `last </daml/stdlib/DA-List-Total.html#function-da-list-total-last-89790>`_
   one (sorting order is ascending).
 - We then print another debug message, this time printing the message our code

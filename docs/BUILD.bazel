@@ -241,6 +241,11 @@ genrule(
         mkdir $$CODE_DIR/testing
         cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
 
+        # Templates
+        TEMPLATES_DIR=$$PWD/build/docs/source/_templates
+        mkdir -p $$TEMPLATES_DIR
+        tar -zxf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
+
         if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.allow; then
             exit 1
         fi

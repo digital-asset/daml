@@ -50,6 +50,7 @@ genrule(
             "quickstart-java/**",
             "quickstart-scala/**",
             "copy-trigger/**",
+            "gsg-trigger.patch",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
     ) + [
@@ -64,13 +65,18 @@ genrule(
         SRC=templates
         OUT=templates-tarball
 
+        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+        cp -rL $$SRC/create-daml-app $$SRC/gsg-trigger
+        "$$PATCH_TOOL" -d $$SRC/gsg-trigger -p1 < $$SRC/gsg-trigger.patch
+
         # templates in templates dir
         for d in skeleton \
                  empty-skeleton \
                  create-daml-app \
                  quickstart-scala \
                  quickstart-java \
-                 copy-trigger; do
+                 copy-trigger \
+                 gsg-trigger; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             for f in gitattributes gitignore dlint.yaml; do
@@ -101,6 +107,9 @@ genrule(
 
         $(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
     """,
-    tools = ["//bazel_tools/sh:mktgz"],
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "@patch_dev_env//:patch",
+    ],
     visibility = ["//visibility:public"],
 )

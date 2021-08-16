@@ -790,6 +790,7 @@ templateTests = testGroup "templates" $
   -- this should be good enough.
   where templateNames =
             [ "copy-trigger"
+            , "gsg-trigger"
             -- daml-intro-1 - daml-intro-6 are not full projects.
             , "daml-intro-7"
             , "daml-patterns"
