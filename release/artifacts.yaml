@@ -135,9 +135,9 @@
   type: jar-lib
 - target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_java
   type: jar-proto
-- target: //ledger/ledger-offset:ledger-offset
-  type: jar-scala
 - target: //ledger/ledger-grpc:ledger-grpc
+  type: jar-scala
+- target: //ledger/ledger-offset:ledger-offset
   type: jar-scala
 - target: //ledger/ledger-on-memory:ledger-on-memory
   type: jar-scala
