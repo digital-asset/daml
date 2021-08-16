@@ -30,7 +30,7 @@ import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.{LookupError, Reference}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayNodeMismatch}
+import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayMismatch}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -253,7 +253,7 @@ class ApiSubmissionServiceSpec
       ) -> Status.ABORTED,
       ErrorCause.DamlLf(
         LfError.Validation(
-          LfError.Validation.ReplayMismatch(ReplayNodeMismatch(null, null, null, null))
+          LfError.Validation.ReplayMismatch(ReplayMismatch(null, null))
         )
       ) -> Status.ABORTED,
       ErrorCause.DamlLf(
