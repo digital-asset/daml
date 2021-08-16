@@ -216,14 +216,14 @@ private[export] object Encode {
           }
         case Sum.Map(m) =>
           parens(
-            Doc.text("TextMap.fromList ") +
+            Doc.text("DA.TextMap.fromList ") +
               list(m.entries.map(e => pair(go(Value.Sum.Text(e.key)), go(e.getValue.sum))))
           )
         case Sum.Enum(value) =>
           qualifyId(value.getEnumId.copy(entityName = value.constructor))
         case Sum.GenMap(m) =>
           parens(
-            Doc.text("Map.fromList ") + list(
+            Doc.text("DA.Map.fromList ") + list(
               m.entries.map(e => pair(go(e.getKey.sum), go(e.getValue.sum)))
             )
           )
@@ -310,20 +310,6 @@ private[export] object Encode {
         // We only need to encode types in type-class instances. Structs don't occur in that position.
         throw new NotImplementedError("Encoding of struct types is not implemented")
     }
-  }
-
-  private def isTupleId(id: Identifier): Boolean = {
-    val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
-    id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
-  }
-
-  private def isTupleRefId(name: Ref.Identifier): Boolean = {
-    isTupleId(
-      Identifier()
-        .withPackageId(name.packageId)
-        .withModuleName(name.qualifiedName.module.dottedName)
-        .withEntityName(name.qualifiedName.name.dottedName)
-    )
   }
 
   private def quotes(v: Doc) =
