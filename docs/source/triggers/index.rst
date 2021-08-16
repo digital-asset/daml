@@ -282,8 +282,8 @@ Let's walk through the ``rule`` code line-by-line:
   See below for additional information on what that ``dedup`` in the name of the
   command means.
 
-Deduplication
-=============
+Command Deduplication
+=====================
 
 Daml Triggers react to many things, and it's usually important to make sure
 that the same command is not sent mutiple times.
