@@ -5,7 +5,9 @@ package com.daml.script.export
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.api.refinements.ApiTypes.ContractId
+import com.daml.auth.TokenHolder
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -13,9 +15,26 @@ import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerUtils {
+
+  /** Fetch all known parties from the ledger if requested by the given PartyConfig.
+    */
+  def getAllParties(
+      client: LedgerClient,
+      token: Option[TokenHolder],
+      config: PartyConfig,
+  )(implicit ec: ExecutionContext): Future[Seq[Party]] = {
+    if (config.allParties) {
+      val tokenString = token.flatMap(_.token)
+      def fromDetails(details: Seq[domain.PartyDetails]): Seq[Party] =
+        Party.subst(details.map(_.party))
+      client.partyManagementClient.listKnownParties(tokenString).map(fromDetails)
+    } else {
+      Future.successful(config.parties)
+    }
+  }
 
   /** Fetch the active contract set from the ledger.
     *
@@ -24,7 +43,7 @@ object LedgerUtils {
     */
   def getACS(
       client: LedgerClient,
-      parties: Seq[String],
+      parties: Seq[Party],
       offset: LedgerOffset,
   )(implicit
       mat: Materializer
@@ -36,7 +55,7 @@ object LedgerUtils {
       Future.successful(Map.empty)
     } else {
       client.transactionClient
-        .getTransactions(ledgerBegin, Some(offset), filter(parties), verbose = true)
+        .getTransactions(ledgerBegin, Some(offset), filter(Party.unsubst(parties)), verbose = true)
         .runFold(Map.empty[ContractId, CreatedEvent]) { case (acs, tx) =>
           tx.events.foldLeft(acs) { case (acs, ev) =>
             ev.event match {
@@ -57,7 +76,7 @@ object LedgerUtils {
     */
   def getTransactionTrees(
       client: LedgerClient,
-      parties: Seq[String],
+      parties: Seq[Party],
       start: LedgerOffset,
       end: LedgerOffset,
   )(implicit
@@ -67,7 +86,7 @@ object LedgerUtils {
       Future.successful(Seq.empty)
     } else {
       client.transactionClient
-        .getTransactionTrees(start, Some(end), filter(parties), verbose = true)
+        .getTransactionTrees(start, Some(end), filter(Party.unsubst(parties)), verbose = true)
         .runWith(Sink.seq)
     }
   }

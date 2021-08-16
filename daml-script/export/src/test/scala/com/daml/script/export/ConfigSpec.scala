@@ -63,22 +63,41 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         optConfig.value.end shouldBe LedgerOffset().withAbsolute("00100")
       }
     }
-    "--party" - {
+    "--party or --all-parties" - {
       val defaultRequiredArgs = outputTypeArgs ++ outputArgs ++ sdkVersionArgs ++ ledgerArgs
       "--party Alice" in {
         val args = defaultRequiredArgs ++ Array("--party", "Alice")
         val optConfig = Config.parse(args)
-        optConfig.value.parties should contain only ("Alice")
+        optConfig.value.partyConfig.parties should contain only ("Alice")
+        optConfig.value.partyConfig.allParties shouldBe false
       }
       "--party Alice --party Bob" in {
         val args = defaultRequiredArgs ++ Array("--party", "Alice", "--party", "Bob")
         val optConfig = Config.parse(args)
-        optConfig.value.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.allParties shouldBe false
       }
       "--party Alice,Bob" in {
         val args = defaultRequiredArgs ++ Array("--party", "Alice,Bob")
         val optConfig = Config.parse(args)
-        optConfig.value.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.allParties shouldBe false
+      }
+      "--all-parties" in {
+        val args = defaultRequiredArgs ++ Array("--all-parties")
+        val optConfig = Config.parse(args)
+        optConfig.value.partyConfig.parties shouldBe empty
+        optConfig.value.partyConfig.allParties shouldBe true
+      }
+      "missing" in {
+        val args = defaultRequiredArgs
+        val optConfig = Config.parse(args)
+        optConfig shouldBe empty
+      }
+      "--party and --all-parties" in {
+        val args = defaultRequiredArgs ++ Array("--party", "Alice", "--all-parties")
+        val optConfig = Config.parse(args)
+        optConfig shouldBe empty
       }
     }
     "TLS" - {
