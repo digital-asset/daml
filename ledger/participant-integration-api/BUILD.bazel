@@ -365,6 +365,8 @@ da_scala_test_suite(
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",
+        "//ledger/metrics",
+        "//ledger/metrics:metrics-test-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
