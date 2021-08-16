@@ -47,11 +47,11 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/participant-state/          @digital-asset/kv-committer @digital-asset/kv-participant
 /ledger/participant-state-index/    @digital-asset/kv-committer @digital-asset/kv-participant
 /ledger/participant-state-metrics/  @digital-asset/kv-committer @digital-asset/kv-participant
+/ledger/sandbox/                    @digital-asset/kv-committer @digital-asset/kv-participant
 
 /ledger/ledger-on-memory/           @digital-asset/kv-committer
 /ledger/ledger-on-sql/              @digital-asset/kv-committer
 /ledger/participant-state/kvutils/  @digital-asset/kv-committer
-/ledger/sandbox/                    @digital-asset/kv-committer
 
 /runtime-components/    @stefanobaghino-da @cocreature
 
