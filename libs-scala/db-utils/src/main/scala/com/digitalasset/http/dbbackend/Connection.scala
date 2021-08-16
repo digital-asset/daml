@@ -31,10 +31,6 @@ object Connection {
  */
 object ConnectionPool {
 
-  final val MinIdle = 8
-  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
-  final val ConnectionTimeout = 5000L
-
   type PoolSize = Int
   object PoolSize {
     val Integration = 2
@@ -46,14 +42,11 @@ object ConnectionPool {
   def connect(
       c: JdbcConfig,
       poolSize: PoolSize,
-      minIdle: Int = MinIdle,
-      idleTimeout: Long = IdleTimeout,
-      connectionTimeout: Long = ConnectionTimeout,
   )(implicit
       ec: ExecutionContext,
       cs: ContextShift[IO],
   ): (DataSource with Closeable, T) = {
-    val ds = dataSource(c, poolSize, minIdle, idleTimeout, connectionTimeout)
+    val ds = dataSource(c, poolSize)
     (
       ds,
       Transactor
@@ -68,19 +61,16 @@ object ConnectionPool {
   private[this] def dataSource(
       jc: JdbcConfig,
       poolSize: PoolSize,
-      minIdle: Int,
-      idleTimeout: Long,
-      connectionTimeout: Long,
   ) = {
     import jc._
     val c = new HikariConfig
     c.setJdbcUrl(url)
     c.setUsername(user)
     c.setPassword(password)
-    c.setMinimumIdle(minIdle)
-    c.setConnectionTimeout(connectionTimeout)
+    c.setMinimumIdle(jc.minIdle)
+    c.setConnectionTimeout(jc.connectionTimeout)
     c.setMaximumPoolSize(poolSize)
-    c.setIdleTimeout(idleTimeout)
+    c.setIdleTimeout(jc.idleTimeout)
     new HikariDataSource(c)
   }
 }
