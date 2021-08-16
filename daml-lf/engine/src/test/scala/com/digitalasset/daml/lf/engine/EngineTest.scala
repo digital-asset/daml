@@ -526,8 +526,9 @@ class EngineTest
       val Right((tx, meta)) = interpretResult
       val Right(submitter) = tx.guessSubmitter
       val submitters = Set(submitter)
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -612,8 +613,9 @@ class EngineTest
     "be validated" in {
       forAll(cases) { case (templateId, signatories, submitters) =>
         val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
+        val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
         val validated = engine
-          .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+          .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
           .consume(
             lookupContract,
             lookupPackage,
@@ -736,8 +738,9 @@ class EngineTest
     }
 
     "be validated" in {
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
           lookupPackage,
@@ -879,8 +882,9 @@ class EngineTest
     }
 
     "be validated" in {
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(submitters, tx, let, participant, let, submissionSeed)
+        .validate(submitters, ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
           lookupPackage,
@@ -1140,8 +1144,9 @@ class EngineTest
     }
 
     "be validated" in {
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
           lookupPackage,
@@ -2104,8 +2109,16 @@ class EngineTest
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
           submitter <- tx.guessSubmitter
+          ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
           res <- engine
-            .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
+            .validate(
+              Set(submitter),
+              ntx,
+              let,
+              participant,
+              metaData.submissionTime,
+              submissionSeed,
+            )
             .consume(
               _ => None,
               lookupPackage,
