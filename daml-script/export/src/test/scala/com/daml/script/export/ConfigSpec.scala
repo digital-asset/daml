@@ -118,5 +118,17 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         optConfig.value.accessToken.value.token.value shouldBe token
       }
     }
+    "Output type" - {
+      "missing" in {
+        val args = ledgerArgs ++ partyArgs
+        val optConfig = Config.parse(args)
+        optConfig shouldBe empty
+      }
+      "script" in {
+        val args = outputTypeArgs ++ outputArgs ++ sdkVersionArgs ++ ledgerArgs ++ partyArgs
+        val optConfig = Config.parse(args)
+        optConfig.value.exportType.value shouldBe an[ExportScript]
+      }
+    }
   }
 }
