@@ -4,18 +4,16 @@
 package com.daml.ledger.client.services.commands.tracker
 
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
-  NoStatusInResponse,
-  NotOkResponse,
-  QueueCompletionFailure,
-  QueueSubmitFailure,
-  TimeoutResponse,
-}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
+import com.daml.ledger.grpc.GrpcStatuses
 import com.google.protobuf.any.Any
+import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.{ErrorInfo => JavaErrorInfo}
 import com.google.rpc.status.Status
 import io.grpc
 import io.grpc.Status.Code
 import io.grpc.Status.Code.OK
+import io.grpc.protobuf
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -81,6 +79,30 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         val exception =
           CompletionResponse.toException(QueueSubmitFailure(grpc.Status.RESOURCE_EXHAUSTED))
         exception.getStatus.getCode shouldBe Code.RESOURCE_EXHAUSTED
+      }
+
+      "include metadata for status not ok" in {
+        val errorInfo = ErrorInfo(
+          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
+        )
+        val exception = CompletionResponse.toException(
+          QueueCompletionFailure(
+            NotOkResponse(
+              commandId,
+              Status(
+                Code.CANCELLED.value(),
+                details = Seq(
+                  Any.pack(
+                    errorInfo
+                  )
+                ),
+              ),
+            )
+          )
+        )
+        val status = protobuf.StatusProto.fromThrowable(exception)
+        val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
+        packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "true"
       }
 
     }
