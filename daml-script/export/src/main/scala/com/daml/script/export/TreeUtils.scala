@@ -482,7 +482,7 @@ object TreeUtils {
       } else {
         fieldRefs + value.getRecordId
       }
-    case Sum.Variant(value) => Set(value.getVariantId).union(valueRefs(value.getValue.sum))
+    case Sum.Variant(value) => valueRefs(value.getValue.sum) + value.getVariantId
     case Sum.ContractId(_) => Set()
     case Sum.List(value) => value.elements.foldMap(v => valueRefs(v.sum))
     case Sum.Int64(_) => Set()
@@ -499,14 +499,14 @@ object TreeUtils {
     case Sum.Date(_) => Set(Identifier().withModuleName("DA.Date").withEntityName("Date"))
     case Sum.Optional(value) => value.value.foldMap(v => valueRefs(v.sum))
     case Sum.Map(value) =>
-      Set(Identifier().withModuleName("DA.TextMap").withEntityName("TextMap")).union(
-        value.entries.foldMap(e => valueRefs(e.getValue.sum))
-      )
+      value.entries.foldMap(e => valueRefs(e.getValue.sum)) + Identifier()
+        .withModuleName("DA.TextMap")
+        .withEntityName("TextMap")
     case Sum.Enum(value) => Set(value.getEnumId)
     case Sum.GenMap(value) =>
-      Set(Identifier().withModuleName("DA.Map").withEntityName("Map")).union(
-        value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
-      )
+      value.entries.foldMap(e =>
+        valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum))
+      ) + Identifier().withModuleName("DA.Map").withEntityName("Map")
   }
 
   def isTupleId(id: Identifier): Boolean = {
