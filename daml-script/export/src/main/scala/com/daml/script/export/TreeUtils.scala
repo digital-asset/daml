@@ -470,8 +470,8 @@ object TreeUtils {
 
   /** All identifiers referenced by the given value that require a module import.
     *
-    * Note, the package-id component of the identifier may be empty if there is no
-    * corresponding package-id available. E.g. DA.Time.Time incurred by Timestamp values.
+    * Note, the package-id component of the identifier may be empty for stable packages
+       as those are imported via daml-stdlib/daml-prim. E.g. DA.Time.Time incurred by Timestamp values.
     */
   def valueRefs(v: Value.Sum): Set[Identifier] = v match {
     case Sum.Empty => Set()
