@@ -549,8 +549,7 @@ CREATE TABLE parameters
     ledger_id                          NVARCHAR2(1000) not null,
     -- stores the head offset, meant to change with every new ledger entry
     ledger_end                         VARCHAR2(4000),
-    external_ledger_end                NVARCHAR2(1000),
-    participant_id                     NVARCHAR2(1000),
+    participant_id                     NVARCHAR2(1000) not null,
     participant_pruned_up_to_inclusive VARCHAR2(4000),
     ledger_end_sequential_id           NUMBER
 );
