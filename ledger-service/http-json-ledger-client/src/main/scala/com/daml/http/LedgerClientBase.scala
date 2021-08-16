@@ -70,7 +70,7 @@ trait LedgerClientBase {
         client.onComplete {
           case Success(_) =>
             logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts succeeded!""")
-          case Failure(NonFatal(e)) =>
+          case Failure(e) =>
             logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts failed: ${e.description}""")
         }
         client
