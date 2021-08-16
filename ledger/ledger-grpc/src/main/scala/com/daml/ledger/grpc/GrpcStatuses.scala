@@ -4,7 +4,9 @@
 package com.daml.ledger.grpc
 
 import com.daml.ledger.offset.Offset
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.status.{Status => StatusProto}
 
 import scala.util.Try
 
@@ -12,7 +14,7 @@ object GrpcStatuses {
   val DefiniteAnswerKey = "definite_answer"
   val CompletionOffsetKey = "completion_offset"
 
-  def isDefiniteAnswer(status: com.google.rpc.status.Status): Boolean =
+  def isDefiniteAnswer(status: StatusProto): Boolean =
     status.details.exists { any =>
       if (any.is(ErrorInfo.messageCompanion)) {
         Try(any.unpack(ErrorInfo.messageCompanion)).toOption
@@ -25,10 +27,7 @@ object GrpcStatuses {
   private def isDefiniteAnswer(errorInfo: ErrorInfo): Boolean =
     errorInfo.metadata.get(DefiniteAnswerKey).exists(value => java.lang.Boolean.valueOf(value))
 
-  def completeWithOffset(
-      incompleteStatus: com.google.rpc.status.Status,
-      completionOffset: Offset,
-  ): com.google.rpc.status.Status = {
+  def completeWithOffset(incompleteStatus: StatusProto, completionOffset: Offset): StatusProto = {
     val (errorInfo, errorInfoIndex) =
       incompleteStatus.details.zipWithIndex
         .collectFirst {
@@ -46,7 +45,7 @@ object GrpcStatuses {
         .addMetadata(CompletionOffsetKey -> completionOffset.toHexString)
     val newDetails = incompleteStatus.details.updated(
       errorInfoIndex,
-      com.google.protobuf.any.Any.pack(extendedErrorInfoWithCompletionOffset),
+      AnyProto.pack(extendedErrorInfoWithCompletionOffset),
     )
     incompleteStatus.withDetails(newDetails)
   }
