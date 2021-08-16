@@ -311,6 +311,7 @@ jobs:
         # Actually run some tests
         bazel test \
           --config=oracle \
+          -t- \
           //ledger-service/http-json-oracle/... \
           //triggers/service:test-oracle \
           //ledger/participant-integration-api:participant-integration-api-tests-oracle \
