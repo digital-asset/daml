@@ -56,7 +56,9 @@ has_a_changelog() {
         fi
     done
     echo "
-No changelog entry found; please add one. If your PR does not need a
+No changelog entry found; please add one. Note that the
+changelog entry must be in the commit message body excluding the subject in the first line.
+If your PR does not need a
 changelog entry, please add an explicit, empty one, i.e. add
 
 CHANGELOG_BEGIN
