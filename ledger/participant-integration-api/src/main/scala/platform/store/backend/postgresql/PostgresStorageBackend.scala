@@ -6,21 +6,23 @@ package com.daml.platform.store.backend.postgresql
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.{NamedParameter, SQL, SqlStringInterpolation}
+import anorm.SQL
 import anorm.SqlParser.get
-import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key, Party}
+import com.daml.platform.store.appendonlydao.events.Party
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
+import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
+  CompletionStorageBackendTemplate,
+  ContractStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
-  TemplatedStorageBackend,
+  QueryStrategy,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -35,7 +37,9 @@ import org.postgresql.ds.PGSimpleDataSource
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
-    with EventStorageBackendTemplate {
+    with EventStorageBackendTemplate
+    with ContractStorageBackendTemplate
+    with CompletionStorageBackendTemplate {
 
   override def insertBatch(
       connection: Connection,
@@ -86,100 +90,60 @@ private[backend] object PostgresStorageBackend
 
   override val duplicateKeyError: String = "duplicate key"
 
-  override def commandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
-  )(connection: Connection): List[CompletionStreamResponse] =
-    TemplatedStorageBackend.commandCompletions(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      applicationId = applicationId,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-    )(connection)
+  object PostgresQueryStrategy extends QueryStrategy {
 
-  override def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[StorageBackend.RawContract] =
-    TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
+    override def arrayIntersectionNonEmptyClause(
+        columnName: String,
+        parties: Set[Ref.Party],
+    ): CompositeSql = {
+      import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+      val partiesArray: Array[String] = parties.map(_.toString).toArray
+      cSQL"#$columnName::text[] && $partiesArray::text[]"
+    }
 
-  override def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[String] =
-    TemplatedStorageBackend.activeContractWithoutArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
+  }
 
-  override def contractKey(readers: Set[Ref.Party], key: Key)(
-      connection: Connection
-  ): Option[ContractId] =
-    TemplatedStorageBackend.contractKey(
-      flatEventWitnesses = columnPrefix =>
-        arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers),
-      key = key,
-    )(connection)
+  override def queryStrategy: QueryStrategy = PostgresQueryStrategy
 
   object PostgresEventStrategy extends EventStrategy {
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Party],
-    ): (String, List[NamedParameter]) =
+    ): CompositeSql =
       if (parties.size == 1)
-        (
-          s"array[{singlePartyfewc}]::text[]",
-          List("singlePartyfewc" -> parties.head.toString),
-        )
-      else
-        (
-          s"array(select unnest($witnessesColumnName) intersect select unnest({partiesArrayfewc}::text[]))",
-          List("partiesArrayfewc" -> parties.view.map(_.toString).toArray),
-        )
+        cSQL"array[${parties.head.toString}]::text[]"
+      else {
+        val partiesArray: Array[String] = parties.view.map(_.toString).toArray
+        cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($partiesArray::text[]))"
+      }
 
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Party],
-    ): (String, List[NamedParameter]) =
-      (
-        s"($submittersColumnName::text[] && {wildCardPartiesArraysapc}::text[])",
-        List("wildCardPartiesArraysapc" -> parties.view.map(_.toString).toArray),
-      )
+    ): CompositeSql = {
+      val partiesArray = parties.view.map(_.toString).toArray
+      cSQL"(#$submittersColumnName::text[] && $partiesArray::text[])"
+    }
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-    ): (String, List[NamedParameter]) = {
-      val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
-        case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)
+    ): CompositeSql = {
+      val wildCardClause = filterParams.wildCardParties match {
+        case wildCardParties if wildCardParties.isEmpty =>
+          Nil
+
         case wildCardParties =>
-          (
-            List(s"($witnessesColumnName::text[] && {wildCardPartiesArraywwc}::text[])"),
-            List[NamedParameter](
-              "wildCardPartiesArraywwc" -> wildCardParties.view.map(_.toString).toArray
-            ),
-          )
+          val partiesArray = wildCardParties.view.map(_.toString).toArray
+          cSQL"(#$witnessesColumnName::text[] && $partiesArray::text[])" :: Nil
       }
-      val (partiesTemplatesClauses, partiesTemplatesParams) =
-        filterParams.partiesAndTemplates.iterator.zipWithIndex
-          .map { case ((parties, templateIds), index) =>
-            (
-              s"( ($witnessesColumnName::text[] && {partiesArraywwc$index}::text[]) AND (template_id = ANY({templateIdsArraywwc$index}::text[])) )",
-              List[NamedParameter](
-                s"partiesArraywwc$index" -> parties.view.map(_.toString).toArray,
-                s"templateIdsArraywwc$index" -> templateIds.view.map(_.toString).toArray,
-              ),
-            )
-          }
-          .toList
-          .unzip
-      (
-        (wildCardClause ::: partiesTemplatesClauses).mkString("(", " OR ", ")"),
-        wildCardParams ::: partiesTemplatesParams.flatten,
-      )
+      val partiesTemplatesClauses =
+        filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
+          val partiesArray = parties.view.map(_.toString).toArray
+          val templateIdsArray = templateIds.view.map(_.toString).toArray
+          cSQL"( (#$witnessesColumnName::text[] && $partiesArray::text[]) AND (template_id = ANY($templateIdsArray::text[])) )"
+        }.toList
+      (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
     }
   }
 
@@ -193,13 +157,6 @@ private[backend] object PostgresStorageBackend
     SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc limit 1"
       .as(get[Long](1).singleOpt)(connection)
   }
-
-  // TODO append-only: remove as part of ContractStorageBackend consolidation
-  private def format(parties: Set[Party]): String = parties.view.map(p => s"'$p'").mkString(",")
-
-  // TODO append-only: remove as part of ContractStorageBackend consolidation
-  private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
-    s"$arrayColumn::text[] && array[${format(parties)}]::text[]"
 
   override def createDataSource(
       jdbcUrl: String,
