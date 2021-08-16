@@ -480,7 +480,7 @@ object TreeUtils {
       if (isTupleId(value.getRecordId)) {
         fieldRefs
       } else {
-        Set(value.getRecordId).union(fieldRefs)
+        fieldRefs + value.getRecordId
       }
     case Sum.Variant(value) => Set(value.getVariantId).union(valueRefs(value.getValue.sum))
     case Sum.ContractId(_) => Set()
