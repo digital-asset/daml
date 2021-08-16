@@ -36,6 +36,24 @@ for this section to play with, you can get it by running::
 
       daml new --template-name=gsg-trigger create-daml-app
 
+How To Think About Triggers
+===========================
+
+It is tempting to think of Daml Triggers as snippets of code that "react to
+ledger events". However, this is not the best way to think about them; while it
+will work in some cases, in many corner cases that line of thought will lead to
+subtle errors.
+
+Instead, you should think of, and write, your triggers from the perspective of
+"correcting the current ACS" to match some predefined expectations. Trigger
+rules should be a combination of checking those expectations on the current ACS
+and applyin corrective actions to bring back the ACS in line with its expected
+state.
+
+The "trigger" part is best thought of as an optimization: rather than check the
+ACS constantly, we only apply our rules when something happens that we believe
+_may_ lead to the state of the ledger diverging from our expectations.
+
 Sample Trigger
 ==============
 
@@ -43,12 +61,18 @@ Our example for this tutorial builds upon the Getting Started Guide,
 specifically picking up right after the :doc:`/getting-started/first-feature`
 section.
 
-We're going to build a chatbot that answers every message with
+We assume that our requirements are to build a chatbot that reponds to every
+message with:
 
   "Please, tell me more about that."
 
 That should fool anyone and pass the Turing test, easily.
 
+As explained above, while the layman description may be "responds to every
+message", our technical description is better phrased as "ensure that, at all
+times, the last message we can see has been sent by us; if that is not the
+case, the corrective action is to send a response to the last message we can
+see".
 
 Daml Trigger Basics
 ===================
@@ -253,10 +277,14 @@ Let's walk through the ``rule`` code line-by-line:
   party running the trigger (with the current Daml model, it has to be one or
   the other, as messages are only visible to the sender and receiver).
   `when </daml/stdlib/DA-Action.html#function-da-action-when-53144>`_ the
-  expression ``m.receiver == p`` is ``True``, we execute the following block of
-  code, otherwise we sent the message so we do nothing.
-- We need to find the ``User`` contract for the sender. We start by getting the
-  list of all ``User`` contracts we know about, which will be all users who
+  expression ``m.receiver == p`` is ``True``, we then our expectations of the
+  ledger state are wrong and we need to correct it. Otherwise, the state
+  matches our rule and we don't need to do anything.
+- At this point we know the state is "wrong", per our expectations, and start
+  engaging in correcting actions. For this trigger, this means sendinga message
+  to the sender of the last message. In order to do that, we need to find the
+  ``User`` contract for the sender. We start by getting the list of all
+  ``User`` contracts we know about, which will be all users who
   follow the party running the trigger (and that party's own ``User``
   contract). As for ``Message`` contracts earlier, the result of ``query
   @User`` is going to be a list of tuples with (contract id, payload). The big
