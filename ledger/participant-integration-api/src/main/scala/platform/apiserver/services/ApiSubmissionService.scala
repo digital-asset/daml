@@ -75,7 +75,8 @@ private[apiserver] object ApiSubmissionService {
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
-      maxSkew = () => ledgerConfigurationSubscription.latestConfiguration().map(_.timeModel.maxSkew),
+      maxSkew = () =>
+        ledgerConfigurationSubscription.latestConfiguration().map(_.timeModel.maxSkew),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
     )

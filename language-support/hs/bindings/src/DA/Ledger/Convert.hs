@@ -84,7 +84,7 @@ lowerDeduplication = \case
     DeduplicationStart s ->
         LL.CommandsDeduplicationDeduplicationStart (lowerTimestamp s)
     DeduplicationTime t ->
-        LL.CommandsDeduplicationDeduplicationTime (t)
+        LL.CommandsDeduplicationDeduplicationTime t
 
 lowerCommand :: Command -> LL.Command
 lowerCommand = \case

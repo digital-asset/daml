@@ -34,4 +34,3 @@ class DeduplicationPeriodSpec extends AnyWordSpec with Matchers {
     }
   }
 }
-

@@ -3,18 +3,23 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import java.time.Instant
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
 import com.daml.ledger.test.model.Test._
 import com.daml.timer.Delayed
 import io.grpc.Status
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
@@ -43,6 +48,70 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
         _.commands.commandId := requestA1.commands.get.commandId,
       )
 
+    requestsAreSubmittedAndDeduplicated(ledger, party, requestA1, requestA2)
+  })
+
+  test(
+    "CDSimpleDeduplicationUsingStartTimestamp",
+    "Deduplicate commands within the deduplication time window which is specified by deduplication start",
+    allocate(SingleParty),
+    runConcurrently = false, //we modify the time model
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    ledger
+      .getTimeModel()
+      .flatMap(timeModelResponse => {
+        val timeModel = timeModelResponse.getTimeModel
+        val time = Instant.now()
+        val maxSkew = deduplicationTime
+        val deduplicatedResult = for {
+          ledgerTime <- ledger.time()
+          mrt = ledgerTime.plusSeconds(30)
+          _ <- ledger.setTimeModel(
+            mrt,
+            timeModelResponse.configurationGeneration,
+            timeModel.update(_.maxSkew := maxSkew.asProtobuf),
+          )
+          deduplicationStart = time.asProtobuf // will use maxSkew as duration
+          requestA1 = ledger
+            .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
+            .update(
+              _.commands.deduplicationStart := deduplicationStart
+            )
+          requestA2 = ledger
+            .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
+            .update(
+              _.commands.deduplicationStart := deduplicationStart,
+              _.commands.commandId := requestA1.commands.get.commandId,
+            )
+          _ <- requestsAreSubmittedAndDeduplicated(
+            ledger = ledger,
+            party = party,
+            requestA1 = requestA1,
+            requestA2 = requestA2,
+          )
+        } yield {}
+        deduplicatedResult.transformWith { testResult => // reset the time model
+          (for {
+            ledgerTime <- ledger.time()
+            _ <-
+              ledger
+                .setTimeModel(
+                  ledgerTime.plusSeconds(30),
+                  timeModelResponse.configurationGeneration + 1,
+                  timeModelResponse.getTimeModel,
+                )
+          } yield {})
+            .transform(_.flatMap(_ => testResult))
+        }
+      })
+  })
+
+  private def requestsAreSubmittedAndDeduplicated(
+      ledger: ParticipantTestContext,
+      party: Primitive.Party,
+      requestA1: SubmitRequest,
+      requestA2: SubmitRequest,
+  )(implicit ec: ExecutionContext) = {
     for {
       // Submit command A (first deduplication window)
       // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -96,7 +165,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
         s"There should be 2 active contracts, but received $activeContracts",
       )
     }
-  })
+  }
 
   test(
     "CDStopOnSubmissionFailure",
