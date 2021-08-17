@@ -140,7 +140,11 @@ private[apiserver] final class ApiSubmissionService private[services] (
         commands.commandId,
         commands.actAs.toList,
         commands.submittedAt,
-        commands.deduplicateUntil,
+        DeduplicationPeriod.deduplicateUntil(
+          commands.submittedAt,
+          commands.deduplication,
+          ledgerConfig.timeModel.maxSkew,
+        ),
       )
       .flatMap {
         case CommandDeduplicationNew =>
