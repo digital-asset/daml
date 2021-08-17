@@ -71,6 +71,7 @@ class SubmitRequestValidatorTest
     val submittedAt = Instant.now
     val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
+    val maxSkew = java.time.Duration.ofSeconds(3)
     val deduplicationDuration = java.time.Duration.ofSeconds(
       api.deduplicationTime.seconds,
       api.deduplicationTime.nanos.toLong,
@@ -140,6 +141,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: commands",
@@ -155,6 +157,7 @@ class SubmitRequestValidatorTest
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationTime),
+              Some(internal.maxSkew),
             ),
           INVALID_ARGUMENT,
           "Missing field: ledger_id",
@@ -169,6 +172,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
+          Some(internal.maxSkew),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
@@ -185,6 +189,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: application_id",
@@ -199,6 +204,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: command_id",
@@ -214,6 +220,7 @@ class SubmitRequestValidatorTest
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationTime),
+              Some(internal.maxSkew),
             ),
           INVALID_ARGUMENT,
           """Missing field: party or act_as""",
@@ -233,6 +240,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           )
         inside(result) { case Right(cmd) =>
           // actAs parties are gathered from "party" and "readAs" fields
@@ -251,6 +259,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -263,6 +272,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -277,6 +287,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
+          Some(internal.maxSkew),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -291,6 +302,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
+          Some(internal.maxSkew),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -302,9 +314,10 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           ),
           INVALID_ARGUMENT,
-          "Invalid field deduplication_time: Duration must be positive",
+          "Invalid field deduplication: Duration must be positive",
         )
       }
 
@@ -318,9 +331,10 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
           ),
           INVALID_ARGUMENT,
-          s"Invalid field deduplication_time: The given deduplication time of ${java.time.Duration
+          s"Invalid field deduplication: The given deduplication time of ${java.time.Duration
             .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}",
         )
       }
@@ -333,6 +347,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
+          Some(internal.maxSkew),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             deduplication = DeduplicationPeriod.DeduplicationDuration(internal.maxDeduplicationTime)
@@ -340,11 +355,54 @@ class SubmitRequestValidatorTest
         )
       }
 
+      "not allow deduplication start to be in the future" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
+        requestMustFailWith(
+          commandsValidator.validateCommands(
+            api.commands
+              .copy(deduplication =
+                Deduplication.DeduplicationStart(
+                  TimestampConversion.fromInstant(internal.submittedAt)
+                )
+              ),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
+          ),
+          INVALID_ARGUMENT,
+          "Invalid field deduplication: Deduplication start time is after current time",
+        )
+      }
+
+      "not allow deduplication start to create a deduplication duration larger than the max" in {
+        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
+        requestMustFailWith(
+          commandsValidator.validateCommands(
+            api.commands
+              .copy(deduplication =
+                Deduplication.DeduplicationStart(
+                  TimestampConversion.fromInstant(
+                    internal.submittedAt.minusSeconds(internal.maxDeduplicationTime.getSeconds)
+                  )
+                )
+              ),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationTime),
+            Some(internal.maxSkew),
+          ),
+          INVALID_ARGUMENT,
+          s"Invalid field deduplication: The given deduplication start has a current time based duration of ${internal.maxDeduplicationTime
+            .plus(internal.maxSkew)} which exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}",
+        )
+      }
+
       "not allow missing ledger configuration" in {
         val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator
-            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
+            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None, None),
           UNAVAILABLE,
           "The ledger configuration is not available.",
         )

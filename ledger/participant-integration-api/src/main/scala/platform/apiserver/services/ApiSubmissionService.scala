@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.SubmissionIdGenerator
+import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.configuration.Configuration
@@ -75,6 +75,7 @@ private[apiserver] object ApiSubmissionService {
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+      maxSkew = () => ledgerConfigurationSubscription.latestConfiguration().map(_.timeModel.maxSkew),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
     )

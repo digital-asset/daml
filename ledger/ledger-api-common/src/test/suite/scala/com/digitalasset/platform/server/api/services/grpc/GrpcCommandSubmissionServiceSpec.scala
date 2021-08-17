@@ -49,6 +49,7 @@ class GrpcCommandSubmissionServiceSpec
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
+        maxSkew = () => Some(Duration.ZERO),
         submissionIdGenerator = () => Ref.SubmissionId.assertFromString("submissionId"),
         metrics = new Metrics(new MetricRegistry),
       )

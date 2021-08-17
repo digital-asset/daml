@@ -36,6 +36,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationTime: Option[Duration],
+      maxSkew: Option[Duration],
   ): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
@@ -62,7 +63,9 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       deduplication <- validateDeduplicationDuration(
         commands.deduplication,
         maxDeduplicationTime,
-        "deduplication_time",
+        "deduplication",
+        maxSkew,
+        currentUtcTime,
       )
     } yield domain.Commands(
       ledgerId = ledgerId,

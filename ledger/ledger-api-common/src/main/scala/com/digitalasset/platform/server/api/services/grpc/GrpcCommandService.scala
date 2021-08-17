@@ -24,6 +24,7 @@ class GrpcCommandService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
+    maxSkew: () => Option[Duration],
     generateSubmissionId: SubmissionIdGenerator,
 )(implicit executionContext: ExecutionContext)
     extends CommandService
@@ -37,7 +38,7 @@ class GrpcCommandService(
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
+      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime(), maxSkew())
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
         _ => service.submitAndWait(request),
@@ -47,7 +48,7 @@ class GrpcCommandService(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionIdResponse] =
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
+      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime(), maxSkew())
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
         _ => service.submitAndWaitForTransactionId(request),
@@ -57,7 +58,7 @@ class GrpcCommandService(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] =
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
+      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime(), maxSkew())
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
         _ => service.submitAndWaitForTransaction(request),
@@ -67,7 +68,7 @@ class GrpcCommandService(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
+      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime(), maxSkew())
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
         _ => service.submitAndWaitForTransactionTree(request),

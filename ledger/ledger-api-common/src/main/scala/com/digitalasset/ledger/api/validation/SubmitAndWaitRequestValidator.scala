@@ -17,6 +17,7 @@ class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationTime: Option[Duration],
+      maxSkew: Option[Duration],
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
@@ -25,6 +26,7 @@ class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
         currentLedgerTime,
         currentUtcTime,
         maxDeduplicationTime,
+        maxSkew,
       )
     } yield submission.SubmitRequest(validatedCommands)
 

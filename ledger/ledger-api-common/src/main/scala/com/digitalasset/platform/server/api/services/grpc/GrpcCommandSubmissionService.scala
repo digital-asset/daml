@@ -32,6 +32,7 @@ class GrpcCommandSubmissionService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
+    maxSkew: () => Option[Duration],
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
@@ -61,7 +62,13 @@ class GrpcCommandSubmissionService(
         .value(
           metrics.daml.commands.validation,
           validator
-            .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()),
+            .validate(
+              request,
+              currentLedgerTime(),
+              currentUtcTime(),
+              maxDeduplicationTime(),
+              maxSkew(),
+            ),
         )
         .fold(
           t => Future.failed(ValidationLogger.logFailure(request, t)),

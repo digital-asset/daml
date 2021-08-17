@@ -3,13 +3,16 @@
 
 package com.daml.platform.server.api.validation
 
-import java.time.Duration
+import java.time.{Duration, Instant}
 
-import com.daml.lf.data.Ref
-import com.daml.lf.value.Value.ContractId
+import com.daml.api.util.TimestampConversion
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.commands.Commands.Deduplication
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
@@ -99,32 +102,64 @@ trait FieldValidations {
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
 
+  /** We validate only using current time because we set the currentTime as submitTime so no need to check both
+    */
   def validateDeduplicationDuration(
-      durationO: Option[com.google.protobuf.duration.Duration],
+      deduplication: Deduplication,
       maxDeduplicationTimeO: Option[Duration],
       fieldName: String,
-  ): Either[StatusRuntimeException, Duration] =
-    maxDeduplicationTimeO.fold[Either[StatusRuntimeException, Duration]](
+      maxSkew: Option[Duration],
+      currentTime: Instant,
+  ): Either[StatusRuntimeException, DeduplicationPeriod] = {
+
+    maxDeduplicationTimeO.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig())
-    )(maxDeduplicationTime =>
-      durationO match {
-        case None =>
-          Right(maxDeduplicationTime)
-        case Some(duration) =>
-          val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
-          if (result.isNegative)
-            Left(invalidField(fieldName, "Duration must be positive"))
-          else if (result.compareTo(maxDeduplicationTime) > 0)
-            Left(
-              invalidField(
-                fieldName,
-                s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime",
-              )
+    )(maxDeduplicationTime => {
+      def validateDuration(duration: Duration, invalidMessage: String) = {
+        if (duration.isNegative)
+          Left(invalidField(fieldName, "Duration must be positive"))
+        else if (duration.compareTo(maxDeduplicationTime) > 0)
+          Left(
+            invalidField(
+              fieldName,
+              invalidMessage,
             )
-          else
-            Right(result)
+          )
+        else Right(duration)
       }
-    )
+      deduplication match {
+        case Deduplication.Empty =>
+          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationTime))
+        case Deduplication.DeduplicationTime(duration) =>
+          val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+          validateDuration(
+            result,
+            s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime",
+          ).map(DeduplicationPeriod.DeduplicationDuration)
+        case Deduplication.DeduplicationStart(startFrom) =>
+          val start = TimestampConversion.toInstant(startFrom)
+          for {
+            maxSkew <- maxSkew.toRight(missingLedgerConfig())
+            _ <- Either.cond(
+              start.isBefore(currentTime),
+              start,
+              invalidField(fieldName, "Deduplication start time is after current time"),
+            )
+            currentTimeDuration = DeduplicationPeriod.deduplicationDurationFromTime(
+              currentTime,
+              start,
+              maxSkew,
+            )
+            _ <- validateDuration(
+              currentTimeDuration,
+              s"The given deduplication start has a current time based duration of $currentTimeDuration which exceeds the maximum deduplication time of $maxDeduplicationTime",
+            )
+          } yield {
+            DeduplicationPeriod.DeduplicationFromTime(start)
+          }
+      }
+    })
+  }
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {
