@@ -1,5 +1,5 @@
 sdk-version: __VERSION__
-name: copy-trigger
+name: __PROJECT_NAME__
 source: src
 parties:
   - Alice

@@ -10,6 +10,9 @@ load(
 da_scala_library(
     name = "oracle-testing",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    data = [
+        "//ci:oracle_image",
+    ],
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
