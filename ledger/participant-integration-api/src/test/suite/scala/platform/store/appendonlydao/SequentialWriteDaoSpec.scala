@@ -13,12 +13,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.backend.{
-  DbDto,
-  IngestionStorageBackend,
-  ParameterStorageBackend,
-  StorageBackend,
-}
+import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
