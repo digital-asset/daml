@@ -121,9 +121,16 @@ CREATE TABLE participant_command_completions (
     application_id VARCHAR NOT NULL,
     submitters ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
+    -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
-    status_code INTEGER,
-    status_message VARCHAR
+    -- The rejection status is `NULL` if the completion is for an accepted transaction.
+    -- The `rejection_status` contains a Protocol-Buffers-serialized message of type
+    -- `google.rpc.Status`, containing the code, message, and further details (decided by the ledger
+    -- driver). The `rejection_status_code` and `rejection_status_message` columns will always be
+    -- `NULL` in an H2-backed index, but we keep them for parity with old data in other databases.
+    rejection_status_code INTEGER,
+    rejection_status_message VARCHAR,
+    rejection_status BLOB
 );
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);

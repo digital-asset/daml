@@ -124,16 +124,17 @@ CREATE INDEX idx_party_entries ON party_entries(submission_id);
 
 CREATE TABLE participant_command_completions
 (
-    completion_offset VARCHAR2(4000)  not null,
-    record_time       TIMESTAMP       not null,
+    completion_offset           VARCHAR2(4000)  NOT NULL,
+    record_time                 TIMESTAMP       NOT NULL,
 
-    application_id    NVARCHAR2(1000) not null,
-    submitters        CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
-    command_id        NVARCHAR2(1000) not null,
+    application_id              NVARCHAR2(1000) NOT NULL,
+    submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
+    command_id                  NVARCHAR2(1000) NOT NULL,
 
-    transaction_id    NVARCHAR2(1000), -- null if the command was rejected and checkpoints
-    status_code       INTEGER,         -- null for successful command and checkpoints
-    status_message    CLOB  -- null for successful command and checkpoints
+    transaction_id              NVARCHAR2(1000), -- null if the command was rejected and checkpoints
+    rejection_status_code       INTEGER,         -- null for successful command and checkpoints
+    rejection_status_message    CLOB,            -- null for successful command and checkpoints
+    rejection_status            BLOB             -- null for successful command and checkpoints
 );
 
 CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);

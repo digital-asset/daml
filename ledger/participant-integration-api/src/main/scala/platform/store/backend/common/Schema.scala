@@ -225,8 +225,7 @@ private[backend] object AppendOnlySchema {
         "submitters" -> fieldStrategy.stringArray(_.submitters),
         "command_id" -> fieldStrategy.string(_.command_id),
         "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "status_code" -> fieldStrategy.intOptional(_.status_code),
-        "status_message" -> fieldStrategy.stringOptional(_.status_message),
+        "rejection_status" -> fieldStrategy.byteaOptional(_.rejection_status),
       )
 
     val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =

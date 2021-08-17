@@ -34,8 +34,7 @@ object UpdateToDbDto {
             submitters = u.completionInfo.actAs.toSet,
             command_id = u.completionInfo.commandId,
             transaction_id = None,
-            status_code = Some(u.reasonTemplate.code),
-            status_message = Some(u.reasonTemplate.message),
+            rejection_status = Some(u.reasonTemplate.status.toByteArray),
           ),
           DbDto.CommandDeduplication(
             DeduplicationKeyMaker.make(
@@ -269,8 +268,7 @@ object UpdateToDbDto {
             submitters = completionInfo.actAs.toSet,
             command_id = completionInfo.commandId,
             transaction_id = Some(u.transactionId),
-            status_code = None,
-            status_message = None,
+            rejection_status = None,
           )
         }
 
