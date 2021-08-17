@@ -114,5 +114,4 @@ package v2 {
   /** This command was submitted before. */
   final case class CommandDeduplicationDuplicate(deduplicateUntil: Instant)
       extends CommandDeduplicationResult
-
 }
