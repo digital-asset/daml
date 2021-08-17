@@ -128,14 +128,14 @@ private class JdbcLedgerDao(
       participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.initializeLedgerParameters) { implicit connection =>
+      .executeSql(metrics.daml.index.db.initializeLedgerParameters)(
         storageBackend.initializeParameters(
           StorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
           )
-        )(connection)
-      }
+        )
+      )
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
