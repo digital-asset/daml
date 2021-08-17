@@ -4,36 +4,33 @@
 package com.daml.ledger.api.tls
 
 import java.io.File
-
 import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 
+import java.net.URL
 import scala.jdk.CollectionConverters._
 
+
+final case class DecryptionParameters(
+                                     algorithm: String,
+                                     key: String,
+                                     initializationVector: String,
+                                     keyLengthInBytes: Int
+                                     )
+
+// TODO PBATKO: How to discern TlsConfig for client vs. for server? Is it obvious from the context where it was instantiated, or by some field? Or is the same one instance used (?sometimes) for both??
 final case class TlsConfiguration(
     enabled: Boolean,
+    // TODO PBATKO assign default None values to the params below?
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
     trustCertCollectionFile: Option[File], // System default if null
+    secretsUrl: Option[URL] = None,
     clientAuth: ClientAuth =
       ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
     enableCertRevocationChecking: Boolean = false,
     protocols: Seq[String] = Seq.empty,
 ) {
-
-  def keyFileOrFail: File =
-    keyFile.getOrElse(
-      throw new IllegalStateException(
-        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
-      )
-    )
-
-  def keyCertChainFileOrFail: File =
-    keyCertChainFile.getOrElse(
-      throw new IllegalStateException(
-        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
-      )
-    )
 
   /** If enabled and all required fields are present, it returns an SslContext suitable for client usage */
   def client: Option[SslContext] = {
@@ -41,7 +38,7 @@ final case class TlsConfiguration(
       Some(
         GrpcSslContexts
           .forClient()
-          .keyManager(keyCertChainFile.orNull, keyFile.orNull)
+          .keyManager(keyCertChainFile.orNull, keyFile.orNull) // TODO PBATKO handle encrypted keu files for clients: either fail with a meaningful message or (?unlikely) decrypt it the same way as for the server
           .trustManager(trustCertCollectionFile.orNull)
           .protocols(if (protocols.nonEmpty) protocols.asJava else null)
           .build()
@@ -68,6 +65,42 @@ final case class TlsConfiguration(
   /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
   def setJvmTlsProperties(): Unit =
     if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
+
+  private def keyFileOrFail: File =
+    keyFile
+      .collect{
+        case file if file.getName.endsWith(".enc") =>
+          decryptKeyFile(keyFile = file, secretsUrl = secretsUrlOrFail)
+        case file => file // TODO PBATKO convert to a safe form (storing plain text private key in a file system is a big no no)
+      }.getOrElse(
+      throw new IllegalStateException(
+        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
+      )
+    )
+
+  def secretsUrlOrFail: URL = secretsUrl.getOrElse(
+    throw new IllegalStateException(
+      s"Unable to convert ${this.toString} to SSL Context: cannot decrypt keyFile withtou secretsUrl."
+    )
+  )
+
+  private def decryptKeyFile(keyFile: File, secretsUrl: URL) = {
+    // TODO PBATKO Fetch decryption params from secretsUrl, then decrypt the key, then return it
+    keyFile
+  }
+
+  private def decryptKeyFile(keyFile: File, params: DecryptionParameters) = {
+    // TODO PBATKO use java stdlib to decrypt the key
+
+    null
+  }
+
+  private def keyCertChainFileOrFail: File =
+    keyCertChainFile.getOrElse(
+      throw new IllegalStateException(
+        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
+      )
+    )
 
 }
 
