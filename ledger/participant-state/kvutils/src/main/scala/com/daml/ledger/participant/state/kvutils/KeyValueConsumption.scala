@@ -6,10 +6,17 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0, TransactionMeta, Update}
+import com.daml.ledger.participant.state.v1.{
+  DivulgedContract,
+  RejectionReasonV0,
+  TransactionMeta,
+  Update,
+}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.CommittedTransaction
+import com.daml.lf.transaction.{CommittedTransaction, TransactionCoder}
+import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.ValueCoder
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
@@ -251,6 +258,35 @@ object KeyValueConsumption {
     }
   }
 
+  /** Checks that all divulged contract ids in the `blindingInfo` have
+    * an associated contract instance in the `divulgedContracts` list.
+    *
+    * NOTE: It is not a hard fault for the check to fail. This can happen if the
+    * participant is hydrated from ledgers populated with versions of
+    * [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter]]
+    * predating the introduction of the `divulgedContracts` field.
+    *
+    * Missing contracts can cause lookup failures during command interpretation if used.
+    */
+  private def checkDivulgedContractInstances(
+      divulgedContracts: List[DivulgedContract],
+      blindingInfo: DamlTransactionBlindingInfo,
+  ): Unit = {
+    val divulgencesFromBlindingInfo = blindingInfo.getDivulgencesList.asScala
+    if (divulgencesFromBlindingInfo.nonEmpty) {
+      val divulgedContractsSet = divulgedContracts.view.map(_.contractId.coid).toSet
+      val nonPresent = divulgencesFromBlindingInfo.filterNot(divulgence =>
+        divulgedContractsSet(divulgence.getContractId)
+      )
+      logger.debug(
+        s"Missing divulged contracts for contract ids: ${nonPresent.map(_.getContractId).mkString(",")}."
+      )
+      logger.warn(
+        "Missing divulged contracts in the decoded transaction entry. Command submissions using divulged contracts might fail."
+      )
+    }
+  }
+
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def transactionEntryToUpdate(
       entryId: DamlLogEntryId,
@@ -261,6 +297,9 @@ object KeyValueConsumption {
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
+    val divulgedContracts = extractDivulgedContracts(txEntry)
+    checkDivulgedContractInstances(divulgedContracts, txEntry.getBlindingInfo)
+
     Update.TransactionAccepted(
       optSubmitterInfo =
         if (txEntry.hasSubmitterInfo) Some(parseSubmitterInfo(txEntry.getSubmitterInfo)) else None,
@@ -278,7 +317,7 @@ object KeyValueConsumption {
       transaction = CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
-      divulgedContracts = List.empty,
+      divulgedContracts = divulgedContracts,
       blindingInfo =
         if (txEntry.hasBlindingInfo)
           Some(Conversions.decodeBlindingInfo(txEntry.getBlindingInfo))
@@ -286,6 +325,22 @@ object KeyValueConsumption {
           None,
     )
   }
+
+  private def extractDivulgedContracts(txEntry: DamlTransactionEntry) =
+    txEntry.getDivulgedContractsList.asScala.iterator.map { divulgedContract =>
+      val contractId = ContractId.assertFromString(divulgedContract.getContractId)
+      val contractInstance = TransactionCoder
+        .decodeVersionedContractInstance[ContractId](
+          ValueCoder.CidDecoder,
+          divulgedContract.getContractInstance,
+        )
+        .fold(
+          err =>
+            throw new RuntimeException(s"Contract instance decoding failed: ${err.errorMessage}"),
+          identity,
+        )
+      DivulgedContract(contractId, contractInstance)
+    }.toList
 
   private[kvutils] case class TimeBounds(
       tooEarlyUntil: Option[Timestamp] = None,

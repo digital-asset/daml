@@ -27,6 +27,7 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -312,18 +313,22 @@ private[kvutils] class TransactionCommitter(
         .build,
     )
 
-    updateContractState(transactionEntry, blindingInfo, commitContext)
+    val divulgedContracts =
+      updateContractStateAndComputeDivulgedContracts(transactionEntry, blindingInfo, commitContext)
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace("Transaction accepted.")
-    StepContinue(transactionEntry)
+    val newTransactionEntry = transactionEntry.submission.toBuilder
+      .addAllDivulgedContracts(divulgedContracts.asJava)
+      .build()
+    StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
   }
 
-  private def updateContractState(
+  private def updateContractStateAndComputeDivulgedContracts(
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo,
       commitContext: CommitContext,
-  )(implicit loggingContext: LoggingContext): Unit = {
+  )(implicit loggingContext: LoggingContext): ArrayBuffer[DivulgedContract] = {
     val localContracts = transactionEntry.transaction.localContracts
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
@@ -360,10 +365,24 @@ private[kvutils] class TransactionCommitter(
           .build,
       )
     }
+
     // Update contract state of divulged contracts.
+    val divulgedContractsBuilder = {
+      val builder = ArrayBuffer.newBuilder[DivulgedContract]
+      builder.sizeHint(blindingInfo.divulgence.size)
+      builder
+    }
+
     for ((coid, parties) <- blindingInfo.divulgence) {
       val key = contractIdToStateKey(coid)
       val cs = getContractState(commitContext, key)
+
+      divulgedContractsBuilder += DivulgedContract
+        .newBuilder()
+        .setContractId(coid.coid)
+        .setContractInstance(cs.getContractInstance)
+        .build()
+
       val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
       val newDivulgences: Set[String] = parties.toSet[String] -- divulged
       if (newDivulgences.nonEmpty) {
@@ -372,6 +391,7 @@ private[kvutils] class TransactionCommitter(
         commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs2).build)
       }
     }
+
     // Update contract keys.
     val ledgerEffectiveTime = transactionEntry.submission.getLedgerEffectiveTime
     for ((contractKey, contractKeyState) <- contractKeys) {
@@ -380,6 +400,8 @@ private[kvutils] class TransactionCommitter(
         updateContractKeyWithContractKeyState(ledgerEffectiveTime, stateKey, contractKeyState)
       commitContext.set(k, v)
     }
+
+    divulgedContractsBuilder.result()
   }
 
   private def updateContractKeyWithContractKeyState(

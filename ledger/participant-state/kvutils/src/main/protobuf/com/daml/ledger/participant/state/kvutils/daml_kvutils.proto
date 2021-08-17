@@ -97,6 +97,14 @@ message DamlLogEntry {
   }
 }
 
+message DivulgedContract {
+  // Contract identifier of the divulged contract.
+  string contract_id = 1;
+
+  // (message com.digitalasset.daml.lf.transaction.ContractInstance)
+  com.daml.lf.transaction.ContractInstance contract_instance = 2;
+}
+
 message DamlLogEntryId {
   // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique
   // reference to the entry. They do not need to be comparable, as long as the implementation can
@@ -151,6 +159,8 @@ message DamlTransactionEntry {
 
   // The pre-computed transaction blinding information.
   DamlTransactionBlindingInfo blinding_info = 7;
+
+  repeated DivulgedContract divulged_contracts = 8;
 }
 
 // A transaction's blinding information, consisting of disclosure and
