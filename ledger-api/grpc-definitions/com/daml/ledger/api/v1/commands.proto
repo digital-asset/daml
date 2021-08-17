@@ -57,11 +57,22 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
-  // The length of the time window during which all commands with the same ``act_as`` parties and
-  // the same command ID will be deduplicated.
-  // Duplicate commands submitted before the end of this window return an ALREADY_EXISTS error.
-  // Optional
-  google.protobuf.Duration deduplication_time = 9;
+  oneof deduplication {
+
+      // Specifies the length of the deduplication period.
+      // The participant or Daml ledger converts the duration into a timestamp ``deduplication_start``
+      // by subtracting the duration from its local clock at some point during processing the submission.
+      //
+      // Must be non-negative.
+      google.protobuf.Duration deduplication_time = 9;
+
+      // Specifies a point in time at which the deduplication shall start.
+      // The participant or Daml ledger converts this timestamp into a completion offset using its local clock.
+      // The clock for this purpose is typically not fully synchronized with the application’s clock or record time,
+      // and message and processing delays may further increase the difference in interpretation.
+      google.protobuf.Timestamp deduplication_start = 15;
+
+  }
 
   // Lower bound for the ledger time assigned to the resulting transaction.
   // Note: The ledger time of a transaction is assigned as part of command interpretation.
