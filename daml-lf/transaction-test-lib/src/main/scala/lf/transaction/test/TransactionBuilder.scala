@@ -274,7 +274,7 @@ object TransactionBuilder {
   // not valid transactions.
   val Empty: Tx.Transaction =
     VersionedTransaction(
-      TransactionVersion.minNodeVersion,
+      TransactionVersion.minVersion, // A normalized empty tx is V10
       HashMap.empty,
       ImmArray.empty,
     )
