@@ -42,7 +42,7 @@ import com.daml.platform.store.appendonlydao.events.{
   QueryNonPrunedImpl,
   TransactionsReader,
 }
-import com.daml.platform.store.backend.{StorageBackend, UpdateToDbDto}
+import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
@@ -130,7 +130,7 @@ private class JdbcLedgerDao(
     dbDispatcher
       .executeSql(metrics.daml.index.db.initializeLedgerParameters)(
         storageBackend.initializeParameters(
-          StorageBackend.IdentityParams(
+          ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
           )

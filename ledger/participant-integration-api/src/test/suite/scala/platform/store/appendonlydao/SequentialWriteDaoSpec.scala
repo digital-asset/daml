@@ -12,7 +12,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
-import com.daml.platform.store.backend.StorageBackend.LedgerEnd
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
   DbDto,
   IngestionStorageBackend,
@@ -73,7 +73,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured should have size 4
   }
 
-  class StorageBackendCaptor(initialLedgerEnd: Option[StorageBackend.LedgerEnd])
+  class StorageBackendCaptor(initialLedgerEnd: Option[ParameterStorageBackend.LedgerEnd])
       extends IngestionStorageBackend[Vector[DbDto]]
       with ParameterStorageBackend {
 
@@ -86,17 +86,21 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       captured = captured ++ batch
     }
 
-    override def initializeIngestion(connection: Connection): Option[StorageBackend.LedgerEnd] =
+    override def initializeIngestion(
+        connection: Connection
+    ): Option[ParameterStorageBackend.LedgerEnd] =
       throw new UnsupportedOperationException
 
-    override def updateLedgerEnd(params: StorageBackend.LedgerEnd)(connection: Connection): Unit =
+    override def updateLedgerEnd(
+        params: ParameterStorageBackend.LedgerEnd
+    )(connection: Connection): Unit =
       synchronized {
         connection shouldBe someConnection
         captured = captured :+ params
       }
 
     private var ledgerEndCalled = false
-    override def ledgerEnd(connection: Connection): Option[StorageBackend.LedgerEnd] =
+    override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
       synchronized {
         connection shouldBe someConnection
         ledgerEndCalled shouldBe false
@@ -104,12 +108,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
         initialLedgerEnd
       }
 
-    override def initializeParameters(params: StorageBackend.IdentityParams)(
+    override def initializeParameters(params: ParameterStorageBackend.IdentityParams)(
         connection: Connection
     )(implicit loggingContext: LoggingContext): Unit =
       throw new UnsupportedOperationException
 
-    override def ledgerIdentity(connection: Connection): Option[StorageBackend.IdentityParams] =
+    override def ledgerIdentity(
+        connection: Connection
+    ): Option[ParameterStorageBackend.IdentityParams] =
       throw new UnsupportedOperationException
 
     override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(

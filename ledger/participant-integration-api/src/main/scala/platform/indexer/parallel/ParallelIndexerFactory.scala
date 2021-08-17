@@ -25,6 +25,7 @@ import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -335,14 +336,14 @@ object ParallelIndexerFactory {
         offsets = Vector.empty, // not used anymore
       )
 
-  def ledgerEndFrom(batch: Batch[_]): StorageBackend.LedgerEnd =
-    StorageBackend.LedgerEnd(
+  def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
+    LedgerEnd(
       lastOffset = batch.lastOffset,
       lastEventSeqId = batch.lastSeqEventId,
     )
 
   def ingestTail[DB_BATCH](
-      ingestTailFunction: StorageBackend.LedgerEnd => Connection => Unit,
+      ingestTailFunction: LedgerEnd => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =

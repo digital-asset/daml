@@ -25,7 +25,7 @@ final class StorageBackendPostgresInitializationSpec
     for {
       _ <- executeSql(
         storageBackend.initializeParameters(
-          StorageBackend.IdentityParams(
+          ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
           )
@@ -33,7 +33,7 @@ final class StorageBackendPostgresInitializationSpec
       )
       error1 <- executeSql(
         storageBackend.initializeParameters(
-          StorageBackend.IdentityParams(
+          ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = participantId,
           )
@@ -41,7 +41,7 @@ final class StorageBackendPostgresInitializationSpec
       ).failed
       error2 <- executeSql(
         storageBackend.initializeParameters(
-          StorageBackend.IdentityParams(
+          ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = otherParticipantId,
           )
@@ -49,7 +49,7 @@ final class StorageBackendPostgresInitializationSpec
       ).failed
       error3 <- executeSql(
         storageBackend.initializeParameters(
-          StorageBackend.IdentityParams(
+          ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = otherParticipantId,
           )
@@ -57,7 +57,7 @@ final class StorageBackendPostgresInitializationSpec
       ).failed
       _ <- executeSql(
         storageBackend.initializeParameters(
-          StorageBackend.IdentityParams(
+          ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
           )

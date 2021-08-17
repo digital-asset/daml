@@ -78,7 +78,7 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @param connection to be used when initializing
     * @return the LedgerEnd, which should be the basis for further indexing.
     */
-  def initializeIngestion(connection: Connection): Option[StorageBackend.LedgerEnd]
+  def initializeIngestion(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 }
 
 trait ParameterStorageBackend {
@@ -88,7 +88,7 @@ trait ParameterStorageBackend {
     *
     * @param connection to be used when updating the parameters table
     */
-  def updateLedgerEnd(ledgerEnd: StorageBackend.LedgerEnd)(connection: Connection): Unit
+  def updateLedgerEnd(ledgerEnd: ParameterStorageBackend.LedgerEnd)(connection: Connection): Unit
 
   /** Query the current ledger end, read from the parameters table.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
@@ -96,7 +96,7 @@ trait ParameterStorageBackend {
     * @param connection to be used to get the LedgerEnd
     * @return the current LedgerEnd, or None if no ledger end exists
     */
-  def ledgerEnd(connection: Connection): Option[StorageBackend.LedgerEnd]
+  def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
   /** Query the current ledger end, returning a value that points to a point before the ledger begin
     * if no ledger end exists.
@@ -105,8 +105,8 @@ trait ParameterStorageBackend {
     * @param connection to be used to get the LedgerEnd
     * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
     */
-  final def ledgerEndOrBeforeBegin(connection: Connection): StorageBackend.LedgerEnd =
-    ledgerEnd(connection).getOrElse(StorageBackend.LedgerEnd(Offset.beforeBegin, 0L))
+  final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
+    ledgerEnd(connection).getOrElse(ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, 0L))
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -122,12 +122,17 @@ trait ParameterStorageBackend {
     *
     *  This method is NOT safe to call concurrently.
     */
-  def initializeParameters(params: StorageBackend.IdentityParams)(connection: Connection)(implicit
-      loggingContext: LoggingContext
+  def initializeParameters(params: ParameterStorageBackend.IdentityParams)(connection: Connection)(
+      implicit loggingContext: LoggingContext
   ): Unit
 
   /** Returns the ledger identity parameters, or None if the database hasn't been initialized yet. */
-  def ledgerIdentity(connection: Connection): Option[StorageBackend.IdentityParams]
+  def ledgerIdentity(connection: Connection): Option[ParameterStorageBackend.IdentityParams]
+}
+
+object ParameterStorageBackend {
+  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long)
+  case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
 }
 
 trait ConfigurationStorageBackend {
@@ -300,9 +305,6 @@ object DBLockStorageBackend {
 }
 
 object StorageBackend {
-  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long)
-  case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
-
   case class RawContractState(
       templateId: Option[String],
       flatEventWitnesses: Set[Ref.Party],

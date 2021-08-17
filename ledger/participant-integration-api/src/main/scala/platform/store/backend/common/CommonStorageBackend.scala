@@ -29,11 +29,10 @@ import com.daml.platform.common.MismatchException
 import com.daml.platform.store.Conversions
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
-import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.scalautil.Statement.discard
-
 import scalaz.syntax.tag._
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
@@ -58,7 +57,9 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
     )
 
-  override def initializeIngestion(connection: Connection): Option[StorageBackend.LedgerEnd] = {
+  override def initializeIngestion(
+      connection: Connection
+  ): Option[ParameterStorageBackend.LedgerEnd] = {
     val result = ledgerEnd(connection)
 
     result.foreach { existingLedgerEnd =>
@@ -87,7 +88,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   )
 
   override def updateLedgerEnd(
-      ledgerEnd: StorageBackend.LedgerEnd
+      ledgerEnd: ParameterStorageBackend.LedgerEnd
   )(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL_UPDATE_LEDGER_END
@@ -108,7 +109,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       |""".stripMargin
   )
 
-  override def ledgerEnd(connection: Connection): Option[StorageBackend.LedgerEnd] =
+  override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
     SQL_GET_LEDGER_END.as(LedgerEndParser.singleOpt)(connection).flatten
 
   private val TableName: String = "parameters"
@@ -129,15 +130,15 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   private val LedgerEndSequentialIdParser: RowParser[Option[Long]] =
     long(LedgerEndSequentialIdColumnName).?
 
-  private val LedgerIdentityParser: RowParser[StorageBackend.IdentityParams] =
+  private val LedgerIdentityParser: RowParser[ParameterStorageBackend.IdentityParams] =
     LedgerIdParser ~ ParticipantIdParser map { case ledgerId ~ participantId =>
-      StorageBackend.IdentityParams(ledgerId, participantId)
+      ParameterStorageBackend.IdentityParams(ledgerId, participantId)
     }
 
-  private val LedgerEndParser: RowParser[Option[StorageBackend.LedgerEnd]] =
+  private val LedgerEndParser: RowParser[Option[ParameterStorageBackend.LedgerEnd]] =
     LedgerEndOffsetParser ~ LedgerEndSequentialIdParser map {
       case Some(lastOffset) ~ Some(lastEventSequentialId) =>
-        Some(StorageBackend.LedgerEnd(lastOffset, lastEventSequentialId))
+        Some(ParameterStorageBackend.LedgerEnd(lastOffset, lastEventSequentialId))
       case _ =>
         // Note: offset and event sequential id are always written together.
         // Cases where only one of them is defined are not handled here.
@@ -145,7 +146,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     }
 
   override def initializeParameters(
-      params: StorageBackend.IdentityParams
+      params: ParameterStorageBackend.IdentityParams
   )(connection: Connection)(implicit loggingContext: LoggingContext): Unit = {
     // Note: this method is the only one that inserts a row into the parameters table
     val previous = ledgerIdentity(connection)
@@ -160,11 +161,12 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           SQL"insert into #$TableName(#$LedgerIdColumnName, #$ParticipantIdColumnName) values(${ledgerId.unwrap}, ${participantId.unwrap: String})"
             .execute()(connection)
         )
-      case Some(StorageBackend.IdentityParams(`ledgerId`, `participantId`)) =>
+      case Some(ParameterStorageBackend.IdentityParams(`ledgerId`, `participantId`)) =>
         logger.info(
           s"Found existing database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
         )
-      case Some(StorageBackend.IdentityParams(existing, _)) if existing != params.ledgerId =>
+      case Some(ParameterStorageBackend.IdentityParams(existing, _))
+          if existing != params.ledgerId =>
         logger.error(
           s"Found existing database with mismatching ledgerId: existing '$existing', provided '${params.ledgerId}'"
         )
@@ -172,7 +174,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           existing = existing,
           provided = params.ledgerId,
         )
-      case Some(StorageBackend.IdentityParams(_, existing)) =>
+      case Some(ParameterStorageBackend.IdentityParams(_, existing)) =>
         logger.error(
           s"Found existing database with mismatching participantId: existing '$existing', provided '${params.participantId}'"
         )
@@ -183,7 +185,9 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     }
   }
 
-  override def ledgerIdentity(connection: Connection): Option[StorageBackend.IdentityParams] =
+  override def ledgerIdentity(
+      connection: Connection
+  ): Option[ParameterStorageBackend.IdentityParams] =
     SQL"select #$LedgerIdColumnName, #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
