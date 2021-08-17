@@ -10,7 +10,10 @@ import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, Temp
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
+import com.daml.lf.language.Ast
+import com.daml.script.export.Dependencies.{ChoiceInstanceSpec, TemplateInstanceSpec}
 import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
@@ -30,23 +33,50 @@ private[export] object Encode {
   }
 
   def encodeExport(export: Export): Doc = {
-    encodeModuleHeader(export.moduleRefs) /
-      Doc.hardLine +
-      encodePartyType() /
-      Doc.hardLine +
-      encodeLookupParty() /
-      Doc.hardLine +
-      encodeAllocateParties(export.partyMap) /
-      Doc.hardLine +
-      encodeContractsType() /
-      Doc.hardLine +
-      encodeLookupContract() /
-      Doc.hardLine +
-      encodeArgsType() /
-      Doc.hardLine +
-      encodeTestExport() /
-      Doc.hardLine +
-      encodeExportActions(export)
+    Doc.intercalate(
+      Doc.line + Doc.hardLine,
+      Seq(
+        encodeModuleHeader(export.moduleRefs),
+        encodePartyType(),
+        encodeLookupParty(),
+        encodeAllocateParties(export.partyMap),
+        encodeContractsType(),
+        encodeLookupContract(),
+        encodeArgsType(),
+        encodeTestExport(),
+        encodeExportActions(export),
+      ) ++ export.missingInstances.map { case (tplId, spec) => encodeMissingInstances(tplId, spec) },
+    )
+  }
+
+  private[export] def encodeMissingInstances(tplId: TemplateId, spec: TemplateInstanceSpec): Doc = {
+    val tplIdDoc = encodeTemplateId(tplId)
+    def primInstance(name: String, parms: Doc): Doc = {
+      val cls = Doc.text(s"Has${name.capitalize}")
+      val fun = Doc.text(s"_$name")
+      val prim = Doc.text(s"E${name.capitalize}")
+      (Doc.text("instance") & cls & parms & Doc.text("where") /
+        fun & Doc.text("= GHC.Types.primitive @") + quotes(prim)).nested(2)
+    }
+    val header =
+      (Doc.text("{-") &
+        tplIdDoc & Doc.paragraph(
+          "is defined in a package using LF version 1.7 or earlier. " +
+            "These packages don't provide the required type class instances to generate ledger commands. " +
+            "The following defines replacement instances."
+        ) & Doc.text("-}")).nested(3)
+    val tplInstances = Seq(
+      primInstance("templateTypeRep", tplIdDoc),
+      primInstance("toAnyTemplate", tplIdDoc),
+    )
+    val keyInstances =
+      spec.key.toList.map(key => primInstance("toAnyContractKey", tplIdDoc & encodeType(key, 11)))
+    val choiceInstances = spec.choices.values.map { case ChoiceInstanceSpec(arg, ret) =>
+      val choiceDoc = encodeType(arg, 11)
+      val retDoc = encodeType(ret, 11)
+      primInstance("toAnyChoice", tplIdDoc & choiceDoc & retDoc)
+    }
+    Doc.stack(Seq(header) ++ tplInstances ++ keyInstances ++ choiceInstances)
   }
 
   private def encodeExportActions(export: Export): Doc = {
@@ -55,7 +85,13 @@ private[export] object Encode {
       (Doc.text("export Args{parties, contracts} = do") /
         stackNonEmpty(
           export.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ export.actions.map(
-            encodeAction(export.partyMap, export.cidMap, export.cidRefs, _)
+            encodeAction(
+              export.partyMap,
+              export.cidMap,
+              export.cidRefs,
+              export.missingInstances.keySet,
+              _,
+            )
           ) :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -141,15 +177,10 @@ private[export] object Encode {
       cidMap: Map[ContractId, String],
       v: Value.Sum,
   ): Doc = {
-    def isTupleRecord(recordId: Identifier): Boolean = {
-      val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
-      recordId.packageId == daTypesId && recordId.moduleName == "DA.Types" && recordId.entityName
-        .startsWith("Tuple")
-    }
     def go(v: Value.Sum): Doc =
       v match {
         case Sum.Empty => throw new IllegalArgumentException("Empty value")
-        case Sum.Record(value) if isTupleRecord(value.getRecordId) =>
+        case Sum.Record(value) if isTupleId(value.getRecordId) =>
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         // TODO Handle sums of products properly
@@ -185,14 +216,14 @@ private[export] object Encode {
           }
         case Sum.Map(m) =>
           parens(
-            Doc.text("TextMap.fromList ") +
+            Doc.text("DA.TextMap.fromList ") +
               list(m.entries.map(e => pair(go(Value.Sum.Text(e.key)), go(e.getValue.sum))))
           )
         case Sum.Enum(value) =>
           qualifyId(value.getEnumId.copy(entityName = value.constructor))
         case Sum.GenMap(m) =>
           parens(
-            Doc.text("Map.fromList ") + list(
+            Doc.text("DA.Map.fromList ") + list(
               m.entries.map(e => pair(go(e.getKey.sum), go(e.getValue.sum)))
             )
           )
@@ -208,6 +239,77 @@ private[export] object Encode {
         formatter.format(timestamp)
       )
     )
+  }
+
+  private[export] def encodeType(ty: Ast.Type, precCtx: Int = 0): Doc = {
+    def precParens(prec: Int, doc: Doc): Doc =
+      if (prec < precCtx) { parens(doc) }
+      else { doc }
+    def unfoldApp(app: Ast.TApp): (Ast.Type, Seq[Ast.Type]) = {
+      def go(f: Ast.Type, args: Seq[Ast.Type]): (Ast.Type, Seq[Ast.Type]) = {
+        f match {
+          case Ast.TApp(tyfun, arg) => go(tyfun, arg +: args)
+          case _ => (f, args)
+        }
+      }
+      go(app, Seq())
+    }
+    ty match {
+      case Ast.TVar(name) => Doc.text(name)
+      case Ast.TNat(n) => Doc.text(s"$n")
+      case Ast.TSynApp(tysyn, args) =>
+        val argsDoc = Doc.spread(args.toSeq.map(ty => encodeType(ty, 11)))
+        precParens(10, qualifyRefId(tysyn) & argsDoc)
+      case Ast.TTyCon(tycon) => qualifyRefId(tycon)
+      case Ast.TBuiltin(bt) =>
+        Doc.text(bt match {
+          case Ast.BTInt64 => "Int"
+          case Ast.BTNumeric => "Numeric"
+          case Ast.BTText => "Text"
+          case Ast.BTTimestamp => "Time"
+          case Ast.BTParty => "Party"
+          case Ast.BTUnit => "()"
+          case Ast.BTBool => "Bool"
+          case Ast.BTList => "[]"
+          case Ast.BTOptional => "Optional"
+          case Ast.BTTextMap => "DA.TextMap.TextMap"
+          case Ast.BTGenMap => "DA.Map.Map"
+          case Ast.BTUpdate => "Update"
+          case Ast.BTScenario => "Scenario"
+          case Ast.BTDate => "Date"
+          case Ast.BTContractId => "ContractId"
+          case Ast.BTArrow => "(->)"
+          case Ast.BTAny =>
+            // We only need to encode types in type-class instances of serializable types.
+            // DA.Internal.LF.Any is not serializable and also cannot be imported.
+            throw new NotImplementedError("Encoding of Any is not implemented")
+          case Ast.BTTypeRep => "TypeRep"
+          case Ast.BTAnyException => "AnyException"
+          case Ast.BTRoundingMode => "RoundingMode"
+          case Ast.BTBigNumeric => "BigNumeric"
+        })
+      case app: Ast.TApp =>
+        unfoldApp(app) match {
+          case (Ast.TTyCon(tycon), args) if isTupleRefId(tycon) =>
+            tuple(args.map(ty => encodeType(ty)))
+          case (Ast.TBuiltin(Ast.BTList), Seq(arg)) =>
+            brackets(encodeType(arg))
+          case (Ast.TBuiltin(Ast.BTArrow), Seq(a, b)) =>
+            precParens(
+              1,
+              encodeType(a, 2) & Doc.text("->") & encodeType(b),
+            )
+          case (f, args) =>
+            val argsDoc = Doc.spread(args.map(ty => encodeType(ty, 11)))
+            precParens(10, encodeType(f, 11) & argsDoc)
+        }
+      case Ast.TForall(_, _) =>
+        // We only need to encode types in type-class instances. Foralls don't occur in that position.
+        throw new NotImplementedError("Encoding of forall types is not implemented")
+      case Ast.TStruct(_) =>
+        // We only need to encode types in type-class instances. Structs don't occur in that position.
+        throw new NotImplementedError("Encoding of struct types is not implemented")
+    }
   }
 
   private def quotes(v: Doc) =
@@ -269,6 +371,14 @@ private[export] object Encode {
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
 
+  private def qualifyRefId(id: Ref.Identifier): Doc =
+    qualifyId(
+      Identifier()
+        .withPackageId(id.packageId)
+        .withModuleName(id.qualifiedName.module.dottedName)
+        .withEntityName(id.qualifiedName.name.dottedName)
+    )
+
   private def encodeTemplateId(id: TemplateId): Doc =
     qualifyId(TemplateId.unwrap(id))
 
@@ -278,38 +388,74 @@ private[export] object Encode {
   private def encodeCmd(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
+      missingInstances: Set[TemplateId],
       cmd: Command,
   ): Doc = cmd match {
     case CreateCommand(createdEvent) =>
-      encodeCreatedEvent(partyMap, cidMap, createdEvent)
+      encodeCreatedEvent(partyMap, cidMap, missingInstances, createdEvent)
     case ExerciseCommand(exercisedEvent) =>
-      val command = Doc.text("exerciseCmd")
       val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      command & cid & choice
+      if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
+        val command = Doc.text("internalExerciseCmd")
+        val tplIdArg = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
+        val typeRepArg = parens("templateTypeRep" &: tplIdArg)
+        val cidArg = parens("coerceContractId" &: cid)
+        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+        Doc.stack(Seq(command, typeRepArg, cidArg, choiceArg)).nested(2)
+      } else {
+        val command = Doc.text("exerciseCmd")
+        command & cid & choice
+      }
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
-      val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+      if (missingInstances.contains(TemplateId(templateId))) {
+        val command = Doc.text("internalExerciseByKeyCmd")
+        val tplIdArg = "@" +: encodeTemplateId(TemplateId(templateId))
+        val typeRepArg = parens("templateTypeRep" &: tplIdArg)
+        val keyArg = parens(Doc.text("toAnyContractKey") & tplIdArg & key)
+        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+        Doc.stack(Seq(command, typeRepArg, keyArg, choiceArg)).nested(2)
+      } else {
+        val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
+        command.lineOrSpace(key).lineOrSpace(choice).nested(2)
+      }
     case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
-      Doc
-        .stack(
-          Seq(
-            Doc.text("createAndExerciseCmd"),
-            encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments),
-            encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
-          )
-        )
-        .nested(2)
+      val tpl = encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments)
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+      if (missingInstances.contains(TemplateId(createdEvent.getTemplateId))) {
+        val command = Doc.text("internalCreateAndExerciseCmd")
+        val tplIdArg = "@" +: encodeTemplateId(TemplateId(createdEvent.getTemplateId))
+        val tplArg = parens("toAnyTemplate" &: tpl)
+        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+        Doc
+          .stack(Seq(command, tplArg, choiceArg))
+          .nested(2)
+      } else {
+        val command = Doc.text("createAndExerciseCmd")
+        Doc
+          .stack(Seq(command, tpl, choice))
+          .nested(2)
+      }
   }
 
   private def encodeCreatedEvent(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
+      missingInstances: Set[TemplateId],
       created: CreatedEvent,
-  ): Doc =
-    Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
+  ): Doc = {
+    val tpl = encodeRecord(partyMap, cidMap, created.getCreateArguments)
+    if (missingInstances.contains(TemplateId(created.getTemplateId))) {
+      val command = Doc.text("internalCreateCmd")
+      val tplArg = parens("toAnyTemplate" &: tpl)
+      command & tplArg
+    } else {
+      val command = Doc.text("createCmd")
+      command & encodeRecord(partyMap, cidMap, created.getCreateArguments)
+    }
+  }
 
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
     (Doc.text("let") & encodeCid(cidMap, c.cid) & Doc.text("=") & encodePath(
@@ -322,6 +468,7 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       submit: SubmitSimple,
   ): Doc = {
     val cids = submit.simpleCommands.map(_.contractId)
@@ -351,7 +498,7 @@ private[export] object Encode {
       } else {
         Doc.empty
       }
-      bind + encodeCmd(partyMap, cidMap, cmd)
+      bind + encodeCmd(partyMap, cidMap, missingInstances, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
     ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
@@ -365,11 +512,13 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       submit: Submit,
   ): Doc = {
     submit match {
-      case simple: SubmitSimple => encodeSubmitSimple(partyMap, cidMap, cidRefs, simple)
-      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, tree)
+      case simple: SubmitSimple =>
+        encodeSubmitSimple(partyMap, cidMap, cidRefs, missingInstances, simple)
+      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, missingInstances, tree)
     }
   }
 
@@ -377,6 +526,7 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       submit: SubmitTree,
   ): Doc = {
     val cids = treeCreatedCids(submit.tree)
@@ -384,7 +534,7 @@ private[export] object Encode {
     val treeBind = Doc
       .stack(
         ("tree <-" &: encodeSubmitCall(partyMap, submit) :& "do") +:
-          submit.commands.map(encodeCmd(partyMap, cidMap, _))
+          submit.commands.map(encodeCmd(partyMap, cidMap, missingInstances, _))
       )
       .hang(2)
     val cidBinds = referencedCids.map(bindCid(cidMap, _))
@@ -395,11 +545,12 @@ private[export] object Encode {
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
+      missingInstances: Set[TemplateId],
       action: Action,
   ): Doc = {
     action match {
       case SetTime(timestamp) => encodeSetTime(timestamp)
-      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, submit)
+      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, missingInstances, submit)
     }
   }
 

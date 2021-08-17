@@ -256,13 +256,13 @@ packagingTests tmpDir =
               let projDir = tmpDir </> "copy-trigger1"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
               callCommandSilentIn projDir "daml build"
-              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
+              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger1-0.0.1.dar"
               assertFileExists dar
         , testCase "Build copy trigger with LF version 1.dev" $ do
               let projDir = tmpDir </> "copy-trigger2"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=copy-trigger"]
               callCommandSilentIn projDir "daml build --target 1.dev"
-              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
+              let dar = projDir </> ".daml" </> "dist" </> "copy-trigger2-0.0.1.dar"
               assertFileExists dar
         , testCase "Build trigger with extra dependency" $ do
               let myDepDir = tmpDir </> "mydep"
@@ -790,6 +790,7 @@ templateTests = testGroup "templates" $
   -- this should be good enough.
   where templateNames =
             [ "copy-trigger"
+            , "gsg-trigger"
             -- daml-intro-1 - daml-intro-6 are not full projects.
             , "daml-intro-7"
             , "daml-patterns"

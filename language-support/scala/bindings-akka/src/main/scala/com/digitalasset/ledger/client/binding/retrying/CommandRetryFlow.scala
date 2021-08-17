@@ -11,11 +11,14 @@ import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Partition}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandClient
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.util.Ctx
 import com.google.rpc.Code
-import com.google.rpc.status.Status
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -23,9 +26,10 @@ import scala.concurrent.{ExecutionContext, Future}
 object CommandRetryFlow {
 
   type In[C] = Ctx[C, SubmitRequest]
-  type Out[C] = Ctx[C, Completion]
+  type Out[C] = Ctx[C, Either[CompletionFailure, CompletionSuccess]]
   type SubmissionFlowType[C] = Flow[In[C], Out[C], NotUsed]
-  type CreateRetryFn[C] = (RetryInfo[C], Completion) => SubmitRequest
+  type CreateRetryFn[C] =
+    (RetryInfo[C], Either[CompletionFailure, CompletionSuccess]) => SubmitRequest
 
   private val RETRY_PORT = 0
   private val PROPAGATE_PORT = 1
@@ -70,25 +74,34 @@ object CommandRetryFlow {
             {
               case Ctx(
                     RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
-                    Completion(_, Some(status: Status), _),
+                    Left(CompletionResponse.NotOkResponse(_, status)),
                     _,
-                  ) =>
-                if (status.code == Code.OK_VALUE) {
+                  ) if RETRYABLE_ERROR_CODES.contains(status.code) =>
+                if ((firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime) {
+                  RetryLogger.logStopRetrying(
+                    request,
+                    status,
+                    nrOfRetries,
+                    firstSubmissionTime,
+                  )
                   PROPAGATE_PORT
-                } else if (
-                  (firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime
-                ) {
-                  RetryLogger.logStopRetrying(request, status, nrOfRetries, firstSubmissionTime)
-                  PROPAGATE_PORT
-                } else if (RETRYABLE_ERROR_CODES.contains(status.code)) {
+                } else {
                   RetryLogger.logNonFatal(request, status, nrOfRetries)
                   RETRY_PORT
-                } else {
-                  RetryLogger.logFatal(request, status, nrOfRetries)
-                  PROPAGATE_PORT
                 }
-              case Ctx(_, Completion(commandId, _, _), _) =>
+              case Ctx(
+                    RetryInfo(request, nrOfRetries, _, _),
+                    Left(CompletionResponse.NotOkResponse(_, status)),
+                    _,
+                  ) =>
+                RetryLogger.logFatal(request, status, nrOfRetries)
+                PROPAGATE_PORT
+              case Ctx(_, Left(CompletionResponse.TimeoutResponse(_)), _) =>
+                PROPAGATE_PORT
+              case Ctx(_, Left(CompletionResponse.NoStatusInResponse(commandId)), _) =>
                 statusNotFoundError(commandId)
+              case Ctx(_, Right(_), _) =>
+                PROPAGATE_PORT
             },
           )
         )

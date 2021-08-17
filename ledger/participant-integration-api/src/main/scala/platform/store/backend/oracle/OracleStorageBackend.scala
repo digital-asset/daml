@@ -4,17 +4,17 @@
 package com.daml.platform.store.backend.oracle
 
 import anorm.SqlParser.get
-import anorm.{NamedParameter, SQL, SqlStringInterpolation}
-import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import anorm.SQL
 import com.daml.lf.data.Ref
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
+  CompletionStorageBackendTemplate,
+  ContractStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
-  TemplatedStorageBackend,
+  QueryStrategy,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -28,14 +28,16 @@ import java.time.Instant
 
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
-
 import com.daml.logging.LoggingContext
+import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import javax.sql.DataSource
 
 private[backend] object OracleStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
-    with EventStorageBackendTemplate {
+    with EventStorageBackendTemplate
+    with ContractStorageBackendTemplate
+    with CompletionStorageBackendTemplate {
 
   override def reset(connection: Connection): Unit =
     List(
@@ -84,118 +86,64 @@ private[backend] object OracleStorageBackend
   override def insertBatch(connection: Connection, batch: AppendOnlySchema.Batch): Unit =
     OracleSchema.schema.executeUpdate(batch, connection)
 
-  def commandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
-  )(connection: Connection): List[CompletionStreamResponse] =
-    TemplatedStorageBackend.commandCompletions(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      applicationId = applicationId,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-    )(connection)
+  object OracleQueryStrategy extends QueryStrategy {
 
-  def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[StorageBackend.RawContract] =
-    TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
-
-  def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[String] =
-    TemplatedStorageBackend.activeContractWithoutArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
-
-  def contractKey(readers: Set[Ref.Party], key: Key)(
-      connection: Connection
-  ): Option[ContractId] =
-    TemplatedStorageBackend.contractKey(
-      flatEventWitnesses = columnPrefix =>
-        arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers),
-      key = key,
-    )(connection)
-
-  object OracleEventStrategy extends EventStrategy {
-
-    def arrayIntersectionClause(
+    override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
-        paramNamePostfix: String,
-    ): (String, List[NamedParameter]) =
-      (
-        s"EXISTS (SELECT 1 FROM JSON_TABLE($columnName, '$$[*]' columns (value PATH '$$')) WHERE value IN ({parties$paramNamePostfix}))",
-        List(s"parties$paramNamePostfix" -> parties.map(_.toString)),
-      )
+    ): CompositeSql =
+      cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value PATH '$$')) WHERE value IN (${parties
+        .map(_.toString)}))"
+
+    override def columnEqualityBoolean(column: String, value: String): String =
+      s"""case when ($column = $value) then 1 else 0 end"""
+  }
+
+  override def queryStrategy: QueryStrategy = OracleQueryStrategy
+
+  object OracleEventStrategy extends EventStrategy {
 
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
-    ): (String, List[NamedParameter]) =
+    ): CompositeSql =
       if (parties.size == 1)
-        (
-          "(json_array({singlePartyfewc}))",
-          List[NamedParameter]("singlePartyfewc" -> parties.head.toString),
-        )
+        cSQL"(json_array(${parties.head.toString}))"
       else
-        (
-          s"""(select json_arrayagg(value) from (select value
-             |from json_table($witnessesColumnName, '$$[*]' columns (value PATH '$$'))
-             |where value IN ({partiesfewc})))
-             |""".stripMargin,
-          List[NamedParameter]("partiesfewc" -> parties.map(_.toString)),
-        )
+        cSQL"""
+           (select json_arrayagg(value) from (select value
+           from json_table(#$witnessesColumnName, '$$[*]' columns (value PATH '$$'))
+           where value IN (${parties.map(_.toString)})))
+           """
 
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
-    ): (String, List[NamedParameter]) = {
-      val (clause, params) = arrayIntersectionClause(submittersColumnName, parties, "sapc")
-      (s"($clause)", params)
-    }
+    ): CompositeSql =
+      cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(submittersColumnName, parties)})"
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-    ): (String, List[NamedParameter]) = {
-      val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
-        case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)
-        case wildCardParties =>
-          val (clause, params) =
-            arrayIntersectionClause(witnessesColumnName, wildCardParties, "wcwwc")
-          (
-            List(s"($clause)"),
-            params,
-          )
-      }
-      val (partiesTemplatesClauses, partiesTemplatesParams) =
-        filterParams.partiesAndTemplates.iterator.zipWithIndex
-          .map { case ((parties, templateIds), index) =>
-            val (clause, params) =
-              arrayIntersectionClause(witnessesColumnName, parties, s"ptwwc$index")
-            (
-              s"( ($clause) AND (template_id IN ({templateIdsArraywwc$index})) )",
-              List[NamedParameter](
-                s"templateIdsArraywwc$index" -> templateIds.map(_.toString)
-              ) ::: params,
-            )
-          }
-          .toList
-          .unzip
-      (
-        (wildCardClause ::: partiesTemplatesClauses).mkString("(", " OR ", ")"),
-        wildCardParams ::: partiesTemplatesParams.flatten,
-      )
-    }
+    ): CompositeSql = {
+      val wildCardClause = filterParams.wildCardParties match {
+        case wildCardParties if wildCardParties.isEmpty =>
+          Nil
 
-    override def columnEqualityBoolean(column: String, value: String): String =
-      s"""case when ($column = $value) then 1 else 0 end"""
+        case wildCardParties =>
+          cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties)})" :: Nil
+      }
+      val partiesTemplatesClauses =
+        filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
+          val clause =
+            OracleQueryStrategy.arrayIntersectionNonEmptyClause(
+              witnessesColumnName,
+              parties,
+            )
+          cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"
+        }.toList
+      (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
+    }
   }
 
   override def eventStrategy: common.EventStrategy = OracleEventStrategy
@@ -206,43 +154,10 @@ private[backend] object OracleStorageBackend
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
     // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-    SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc #${limitClause(Some(1))}"
+    val limitClause = OracleQueryStrategy.limitClause(Some(1))
+    SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc $limitClause"
       .as(get[Long](1).singleOpt)(connection)
   }
-
-  // TODO append-only: this seems to be the same for all db backends, let's unify
-  private def limitClause(to: Option[Int]): String =
-    to.map(to => s"fetch next $to rows only").getOrElse("")
-
-  // TODO append-only: remove as part of ContractStorageBackend consolidation, use the data-driven one
-  private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
-    if (parties.isEmpty)
-      "false"
-    else {
-      val NumCharsBetweenParties = 3
-      val NumExtraChars = 20
-      val OracleMaxStringLiteralLength = 4000
-
-      val groupedParties =
-        parties.foldLeft((List.empty[List[String]], 0))({ case ((prev, currentLength), party) =>
-          if (
-            currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength
-          ) {
-            (List(party) :: prev, party.length + NumExtraChars)
-          } else {
-            prev match {
-              case h :: tail =>
-                ((party :: h) :: tail, currentLength + party.length + NumCharsBetweenParties)
-              case Nil => (List(party) :: Nil, party.length + NumExtraChars)
-            }
-          }
-        })
-      "(" + groupedParties._1
-        .map { listOfParties =>
-          s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${listOfParties.mkString("""","""")}"))')"""
-        }
-        .mkString(" OR ") + ")"
-    }
 
   override def createDataSource(
       jdbcUrl: String,

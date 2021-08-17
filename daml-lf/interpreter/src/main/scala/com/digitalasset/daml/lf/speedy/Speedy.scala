@@ -752,11 +752,13 @@ private[lf] object Speedy {
       onLedger.visibleToStakeholders(contract.stakeholders) match {
         case SVisibleToStakeholders.Visible => ()
         case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+          val readers = (actAs union readAs).mkString(",")
+          val stakeholders = contract.stakeholders.mkString(",")
           this.warningLog.add(
             Warning(
               commitLocation = onLedger.commitLocation,
               message =
-                s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning",
+                s"Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid} but none of the reading parties [${readers}] are contract stakeholders [${stakeholders}]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers [${readers}] as an observer to the contract.",
             )
           )
       }

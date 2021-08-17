@@ -3,21 +3,19 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import akka.{Done, NotUsed}
 import akka.stream.scaladsl.{Flow, Keep, Sink, SourceQueueWithComplete}
-import akka.stream.{Materializer, OverflowStrategy}
+import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
 import com.daml.platform.server.api.ApiException
 import com.daml.util.Ctx
-import com.google.rpc.code.Code
-import com.google.rpc.status.Status
 import io.grpc.{Status => GrpcStatus}
 
 import scala.concurrent.duration._
@@ -39,26 +37,63 @@ private[services] final class TrackerImpl(
   override def track(request: SubmitAndWaitRequest)(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Completion] = {
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     logger.trace("Tracking command")
-    val promise = Promise[Completion]()
-    submitNewRequest(request, promise)
+    submitNewRequest(request)
   }
 
-  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(implicit
+  private def submitNewRequest(
+      request: SubmitAndWaitRequest
+  )(implicit
       ec: ExecutionContext
-  ): Future[Completion] = {
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     queue
       .offer(
         Ctx(
-          promise,
+          trackedPromise,
           SubmitRequest(request.commands),
         )
       )
-      .andThen {
-        HandleOfferResult.completePromise(promise)
+      .flatMap[Either[TrackedCompletionFailure, CompletionSuccess]] {
+        case QueueOfferResult.Enqueued =>
+          trackedPromise.future.map(
+            _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
+          )
+        case QueueOfferResult.Failure(t) =>
+          failedQueueSubmission(
+            GrpcStatus.ABORTED
+              .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
+              .withCause(t)
+          )
+        case QueueOfferResult.Dropped =>
+          failedQueueSubmission(
+            GrpcStatus.RESOURCE_EXHAUSTED
+              .withDescription("Ingress buffer is full")
+          )
+        case QueueOfferResult.QueueClosed =>
+          failedQueueSubmission(GrpcStatus.ABORTED.withDescription("Queue closed"))
       }
-    promise.future
+      .recoverWith(transformQueueSubmissionExceptions)
+  }
+
+  private def failedQueueSubmission(status: GrpcStatus) =
+    Future.successful(Left(QueueSubmitFailure(status)))
+
+  private def transformQueueSubmissionExceptions
+      : PartialFunction[Throwable, Future[Either[TrackedCompletionFailure, CompletionSuccess]]] = {
+    case i: IllegalStateException
+        if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
+      failedQueueSubmission(
+        GrpcStatus.RESOURCE_EXHAUSTED
+          .withDescription("Ingress buffer is full")
+      )
+    case t =>
+      failedQueueSubmission(
+        GrpcStatus.ABORTED
+          .withDescription(s"Failure: ${t.getClass.getSimpleName}: ${t.getMessage}")
+          .withCause(t)
+      )
   }
 
   override def close(): Unit = {
@@ -76,9 +111,12 @@ private[services] object TrackerImpl {
 
   def apply(
       tracker: Flow[
-        Ctx[Promise[Completion], SubmitRequest],
-        Ctx[Promise[Completion], Completion],
-        Materialized[NotUsed, Promise[Completion]],
+        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest],
+        Ctx[
+          Promise[Either[CompletionFailure, CompletionSuccess]],
+          Either[CompletionFailure, CompletionSuccess],
+        ],
+        Materialized[NotUsed, Promise[Either[CompletionFailure, CompletionSuccess]]],
       ],
       inputBufferSize: Int,
       capacityCounter: Counter,
@@ -95,24 +133,13 @@ private[services] object TrackerImpl {
       )
       .viaMat(tracker)(Keep.both)
       .toMat(Sink.foreach { case Ctx(promise, result, _) =>
-        result match {
-          case compl @ Completion(_, Some(Status(Code.OK.value, _, _, _)), _) =>
-            logger.trace("Completing promise with success")
-            promise.trySuccess(compl)
-          case Completion(_, statusO, _) =>
-            val status = statusO
-              .map(status =>
-                GrpcStatus
-                  .fromCodeValue(status.code)
-                  .withDescription(status.message)
-              )
-              .getOrElse(
-                GrpcStatus.INTERNAL
-                  .withDescription("Missing status in completion response.")
-              )
-
-            logger.trace(s"Completing promise with failure: $status")
-            promise.tryFailure(status.asException())
+        val didCompletePromise = promise.trySuccess(result)
+        if (!didCompletePromise) {
+          logger.trace(
+            "Promise was already completed, could not propagate the completion for the command."
+          )
+        } else {
+          logger.trace("Completed promise with the result of command.")
         }
         ()
       })(Keep.both)
@@ -146,5 +173,5 @@ private[services] object TrackerImpl {
     new TrackerImpl(queue, done)
   }
 
-  type QueueInput = Ctx[Promise[Completion], SubmitRequest]
+  type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest]
 }

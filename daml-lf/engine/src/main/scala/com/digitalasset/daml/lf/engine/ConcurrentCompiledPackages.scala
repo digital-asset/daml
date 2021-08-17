@@ -23,7 +23,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     extends MutableCompiledPackages(compilerConfig) {
   private[this] val signatures: ConcurrentMap[PackageId, PackageSignature] =
     new ConcurrentHashMap().asScala
-  private[this] val definitions
+  private[this] val definitionsByReference
       : ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SDefinition] =
     new ConcurrentHashMap()
   private[this] val packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
@@ -32,7 +32,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
   override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
   override def interface: Interface = new Interface(signatures)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
-    Option(definitions.get(dref))
+    Option(definitionsByReference.get(dref))
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -129,7 +129,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                   )
               }
             defns.foreach { case (defnId, defn) =>
-              definitions.put(defnId, defn)
+              definitionsByReference.put(defnId, defn)
             }
             // Compute the transitive dependencies of the new package. Since we are adding
             // packages in dependency order we can just union the dependencies of the
@@ -149,7 +149,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
   def clear(): Unit = this.synchronized[Unit] {
     signatures.clear()
     packageDeps.clear()
-    definitions.clear()
+    definitionsByReference.clear()
   }
 
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =

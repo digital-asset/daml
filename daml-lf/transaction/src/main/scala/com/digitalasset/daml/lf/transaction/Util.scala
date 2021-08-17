@@ -26,10 +26,10 @@ object Util {
 
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
-  def assertNormalizeValue(
-      value0: Value[ContractId],
+  def assertNormalizeValue[Cid](
+      value0: Value[Cid],
       version: TransactionVersion,
-  ): Value[ContractId] = {
+  ): Value[Cid] = {
 
     import Ordering.Implicits.infixOrderingOps
 
@@ -43,7 +43,7 @@ object Util {
         x
       }
 
-    def go(value: Value[ContractId]): Value[ContractId] =
+    def go(value: Value[Cid]): Value[Cid] =
       value match {
         case ValueEnum(tyCon, cons) =>
           ValueEnum(handleTypeInfo(tyCon), cons)

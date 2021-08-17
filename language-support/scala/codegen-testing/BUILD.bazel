@@ -59,8 +59,11 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     visibility = [
@@ -71,6 +74,7 @@ da_scala_library(
     deps = [
         ":codegen-testing",
         "//language-support/scala/bindings",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -89,8 +93,11 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -99,5 +106,6 @@ da_scala_test_suite(
         ":codegen-testing-testing",
         "//language-support/scala/bindings",
         "@maven//:org_apache_commons_commons_text",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

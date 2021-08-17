@@ -28,6 +28,21 @@ object Util {
     }
   }
 
+  object TTVarApp {
+    def apply(name: Ast.TypeVarName, args: ImmArray[Type]): Type =
+      args.foldLeft[Type](TVar(name))((typ, arg) => TApp(typ, arg))
+    def unapply(typ: Type): Option[(Ast.TypeVarName, ImmArray[Type])] = {
+      @tailrec
+      def go(typ: Type, targs: List[Type]): Option[(Ast.TypeVarName, ImmArray[Type])] =
+        typ match {
+          case TApp(tfun, targ) => go(tfun, targ :: targs)
+          case TVar(name) => Some((name, ImmArray(targs)))
+          case _ => None
+        }
+      go(typ, Nil)
+    }
+  }
+
   object TFun extends ((Type, Type) => Type) {
     def apply(targ: Type, tres: Type) =
       TApp(TApp(TBuiltin(BTArrow), targ), tres)

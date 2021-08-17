@@ -39,7 +39,10 @@ da_scala_test_suite(
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scala_lang_modules_scala_java8_compat",
@@ -50,5 +53,6 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_scala",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

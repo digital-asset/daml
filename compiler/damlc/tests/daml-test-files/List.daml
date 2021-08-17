@@ -1,13 +1,13 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=115:17-115:32; Use dedup
--- @INFO range=301:10-301:24; Evaluate
--- @INFO range=316:38-316:48; Use sum
--- @INFO range=317:43-317:53; Use sum
--- @INFO range=318:29-318:39; Use sum
--- @INFO range=321:3-321:23; Use head
--- @INFO range=326:29-326:36; Use head
+-- @INFO range=127:17-127:32; Use dedup
+-- @INFO range=313:10-313:24; Evaluate
+-- @INFO range=328:38-328:48; Use sum
+-- @INFO range=329:43-329:53; Use sum
+-- @INFO range=330:29-330:39; Use sum
+-- @INFO range=333:3-333:23; Use head
+-- @INFO range=338:29-338:36; Use head
 
 module List where
 
@@ -23,9 +23,12 @@ testSort6 = scenario do
           , Foo 10 "c"
           , Foo 15 "c"
           , Foo 5 "b" ]
-  let m = sortOn (\t -> (Down t.y, Down t.x)) l
+  let sortFn = \t -> (Down t.y, Down t.x)
+  let m = sortOn sortFn l
   head m === Foo 15 "c"
   last m === Foo 42 "a"
+  Foo 15 "c" === minimumOn sortFn l
+  Foo 42 "a" === maximumOn sortFn l
 
 -- Utility called on by 'testSort4' and 'testSort5'
 check45 n m = do
@@ -41,9 +44,13 @@ testSort5 = scenario do
 
 testSort4 = scenario do
     let l = [ (2, const "D"), (1, const "A"), (1, const "B"), (3, const "E"), (1, const "C") ]
-    let m = sortBy (\x y -> compare (fst x) (fst y)) l
+    let cmp = \x y -> compare (fst x) (fst y)
+    let m = sortBy cmp l
     let n = map fst m
     check45 n m
+    let check = \(x, y) -> (x, y ())
+    check (minimumBy cmp l) === check (head m)
+    check (maximumBy cmp l) === check (last m)
 
 testSort3 = scenario do
     let l = [ "C", "A", "E", "D", "B" ]
@@ -54,6 +61,8 @@ testSort2 = scenario do
     let l = [ 4, 5, 6, 3, 9, 2, 1, 8, 7 ]
     let m = sortBy (\x y -> compare y x) l
     m === reverse [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    minimumBy (flip compare) l === head m
+    maximumBy (flip compare) l === last m
 
 testSort1 = scenario do
     let l = [ 4, 5, 6, 3, 9, 2, 1, 8, 7 ]
@@ -67,8 +76,11 @@ testSortEmpty = scenario do
 
 testSortIsStable = scenario do
     let l = [(1, 3), (1,2), (1,1), (1,1), (1,4)]
-    let m = sortBy (compare `on` fst) l
+    let cmp = (compare `on` fst)
+    let m = sortBy cmp l
     m === l
+    minimumBy cmp l === head m
+    maximumBy cmp l === head m -- all `EQ`, returning first
        where on cmp f x y = cmp (f x) (f y)
 
 testGroupOn = scenario do

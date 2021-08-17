@@ -16,7 +16,7 @@ module BazelCache
     , run
     ) where
 
-import Build.Bazel.Remote.Execution.V2.RemoteExecution (ActionResult(..), Digest(..))
+import Build.Bazel.Remote.Execution.V2.RemoteExecution (ActionResult(..), Digest(..), OutputDirectory(..))
 import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TBMQueue
@@ -132,10 +132,13 @@ validateArtifact manager (time, path) = do
   where
     isInvalid ActionResult{..} = and
       [ null actionResultOutputFiles
-      , null actionResultOutputDirectories
+      , all (\dir -> maybe True (\Digest{..} -> digestSizeBytes == 0 || digestHash == brokenDigestHash) (outputDirectoryTreeDigest dir)) actionResultOutputDirectories
       , maybe True (\r -> digestSizeBytes r == 0) actionResultStdoutDigest
       , maybe True (\r -> digestSizeBytes r == 0) actionResultStderrDigest
       ]
+    -- This corresponds to 0x0a 0x00 which is a protobuf message for the digest
+    -- with en empty string.
+    brokenDigestHash = "102b51b9765a56a3e899f7cf0ee38e5251f9c503b357b330a49183eb7b155604"
 
 -- | Checks for the last line in `gsutil -l`’s output.
 isTotal :: Text -> Bool

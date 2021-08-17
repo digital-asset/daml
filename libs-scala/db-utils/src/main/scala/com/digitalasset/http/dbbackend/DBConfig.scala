@@ -27,6 +27,9 @@ final case class JdbcConfig(
     createSchema: Boolean = false,
     tablePrefix: String = "",
     dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
+    minIdle: Int = JdbcConfig.MinIdle,
+    connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
+    idleTimeout: Long = JdbcConfig.IdleTimeout,
 )
 
 abstract class ConfigCompanion[A, ReadCtx](name: String) {
@@ -83,6 +86,10 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
 object JdbcConfig
     extends ConfigCompanion[JdbcConfig, DBConfig.SupportedJdbcDriverNames]("JdbcConfig")
     with StrictLogging {
+
+  final val MinIdle = 8
+  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
+  final val ConnectionTimeout = 5000L
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, start-mode=${a.dbStartupMode})"

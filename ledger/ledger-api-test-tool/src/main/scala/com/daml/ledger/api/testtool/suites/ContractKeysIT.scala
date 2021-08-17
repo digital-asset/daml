@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import java.util.regex.Pattern
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -14,10 +15,29 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test
+import com.daml.ledger.test.model.Test.CallablePayout
 import io.grpc.Status
 import scalaz.Tag
 
 final class ContractKeysIT extends LedgerTestSuite {
+  test(
+    "CKNoContractKey",
+    "There should be no contract key if the template does not specify one",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(alpha @ _, receiver), Participant(beta, giver)) =>
+      for {
+        _ <- beta.create(giver, CallablePayout(giver, receiver))
+        transactions <- beta.flatTransactions(giver, receiver)
+      } yield {
+        val contract = assertSingleton("NoContractKey", transactions.flatMap(createdEvents))
+        assert(
+          contract.getContractKey.sum.isEmpty,
+          s"The key is not empty: ${contract.getContractKey}",
+        )
+      }
+  })
+
   test(
     "CKFetchOrLookup",
     "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",
@@ -113,7 +133,7 @@ final class ContractKeysIT extends LedgerTestSuite {
     "Contract keys should be scoped by maintainer",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
-    import Test.{TextKey, TextKeyOperations, MaintainerNotSignatory}
+    import Test.{MaintainerNotSignatory, TextKey, TextKeyOperations}
     val key1 = alpha.nextKeyId()
     val key2 = alpha.nextKeyId()
     val unknownKey = alpha.nextKeyId()
@@ -367,7 +387,7 @@ final class ContractKeysIT extends LedgerTestSuite {
   })
 
   test(
-    "CKDisclosedContractKeyReusability",
+    "CKDisclosedContractKeyReusabilityBasic",
     "Subsequent disclosed contracts can use the same contract key",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {

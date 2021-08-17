@@ -35,7 +35,7 @@ final class ExceptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ExCaught",
+    "ExCaughtBasic",
     "Exceptions can be caught",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>

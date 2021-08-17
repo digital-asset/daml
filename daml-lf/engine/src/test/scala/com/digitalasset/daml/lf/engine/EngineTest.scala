@@ -24,7 +24,7 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
-import com.daml.lf.transaction.Validation.isReplayedBy
+import com.daml.lf.transaction.{Normalization, Validation, ReplayMismatch}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
@@ -526,8 +526,9 @@ class EngineTest
       val Right((tx, meta)) = interpretResult
       val Right(submitter) = tx.guessSubmitter
       val submitters = Set(submitter)
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -612,8 +613,9 @@ class EngineTest
     "be validated" in {
       forAll(cases) { case (templateId, signatories, submitters) =>
         val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
+        val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
         val validated = engine
-          .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+          .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
           .consume(
             lookupContract,
             lookupPackage,
@@ -736,8 +738,9 @@ class EngineTest
     }
 
     "be validated" in {
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
           lookupPackage,
@@ -879,8 +882,9 @@ class EngineTest
     }
 
     "be validated" in {
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(submitters, tx, let, participant, let, submissionSeed)
+        .validate(submitters, ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
           lookupPackage,
@@ -1140,8 +1144,9 @@ class EngineTest
     }
 
     "be validated" in {
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = engine
-        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
           lookupPackage,
@@ -1586,7 +1591,8 @@ class EngineTest
         nid -> fetch
       }
 
-      fetchNodes.foreach { case (nid, n) =>
+      fetchNodes.foreach { case (_, n) =>
+        val nid = NodeId(0) //we must use node-0 so the constructed tx is normalized
         val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
         val Right((reinterpreted, _)) =
           engine
@@ -2103,8 +2109,16 @@ class EngineTest
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
           submitter <- tx.guessSubmitter
+          ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
           res <- engine
-            .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
+            .validate(
+              Set(submitter),
+              ntx,
+              let,
+              participant,
+              metaData.submissionTime,
+              submissionSeed,
+            )
             .consume(
               _ => None,
               lookupPackage,
@@ -2746,6 +2760,14 @@ object EngineTest {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
+  }
+
+  private def isReplayedBy[Nid, Cid](
+      recorded: VersionedTransaction[Nid, Cid],
+      replayed: VersionedTransaction[Nid, Cid],
+  ): Either[ReplayMismatch[Nid, Cid], Unit] = {
+    // we normalize the LEFT arg before calling isReplayedBy to mimic the effect of serialization
+    Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
   private def reinterpret(

@@ -6,12 +6,13 @@ package com.daml.script.export
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
-import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
+import com.daml.script.export.Dependencies.TemplateInstanceSpec
 import com.daml.script.export.TreeUtils.{
   Action,
   CreatedContract,
@@ -37,6 +38,7 @@ case class Export(
     cidMap: Map[ContractId, String],
     unknownCids: Set[ContractId],
     cidRefs: Set[ContractId],
+    missingInstances: Map[TemplateId, TemplateInstanceSpec],
     moduleRefs: Set[String],
     actions: Seq[Action],
 )
@@ -46,6 +48,7 @@ object Export {
   def fromTransactionTrees(
       acs: Map[ContractId, CreatedEvent],
       trees: Seq[TransactionTree],
+      missingInstances: Map[TemplateId, TemplateInstanceSpec],
       acsBatchSize: Int,
       setTime: Boolean,
   ): Export = {
@@ -74,6 +77,7 @@ object Export {
       cidMap = cidMap,
       unknownCids = cidRefs -- cidMap.keySet,
       cidRefs = cidRefs,
+      missingInstances = missingInstances,
       moduleRefs =
         refs.map(_.moduleName).toSet ++ timeRefs ++ partiesModuleRefs ++ unknownContractModuleRefs,
       actions = actions,
@@ -131,7 +135,8 @@ object Export {
       acsBatchSize: Int,
       setTime: Boolean,
   ) = {
-    val export = Export.fromTransactionTrees(acs, trees, acsBatchSize, setTime)
+    val missingInstances = Dependencies.templatesMissingInstances(pkgs)
+    val export = Export.fromTransactionTrees(acs, trees, missingInstances, acsBatchSize, setTime)
 
     val dir = Files.createDirectories(targetDir)
     Files.write(

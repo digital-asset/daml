@@ -10,7 +10,8 @@ da_scala_library(
     name = "grpc-test-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalactic_scalactic",
     ],
     tags = ["maven_coordinates=com.daml:grpc-test-utils:__VERSION__"],
@@ -28,5 +29,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

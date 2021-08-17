@@ -1,0 +1,94 @@
+diff -Naur create-daml-app/daml/ChatBot.daml gsg-trigger/daml/ChatBot.daml
+--- create-daml-app/daml/ChatBot.daml	1970-01-01 01:00:00.000000000 +0100
++++ gsg-trigger/daml/ChatBot.daml	2021-08-16 13:05:51.000000000 +0200
+@@ -0,0 +1,29 @@
++module ChatBot where
++
++import qualified Daml.Trigger as T
++import qualified User
++import qualified DA.List.Total as List
++import DA.Action (when)
++import DA.Optional (whenSome)
++
++autoReply : T.Trigger ()
++autoReply = T.Trigger
++  { initialize = pure ()
++  , updateState = \_ -> pure ()
++  , rule = \p -> do
++      message_contracts <- T.query @User.Message
++      let messages = map snd message_contracts
++      debug $ "Messages so far: " <> show (length messages)
++      let lastMessage = List.maximumOn (.receivedAt) messages
++      debug $ "Last message: " <> show lastMessage
++      whenSome lastMessage $ \m ->
++        when (m.receiver == p) $ do
++          users <- T.query @User.User
++          debug users
++          let isSender = (\user -> user.username == m.sender)
++          let replyTo = List.head $ filter (\(_, user) -> isSender user) users
++          whenSome replyTo $ \(sender, _) ->
++            T.dedupExercise sender (User.SendMessage p "Please, tell me more about that.")
++  , registeredTemplates = T.AllInDar
++  , heartbeat = None
++  }
+diff -Naur create-daml-app/daml/NoOp.daml gsg-trigger/daml/NoOp.daml
+--- create-daml-app/daml/NoOp.daml	1970-01-01 01:00:00.000000000 +0100
++++ gsg-trigger/daml/NoOp.daml	2021-08-16 13:02:52.000000000 +0200
+@@ -0,0 +1,13 @@
++module NoOp where
++
++import qualified Daml.Trigger as T
++
++noOp : T.Trigger ()
++noOp = T.Trigger with
++  initialize = pure ()
++  updateState = \_ -> pure ()
++  rule = \_ -> do
++    debug "triggered"
++    pure ()
++  registeredTemplates = T.AllInDar
++  heartbeat = None
+diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
+--- create-daml-app/daml/User.daml	2021-08-12 14:36:31.000000000 +0200
++++ gsg-trigger/daml/User.daml	2021-08-16 13:02:52.000000000 +0200
+@@ -25,3 +25,24 @@
+         archive self
+         create this with following = userToFollow :: following
+     -- FOLLOW_END
++    -- SEND_BEGIN
++    -- New definition for SendMessage
++    nonconsuming choice SendMessage: ContractId Message with
++        sender: Party
++        content: Text
++      controller sender
++      do
++        assertMsg "Designated user must follow you back to send a message" (elem sender following)
++        now <- getTime
++        create Message with sender, receiver = username, content, receivedAt = now
++    -- SEND_END
++
++-- MESSAGE_BEGIN
++template Message with
++    sender: Party
++    receiver: Party
++    content: Text
++    receivedAt: Time
++  where
++    signatory sender, receiver
++-- MESSAGE_END
+diff -Naur create-daml-app/daml.yaml.template gsg-trigger/daml.yaml.template
+--- create-daml-app/daml.yaml.template	2021-05-12 10:23:33.000000000 +0200
++++ gsg-trigger/daml.yaml.template	2021-08-16 13:02:52.000000000 +0200
+@@ -6,10 +6,12 @@
+ - Alice
+ - Bob
+ - Charlie
++# trigger-dependencies-begin
+ dependencies:
+ - daml-prim
+ - daml-stdlib
+ - daml-trigger
++# trigger-dependencies-end
+ sandbox-options:
+ - --wall-clock-time
+ - --ledgerid=__PROJECT_NAME__-sandbox

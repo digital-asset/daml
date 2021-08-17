@@ -1,5 +1,5 @@
 diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index f46f56bc..3d14527b 100644
+index f46f56bc..bfcc9500 100644
 --- a/haskell/private/actions/package.bzl
 +++ b/haskell/private/actions/package.bzl
 @@ -107,7 +107,12 @@ def package(
@@ -12,7 +12,7 @@ index f46f56bc..3d14527b 100644
 +            "crypt32",
 +            "shlwapi",
 +            "ws2_32",
-+        ]) if hs.toolchain.is_windows else [],
++        ] if hs.toolchain.is_windows else []),
          "depends": hs.package_ids,
      })
  

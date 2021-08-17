@@ -7,17 +7,19 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import com.daml.lf.archive.ArchivePayloadParser
-import com.daml.lf.data.{Ref => DamlLfRef}
-import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.api.{v1 => V1}
 import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.lf.archive.ArchivePayloadParser
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.navigator.model._
 import com.daml.navigator.model.converter.TypeNotFoundError
 import com.daml.navigator.store.Store.{StoreException, _}
 import com.daml.util.Ctx
+import com.google.rpc.code
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -237,25 +239,35 @@ class PlatformSubscriber(
       .queue[Ctx[Command, SubmitRequest]](1000, OverflowStrategy.dropNew)
       .via(commandTracker)
       .map(result => {
-        val completion = converter.LedgerApiV1.readCompletion(result.value)
         val commandId = result.context.id
-        completion match {
-          case Right(Some(status)) =>
-            // Command completed with an error
-            party.addCommandStatus(commandId, status)
-            log.info("Command '{}' completed with status '{}'.", commandId, status)
-          case Right(None) =>
+        result.value match {
+          case Right(_) =>
             // Command completed with success.
             // Don't update anything, state will be updated from the transaction stream instead.
             // This is because the completion stream does not contain information to correlate command id with transaction id.
             log.info("Command '{}' completed successfully.", commandId)
           case Left(error) =>
-            party.addCommandStatus(commandId, CommandStatusUnknown())
-            log.error(
-              "Command tracking failed. Status unknown for command '{}': {}.",
-              commandId,
-              error,
-            )
+            error match {
+              case CompletionResponse.NotOkResponse(_, grpcStatus) =>
+                // Command completed with an error
+                val status = CommandStatusError(
+                  code.Code.fromValue(grpcStatus.code).toString(),
+                  grpcStatus.message,
+                )
+                party.addCommandStatus(commandId, status)
+                log.info("Command '{}' completed with status '{}'.", commandId, status)
+              case CompletionResponse.TimeoutResponse(_) =>
+                val status = CommandStatusError(code.Code.ABORTED.toString(), "Timeout")
+                party.addCommandStatus(commandId, status)
+                log.info("Command '{}' completed with status '{}'.", commandId, status)
+              case CompletionResponse.NoStatusInResponse(_) =>
+                party.addCommandStatus(commandId, CommandStatusUnknown())
+                log.error(
+                  "Command tracking failed. Status unknown for command '{}': {}.",
+                  commandId,
+                  error,
+                )
+            }
         }
       })
       .to(Sink.ignore)

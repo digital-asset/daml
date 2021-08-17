@@ -52,7 +52,10 @@ da_scala_test_suite(
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
@@ -69,6 +72,7 @@ da_scala_test_suite(
         "//daml-lf/transaction-test-lib",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -87,7 +91,10 @@ da_scala_test(
     max_heap_size = "2g",
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
@@ -99,5 +106,6 @@ da_scala_test(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

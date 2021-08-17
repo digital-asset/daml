@@ -4,46 +4,73 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data
+import com.daml.lf.data.Bytes
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class OffsetBuilderSpec extends AnyWordSpec with Matchers {
+class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+  private val zeroOffset = Offset(Bytes.fromByteArray(Array.fill(16)(0: Byte)))
 
   "OffsetBuilder" should {
-    val zeroBytes = data.Bytes.fromByteArray(Array.fill(16)(0: Byte))
+    "return all zeroes for the zeroth offset" in {
+      val offset = OffsetBuilder.fromLong(0)
 
-    def triple(offset: Offset): (Long, Long, Long) =
-      (
-        OffsetBuilder.highestIndex(offset),
-        OffsetBuilder.middleIndex(offset),
-        OffsetBuilder.lowestIndex(offset),
-      )
-
-    "set 0 bytes" in {
-      OffsetBuilder.fromLong(0).bytes shouldEqual zeroBytes
+      offset should be(zeroOffset)
     }
 
-    "extract the correct indexes" in {
-      val offset = OffsetBuilder.fromLong(1, 2, 3)
-      triple(offset) shouldBe ((1, 2, 3))
+    "always return an offset of the same length" in {
+      forAll { (highest: Long, middle: Int, lowest: Int) =>
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+        offset.bytes.length should be(OffsetBuilder.end)
+      }
+    }
+
+    "construct and extract" in {
+      forAll { (highest: Long, middle: Int, lowest: Int) =>
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+
+        OffsetBuilder.highestIndex(offset) should be(highest)
+        OffsetBuilder.middleIndex(offset) should be(middle)
+        OffsetBuilder.lowestIndex(offset) should be(lowest)
+        OffsetBuilder.split(offset) should be((highest, middle, lowest))
+      }
+    }
+
+    "set the middle index" in {
+      forAll { (highest: Long, middle: Int, lowest: Int, newMiddle: Int) =>
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+        val modifiedOffset = OffsetBuilder.setMiddleIndex(offset, newMiddle)
+
+        OffsetBuilder.split(modifiedOffset) should be((highest, newMiddle, lowest))
+      }
     }
 
     "only change individual indexes" in {
-      val offset = OffsetBuilder.fromLong(1, 2, 3)
+      forAll { (highest: Long, middle: Int, lowest: Int, newLowest: Int) =>
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+        val modifiedOffset = OffsetBuilder.setLowestIndex(offset, newLowest)
 
-      triple(OffsetBuilder.setLowestIndex(offset, 17)) shouldBe ((1, 2, 17))
-      triple(OffsetBuilder.setMiddleIndex(offset, 17)) shouldBe ((1, 17, 3))
+        OffsetBuilder.split(modifiedOffset) should be((highest, middle, newLowest))
+      }
     }
 
     "zero out the middle and lowest index" in {
-      val offset = OffsetBuilder.fromLong(1, 2, 3)
-      triple(OffsetBuilder.onlyKeepHighestIndex(offset)) shouldBe ((1, 0, 0))
+      forAll { (highest: Long, middle: Int, lowest: Int) =>
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+        val modifiedOffset = OffsetBuilder.onlyKeepHighestIndex(offset)
+
+        OffsetBuilder.split(modifiedOffset) should be((highest, 0, 0))
+      }
     }
 
     "zero out the lowest index" in {
-      val offset = OffsetBuilder.fromLong(1, 2, 3)
-      triple(OffsetBuilder.dropLowestIndex(offset)) shouldBe ((1, 2, 0))
+      forAll { (highest: Long, middle: Int, lowest: Int) =>
+        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+        val modifiedOffset = OffsetBuilder.dropLowestIndex(offset)
+
+        OffsetBuilder.split(modifiedOffset) should be((highest, middle, 0))
+      }
     }
 
     "retain leading zeros" in {
@@ -52,17 +79,17 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers {
       val middle = offset.toByteArray.slice(OffsetBuilder.middleStart, OffsetBuilder.lowestStart)
       val lowest = offset.toByteArray.slice(OffsetBuilder.lowestStart, OffsetBuilder.end)
 
-      val highestZeros = highest.dropRight(1)
-      highestZeros.forall(_ == 0) shouldBe true
-      highest.takeRight(1)(0) shouldBe 1
+      val highestZeros = highest.dropRight(1).toSeq
+      all(highestZeros) should be(0)
+      highest.takeRight(1) should be(Array[Byte](1))
 
-      val middleZeros = middle.dropRight(1)
-      middleZeros.forall(_ == 0) shouldBe true
-      middle.takeRight(1)(0) shouldBe 2
+      val middleZeros = middle.dropRight(1).toSeq
+      all(middleZeros) should be(0)
+      middle.takeRight(1) should be(Array[Byte](2))
 
-      val lowestZeros = lowest.dropRight(1)
-      lowestZeros.forall(_ == 0) shouldBe true
-      lowest.takeRight(1)(0) shouldBe 3
+      val lowestZeros = lowest.dropRight(1).toSeq
+      all(lowestZeros) should be(0)
+      lowest.takeRight(1) should be(Array[Byte](3))
     }
   }
 }

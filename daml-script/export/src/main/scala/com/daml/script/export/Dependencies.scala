@@ -7,6 +7,8 @@ import java.io.FileOutputStream
 import java.nio.file.Path
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.value
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.archive
 import com.daml.lf.data.Ref
@@ -14,6 +16,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.ByteString
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 object Dependencies {
@@ -38,6 +41,58 @@ object Dependencies {
           }
       }
     go(references, Map.empty)
+  }
+
+  /** Whether the given LF version is missing type-class instances.
+    *
+    * If so then we need to generate replacement instances for standard template and choice instances.
+    */
+  def lfMissingInstances(version: LanguageVersion): Boolean =
+    LanguageVersion.Ordering.lt(version, LanguageVersion.v1_8)
+
+  final case class ChoiceInstanceSpec(
+      arg: Ast.Type,
+      ret: Ast.Type,
+  )
+  final case class TemplateInstanceSpec(
+      key: Option[Ast.Type],
+      choices: Map[ApiTypes.Choice, ChoiceInstanceSpec],
+  )
+
+  /** Extract all templates that are missing instances due to their package's LF version.
+    *
+    * The exporter will need to create replacement type class instances
+    * for the standard template and choice instances for these templates.
+    */
+  def templatesMissingInstances(
+      pkgs: Map[PackageId, (ByteString, Ast.Package)]
+  ): Map[ApiTypes.TemplateId, TemplateInstanceSpec] = {
+    val map = mutable.HashMap.empty[ApiTypes.TemplateId, TemplateInstanceSpec]
+    pkgs.foreach {
+      case (pkgId, (_, pkg)) if lfMissingInstances(pkg.languageVersion) =>
+        pkg.modules.foreach { case (modName, mod) =>
+          mod.templates.foreach { case (tplName, tpl) =>
+            val tplId = ApiTypes.TemplateId(
+              value
+                .Identifier()
+                .withPackageId(pkgId)
+                .withModuleName(modName.dottedName)
+                .withEntityName(tplName.dottedName)
+            )
+            map += tplId -> TemplateInstanceSpec(
+              key = tpl.key.map(_.typ),
+              choices = tpl.choices.map { case (name, choice) =>
+                ApiTypes.Choice(name: String) -> ChoiceInstanceSpec(
+                  choice.argBinder._2,
+                  choice.returnType,
+                )
+              },
+            )
+          }
+        }
+      case _ => ()
+    }
+    map.toMap
   }
 
   /** The Daml-LF version to target based on the DALF dependencies.

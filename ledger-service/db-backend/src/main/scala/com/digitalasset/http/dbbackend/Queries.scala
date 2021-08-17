@@ -302,6 +302,57 @@ sealed abstract class Queries(tablePrefix: String) {
       ipol: SqlInterpol,
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]
 
+  // implementation aid for selectContractsMultiTemplate
+  @nowarn("msg=parameter value evidence.* is never used")
+  protected[this] final def queryByCondition[Mark, Key: Read, SigsObs: Read, Agreement: Read](
+      queries: ISeq[(SurrogateTpId, Fragment)],
+      trackMatchIndices: MatchedQueryMarker[Mark],
+      tpidSelector: Fragment,
+      query: (Fragment, Fragment) => Fragment,
+      key: Key => JsValue,
+      sigsObs: SigsObs => Vector[String],
+      agreement: Agreement => String,
+  )(implicit
+      log: LogHandler
+  ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
+    val NonEmpty(queryConditions) = queries.toVector
+    val queriesCondition =
+      joinFragment(
+        queryConditions.toOneAnd map { case (tpid, predicate) =>
+          fr"($tpid = $tpidSelector AND ($predicate))"
+        },
+        fr" OR ",
+      )
+    // we effectively shadow Mark because Scala 2.12 doesn't quite get
+    // that it should use the GADT type equality otherwise
+    def goQuery[Mark0: Read](
+        tpid: Fragment
+    ): Query0[DBContract[Mark0, JsValue, JsValue, Vector[String]]] = {
+      val q = query(tpid, queriesCondition)
+      q.query[
+        (String, Mark0, Key, JsValue, SigsObs, SigsObs, Agreement)
+      ].map { case (cid, tpid, rawKey, payload, signatories, observers, rawAgreement) =>
+        DBContract(
+          contractId = cid,
+          templateId = tpid,
+          key = key(rawKey),
+          payload = payload,
+          signatories = sigsObs(signatories),
+          observers = sigsObs(observers),
+          agreementText = agreement(rawAgreement),
+        )
+      }
+    }
+
+    trackMatchIndices match {
+      case MatchedQueryMarker.ByInt =>
+        val tpid = projectedIndex(queries.zipWithIndex, tpidSelector = tpidSelector)
+        goQuery[MatchedQueries](tpid)
+      case MatchedQueryMarker.Unused =>
+        goQuery[SurrogateTpId](tpidSelector)
+    }
+  }
+
   private[http] final def fetchById(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,
@@ -625,43 +676,20 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
       ipol: SqlInterpol,
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
-    @nowarn("msg=parameter value evidence.* is never used")
-    def query[Mark0: Read](tpid: Fragment, preds: NonEmpty[Vector[(SurrogateTpId, Fragment)]]) = {
-      val assocedPreds = preds.toOneAnd.map { case (tpid, predicate) =>
-        sql"(tpid = $tpid AND ($predicate))"
-      }
-      val unionPred = joinFragment(assocedPreds, sql" OR ")
-      import ipol.{gas, pas}
-      val q =
+    import ipol.{gas, pas}
+    queryByCondition(
+      queries,
+      trackMatchIndices,
+      tpidSelector = fr"tpid",
+      query = (tpid, unionPred) =>
         sql"""SELECT contract_id, $tpid tpid, key, payload, signatories, observers, agreement_text
               FROM $contractTableName AS c
               WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
-                    AND ($unionPred)"""
-      q.query[(String, Mark0, JsValue, JsValue, Vector[String], Vector[String], String)]
-        .map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
-          DBContract(
-            contractId = cid,
-            templateId = tpid,
-            key = key,
-            payload = payload,
-            signatories = signatories,
-            observers = observers,
-            agreementText = agreement,
-          )
-        }
-    }
-
-    val NonEmpty(nequeries) = queries.toVector
-    trackMatchIndices match {
-      case MatchedQueryMarker.ByInt =>
-        query[MatchedQueries](
-          tpid = projectedIndex(queries.zipWithIndex, tpidSelector = fr"tpid"),
-          nequeries,
-        )
-
-      case MatchedQueryMarker.Unused =>
-        query[SurrogateTpId](tpid = fr"tpid", nequeries)
-    }
+                    AND ($unionPred)""",
+      key = identity[JsValue],
+      sigsObs = identity[Vector[String]],
+      agreement = identity[String],
+    )
   }
 
   private[this] def fragmentContractPath(path: JsonPath) =
@@ -806,63 +834,34 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
   )(implicit
       log: LogHandler,
       ipol: SqlInterpol,
-  ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
-
-    // we effectively shadow Mark because Scala 2.12 doesn't quite get
-    // that it should use the GADT type equality otherwise
-    @nowarn("msg=parameter value evidence.* is never used")
-    def queryByCondition[Mark0: Read](
-        tpid: Fragment,
-        queryConditions: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
-    ): Query0[DBContract[Mark0, JsValue, JsValue, Vector[String]]] = {
-      val queriesCondition = queryConditions match {
-        case q +-: qs =>
-          joinFragment(
-            OneAnd(q, qs.toVector) map { case (tpid, predicate) =>
-              fr"($tpid = cst.tpid AND ($predicate))"
-            },
-            fr" OR ",
-          )
-      }
-      val rownum = parties.tail.nonEmpty option fr""",
+  ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] =
+    queryByCondition(
+      queries,
+      trackMatchIndices,
+      tpidSelector = fr"cst.tpid",
+      query = { (tpid, queriesCondition) =>
+        val rownum = parties.tail.nonEmpty option fr""",
             row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber"""
-      import Queries.CompatImplicits.catsReducibleFromFoldable1
-      val outerSelectList =
-        sql"""contract_id, template_id, key, payload,
-              signatories, observers, agreement_text"""
-      val dupQ =
-        sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload,
-                     signatories, observers, agreement_text ${rownum getOrElse fr""}
+        import Queries.CompatImplicits.catsReducibleFromFoldable1
+        val outerSelectList =
+          sql"""contract_id, template_id, key, payload,
+                signatories, observers, agreement_text"""
+        val dupQ =
+          sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload,
+                       signatories, observers, agreement_text ${rownum getOrElse fr""}
                 FROM $contractTableName c
                      JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
                 WHERE (${Fragments.in(fr"cst.stakeholder", parties)})
                       AND ($queriesCondition)"""
-      val q = rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")
-      q.query[
-        (String, Mark0, JsValue, JsValue, JsValue, JsValue, Option[String])
-      ].map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
+        rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")
+      },
+      key = (_: JsValue).asJsObject.fields("key"),
+      sigsObs = { (jsEncoded: JsValue) =>
         import spray.json.DefaultJsonProtocol._
-        DBContract(
-          contractId = cid,
-          templateId = tpid,
-          key = key.asJsObject.fields("key"),
-          payload = payload,
-          signatories = signatories.convertTo[Vector[String]],
-          observers = observers.convertTo[Vector[String]],
-          agreementText = agreement getOrElse "",
-        )
-      }
-    }
-
-    val NonEmpty(nequeries) = queries
-    trackMatchIndices match {
-      case MatchedQueryMarker.ByInt =>
-        val tpid = projectedIndex(queries.zipWithIndex, tpidSelector = fr"cst.tpid")
-        queryByCondition[MatchedQueries](tpid, nequeries)
-      case MatchedQueryMarker.Unused =>
-        queryByCondition[SurrogateTpId](fr"cst.tpid", nequeries)
-    }
-  }
+        jsEncoded.convertTo[Vector[String]]
+      },
+      agreement = (_: Option[String]) getOrElse "",
+    )
 
   private[http] override def keyEquality(key: JsValue): Fragment = {
     import spray.json.DefaultJsonProtocol.JsValueFormat

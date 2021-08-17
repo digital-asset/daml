@@ -693,14 +693,9 @@ main =
                     ]
                 expectScriptSuccess rs (vr "testDivulge") $ \r ->
                   matchRegex r $ T.concat
-
                     [ "Warnings: \n"
-                    , "  Tried to fetch or exercise -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) "
-                    , "but none of the reading parties actAs = Set\\(p2\\), readAs = Set\\(\\) are a stakeholder TreeSet\\(p1\\). "
-                    , "Use of divulged contracts is deprecated and incompatible with pruning\n"
-                    , "  Tried to fetch or exercise -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) "
-                    , "but none of the reading parties actAs = Set\\(p2\\), readAs = Set\\(\\) are a stakeholder TreeSet\\(p1\\). "
-                    , "Use of divulged contracts is deprecated and incompatible with pruning$"
+                    , "  Tried to fetch or exercise -homePackageId-:Test:T on contract [0-9a-f]* but none of the reading parties \\[p2\\] are contract stakeholders \\[p1\\]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers \\[p2\\] as an observer to the contract.\n"
+                    , "  Tried to fetch or exercise -homePackageId-:Test:T on contract [0-9a-f]* but none of the reading parties \\[p2\\] are contract stakeholders \\[p1\\]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers \\[p2\\] as an observer to the contract."
                     ],
               testCase "multi-party query" $ do
                 rs <-
@@ -901,6 +896,9 @@ main =
                     , "           error \"\""
                     , "         catch"
                     , "           (GeneralError _) -> pure ()"
+                    , "    choice Fail : ()"
+                    , "      controller p"
+                    , "      do assert False"
                     , "test = do"
                     , "  p <- allocateParty \"p\""
                     , "  cid <- submit p $ createCmd (T p)"
@@ -908,9 +906,15 @@ main =
                     , "  r <- query @T p"
                     , "  r === [(cid, T p)]"
                     , "  pure ()"
+                    , "unhandledOffLedger = script $ assert False"
+                    , "unhandledOnLedger = script $ do"
+                    , "  p <- allocateParty \"p\""
+                    , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
                 expectScriptSuccess rs (vr "test") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
+                expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
+                expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
