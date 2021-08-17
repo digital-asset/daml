@@ -31,7 +31,7 @@ import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.MetadataReader
 import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
-import com.daml.http.util.Logging.{instanceUUIDLogCtx}
+import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -42,10 +42,11 @@ import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Success, Try}
 
 object AbstractHttpServiceIntegrationTestFuns {
@@ -92,7 +93,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected val metadata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  protected val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
+  protected implicit val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
 
   protected val jwtAdminNoParty: Jwt = {
     val decodedJwt = DecodedJwt(
@@ -425,16 +426,17 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def decodeExercise(
       decoder: DomainJsonDecoder
-  )(jsVal: JsValue): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
-
-    import scalaz.syntax.bifunctor._
-
-    val cmd = decoder.decodeExerciseCommand(jsVal).getOrElse(fail(s"Cannot decode $jsVal"))
-    cmd.bimap(
-      lfToApi,
-      enrichedContractIdOnly,
-    )
-  }
+  )(jsVal: JsValue): Future[domain.ExerciseCommand[v.Value, domain.EnrichedContractId]] =
+    instanceUUIDLogCtx { implicit lc =>
+      import scalaz.syntax.bifunctor._
+      val cmd = decoder.decodeExerciseCommand(jsVal).getOrElse(fail(s"Cannot decode $jsVal"))
+      cmd.map(
+        _.bimap(
+          lfToApi,
+          enrichedContractIdOnly,
+        )
+      )
+    }
 
   protected def enrichedContractIdOnly(x: domain.ContractLocator[_]): domain.EnrichedContractId =
     x match {
@@ -458,22 +460,26 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       .flatMap(_.fields.headOption)
       .flatMap(_.value)
       .getOrElse(fail("Cannot extract expected newOwner"))
-
-    val active: domain.ActiveContract[v.Value] =
-      decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
-
-    inside(active.payload.sum.record.map(_.fields)) {
-      case Some(
-            Seq(
-              v.RecordField("iou", Some(contractRecord)),
-              v.RecordField("newOwner", Some(newOwner)),
-            )
-          ) =>
-        val contractFields: Seq[v.RecordField] =
-          contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
-        (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[v.RecordField])
-        (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
-    }
+    val res =
+      instanceUUIDLogCtx(implicit lc =>
+        decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
+      ).map(active =>
+        inside(active.payload.sum.record.map(_.fields)) {
+          case Some(
+                Seq(
+                  v.RecordField("iou", Some(contractRecord)),
+                  v.RecordField("newOwner", Some(newOwner)),
+                )
+              ) =>
+            val contractFields: Seq[v.RecordField] =
+              contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
+            (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[
+              v.RecordField
+            ])
+            (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
+        }
+      )
+    Await.result(res, Duration.Inf)
   }
 
   protected def assertActiveContract(
@@ -1132,18 +1138,23 @@ abstract class AbstractHttpServiceIntegrationTest
   private def testCreateCommandEncodingDecoding(
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder,
-  ): Assertion = {
+  ): Assertion = instanceUUIDLogCtx { implicit lc =>
     import json.JsonProtocol._
     import util.ErrorOps._
 
     val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
 
-    val x = for {
-      jsVal <- encoder.encodeCreateCommand(command0).liftErr(JsonError)
+    val x: EitherT[Future, JsonError, Assertion] = for {
+      jsVal <- EitherT.either[Future, JsonError, JsValue](
+        encoder.encodeCreateCommand(command0).liftErr(JsonError)
+      )
       command1 <- decoder.decodeCreateCommand(jsVal)
     } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
 
-    x.fold(e => fail(e.shows), identity)
+    Await.result(
+      (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity)),
+      Duration.Inf,
+    )
   }
 
   private def testExerciseCommandEncodingDecoding(
@@ -1153,7 +1164,7 @@ abstract class AbstractHttpServiceIntegrationTest
     val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
     val jsVal: JsValue = encodeExercise(encoder)(command0)
     val command1 = decodeExercise(decoder)(jsVal)
-    command1.bimap(removeRecordId, identity) should ===(command0)
+    Await.result(command1.map(_.bimap(removeRecordId, identity) should ===(command0)), Duration.Inf)
   }
 
   "request non-existent endpoint should return 404 with errors" in withHttpService {

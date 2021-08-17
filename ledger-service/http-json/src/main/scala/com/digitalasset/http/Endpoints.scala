@@ -274,13 +274,16 @@ class Endpoints(
 
   def create(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      ec: ExecutionContext,
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+      implicit val _jwt: Jwt = jwt
       for {
-        cmd <- either(
-          decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
-        ): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
+        cmd <-
+          decoder
+            .decodeCreateCommand(reqBody)
+            .liftErr(InvalidUserInput): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
         ac <- eitherT(
@@ -294,13 +297,16 @@ class Endpoints(
 
   def exercise(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      ec: ExecutionContext,
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+      implicit val _jwt: Jwt = jwt
       for {
-        cmd <- either(
-          decoder.decodeExerciseCommand(reqBody).liftErr(InvalidUserInput)
-        ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
+        cmd <-
+          decoder.decodeExerciseCommand(reqBody).liftErr(InvalidUserInput): ET[
+            domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]
+          ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
         resolvedRef <- eitherT(
           resolveReference(jwt, jwtPayload, cmd.reference)
@@ -327,10 +333,12 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+      implicit val _jwt: Jwt = jwt
       for {
-        cmd <- either(
-          decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
-        ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
+        cmd <-
+          decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput): ET[
+            domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]
+          ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
         resp <- eitherT(
@@ -346,6 +354,7 @@ class Endpoints(
 
   def fetch(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      ec: ExecutionContext,
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
@@ -356,11 +365,12 @@ class Endpoints(
 
       jsVal <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
         logger.debug(s"/v1/fetch reqBody: $reqBody")
+        implicit val _jwt: Jwt = jwt
         for {
-
-          cl <- either(
-            decoder.decodeContractLocator(reqBody).liftErr(InvalidUserInput)
-          ): ET[domain.ContractLocator[LfValue]]
+          cl <-
+            decoder
+              .decodeContractLocator(reqBody)
+              .liftErr(InvalidUserInput): ET[domain.ContractLocator[LfValue]]
           _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
           _ = logger.debug(s"/v1/fetch cl: $cl")
 
@@ -403,25 +413,29 @@ class Endpoints(
   def query(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    inputAndJwtPayload[JwtPayload](req).map {
-      _.flatMap { case (jwt, jwtPayload, reqBody) =>
-        withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-          SprayJson
-            .decode[domain.GetActiveContractsRequest](reqBody)
-            .liftErr[Error](InvalidUserInput)
-            .map { cmd =>
-              val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
-                contractsService.search(jwt, jwtPayload, cmd)
-
-              domain.SyncResponse.covariant.map(result) { source =>
-                source
-                  .via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
-              }
-            }
-        }
-      }
-    }
+    inputAndJwtPayload[JwtPayload](req)
+      .flatMap(it =>
+        either(it).flatMap { case (jwt, jwtPayload, reqBody) =>
+          withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
+            eitherT(
+              SprayJson
+                .decode[domain.GetActiveContractsRequest](reqBody)
+                .liftErr[Error](InvalidUserInput)
+                .map { cmd =>
+                  contractsService
+                    .search(jwt, jwtPayload, cmd)
+                    .map(
+                      domain.SyncResponse.covariant.map(_)(
+                        _.via(handleSourceFailure)
+                          .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+                      )
+                    )
+                }
+                .sequence
+            )
+          }
+        }.run
+      )
 
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]

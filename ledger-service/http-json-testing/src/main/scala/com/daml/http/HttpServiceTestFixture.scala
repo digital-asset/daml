@@ -15,6 +15,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.http.HttpService.doLoad
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
@@ -225,10 +226,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
-    val packageService = new PackageService(
-      HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None)
-    )
-    packageService.reload
+    val packageService = new PackageService(_ => doLoad(client.packageClient, _, none))
+    packageService
+      .reload(Jwt("we use a dummy because there is no token in these tests."))
       .flatMap(x => FutureUtil.toFuture(x))
       .map(_ => HttpService.buildJsonCodecs(packageService))
   }

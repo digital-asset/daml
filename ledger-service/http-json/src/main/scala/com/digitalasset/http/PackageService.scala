@@ -8,7 +8,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.daml.http.domain.{Choice, TemplateId}
 import com.daml.http.util.IdentifierConverters
-import com.daml.http.util.Logging.{InstanceUUID}
+import com.daml.http.util.Logging.InstanceUUID
+import com.daml.jwt.domain.Jwt
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -17,12 +18,16 @@ import scalaz._
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
+import java.time._
 
-private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadPackageStore) {
+private class PackageService(
+    reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore
+) {
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
   import PackageService._
+  private type ET[A] = EitherT[Future, Error, A]
 
   private case class State(
       packageIds: Set[String],
@@ -48,32 +53,64 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   @volatile private var state: State =
     State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
 
+  // volatile, because we want to reduce the probability of unnecessary package updates
+  // due to multiple threads reading this.
+  // Writes to this are synchronized, so in theory this should work out fine.
+  @volatile private var lastUpdated = LocalDateTime.MIN
+
+  private def packagesShouldBeFetchedAgain =
+    lastUpdated.until(LocalDateTime.now(), temporal.ChronoUnit.SECONDS) >= 60L
+
   // synchronized, so two threads cannot reload it concurrently
-  def reload(implicit
+  def reload(jwt: Jwt)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ Unit] =
     synchronized {
-      reloadPackageStoreIfChanged(state.packageIds).map {
-        _.map {
-          case Some(diff) =>
-            this.state = this.state.append(diff)
-            logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-            logger.debug(s"loaded diff: $diff")
-            ()
-          case None =>
-            logger.debug(s"new package IDs not found")
-            ()
+      if (packagesShouldBeFetchedAgain)
+        reloadPackageStoreIfChanged(jwt)(state.packageIds).map {
+          _.map {
+            case Some(diff) =>
+              this.state = this.state.append(diff)
+              logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+              logger.debug(s"loaded diff: $diff")
+              ()
+            case None =>
+              logger.debug(s"new package IDs not found")
+              ()
+          }
+          // Only synchronized write access to lastUpdated
+            .map(_ => lastUpdated = LocalDateTime.now())
         }
-      }
+      else Future.successful(().right[Error])
     }
 
   def packageStore: PackageStore = state.packageStore
 
+  private def withFreshPackagesCheckAndRetry[B](
+      jwt: Jwt
+  )(fn: () => B, checkIfSuccess: B => Boolean)(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[B] = for {
+    recentlyReloaded <-
+      if (packagesShouldBeFetchedAgain) EitherT(reload(jwt)).map(_ => true)
+      else EitherT.pure(false): ET[Boolean]
+    result <- EitherT.pure(fn()): ET[B]
+    finalResult <-
+      if (!checkIfSuccess(result) && !recentlyReloaded) EitherT(reload(jwt)).map(_ => fn())
+      else EitherT.pure(result): ET[B]
+  } yield finalResult
+
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
   // `state.templateIdMap` will be cached in this case.
-  def resolveTemplateId: ResolveTemplateId =
-    x => PackageService.resolveTemplateId(state.templateIdMap)(x)
+  def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId = {
+    implicit lc: LoggingContextOf[InstanceUUID] => (jwt: Jwt) => (x: TemplateId.OptionalPkg) =>
+      withFreshPackagesCheckAndRetry[Option[TemplateId.RequiredPkg]](jwt)(
+        () => PackageService.resolveTemplateId(state.templateIdMap)(x),
+        _.isDefined,
+      ).run
+  }
 
   def resolveTemplateRecordType: ResolveTemplateRecordType =
     templateId =>
@@ -110,7 +147,9 @@ object PackageService {
     Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
 
   type ResolveTemplateId =
-    TemplateId.OptionalPkg => Option[TemplateId.RequiredPkg]
+    LoggingContextOf[InstanceUUID] => Jwt => TemplateId.OptionalPkg => Future[
+      PackageService.Error \/ Option[TemplateId.RequiredPkg]
+    ]
 
   type ResolveTemplateRecordType =
     TemplateId.RequiredPkg => Error \/ iface.Type

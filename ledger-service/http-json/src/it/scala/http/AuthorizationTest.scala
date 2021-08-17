@@ -6,11 +6,11 @@ package com.daml.http
 import java.nio.file.Files
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.auth.TokenHolder
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.TestUtil.requiredFile
 import com.daml.http.util.Logging.instanceUUIDLogCtx
+import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
 import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import org.scalatest.BeforeAndAfterAll
@@ -41,11 +41,6 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
   })
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
-  private val tokenHolder = Option(new TokenHolder(accessTokenFile))
-
-  private def setToken(string: String): Unit = {
-    val _ = Files.write(accessTokenFile, string.getBytes())
-  }
 
   override protected def afterAll(): Unit = {
     super.afterAll()
@@ -66,18 +61,22 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
       }
 
   private def packageService(client: DamlLedgerClient): PackageService =
-    new PackageService(HttpService.loadPackageStoreUpdates(client.packageClient, tokenHolder))
+    new PackageService({ case Jwt(token) =>
+      HttpService.doLoad(client.packageClient, _, Some(token))
+    })
 
   behavior of "PackageService against an authenticated sandbox"
 
   it should "fail immediately if the authorization is insufficient" in withLedger { client =>
-    setToken(emptyToken)
-    instanceUUIDLogCtx(implicit lc => packageService(client).reload.failed.map(_ => succeed))
+    instanceUUIDLogCtx(implicit lc =>
+      packageService(client).reload(Jwt(emptyToken)).failed.map(_ => succeed)
+    )
   }
 
   it should "succeed if the authorization is sufficient" in withLedger { client =>
-    setToken(publicToken)
-    instanceUUIDLogCtx(implicit lc => packageService(client).reload.map(_ => succeed))
+    instanceUUIDLogCtx(implicit lc =>
+      packageService(client).reload(Jwt(publicToken)).map(_ => succeed)
+    )
   }
 
 }
