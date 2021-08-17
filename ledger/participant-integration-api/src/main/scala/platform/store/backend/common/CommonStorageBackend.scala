@@ -164,21 +164,21 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
         logger.info(
           s"Found existing database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
         )
-      case Some(StorageBackend.IdentityParams(_, existing)) if existing != params.participantId =>
-        logger.error(
-          s"Found existing database with mismatching participantId: existing '$existing', provided '${params.participantId}'"
-        )
-        throw MismatchException.ParticipantId(
-          existing = existing,
-          provided = params.participantId,
-        )
-      case Some(StorageBackend.IdentityParams(existing, _)) =>
+      case Some(StorageBackend.IdentityParams(existing, _)) if existing != params.ledgerId =>
         logger.error(
           s"Found existing database with mismatching ledgerId: existing '$existing', provided '${params.ledgerId}'"
         )
         throw MismatchException.LedgerId(
           existing = existing,
           provided = params.ledgerId,
+        )
+      case Some(StorageBackend.IdentityParams(_, existing)) =>
+        logger.error(
+          s"Found existing database with mismatching participantId: existing '$existing', provided '${params.participantId}'"
+        )
+        throw MismatchException.ParticipantId(
+          existing = existing,
+          provided = params.participantId,
         )
     }
   }

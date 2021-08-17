@@ -66,7 +66,7 @@ final class StorageBackendPostgresInitializationSpec
     } yield {
       error1 shouldBe MismatchException.LedgerId(ledgerId, otherLedgerId)
       error2 shouldBe MismatchException.ParticipantId(participantId, otherParticipantId)
-      error3 shouldBe MismatchException.ParticipantId(participantId, otherParticipantId)
+      error3 shouldBe MismatchException.LedgerId(ledgerId, otherLedgerId)
     }
   }
 }
