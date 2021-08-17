@@ -78,7 +78,7 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @param connection to be used when initializing
     * @return the LedgerEnd, which should be the basis for further indexing.
     */
-  def initializeIngestion(connection: Connection): StorageBackend.OptionalLedgerEnd
+  def initializeIngestion(connection: Connection): Option[StorageBackend.LedgerEnd]
 }
 
 trait ParameterStorageBackend {
@@ -90,20 +90,31 @@ trait ParameterStorageBackend {
     */
   def updateLedgerEnd(ledgerEnd: StorageBackend.LedgerEnd)(connection: Connection): Unit
 
-  /** Query the ledger end, read from the parameters table.
+  /** Query the current ledger end, read from the parameters table.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * @param connection to be used to get the LedgerEnd
-    * @return the LedgerEnd, which should be the basis for further indexing
+    * @return the current LedgerEnd, or None if no ledger end exists
     */
-  def ledgerEnd(connection: Connection): StorageBackend.OptionalLedgerEnd
+  def ledgerEnd(connection: Connection): Option[StorageBackend.LedgerEnd]
+
+  /** Query the current ledger end, returning a value that points to a point before the ledger begin
+    * if no ledger end exists.
+    * No significant CPU load, mostly blocking JDBC communication with the database backend.
+    *
+    * @param connection to be used to get the LedgerEnd
+    * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
+    */
+  final def ledgerEndOrBeforeBegin(connection: Connection): StorageBackend.LedgerEnd =
+    ledgerEnd(connection).getOrElse(StorageBackend.LedgerEnd(Offset.beforeBegin, 0L))
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
   def prunedUptoInclusive(connection: Connection): Option[Offset]
 
-  /** Initializes the parameters table and verifies or updates ledger identity parameters:
+  /** Initializes the parameters table and verifies or updates ledger identity parameters.
+    * This method is idempotent:
     *  - If no identity parameters are stored, then they are set to the given value.
     *  - If identity parameters are stored, then they are compared to the given ones.
     *  - Ledger identity parameters are written at most once, and are never overwritten.
@@ -114,7 +125,9 @@ trait ParameterStorageBackend {
   def initializeParameters(params: StorageBackend.IdentityParams)(connection: Connection)(implicit
       loggingContext: LoggingContext
   ): Unit
-  def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams
+
+  /** Returns the ledger identity parameters, or None if the database hasn't been initialized yet. */
+  def ledgerIdentity(connection: Connection): Option[StorageBackend.IdentityParams]
 }
 
 trait ConfigurationStorageBackend {
@@ -288,12 +301,7 @@ object DBLockStorageBackend {
 
 object StorageBackend {
   case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long)
-  case class OptionalLedgerEnd(lastOffset: Option[Offset], lastEventSeqId: Option[Long])
   case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
-  case class OptionalIdentityParams(
-      ledgerId: Option[LedgerId],
-      participantId: Option[ParticipantId],
-  )
 
   case class RawContractState(
       templateId: Option[String],

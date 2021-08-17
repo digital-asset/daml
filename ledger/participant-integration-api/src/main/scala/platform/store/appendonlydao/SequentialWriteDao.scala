@@ -30,7 +30,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      lastEventSeqId = storageBackend.ledgerEnd(connection).lastEventSeqId.getOrElse(0)
+      lastEventSeqId = storageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
       lastEventSeqIdInitialized = true
     }
 

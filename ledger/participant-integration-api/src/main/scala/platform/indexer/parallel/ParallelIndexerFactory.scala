@@ -174,8 +174,8 @@ object ParallelIndexerFactory {
                 )
                 .flatMap { initialized =>
                   val (killSwitch, completionFuture) =
-                    ingest(initialized.lastEventSeqId.getOrElse(0L), dbDispatcher)(
-                      readService.stateUpdates(beginAfter = initialized.lastOffset)
+                    ingest(initialized.map(_.lastEventSeqId).getOrElse(0L), dbDispatcher)(
+                      readService.stateUpdates(beginAfter = initialized.map(_.lastOffset))
                     )
                       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
                       .toMat(Sink.ignore)(Keep.both)

@@ -12,7 +12,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
-import com.daml.platform.store.backend.StorageBackend.{LedgerEnd, OptionalLedgerEnd}
+import com.daml.platform.store.backend.StorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
   DbDto,
   IngestionStorageBackend,
@@ -28,7 +28,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
   behavior of "SequentialWriteDaoImpl"
 
   it should "store correctly in a happy path case" in {
-    val storageBackendCaptor = new StorageBackendCaptor(OptionalLedgerEnd(None, Some(5)))
+    val storageBackendCaptor = new StorageBackendCaptor(Some(LedgerEnd(Offset.beforeBegin, 5)))
     val testee = SequentialWriteDaoImpl(
       storageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
@@ -58,7 +58,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "start event_seq_id from 1" in {
-    val storageBackendCaptor = new StorageBackendCaptor(OptionalLedgerEnd(None, None))
+    val storageBackendCaptor = new StorageBackendCaptor(None)
     val testee = SequentialWriteDaoImpl(
       storageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
@@ -73,7 +73,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured should have size 4
   }
 
-  class StorageBackendCaptor(initialLedgerEnd: StorageBackend.OptionalLedgerEnd)
+  class StorageBackendCaptor(initialLedgerEnd: Option[StorageBackend.LedgerEnd])
       extends IngestionStorageBackend[Vector[DbDto]]
       with ParameterStorageBackend {
 
@@ -86,7 +86,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       captured = captured ++ batch
     }
 
-    override def initializeIngestion(connection: Connection): StorageBackend.OptionalLedgerEnd =
+    override def initializeIngestion(connection: Connection): Option[StorageBackend.LedgerEnd] =
       throw new UnsupportedOperationException
 
     override def updateLedgerEnd(params: StorageBackend.LedgerEnd)(connection: Connection): Unit =
@@ -96,7 +96,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       }
 
     private var ledgerEndCalled = false
-    override def ledgerEnd(connection: Connection): StorageBackend.OptionalLedgerEnd =
+    override def ledgerEnd(connection: Connection): Option[StorageBackend.LedgerEnd] =
       synchronized {
         connection shouldBe someConnection
         ledgerEndCalled shouldBe false
@@ -109,7 +109,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     )(implicit loggingContext: LoggingContext): Unit =
       throw new UnsupportedOperationException
 
-    override def ledgerIdentity(connection: Connection): StorageBackend.OptionalIdentityParams =
+    override def ledgerIdentity(connection: Connection): Option[StorageBackend.IdentityParams] =
       throw new UnsupportedOperationException
 
     override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(
