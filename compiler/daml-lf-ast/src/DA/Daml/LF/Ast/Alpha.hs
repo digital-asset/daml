@@ -293,6 +293,14 @@ alphaUpdate env = \case
         UFetch t2 e2 -> alphaTypeCon t1 t2
             && alphaExpr' env e1 e2
         _ -> False
+    UCreateGeneric t1 e1 -> \case
+        UCreateGeneric t2 e2 -> alphaTypeConApp env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
+    UFetchGeneric t1 e1 -> \case
+        UFetchGeneric t2 e2 -> alphaTypeConApp env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
     UGetTime -> \case
         UGetTime -> True
         _ -> False

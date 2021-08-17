@@ -582,6 +582,13 @@ checkCreate tpl arg = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr arg (TCon tpl)
 
+checkCreateGeneric :: MonadGamma m => TypeConApp -> Expr -> m ()
+checkCreateGeneric (TypeConApp tpl args) expr = do
+  _ :: Template <- inWorld (lookupTemplate tpl)
+  let tplType = TConApp tpl args
+  checkType tplType KStar
+  checkExpr expr tplType
+
 typeOfExercise :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
 typeOfExercise tpl chName cid arg = do
@@ -606,6 +613,13 @@ checkFetch :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkFetch tpl cid = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr cid (TContractId (TCon tpl))
+
+checkFetchGeneric :: MonadGamma m => TypeConApp -> Expr -> m ()
+checkFetchGeneric (TypeConApp tpl args) cid = do
+  _ :: Template <- inWorld (lookupTemplate tpl)
+  let tplType = TConApp tpl args
+  checkType tplType KStar
+  checkExpr cid (TContractId tplType)
 
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
@@ -641,6 +655,10 @@ typeOfUpdate = \case
     introExprVar var TAnyException $ do
         checkExpr handler (TOptional (TUpdate typ))
     pure (TUpdate typ)
+  UCreateGeneric tpl arg -> checkCreateGeneric tpl arg $>
+    TUpdate (TContractId (typeConAppToType tpl))
+  UFetchGeneric tpl cid -> checkFetchGeneric tpl cid $>
+    TUpdate (typeConAppToType tpl)
 
 typeOfScenario :: MonadGamma m => Scenario -> m Type
 typeOfScenario = \case

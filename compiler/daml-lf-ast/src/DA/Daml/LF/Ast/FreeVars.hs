@@ -135,6 +135,8 @@ freeVarsStep = \case
         UExerciseF _ _ e1 e2 -> e1 <> e2
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
+        UCreateGenericF t e -> freeVarsInTypeConApp t <> e
+        UFetchGenericF t e -> freeVarsInTypeConApp t <> e
         UGetTimeF -> mempty
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF r -> retrieveByKeyFKey r

@@ -411,6 +411,10 @@ instance Pretty Update where
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
     UFetch tpl cid ->
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
+    UCreateGeneric tpl arg ->
+      pPrintAppKeyword lvl prec "create_generic" [TyArg (typeConAppToType tpl), TmArg arg]
+    UFetchGeneric tpl arg ->
+      pPrintAppKeyword lvl prec "fetch_generic" [TyArg (typeConAppToType tpl), TmArg arg]
     UGetTime ->
       keyword_ "get_time"
     UEmbedExpr typ e ->

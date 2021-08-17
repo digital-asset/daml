@@ -251,6 +251,12 @@ applySubstInUpdate subst = \case
     UFetch templateName e -> UFetch
         templateName
         (applySubstInExpr subst e)
+    UCreateGeneric t e -> UCreateGeneric
+        (applySubstInTypeConApp subst t)
+        (applySubstInExpr subst e)
+    UFetchGeneric t e -> UFetchGeneric
+        (applySubstInTypeConApp subst t)
+        (applySubstInExpr subst e)
     e@UGetTime -> e
     UEmbedExpr t e -> UEmbedExpr
         (applySubstInType subst t)

@@ -306,6 +306,18 @@ convertPrim _ "BEContractIdToText" (TContractId t :-> TOptional TText) =
 
 -- Template Desugaring.
 
+convertPrim _ "UCreateGeneric" (TConApp template args :-> TUpdate (TContractId (TConApp template' args')))
+    | template == template'
+    , args == args' =
+    ETmLam (mkVar "this", TConApp template args) $
+    EUpdate $ UCreateGeneric (TypeConApp template args) (EVar (mkVar "this"))
+
+convertPrim _ "UFetchGeneric" (TContractId (TConApp template args) :-> TUpdate (TConApp template' args'))
+    | template == template'
+    , args == args' =
+    ETmLam (mkVar "this", TContractId (TConApp template args)) $
+    EUpdate $ UFetchGeneric (TypeConApp template args) (EVar (mkVar "this"))
+
 convertPrim _ "UCreate" (TCon template :-> TUpdate (TContractId (TCon template')))
     | template == template' =
     ETmLam (mkVar "this", TCon template) $

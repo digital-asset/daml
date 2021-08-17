@@ -63,6 +63,8 @@ data UpdateF expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
+  | UCreateGenericF  !TypeConApp !expr
+  | UFetchGenericF   !TypeConApp !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
@@ -109,6 +111,8 @@ projectUpdate = \case
   UExercise a b c d -> UExerciseF a b c d
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
+  UCreateGeneric a b -> UCreateGenericF a b
+  UFetchGeneric a b -> UFetchGenericF a b
   UGetTime -> UGetTimeF
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
@@ -126,6 +130,8 @@ embedUpdate = \case
   UExerciseF a b c d -> UExercise a b c d
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
+  UCreateGenericF a b -> UCreateGeneric a b
+  UFetchGenericF a b -> UFetchGeneric a b
   UGetTimeF -> UGetTime
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)

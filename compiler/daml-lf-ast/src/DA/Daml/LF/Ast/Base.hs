@@ -658,6 +658,16 @@ data Update
       -- ^ Contract id of the contract template instance whose argument shall be
       -- retrieved.
     }
+  -- | Same as UCreate but allows for type args in template.
+  | UCreateGeneric
+    { crgTemplate :: !TypeConApp
+    , crgArg      :: !Expr
+    }
+  -- | Same as UFetch but allows for type args in template.
+  | UFetchGeneric
+    { ftgTemplate :: !TypeConApp
+    , ftgArg      :: !Expr
+    }
   -- | Retrieve effective ledger time.
   | UGetTime
   -- | See comment for 'SEmbedExpr'

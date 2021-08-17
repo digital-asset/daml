@@ -32,10 +32,10 @@ instance DA.Internal.Desugar.HasAgreement (MyTemplate t1 t2) where
     agreement MyTemplate{..} = ""
 
 instance DA.Internal.Desugar.HasCreate (MyTemplate t1 t2) where
-    create = error "UCreateGeneric" -- GHC.Types.primitive @"UCreateGeneric"
+    create = GHC.Types.primitive @"UCreateGeneric"
 
 instance DA.Internal.Desugar.HasFetch (MyTemplate t1 t2) where
-    fetch = error "UFetchGeneric" -- GHC.Types.primitive @"UFetchGeneric"
+    fetch = GHC.Types.primitive @"UFetchGeneric"
 
 instance DA.Internal.Desugar.HasArchive (MyTemplate t1 t2) where
     archive cid = exercise cid Archive

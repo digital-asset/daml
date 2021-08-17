@@ -506,6 +506,9 @@ decodeLocation (LF1.Location mbModRef mbRange) = do
     (fromIntegral sline) (fromIntegral scol)
     (fromIntegral eline) (fromIntegral ecol)
 
+decodeList :: (a -> Decode b) -> V.Vector a -> Decode [b]
+decodeList f = mapM f . V.toList
+
 decodeExpr :: LF1.Expr -> Decode Expr
 decodeExpr (LF1.Expr mbLoc exprSum) = case mbLoc of
   Nothing -> decodeExprSum exprSum
@@ -635,6 +638,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UCreate
       <$> mayDecode "update_CreateTemplate" mbTycon decodeTypeConName
       <*> mayDecode "update_CreateExpr" mbExpr decodeExpr
+  LF1.UpdateSumCreateGeneric (LF1.Update_CreateGeneric mbTycon typeArgs mbExpr) ->
+    fmap EUpdate $ UCreateGeneric
+      <$> (TypeConApp
+            <$> mayDecode "update_CreateGenericTemplate" mbTycon decodeTypeConName
+            <*> decodeList decodeType typeArgs)
+      <*> mayDecode "update_CreateGenericExpr" mbExpr decodeExpr
   LF1.UpdateSumExercise LF1.Update_Exercise{..} ->
     fmap EUpdate $ UExercise
       <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName
@@ -651,6 +660,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
+  LF1.UpdateSumFetchGeneric (LF1.Update_FetchGeneric mbTycon typeArgs mbCid) ->
+    fmap EUpdate $ UFetchGeneric
+      <$> (TypeConApp
+            <$> mayDecode "update_FetchGenericTemplate" mbTycon decodeTypeConName
+            <*> decodeList decodeType typeArgs)
+      <*> mayDecode "update_FetchGenericCid" mbCid decodeExpr
   LF1.UpdateSumGetTime LF1.Unit ->
     pure (EUpdate UGetTime)
   LF1.UpdateSumEmbedExpr LF1.Update_EmbedExpr{..} ->

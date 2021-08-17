@@ -1154,6 +1154,16 @@ message Update {
     Expr expr = 2;
   }
 
+  // Create generic
+  message CreateGeneric {
+    // Template type
+    TypeConName template = 1;
+    // Template type args
+    repeated Type type_args = 2;
+    // Template argument
+    Expr expr = 3;
+  }
+
   // Exercise Update
   message Exercise {
     // Template type
@@ -1197,6 +1207,16 @@ message Update {
     reserved 3; // was actor, we thought we'd need this, but we don't
   }
 
+  // Fetch generic
+  message FetchGeneric {
+    // Template type
+    TypeConName template = 1;
+    // Template type args
+    repeated Type type_args = 2;
+    // Template contract id
+    Expr cid = 3;
+  }
+
   // Embedded Expression Update
   message EmbedExpr {
     // Expression type
@@ -1235,6 +1255,8 @@ message Update {
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
+    CreateGeneric create_generic = 12; // *Available in versions >= 1.dev*
+    FetchGeneric fetch_generic = 13; // *Available in versions >= 1.dev*
   }
 }
 

@@ -723,6 +723,11 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_CreateTemplate <- encodeQualTypeConName creTemplate
         update_CreateExpr <- encodeExpr creArg
         pure $ P.UpdateSumCreate P.Update_Create{..}
+    UCreateGeneric (TypeConApp tpl args) expr -> do
+        update_CreateGenericTemplate <- encodeQualTypeConName tpl
+        update_CreateGenericTypeArgs <- encodeList encodeType' args
+        update_CreateGenericExpr <- encodeExpr expr
+        pure $ P.UpdateSumCreateGeneric P.Update_CreateGeneric{..}
     UExercise{..} -> do
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseChoice <- encodeName unChoiceName exeChoice
@@ -741,6 +746,11 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetch P.Update_Fetch{..}
+    UFetchGeneric (TypeConApp tpl args) cid -> do
+        update_FetchGenericTemplate <- encodeQualTypeConName tpl
+        update_FetchGenericTypeArgs <- encodeList encodeType' args
+        update_FetchGenericCid <- encodeExpr cid
+        pure $ P.UpdateSumFetchGeneric P.Update_FetchGeneric{..}
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
     UEmbedExpr typ e -> do
         update_EmbedExprType <- encodeType typ
