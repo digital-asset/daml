@@ -23,6 +23,7 @@ import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.domain
 import com.daml.lf.archive.DarDecoder
 import com.daml.SdkVersion
+import com.daml.ledger.api.refinements.ApiTypes.Party
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -196,7 +197,10 @@ object LF16ExportClient {
         Config.Empty.copy(
           ledgerHost = "localhost",
           ledgerPort = ledgerPort,
-          parties = Seq("Alice"),
+          partyConfig = PartyConfig(
+            parties = Seq.empty[Party],
+            allParties = true,
+          ),
           exportType = Some(
             Config.EmptyExportScript.copy(
               sdkVersion = SdkVersion.sdkVersion,

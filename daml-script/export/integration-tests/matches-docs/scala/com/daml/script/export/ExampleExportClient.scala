@@ -9,6 +9,7 @@ import java.time.Duration
 
 import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.{RunnerConfig, RunnerMain}
 
@@ -105,7 +106,10 @@ object ExampleExportClient {
         Config.Empty.copy(
           ledgerHost = "localhost",
           ledgerPort = clientConfig.targetPort,
-          parties = Seq("Alice", "Bob"),
+          partyConfig = PartyConfig(
+            allParties = false,
+            parties = Party.subst(Seq("Alice", "Bob")),
+          ),
           exportType = Some(
             Config.EmptyExportScript.copy(
               sdkVersion = SdkVersion.sdkVersion,

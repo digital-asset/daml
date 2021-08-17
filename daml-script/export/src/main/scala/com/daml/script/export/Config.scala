@@ -7,6 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 
 import com.daml.auth.TokenHolder
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
@@ -15,7 +16,7 @@ final case class Config(
     ledgerPort: Int,
     tlsConfig: TlsConfiguration,
     accessToken: Option[TokenHolder],
-    parties: Seq[String],
+    partyConfig: PartyConfig,
     start: LedgerOffset,
     end: LedgerOffset,
     exportType: Option[ExportType],
@@ -29,6 +30,13 @@ final case class ExportScript(
     sdkVersion: String,
     damlScriptLib: String,
 ) extends ExportType
+
+// This is a product rather than a sum, so that we can raise
+// an error of both --party and --all-parties is configured.
+final case class PartyConfig(
+    allParties: Boolean,
+    parties: Seq[Party],
+)
 
 object Config {
   def parse(args: Array[String]): Option[Config] =
@@ -63,12 +71,22 @@ object Config {
         "File from which the access token will be read, required to interact with an authenticated ledger."
       )
     opt[Seq[String]]("party")
-      .required()
       .unbounded()
-      .action((x, c) => c.copy(parties = c.parties ++ x.toList))
+      .action((x, c) =>
+        c.copy(partyConfig =
+          c.partyConfig.copy(parties = c.partyConfig.parties ++ Party.subst(x.toList))
+        )
+      )
       .text(
         "Export ledger state as seen by these parties. " +
-          "Pass --party multiple times or use a comma-separated list of party names to specify multiple parties."
+          "Pass --party multiple times or use a comma-separated list of party names to specify multiple parties. " +
+          "Use either --party or --all-parties but not both."
+      )
+    opt[Unit]("all-parties")
+      .action((_, c) => c.copy(partyConfig = c.partyConfig.copy(allParties = true)))
+      .text(
+        "Export ledger state as seen by all known parties. " +
+          "Use either --party or --all-parties but not both."
       )
     opt[String]("start")
       .optional()
@@ -115,6 +133,16 @@ object Config {
         case Some(_) => success
       }
     )
+    checkConfig(c => {
+      val pc = c.partyConfig
+      if (pc.allParties && pc.parties.nonEmpty) {
+        failure("Set either --party or --all-parties but not both at the same time")
+      } else if (!pc.allParties && pc.parties.isEmpty) {
+        failure("Set one of --party or --all-parties")
+      } else {
+        success
+      }
+    })
   }
 
   val EmptyExportScript = ExportScript(
@@ -140,7 +168,7 @@ object Config {
     ledgerPort = -1,
     tlsConfig = TlsConfiguration(false, None, None, None),
     accessToken = None,
-    parties = List(),
+    partyConfig = PartyConfig(parties = Seq.empty[Party], allParties = false),
     start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
     exportType = None,
