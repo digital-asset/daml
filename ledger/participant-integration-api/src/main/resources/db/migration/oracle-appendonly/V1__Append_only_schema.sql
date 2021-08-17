@@ -131,10 +131,10 @@ CREATE TABLE participant_command_completions
     submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
     command_id                  NVARCHAR2(1000) NOT NULL,
 
-    transaction_id              NVARCHAR2(1000), -- null if the command was rejected and checkpoints
-    rejection_status_code       INTEGER,         -- null for successful command and checkpoints
-    rejection_status_message    CLOB,            -- null for successful command and checkpoints
-    rejection_status            BLOB             -- null for successful command and checkpoints
+    transaction_id              NVARCHAR2(1000), -- null for rejected transactions and checkpoints
+    rejection_status_code       INTEGER,         -- null for accepted transactions and checkpoints
+    rejection_status_message    CLOB,            -- null for accepted transactions and checkpoints
+    rejection_status            BLOB             -- null for accepted transactions and checkpoints
 );
 
 CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
@@ -386,6 +386,9 @@ CREATE TABLE participant_events_non_consuming_exercise (
 
 -- offset index: used to translate to sequential_id
 CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise(event_offset);
+
+--  Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+--  SPDX-License-Identifier: Apache-2.0
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise(event_sequential_id);

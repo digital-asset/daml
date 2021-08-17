@@ -123,11 +123,13 @@ CREATE TABLE participant_command_completions (
     command_id VARCHAR NOT NULL,
     -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
-    -- The rejection status is `NULL` if the completion is for an accepted transaction.
+    -- The three columns below are `NULL` if the completion is for an accepted transaction.
     -- The `rejection_status` contains a Protocol-Buffers-serialized message of type
     -- `google.rpc.Status`, containing the code, message, and further details (decided by the ledger
-    -- driver). The `rejection_status_code` and `rejection_status_message` columns will always be
-    -- `NULL` in an H2-backed index, but we keep them for parity with old data in other databases.
+    -- driver).
+    -- The `rejection_status_code` and `rejection_status_message` columns will always be
+    -- `NULL` in an H2-backed index, as data is not persisted across ledger restarts. However, we
+    -- keep them for parity with old data in other databases.
     rejection_status_code INTEGER,
     rejection_status_message VARCHAR,
     rejection_status BLOB
@@ -324,6 +326,9 @@ CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON p
 
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
+
+--  Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+--  SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
