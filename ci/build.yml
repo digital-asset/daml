@@ -286,7 +286,7 @@ jobs:
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
-        IMAGE=digitalasset/oracle:enterprise-19.3.0-preloaded-20210816-28-7b900b9
+        IMAGE=digitalasset/oracle:enterprise-19.12.0-preloaded-20210817-24-6f020d6
         docker pull $IMAGE
         # Cleanup stray containers that might still be running from
         # another build that didn’t get shut down cleanly.
