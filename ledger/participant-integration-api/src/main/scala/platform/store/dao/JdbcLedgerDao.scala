@@ -175,7 +175,7 @@ private class JdbcLedgerDao(
             logger.error(
               s"Found existing database with mismatching participantId: existing '$existing', provided '$participantId'"
             )
-            throw new MismatchException.ParticipantId(
+            throw MismatchException.ParticipantId(
               existing = existing,
               provided = participantId,
             )
@@ -183,7 +183,7 @@ private class JdbcLedgerDao(
             logger.error(
               s"Found existing database with mismatching ledgerId: existing '$existing', provided '$ledgerId'"
             )
-            throw new MismatchException.LedgerId(
+            throw MismatchException.LedgerId(
               existing = existing,
               provided = ledgerId,
             )
