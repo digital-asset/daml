@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api
 
-import java.time.Duration
+import java.time.{Duration, Instant}
 
 import com.daml.ledger.offset.Offset
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
@@ -17,6 +17,45 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 sealed trait DeduplicationPeriod extends Product with Serializable
 
 object DeduplicationPeriod {
+
+  /** Backwards compatibility
+    * Transforms the [[period]] into an [[Instant]] to be used for deduplication into the future.
+    * Offset deduplication is not supported
+    * @param time The time to use for calculating the [[Instant]]. It can either be submission time or current time, based on usage
+    * @param period The deduplication period
+    * @param maxSkew Used when the deduplication period is computed from an [[Instant]].
+    */
+  def deduplicateUntil(
+      time: Instant,
+      period: DeduplicationPeriod,
+      maxSkew: Duration,
+  ): Instant = period match {
+    case DeduplicationDuration(duration) =>
+      time.plus(duration)
+    case DeduplicationOffset(_) =>
+      throw new NotImplementedError("Offset deduplication is not supported")
+    case DeduplicationFromTime(start) =>
+      val duration = deduplicationDurationFromTime(time, start, maxSkew)
+      time.plus(duration)
+  }
+
+  /** deduplication_start: compute the duration as submissionTime + config.minSkew - deduplication_start
+    * We measure `deduplication_start` on the ledger’s clock, and thus need to add the minSkew to compensate for the maximal skew that the participant might be behind the ledger’s clock.
+    * @param time submission time or current time
+    * @param deduplicationStart the [[Instant]] from where we should start deduplication. it must be < than time
+    * @param maxSkew The ledger max skew duration
+    */
+  def deduplicationDurationFromTime(
+      time: Instant,
+      deduplicationStart: Instant,
+      maxSkew: Duration,
+  ): Duration = {
+    assert(deduplicationStart.isBefore(time), "Deduplication must start in the past")
+    Duration.between(
+      deduplicationStart,
+      time.plus(maxSkew),
+    )
+  }
 
   /** The length of the deduplication window, which ends when the [[WriteService]] or underlying Daml ledger processes
     * the command submission.
@@ -33,10 +72,14 @@ object DeduplicationPeriod {
   /** The `offset` defines the start of the deduplication period. */
   final case class DeduplicationOffset(offset: Offset) extends DeduplicationPeriod
 
+  final case class DeduplicationFromTime(start: Instant) extends DeduplicationPeriod
+
   implicit val `DeduplicationPeriod to LoggingValue`: ToLoggingValue[DeduplicationPeriod] = {
     case DeduplicationDuration(duration) =>
       LoggingValue.Nested.fromEntries("duration" -> duration)
     case DeduplicationOffset(offset) =>
       LoggingValue.Nested.fromEntries("offset" -> offset)
+    case DeduplicationFromTime(time) =>
+      LoggingValue.Nested.fromEntries("time" -> time)
   }
 }
