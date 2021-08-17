@@ -6,7 +6,6 @@ package com.daml.platform.apiserver.execution
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -80,7 +79,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
-              DeduplicationPeriod.DeduplicationDuration(commands.deduplicationDuration),
+              commands.deduplication,
               commands.submissionId.unwrap,
               ledgerConfiguration,
             ),

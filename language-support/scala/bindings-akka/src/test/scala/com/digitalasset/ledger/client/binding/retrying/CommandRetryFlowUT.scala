@@ -9,6 +9,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.commands.Commands.Deduplication
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
@@ -38,7 +39,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
     Flow[In[RetryInfo[Status]]]
       .map {
         case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands)), _) =>
-          if (commands.deduplicationTime.get.nanos == 0) {
+          // deduplication is set to empty when we create a retry, but it's not empty on the initial request
+          if (commands.deduplication == Deduplication.Empty) {
             Ctx(context, CompletionResponse(Completion(commands.commandId, Some(status))))
           } else {
             Ctx(
@@ -59,9 +61,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
       response: Either[CompletionFailure, CompletionSuccess],
   ) = {
     val commands = retryInfo.request.commands.get
-    val dedupTime = commands.deduplicationTime.get
-    val newDedupTime = dedupTime.copy(nanos = dedupTime.nanos + 1)
-    SubmitRequest(Some(commands.copy(deduplicationTime = Some(newDedupTime))))
+    SubmitRequest(Some(commands.copy(deduplication = Deduplication.Empty)))
   }
 
   val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
@@ -78,7 +78,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
           "commandId",
           "party",
           Seq.empty,
-          Some(protoDuration.of(120, 0)),
+          Deduplication.DeduplicationTime(protoDuration.of(120, 0)),
         )
       )
     )

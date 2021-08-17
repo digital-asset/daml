@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands.Deduplication
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
@@ -180,16 +181,18 @@ final class CommandClient(
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)"
           )
-        val updateDedupTime = commands.deduplicationTime.orElse(
-          Some(
-            Duration
-              .of(
-                config.defaultDeduplicationTime.getSeconds,
-                config.defaultDeduplicationTime.getNano,
-              )
-          )
-        )
-        r.copy(commands = Some(commands.copy(deduplicationTime = updateDedupTime)))
+        val updateDedupPeriod = commands.deduplication match {
+          case Deduplication.Empty =>
+            Deduplication.DeduplicationTime(
+              Duration
+                .of(
+                  config.defaultDeduplicationTime.getSeconds,
+                  config.defaultDeduplicationTime.getNano,
+                )
+            )
+          case existing => existing
+        }
+        r.copy(commands = Some(commands.copy(deduplication = updateDedupPeriod)))
       })
 
   def submissionFlow[Context](

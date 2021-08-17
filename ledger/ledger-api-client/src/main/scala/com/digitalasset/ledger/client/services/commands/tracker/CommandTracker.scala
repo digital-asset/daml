@@ -9,6 +9,7 @@ import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_submission_service._
+import com.daml.ledger.api.v1.commands.Commands.Deduplication
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
@@ -225,10 +226,19 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
             }
             val commandTimeout = {
               lazy val maxDedup = maxDeduplicationTime()
-              val dedup = commands.deduplicationTime.getOrElse(
-                ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano)
-              )
-              Instant.now().plusSeconds(dedup.seconds).plusNanos(dedup.nanos.toLong)
+              lazy val protoMaxDedup = ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano)
+              val timeoutDuration = commands.deduplication match {
+                case Deduplication.Empty =>
+                  protoMaxDedup
+                case Deduplication.DeduplicationTime(value) =>
+                  value
+                case Deduplication.DeduplicationStart(_) =>
+                  protoMaxDedup
+              }
+              Instant
+                .now()
+                .plusSeconds(timeoutDuration.seconds)
+                .plusNanos(timeoutDuration.nanos.toLong)
             }
 
             pendingCommands += (commandId ->

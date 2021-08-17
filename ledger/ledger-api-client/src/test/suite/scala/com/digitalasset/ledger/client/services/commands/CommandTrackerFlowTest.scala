@@ -80,8 +80,10 @@ class CommandTrackerFlowTest
       Some(
         Commands(
           commandId = commandId,
-          deduplicationTime =
-            dedupTime.map(t => com.google.protobuf.duration.Duration(t.getSeconds)),
+          deduplication = dedupTime
+            .map(t => com.google.protobuf.duration.Duration(t.getSeconds))
+            .map(Commands.Deduplication.DeduplicationTime)
+            .getOrElse(Commands.Deduplication.Empty),
         )
       )
     ),

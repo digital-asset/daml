@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.DomainMocks
+import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails, SubmissionId}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -418,7 +418,7 @@ object ApiSubmissionServiceSpec {
         actAs = Set.empty,
         readAs = Set.empty,
         submittedAt = Instant.MIN,
-        deduplicationDuration = Duration.ZERO,
+        deduplication = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
         commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
       )
     )
