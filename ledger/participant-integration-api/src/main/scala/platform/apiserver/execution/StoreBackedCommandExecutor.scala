@@ -79,7 +79,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
-              commands.deduplication,
+              commands.deduplicationPeriod,
               commands.submissionId.unwrap,
               ledgerConfiguration,
             ),

@@ -57,19 +57,16 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
-  oneof deduplication {
+  oneof deduplication_period {
 
       // Specifies the length of the deduplication period.
-      // The participant or Daml ledger converts the duration into a timestamp ``deduplication_start``
-      // by subtracting the duration from its local clock at some point during processing the submission.
+      // It is interpreted relative to the local clock at some point during the submission's processing.
       //
       // Must be non-negative.
       google.protobuf.Duration deduplication_time = 9;
 
-      // Specifies a point in time at which the deduplication shall start.
-      // The participant or Daml ledger converts this timestamp into a completion offset using its local clock.
-      // The clock for this purpose is typically not fully synchronized with the application’s clock or record time,
-      // and message and processing delays may further increase the difference in interpretation.
+      // Specifies a point in time in the past after which this submission should be de-duplicated w.r.t. previous submissions of the same commands.
+      // It is interpreted relative to the local clock at some point during the submission's processing.
       google.protobuf.Timestamp deduplication_start = 15;
 
   }

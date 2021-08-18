@@ -61,17 +61,16 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
       .getTimeModel()
       .flatMap(timeModelResponse => {
         val timeModel = timeModelResponse.getTimeModel
-        val time = Instant.now()
-        val maxSkew = deduplicationTime
+        val deduplicationStart = Instant.now().asProtobuf
+        val minSkew = deduplicationTime
         val deduplicatedResult = for {
           ledgerTime <- ledger.time()
-          mrt = ledgerTime.plusSeconds(30)
+          maxRecordTime = ledgerTime.plusSeconds(30)
           _ <- ledger.setTimeModel(
-            mrt,
+            maxRecordTime,
             timeModelResponse.configurationGeneration,
-            timeModel.update(_.maxSkew := maxSkew.asProtobuf),
+            timeModel.update(_.minSkew := minSkew.asProtobuf),
           )
-          deduplicationStart = time.asProtobuf // will use maxSkew as duration
           requestA1 = ledger
             .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
             .update(
@@ -90,7 +89,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
             requestA2 = requestA2,
           )
         } yield {}
-        deduplicatedResult.transformWith { testResult => // reset the time model
+        deduplicatedResult.transformWith { testResult => // reset the deduplicationStartTime model
           (for {
             ledgerTime <- ledger.time()
             _ <-

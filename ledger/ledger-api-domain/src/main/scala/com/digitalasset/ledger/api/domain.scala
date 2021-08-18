@@ -283,7 +283,7 @@ object domain {
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplication: DeduplicationPeriod,
+      deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
   )
 
@@ -300,7 +300,7 @@ object domain {
         "actAs" -> commands.actAs,
         "readAs" -> commands.readAs,
         "submittedAt" -> commands.submittedAt,
-        "deduplication" -> commands.deduplication,
+        "deduplicationPeriod" -> commands.deduplicationPeriod,
       )
   }
 

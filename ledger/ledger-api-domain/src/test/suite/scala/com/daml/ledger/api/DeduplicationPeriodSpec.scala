@@ -11,26 +11,27 @@ import org.scalatest.wordspec.AnyWordSpec
 class DeduplicationPeriodSpec extends AnyWordSpec with Matchers {
   "calculating deduplication until" should {
     val time = Instant.ofEpochSecond(100)
-    val maxSkew = Duration.ofSeconds(5)
+    val minSkew = Duration.ofSeconds(5)
 
     "return expected result when sending duration" in {
       val deduplicateUntil = DeduplicationPeriod.deduplicateUntil(
         time,
         DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(3)),
-        maxSkew,
+        minSkew,
       )
       deduplicateUntil shouldEqual time.plusSeconds(3)
     }
 
     "return as expected when sending starting time" in {
+      val deduplicationStart = Instant.ofEpochSecond(50)
       val deduplicateUntil = DeduplicationPeriod.deduplicateUntil(
         time,
-        DeduplicationPeriod.DeduplicationFromTime(Instant.ofEpochSecond(50)),
-        maxSkew,
+        DeduplicationPeriod.DeduplicationStart(deduplicationStart),
+        minSkew,
       )
-      deduplicateUntil shouldEqual time.plusSeconds(
-        55
-      ) //adding diff between submission time and deduplication start time + maxSkew
+      deduplicateUntil shouldEqual time.plus(
+        Duration.between(deduplicationStart, time).plus(minSkew)
+      )
     }
   }
 }

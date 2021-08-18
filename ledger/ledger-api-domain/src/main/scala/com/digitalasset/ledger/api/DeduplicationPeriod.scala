@@ -23,19 +23,19 @@ object DeduplicationPeriod {
     * Offset deduplication is not supported
     * @param time The time to use for calculating the [[Instant]]. It can either be submission time or current time, based on usage
     * @param period The deduplication period
-    * @param maxSkew Used when the deduplication period is computed from an [[Instant]].
+    * @param minSkew Used when the deduplication period is computed from an [[Instant]] to account for time skew.
     */
   def deduplicateUntil(
       time: Instant,
       period: DeduplicationPeriod,
-      maxSkew: Duration,
+      minSkew: Duration,
   ): Instant = period match {
     case DeduplicationDuration(duration) =>
       time.plus(duration)
     case DeduplicationOffset(_) =>
       throw new NotImplementedError("Offset deduplication is not supported")
-    case DeduplicationFromTime(start) =>
-      val duration = deduplicationDurationFromTime(time, start, maxSkew)
+    case DeduplicationStart(start) =>
+      val duration = deduplicationDurationFromTime(time, start, minSkew)
       time.plus(duration)
   }
 
@@ -43,17 +43,17 @@ object DeduplicationPeriod {
     * We measure `deduplication_start` on the ledger’s clock, and thus need to add the minSkew to compensate for the maximal skew that the participant might be behind the ledger’s clock.
     * @param time submission time or current time
     * @param deduplicationStart the [[Instant]] from where we should start deduplication. it must be < than time
-    * @param maxSkew The ledger max skew duration
+    * @param minSkew The ledger min skew duration
     */
   def deduplicationDurationFromTime(
       time: Instant,
       deduplicationStart: Instant,
-      maxSkew: Duration,
+      minSkew: Duration,
   ): Duration = {
     assert(deduplicationStart.isBefore(time), "Deduplication must start in the past")
     Duration.between(
       deduplicationStart,
-      time.plus(maxSkew),
+      time.plus(minSkew),
     )
   }
 
@@ -72,14 +72,15 @@ object DeduplicationPeriod {
   /** The `offset` defines the start of the deduplication period. */
   final case class DeduplicationOffset(offset: Offset) extends DeduplicationPeriod
 
-  final case class DeduplicationFromTime(start: Instant) extends DeduplicationPeriod
+  /** The instant `since` specifies the point in time where deduplication start */
+  final case class DeduplicationStart(since: Instant) extends DeduplicationPeriod
 
   implicit val `DeduplicationPeriod to LoggingValue`: ToLoggingValue[DeduplicationPeriod] = {
     case DeduplicationDuration(duration) =>
       LoggingValue.Nested.fromEntries("duration" -> duration)
     case DeduplicationOffset(offset) =>
       LoggingValue.Nested.fromEntries("offset" -> offset)
-    case DeduplicationFromTime(time) =>
+    case DeduplicationStart(time) =>
       LoggingValue.Nested.fromEntries("time" -> time)
   }
 }

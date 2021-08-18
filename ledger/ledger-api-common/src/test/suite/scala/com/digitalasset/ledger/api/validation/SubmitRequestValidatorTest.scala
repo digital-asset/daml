@@ -10,7 +10,7 @@ import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks, SubmissionIdGenerator}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.daml.ledger.api.v1.commands.Commands.Deduplication
+import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
@@ -60,7 +60,7 @@ class SubmitRequestValidatorTest
       commandId = commandId.unwrap,
       party = submitter,
       commands = Seq(command),
-      deduplication = Deduplication.DeduplicationTime(deduplicationTime),
+      deduplicationPeriod = DeduplicationPeriodProto.DeduplicationTime(deduplicationTime),
       minLedgerTimeAbs = None,
       minLedgerTimeRel = None,
     )
@@ -86,7 +86,7 @@ class SubmitRequestValidatorTest
       actAs = Set(DomainMocks.party),
       readAs = Set.empty,
       submittedAt = submittedAt,
-      deduplication = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
       commands = LfCommands(
         ImmArray(
           LfCreateCommand(
@@ -310,7 +310,9 @@ class SubmitRequestValidatorTest
         val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator.validateCommands(
-            api.commands.copy(deduplication = Deduplication.DeduplicationTime(Duration.of(-1, 0))),
+            api.commands.copy(deduplicationPeriod =
+              DeduplicationPeriodProto.DeduplicationTime(Duration.of(-1, 0))
+            ),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
@@ -327,7 +329,9 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands
-              .copy(deduplication = Deduplication.DeduplicationTime(Duration.of(manySeconds, 0))),
+              .copy(deduplicationPeriod =
+                DeduplicationPeriodProto.DeduplicationTime(Duration.of(manySeconds, 0))
+              ),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
@@ -343,14 +347,15 @@ class SubmitRequestValidatorTest
         val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
-          api.commands.copy(deduplication = Deduplication.Empty),
+          api.commands.copy(deduplicationPeriod = DeduplicationPeriodProto.Empty),
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
           Some(internal.maxSkew),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
-            deduplication = DeduplicationPeriod.DeduplicationDuration(internal.maxDeduplicationTime)
+            deduplicationPeriod =
+              DeduplicationPeriod.DeduplicationDuration(internal.maxDeduplicationTime)
           )
         )
       }
@@ -360,8 +365,8 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands
-              .copy(deduplication =
-                Deduplication.DeduplicationStart(
+              .copy(deduplicationPeriod =
+                DeduplicationPeriodProto.DeduplicationStart(
                   TimestampConversion.fromInstant(internal.submittedAt)
                 )
               ),
@@ -380,8 +385,8 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands
-              .copy(deduplication =
-                Deduplication.DeduplicationStart(
+              .copy(deduplicationPeriod =
+                DeduplicationPeriodProto.DeduplicationStart(
                   TimestampConversion.fromInstant(
                     internal.submittedAt.minusSeconds(internal.maxDeduplicationTime.getSeconds)
                   )

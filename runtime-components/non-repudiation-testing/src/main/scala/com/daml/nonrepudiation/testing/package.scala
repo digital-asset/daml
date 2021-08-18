@@ -8,7 +8,7 @@ import java.security.cert.X509Certificate
 import java.util.UUID
 
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Commands.Deduplication.DeduplicationTime
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod.DeduplicationTime
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.google.protobuf.duration.Duration
@@ -67,7 +67,7 @@ package object testing {
               )
             )
           ),
-          deduplication = DeduplicationTime(Duration(seconds = 1.day.toSeconds)),
+          deduplicationPeriod = DeduplicationTime(Duration(seconds = 1.day.toSeconds)),
           minLedgerTimeRel = Some(Duration(seconds = 1.minute.toSeconds)),
         )
       )

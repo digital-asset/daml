@@ -64,7 +64,7 @@ class StoreBackedCommandExecutorSpec
         actAs = Set.empty,
         readAs = Set.empty,
         submittedAt = Instant.EPOCH,
-        deduplication = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+        deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
         commands = LfCommands(
           commands = ImmArray.empty,
           ledgerEffectiveTime = Time.Timestamp.Epoch,

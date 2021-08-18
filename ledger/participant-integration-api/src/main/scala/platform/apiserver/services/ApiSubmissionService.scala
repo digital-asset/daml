@@ -144,8 +144,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
         commands.submittedAt,
         DeduplicationPeriod.deduplicateUntil(
           commands.submittedAt,
-          commands.deduplication,
-          ledgerConfig.timeModel.maxSkew,
+          commands.deduplicationPeriod,
+          ledgerConfig.timeModel.minSkew,
         ),
       )
       .flatMap {

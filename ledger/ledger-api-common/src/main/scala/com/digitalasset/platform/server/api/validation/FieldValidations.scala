@@ -8,7 +8,7 @@ import java.time.{Duration, Instant}
 import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.v1.commands.Commands.Deduplication
+import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -104,8 +104,8 @@ trait FieldValidations {
 
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */
-  def validateDeduplicationDuration(
-      deduplication: Deduplication,
+  def validateDeduplicationPeriod(
+      deduplicationPeriod: DeduplicationPeriodProto,
       maxDeduplicationTimeO: Option[Duration],
       fieldName: String,
       maxSkew: Option[Duration],
@@ -114,36 +114,36 @@ trait FieldValidations {
 
     maxDeduplicationTimeO.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig())
-    )(maxDeduplicationTime => {
-      def validateDuration(duration: Duration, invalidMessage: String) = {
+    )(maxDeduplicationDuration => {
+      def validateDuration(duration: Duration, exceedsMaxDurationMessage: String) = {
         if (duration.isNegative)
           Left(invalidField(fieldName, "Duration must be positive"))
-        else if (duration.compareTo(maxDeduplicationTime) > 0)
+        else if (duration.compareTo(maxDeduplicationDuration) > 0)
           Left(
             invalidField(
               fieldName,
-              invalidMessage,
+              exceedsMaxDurationMessage,
             )
           )
         else Right(duration)
       }
-      deduplication match {
-        case Deduplication.Empty =>
-          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationTime))
-        case Deduplication.DeduplicationTime(duration) =>
+      deduplicationPeriod match {
+        case DeduplicationPeriodProto.Empty =>
+          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
+        case DeduplicationPeriodProto.DeduplicationTime(duration) =>
           val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
           validateDuration(
             result,
-            s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime",
+            s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
           ).map(DeduplicationPeriod.DeduplicationDuration)
-        case Deduplication.DeduplicationStart(startFrom) =>
+        case DeduplicationPeriodProto.DeduplicationStart(startFrom) =>
           val start = TimestampConversion.toInstant(startFrom)
           for {
             maxSkew <- maxSkew.toRight(missingLedgerConfig())
             _ <- Either.cond(
               start.isBefore(currentTime),
               start,
-              invalidField(fieldName, "Deduplication start time is after current time"),
+              invalidField(fieldName, "Deduplication start time is equal to or after current time"),
             )
             currentTimeDuration = DeduplicationPeriod.deduplicationDurationFromTime(
               currentTime,
@@ -152,10 +152,10 @@ trait FieldValidations {
             )
             _ <- validateDuration(
               currentTimeDuration,
-              s"The given deduplication start has a current time based duration of $currentTimeDuration which exceeds the maximum deduplication time of $maxDeduplicationTime",
+              s"The given deduplication start yields a duration of $currentTimeDuration which exceeds the maximum deduplication duration of $maxDeduplicationDuration",
             )
           } yield {
-            DeduplicationPeriod.DeduplicationFromTime(start)
+            DeduplicationPeriod.DeduplicationStart(start)
           }
       }
     })

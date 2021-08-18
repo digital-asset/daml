@@ -36,7 +36,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationTime: Option[Duration],
-      maxSkew: Option[Duration],
+      minSkew: Option[Duration],
   ): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
@@ -60,11 +60,11 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
             s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
           )
         )
-      deduplication <- validateDeduplicationDuration(
-        commands.deduplication,
+      deduplicationPeriod <- validateDeduplicationPeriod(
+        commands.deduplicationPeriod,
         maxDeduplicationTime,
-        "deduplication",
-        maxSkew,
+        "deduplication_period",
+        minSkew,
         currentUtcTime,
       )
     } yield domain.Commands(
@@ -76,7 +76,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       actAs = submitters.actAs,
       readAs = submitters.readAs,
       submittedAt = currentUtcTime,
-      deduplication = deduplication,
+      deduplicationPeriod = deduplicationPeriod,
       commands = Commands(
         commands = ImmArray(validatedCommands),
         ledgerEffectiveTime = ledgerEffectiveTimestamp,

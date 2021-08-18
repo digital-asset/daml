@@ -29,6 +29,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   NotOkResponse,
 }
 import com.daml.util.Ctx
+import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
@@ -80,10 +81,9 @@ class CommandTrackerFlowTest
       Some(
         Commands(
           commandId = commandId,
-          deduplication = dedupTime
-            .map(t => com.google.protobuf.duration.Duration(t.getSeconds))
-            .map(Commands.Deduplication.DeduplicationTime)
-            .getOrElse(Commands.Deduplication.Empty),
+          deduplicationPeriod = dedupTime
+            .map(t => Commands.DeduplicationPeriod.DeduplicationTime(DurationProto(t.getSeconds)))
+            .getOrElse(Commands.DeduplicationPeriod.Empty),
         )
       )
     ),

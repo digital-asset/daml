@@ -74,17 +74,17 @@ lowerCommands = \case
         commandsActAs = Vector.fromList $ map unParty actAs,
         commandsReadAs = Vector.fromList $ map unParty readAs,
         commandsSubmissionId = unSubmissionId (fromMaybe (SubmissionId "") sid),
-        commandsDeduplication = fmap lowerDeduplication dedup,
+        commandsDeduplicationPeriod = fmap lowerDeduplicationPeriod dedupPeriod,
         commandsCommands = Vector.fromList $ map lowerCommand coms,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
         commandsMinLedgerTimeRel = minLeTimeRel }
 
-lowerDeduplication :: Deduplication -> LL.CommandsDeduplication
-lowerDeduplication = \case
+lowerDeduplicationPeriod :: DeduplicationPeriod -> LL.CommandsDeduplicationPeriod
+lowerDeduplicationPeriod = \case
     DeduplicationStart s ->
-        LL.CommandsDeduplicationDeduplicationStart (lowerTimestamp s)
+        LL.CommandsDeduplicationPeriodDeduplicationStart (lowerTimestamp s)
     DeduplicationTime t ->
-        LL.CommandsDeduplicationDeduplicationTime t
+        LL.CommandsDeduplicationPeriodDeduplicationTime t
 
 lowerCommand :: Command -> LL.Command
 lowerCommand = \case
