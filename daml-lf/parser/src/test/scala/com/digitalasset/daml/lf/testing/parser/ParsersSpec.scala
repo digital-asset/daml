@@ -360,7 +360,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     }
 
     "parses properly experiment" in {
-      parseExpr("$ ANSWER (Unit -> Int64)") shouldBe Right(
+      parseExpr("experimental ANSWER (Unit -> Int64)") shouldBe Right(
         EExperimental("ANSWER", t"Unit -> Int64")
       )
     }
