@@ -28,4 +28,4 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-bazel test --runs_per_test=100 //extractor:extractor-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_extractor_VeryLargeArchiveSpec.scala
+bazel test --runs_per_test=200 //extractor/...
