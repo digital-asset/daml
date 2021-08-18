@@ -261,12 +261,11 @@ object KeyValueConsumption {
   /** Checks that all divulged contract ids in the `blindingInfo` have
     * an associated contract instance in the `divulgedContracts` list.
     *
-    * NOTE: It is not a hard fault for the check to fail. This can happen if the
-    * participant is hydrated from ledgers populated with versions of
+    * NOTE: It is not a hard fault for the check to fail,
+    * but missing contracts can cause lookup failures during command interpretation if used.
+    * This can happen if the participant is hydrated from ledgers populated with versions of
     * [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter]]
     * predating the introduction of the `divulgedContracts` field.
-    *
-    * Missing contracts can cause lookup failures during command interpretation if used.
     */
   private def checkDivulgedContractInstances(
       divulgedContracts: List[DivulgedContract],

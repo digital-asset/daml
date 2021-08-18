@@ -17,6 +17,7 @@ import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ValueRecord
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.MockitoSugar
@@ -259,11 +260,59 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "always set blindingInfo" in {
       val context = createCommitContext(recordTime = None)
 
-      val actual = transactionCommitter.blind(context, aTransactionEntrySummary)
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val cid = builder.newCid
+
+      val actual =
+        transactionCommitter.blind(
+          context,
+          DamlTransactionEntrySummary(txEntryWithDivulgedContract(builder, cid)),
+        )
 
       actual match {
         case StepContinue(partialResult) =>
-          partialResult.submission.hasBlindingInfo shouldBe true
+          val actualDivulgencesList =
+            partialResult.submission.getBlindingInfo.getDivulgencesList.asScala
+              .map(entry =>
+                entry.getContractId -> entry.getDivulgedToLocalPartiesList.asScala.toSet
+              )
+
+          actualDivulgencesList should contain theSameElementsAs Vector(
+            cid.coid -> Set("ChoiceObserver")
+          )
+
+          val actualDisclosureList =
+            partialResult.submission.getBlindingInfo.getDisclosuresList.asScala
+              .map(entry => entry.getNodeId -> entry.getDisclosedToLocalPartiesList.asScala.toSet)
+
+          actualDisclosureList should contain theSameElementsAs Vector(
+            "0" -> Set("Alice"),
+            "1" -> Set("Actor", "Alice", "ChoiceObserver"),
+          )
+        case StepStop(_) => fail()
+      }
+    }
+
+    "always set divulgedContracts" in {
+      val context = createCommitContext(recordTime = None)
+
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val cid = builder.newCid
+
+      val actual =
+        transactionCommitter.blind(
+          context,
+          DamlTransactionEntrySummary(txEntryWithDivulgedContract(builder, cid)),
+        )
+
+      actual match {
+        case StepContinue(partialResult) =>
+          val actualDivulgedContractIds =
+            partialResult.submission.getDivulgedContractsList.asScala.map(contract =>
+              contract.getContractId
+            )
+          actualDivulgedContractIds should contain theSameElementsAs Vector(cid.coid)
+
         case StepStop(_) => fail()
       }
     }
@@ -368,6 +417,32 @@ object TransactionCommitterSpec {
       .build()
     val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
     DamlTransactionEntrySummary(outTx)
+  }
+
+  private def txEntryWithDivulgedContract(
+      builder: TransactionBuilder,
+      divulgedContractId: Value.ContractId,
+  ) = {
+    val createNode = builder.create(
+      id = divulgedContractId,
+      template = "pkgid:M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("Alice"),
+      observers = Seq.empty,
+      key = None,
+    )
+    val exerciseNode = builder.exercise(
+      contract = createNode,
+      choice = "C",
+      consuming = false,
+      actingParties = Set("Actor"),
+      argument = ValueRecord(None, ImmArray.empty),
+      choiceObservers = Set("ChoiceObserver"),
+    )
+
+    builder.add(createNode)
+    builder.add(exerciseNode)
+    createTransactionEntry(List("aSubmitter"), SubmittedTransaction(builder.build()))
   }
 
   private def createInputs(
