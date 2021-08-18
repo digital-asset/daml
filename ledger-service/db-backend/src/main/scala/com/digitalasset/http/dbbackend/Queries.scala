@@ -190,6 +190,25 @@ sealed abstract class Queries(tablePrefix: String) {
       .map(_.toMap)
   }
 
+  /** Template IDs, parties, and offsets that don't match expected offset values for
+    * a particular `tpid`.
+    */
+  private[http] final def unsyncedOffsets(
+      expectedOffset: String,
+      tpids: NonEmpty[Set[SurrogateTpId]],
+  ): ConnectionIO[Map[SurrogateTpId, Map[String, String]]] = {
+    import Queries.CompatImplicits.catsReducibleFromFoldable1
+    val q = sql"""
+      SELECT tpid, party, last_offset FROM $ledgerOffsetTableName
+             WHERE last_offset <> $expectedOffset
+                   AND ${Fragments.in(fr"tpid", tpids.toSeq.toOneAnd)}
+    """
+    q.query[(SurrogateTpId, String, String)]
+      .map { case (tpid, party, offset) => (tpid, (party, offset)) }
+      .to[Vector]
+      .map(_.groupBy1(_._1).transform((_, tpos) => tpos.view.map(_._2).toMap))
+  }
+
   /** Consistency of the whole database mostly pivots around the offset update
     * check, since an offset read and write bookend the update.
     *
