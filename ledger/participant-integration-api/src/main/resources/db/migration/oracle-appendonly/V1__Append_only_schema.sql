@@ -124,7 +124,7 @@ CREATE INDEX idx_party_entries ON party_entries(submission_id);
 
 CREATE TABLE participant_command_completions
 (
-    completion_offset VARCHAR2(4000)  not null,
+    completion_offset VARCHAR2(4000)  PRIMARY KEY,
     record_time       TIMESTAMP       not null,
 
     application_id    NVARCHAR2(1000) not null,
@@ -137,6 +137,14 @@ CREATE TABLE participant_command_completions
 );
 
 CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
+CREATE MATERIALIZED VIEW LOG ON participant_command_completions WITH PRIMARY KEY, ROWID;
+
+create materialized view participant_command_completions_submitters
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+AS SELECT completion_offset, submitter
+   FROM participant_command_completions,
+       JSON_TABLE(submitters, '$[*]' columns (submitter PATH '$'));
+create index participant_command_completions_submitters_index on participant_command_completions_submitters(submitter);
 
 CREATE TABLE participant_command_submissions
 (
@@ -151,10 +159,10 @@ CREATE TABLE participant_command_submissions
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_divulgence (
     -- * event identification
-    event_sequential_id NUMBER NOT NULL,
+    event_sequential_id NUMBER PRIMARY KEY,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
-    event_offset VARCHAR2(4000), -- offset of the transaction that divulged the contract
+    event_offset VARCHAR2(4000) NOT NULL, -- offset of the transaction that divulged the contract
 
     -- * transaction metadata
     command_id VARCHAR2(4000),
@@ -178,7 +186,7 @@ CREATE TABLE participant_events_divulgence (
 CREATE INDEX participant_events_divulgence_event_offset ON participant_events_divulgence(event_offset);
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_divulgence_event_sequential_id ON participant_events_divulgence(event_sequential_id);
+--CREATE INDEX participant_events_divulgence_event_sequential_id ON participant_events_divulgence(event_sequential_id);
 
 -- filtering by template
 CREATE INDEX participant_events_divulgence_template_id_idx ON participant_events_divulgence(template_id);
@@ -192,15 +200,16 @@ CREATE INDEX participant_events_divulgence_tree_event_witnesses_idx ON participa
 -- lookup divulgance events, in order of ingestion
 CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence(contract_id, event_sequential_id);
 
+CREATE MATERIALIZED VIEW LOG ON participant_events_divulgence WITH PRIMARY KEY, ROWID;
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: create
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_create (
     -- * event identification
-    event_sequential_id NUMBER NOT NULL,
+    event_sequential_id NUMBER PRIMARY KEY,
     -- NOTE: this must be assigned sequentially by the indexer such that
-    -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
+    --     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
     ledger_effective_time TIMESTAMP NOT NULL,
     node_index INTEGER NOT NULL,
     event_offset VARCHAR2(4000) NOT NULL,
@@ -240,7 +249,7 @@ CREATE TABLE participant_events_create (
 CREATE INDEX participant_events_create_event_offset ON participant_events_create(event_offset);
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create(event_sequential_id);
+--CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create(event_sequential_id);
 
 -- lookup by event-id
 CREATE INDEX participant_events_create_event_id_idx ON participant_events_create(event_id);
@@ -271,7 +280,7 @@ CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_consuming_exercise (
     -- * event identification
-    event_sequential_id NUMBER NOT NULL,
+    event_sequential_id NUMBER PRIMARY KEY,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
@@ -315,7 +324,7 @@ CREATE TABLE participant_events_consuming_exercise (
 CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_events_consuming_exercise(event_offset);
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise(event_sequential_id);
+--CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise(event_sequential_id);
 
 -- lookup by event-id
 CREATE INDEX participant_events_consuming_exercise_event_id_idx ON participant_events_consuming_exercise(event_id);
@@ -338,12 +347,15 @@ CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON p
 -- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (ORA_HASH(contract_id));
 
+CREATE MATERIALIZED VIEW LOG ON participant_events_consuming_exercise WITH PRIMARY KEY, ROWID;
+CREATE MATERIALIZED VIEW LOG ON participant_events_create WITH PRIMARY KEY, ROWID;
+
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_non_consuming_exercise (
     -- * event identification
-    event_sequential_id NUMBER NOT NULL,
+    event_sequential_id NUMBER PRIMARY KEY,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
@@ -387,7 +399,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
 CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise(event_offset);
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise(event_sequential_id);
+--CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise(event_sequential_id);
 
 -- lookup by event-id
 CREATE INDEX participant_events_non_consuming_exercise_event_id_idx ON participant_events_non_consuming_exercise(event_id);
@@ -406,6 +418,7 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 CREATE INDEX participant_events_non_consuming_exercise_flat_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
 CREATE INDEX participant_events_non_consuming_exercise_tree_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
 
+CREATE MATERIALIZED VIEW LOG ON participant_events_non_consuming_exercise WITH PRIMARY KEY, ROWID;
 
 CREATE VIEW participant_events AS
 SELECT cast(0 as SMALLINT)          AS event_kind,
@@ -536,6 +549,9 @@ SELECT (25)          AS event_kind,
        participant_events_non_consuming_exercise.exercise_result_compression
 FROM participant_events_non_consuming_exercise;
 
+
+
+
 ---------------------------------------------------------------------------------------------------
 -- Parameters table
 ---------------------------------------------------------------------------------------------------
@@ -554,3 +570,137 @@ CREATE TABLE parameters
     ledger_end_sequential_id           NUMBER
 );
 
+--
+create materialized view PARTICIPANT_EVENTS_DIVULGENCE_tree_event_witness_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+        WITH PRIMARY KEY
+AS SELECT event_sequential_id, tree_event_witness
+   FROM PARTICIPANT_EVENTS_DIVULGENCE,
+       JSON_TABLE(TREE_EVENT_WITNESSES, '$[*]' columns (tree_event_witness PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_CREATE_tree_event_witness_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+        WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, tree_event_witness
+FROM PARTICIPANT_EVENTS_CREATE,
+    JSON_TABLE(TREE_EVENT_WITNESSES, '$[*]' columns (tree_event_witness PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_tree_event_witness_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+        WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, tree_event_witness
+FROM PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE,
+    JSON_TABLE(TREE_EVENT_WITNESSES, '$[*]' columns (tree_event_witness PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_CONSUMING_EXERCISE_tree_event_witness_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+        WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, tree_event_witness
+FROM PARTICIPANT_EVENTS_CONSUMING_EXERCISE,
+    JSON_TABLE(TREE_EVENT_WITNESSES, '$[*]' columns (tree_event_witness PATH '$'));
+
+CREATE INDEX PARTICIPANT_EVENTS_DIVULGENCE_tree_event_witness_mv_index ON PARTICIPANT_EVENTS_DIVULGENCE_tree_event_witness_mv(tree_event_witness);
+CREATE INDEX PARTICIPANT_EVENTS_CREATE_tree_event_witness_mv_index ON PARTICIPANT_EVENTS_CREATE_tree_event_witness_mv(tree_event_witness);
+CREATE INDEX PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_tree_event_witness_mv_index ON PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_tree_event_witness_mv(tree_event_witness);
+CREATE INDEX PARTICIPANT_EVENTS_CONSUMING_EXERCISE_tree_event_witness_mv_index ON PARTICIPANT_EVENTS_CONSUMING_EXERCISE_tree_event_witness_mv(tree_event_witness);
+
+create view PARTICIPANT_EVENTS_TREE_WITNESS as
+select * from PARTICIPANT_EVENTS_DIVULGENCE_tree_event_witness_mv
+UNION
+select * from PARTICIPANT_EVENTS_CREATE_tree_event_witness_mv
+UNION
+select * from PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_tree_event_witness_mv
+UNION
+select * from PARTICIPANT_EVENTS_CONSUMING_EXERCISE_tree_event_witness_mv;
+
+
+
+
+
+create materialized view PARTICIPANT_EVENTS_CREATE_flat_event_witness_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+        WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, flat_event_witness
+FROM PARTICIPANT_EVENTS_CREATE,
+    JSON_TABLE(flat_event_witnesses, '$[*]' columns (flat_event_witness PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_flat_event_witness_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+        WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, flat_event_witness
+FROM PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE,
+    JSON_TABLE(flat_event_witnesses, '$[*]' columns (flat_event_witness PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_CONSUMING_EXERCISE_flat_event_witness_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+        WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, flat_event_witness
+FROM PARTICIPANT_EVENTS_CONSUMING_EXERCISE,
+    JSON_TABLE(flat_event_witnesses, '$[*]' columns (flat_event_witness PATH '$'));
+CREATE INDEX PARTICIPANT_EVENTS_CREATE_flat_event_witness_mv_index ON PARTICIPANT_EVENTS_CREATE_flat_event_witness_mv(flat_event_witness);
+CREATE INDEX PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_flat_event_witness_mv_index ON PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_flat_event_witness_mv(flat_event_witness);
+CREATE INDEX PARTICIPANT_EVENTS_CONSUMING_EXERCISE_flat_event_witness_mv_index ON PARTICIPANT_EVENTS_CONSUMING_EXERCISE_flat_event_witness_mv(flat_event_witness);
+
+
+
+create view PARTICIPANT_EVENTS_FLAT_WITNESS as
+select * from PARTICIPANT_EVENTS_CREATE_flat_event_witness_mv
+UNION
+select * from PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_flat_event_witness_mv
+UNION
+select * from PARTICIPANT_EVENTS_CONSUMING_EXERCISE_flat_event_witness_mv;
+
+
+
+-- SUBMITTERS
+
+create materialized view PARTICIPANT_EVENTS_DIVULGENCE_submitters_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+WITH PRIMARY KEY
+AS SELECT event_sequential_id, submitter
+   FROM PARTICIPANT_EVENTS_DIVULGENCE,
+       JSON_TABLE(submitters, '$[*]' columns (submitter PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_CREATE_submitters_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, submitter
+FROM PARTICIPANT_EVENTS_CREATE,
+    JSON_TABLE(SUBMITTERS, '$[*]' columns (submitter PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_submitters_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, submitter
+FROM PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE,
+    JSON_TABLE(SUBMITTERS, '$[*]' columns (submitter PATH '$'));
+
+create materialized view PARTICIPANT_EVENTS_CONSUMING_EXERCISE_submitters_mv
+    BUILD IMMEDIATE REFRESH FAST ON STATEMENT
+WITH PRIMARY KEY
+AS
+SELECT event_sequential_id, submitter
+FROM PARTICIPANT_EVENTS_CONSUMING_EXERCISE,
+    JSON_TABLE(SUBMITTERS, '$[*]' columns (submitter PATH '$'));
+
+CREATE INDEX PARTICIPANT_EVENTS_DIVULGENCE_submitter_mv_index ON PARTICIPANT_EVENTS_DIVULGENCE_submitters_mv(submitter);
+CREATE INDEX PARTICIPANT_EVENTS_CREATE_submitter_mv_index ON PARTICIPANT_EVENTS_CREATE_submitters_mv(submitter);
+CREATE INDEX PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_submitter_mv_index ON PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_submitters_mv(submitter);
+CREATE INDEX PARTICIPANT_EVENTS_CONSUMING_EXERCISE_submitter_mv_index ON PARTICIPANT_EVENTS_CONSUMING_EXERCISE_submitters_mv(submitter);
+
+create view PARTICIPANT_EVENTS_SUBMITTERS as
+select * from PARTICIPANT_EVENTS_DIVULGENCE_submitters_mv
+UNION
+select * from PARTICIPANT_EVENTS_CREATE_submitters_mv
+UNION
+select * from PARTICIPANT_EVENTS_NON_CONSUMING_EXERCISE_submitters_mv
+UNION
+select * from PARTICIPANT_EVENTS_CONSUMING_EXERCISE_submitters_mv;

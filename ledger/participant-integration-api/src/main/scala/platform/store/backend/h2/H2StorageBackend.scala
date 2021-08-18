@@ -101,7 +101,8 @@ private[backend] object H2StorageBackend
       connection: Connection
   ): Option[StorageBackend.RawContract] =
     TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      participantTreeWitnessEventsWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
+      divulgenceEventsTreeWitnessWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
       contractId = contractId,
     )(connection)
 
@@ -145,6 +146,7 @@ private[backend] object H2StorageBackend
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
+        columnPrefix: String
     ): (String, List[NamedParameter]) =
       (
         s"(${arrayIntersectionWhereClause(submittersColumnName, parties)})",
@@ -154,6 +156,7 @@ private[backend] object H2StorageBackend
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
+        columnPrefix: String,
     ): (String, List[NamedParameter]) = {
       val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)

@@ -262,10 +262,12 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       eventStrategy.submittersArePartiesClause(
         submittersColumnName = "submitters",
         parties = parties,
+        columnPrefix = columnPrefix
       )
     val (witnessesWhereClause, witnessesWhereParams) = eventStrategy.witnessesWhereClause(
       witnessesColumnName = witnessesColumn,
       filterParams = filterParams,
+      columnPrefix = columnPrefix
     )
     val (limitClause, limitParams) = eventStrategy.limitClause(limit)
     val sql =
@@ -280,6 +282,8 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
          |ORDER BY event_sequential_id
          |$limitClause
          |""".stripMargin
+
+    println("THIS IS THE QUERY", sql, additionalAndClause)
     SQL(sql)
       .on(additionalAndClause._2: _*)
       .on(filteredEventWitnessesParams: _*)
@@ -472,6 +476,7 @@ trait EventStrategy {
   def submittersArePartiesClause(
       submittersColumnName: String,
       parties: Set[Ref.Party],
+      columnPrefix: String
   ): (String, List[NamedParameter])
 
   /** This populates the following part of the query:
@@ -489,6 +494,7 @@ trait EventStrategy {
   def witnessesWhereClause(
       witnessesColumnName: String,
       filterParams: FilterParams,
+      columnPrefix: String
   ): (String, List[NamedParameter])
 
   /** This populates the following part of the query:

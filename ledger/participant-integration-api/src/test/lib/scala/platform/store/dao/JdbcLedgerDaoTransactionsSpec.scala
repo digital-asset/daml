@@ -541,16 +541,22 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       .traverseFM { case (boolSeq, cp) =>
         for {
           from <- ledgerDao.lookupLedgerEnd()
+          t1 = System.nanoTime
           commands <- storeSync(boolSeq map (if (_) cp.makeMatching() else cp.makeNonMatching()))
+          duration = (System.nanoTime - t1) / 1e9d
+          _ = println(s"The duration of storing is ${duration}")
           matchingOffsets = commands zip boolSeq collect { case ((off, _), true) =>
             off.toHexString
           }
           to <- ledgerDao.lookupLedgerEnd()
+          t2 = System.nanoTime
           response <- ledgerDao.transactionsReader
             .getFlatTransactions(from, to, cp.filter, verbose = false)
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
           readCreates = extractAllTransactions(response) flatMap (_.events)
+          duration2 = (System.nanoTime - t2) / 1e9d
+          _ = println(s"The duration of reading is ${duration2}")
         } yield try {
           readCreates.size should ===(boolSeq count identity)
           // we check that the offsets from the DB match the ones we had before
