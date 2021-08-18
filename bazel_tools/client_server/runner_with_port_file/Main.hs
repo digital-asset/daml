@@ -5,10 +5,10 @@ module Main (main) where
 
 import Data.List.Extra (replace, splitOn, stripInfix)
 import Data.Maybe (isJust)
-import System.Directory (removeFile)
 import System.Environment (getArgs)
+import System.FilePath ((</>))
 import System.Process (callProcess, proc, withCreateProcess)
-import System.IO.Temp (emptyTempFile, withSystemTempDirectory)
+import System.IO.Temp (withSystemTempDirectory)
 
 import DA.PortFile
 
@@ -21,8 +21,7 @@ main = do
     (portFile, interpolatedServerArgs) <-
       if any (isJust . stripInfix "%PORT_FILE%") splitServerArgs
         then do
-          portFile <- emptyTempFile tempDir "port"
-          removeFile portFile
+          let portFile = tempDir </> "portfile"
           let interpolatedArgs = map (replace "%PORT_FILE%" portFile) splitServerArgs
           return (Just portFile, interpolatedArgs)
         else

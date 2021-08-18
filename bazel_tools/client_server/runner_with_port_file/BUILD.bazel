@@ -10,6 +10,7 @@ da_haskell_binary(
         "base",
         "directory",
         "extra",
+        "filepath",
         "process",
         "temporary",
     ],
