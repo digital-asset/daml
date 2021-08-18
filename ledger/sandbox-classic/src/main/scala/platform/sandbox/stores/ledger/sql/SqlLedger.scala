@@ -29,7 +29,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.CurrentOffset
 import com.daml.platform.packages.InMemoryPackageStore
@@ -144,10 +144,15 @@ private[sandbox] object SqlLedger {
         case (LedgerIdMode.Dynamic, Some(existingLedgerId), Some(`participantId`)) =>
           // In dynamic ledgerId mode, reuse the existing ledgerId if the participantId matches
           logger.info(
-            s"Found existing ledger id '${existingLedgerId}' matching participant id '$participantId'"
+            s"Dynamic ledger id mode: Found matching participant id '$participantId', using existing ledger id '$existingLedgerId'"
           )
           initializeExistingLedger(dao, existingLedgerId, participantId)
-        case (_, Some(_), _) =>
+        case (LedgerIdMode.Dynamic, _, Some(existingParticipantId)) =>
+          logger.error(
+            s"Dynamic ledger id mode: Found existing participant id '$existingParticipantId' not matching provided participant id '$participantId'"
+          )
+          throw MismatchException.ParticipantId(existingParticipantId, participantId)
+        case _ =>
           initializeExistingLedger(dao, ledgerId, participantId)
       }
     }
