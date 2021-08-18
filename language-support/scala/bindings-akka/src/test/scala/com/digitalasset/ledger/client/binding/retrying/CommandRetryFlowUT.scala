@@ -9,7 +9,6 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.api.v1.commands.Commands.Deduplication
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
@@ -20,7 +19,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.ledger.client.testing.AkkaTest
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import org.scalatest.Inside
@@ -38,9 +36,13 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
   val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
     Flow[In[RetryInfo[Status]]]
       .map {
-        case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands)), _) =>
-          // deduplication is set to empty when we create a retry, but it's not empty on the initial request
-          if (commands.deduplication == Deduplication.Empty) {
+        case Ctx(
+              context @ RetryInfo(_, nrOfRetries, _, status),
+              SubmitRequest(Some(commands)),
+              _,
+            ) =>
+          // return a completion based on the input status code only on the first submit,
+          if (nrOfRetries == 0) {
             Ctx(context, CompletionResponse(Completion(commands.commandId, Some(status))))
           } else {
             Ctx(
@@ -60,8 +62,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
       retryInfo: RetryInfo[Status],
       response: Either[CompletionFailure, CompletionSuccess],
   ) = {
-    val commands = retryInfo.request.commands.get
-    SubmitRequest(Some(commands.copy(deduplication = Deduplication.Empty)))
+    SubmitRequest(retryInfo.request.commands)
   }
 
   val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
@@ -78,7 +79,6 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
           "commandId",
           "party",
           Seq.empty,
-          Deduplication.DeduplicationTime(protoDuration.of(120, 0)),
         )
       )
     )
@@ -92,7 +92,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
       .runWith(Sink.seq)
   }
 
-  CommandRetryFlow.getClass.getSimpleName should {
+  "command retry flow" should {
 
     "propagate OK status" in {
       submitRequest(Code.OK_VALUE, Instant.ofEpochSecond(45)) map { result =>
