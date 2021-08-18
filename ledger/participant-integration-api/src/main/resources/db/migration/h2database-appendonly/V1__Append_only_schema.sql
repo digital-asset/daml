@@ -132,7 +132,7 @@ CREATE TABLE participant_command_completions (
     -- keep them for parity with old data in other databases.
     rejection_status_code INTEGER,
     rejection_status_message VARCHAR,
-    rejection_status BLOB
+    rejection_status BYTEA
 );
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);
@@ -326,9 +326,6 @@ CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON p
 
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
-
---  Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
---  SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise

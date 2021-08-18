@@ -387,9 +387,6 @@ CREATE TABLE participant_events_non_consuming_exercise (
 -- offset index: used to translate to sequential_id
 CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise(event_offset);
 
---  Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
---  SPDX-License-Identifier: Apache-2.0
-
 -- sequential_id index for paging
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise(event_sequential_id);
 
