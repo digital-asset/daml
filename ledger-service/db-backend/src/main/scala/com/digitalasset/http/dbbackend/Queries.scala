@@ -180,11 +180,10 @@ sealed abstract class Queries(tablePrefix: String) {
   final def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
       log: LogHandler
   ): ConnectionIO[Map[String, String]] = {
-    val partyVector =
-      cats.data.OneAnd(parties.head, parties.tail.toList)
+    import Queries.CompatImplicits.catsReducibleFromFoldable1
     val q = sql"""
       SELECT party, last_offset FROM $ledgerOffsetTableName WHERE tpid = $tpid AND
-    """ ++ Fragments.in(fr"party", partyVector)
+    """ ++ Fragments.in(fr"party", parties)
     q.query[(String, String)]
       .to[Vector]
       .map(_.toMap)
