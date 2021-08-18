@@ -250,8 +250,6 @@ client_server_build(
         "localhost:%PORT%",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
-    runner = "@//bazel_tools/client_server/runner_with_port_file",
-    runner_args = [],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",

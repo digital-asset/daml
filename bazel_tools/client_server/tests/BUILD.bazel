@@ -39,6 +39,7 @@ client_server_test(
         "--foobar",
         # Use the input file passed in via `data`.
         "$$(rlocation $$TEST_WORKSPACE/$(rootpath :client_input_file))",
+        "--target-port=%PORT%",
     ],
 
     # Data files available to both client and server.
@@ -46,6 +47,9 @@ client_server_test(
         ":client_input_file",
     ],
     server = ":server",
+    server_args = [
+        "--port-file=%PORT_FILE%",
+    ],
 )
 
 client_server_build(
@@ -54,6 +58,7 @@ client_server_build(
     client = ":client",
     client_args = [
         "--foobar",
+        "--target-port=%PORT%",
     ],
     client_files = [
         ":client_input_file",
@@ -64,4 +69,7 @@ client_server_build(
     ],
     output_env = "CS_OUT",
     server = ":server",
+    server_args = [
+        "--port-file=%PORT_FILE%",
+    ],
 )
