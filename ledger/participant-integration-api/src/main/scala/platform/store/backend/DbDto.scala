@@ -133,7 +133,9 @@ object DbDto {
       submitters: Set[String],
       command_id: String,
       transaction_id: Option[String],
-      rejection_status: Option[Array[Byte]],
+      rejection_status_code: Option[Int],
+      rejection_status_message: Option[String],
+      rejection_status_details: Option[Array[Byte]],
   ) extends DbDto
 
   final case class CommandDeduplication(deduplication_key: String) extends DbDto

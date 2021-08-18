@@ -18,6 +18,7 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
+import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events.Raw.TreeEvent
 import com.daml.platform.store.appendonlydao.events.{
@@ -276,7 +277,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Set(someParty),
           command_id = someCommandId,
           transaction_id = None,
-          rejection_status = Some(status.toByteArray),
+          rejection_status_code = Some(status.code),
+          rejection_status_message = Some(status.message),
+          rejection_status_details = Some(StatusDetails.of(status.details).toByteArray),
         ),
         DbDto.CommandDeduplication(
           DeduplicationKeyMaker.make(
@@ -346,7 +349,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -412,7 +417,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -490,7 +497,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -568,7 +577,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -729,7 +740,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -824,7 +837,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -943,7 +958,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -1039,7 +1056,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
@@ -1112,7 +1131,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
           transaction_id = Some(update.transactionId),
-          rejection_status = None,
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
         ),
       )
     }
