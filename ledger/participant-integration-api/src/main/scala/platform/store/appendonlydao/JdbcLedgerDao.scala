@@ -7,7 +7,6 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
@@ -88,22 +87,25 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerId)(storageBackend.ledgerIdentity)
-      .map(_.map(_.ledgerId))(DEC)
+      .executeSql(metrics.daml.index.db.getLedgerId)(
+        storageBackend.ledgerIdentity(_).map(_.ledgerId)
+      )
 
   override def lookupParticipantId()(implicit
       loggingContext: LoggingContext
   ): Future[Option[ParticipantId]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getParticipantId)(storageBackend.ledgerIdentity)
-      .map(_.map(_.participantId))(DEC)
+      .executeSql(metrics.daml.index.db.getParticipantId)(
+        storageBackend.ledgerIdentity(_).map(_.participantId)
+      )
 
   /** Defaults to Offset.begin if ledger_end is unset
     */
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerEnd)(storageBackend.ledgerEndOrBeforeBegin)
-      .map(_.lastOffset)(DEC)
+      .executeSql(metrics.daml.index.db.getLedgerEnd)(
+        storageBackend.ledgerEndOrBeforeBegin(_).lastOffset
+      )
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
 
@@ -111,17 +113,18 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContext
   ): Future[(Offset, Long)] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId)(
-        storageBackend.ledgerEndOrBeforeBegin
-      )
-      .map(end => end.lastOffset -> end.lastEventSeqId)(DEC)
+      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId) { connection =>
+        val end = storageBackend.ledgerEndOrBeforeBegin(connection)
+        end.lastOffset -> end.lastEventSeqId
+      }
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[Option[Offset]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(storageBackend.ledgerEnd)
-      .map(_.map(_.lastOffset))(DEC)
+      .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
+        storageBackend.ledgerEnd(_).map(_.lastOffset)
+      )
 
   override def initialize(
       ledgerId: LedgerId,
