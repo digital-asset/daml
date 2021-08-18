@@ -4,7 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 
 da_haskell_binary(
-    name = "runner",
+    name = "runner_with_port_check",
     srcs = ["Main.hs"],
     hackage_deps = [
         "base",

@@ -73,7 +73,7 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
     server_args = [],
     test_tool_args = [
@@ -117,7 +117,7 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
         "--verbose",
@@ -152,7 +152,7 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
     tags = [
         "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
