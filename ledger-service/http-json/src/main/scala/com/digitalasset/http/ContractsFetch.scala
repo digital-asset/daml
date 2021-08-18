@@ -214,7 +214,7 @@ private class ContractsFetch(
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import domain.Offset._
-    val offset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
+    val startOffset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
@@ -231,7 +231,7 @@ private class ContractsFetch(
         )
 
         // include ACS iff starting at LedgerBegin
-        val (idses, lastOff) = (offset, disableAcs) match {
+        val (idses, lastOff) = (startOffset, disableAcs) match {
           case (LedgerBegin, false) =>
             val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
             stepsAndOffset.in <~ getActiveContracts(
@@ -243,7 +243,7 @@ private class ContractsFetch(
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
+            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(startOffset))
             (
               (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
               stepsAndOffset.out1,
@@ -267,12 +267,13 @@ private class ContractsFetch(
     for {
       _ <- sinkCioSequence_(acsQueue)
       offset0 <- connectionIOFuture(lastOffsetFuture)
-      offsetOrError <- offset0 match {
-        case AbsoluteBookmark(str) =>
-          val newOffset = domain.Offset(str)
+      offsetOrError <- (domain.Offset.tag.subst(offset0) max AbsoluteBookmark(
+        absEnd.toDomain
+      )) match {
+        case ab @ AbsoluteBookmark(newOffset) =>
           ContractDao
             .updateOffset(parties, templateId, newOffset, offsets)
-            .map(_ => AbsoluteBookmark(newOffset))
+            .map(_ => ab)
         case LedgerBegin =>
           fconn.pure(LedgerBegin)
       }
