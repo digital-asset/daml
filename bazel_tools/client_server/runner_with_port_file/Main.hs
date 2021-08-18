@@ -11,7 +11,7 @@ import System.FilePath ((</>))
 import System.Process (callProcess, proc, withCreateProcess)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
-import System.IO.Temp (withSystemTempDirectory)
+import System.IO.Extra (withTempDir)
 
 import DA.PortFile
 
@@ -24,7 +24,7 @@ main = do
   unless (any (isJust . stripInfix "%PORT_FILE%") splitServerArgs) $ do
     hPutStrLn stderr "No server parameters accept a port file."
     exitFailure
-  withSystemTempDirectory "runner" $ \tempDir -> do
+  withTempDir $ \tempDir -> do
     let portFile = tempDir </> "portfile"
     let interpolatedServerArgs = map (replace "%PORT_FILE%" portFile) splitServerArgs
     let serverProc = proc serverExe interpolatedServerArgs
