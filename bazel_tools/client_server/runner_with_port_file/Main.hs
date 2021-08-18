@@ -3,11 +3,14 @@
 
 module Main (main) where
 
+import Control.Monad (unless)
 import Data.List.Extra (replace, splitOn, stripInfix)
 import Data.Maybe (isJust)
 import System.Environment (getArgs)
 import System.FilePath ((</>))
 import System.Process (callProcess, proc, withCreateProcess)
+import System.Exit (exitFailure)
+import System.IO (hPutStrLn, stderr)
 import System.IO.Temp (withSystemTempDirectory)
 
 import DA.PortFile
@@ -17,21 +20,15 @@ main = do
   [clientExe, clientArgs, serverExe, serverArgs, _] <- getArgs
   let splitArgs = filter (/= "") . splitOn " "
   let splitServerArgs = splitArgs serverArgs
+  let splitClientArgs = splitArgs clientArgs
+  unless (any (isJust . stripInfix "%PORT_FILE%") splitServerArgs) $ do
+    hPutStrLn stderr "No server parameters accept a port file."
+    exitFailure
   withSystemTempDirectory "runner" $ \tempDir -> do
-    (portFile, interpolatedServerArgs) <-
-      if any (isJust . stripInfix "%PORT_FILE%") splitServerArgs
-        then do
-          let portFile = tempDir </> "portfile"
-          let interpolatedArgs = map (replace "%PORT_FILE%" portFile) splitServerArgs
-          return (Just portFile, interpolatedArgs)
-        else
-          return (Nothing, splitServerArgs)
+    let portFile = tempDir </> "portfile"
+    let interpolatedServerArgs = map (replace "%PORT_FILE%" portFile) splitServerArgs
     let serverProc = proc serverExe interpolatedServerArgs
     withCreateProcess serverProc $ \_stdin _stdout _stderr _ph -> do
-      maybePort <- mapM (readPortFile maxRetries) portFile
-      let splitClientArgs = splitArgs clientArgs
-      let interpolatedClientArgs =
-            case maybePort of
-              Nothing -> splitClientArgs
-              Just port -> map (replace "%PORT%" (show port)) splitClientArgs
+      port <- readPortFile maxRetries portFile
+      let interpolatedClientArgs = map (replace "%PORT%" (show port)) splitClientArgs
       callProcess clientExe interpolatedClientArgs
