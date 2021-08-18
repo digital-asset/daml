@@ -190,13 +190,14 @@ private[kvutils] class TransactionCommitter(
       metrics.daml.kvutils.committer.transaction.accepts.inc()
       logger.trace("Transaction accepted.")
 
-      StepContinue(
+      val transactionEntryWithBlindingInfo =
         transactionEntry.copyPreservingDecodedTransaction(
           submission = transactionEntry.submission.toBuilder
             .setBlindingInfo(Conversions.encodeBlindingInfo(blindingInfo, divulgedContracts))
             .build
         )
-      )
+
+      StepContinue(transactionEntryWithBlindingInfo)
     }
   }
 

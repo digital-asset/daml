@@ -306,11 +306,14 @@ object KeyValueConsumption {
       checkDivulgence(divulgedContracts, hexTxId)
     }
 
-    val divulgedContracts = maybeBlindingInfoWithDivulgedContracts
-      .map(_._2.iterator.collect { case (contractId, Some(contractInstance)) =>
-        DivulgedContract(contractId, contractInstance)
-      }.toList)
-      .getOrElse(List.empty[DivulgedContract])
+    val divulgedContracts =
+      maybeBlindingInfoWithDivulgedContracts
+        .map { case (_, divulgedContractsIndex) =>
+          divulgedContractsIndex.iterator.collect { case (contractId, Some(contractInstance)) =>
+            DivulgedContract(contractId, contractInstance)
+          }.toList
+        }
+        .getOrElse(List.empty[DivulgedContract])
 
     Update.TransactionAccepted(
       optSubmitterInfo =
