@@ -73,8 +73,9 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
+    server_args = [],
     test_tool_args = [
         "--verbose",
         "--concurrent-test-runs=4",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
@@ -116,7 +117,7 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
         "--verbose",
@@ -151,7 +152,7 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
     tags = [
         "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
