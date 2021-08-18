@@ -41,7 +41,7 @@ import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.jwt.domain.Jwt
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.grpc.netty.NegotiationType
 
 object HttpService {
 
@@ -60,37 +60,30 @@ object HttpService {
   }
 
   final case class LazyF[F[_], A, B](private val fn: A => F[B]) {
-    @volatile private var value: F[B] = _
+    @volatile private var value: Option[F[B]] = None
 
-    // For calls providing the argument always, this
-    // function will be called, which is after initialization
-    // set to be a simple getter function. That should perform
-    // in the long run better than having to check the variables value
-    // every time.
-    @volatile private var getValueFun: A => F[B] =
-      arg =>
-        // Try to get the value first without synchronization
-        // We don't want to unnecessarily block threads.
-        if (value == null)
-          // Now if there is an argument, we will set the value.
-          // However, before doing that we ensure once again
-          // that no value is available, but this time synchronized.
-          // This guarantees that we create the value at most only once.
-          synchronized {
-            if (value == null) {
-              val res = fn(arg)
-              value = res
-              getValueFun = _ => value
-              res
-            } else value
-          }
-        else value
+    @scala.inline
+    def get(arg: A): F[B] =
+      // Try to get the value first without synchronization
+      // We don't want to unnecessarily block threads.
+      if (value.isEmpty)
+        // Now if there is an argument, we will set the value.
+        // However, before doing that we ensure once again
+        // that no value is available, but this time synchronized.
+        // This guarantees that we create the value at most only once.
+        synchronized {
+          if (value.isEmpty) {
+            val res = fn(arg)
+            value = Some(res)
+            res
+          } else value.get
+        }
+      else value.get
 
-    def get(arg: A): F[B] = getValueFun(arg)
-
-    def get(): F[B] = if (value == null)
+    @scala.inline
+    def get(): F[B] = if (value.isEmpty)
       throw new Exception("No value provided for unfinished lazy function")
-    else value
+    else value.get
   }
 
   final case class Error(message: String)
@@ -125,15 +118,16 @@ object HttpService {
 
     import akka.http.scaladsl.server.Directives._
     val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
-      channel <- EitherT.rightT(Future.successful {
-        val builder = NettyChannelBuilder.forAddress(ledgerHost, ledgerPort)
-        clientConfig.sslContext.fold(builder.usePlaintext())(
-          builder.sslContext(_).negotiationType(NegotiationType.TLS)
-        )
-        builder.maxInboundMetadataSize(clientConfig.maxInboundMetadataSize)
-        builder.maxInboundMessageSize(clientConfig.maxInboundMessageSize)
-        builder.build()
-      })
+      channel <- EitherT.rightT(
+        LedgerClient.channelBuilder(ledgerHost, ledgerPort, nonRepudiation).map { builder =>
+          clientConfig.sslContext.fold(builder.usePlaintext())(
+            builder.sslContext(_).negotiationType(NegotiationType.TLS)
+          )
+          builder.maxInboundMetadataSize(clientConfig.maxInboundMetadataSize)
+          builder.maxInboundMessageSize(clientConfig.maxInboundMessageSize)
+          builder.build()
+        }
+      )
 
       lazyLedgerClient =
         LazyF[Future, Jwt, DamlLedgerClient] { case Jwt(token) =>

@@ -29,7 +29,7 @@ trait LedgerClientBase {
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  protected def channelBuilder(
+  def channelBuilder(
       ledgerHost: String,
       ledgerPort: Int,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
