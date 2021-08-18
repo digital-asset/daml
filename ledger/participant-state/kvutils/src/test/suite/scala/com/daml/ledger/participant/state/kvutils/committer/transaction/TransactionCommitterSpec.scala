@@ -16,8 +16,8 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.value.Value.{ValueRecord, ValueText}
+import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.MockitoSugar
@@ -263,55 +263,40 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val cid = builder.newCid
 
+      val (expectedContractInstance, txEntry) = txEntryWithDivulgedContract(builder, cid)
+
       val actual =
         transactionCommitter.blind(
           context,
-          DamlTransactionEntrySummary(txEntryWithDivulgedContract(builder, cid)),
+          DamlTransactionEntrySummary(txEntry),
         )
 
       actual match {
         case StepContinue(partialResult) =>
+          val blindingInfo = partialResult.submission.getBlindingInfo
+
           val actualDivulgencesList =
-            partialResult.submission.getBlindingInfo.getDivulgencesList.asScala
+            blindingInfo.getDivulgencesList.asScala
               .map(entry =>
-                entry.getContractId -> entry.getDivulgedToLocalPartiesList.asScala.toSet
+                (
+                  entry.getContractId,
+                  entry.getDivulgedToLocalPartiesList.asScala.toSet,
+                  entry.getContractInstance,
+                )
               )
 
-          actualDivulgencesList should contain theSameElementsAs Vector(
-            cid.coid -> Set("ChoiceObserver")
-          )
+          actualDivulgencesList should contain theSameElementsAs {
+            Vector((cid.coid, Set("ChoiceObserver"), expectedContractInstance))
+          }
 
           val actualDisclosureList =
-            partialResult.submission.getBlindingInfo.getDisclosuresList.asScala
+            blindingInfo.getDisclosuresList.asScala
               .map(entry => entry.getNodeId -> entry.getDisclosedToLocalPartiesList.asScala.toSet)
 
           actualDisclosureList should contain theSameElementsAs Vector(
             "0" -> Set("Alice"),
             "1" -> Set("Actor", "Alice", "ChoiceObserver"),
           )
-        case StepStop(_) => fail()
-      }
-    }
-
-    "always set divulgedContracts" in {
-      val context = createCommitContext(recordTime = None)
-
-      val builder = TransactionBuilder(TransactionVersion.VDev)
-      val cid = builder.newCid
-
-      val actual =
-        transactionCommitter.blind(
-          context,
-          DamlTransactionEntrySummary(txEntryWithDivulgedContract(builder, cid)),
-        )
-
-      actual match {
-        case StepContinue(partialResult) =>
-          val actualDivulgedContractIds =
-            partialResult.submission.getDivulgedContractsList.asScala.map(contract =>
-              contract.getContractId
-            )
-          actualDivulgedContractIds should contain theSameElementsAs Vector(cid.coid)
 
         case StepStop(_) => fail()
       }
@@ -423,10 +408,16 @@ object TransactionCommitterSpec {
       builder: TransactionBuilder,
       divulgedContractId: Value.ContractId,
   ) = {
+    val packageName = "DummyPackage"
+    val moduleName = "DummyModule"
+    val templateName = "DummyTemplate"
+
+    val argValue = "DummyText"
+
     val createNode = builder.create(
       id = divulgedContractId,
-      template = "pkgid:M:T",
-      argument = ValueRecord(None, ImmArray.empty),
+      template = s"$packageName:$moduleName:$templateName",
+      argument = ValueText(argValue),
       signatories = Seq("Alice"),
       observers = Seq.empty,
       key = None,
@@ -442,7 +433,31 @@ object TransactionCommitterSpec {
 
     builder.add(createNode)
     builder.add(exerciseNode)
-    createTransactionEntry(List("aSubmitter"), SubmittedTransaction(builder.build()))
+
+    val expectedContractInstance =
+      TransactionOuterClass.ContractInstance
+        .newBuilder()
+        .setTemplateId(
+          ValueOuterClass.Identifier
+            .newBuilder()
+            .setPackageId(packageName)
+            .addModuleName(moduleName)
+            .addName(templateName)
+        )
+        .setArgVersioned(
+          ValueOuterClass.VersionedValue
+            .newBuilder()
+            .setVersion(TransactionVersion.VDev.protoValue)
+            .setValue(
+              ValueOuterClass.Value.newBuilder().setText(argValue).build().toByteString
+            )
+        )
+        .build()
+
+    expectedContractInstance -> createTransactionEntry(
+      List("aSubmitter"),
+      SubmittedTransaction(builder.build()),
+    )
   }
 
   private def createInputs(

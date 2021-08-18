@@ -13,14 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmitterInfo
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
-import com.daml.lf.transaction.{
-  BlindingInfo,
-  GlobalKey,
-  NodeId,
-  Transaction,
-  TransactionCoder,
-  TransactionOuterClass,
-}
+import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
@@ -246,27 +239,57 @@ private[state] object Conversions {
   /** Encodes a [[BlindingInfo]] into protobuf (i.e., [[DamlTransactionBlindingInfo]]).
     * It is consensus-safe because it does so deterministically.
     */
-  def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
+  def encodeBlindingInfo(
+      blindingInfo: BlindingInfo,
+      divulgedContracts: Map[ContractId, TransactionOuterClass.ContractInstance],
+  ): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
-      .addAllDivulgences(encodeDivulgence(blindingInfo.divulgence).asJava)
+      .addAllDivulgences(encodeDivulgence(blindingInfo.divulgence, divulgedContracts).asJava)
       .build
 
-  def decodeBlindingInfo(blindingInfo: DamlTransactionBlindingInfo): BlindingInfo =
-    BlindingInfo(
-      disclosure = blindingInfo.getDisclosuresList.asScala.map { disclosureEntry =>
+  def decodeBlindingInfo(
+      damlTransactionBlindingInfo: DamlTransactionBlindingInfo
+  ): (BlindingInfo, Map[ContractId, Option[Value.ContractInst[VersionedValue[ContractId]]]]) = {
+    val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.map {
+      divulgenceEntry =>
+        val maybeContractInstance =
+          if (divulgenceEntry.hasContractInstance)
+            Some(decodeContractInstance(divulgenceEntry.getContractInstance))
+          else
+            None
+
+        val contractId = decodeContractId(
+          divulgenceEntry.getContractId
+        )
+
+        val divulgedTo = divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
+          .map(Ref.Party.assertFromString)
+
+        contractId -> (divulgedTo -> maybeContractInstance)
+    }.toMap
+
+    val blindingInfoDivulgence = divulgences.iterator.map { case (contractId, (parties, _)) =>
+      contractId -> parties
+    }.toMap
+
+    val blindingInfo = BlindingInfo(
+      disclosure = damlTransactionBlindingInfo.getDisclosuresList.asScala.map { disclosureEntry =>
         decodeTransactionNodeId(
           disclosureEntry.getNodeId
         ) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
           .map(Ref.Party.assertFromString)
       }.toMap,
-      divulgence = blindingInfo.getDivulgencesList.asScala.map { divulgenceEntry =>
-        decodeContractId(
-          divulgenceEntry.getContractId
-        ) -> divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
-          .map(Ref.Party.assertFromString)
-      }.toMap,
+      divulgence = blindingInfoDivulgence,
     )
+
+    val divulgedContracts =
+      divulgences.iterator.map { case (contractId, (_, maybeContractInstance)) =>
+        contractId -> maybeContractInstance
+      }.toMap
+
+    blindingInfo -> divulgedContracts
+  }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =
     (parties.toList: List[String]).sorted
@@ -285,17 +308,25 @@ private[state] object Conversions {
       .map(encodeDisclosureEntry)
 
   private def encodeDivulgenceEntry(
-      divulgenceEntry: (ContractId, Set[Ref.Party])
+      contractId: ContractId,
+      divulgedTo: Set[Ref.Party],
+      contractInstance: TransactionOuterClass.ContractInstance,
   ): DivulgenceEntry =
     DivulgenceEntry.newBuilder
-      .setContractId(contractIdToString(divulgenceEntry._1))
-      .addAllDivulgedToLocalParties(encodeParties(divulgenceEntry._2).asJava)
+      .setContractId(contractIdToString(contractId))
+      .addAllDivulgedToLocalParties(encodeParties(divulgedTo).asJava)
+      .setContractInstance(contractInstance)
       .build
 
   private def encodeDivulgence(
-      divulgence: Relation[ContractId, Ref.Party]
+      divulgence: Relation[ContractId, Ref.Party],
+      divulgedContractsIndex: Map[ContractId, TransactionOuterClass.ContractInstance],
   ): List[DivulgenceEntry] =
     divulgence.toList
       .sortBy(_._1.coid)
-      .map(encodeDivulgenceEntry)
+      .map { case (cId, party) =>
+        val contractInst =
+          divulgedContractsIndex.getOrElse(cId, throw Err.MissingDivulgedContractInstance(cId.coid))
+        encodeDivulgenceEntry(cId, party, contractInst)
+      }
 }

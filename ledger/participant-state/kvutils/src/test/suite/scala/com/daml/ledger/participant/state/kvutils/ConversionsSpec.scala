@@ -8,20 +8,23 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   decodeBlindingInfo,
   encodeBlindingInfo,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlSubmitterInfo,
-  DamlTransactionBlindingInfo,
-}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
 }
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlSubmitterInfo,
+  DamlTransactionBlindingInfo,
+}
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.{BlindingInfo, NodeId}
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.lf.value.ValueOuterClass
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -31,13 +34,25 @@ import scala.jdk.CollectionConverters._
 class ConversionsSpec extends AnyWordSpec with Matchers {
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
-      encodeBlindingInfo(wronglySortedBlindingInfo) shouldBe correctlySortedEncodedBlindingInfo
+      encodeBlindingInfo(
+        wronglySortedBlindingInfo,
+        Map(
+          contractId0 -> apiContractInstance0,
+          contractId1 -> apiContractInstance1,
+        ),
+      ) shouldBe correctlySortedEncodedBlindingInfo
     }
 
     "correctly decode BlindingInfo" in {
-      val decodedBlindingInfo = decodeBlindingInfo(correctlySortedEncodedBlindingInfo)
+      val (decodedBlindingInfo, divulgedContracts) =
+        decodeBlindingInfo(correctlySortedEncodedBlindingInfo)
       decodedBlindingInfo.disclosure.toSet should contain theSameElementsAs wronglySortedBlindingInfo.disclosure.toSet
       decodedBlindingInfo.divulgence.toSet should contain theSameElementsAs wronglySortedBlindingInfo.divulgence.toSet
+
+      divulgedContracts shouldBe Map(
+        contractId0 -> Some(lfContractInstance0),
+        contractId1 -> Some(lfContractInstance1),
+      )
     }
 
     "deterministically encode deduplication keys with multiple submitters (order independence)" in {
@@ -65,10 +80,15 @@ class ConversionsSpec extends AnyWordSpec with Matchers {
       .addAllDisclosedToLocalParties(parties.asJava)
       .build
 
-  private def newDivulgenceEntry(contractId: String, parties: List[String]) =
+  private def newDivulgenceEntry(
+      contractId: String,
+      parties: List[String],
+      contractInstance: TransactionOuterClass.ContractInstance,
+  ) =
     DivulgenceEntry.newBuilder
       .setContractId(contractId)
       .addAllDivulgedToLocalParties(parties.asJava)
+      .setContractInstance(contractInstance)
       .build
 
   private lazy val party0: Party = Party.assertFromString("party0")
@@ -88,6 +108,15 @@ class ConversionsSpec extends AnyWordSpec with Matchers {
     disclosure = wronglySortedDisclosure,
     divulgence = wronglySortedDivulgence,
   )
+
+  private lazy val Seq(
+    (apiContractInstance0, lfContractInstance0),
+    (apiContractInstance1, lfContractInstance1),
+  ) =
+    Seq("contract 0", "contract 1").map(discriminator =>
+      apiContractInstance(discriminator) -> lfContractInstance(discriminator)
+    )
+
   private lazy val correctlySortedParties = List(party0, party1)
   private lazy val correctlySortedPartiesAsStrings =
     correctlySortedParties.asInstanceOf[List[String]]
@@ -101,8 +130,16 @@ class ConversionsSpec extends AnyWordSpec with Matchers {
       )
       .addAllDivulgences(
         List(
-          newDivulgenceEntry(contractId0.coid, correctlySortedPartiesAsStrings),
-          newDivulgenceEntry(contractId1.coid, correctlySortedPartiesAsStrings),
+          newDivulgenceEntry(
+            contractId0.coid,
+            correctlySortedPartiesAsStrings,
+            apiContractInstance0,
+          ),
+          newDivulgenceEntry(
+            contractId1.coid,
+            correctlySortedPartiesAsStrings,
+            apiContractInstance1,
+          ),
         ).asJava
       )
       .build
@@ -117,4 +154,33 @@ class ConversionsSpec extends AnyWordSpec with Matchers {
     val deduplicationKey = commandDedupKey(submitterInfo)
     deduplicationKey.toByteArray
   }
+
+  private def apiContractInstance(discriminator: String) =
+    TransactionOuterClass.ContractInstance
+      .newBuilder()
+      .setTemplateId(
+        ValueOuterClass.Identifier
+          .newBuilder()
+          .setPackageId("some")
+          .addModuleName("template")
+          .addName("name")
+      )
+      .setArgVersioned(
+        ValueOuterClass.VersionedValue
+          .newBuilder()
+          .setVersion(TransactionVersion.VDev.protoValue)
+          .setValue(
+            ValueOuterClass.Value.newBuilder().setText(discriminator).build().toByteString
+          )
+      )
+      .build()
+
+  private def lfContractInstance(discriminator: String) =
+    TransactionBuilder(TransactionVersion.VDev).versionContract(
+      ContractInst(
+        Ref.Identifier.assertFromString("some:template:name"),
+        ValueText(discriminator),
+        "",
+      )
+    )
 }
