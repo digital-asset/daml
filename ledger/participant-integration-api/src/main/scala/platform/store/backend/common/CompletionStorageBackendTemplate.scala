@@ -12,10 +12,10 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
+import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Conversions.{instant, offset}
 import com.daml.platform.store.backend.CompletionStorageBackend
-import com.google.protobuf.CodedInputStream
 import com.google.rpc.status.{Status => StatusProto}
 
 trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
@@ -31,21 +31,19 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
         CompletionFromTransaction.acceptedCompletion(recordTime, offset, commandId, transactionId)
     }
 
-  private val rejectedCommandParser: RowParser[CompletionStreamResponse] = {
-    val parserWithCodeAndMessage = sharedColumns ~
-      int("rejection_status_code") ~ str("rejection_status_message") map {
-        case offset ~ recordTime ~ commandId ~ rejectionStatusCode ~ rejectionStatusMessage =>
-          val status = StatusProto.of(rejectionStatusCode, rejectionStatusMessage, Seq.empty)
+  private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
+    sharedColumns ~
+      int("rejection_status_code") ~
+      str("rejection_status_message") ~
+      binaryStream("rejection_status_details").? map {
+        case offset ~ recordTime ~ commandId ~
+            rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
+          val details = rejectionStatusDetails
+            .map(stream => StatusDetails.parseFrom(stream).details)
+            .getOrElse(Seq.empty)
+          val status = StatusProto.of(rejectionStatusCode, rejectionStatusMessage, details)
           CompletionFromTransaction.rejectedCompletion(recordTime, offset, commandId, status)
       }
-    val parserWithProtobufStatus = sharedColumns ~
-      binaryStream("rejection_status") map {
-        case offset ~ recordTime ~ commandId ~ rejectionStatusStream =>
-          val status = StatusProto.parseFrom(CodedInputStream.newInstance(rejectionStatusStream))
-          CompletionFromTransaction.rejectedCompletion(recordTime, offset, commandId, status)
-      }
-    parserWithCodeAndMessage | parserWithProtobufStatus
-  }
 
   private val completionParser: RowParser[CompletionStreamResponse] =
     acceptedCommandParser | rejectedCommandParser
@@ -67,7 +65,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
           transaction_id,
           rejection_status_code,
           rejection_status_message,
-          rejection_status
+          rejection_status_details
         FROM
           participant_command_completions
         WHERE

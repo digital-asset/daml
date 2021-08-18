@@ -4,6 +4,7 @@
 load("@oracle//:index.bzl", "oracle_testing")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix")
+load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -16,7 +17,20 @@ load(
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//rules_daml:daml.bzl", "daml_compile")
 
+proto_jars(
+    name = "participant-integration-api-proto",
+    srcs = glob(["src/main/protobuf/**/*.proto"]),
+    maven_artifact_prefix = "participant-integration-api",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+    ],
+)
+
 compile_deps = [
+    ":participant-integration-api-proto_scala",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_proto_java",
     "//daml-lf/data",
@@ -238,6 +252,7 @@ da_scala_test_suite(
     ],
     deps = [
         ":participant-integration-api",
+        ":participant-integration-api-proto_scala",
         ":participant-integration-api-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
