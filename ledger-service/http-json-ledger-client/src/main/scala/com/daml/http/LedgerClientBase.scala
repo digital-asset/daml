@@ -51,10 +51,10 @@ trait LedgerClientBase {
     ).flatMap(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
 
   def fromRetried(
+      channel: io.grpc.ManagedChannel,
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
-      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
       maxInitialConnectRetryAttempts: Int,
   )(implicit
       ec: ExecutionContext,
@@ -66,7 +66,7 @@ trait LedgerClientBase {
     )
     RetryStrategy
       .constant(maxInitialConnectRetryAttempts, 1.seconds) { (i, _) =>
-        val client = buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
+        val client = DamlLedgerClient(channel, clientConfig)
         client.onComplete {
           case Success(_) =>
             logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts succeeded!""")
