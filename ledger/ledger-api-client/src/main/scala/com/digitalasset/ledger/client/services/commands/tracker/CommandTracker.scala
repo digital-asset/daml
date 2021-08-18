@@ -9,7 +9,7 @@ import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_submission_service._
-import com.daml.ledger.api.v1.commands.Commands.Deduplication
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
@@ -18,7 +18,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.ledger.client.services.commands.{CompletionStreamElement, tracker}
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => ProtoDuration}
 import com.google.protobuf.empty.Empty
 import com.google.rpc.code._
 import com.google.rpc.status.Status
@@ -224,22 +223,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
                 s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
               ) with NoStackTrace
             }
-            val commandTimeout = {
-              lazy val maxDedup = maxDeduplicationTime()
-              lazy val protoMaxDedup = ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano)
-              val timeoutDuration = commands.deduplication match {
-                case Deduplication.Empty =>
-                  protoMaxDedup
-                case Deduplication.DeduplicationTime(value) =>
-                  value
-                case Deduplication.DeduplicationStart(_) =>
-                  protoMaxDedup
-              }
-              Instant
-                .now()
-                .plusSeconds(timeoutDuration.seconds)
-                .plusNanos(timeoutDuration.nanos.toLong)
-            }
+            val commandTimeout = maxTimeoutFromDeduplicationPeriod(commands.deduplicationPeriod)
 
             pendingCommands += (commandId ->
               TrackingData(
@@ -321,6 +305,21 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
     }
 
     logic -> promise.future
+  }
+
+  private def maxTimeoutFromDeduplicationPeriod(deduplicationPeriod: DeduplicationPeriod) = {
+    lazy val maxDeduplicationDuration = maxDeduplicationTime()
+    val timeoutDuration = deduplicationPeriod match {
+      case DeduplicationPeriod.Empty =>
+        maxDeduplicationDuration
+      case DeduplicationPeriod.DeduplicationTime(duration) =>
+        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
+      case DeduplicationPeriod.DeduplicationStart(_) =>
+        maxDeduplicationDuration
+    }
+    Instant
+      .now()
+      .plus(timeoutDuration)
   }
 
   override def shape: CommandTrackerShape[Context] =
