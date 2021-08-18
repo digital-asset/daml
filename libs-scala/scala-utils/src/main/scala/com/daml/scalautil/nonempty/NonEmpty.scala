@@ -89,6 +89,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def updated(key: K, value: V): NonEmpty[Map[K, V]] = un((self: ESelf).updated(key, value))
     def ++(xs: Iterable[(K, V)]): NonEmpty[Map[K, V]] = un((self: ESelf) ++ xs)
     def keySet: NonEmpty[Set[K]] = un((self: ESelf).keySet)
+    def values: imm.Iterable[V] = un((self: ESelf).values)
     def transform[W](f: (K, V) => W): NonEmpty[Map[K, W]] = un((self: ESelf) transform f)
   }
 
@@ -110,6 +111,9 @@ object NonEmptyColl extends NonEmptyCollInstances {
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
+    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
+    def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
+    def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
     // ideas for extension: safe head/tail (not valuable unless also using
     // wartremover to disable partial Seq ops)
   }

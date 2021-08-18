@@ -8,14 +8,14 @@ import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
-import com.daml.scalautil.nonempty.+-:
+import com.daml.scalautil.nonempty.{NonEmpty, +-:}
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{NonEmptyList, OneAnd}
+import scalaz.{@@, NonEmptyList, OneAnd, Tags}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 
@@ -106,6 +106,55 @@ object ContractDao {
     } yield {
       type L[a] = Map[a, domain.Offset]
       domain.Party.subst[L, String](domain.Offset.tag.subst(offset))
+    }
+  }
+
+  /** A "lagging offset" is a template-ID/party pair whose stored offset may not reflect
+    * the actual contract table state at query time.  Examples of this are described in
+    * <https://github.com/digital-asset/daml/issues/10334> .  It is perfectly fine for
+    *
+    * @param parties The party-set that must not be lagging.  We aren't concerned with
+    *          whether ''other'' parties are lagging, in fact we can't correct if they are,
+    *          but if another party got ahead, that means one of our parties lags.
+    * @param expectedOffset `fetchAndPersist` should have synchronized every template-ID/party
+    *          pair to the same offset, this one.
+    * @param templateIds The template IDs we're checking.
+    * @return The template IDs that are lagging, and the offset to catch them up to, if defined;
+    *         otherwise everything is fine.
+    */
+  def laggingOffsets(
+      parties: Set[domain.Party],
+      expectedOffset: domain.Offset,
+      templateIds: NonEmpty[Set[domain.TemplateId.RequiredPkg]],
+  )(implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver,
+  ): ConnectionIO[Option[(domain.Offset, NonEmpty[Seq[domain.TemplateId.RequiredPkg]])]] = {
+    type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
+    for {
+      tpids <- templateIds.toVector.toF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
+      surrogatesToDomains = tpids.toMap
+      unsyncedRaw <- sjd.queries.unsyncedOffsets(
+        domain.Offset unwrap expectedOffset,
+        surrogatesToDomains.keySet,
+      )
+      unsynced = domain.Party.subst[Unsynced[*, domain.Offset], String](
+        domain.Offset.tag.subst[Unsynced[String, *], String](unsyncedRaw)
+      ): Unsynced[domain.Party, domain.Offset]
+      lagging = unsynced collect (Function unlift { case (surrogateTpId, partyOffs) =>
+        partyOffs
+          .collect {
+            case (unsyncedParty, unsyncedOff)
+                if (if (parties(unsyncedParty)) unsyncedOff != expectedOffset
+                    else unsyncedOff <= expectedOffset) =>
+              unsyncedOff
+          }
+          .maximum
+          .map((surrogatesToDomains(surrogateTpId), _))
+      })
+    } yield lagging match {
+      case NonEmpty(lagging) => Some(lagging)
+      case _ => None
     }
   }
 
