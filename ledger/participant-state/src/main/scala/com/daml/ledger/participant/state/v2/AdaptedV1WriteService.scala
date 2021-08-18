@@ -91,7 +91,7 @@ private[v2] object AdaptedV1WriteService {
     val deduplicateUntil = DeduplicationPeriod.deduplicateUntil(
       Instant.now(),
       submitterInfo.deduplicationPeriod,
-      submitterInfo.ledgerConfiguration.timeModel.maxSkew,
+      submitterInfo.ledgerConfiguration.timeModel.minSkew,
     )
     v1.SubmitterInfo(
       actAs = submitterInfo.actAs,

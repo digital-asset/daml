@@ -61,14 +61,13 @@ class GrpcCommandSubmissionService(
       Timed
         .value(
           metrics.daml.commands.validation,
-          validator
-            .validate(
-              request,
-              currentLedgerTime(),
-              currentUtcTime(),
-              maxDeduplicationTime(),
-              maxSkew(),
-            ),
+          validator.validate(
+            request,
+            currentLedgerTime(),
+            currentUtcTime(),
+            maxDeduplicationTime(),
+            maxSkew(),
+          ),
         )
         .fold(
           t => Future.failed(ValidationLogger.logFailure(request, t)),
