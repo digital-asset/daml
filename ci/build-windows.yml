@@ -32,6 +32,10 @@ steps:
       #   number).
       SKIP_TESTS: ${{parameters.skip_tests}}
 
+  - template: publish-platform-independence-dar.yml
+    parameters:
+      platform: 'windows'
+
   - task: PublishBuildArtifacts@1
     condition: failed()
     displayName: 'Publish the bazel test logs'

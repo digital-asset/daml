@@ -54,8 +54,9 @@ object Main {
             config.ledgerPort,
             clientConfig(config),
           )
-          acs <- LedgerUtils.getACS(client, config.parties, config.start)
-          trees <- LedgerUtils.getTransactionTrees(client, config.parties, config.start, config.end)
+          parties <- LedgerUtils.getAllParties(client, config.accessToken, config.partyConfig)
+          acs <- LedgerUtils.getACS(client, parties, config.start)
+          trees <- LedgerUtils.getTransactionTrees(client, parties, config.start, config.end)
           acsPkgRefs = TreeUtils.contractsReferences(acs.values)
           treePkgRefs = TreeUtils.treesReferences(trees)
           pkgRefs = acsPkgRefs ++ treePkgRefs

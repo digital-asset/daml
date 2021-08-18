@@ -504,18 +504,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def exerciseAndGetContract[T](
       party: Party,
-      exercise: Party => Primitive.Update[_],
+      exercise: Party => Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
       .map(extractContracts)
       .map(_.head.asInstanceOf[Primitive.ContractId[T]])
-
-  def exerciseAndGetContracts[T](
-      party: Party,
-      exercise: Party => Primitive.Update[T],
-  ): Future[Seq[Primitive.ContractId[_]]] =
-    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
-      .map(extractContracts)
 
   def exerciseByKey[T](
       party: Party,
@@ -527,7 +520,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     submitAndWaitForTransactionTree(
       submitAndWaitRequest(
         party,
-        Command(
+        Command.of(
           Command.Command.ExerciseByKey(
             ExerciseByKeyCommand(
               Some(template.unwrap),

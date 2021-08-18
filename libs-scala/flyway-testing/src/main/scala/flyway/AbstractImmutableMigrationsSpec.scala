@@ -11,7 +11,7 @@ import java.util
 
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
-import org.flywaydb.core.internal.resource.LoadableResource
+import org.flywaydb.core.api.resource.LoadableResource
 import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCache, Scanner}
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AnyWordSpec
@@ -29,8 +29,11 @@ abstract class AbstractImmutableMigrationsSpec extends AnyWordSpec {
       util.Arrays.asList(configuration.getLocations: _*),
       getClass.getClassLoader,
       configuration.getEncoding,
+      false,
+      false,
       new ResourceNameCache,
       new LocationScannerCache,
+      false,
     )
 
   private def readExpectedDigest(

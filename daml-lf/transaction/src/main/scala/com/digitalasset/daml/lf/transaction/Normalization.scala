@@ -45,17 +45,9 @@ class Normalization[Nid, Cid] {
 
   def normalizeTx(vtx: VTX): VTX = {
     vtx match {
-      case VersionedTransaction(_, nodes, roots) =>
-        // TODO: Normalized version calc should be shared with code in asVersionedTransaction
-        val version = roots.iterator.foldLeft(TransactionVersion.minVersion) { (acc, nodeId) =>
-          import scala.Ordering.Implicits.infixOrderingOps
-          nodes(nodeId).optVersion match {
-            case Some(version) => acc max version
-            case None => acc max TransactionVersion.minExceptions
-          }
-        }
+      case VersionedTransaction(_, nodes, _) =>
         VersionedTransaction(
-          version,
+          vtx.version,
           nodes.map { case (k, v) =>
             (k, normNode(v))
           },

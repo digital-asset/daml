@@ -497,7 +497,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRPruneQueryEmptyRangeOk",
     // This test is not terribly useful for conformance, but helps ensure that pruning does not interfere when run before
-    // TransactionServiceIT "TXBeginToBegin" and "TXTreesBeginToBegin" tests.
+    // TransactionServiceStreamingIT "TXBeginToBegin" and "TXTreesBeginToBegin" tests.
     "Prune succeeds and does not prevent querying empty ranges even in pruned space",
     allocate(SingleParty),
     runConcurrently = false,
