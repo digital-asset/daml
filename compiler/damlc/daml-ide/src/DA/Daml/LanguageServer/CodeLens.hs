@@ -37,15 +37,19 @@ handle ide (CodeLensParams{_textDocument=TextDocumentIdentifier uri}) = liftIO $
               (,) <$> useWithStale GenerateRawDalf filePath
                   <*> getDamlServiceEnv
           case mbModMapping of
-              Nothing -> pure []
-              Just (mod, mapping) ->
-                  pure
-                      [ virtualResourceToCodeLens (range, kind, name, vr)
-                      | (kind, (valRef, Just loc)) <- map (Scenario,) (scenariosInModule mod) ++ map (Script,) (scriptsInModule envEnableScripts mod)
-                      , let name = LF.unExprValName (LF.qualObject valRef)
-                      , let vr = VRScenario filePath name
-                      , Just range <- [toCurrentRange mapping $ sourceLocToRange loc]
-                      ]
+              Nothing -> do
+                  logInfo (ideLogger ide) $ "Failed to acquire modmapping for CodeLens: " <> T.pack (fromNormalizedFilePath filePath)
+                  pure []
+              Just (mod, mapping) -> do
+                  let r =
+                        [ virtualResourceToCodeLens (range, kind, name, vr)
+                        | (kind, (valRef, Just loc)) <- map (Scenario,) (scenariosInModule mod) ++ map (Script,) (scriptsInModule envEnableScripts mod)
+                        , let name = LF.unExprValName (LF.qualObject valRef)
+                        , let vr = VRScenario filePath name
+                        , Just range <- [toCurrentRange mapping $ sourceLocToRange loc]
+                        ]
+                  logInfo (ideLogger ide) $ "Codlens response: " <> T.pack (fromNormalizedFilePath filePath) <> ", " <> T.pack (show r)
+                  pure r
         Nothing -> pure []
 
     pure $ List $ toList mbResult
