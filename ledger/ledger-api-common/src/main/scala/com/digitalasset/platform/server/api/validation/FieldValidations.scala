@@ -108,7 +108,7 @@ trait FieldValidations {
       deduplicationPeriod: DeduplicationPeriodProto,
       maxDeduplicationTimeO: Option[Duration],
       fieldName: String,
-      maxSkew: Option[Duration],
+      minSkew: Option[Duration],
       currentTime: Instant,
   ): Either[StatusRuntimeException, DeduplicationPeriod] = {
 
@@ -139,7 +139,7 @@ trait FieldValidations {
         case DeduplicationPeriodProto.DeduplicationStart(startFrom) =>
           val start = TimestampConversion.toInstant(startFrom)
           for {
-            maxSkew <- maxSkew.toRight(missingLedgerConfig())
+            minSkew <- minSkew.toRight(missingLedgerConfig())
             _ <- Either.cond(
               start.isBefore(currentTime),
               start,
@@ -148,7 +148,7 @@ trait FieldValidations {
             currentTimeDuration = DeduplicationPeriod.deduplicationDurationFromTime(
               currentTime,
               start,
-              maxSkew,
+              minSkew,
             )
             _ <- validateDuration(
               currentTimeDuration,

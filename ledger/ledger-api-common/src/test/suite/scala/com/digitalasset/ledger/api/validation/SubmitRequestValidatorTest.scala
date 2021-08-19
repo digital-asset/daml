@@ -71,7 +71,7 @@ class SubmitRequestValidatorTest
     val submittedAt = Instant.now
     val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
-    val maxSkew = java.time.Duration.ofSeconds(3)
+    val minSkew = java.time.Duration.ofSeconds(3)
     val deduplicationDuration = java.time.Duration.ofSeconds(
       api.deduplicationTime.seconds,
       api.deduplicationTime.nanos.toLong,
@@ -141,7 +141,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: commands",
@@ -157,7 +157,7 @@ class SubmitRequestValidatorTest
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationTime),
-              Some(internal.maxSkew),
+              Some(internal.minSkew),
             ),
           INVALID_ARGUMENT,
           "Missing field: ledger_id",
@@ -172,7 +172,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.maxSkew),
+          Some(internal.minSkew),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
@@ -189,7 +189,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: application_id",
@@ -204,7 +204,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: command_id",
@@ -220,7 +220,7 @@ class SubmitRequestValidatorTest
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationTime),
-              Some(internal.maxSkew),
+              Some(internal.minSkew),
             ),
           INVALID_ARGUMENT,
           """Missing field: party or act_as""",
@@ -240,7 +240,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           )
         inside(result) { case Right(cmd) =>
           // actAs parties are gathered from "party" and "readAs" fields
@@ -259,7 +259,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -272,7 +272,7 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -287,7 +287,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.maxSkew),
+          Some(internal.minSkew),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -302,7 +302,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.maxSkew),
+          Some(internal.minSkew),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -316,10 +316,10 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
-          "Invalid field deduplication: Duration must be positive",
+          "Invalid field deduplication_period: Duration must be positive",
         )
       }
 
@@ -335,10 +335,10 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
-          s"Invalid field deduplication: The given deduplication time of ${java.time.Duration
+          s"Invalid field deduplication_period: The given deduplication time of ${java.time.Duration
             .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}",
         )
       }
@@ -351,7 +351,7 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.maxSkew),
+          Some(internal.minSkew),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             deduplicationPeriod =
@@ -373,10 +373,10 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
-          "Invalid field deduplication: Deduplication start time is after current time",
+          "Invalid field deduplication_period: Deduplication start time is equal to or after current time",
         )
       }
 
@@ -395,11 +395,11 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.maxSkew),
+            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
-          s"Invalid field deduplication: The given deduplication start has a current time based duration of ${internal.maxDeduplicationTime
-            .plus(internal.maxSkew)} which exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}",
+          s"Invalid field deduplication_period: The given deduplication start yields a duration of ${internal.maxDeduplicationTime
+            .plus(internal.minSkew)} which exceeds the maximum deduplication duration of ${internal.maxDeduplicationTime}",
         )
       }
 

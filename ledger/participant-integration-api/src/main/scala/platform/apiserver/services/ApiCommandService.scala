@@ -241,7 +241,7 @@ private[apiserver] object ApiCommandService {
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       minSkew = () =>
-        ledgerConfigurationSubscription.latestConfiguration().map(_.timeModel.maxSkew),
+        ledgerConfigurationSubscription.latestConfiguration().map(_.timeModel.minSkew),
       generateSubmissionId = SubmissionIdGenerator.Random,
     )
 
