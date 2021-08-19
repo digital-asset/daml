@@ -16,6 +16,7 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersion,
+  Normalization,
 }
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
@@ -350,12 +351,18 @@ private[lf] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish: PartialTransaction.Result =
+  def finish(valueNormalization: Boolean = true): PartialTransaction.Result =
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = GenTransaction(nodes, roots)
-        val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
+        val (tx1, seeds) = NormalizeRollbacks.normalizeTx(tx0)
+        val tx =
+          if (valueNormalization) {
+            Normalization.normalizeGenTx(tx1)
+          } else {
+            tx1
+          }
         CompleteTransaction(
           SubmittedTransaction(
             TxVersion.asVersionedTransaction(tx)

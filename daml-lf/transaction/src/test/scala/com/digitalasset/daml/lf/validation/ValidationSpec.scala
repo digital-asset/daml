@@ -27,13 +27,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   //
   // A 'Tweak[X]' is a family of (small) modifications to a value of type X.
   //
-  // This test file constructs tweaks for 'VersionedTransaction' (VTX) and classifies them
-  // as either SIGNIFICANT or INSIGNIFICANT (as reported by 'isReplayedBy').
+  // This test file constructs tweaks for 'VersionedTransaction' (VTX).
+  // All tweaks are SIGNIFICANT since 'isReplayedBy' is simply structual equality
   //
   // We aim to tweak every field of every ActionNode in a TX.
-  //
-  // Most fields are trivially significant; Some are trivially insignificant.  A few
-  // fields are more complicated, and have both significant and insignificant cases.
   //
   // The tweaks are tested by running over a hand constructed list of 'preTweakedVTXs'. We
   // are careful to limit the combinational explosion to just what is necessary to ensure
@@ -229,10 +226,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   //--[predicates]--
   // Some tweaks have version dependant significance.
 
-  private def versionBeforeMinByKey(v: TransactionVersion): Boolean = {
+  /*  private def versionBeforeMinByKey(v: TransactionVersion): Boolean = {
     import scala.Ordering.Implicits.infixOrderingOps
     v < TransactionVersion.minByKey
-  }
+  }*/
 
   private def versionSinceMinByKey(v: TransactionVersion): Boolean = {
     import scala.Ordering.Implicits.infixOrderingOps
@@ -340,11 +337,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakFetchVersion" -> tweakFetchVersion,
     )
 
-  private val insigFetchTweaks =
-    Map(
-      "tweakFetchByKey(Old Version)" -> tweakFetchByKey(versionBeforeMinByKey)
-    )
-
   //--[LookupByKey node tweaks]--
 
   private val tweakLookupTemplateId = Tweak.single[Node] { case nl: Node.NodeLookupByKey[_] =>
@@ -437,12 +429,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakExerciseVersion" -> tweakExerciseVersion,
     )
 
-  private val insigExeTweaks =
-    Map(
-      "tweakExerciseByKey(Old Version)" -> tweakExerciseByKey(versionBeforeMinByKey)
-    )
-
-  //--[significant and insignificant tx tweaks]--
+  //--[significant tx tweaks]--
 
   private def tweakTxNodes(tweakNode: Tweak[Node]) = Tweak[VTX] { vtx =>
     // tweak any node in a transaction
@@ -463,11 +450,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       .map { case (name, tw) => (name, tweakTxNodes(tw)) }
   }
 
-  private def insignificantTweaks: Map[String, Tweak[VTX]] = {
-    (insigFetchTweaks ++ insigExeTweaks)
-      .map { case (name, tw) => (name, tweakTxNodes(tw)) }
-  }
-
   //--[per tweak tests]--
 
   "Significant tweaks" - {
@@ -479,20 +461,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
         val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
         forEvery(testCases) { case (txA, txB) =>
           Validation.isReplayedBy(txA, txB) shouldBe a[Left[_, _]]
-        }
-      }
-    }
-  }
-
-  "Insignificant tweaks" - {
-    insignificantTweaks.foreach { case (name, tweak) =>
-      val pairs = runTweak(tweak)
-      val n = pairs.length
-      assert(n > 0) // ensure tweak actualy applies to something
-      s"[#$n] $name" in {
-        val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
-        forEvery(testCases) { case (txA, txB) =>
-          Validation.isReplayedBy(txA, txB) shouldBe a[Right[_, _]]
         }
       }
     }

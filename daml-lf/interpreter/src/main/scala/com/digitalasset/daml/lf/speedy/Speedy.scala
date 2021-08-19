@@ -130,7 +130,8 @@ private[lf] object Speedy {
       else {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
-    private[lf] def finish: PartialTransaction.Result = ptx.finish
+    private[lf] def finish(valueNormalization: Boolean): PartialTransaction.Result =
+      ptx.finish(valueNormalization)
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction(): IncompleteTransaction = ptx.finishIncomplete
 

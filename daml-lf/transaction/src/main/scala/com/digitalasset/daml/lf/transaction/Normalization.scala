@@ -41,7 +41,20 @@ class Normalization[Nid, Cid] {
   private type Val = V[Cid]
   private type KWM = KeyWithMaintainers[Val]
   private type Node = GenNode[Nid, Cid]
+  private type TX = GenTransaction[Nid, Cid]
   private type VTX = VersionedTransaction[Nid, Cid]
+
+  def normalizeGenTx(tx: TX): TX = {
+    tx match {
+      case GenTransaction(nodes, roots) =>
+        GenTransaction(
+          nodes.map { case (k, v) =>
+            (k, normNode(v))
+          },
+          roots,
+        )
+    }
+  }
 
   def normalizeTx(vtx: VTX): VTX = {
     vtx match {
@@ -113,6 +126,9 @@ class Normalization[Nid, Cid] {
 }
 
 object Normalization {
+  def normalizeGenTx[Nid, Cid](tx: GenTransaction[Nid, Cid]): GenTransaction[Nid, Cid] = {
+    new Normalization().normalizeGenTx(tx)
+  }
   def normalizeTx[Nid, Cid](tx: VersionedTransaction[Nid, Cid]): VersionedTransaction[Nid, Cid] = {
     new Normalization().normalizeTx(tx)
   }

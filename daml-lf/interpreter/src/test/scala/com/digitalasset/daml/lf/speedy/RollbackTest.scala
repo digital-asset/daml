@@ -52,7 +52,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     res match {
       case _: SResultFinalValue =>
         machine.withOnLedger("RollbackTest") { onLedger =>
-          onLedger.ptx.finish match {
+          onLedger.ptx.finish() match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
             case CompleteTransaction(tx, _, _) =>
@@ -264,7 +264,7 @@ object ExceptionTest {
       tx.nodes(nid) match {
         case create: NodeCreate[_] =>
           create.arg match {
-            case ValueRecord(_, ImmArray(_, (Some("info"), ValueInt64(n)))) =>
+            case ValueRecord(_, ImmArray(_, (None, ValueInt64(n)))) =>
               List(C(n))
             case _ =>
               sys.error(s"unexpected create.arg: ${create.arg}")

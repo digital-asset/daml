@@ -389,7 +389,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
     }
 
-    onLedger.finish match {
+    onLedger.finish(config.valueNormalization) match {
       case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
