@@ -106,27 +106,38 @@ object Ordering extends scala.math.Ordering[SValue] {
     diff
   }
   @inline
-  private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int =
-    (cid1, cid2) match {
-      case (ContractId.V0(s1), ContractId.V0(s2)) =>
-        s1 compareTo s2
-      case (ContractId.V0(_), ContractId.V1(_, _)) =>
-        -1
-      case (ContractId.V1(_, _), ContractId.V0(_)) =>
-        +1
-      case (ContractId.V1(hash1, suffix1), ContractId.V1(hash2, suffix2)) =>
-        val c1 = crypto.Hash.ordering.compare(hash1, hash2)
-        if (c1 != 0)
-          c1
-        else if (suffix1.isEmpty == suffix2.isEmpty)
-          Bytes.ordering.compare(suffix1, suffix2)
-        else
-          // We crash here because we should have catch this beforehand
-          // when preprocessing or importing values.
-          throw SError.SErrorCrash(
-            getClass.getCanonicalName + ".compare",
-            "Unexcpected contract ID freshness Error",
-          )
+  private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int = {
+    cid1 match {
+      case ContractId.V0(s1) =>
+        cid2 match {
+          case ContractId.V0(s2) =>
+            s1 compareTo s2
+          case _: ContractId.V1 =>
+            -1
+        }
+      case cid1 @ ContractId.V1(discriminator1, suffix1) =>
+        cid2 match {
+          case _: ContractId.V0 =>
+            +1
+          case cid2 @ ContractId.V1(discriminator2, suffix2) =>
+            val c1 = crypto.Hash.ordering.compare(discriminator1, discriminator2)
+            if (c1 != 0) {
+              c1
+            } else if (suffix1.isEmpty) {
+              if (suffix2.isEmpty) {
+                0
+              } else {
+                throw SError.SErrorDamlException(interpretation.Error.ContractIdFreshness(cid2))
+              }
+            } else {
+              if (suffix2.isEmpty) {
+                throw SError.SErrorDamlException(interpretation.Error.ContractIdFreshness(cid1))
+              } else {
+                Bytes.ordering.compare(suffix1, suffix2)
+              }
+            }
+        }
     }
+  }
 
 }
