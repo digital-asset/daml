@@ -224,8 +224,9 @@ private[backend] object StorageBackendTestValues {
       submitters = Set(submitter),
       command_id = commandId,
       transaction_id = Some(transactionId),
-      status_code = None,
-      status_message = None,
+      rejection_status_code = None,
+      rejection_status_message = None,
+      rejection_status_details = None,
     )
   }
 
@@ -338,8 +339,9 @@ private[backend] object StorageBackendTestValues {
         submitters = Set("signatory"),
         command_id = commandId,
         transaction_id = Some(transactionId),
-        status_code = None,
-        status_message = None,
+        rejection_status_code = None,
+        rejection_status_message = None,
+        rejection_status_details = None,
       ),
     )
   }
