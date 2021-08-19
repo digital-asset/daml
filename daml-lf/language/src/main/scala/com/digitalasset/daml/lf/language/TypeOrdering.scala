@@ -50,6 +50,8 @@ object TypeOrdering extends Ordering[Type] {
           push(xs.values, ys.values)
         case (Ast.TApp(x1, x2), Ast.TApp(y1, y2)) =>
           push(Iterator(x1, x2), Iterator(y1, y2))
+        case (Ast.TTypeRepGeneric(k1), Ast.TTypeRepGeneric(k2)) =>
+          diff = KindOrdering.compare(k1, k2)
         case (t1, t2) =>
           diff = typeRank(t1) compareTo typeRank(t2)
       }

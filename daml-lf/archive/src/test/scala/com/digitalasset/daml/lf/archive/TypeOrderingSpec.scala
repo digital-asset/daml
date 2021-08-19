@@ -29,6 +29,16 @@ class TypeOrderingSpec extends AnyWordSpec with Matchers {
         TypeOrdering.compare
       ) shouldBe primTypesInProtoOrder
     }
+    "order parametrized TypeReps" in {
+      TypeOrdering.compare(
+        Ast.TTypeRepGeneric(Ast.KStar),
+        Ast.TTypeRepGeneric(Ast.KStar),
+      ) shouldBe 0
+      TypeOrdering.compare(
+        Ast.TTypeRepGeneric(Ast.KStar),
+        Ast.TTypeRepGeneric(Ast.KArrow(Ast.KStar, Ast.KStar)),
+      ) shouldBe -1
+    }
   }
 
 }
