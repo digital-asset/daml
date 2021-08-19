@@ -16,7 +16,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
 import com.daml.platform
-import com.daml.platform.store.DbType
+import com.daml.platform.store.{DbType, EventSequentialId}
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
@@ -106,7 +106,9 @@ trait ParameterStorageBackend {
     * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
     */
   final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
-    ledgerEnd(connection).getOrElse(ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, 0L))
+    ledgerEnd(connection).getOrElse(
+      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin)
+    )
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
