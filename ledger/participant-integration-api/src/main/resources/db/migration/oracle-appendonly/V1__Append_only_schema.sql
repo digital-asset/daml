@@ -261,7 +261,6 @@ CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_e
 CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create(JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
--- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(contract_id);
 
 -- lookup by contract_key
@@ -336,7 +335,6 @@ CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON p
 CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
--- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
 
 ---------------------------------------------------------------------------------------------------
