@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -1145,19 +1145,11 @@ private[lf] object SBuiltin {
 
   private[this] abstract class KeyOperation {
     val templateId: TypeConName
-    private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
 
-    final protected def importCid(cid: V.ContractId): SEImportValue =
-      // We have to check that the discriminator of cid does not conflict with a local ones
-      // however we cannot raise an exception in case of failure here.
-      // We delegate to CtrlImportValue the task to check cid.
-      SEImportValue(typ, V.ValueContractId(cid))
     // Callback from the engine returned NotFound
-    def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit
+    def handleKeyFound(machine: Machine, cid: V.ContractId): Unit
     // We already saw this key, but it was undefined or was archived
     def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean
-    // We already saw this key and it is still active
-    def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
 
     final def handleKnownInputKey(
         machine: Machine,
@@ -1165,33 +1157,28 @@ private[lf] object SBuiltin {
         keyMapping: PartialTransaction.KeyMapping,
     ): Unit =
       keyMapping match {
-        case PartialTransaction.KeyActive(cid) => handleActiveKey(machine, cid)
+        case PartialTransaction.KeyActive(cid) => handleKeyFound(machine, cid)
         case PartialTransaction.KeyInactive => discard(handleKeyNotFound(machine, gkey))
       }
   }
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.ctrl = importCid(cid)
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SContractId(cid)
       override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
         machine.ctrl = SEDamlException(IE.ContractKeyNotFound(gkey))
         false
       }
-
-      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SContractId(cid)
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
-      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.ctrl = SBSome(importCid(cid))
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SOptional(Some(SContractId(cid)))
       override def handleKeyNotFound(machine: Machine, key: GlobalKey): Boolean = {
         machine.returnValue = SValue.SValue.None
         true
       }
-      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SOptional(Some(SContractId(cid)))
     }
   }
 
@@ -1233,7 +1220,7 @@ private[lf] object SBuiltin {
           val stakeholders = cachedContract.signatories union cachedContract.observers
           onLedger.visibleToStakeholders(stakeholders) match {
             case SVisibleToStakeholders.Visible =>
-              operation.handleActiveKey(machine, coid)
+              operation.handleKeyFound(machine, coid)
             case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
               machine.ctrl = SEDamlException(
                 IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
@@ -1261,7 +1248,7 @@ private[lf] object SBuiltin {
                         onLedger.ptx = onLedger.ptx.copy(
                           keys = onLedger.ptx.keys.updated(gkey, KeyActive(cid))
                         )
-                        operation.handleInputKeyFound(machine, cid)
+                        operation.handleKeyFound(machine, cid)
                         true
                       case _ =>
                         onLedger.ptx = onLedger.ptx.copy(

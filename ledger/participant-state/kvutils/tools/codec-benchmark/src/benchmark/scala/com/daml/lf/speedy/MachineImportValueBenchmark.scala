@@ -24,7 +24,6 @@ class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
     submissionTime = Time.Timestamp.MinValue,
     initialSeeding = InitialSeeding.NoSeed,
     expr = null,
-    globalCids = Set.empty,
     committers = Set.empty,
     readAs = Set.empty,
   )
