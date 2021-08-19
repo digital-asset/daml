@@ -3,7 +3,8 @@
 
 package com.daml.platform.store.backend
 
-import com.daml.platform.store.backend.common.AppendOnlySchema
+import java.sql.Connection
+
 import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.oracle.OracleStorageBackend
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
@@ -14,37 +15,32 @@ import org.scalatest.Suite
 /** Creates a database and a [[StorageBackend]].
   * Used by [[StorageBackendSpec]] to run all StorageBackend tests on different databases.
   */
-private[backend] trait StorageBackendProvider[DB_BATCH] {
+private[backend] trait StorageBackendProvider {
   protected def jdbcUrl: String
-  protected def backend: StorageBackend[DB_BATCH]
+  protected def backend: StorageBackend[_]
+  protected final def ingest(dbDtos: Vector[DbDto], connection: Connection): Unit = {
+    def typeBoundIngest[T](backend: StorageBackend[T]): Unit =
+      backend.insertBatch(connection, backend.batch(dbDtos))
+    typeBoundIngest(backend)
+  }
 }
 
 private[backend] trait StorageBackendProviderPostgres
-    extends StorageBackendProvider[AppendOnlySchema.Batch]
+    extends StorageBackendProvider
     with PostgresAroundAll { this: Suite =>
   override protected def jdbcUrl: String = postgresDatabase.url
-  override protected val backend: StorageBackend[AppendOnlySchema.Batch] = PostgresStorageBackend
-}
-private[backend] object StorageBackendProviderPostgres {
-  type DB_BATCH = AppendOnlySchema.Batch
+  override protected val backend: StorageBackend[_] = PostgresStorageBackend
 }
 
-private[backend] trait StorageBackendProviderH2
-    extends StorageBackendProvider[AppendOnlySchema.Batch] { this: Suite =>
+private[backend] trait StorageBackendProviderH2 extends StorageBackendProvider { this: Suite =>
   override protected def jdbcUrl: String = "jdbc:h2:mem:storage_backend_provider;db_close_delay=-1"
-  override protected val backend: StorageBackend[AppendOnlySchema.Batch] = H2StorageBackend
-}
-private[backend] object StorageBackendProviderH2 {
-  type DB_BATCH = AppendOnlySchema.Batch
+  override protected val backend: StorageBackend[_] = H2StorageBackend
 }
 
 private[backend] trait StorageBackendProviderOracle
-    extends StorageBackendProvider[AppendOnlySchema.Batch]
+    extends StorageBackendProvider
     with OracleAroundAll { this: Suite =>
   override protected def jdbcUrl: String =
     s"jdbc:oracle:thin:$oracleUser/$oraclePwd@localhost:$oraclePort/ORCLPDB1"
-  override protected val backend: StorageBackend[AppendOnlySchema.Batch] = OracleStorageBackend
-}
-private[backend] object StorageBackendProviderOracle {
-  type DB_BATCH = AppendOnlySchema.Batch
+  override protected val backend: StorageBackend[_] = OracleStorageBackend
 }

@@ -6,8 +6,8 @@ package com.daml.platform.store.backend
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-private[backend] trait StorageBackendTestsIngestion[DB_BATCH] extends Matchers {
-  this: AsyncFlatSpec with StorageBackendSpec[DB_BATCH] =>
+private[backend] trait StorageBackendTestsIngestion extends Matchers with StorageBackendSpec {
+  this: AsyncFlatSpec =>
 
   behavior of "StorageBackend (ingestion)"
 
@@ -18,7 +18,7 @@ private[backend] trait StorageBackendTestsIngestion[DB_BATCH] extends Matchers {
     val dtos = dtoConfiguration(someOffset).toVector
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      _ <- executeSql(conn => backend.insertBatch(conn, backend.batch(dtos)))
+      _ <- executeSql(ingest(dtos, _))
       configBeforeLedgerEndUpdate <- executeSql(backend.ledgerConfiguration)
       _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
       configAfterLedgerEndUpdate <- executeSql(backend.ledgerConfiguration)
@@ -37,7 +37,7 @@ private[backend] trait StorageBackendTestsIngestion[DB_BATCH] extends Matchers {
     val dtos = dtoPackage(someOffset).toVector
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      _ <- executeSql(conn => backend.insertBatch(conn, backend.batch(dtos)))
+      _ <- executeSql(ingest(dtos, _))
       packagesBeforeLedgerEndUpdate <- executeSql(backend.lfPackages)
       _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
       packagesAfterLedgerEndUpdate <- executeSql(backend.lfPackages)
@@ -56,7 +56,7 @@ private[backend] trait StorageBackendTestsIngestion[DB_BATCH] extends Matchers {
     val dtos = dtoParty(someOffset).toVector
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      _ <- executeSql(conn => backend.insertBatch(conn, backend.batch(dtos)))
+      _ <- executeSql(ingest(dtos, _))
       partiesBeforeLedgerEndUpdate <- executeSql(backend.knownParties)
       _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
       partiesAfterLedgerEndUpdate <- executeSql(backend.knownParties)

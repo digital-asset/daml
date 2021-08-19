@@ -8,8 +8,4 @@ import org.scalatest.flatspec.AsyncFlatSpec
 final class StorageBackendOracleSpec
     extends AsyncFlatSpec
     with StorageBackendProviderOracle
-    with StorageBackendSpec[StorageBackendProviderOracle.DB_BATCH]
-    with StorageBackendTestsInitialization[StorageBackendProviderOracle.DB_BATCH]
-    with StorageBackendTestsIngestion[StorageBackendProviderOracle.DB_BATCH]
-    with StorageBackendTestsReset[StorageBackendProviderOracle.DB_BATCH]
-    with StorageBackendTestsPruning[StorageBackendProviderOracle.DB_BATCH]
+    with StorageBackendSuite

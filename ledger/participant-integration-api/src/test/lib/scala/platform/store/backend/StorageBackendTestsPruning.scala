@@ -8,8 +8,8 @@ import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeP
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-private[backend] trait StorageBackendTestsPruning[DB_BATCH] extends Matchers {
-  this: AsyncFlatSpec with StorageBackendSpec[DB_BATCH] =>
+private[backend] trait StorageBackendTestsPruning extends Matchers with StorageBackendSpec {
+  this: AsyncFlatSpec =>
 
   behavior of "StorageBackend (pruning)"
 
@@ -49,7 +49,7 @@ private[backend] trait StorageBackendTestsPruning[DB_BATCH] extends Matchers {
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       // Ingest a create and archive event
-      _ <- executeSql(conn => backend.insertBatch(conn, backend.batch(Vector(create, archive))))
+      _ <- executeSql(ingest(Vector(create, archive), _))
       _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L)))
       // Make sure the events are visible
       before1 <- executeSql(backend.transactionEvents(range, filter))
@@ -99,7 +99,7 @@ private[backend] trait StorageBackendTestsPruning[DB_BATCH] extends Matchers {
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       // Ingest a create and archive event
-      _ <- executeSql(conn => backend.insertBatch(conn, backend.batch(Vector(create))))
+      _ <- executeSql(ingest(Vector(create), _))
       _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L)))
       // Make sure the events are visible
       before1 <- executeSql(backend.transactionEvents(range, filter))
@@ -146,7 +146,7 @@ private[backend] trait StorageBackendTestsPruning[DB_BATCH] extends Matchers {
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       // Ingest a completion
-      _ <- executeSql(conn => backend.insertBatch(conn, backend.batch(Vector(completion))))
+      _ <- executeSql(ingest(Vector(completion), _))
       _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L)))
       // Make sure the completion is visible
       before <- executeSql(

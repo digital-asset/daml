@@ -19,10 +19,10 @@ import org.scalatest.{AsyncTestSuite, BeforeAndAfterEach}
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-private[backend] trait StorageBackendSpec[DB_BATCH]
+private[backend] trait StorageBackendSpec
     extends AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
-    with StorageBackendProvider[DB_BATCH] { this: AsyncTestSuite =>
+    with StorageBackendProvider { this: AsyncTestSuite =>
 
   protected val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   implicit protected val loggingContext: LoggingContext = LoggingContext.ForTesting

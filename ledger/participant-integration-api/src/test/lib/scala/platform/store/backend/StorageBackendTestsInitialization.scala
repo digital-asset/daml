@@ -9,8 +9,8 @@ import com.daml.platform.common.MismatchException
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-private[backend] trait StorageBackendTestsInitialization[DB_BATCH] extends Matchers {
-  this: AsyncFlatSpec with StorageBackendSpec[DB_BATCH] =>
+private[backend] trait StorageBackendTestsInitialization extends Matchers with StorageBackendSpec {
+  this: AsyncFlatSpec =>
 
   behavior of "StorageBackend (initialization)"
 

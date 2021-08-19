@@ -8,8 +8,4 @@ import org.scalatest.flatspec.AsyncFlatSpec
 final class StorageBackendPostgresSpec
     extends AsyncFlatSpec
     with StorageBackendProviderPostgres
-    with StorageBackendSpec[StorageBackendProviderPostgres.DB_BATCH]
-    with StorageBackendTestsInitialization[StorageBackendProviderPostgres.DB_BATCH]
-    with StorageBackendTestsIngestion[StorageBackendProviderPostgres.DB_BATCH]
-    with StorageBackendTestsReset[StorageBackendProviderPostgres.DB_BATCH]
-    with StorageBackendTestsPruning[StorageBackendProviderPostgres.DB_BATCH]
+    with StorageBackendSuite

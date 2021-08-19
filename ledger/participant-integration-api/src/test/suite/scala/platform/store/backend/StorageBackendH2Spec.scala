@@ -8,8 +8,4 @@ import org.scalatest.flatspec.AsyncFlatSpec
 final class StorageBackendH2Spec
     extends AsyncFlatSpec
     with StorageBackendProviderH2
-    with StorageBackendSpec[StorageBackendProviderH2.DB_BATCH]
-    with StorageBackendTestsInitialization[StorageBackendProviderH2.DB_BATCH]
-    with StorageBackendTestsIngestion[StorageBackendProviderH2.DB_BATCH]
-    with StorageBackendTestsReset[StorageBackendProviderH2.DB_BATCH]
-    with StorageBackendTestsPruning[StorageBackendProviderH2.DB_BATCH]
+    with StorageBackendSuite
