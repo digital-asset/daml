@@ -8,6 +8,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 trait StorageBackendSuite
     extends StorageBackendSpec
     with StorageBackendTestsInitialization
+    with StorageBackendTestsInitializeIngestion
     with StorageBackendTestsIngestion
     with StorageBackendTestsReset
     with StorageBackendTestsPruning {

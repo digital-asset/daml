@@ -19,7 +19,10 @@ private[backend] trait StorageBackendTestsIngestion
 
   it should "ingest a single configuration update" in {
     val someOffset = offset(1)
-    val dtos = dtoConfiguration(someOffset, someConfiguration).toVector
+    val dtos = Vector(
+      dtoConfiguration(someOffset, someConfiguration)
+    )
+
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
@@ -42,7 +45,11 @@ private[backend] trait StorageBackendTestsIngestion
 
   it should "ingest a single package update" in {
     val someOffset = offset(1)
-    val dtos = dtoPackage(someOffset).toVector
+    val dtos = Vector(
+      dtoPackage(someOffset),
+      dtoPackageEntry(someOffset),
+    )
+
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
@@ -61,7 +68,11 @@ private[backend] trait StorageBackendTestsIngestion
 
   it should "ingest a single party update" in {
     val someOffset = offset(1)
-    val dtos = dtoParty(someOffset).toVector
+    val dtos = Vector(
+      dtoParty(someOffset),
+      dtoPartyEntry(someOffset),
+    )
+
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
@@ -77,4 +88,5 @@ private[backend] trait StorageBackendTestsIngestion
       partiesAfterLedgerEndUpdate should not be empty
     }
   }
+
 }

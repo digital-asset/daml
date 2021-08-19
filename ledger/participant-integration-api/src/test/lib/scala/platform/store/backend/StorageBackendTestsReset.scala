@@ -32,18 +32,29 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
   }
 
   it should "reset contents of the index" in {
-    val dtos: Vector[DbDto] = (
-      dtoConfiguration(offset(1)) ++
-        dtoParty(offset(2)) ++
-        dtoPackage(offset(3)) ++
-        dtoTransaction(offset(4), 1)
-    ).toVector
+    val dtos: Vector[DbDto] = Vector(
+      // 1: config change
+      dtoConfiguration(offset(1)),
+      // 2: party allocation
+      dtoParty(offset(2)),
+      dtoPartyEntry(offset(2)),
+      // 3: package upload
+      dtoPackage(offset(3)),
+      dtoPackageEntry(offset(3)),
+      // 4: transaction with create node
+      dtoCreate(offset(4), 1L, "#4"),
+      dtoCompletion(offset(4)),
+      // 5: transaction with exercise node and retroactive divulgence
+      dtoExercise(offset(5), 2L, true, "#4"),
+      dtoDivulgence(offset(5), 3L, "#4"),
+      dtoCompletion(offset(5)),
+    )
 
     for {
       // Initialize and insert some data
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(4, 4)))
+      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(5, 3)))
 
       // Reset
       _ <- executeSql(backend.reset)
