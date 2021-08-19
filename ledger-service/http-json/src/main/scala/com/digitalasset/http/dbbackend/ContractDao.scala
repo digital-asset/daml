@@ -8,6 +8,7 @@ import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.lf.crypto.Hash
 import com.daml.scalautil.nonempty.+-:
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
@@ -233,7 +234,7 @@ object ContractDao {
   private[http] def fetchByKey(
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      key: JsValue,
+      key: Hash,
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver,

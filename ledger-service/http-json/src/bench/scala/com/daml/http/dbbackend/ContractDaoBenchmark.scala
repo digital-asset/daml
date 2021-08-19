@@ -56,6 +56,7 @@ abstract class ContractDaoBenchmark extends OracleAround {
     contractId = s"#$id",
     templateId = tpid,
     key = JsNull,
+    keyHash = "",
     payload = payload,
     signatories = Seq(signatory),
     observers = Seq.empty,

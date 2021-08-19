@@ -219,7 +219,6 @@ object Main extends StrictLogging {
           user.name,
           user.pwd,
           dbStartupMode = startupMode,
-          connectionTimeout = 15000, // increase value for performance tests
         )
       }
 
