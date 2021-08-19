@@ -16,7 +16,8 @@ private[events] final case class EventsRange[A](startExclusive: A, endInclusive:
 private[events] object EventsRange {
 
   // (0, 0] -- non-existent range
-  private val EmptyEventSeqIdRange = EventsRange(EventSequentialId.zero, EventSequentialId.zero)
+  private val EmptyEventSeqIdRange =
+    EventsRange(EventSequentialId.beforeBegin, EventSequentialId.beforeBegin)
 
   def isEmpty[A: Ordering](range: EventsRange[A]): Boolean = {
     val A = implicitly[Ordering[A]]
@@ -64,7 +65,7 @@ private[events] object EventsRange {
     SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc #${SqlFunctions(dbType)
       .limitClause(1)}"
       .as(get[Long](1).singleOpt)(connection)
-      .getOrElse(EventSequentialId.zero)
+      .getOrElse(EventSequentialId.beforeBegin)
   }
 
   private[events] def readPage[A](

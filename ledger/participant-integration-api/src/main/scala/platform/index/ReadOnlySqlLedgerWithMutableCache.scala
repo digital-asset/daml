@@ -74,7 +74,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
       Dispatcher.owner(
         name = "transaction-log-updates",
-        zeroIndex = (Offset.beforeBegin, EventSequentialId.zero),
+        zeroIndex = (Offset.beforeBegin, EventSequentialId.beforeBegin),
         headAtInitialization = (ledgerEnd, evtSeqId),
       )
     }

@@ -400,6 +400,6 @@ private[platform] object MutableCacheBackedContractStore {
 
     def get: Option[(Offset, EventSequentialId)] = offsetRef.get()
 
-    def getSequentialId: EventSequentialId = get.map(_._2).getOrElse(EventSequentialId.zero)
+    def getSequentialId: EventSequentialId = get.map(_._2).getOrElse(EventSequentialId.beforeBegin)
   }
 }
