@@ -94,7 +94,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
                   timeModelResponse.getTimeModel,
                 )
           } yield {})
-            .transform(_.flatMap(_ => testResult))
+            .transform(_ => testResult)
         }
       })
   })
