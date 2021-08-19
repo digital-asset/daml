@@ -422,14 +422,20 @@ class Endpoints(
                 .decode[domain.GetActiveContractsRequest](reqBody)
                 .liftErr[Error](InvalidUserInput)
                 .map { cmd =>
-                  contractsService
-                    .search(jwt, jwtPayload, cmd)
-                    .map(
-                      domain.SyncResponse.covariant.map(_)(
-                        _.via(handleSourceFailure)
-                          .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+                  withEnrichedLoggingContext(
+                    LoggingContextOf.label[domain.GetActiveContractsRequest],
+                    "cmd" -> cmd.toString,
+                  ).run { implicit lc =>
+                    logger.debug(s"Processing a query request")
+                    contractsService
+                      .search(jwt, jwtPayload, cmd)
+                      .map(
+                        domain.SyncResponse.covariant.map(_)(
+                          _.via(handleSourceFailure)
+                            .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+                        )
                       )
-                    )
+                  }
                 }
                 .sequence
             )

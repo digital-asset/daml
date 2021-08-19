@@ -55,35 +55,64 @@ private class PackageService(
 
   // volatile, because we want to reduce the probability of unnecessary package updates
   // due to multiple threads reading this.
-  // Writes to this are synchronized, so in theory this should work out fine.
+  // Writes to this are synchronized with a semaphore, so in theory this should work out fine.
   @volatile private var lastUpdated = LocalDateTime.MIN
 
+  // Regular updates should happen regardless of the current state every minute.
   private def packagesShouldBeFetchedAgain =
     lastUpdated.until(LocalDateTime.now(), temporal.ChronoUnit.SECONDS) >= 60L
+
+  private val _reload = {
+    val updateOngoing = new java.util.concurrent.Semaphore(1)
+
+    def reload(jwt: Jwt)(implicit
+        ec: ExecutionContext,
+        lc: LoggingContextOf[InstanceUUID],
+    ) = {
+      logger.trace("Trying to acquire updateOngoing semaphore")
+      if (updateOngoing.tryAcquire())
+        try reloadPackageStoreIfChanged(jwt)(state.packageIds)
+          .map {
+            _.map {
+              case Some(diff) =>
+                this.state = this.state.append(diff)
+                logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+                logger.debug(s"loaded diff: $diff")
+                ()
+              case None =>
+                logger.debug(s"new package IDs not found")
+                ()
+            }
+              .map { _ =>
+                lastUpdated = LocalDateTime.now()
+              }
+          }
+          .transform { res =>
+            // regardless of whether this was a success or failure
+            // we always want to release the semaphore here.
+            updateOngoing.release()
+            logger.trace("Released updateOngoing semaphore")
+            res
+          } catch {
+          case t: Throwable =>
+            updateOngoing.release()
+            logger.trace("Released updateOngoing semaphore after catching exception")
+            Future.failed(t)
+        }
+      else {
+        logger.trace("It looks like an package update is already ongoing, skipping")
+        Future.successful(().right)
+      }
+    }
+
+    (jwt: Jwt, ec: ExecutionContext, lc: LoggingContextOf[InstanceUUID]) => reload(jwt)(ec, lc)
+  }
 
   // synchronized, so two threads cannot reload it concurrently
   def reload(jwt: Jwt)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): Future[Error \/ Unit] =
-    synchronized {
-      if (packagesShouldBeFetchedAgain)
-        reloadPackageStoreIfChanged(jwt)(state.packageIds).map {
-          _.map {
-            case Some(diff) =>
-              this.state = this.state.append(diff)
-              logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-              logger.debug(s"loaded diff: $diff")
-              ()
-            case None =>
-              logger.debug(s"new package IDs not found")
-              ()
-          }
-          // Only synchronized write access to lastUpdated
-            .map(_ => lastUpdated = LocalDateTime.now())
-        }
-      else Future.successful(().right[Error])
-    }
+  ): Future[Error \/ Unit] = _reload(jwt, ec, lc)
 
   def packageStore: PackageStore = state.packageStore
 
@@ -93,13 +122,20 @@ private class PackageService(
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): ET[B] = for {
-    recentlyReloaded <-
+    packagesHadToBeFetchedAgain <-
       if (packagesShouldBeFetchedAgain) EitherT(reload(jwt)).map(_ => true)
       else EitherT.pure(false): ET[Boolean]
+    _ = logger.trace(s"Did we have to reload the packages: $packagesHadToBeFetchedAgain")
     result <- EitherT.pure(fn()): ET[B]
+    _ = logger.trace(s"Result: $result")
     finalResult <-
-      if (!checkIfSuccess(result) && !recentlyReloaded) EitherT(reload(jwt)).map(_ => fn())
-      else EitherT.pure(result): ET[B]
+      if (!checkIfSuccess(result) && !packagesHadToBeFetchedAgain) {
+        logger.trace(
+          s"Reloading packages although they should not be fetched again because our task was not successful so we want to ensure we didn't miss any recent packages"
+        )
+        EitherT(reload(jwt)).map(_ => fn())
+      } else EitherT.pure(result): ET[B]
+    _ = logger.trace(s"Final result: $finalResult")
   } yield finalResult
 
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
