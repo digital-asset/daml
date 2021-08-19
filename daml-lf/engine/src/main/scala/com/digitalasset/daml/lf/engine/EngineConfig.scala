@@ -17,6 +17,7 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   * @param allowedLanguageVersions The range of language versions the
   *     engine is allowed to load.  The engine will crash if it asked
   *     to load a language version that is not included in this range.
+  * @param transactionNormalization Normalizes transaction nodes according to the LF version
   * @param stackTraceMode The flag enables the runtime support for
   *     stack trace.
   * @param profileDir The optional specifies the directory where to
@@ -29,6 +30,7 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
+    transactionNormalization: Boolean = true,
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,

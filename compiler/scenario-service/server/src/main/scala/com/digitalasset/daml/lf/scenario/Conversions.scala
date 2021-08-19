@@ -257,7 +257,7 @@ final class Conversions(
     def unserializable(what: String): proto.Value =
       proto.Value.newBuilder.setUnserializable(what).build
     try {
-      convertValue(svalue.toValue)
+      convertValue(svalue.toUnnormalizedValue)
     } catch {
       case _: SError.SErrorCrash => {
         // We cannot rely on serializability information since we do not have that available in the IDE.

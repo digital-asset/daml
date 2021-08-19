@@ -108,7 +108,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     GlobalKey
-      .build(templateId, key.toValue)
+      .build(templateId, key.toUnnormalizedValue)
       .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {

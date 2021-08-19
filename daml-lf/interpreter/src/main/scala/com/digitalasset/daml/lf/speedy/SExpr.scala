@@ -406,9 +406,9 @@ object SExpr {
   }
 
   /** Exercise scope (begin..end) */
-  final case class SEScopeExercise(body: SExpr) extends SExpr {
+  final case class SEScopeExercise(templateId: TypeConName, body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KCloseExercise(machine))
+      machine.pushKont(KCloseExercise(templateId, machine))
       machine.ctrl = body
     }
   }

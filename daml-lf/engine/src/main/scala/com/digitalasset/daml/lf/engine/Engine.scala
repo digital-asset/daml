@@ -310,6 +310,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
+        transactionNormalization = config.transactionNormalization,
       )
       interpretLoop(machine, ledgerTime)
     }

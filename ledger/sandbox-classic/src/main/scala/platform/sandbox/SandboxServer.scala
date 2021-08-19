@@ -172,6 +172,7 @@ final class SandboxServer(
         }
       EngineConfig(
         allowedLanguageVersions = allowedLanguageVersions,
+        transactionNormalization = false,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
       )

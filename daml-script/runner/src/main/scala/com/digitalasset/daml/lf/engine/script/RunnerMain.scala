@@ -108,7 +108,7 @@ object RunnerMain {
       result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
       _ <- Future {
         config.outputFile.foreach { outputFile =>
-          val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
+          val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
           val outDir = outputFile.getParentFile()
           if (outDir != null) {
             val _ = Files.createDirectories(outDir.toPath())

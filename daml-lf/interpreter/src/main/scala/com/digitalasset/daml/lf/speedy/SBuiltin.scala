@@ -891,7 +891,7 @@ private[lf] object SBuiltin {
           IE.TemplatePreconditionViolated(
             templateId = templateId,
             optLocation = None,
-            arg = args.get(0).toValue,
+            arg = args.get(0).toUnnormalizedValue,
           )
         )
       SUnit
@@ -913,11 +913,16 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       val createArg = args.get(0)
-      val createArgValue = createArg.toValue
+      val createArgValue = onLedger.ptx.normValue(templateId, createArg)
       val agreement = getSText(args, 1)
       val sigs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
       val obs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
-      val mbKey = extractOptionalKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
+      val mbKey = extractOptionalKeyWithMaintainers(
+        onLedger,
+        templateId,
+        NameOf.qualifiedNameOfCurrentFunc,
+        args.get(4),
+      )
       mbKey.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
         if (maintainers.isEmpty)
           throw SErrorDamlException(
@@ -967,7 +972,7 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
-      val arg = args.get(0).toValue
+      val chosenValue = onLedger.ptx.normValue(templateId, args.get(0))
       val coid = getSContractId(args, 1)
       val cached =
         onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
@@ -993,7 +998,7 @@ private[lf] object SBuiltin {
           choiceObservers = choiceObservers,
           mbKey = mbKey,
           byKey = byKey,
-          chosenValue = arg,
+          chosenValue = chosenValue,
         )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1118,7 +1123,12 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       val keyWithMaintainers =
-        extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
+        extractKeyWithMaintainers(
+          onLedger,
+          templateId,
+          NameOf.qualifiedNameOfCurrentFunc,
+          args.get(0),
+        )
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1205,7 +1215,12 @@ private[lf] object SBuiltin {
     ): Unit = {
       import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers =
-        extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
+        extractKeyWithMaintainers(
+          onLedger,
+          operation.templateId,
+          NameOf.qualifiedNameOfCurrentFunc,
+          args.get(0),
+        )
       if (keyWithMaintainers.maintainers.isEmpty)
         throw SErrorDamlException(
           IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
@@ -1602,12 +1617,14 @@ private[lf] object SBuiltin {
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
+      onLedger: OnLedger,
+      templateId: TypeConName,
       location: String,
       v: SValue,
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
       case SStruct(_, vals) =>
-        val key = vals.get(keyIdx).toValue
+        val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
         key.ensureNoCid match {
           case Right(keyVal) =>
             Node.KeyWithMaintainers(
@@ -1622,11 +1639,13 @@ private[lf] object SBuiltin {
     }
 
   private[this] def extractOptionalKeyWithMaintainers(
+      onLedger: OnLedger,
+      templateId: TypeConName,
       where: String,
       optKey: SValue,
   ): Option[Node.KeyWithMaintainers[V[Nothing]]] =
     optKey match {
-      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(where, _))
+      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(onLedger, templateId, where, _))
       case v => throw SErrorCrash(where, s"Expected optional key with maintainers, got: $v")
     }
 
@@ -1649,6 +1668,7 @@ private[lf] object SBuiltin {
     cachedContractStructFields.indexOf(Ast.observersFieldName)
 
   private[speedy] def extractCachedContract(
+      onLedger: OnLedger,
       templateId: Ref.TypeConName,
       v: SValue,
   ): CachedContract =
@@ -1664,6 +1684,8 @@ private[lf] object SBuiltin {
           observers =
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedContractObserversIdx)),
           key = extractOptionalKeyWithMaintainers(
+            onLedger,
+            templateId,
             NameOf.qualifiedNameOfCurrentFunc,
             vals.get(cachedContractKeyIdx),
           ),

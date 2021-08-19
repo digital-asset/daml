@@ -763,6 +763,7 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
         commitLocation: Option[Location] = None,
+        transactionNormalization: Boolean = true,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.interface.packageLanguageVersion.andThen(
@@ -780,7 +781,13 @@ private[lf] object Speedy {
         ledgerMode = OnLedger(
           validating = validating,
           ptx = PartialTransaction
-            .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
+            .initial(
+              pkg2TxVersion,
+              contractKeyUniqueness,
+              submissionTime,
+              initialSeeding,
+              transactionNormalization,
+            ),
           committers = committers,
           readAs = readAs,
           commitLocation = commitLocation,
@@ -1270,8 +1277,8 @@ private[lf] object Speedy {
   ) extends Kont {
 
     def execute(sv: SValue): Unit = {
-      val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
+        val cached = SBuiltin.extractCachedContract(onLedger, templateId, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value
@@ -1283,11 +1290,13 @@ private[lf] object Speedy {
     * (1) by 'endExercises' if this continuation is entered normally, or
     * (2) by 'abortExercises' if we unwind the stack through this continuation
     */
-  private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
+  private[speedy] final case class KCloseExercise(templateId: TypeConName, machine: Machine)
+      extends Kont {
 
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
-        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toValue)
+        val exerciseResultValue = onLedger.ptx.normValue(templateId, exerciseResult)
+        onLedger.ptx = onLedger.ptx.endExercises(exerciseResultValue)
         checkAborted(onLedger.ptx)
       }
       machine.returnValue = exerciseResult
@@ -1359,7 +1368,7 @@ private[lf] object Speedy {
         machine.env.clear()
         machine.envBase = 0
         throw SErrorDamlException(
-          interpretation.Error.UnhandledException(excep.ty, excep.value.toValue)
+          interpretation.Error.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )
     }
   }
