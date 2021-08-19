@@ -262,7 +262,7 @@ CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_e
 
 -- lookup by contract id
 -- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
-CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(ORA_HASH(contract_id));
+CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(contract_id);
 
 -- lookup by contract_key
 CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events_create(create_key_hash, event_sequential_id);
@@ -337,7 +337,7 @@ CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON p
 
 -- lookup by contract id
 -- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
-CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (ORA_HASH(contract_id));
+CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
