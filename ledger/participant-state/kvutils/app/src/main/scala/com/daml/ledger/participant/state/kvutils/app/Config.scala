@@ -3,11 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.io.File
-import java.nio.file.Path
-import java.time.Duration
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceOwner
@@ -22,7 +17,12 @@ import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
+import java.io.File
 import java.net.URL
+import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
@@ -308,17 +308,19 @@ object Config {
         opt[String]("pem")
           .optional()
           // TODO PBATKO: Are ciphertext private keys supported only in server mode? If so mention it in the text below.
-          .text("TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted.")
+          .text(
+            "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
+          )
           .action((path, config) =>
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
         opt[String]("secrets-url")
           .optional()
-
-          .text("TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix).")
+          .text(
+            "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+          )
           .action((url, config) =>
             // TODO PBATKO: validation: require secrets-url if pem file ends with .enc suffix: Use checkConfig()
-
             config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url))))
           )
         opt[String]("crt")
