@@ -7,7 +7,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.daml.http.domain.{Choice, TemplateId}
-import com.daml.http.util.IdentifierConverters
+import com.daml.http.util.{Concurrent, IdentifierConverters}
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.service.LedgerReader.PackageStore
@@ -55,7 +55,7 @@ private class PackageService(
 
   // volatile, because we want to reduce the probability of unnecessary package updates
   // due to multiple threads reading this.
-  // Writes to this are synchronized with a semaphore, so in theory this should work out fine.
+  // Writes to this are synchronized with a mutex, so in theory this should work out fine.
   @volatile private var lastUpdated = LocalDateTime.MIN
 
   // Regular updates should happen regardless of the current state every minute.
@@ -63,56 +63,49 @@ private class PackageService(
     lastUpdated.until(LocalDateTime.now(), temporal.ChronoUnit.SECONDS) >= 60L
 
   private val _reload = {
-    val updateOngoing = new java.util.concurrent.Semaphore(1)
+    // Because things can go so easily wrong, the declaration of the mutex
+    // was moved into a separate block, so it's easier to track down all interactions.
+    val updateOngoing = Concurrent.Mutex()
 
     def reload(jwt: Jwt)(implicit
         ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
-    ) = {
-      logger.trace("Trying to acquire updateOngoing semaphore")
-      if (updateOngoing.tryAcquire())
-        try reloadPackageStoreIfChanged(jwt)(state.packageIds)
+    ): Future[Error \/ Unit] = {
+      lazy val ifAvailable =
+        EitherT
+          .eitherT(
+            Future(
+              logger.trace("Trying to execute a package update")
+            ) *> reloadPackageStoreIfChanged(
+              jwt
+            )(state.packageIds)
+          )
           .map {
-            _.map {
-              case Some(diff) =>
-                this.state = this.state.append(diff)
-                logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-                logger.debug(s"loaded diff: $diff")
-                ()
-              case None =>
-                logger.debug(s"new package IDs not found")
-                ()
-            }
-              .map { _ =>
-                lastUpdated = LocalDateTime.now()
-              }
+            case Some(diff) =>
+              this.state = this.state.append(diff)
+              logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+              logger.debug(s"loaded diff: $diff")
+            case None => logger.debug(s"new package IDs not found")
           }
-          .transform { res =>
-            // regardless of whether this was a success or failure
-            // we always want to release the semaphore here.
-            updateOngoing.release()
-            logger.trace("Released updateOngoing semaphore")
+          .map { res =>
+            lastUpdated = LocalDateTime.now()
             res
-          } catch {
-          case t: Throwable =>
-            updateOngoing.release()
-            logger.trace("Released updateOngoing semaphore after catching exception")
-            Future.failed(t)
-        }
-      else {
-        logger.trace("It looks like an package update is already ongoing, skipping")
-        Future.successful(().right)
-      }
+          }
+          .run
+      lazy val ifUnavailable =
+        Future(logger.trace("It looks like an package update is already ongoing, skipping").right)
+      util.Concurrent.executeIfAvailable(updateOngoing)(ifAvailable)(ifUnavailable)
     }
 
     (jwt: Jwt, ec: ExecutionContext, lc: LoggingContextOf[InstanceUUID]) => reload(jwt)(ec, lc)
   }
 
-  // synchronized, so two threads cannot reload it concurrently
+  // synchronized via a mutex, so two threads cannot reload it concurrently
+  @inline
   def reload(jwt: Jwt)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): Future[Error \/ Unit] = _reload(jwt, ec, lc)
+  ) = _reload(jwt, ec, lc)
 
   def packageStore: PackageStore = state.packageStore
 
