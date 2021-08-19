@@ -29,7 +29,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     case _ =>
       throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
   }
-  private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 2
+  private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 4
 
   test(
     "CDSimpleDeduplicationBasic",
@@ -79,11 +79,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
           requestA2 = ledger
             .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
             .update(
-              _.commands.deduplicationStart := deduplicationStart
-                .plusSeconds(
-                  deduplicationWindowWait.toSeconds
-                ) // make sure deduplication does not include the first request, as it's based on current time
-                .asProtobuf,
+              _.commands.deduplicationStart := deduplicationStart.asProtobuf,
               _.commands.commandId := requestA1.commands.get.commandId,
             )
           _ <- requestsAreSubmittedAndDeduplicated(
@@ -125,7 +121,6 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
         .submit(requestA1)
         .mustFail("submitting the first request for the second time")
       completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
-
       // Wait until the end of first deduplication window
       _ <- Delayed.by(deduplicationWindowWait)(())
 
