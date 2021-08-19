@@ -10,7 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
@@ -18,6 +18,7 @@ import com.daml.ledger.test.model.Test._
 import com.daml.timer.Delayed
 import io.grpc.Status
 
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -29,26 +30,18 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     case _ =>
       throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
   }
-  private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 4
+  private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 4 + 5.seconds
 
   test(
     "CDSimpleDeduplicationBasic",
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val requestA1 = ledger
-      .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
-      .update(
-        _.commands.deduplicationTime := deduplicationTime.asProtobuf
-      )
-    val requestA2 = ledger
-      .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
-      .update(
-        _.commands.deduplicationTime := deduplicationTime.asProtobuf,
-        _.commands.commandId := requestA1.commands.get.commandId,
-      )
-
-    requestsAreSubmittedAndDeduplicated(ledger, party, requestA1, requestA2)
+    requestsAreSubmittedAndDeduplicated(
+      ledger,
+      party,
+      DeduplicationPeriod.DeduplicationTime(deduplicationTime.asProtobuf),
+    )
   })
 
   test(
@@ -61,7 +54,6 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
       .getTimeModel()
       .flatMap(timeModelResponse => {
         val timeModel = timeModelResponse.getTimeModel
-        val deduplicationStart = Instant.now()
         val minSkew = deduplicationTime
         val deduplicatedResult = for {
           ledgerTime <- ledger.time()
@@ -71,22 +63,24 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
             timeModelResponse.configurationGeneration,
             timeModel.update(_.minSkew := minSkew.asProtobuf),
           )
-          requestA1 = ledger
-            .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
-            .update(
-              _.commands.deduplicationStart := deduplicationStart.asProtobuf
-            )
-          requestA2 = ledger
-            .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
-            .update(
-              _.commands.deduplicationStart := deduplicationStart.asProtobuf,
-              _.commands.commandId := requestA1.commands.get.commandId,
-            )
+          _ <- eventually( // ensure time model was update
+            ledger
+              .getTimeModel()
+              .map(timeModel =>
+                assert(
+                  timeModel.configurationGeneration == timeModelResponse.configurationGeneration + 1
+                )
+              )
+          )
           _ <- requestsAreSubmittedAndDeduplicated(
             ledger = ledger,
             party = party,
-            requestA1 = requestA1,
-            requestA2 = requestA2,
+            DeduplicationPeriod.DeduplicationStart(
+              Instant
+                .now()
+                .minusNanos(1)
+                .asProtobuf //ensure it's in the past compared to ledger clock
+            ),
           )
         } yield {}
         deduplicatedResult.transformWith { testResult => // reset the deduplicationStartTime model
@@ -108,9 +102,19 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
   private def requestsAreSubmittedAndDeduplicated(
       ledger: ParticipantTestContext,
       party: Primitive.Party,
-      requestA1: SubmitRequest,
-      requestA2: SubmitRequest,
+      deduplicationPeriod: => DeduplicationPeriod,
   )(implicit ec: ExecutionContext) = {
+    lazy val requestA1 = ledger
+      .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
+      .update(
+        _.commands.deduplicationPeriod := deduplicationPeriod
+      )
+    lazy val requestA2 = ledger
+      .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
+      .update(
+        _.commands.deduplicationPeriod := deduplicationPeriod,
+        _.commands.commandId := requestA1.commands.get.commandId,
+      )
     for {
       // Submit command A (first deduplication window)
       // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
