@@ -86,7 +86,7 @@ conformance_test(
         # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
         ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
         ",DeeplyNestedValueIT" +
-        ",CommandDeduplicationIT:CDSimpleDeduplicationUsingStartTimestamp", #Canton currently doesn't support this deduplication period
+        ",CommandDeduplicationIT:CDSimpleDeduplicationUsingStartTimestamp",  #Canton currently doesn't support this deduplication period
     ],
 ) if not is_windows else None
 
