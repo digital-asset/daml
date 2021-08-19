@@ -56,7 +56,7 @@ private[platform] final class DbDispatcher private (
           result
         } catch {
           case NonFatal(e) =>
-            logger.error("Exception while executing SQL query. Rolled back.", e)
+            logger.warn("Exception while executing SQL query. Rolled back.", e)
             throw e
           // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
           case t: Throwable =>
@@ -71,7 +71,7 @@ private[platform] final class DbDispatcher private (
             overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
           } catch {
             case NonFatal(e) =>
-              logger.error("Got an exception while updating timer metrics. Ignoring.", e)
+              logger.warn("Got an exception while updating timer metrics. Ignoring.", e)
           }
         }
       }(executionContext)
@@ -106,7 +106,7 @@ private[platform] object DbDispatcher {
             new ThreadFactoryBuilder()
               .setNameFormat(s"$threadPoolName-%d")
               .setUncaughtExceptionHandler((_, e) =>
-                logger.error("Uncaught exception in the SQL executor.", e)
+                logger.warn("Uncaught exception in the SQL executor.", e)
               )
               .build(),
           ),
