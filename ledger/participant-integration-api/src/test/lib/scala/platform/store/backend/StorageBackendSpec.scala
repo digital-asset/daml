@@ -27,7 +27,6 @@ private[backend] trait StorageBackendSpec
   protected val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   implicit protected val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  //
   private val connectionPoolSize: Int = 16
   private val metrics = new Metrics(new MetricRegistry)
 
