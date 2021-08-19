@@ -69,6 +69,9 @@ bazel build //... `
 bazel shutdown
 
 if ($env:SKIP_TESTS -ceq "False") {
+    # Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
+    ./ci/remap-scala-test-short-names.ps1 >scala-test-suite-name-map.json
+
     bazel test //... `
       `-`-profile test-profile.json `
       `-`-experimental_profile_include_target_label `
