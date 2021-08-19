@@ -44,9 +44,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value[ContractId],
-  ): (SValue, Set[Value.ContractId]) = {
-
-    val cids = Set.newBuilder[Value.ContractId]
+  ): SValue = {
 
     def go(ty0: Type, value0: Value[ContractId], nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
@@ -91,7 +89,6 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                         typeError()
                     }
                   case (BTContractId, ValueContractId(c)) =>
-                    cids += c
                     SValue.SContractId(c)
                   case (BTOptional, ValueOptional(mbValue)) =>
                     mbValue match {
@@ -224,7 +221,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
         }
       }
 
-    go(ty, value) -> cids.result()
+    go(ty, value)
   }
 
   // This does not try to pull missing packages, return an error instead.
@@ -232,6 +229,6 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
       ty: Type,
       value: Value[ContractId],
   ): Either[Error.Preprocessing.Error, SValue] =
-    safelyRun(unsafeTranslateValue(ty, value)._1)
+    safelyRun(unsafeTranslateValue(ty, value))
 
 }

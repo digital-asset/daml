@@ -96,7 +96,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
-      .flatMap { case (processedCmds, globalCids) =>
+      .flatMap { processedCmds =>
         interpretCommands(
           validating = false,
           submitters = submitters,
@@ -105,7 +105,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-          globalCids,
         ) map { case (tx, meta) =>
           // Annotate the transaction with the package dependencies. Since
           // all commands are actions on a contract template, with a fully typed
@@ -146,8 +145,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commandWithCids <- preprocessor.preprocessCommand(command)
-      (speedyCommand, globalCids) = commandWithCids
+      speedyCommand <- preprocessor.preprocessCommand(command)
       sexpr = compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand)
       // reinterpret is never used for submission, only for validation.
       result <- interpretExpression(
@@ -158,7 +156,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        globalCids = globalCids,
       )
       (tx, meta) = result
     } yield (tx, meta)
@@ -172,8 +169,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       submissionSeed: crypto.Hash,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
-      (commands, globalCids) = commandsWithCids
+      commands <- preprocessor.translateTransactionRoots(tx.transaction)
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
@@ -182,7 +178,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        globalCids,
       )
 
     } yield result
@@ -273,7 +268,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-      globalCids: Set[Value.ContractId],
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val sexpr = compiledPackages.compiler.unsafeCompile(commands)
     interpretExpression(
@@ -284,7 +278,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       ledgerTime,
       submissionTime,
       seeding,
-      globalCids,
     )
   }
 
@@ -304,7 +297,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-      globalCids: Set[Value.ContractId],
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(NameOf.qualifiedNameOfCurrentFunc) {
       val machine = Machine(
@@ -312,7 +304,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         submissionTime = submissionTime,
         initialSeeding = seeding,
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
-        globalCids = globalCids,
         committers = submitters,
         readAs = readAs,
         validating = validating,
