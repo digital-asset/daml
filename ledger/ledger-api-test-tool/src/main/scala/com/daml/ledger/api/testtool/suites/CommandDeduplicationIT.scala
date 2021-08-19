@@ -30,7 +30,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     case _ =>
       throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
   }
-  private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 4 + 5.seconds
+  private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 2
 
   test(
     "CDSimpleDeduplicationBasic",
@@ -68,7 +68,8 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
               .getTimeModel()
               .map(timeModel =>
                 assert(
-                  timeModel.configurationGeneration == timeModelResponse.configurationGeneration + 1
+                  timeModel.configurationGeneration == timeModelResponse.configurationGeneration + 1,
+                  "Time model was not updated",
                 )
               )
           )
