@@ -3,10 +3,14 @@
 
 package com.daml.platform.store.backend
 
+import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-private[backend] trait StorageBackendTestsIngestion extends Matchers with StorageBackendSpec {
+private[backend] trait StorageBackendTestsIngestion
+    extends Matchers
+    with Inside
+    with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
   behavior of "StorageBackend (ingestion)"
@@ -15,7 +19,7 @@ private[backend] trait StorageBackendTestsIngestion extends Matchers with Storag
 
   it should "ingest a single configuration update" in {
     val someOffset = offset(1)
-    val dtos = dtoConfiguration(someOffset).toVector
+    val dtos = dtoConfiguration(someOffset, someConfiguration).toVector
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
@@ -28,6 +32,10 @@ private[backend] trait StorageBackendTestsIngestion extends Matchers with Storag
       configBeforeLedgerEndUpdate shouldBe empty
 
       // The second query should now see the configuration change.
+      inside(configAfterLedgerEndUpdate) { case Some((offset, config)) =>
+        offset shouldBe someOffset
+        config shouldBe someConfiguration
+      }
       configAfterLedgerEndUpdate should not be empty
     }
   }

@@ -51,13 +51,16 @@ private[backend] object StorageBackendTestValues {
   // because Oracle converts empty arrays to NULL, which then breaks non-null constraints.
   val someSerializedDamlLfValue: Array[Byte] = Array.fill[Byte](8)(15)
 
-  def dtoConfiguration(offset: Offset): List[DbDto] = List(
+  def dtoConfiguration(
+      offset: Offset,
+      configuration: Configuration = someConfiguration,
+  ): List[DbDto] = List(
     DbDto.ConfigurationEntry(
       ledger_offset = offset.toHexString,
       recorded_at = someTime,
       submission_id = "submission_id",
       typ = JdbcLedgerDao.acceptType,
-      configuration = Configuration.encode(someConfiguration).toByteArray,
+      configuration = Configuration.encode(configuration).toByteArray,
       rejection_reason = None,
     )
   )
