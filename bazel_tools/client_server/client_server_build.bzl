@@ -45,7 +45,7 @@ client_server_build = rule(
             cfg = "host",
             allow_single_file = True,
             executable = True,
-            default = Label("@//bazel_tools/client_server/runner:runner"),
+            default = Label("@//bazel_tools/client_server/runner_with_port_file"),
         ),
         "runner_args": attr.string_list(),
         "client": attr.label(

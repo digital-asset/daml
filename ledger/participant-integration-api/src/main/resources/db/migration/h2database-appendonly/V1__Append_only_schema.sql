@@ -8,10 +8,9 @@ CREATE ALIAS array_intersection FOR "com.daml.platform.store.backend.h2.H2Functi
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE parameters (
   ledger_id VARCHAR NOT NULL,
-  participant_id VARCHAR,
+  participant_id VARCHAR NOT NULL,
   ledger_end VARCHAR,
   ledger_end_sequential_id BIGINT,
-  external_ledger_end VARCHAR,
   participant_pruned_up_to_inclusive VARCHAR
 );
 
@@ -121,9 +120,15 @@ CREATE TABLE participant_command_completions (
     application_id VARCHAR NOT NULL,
     submitters ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
+    -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
-    status_code INTEGER,
-    status_message VARCHAR
+    -- The three columns below are `NULL` if the completion is for an accepted transaction.
+    -- The `rejection_status_details` column contains a Protocol-Buffers-serialized message of type
+    -- `daml.platform.index.StatusDetails`, containing the code, message, and further details
+    -- (decided by the ledger driver), and may be `NULL` even if the other two columns are set.
+    rejection_status_code INTEGER,
+    rejection_status_message VARCHAR,
+    rejection_status_details BYTEA
 );
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);

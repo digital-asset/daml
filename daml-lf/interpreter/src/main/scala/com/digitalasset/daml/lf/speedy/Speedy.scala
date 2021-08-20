@@ -122,7 +122,6 @@ private[lf] object Speedy {
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
       // global contract discriminators, that are discriminators from contract created in previous transactions
-      var globalDiscriminators: Set[crypto.Hash],
       var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode {
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
@@ -358,30 +357,10 @@ private[lf] object Speedy {
         key: Option[Node.KeyWithMaintainers[V[Nothing]]],
     ) =
       withOnLedger("addLocalContract") { onLedger =>
-        coid match {
-          case V.ContractId.V1(discriminator, _)
-              if onLedger.globalDiscriminators.contains(discriminator) =>
-            throw SErrorDamlException(
-              interpretation.Error.ContractIdFreshness(discriminator)
-            )
-          case _ =>
-            onLedger.cachedContracts = onLedger.cachedContracts.updated(
-              coid,
-              CachedContract(templateId, arg, signatories, observers, key),
-            )
-        }
-      }
-
-    def addGlobalCid(cid: V.ContractId) =
-      withOnLedger("addGlobalCid") { onLedger =>
-        cid match {
-          case V.ContractId.V1(discriminator, _) =>
-            if (onLedger.ptx.localContracts.contains(V.ContractId.V1(discriminator)))
-              throw SErrorDamlException(interpretation.Error.ContractIdFreshness(discriminator))
-            else
-              onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
-          case _ =>
-        }
+        onLedger.cachedContracts = onLedger.cachedContracts.updated(
+          coid,
+          CachedContract(templateId, arg, signatories, observers, key),
+        )
       }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
@@ -672,7 +651,6 @@ private[lf] object Speedy {
               case elemType :: Nil =>
                 value match {
                   case V.ValueContractId(cid) =>
-                    addGlobalCid(cid)
                     SValue.SContractId(cid)
                   case V.ValueNumeric(d) =>
                     SValue.SNumeric(d)
@@ -778,7 +756,6 @@ private[lf] object Speedy {
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
         expr: SExpr,
-        globalCids: Set[V.ContractId],
         committers: Set[Party],
         readAs: Set[Party],
         validating: Boolean = false,
@@ -808,9 +785,6 @@ private[lf] object Speedy {
           readAs = readAs,
           commitLocation = commitLocation,
           dependsOnTime = false,
-          globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
-            discriminator
-          },
           cachedContracts = Map.empty,
           contractKeyUniqueness = contractKeyUniqueness,
         ),
@@ -850,7 +824,6 @@ private[lf] object Speedy {
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
         expr = SEApp(updateSE, Array(SEValue.Token)),
-        globalCids = Set.empty,
         committers = Set(committer),
         readAs = Set.empty,
       )

@@ -5,6 +5,7 @@ package com.daml.platform.store.appendonlydao.events
 import java.sql.Connection
 
 import com.daml.ledger.offset.Offset
+import com.daml.platform.store.EventSequentialId
 
 // (startExclusive, endInclusive]
 private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
@@ -13,10 +14,9 @@ private[events] final case class EventsRange[A](startExclusive: A, endInclusive:
 }
 
 private[events] object EventsRange {
-  private val EmptyLedgerEventSeqId = 0L
-
   // (0, 0] -- non-existent range
-  private val EmptyEventSeqIdRange = EventsRange(EmptyLedgerEventSeqId, EmptyLedgerEventSeqId)
+  private val EmptyEventSeqIdRange =
+    EventsRange(EventSequentialId.beforeBegin, EventSequentialId.beforeBegin)
 
   def isEmpty[A: Ordering](range: EventsRange[A]): Boolean = {
     val A = implicitly[Ordering[A]]
@@ -57,7 +57,7 @@ private[events] object EventsRange {
 
     private def readEventSeqId(offset: Offset)(connection: java.sql.Connection): Long =
       lookupEventSeqId(offset)(connection)
-        .getOrElse(EmptyLedgerEventSeqId)
+        .getOrElse(EventSequentialId.beforeBegin)
   }
 
   private[events] def readPage[A](

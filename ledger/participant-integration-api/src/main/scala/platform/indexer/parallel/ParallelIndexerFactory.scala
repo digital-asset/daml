@@ -23,8 +23,9 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
-import com.daml.platform.store.backend
+import com.daml.platform.store.{EventSequentialId, backend}
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -116,7 +117,8 @@ object ParallelIndexerFactory {
               ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
               tailer = tailer(storageBackend.batch(Vector.empty)),
               tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-              ingestTail = ingestTail[DB_BATCH](storageBackend.updateParams, dbDispatcher, metrics),
+              ingestTail =
+                ingestTail[DB_BATCH](storageBackend.updateLedgerEnd, dbDispatcher, metrics),
             )(
               InstrumentedSource
                 .bufferedSource(
@@ -168,11 +170,16 @@ object ParallelIndexerFactory {
             )
             .use { dbDispatcher =>
               dbDispatcher
-                .executeSql(metrics.daml.parallelIndexer.initialization)(storageBackend.initialize)
+                .executeSql(metrics.daml.parallelIndexer.initialization)(
+                  storageBackend.initializeIngestion
+                )
                 .flatMap { initialized =>
                   val (killSwitch, completionFuture) =
-                    ingest(initialized.lastEventSeqId.getOrElse(0L), dbDispatcher)(
-                      readService.stateUpdates(beginAfter = initialized.lastOffset)
+                    ingest(
+                      initialized.map(_.lastEventSeqId).getOrElse(EventSequentialId.beforeBegin),
+                      dbDispatcher,
+                    )(
+                      readService.stateUpdates(beginAfter = initialized.map(_.lastOffset))
                     )
                       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
                       .toMat(Sink.ignore)(Keep.both)
@@ -332,14 +339,14 @@ object ParallelIndexerFactory {
         offsets = Vector.empty, // not used anymore
       )
 
-  def ledgerEndFrom(batch: Batch[_]): StorageBackend.Params =
-    StorageBackend.Params(
-      ledgerEnd = batch.lastOffset,
-      eventSeqId = batch.lastSeqEventId,
+  def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
+    LedgerEnd(
+      lastOffset = batch.lastOffset,
+      lastEventSeqId = batch.lastSeqEventId,
     )
 
   def ingestTail[DB_BATCH](
-      ingestTailFunction: StorageBackend.Params => Connection => Unit,
+      ingestTailFunction: LedgerEnd => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =

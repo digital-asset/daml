@@ -115,10 +115,6 @@ build:darwin --protocopt=--include_source_info
 # https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/compiler/command_line_interface.cc#L1363
 #build:windows --protocopt=--include_source_info
 
-# Use symlinks to avoid copying. We control the environments we build in and
-# can therefore ensure symlinks are available
-startup:windows --windows_enable_symlinks
-
 # Some tools used in tests, like postgres CLI, require cmd.exe which can be located by them
 # using ComSpec environment variable. By default it's not passed from Bazel client environment.
 test:windows --test_env=ComSpec

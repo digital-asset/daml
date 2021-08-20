@@ -19,8 +19,6 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   *        transaction has been shipped via the WriteService.
   * @param maxCommandsInFlight
   *        Maximum number of submitted commands waiting to be completed for each party.
-  * @param limitMaxCommandsInFlight
-  *        Whether [[maxCommandsInFlight]] should be honored or not.
   * @param retentionPeriod
   *        For how long the command service will keep an active command tracker for a given party.
   *        A longer retention period allows to not instantiate a new tracker for a party that seldom acts.
@@ -30,7 +28,6 @@ final case class CommandConfiguration(
     inputBufferSize: Int,
     maxParallelSubmissions: Int,
     maxCommandsInFlight: Int,
-    limitMaxCommandsInFlight: Boolean,
     retentionPeriod: FiniteDuration,
 )
 
@@ -42,7 +39,6 @@ object CommandConfiguration {
       inputBufferSize = 512,
       maxParallelSubmissions = 512,
       maxCommandsInFlight = 256,
-      limitMaxCommandsInFlight = true,
       retentionPeriod = DefaultTrackerRetentionPeriod,
     )
 }

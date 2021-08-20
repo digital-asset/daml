@@ -4,17 +4,14 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 
 da_haskell_binary(
-    name = "runner",
+    name = "runner_with_port_file",
     srcs = ["Main.hs"],
     hackage_deps = [
         "base",
+        "directory",
         "extra",
         "filepath",
         "process",
-        "async",
-        "text",
-        "safe",
-        "split",
     ],
     visibility = ["//visibility:public"],
     deps = ["//libs-haskell/da-hs-base"],
