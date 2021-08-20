@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.util.concurrent.TimeUnit
-
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
@@ -13,6 +11,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final class ConfigSpec
@@ -49,9 +48,42 @@ final class ConfigSpec
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None),
   ): Option[Config[Unit]] =
-    Config.parse("Test", (_: OptionParser[Config[Unit]]) => (), (), parameters, getEnvVar)
+    Config.parse(
+      name = "Test",
+      extraOptions = (_: OptionParser[Config[Unit]]) => (),
+      defaultExtra = (),
+      args = parameters,
+      getEnvVar = getEnvVar,
+    )
 
   behavior of "Runner"
+
+  it should "require secretsUrl if server's private key is encrypted" in {
+    // TODO PBATKO this test case should actually
+    // omit --secrets-url and verify that
+    // CLI parses failed with an appropriate message
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.enc",
+        "--secrets-url",
+        "http://aaa",
+      )
+    ) should not be None
+  }
+
+  it should "do not require secretsUrl if server's private key is plaintext" in {
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.txt",
+      )
+    ) should not be None
+  }
 
   it should "fail if a participant is not provided in run mode" in {
     configParser(Seq.empty) shouldEqual None
@@ -59,14 +91,16 @@ final class ConfigSpec
 
   it should "fail if a participant is not provided when dumping the index metadata" in {
     configParser(Seq(dumpIndexMetadataCommand)) shouldEqual None
-  }
 
+  }
   it should "succeed if a participant is provided when dumping the index metadata" in {
-    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url"))
+    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url")) should not be empty
   }
 
   it should "succeed if more than one participant is provided when dumping the index metadata" in {
-    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url", "some-other-jdbc-url"))
+    configParser(
+      Seq(dumpIndexMetadataCommand, "some-jdbc-url", "some-other-jdbc-url")
+    ) should not be empty
   }
 
   it should "get the jdbc string from the command line argument when provided" in {

@@ -11,10 +11,8 @@ import java.net.URL
 import java.nio.file.Files
 import scala.jdk.CollectionConverters._
 
-// TODO PBATKO: How to discern TlsConfig for client vs. for server? Is it obvious from the context where it was instantiated, or by some field? Or is the same one instance used (?sometimes) for both??
 final case class TlsConfiguration(
     enabled: Boolean,
-    // TODO PBATKO assign default None values to the params below?
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
     trustCertCollectionFile: Option[File], // System default if null
@@ -34,7 +32,7 @@ final case class TlsConfiguration(
           .keyManager(
             keyCertChainFile.orNull,
             keyFile.orNull,
-          ) // TODO PBATKO handle encrypted keu files for clients: either fail with a meaningful message or (?unlikely) decrypt it the same way as for the server
+          )
           .trustManager(trustCertCollectionFile.orNull)
           .protocols(if (protocols.nonEmpty) protocols.asJava else null)
           .build()
@@ -68,39 +66,31 @@ final case class TlsConfiguration(
   def setJvmTlsProperties(): Unit =
     if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
 
-  //}.getOrElse(
-  //throw new IllegalStateException(
-  //s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
-  //)
-  // TODO PBATKO: Array vs. ArrayBuffer vs. sth else?
-  private def keyInputStreamOrFail: InputStream =
-    keyFile
-      .collect {
-        case file if file.getName.endsWith(".enc") =>
-          decryptKeyFile(keyFile = file, secretsUrl = secretsUrlOrFail)
-        case file => Files.readAllBytes(file.toPath)
-        // TODO PBATKO convert to a safe form (storing plain text private key in a file system is a big no no)
-
-      }
-      .map(bytes => new ByteArrayInputStream(bytes))
-      .getOrElse(
-        // TODO PBATKO accurate error messages: ? separate message for plaintext keyFile and cipherText keyFile
-        //      current message is imprecise: the keyFile could exists and the part that failed is e.g. secrets server connectivity
-        throw new IllegalArgumentException(
-          s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
-        )
+  private[tls] def keyInputStreamOrFail: InputStream = {
+    val keyFileOrFail = keyFile.getOrElse(
+      throw new IllegalArgumentException(
+        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
       )
+    )
+    prepareKeyInputStream(keyFileOrFail)
+  }
+
+  private[tls] def prepareKeyInputStream(keyFile: File): InputStream = {
+    val bytes = if (keyFile.getName.endsWith(".enc")) {
+      // TODO PBATKO: How to handle problems: url connection failure, json parsing failure, etc?
+      val params = DecryptionParameters.fromSecretsServer(secretsUrlOrFail)
+      params.decrypt(encrypted = keyFile)
+    } else {
+      Files.readAllBytes(keyFile.toPath)
+    }
+    new ByteArrayInputStream(bytes)
+  }
 
   def secretsUrlOrFail: URL = secretsUrl.getOrElse(
     throw new IllegalStateException(
-      s"Unable to convert ${this.toString} to SSL Context: cannot decrypt keyFile withtou secretsUrl."
+      s"Unable to convert ${this.toString} to SSL Context: cannot decrypt keyFile without secretsUrl."
     )
   )
-
-  private def decryptKeyFile(keyFile: File, secretsUrl: URL): Array[Byte] = {
-    val params = DecryptionParameters.fromSecretsServer(secretsUrl)
-    params.decrypt(encrypted = keyFile)
-  }
 
   private def keyCertChainInputStreamOrFail: InputStream =
     keyCertChainFile

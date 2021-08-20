@@ -3,10 +3,6 @@
 
 package com.daml.platform.sandbox.config
 
-import java.io.File
-import java.nio.file.Path
-import java.time.Duration
-
 import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
@@ -20,6 +16,9 @@ import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfi
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
+import java.io.File
+import java.nio.file.Path
+import java.time.Duration
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** Defines the basic configuration for running sandbox
@@ -61,6 +60,10 @@ final case class SandboxConfig(
     enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
 ) {
+
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
+    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+
   lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
     InitialLedgerConfiguration(
       Configuration.reasonableInitialConfiguration.copy(timeModel = timeModel),

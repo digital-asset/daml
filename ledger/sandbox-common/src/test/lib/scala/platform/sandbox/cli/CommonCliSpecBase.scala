@@ -3,10 +3,6 @@
 
 package com.daml.platform.sandbox.cli
 
-import java.io.File
-import java.net.InetSocketAddress
-import java.nio.file.{Files, Paths}
-
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.test.ModelTestDar
@@ -21,6 +17,9 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.io.File
+import java.net.{InetSocketAddress, URL}
+import java.nio.file.{Files, Paths}
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 
@@ -116,6 +115,51 @@ abstract class CommonCliSpecBase(
       checkOption(
         Array("--pem", pem),
         _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))),
+      )
+    }
+
+    "require secretsUrl if server's private key is encrypted" in {
+      // TODO PBATKO this test case should actually
+      // omit --secrets-url and verify that
+      // CLI parses failed with an appropriate message
+      checkOption(
+        Array(
+          "--pem",
+          "key.enc",
+          "--secrets-url",
+          "http://aaa",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              None,
+              Some(new File("key.enc")),
+              None,
+              secretsUrl = Some(new URL("http://aaa")),
+            )
+          )
+        ),
+      )
+    }
+
+    "not require secretsUrl if server's private key is plaintext" in {
+      checkOption(
+        Array(
+          "--pem",
+          "key.txt",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              None,
+              Some(new File("key.txt")),
+              None,
+              secretsUrl = None,
+            )
+          )
+        ),
       )
     }
 

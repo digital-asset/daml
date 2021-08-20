@@ -20,7 +20,7 @@ import scala.util.Using
   * @param initializationVectorInHex: Hex encoded bytes of IV.
   * @param keyLengthInBytes: Key length in bytes. Currently unused.
   */
-final case class DecryptionParameters(
+case class DecryptionParameters(
     transformation: String,
     keyInHex: String,
     initializationVectorInHex: String,
@@ -37,7 +37,8 @@ final case class DecryptionParameters(
 
   private[tls] def decrypt(encrypted: Array[Byte]): Array[Byte] = {
     val key: Array[Byte] = Hex.decodeHex(keyInHex)
-    val secretKey = new SecretKeySpec(key, "AES") // TODO PBATKO hardcoded
+    val secretKey =
+      new SecretKeySpec(key, "AES") // TODO PBATKO hardcoded. Is it good enough for now?
     val iv: Array[Byte] = Hex.decodeHex(initializationVectorInHex)
     val cipher = Cipher.getInstance(transformation)
     val ivParameterSpec = new IvParameterSpec(iv)

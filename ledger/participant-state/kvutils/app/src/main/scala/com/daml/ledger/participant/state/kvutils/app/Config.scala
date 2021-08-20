@@ -307,22 +307,40 @@ object Config {
 
         opt[String]("pem")
           .optional()
-          // TODO PBATKO: Are ciphertext private keys supported only in server mode? If so mention it in the text below.
           .text(
+            // TODO PBATKO is this option (--pem) used for both server and client? 'cause '.enc' applies only to servers
             "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
           )
           .action((path, config) =>
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
+
         opt[String]("secrets-url")
           .optional()
           .text(
             "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
           )
           .action((url, config) =>
-            // TODO PBATKO: validation: require secrets-url if pem file ends with .enc suffix: Use checkConfig()
             config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url))))
           )
+
+        // TODO PBATKO code duplicated in CommonCliBase.scala
+        checkConfig(c =>
+          c.tlsConfig.fold(success) { tlsConfig =>
+            if (
+              tlsConfig.keyFile.isDefined
+              && tlsConfig.keyFile.get.getName.endsWith(".enc")
+              && tlsConfig.secretsUrl.isEmpty
+            ) {
+              failure(
+                "You need to provide a secrets server URL server's private key is encrypted file"
+              )
+            } else {
+              success
+            }
+          }
+        )
+
         opt[String]("crt")
           .optional()
           .text(

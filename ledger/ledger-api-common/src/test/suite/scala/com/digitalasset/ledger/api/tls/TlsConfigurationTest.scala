@@ -3,11 +3,16 @@
 
 package com.daml.ledger.api.tls
 
-import java.security.Security
-
+import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import java.io.InputStream
+import java.net.{ConnectException, URL}
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.security.Security
 
 class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfterEach {
 
@@ -50,6 +55,56 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
         .setJvmTlsProperties()
 
       verifyOcsp(Enabled)
+    }
+
+    "get an input stream from a plaintext private key" in {
+      // given
+      val keyFilePath = Files.createTempFile("private-key", ".txt")
+      Files.write(keyFilePath, "private-key-123".getBytes())
+      assume(Files.readAllBytes(keyFilePath) sameElements "private-key-123".getBytes)
+      val keyFile = keyFilePath.toFile
+      val tested = TlsConfiguration.Empty
+
+      // when
+      val actual: InputStream = tested.prepareKeyInputStream(keyFile)
+
+      // then
+      IOUtils.toString(actual, StandardCharsets.UTF_8) shouldBe "private-key-123"
+    }
+
+    "fail on missing secretsUrl when private key is encrypted ('.enc' file extension)" in {
+      // given
+      val keyFilePath = Files.createTempFile("private-key", ".enc")
+      Files.write(keyFilePath, "private-key-123".getBytes())
+      assume(Files.readAllBytes(keyFilePath) sameElements "private-key-123".getBytes)
+      val keyFile = keyFilePath.toFile
+      val tested = TlsConfiguration.Empty
+
+      // when
+      val e = intercept[IllegalStateException] {
+        val _: InputStream = tested.prepareKeyInputStream(keyFile)
+      }
+
+      // then
+      e.getMessage shouldBe "Unable to convert TlsConfiguration(true,None,None,None,None,REQUIRE,false,List()) to SSL Context: cannot decrypt keyFile without secretsUrl."
+    }
+
+    "attempt to decrypt private key using by fetching decryption params from an url" in {
+      // TODO PBATKO ideally I'd like to mock fetching and parsing the secrects but it seems hard to do.
+      // Alternative is to spin up a http server, but I'm already doing that in a different unit test
+      // given
+      val keyFilePath = Files.createTempFile("private-key", ".enc")
+      Files.write(keyFilePath, "private-key-123".getBytes())
+      assume(Files.readAllBytes(keyFilePath) sameElements "private-key-123".getBytes)
+      val keyFile = keyFilePath.toFile
+      val url = new URL("http://localhost/this/does/not/exist/sdkjfsldf")
+      val tested = TlsConfiguration.Empty
+        .copy(secretsUrl = Some(url))
+
+      // when & then: key decryption logic should attempt to connect to the url
+      assertThrows[ConnectException] {
+        val _: InputStream = tested.prepareKeyInputStream(keyFile)
+      }
     }
   }
 

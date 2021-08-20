@@ -21,8 +21,10 @@ genrule(
         "client.crt",
         "server.key",
         "server.pem",
+        "server.pem.enc",
         "server.csr",
         "server.crt",
+        "server-pem-decryption-parameters.json",
         "ocsp.key.pem",
         "ocsp.csr",
         "ocsp.crt",
@@ -47,8 +49,8 @@ NEWCERTS_DIR=$$ABSOLUTE_OUT/newcerts
 cat $(location openssl-template.cnf) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl.cnf)
 
 # Setup directories
-mkdir $$NEWCERTS_DIR
-touch $(location index.txt)
+mkdir -- $$NEWCERTS_DIR
+touch -- $(location index.txt)
 echo 1000 > $(location serial)
 
 # Generate Root CA private key
@@ -76,6 +78,21 @@ $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf)
     -in $(location server.csr) \
     -out $(location server.crt)
 chmod 444 $(location server.crt)
+
+# Encrypt server's key and dump encryption parameters to a JSON file.
+$(location @openssl_dev_env//:openssl) enc -aes-128-cbc \
+    -in $(location server.pem) \
+    -out $(location server.pem.enc) \
+    -K 0034567890abcdef1234567890abcdef \
+    -iv 1134567890abcdef1234567890abcdef
+cat <<EOT >> $(location server-pem-decryption-parameters.json)
+{
+	"algorithm": "AES/CBC/PKCS5Padding",
+	"key": "0034567890abcdef1234567890abcdef",
+	"iv": "1134567890abcdef1234567890abcdef",
+	"key_length" : 128
+}
+EOT
 
 # Generate Client CA private key
 $(location @openssl_dev_env//:openssl) genrsa -out $(location client.key) 4096

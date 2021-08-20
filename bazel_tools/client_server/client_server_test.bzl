@@ -37,7 +37,7 @@ def client_server_test(
     The client and server files must be valid arguments to rlocation, as
     can be obtained using $(rootpath ...) or $(rootpaths ...). (See
     https://docs.bazel.build/versions/master/be/make-variables.html#predefined_label_variables.)
-    Once expended using rlocation, those are simply appended to client
+    Once expanded using rlocation, those are simply appended to client
     and server arguments, respectively.
 
     Example:
