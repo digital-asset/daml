@@ -196,11 +196,13 @@ sealed abstract class Queries(tablePrefix: String) {
       expectedOffset: String,
       tpids: NonEmpty[Set[SurrogateTpId]],
   ): ConnectionIO[Map[SurrogateTpId, Map[String, String]]] = {
-    import Queries.CompatImplicits.catsReducibleFromFoldable1
+    val condition = {
+      import Queries.CompatImplicits.catsReducibleFromFoldable1, scalaz.std.iterable._
+      Fragments.in(fr"tpid", tpids.toSeq.toOneAnd)
+    }
     val q = sql"""
       SELECT tpid, party, last_offset FROM $ledgerOffsetTableName
-             WHERE last_offset <> $expectedOffset
-                   AND ${Fragments.in(fr"tpid", tpids.toSeq.toOneAnd)}
+             WHERE last_offset <> $expectedOffset AND $condition
     """
     q.query[(SurrogateTpId, String, String)]
       .map { case (tpid, party, offset) => (tpid, (party, offset)) }
