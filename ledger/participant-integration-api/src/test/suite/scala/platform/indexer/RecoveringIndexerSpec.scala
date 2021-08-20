@@ -193,23 +193,23 @@ final class RecoveringIndexerSpec
       val healthStatusLogCapture = mutable.ArrayBuffer.empty[HealthStatus]
       val healthStatusRef = new AtomicReference[HealthStatus]()
 
-      val recoveringIndexer =
-        new RecoveringIndexer(
-          actorSystem.scheduler,
-          actorSystem.dispatcher,
-          someTimeout,
-          updateHealthStatus = healthStatus => {
-            logger.info(s"Updating the health status of the indexer to $healthStatus.")
-            healthStatusLogCapture += healthStatus
-            healthStatusRef.set(healthStatus)
-          },
-          () => healthStatusRef.get(),
-        )
+      val timeout = 100.millis
+      val recoveringIndexer = new RecoveringIndexer(
+        actorSystem.scheduler,
+        actorSystem.dispatcher,
+        timeout,
+        updateHealthStatus = healthStatus => {
+          logger.info(s"Updating the health status of the indexer to $healthStatus.")
+          healthStatusLogCapture += healthStatus
+          healthStatusRef.set(healthStatus)
+        },
+        () => healthStatusRef.get(),
+      )
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SubscriptionFails, someTimeout, someTimeout),
-        SubscribeResult("B", StreamFails, someTimeout, someTimeout),
-        SubscribeResult("C", SuccessfullyCompletes, someTimeout, someTimeout),
+        SubscribeResult("A", SubscriptionFails, timeout, timeout),
+        SubscribeResult("B", StreamFails, timeout, timeout),
+        SubscribeResult("C", SuccessfullyCompletes, timeout, timeout),
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
