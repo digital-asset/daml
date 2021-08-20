@@ -87,8 +87,7 @@ private class ContractsFetch(
           templateIds.traverse(fetchAndPersist(jwt, parties, false, absEnd, _)).flatMap {
             actualAbsEnds =>
               val newAbsEndTarget = {
-                import scalaz.std.list._, scalaz.syntax.foldable._,
-                domain.Offset.{ordering => `Offset ordering`}
+                import scalaz.std.list._, scalaz.syntax.foldable._, domain.Offset.`Offset ordering`
                 // it's fine if all yielded LedgerBegin, so we don't want to conflate the "fallback"
                 // with genuine results
                 actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
@@ -411,7 +410,7 @@ private[http] object ContractsFetch {
         .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
-      import domain.Offset.{ordering => `Offset ordering`}
+      import domain.Offset.`Offset ordering`
       val lastTxOff = b add last(LedgerBegin: Off)
       type EndoBookmarkFlow[A] = Flow[BeginBookmark[A], BeginBookmark[A], NotUsed]
       val maxOff = b add domain.Offset.tag.unsubst[EndoBookmarkFlow, String](

@@ -226,7 +226,7 @@ object domain {
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
-    implicit val ordering: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
+    implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
 
   }
 

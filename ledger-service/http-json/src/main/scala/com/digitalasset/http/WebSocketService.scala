@@ -234,7 +234,7 @@ object WebSocketService {
             (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
         def matchesOffset(queryIndex: Int, maybeEventOffset: Option[domain.Offset]): Boolean = {
-          import domain.Offset.ordering
+          import domain.Offset.`Offset ordering`
           import scalaz.syntax.order._
           val matches =
             for {
@@ -316,7 +316,7 @@ object WebSocketService {
         )
 
       import scalaz.syntax.foldable1._
-      import domain.Offset.ordering
+      import domain.Offset.`Offset ordering`
       import scalaz.std.option.optionOrder
 
       // This is called after `adjustRequest` already filled in the blank offsets
