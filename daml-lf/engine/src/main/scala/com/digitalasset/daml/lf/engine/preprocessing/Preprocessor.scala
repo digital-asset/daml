@@ -6,24 +6,26 @@ package engine
 package preprocessing
 
 import java.util
-
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{GenTransaction, NodeId}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 
-private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackages) {
+private[engine] final class Preprocessor(
+    compiledPackages: MutableCompiledPackages,
+    requiredCidSuffix: Boolean = true,
+) {
 
   import Preprocessor._
-  val transactionPreprocessor = new TransactionPreprocessor(compiledPackages)
-  import transactionPreprocessor._
-  import commandPreprocessor._
-  import valueTranslator.unsafeTranslateValue
+
   import compiledPackages.interface
+
+  val commandPreprocessor = new CommandPreprocessor(interface, requiredCidSuffix)
+  val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
 
   // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeen0`
   private def getDependencies(
@@ -127,14 +129,14 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     */
   def translateValue(ty0: Ast.Type, v0: Value[Value.ContractId]): Result[SValue] =
     safelyRun(getDependencies(List(ty0), List.empty)) {
-      unsafeTranslateValue(ty0, v0)
+      commandPreprocessor.valueTranslator.unsafeTranslateValue(ty0, v0)
     }
 
   private[engine] def preprocessCommand(
       cmd: command.Command
   ): Result[speedy.Command] =
     safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
-      unsafePreprocessCommand(cmd)
+      commandPreprocessor.unsafePreprocessCommand(cmd)
     }
 
   /** Translates  LF commands to a speedy commands.
@@ -143,16 +145,16 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
-      unsafePreprocessCommands(cmds)
+      commandPreprocessor.unsafePreprocessCommands(cmds)
     }
 
-  def translateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction[NodeId, Cid]
+  def translateTransactionRoots(
+      tx: SubmittedTransaction
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(
       getDependencies(List.empty, tx.rootNodes.toList.map(_.templateId))
     ) {
-      unsafeTranslateTransactionRoots(tx)
+      transactionPreprocessor.unsafeTranslateTransactionRoots(tx)
     }
 
 }

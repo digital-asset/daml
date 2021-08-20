@@ -22,6 +22,10 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   * @param profileDir The optional specifies the directory where to
   *     save the output of the Daml scenario profiler. The profiler is
   *     disabled if the option is empty.
+  * @param requireSuffixedGlobalCids Since August 2018 we expect new
+  *     ledgers to suffix CIDs before committing a transaction.
+  *     This option should be disable for backward compatibility in ledger
+  *     that do not (i.e. Sandboxes, KV, Corda).
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -29,6 +33,9 @@ final case class EngineConfig(
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+    // TODO: https://github.com/digital-asset/daml/issues/10504
+    //  swicth the default to true
+    requireSuffixedGlobalCids: Boolean = false,
 ) {
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
