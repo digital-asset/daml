@@ -614,7 +614,11 @@ class WebSocketService(
         (for {
           offPrefix <- either[Future, Error, Option[StartingOffset]](oeso.sequence)
           jv <- either[Future, Error, JsValue](ejv)
-          a <- eitherT(Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv))
+          a <- eitherT(
+            Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv): Future[
+              Error \/ Q.Query[_]
+            ]
+          )
         } yield (offPrefix, a: Q.Query[_])).run
       }
       .via(
