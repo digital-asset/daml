@@ -81,7 +81,7 @@ private[backend] trait StorageBackendSpec
       runningTests.incrementAndGet() == 1,
       "StorageBackendSpec tests must not run in parallel, as they all run against the same database.",
     )
-    Await.result(executeSql(backend.reset), 10.seconds)
+    Await.result(executeSql(backend.resetAll), 10.seconds)
   }
 
   override protected def afterEach(): Unit = {
