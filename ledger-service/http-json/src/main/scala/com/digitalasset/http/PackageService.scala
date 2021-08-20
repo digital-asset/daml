@@ -7,7 +7,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.daml.http.domain.{Choice, TemplateId}
-import com.daml.http.util.{Concurrent, IdentifierConverters}
+import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.service.LedgerReader.PackageStore
@@ -65,36 +65,73 @@ private class PackageService(
   private val _reload = {
     // Because things can go so easily wrong, the declaration of the mutex
     // was moved into a separate block, so it's easier to track down all interactions.
-    val updateOngoing = Concurrent.Mutex()
+    val packageUpdateSync = util.Concurrent.Mutex()
+    val updateTaskUpdateSync = util.Concurrent.Mutex()
+    @volatile var ongoingPackageUpdateTask = Future.successful(().right)
+    @volatile var isValid = false
 
     def reload(jwt: Jwt)(implicit
         ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
     ): Future[Error \/ Unit] = {
-      lazy val ifAvailable =
-        EitherT
-          .eitherT(
-            Future(
-              logger.trace("Trying to execute a package update")
-            ) *> reloadPackageStoreIfChanged(
-              jwt
-            )(state.packageIds)
-          )
-          .map {
-            case Some(diff) =>
-              this.state = this.state.append(diff)
-              logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-              logger.debug(s"loaded diff: $diff")
-            case None => logger.debug(s"new package IDs not found")
-          }
-          .map { res =>
-            lastUpdated = LocalDateTime.now()
+      def update() = {
+        val f =
+          EitherT
+            .eitherT(
+              Future(
+                logger.debug("Trying to execute a package update")
+              ) *> reloadPackageStoreIfChanged(
+                jwt
+              )(state.packageIds)
+            )
+            .map {
+              case Some(diff) =>
+                this.state = this.state.append(diff)
+                logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+                logger.debug(s"loaded diff: $diff")
+              case None => logger.debug(s"new package IDs not found")
+            }
+            .map { res =>
+              lastUpdated = LocalDateTime.now()
+              res
+            }
+            .run
+        try {
+          ongoingPackageUpdateTask = f.map(_ => ().right)
+          // The task future has been updated, now all waiting threads can continue and pick it up.
+          isValid = true
+          updateTaskUpdateSync.release()
+          f.transform { res =>
+            // regardless of whether this was a success or failure
+            // we always want to release the mutex here.
+            isValid = false
+            packageUpdateSync.release()
+            logger.debug("Released mutex after task finished")
             res
           }
-          .run
-      lazy val ifUnavailable =
-        Future(logger.trace("It looks like an package update is already ongoing, skipping").right)
-      util.Concurrent.executeIfAvailable(updateOngoing)(ifAvailable)(ifUnavailable)
+        } catch {
+          case t: Throwable =>
+            if (updateTaskUpdateSync.availablePermits() == 0)
+              updateTaskUpdateSync.release()
+            packageUpdateSync.release()
+            logger.debug("Released mutex after catching exception")
+            Future.failed(t)
+        }
+      }
+      // If an update is ongoing
+      // the updateTask var could still contain the old value.
+      // Thus we lock here, to ensure that all threads wait if an
+      // update to that value is potentially incoming.
+      logger.debug("Trying to update packages (tryAcquire)")
+
+      updateTaskUpdateSync.acquire()
+      if (packageUpdateSync.tryAcquire())
+        update()
+      else {
+        updateTaskUpdateSync.release()
+        logger.debug(s"Picking up ongoing update task, is valid? $isValid")
+        ongoingPackageUpdateTask
+      }
     }
 
     (jwt: Jwt, ec: ExecutionContext, lc: LoggingContextOf[InstanceUUID]) => reload(jwt)(ec, lc)
