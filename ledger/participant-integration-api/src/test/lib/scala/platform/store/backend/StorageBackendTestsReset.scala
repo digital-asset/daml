@@ -31,6 +31,23 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     }
   }
 
+  it should "not see any data after advancing the ledger end" in {
+    for {
+      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(10000, 10000)))
+      parties <- executeSql(backend.knownParties)
+      config <- executeSql(backend.ledgerConfiguration)
+      packages <- executeSql(backend.lfPackages)
+    } yield {
+      // Some queries are protected to never return data beyond the ledger end.
+      // By advancing the ledger end to a large value, we can check whether these
+      // queries now find any left-over data not cleaned by reset().
+      parties shouldBe empty
+      packages shouldBe empty
+      config shouldBe None
+    }
+  }
+
   it should "reset contents of the index" in {
     val dtos: Vector[DbDto] = Vector(
       // 1: config change

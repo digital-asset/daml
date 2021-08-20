@@ -59,6 +59,9 @@ private[backend] trait StorageBackendSpec
     } yield dispatcher
 
     dbDispatcher = Await.result(dbDispatcherResource.asFuture, 30.seconds)
+    logger.info(
+      s"Finished setting up database $jdbcUrl for tests. You can now connect to this database to debug failed tests. Note that tables are truncated between each test."
+    )
   }
 
   override protected def afterAll(): Unit = {
