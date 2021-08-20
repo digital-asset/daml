@@ -3,8 +3,6 @@
 
 package com.daml.http
 
-import java.nio.file.Paths
-
 import com.daml.http.dbbackend.{JdbcConfig, DBConfig}
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
@@ -147,10 +145,16 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
     )
 
   opt[String]("access-token-file")
+    .foreach(_ =>
+      logger.warn(
+        s"Command-line option '--access-token-file' is deprecated. Please do NOT specify it because the auth behaviour is not influenced anymore by this." +
+          s"The jwt tokens from incoming requests are now used instead."
+      )
+    )
     .text(
       s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
     )
-    .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+    .hidden()
     .optional()
 
   opt[WebsocketConfig]("websocket-config")

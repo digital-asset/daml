@@ -97,7 +97,6 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         portFile = None,
         tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
         wsConfig = wsConfig,
-        accessTokenFile = None,
         maxInboundMessageSize = maxInboundMessageSize,
         allowNonHttps = leakPasswords,
         staticContentConfig = staticContentConfig,
