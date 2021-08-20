@@ -35,7 +35,7 @@ private[services] final class TrackerImpl(
   import TrackerImpl.logger
 
   override def track(request: SubmitAndWaitRequest)(implicit
-      ec: ExecutionContext,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     logger.trace("Tracking command")

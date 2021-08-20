@@ -12,10 +12,10 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[tracking] trait Tracker extends AutoCloseable {
+trait Tracker extends AutoCloseable {
 
   def track(request: SubmitAndWaitRequest)(implicit
-      ec: ExecutionContext,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]]
 
@@ -32,7 +32,7 @@ private[tracking] object Tracker {
     def getLastSubmission: Long = lastSubmission
 
     override def track(request: SubmitAndWaitRequest)(implicit
-        ec: ExecutionContext,
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
       lastSubmission = System.nanoTime()

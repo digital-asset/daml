@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -39,16 +40,16 @@ import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
-import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
+import com.daml.platform.apiserver.services.tracking.{Tracker, TrackerImpl, TrackerMap}
 import com.daml.platform.server.api.ApiException
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
-import io.grpc._
+import io.grpc.Status
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
@@ -66,7 +67,8 @@ private[apiserver] final class ApiCommandService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val submissionTracker: TrackerMap = TrackerMap(configuration.retentionPeriod)
+  private val submissionTracker: TrackerMap =
+    new TrackerMap(configuration.retentionPeriod, newTracker)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
   private val trackerCleanupJob: Cancellable = materializer.system.scheduler
@@ -91,7 +93,7 @@ private[apiserver] final class ApiCommandService private (
       logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        track(request)
+        submissionTracker.track(request)
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
@@ -99,52 +101,45 @@ private[apiserver] final class ApiCommandService private (
       }.andThen(logger.logErrorsOnCall[Completion])
     }
 
-  private def track(
-      request: SubmitAndWaitRequest
-  )(implicit
-      loggingContext: LoggingContext
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-    val appId = request.getCommands.applicationId
+  private def newTracker(commands: Commands): Future[Tracker] = {
     // Note: command completions are returned as long as at least one of the original submitters
     // is specified in the command completion request.
-    val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-    val submitter = TrackerMap.Key(application = appId, parties = parties)
+    val parties = CommandsValidator.effectiveActAs(commands)
     // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
-    val metricsPrefixFirstParty = parties.toList.min
-    submissionTracker.track(submitter, request) {
-      for {
-        ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
-      } yield {
-        val tracker =
-          CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
-            services.submissionFlow,
-            offset =>
-              services
-                .getCompletionSource(
-                  CompletionStreamRequest(
-                    configuration.ledgerId.unwrap,
-                    appId,
-                    parties.toList,
-                    Some(offset),
-                  )
+    val metricsPrefixFirstParty = parties.min
+    for {
+      ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
+    } yield {
+      val commandTrackerFlow =
+        CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
+          services.submissionFlow,
+          offset =>
+            services
+              .getCompletionSource(
+                CompletionStreamRequest(
+                  configuration.ledgerId.unwrap,
+                  commands.applicationId,
+                  parties.toList,
+                  Some(offset),
                 )
-                .mapConcat(CommandCompletionSource.toStreamElements),
-            ledgerEnd,
-            () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
-          )
-        val trackingFlow = MaxInFlight(
-          configuration.maxCommandsInFlight,
-          capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
-          lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
-        ).joinMat(tracker)(Keep.right)
-        TrackerImpl(
-          trackingFlow,
-          configuration.inputBufferSize,
-          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefixFirstParty),
-          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefixFirstParty),
-          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefixFirstParty),
+              )
+              .mapConcat(CommandCompletionSource.toStreamElements),
+          ledgerEnd,
+          () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
         )
-      }
+      val trackingFlow = MaxInFlight(
+        configuration.maxCommandsInFlight,
+        capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
+        lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
+      ).joinMat(commandTrackerFlow)(Keep.right)
+
+      TrackerImpl(
+        trackingFlow,
+        configuration.inputBufferSize,
+        capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefixFirstParty),
+        lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefixFirstParty),
+        delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefixFirstParty),
+      )
     }
   }
 

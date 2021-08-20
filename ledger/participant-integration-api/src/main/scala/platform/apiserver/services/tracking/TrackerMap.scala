@@ -7,24 +7,28 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   TrackedCompletionFailure,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.HashMap
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.{DurationLong, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(implicit
-    loggingContext: LoggingContext
-) extends AutoCloseable {
+private[services] final class TrackerMap(
+    retentionPeriod: FiniteDuration,
+    newTracker: Commands => Future[Tracker],
+)(implicit loggingContext: LoggingContext)
+    extends Tracker
+    with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -49,7 +53,7 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(implic
             if (nanoTime - tracker.getLastSubmission > retentionNanos) {
               logger.info(
                 s"Shutting down tracker for $submitter after inactivity of $retentionPeriod"
-              )
+              )(trackerResource.loggingContext)
               remove(submitter)
               tracker.close()
             }
@@ -59,9 +63,15 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(implic
     }
   }
 
-  def track(submitter: TrackerMap.Key, request: SubmitAndWaitRequest)(
-      newTracker: => Future[Tracker]
-  )(implicit ec: ExecutionContext): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+  def track(
+      request: SubmitAndWaitRequest
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    val commands = request.getCommands
+    val parties = CommandsValidator.effectiveActAs(commands)
+    val submitter = TrackerMap.Key(application = commands.applicationId, parties = parties)
     // double-checked locking
     trackerBySubmitter
       .getOrElse(
@@ -69,7 +79,7 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(implic
         lock.synchronized {
           trackerBySubmitter.getOrElse(
             submitter, {
-              val r = new TrackerMap.AsyncResource(newTracker.map { t =>
+              val r = new TrackerMap.AsyncResource(newTracker(commands).map { t =>
                 logger.info(s"Registered tracker for submitter $submitter")
                 Tracker.WithLastSubmission(t)
               })
@@ -82,6 +92,7 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(implic
         },
       )
       .flatMap(_.track(request))
+  }
 
   private def remove(submitter: TrackerMap.Key): Unit = lock.synchronized {
     trackerBySubmitter -= submitter
@@ -108,13 +119,15 @@ private[services] object TrackerMap {
   /** A holder for an AutoCloseable that can be opened and closed async.
     * If closed before the underlying Future completes, will close the resource on completion.
     */
-  final class AsyncResource[T <: AutoCloseable](future: Future[T]) {
-    private val logger = LoggerFactory.getLogger(this.getClass)
+  final class AsyncResource[T <: AutoCloseable](
+      future: Future[T]
+  )(implicit val loggingContext: LoggingContext) {
+    private val logger = ContextualizedLogger.get(this.getClass)
 
     // Must progress Waiting => Ready => Closed or Waiting => Closed.
     val state: AtomicReference[AsyncResourceState[T]] = new AtomicReference(Waiting)
 
-    future.andThen({
+    future.andThen {
       case Success(t) =>
         if (!state.compareAndSet(Waiting, Ready(t))) {
           // This is the punch line of AsyncResource.
@@ -128,7 +141,7 @@ private[services] object TrackerMap {
       case Failure(ex) =>
         logger.error("failure to get async resource", ex)
         state.set(Closed)
-    })(DirectExecutionContext)
+    }(DirectExecutionContext)
 
     def flatMap[U](f: T => Future[U])(implicit ex: ExecutionContext): Future[U] = {
       state.get() match {
@@ -151,7 +164,4 @@ private[services] object TrackerMap {
       case _ =>
     }
   }
-
-  def apply(retentionPeriod: FiniteDuration)(implicit loggingContext: LoggingContext): TrackerMap =
-    new TrackerMap(retentionPeriod)
 }
