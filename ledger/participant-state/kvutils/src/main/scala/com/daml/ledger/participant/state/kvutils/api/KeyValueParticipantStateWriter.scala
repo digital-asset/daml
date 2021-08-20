@@ -113,6 +113,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
     CompletableFuture.completedFuture(PruningResult.ParticipantPruned)

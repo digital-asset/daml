@@ -706,17 +706,27 @@ private[testtool] final class ParticipantTestContext private[participant] (
   ): Future[SetTimeModelResponse] =
     services.configManagement.setTimeModel(request)
 
-  def prune(pruneUpTo: String, attempts: Int): Future[PruneResponse] =
+  def prune(
+      pruneUpTo: String,
+      attempts: Int,
+      pruneAllDivulgedContracts: Boolean,
+  ): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
     eventually(
       attempts = attempts,
       runAssertion = {
-        services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
+        services.participantPruning.prune(
+          PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
+        )
       },
     )
 
-  def prune(pruneUpTo: LedgerOffset, attempts: Int = 10): Future[PruneResponse] =
-    prune(pruneUpTo.getAbsolute, attempts)
+  def prune(
+      pruneUpTo: LedgerOffset,
+      attempts: Int = 10,
+      pruneAllDivulgedContracts: Boolean = true,
+  ): Future[PruneResponse] =
+    prune(pruneUpTo.getAbsolute, attempts, pruneAllDivulgedContracts)
 
   private[infrastructure] def preallocateParties(
       n: Int,
