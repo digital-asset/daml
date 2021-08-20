@@ -189,12 +189,10 @@ private class ContractsFetch(
       contractId = ac.contractId.unwrap,
       templateId = ac.templateId,
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
-      keyHash = lfKey.cata(
+      keyHash = lfKey.map(
         Hash
           .assertHashContractKey(TemplateId.toLedgerApiValue(ac.templateId), _)
           .toHexString
-          .toString,
-        "",
       ),
       payload = lfValueToDbJsValue(lfArg),
       signatories = ac.signatories,

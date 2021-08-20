@@ -35,7 +35,7 @@ sealed abstract class Queries(tablePrefix: String) {
 
   type SqlInterpol
 
-  val schemaVersion = 1
+  val schemaVersion = 2
 
   protected[this] def dropIfExists(drop: Droppable): Fragment
 
@@ -333,7 +333,7 @@ sealed abstract class Queries(tablePrefix: String) {
     ): Query0[DBContract[Mark0, JsValue, JsValue, Vector[String]]] = {
       val q = query(tpid, queriesCondition)
       q.query[
-        (String, Mark0, Key, String, JsValue, SigsObs, SigsObs, Agreement)
+        (String, Mark0, Key, Option[String], JsValue, SigsObs, SigsObs, Agreement)
       ].map { case (cid, tpid, rawKey, key_hash, payload, signatories, observers, rawAgreement) =>
         DBContract(
           contractId = cid,
@@ -410,7 +410,7 @@ object Queries {
       contractId: String,
       templateId: TpId,
       key: CK,
-      keyHash: String,
+      keyHash: Option[String],
       payload: PL,
       signatories: Prt,
       observers: Prt,
@@ -792,8 +792,8 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     sql"""CREATE INDEX $stakeholdersIndexName ON $contractStakeholdersViewName (tpid, stakeholder)"""
   )
 
-  private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckeyHash_idx")
-  private[this] def contractKeyHashIndex = CreateIndex(
+  private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
+  private[this] val contractKeyHashIndex = CreateIndex(
     sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
@@ -854,7 +854,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
             row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber"""
         import Queries.CompatImplicits.catsReducibleFromFoldable1
         val outerSelectList =
-          sql"""contract_id, template_id, key, payload,
+          sql"""contract_id, template_id, key, key_hash, payload,
                 signatories, observers, agreement_text"""
         val dupQ =
           sql"""SELECT c.contract_id contract_id, $tpid template_id, key, key_hash, payload,
