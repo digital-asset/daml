@@ -547,7 +547,15 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseDivulge(_, contract),
       )
 
-      _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
+      _ <- divulgencePruneAndCheck(
+        alice,
+        bob,
+        alpha,
+        beta,
+        contract,
+        divulgence,
+        disclosureVisibility = false,
+      )
     } yield ()
   })
 
@@ -568,7 +576,15 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgeNotDiscloseTemplate.exerciseDivulgeNoDisclose(_, divulgence),
       )
 
-      _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
+      _ <- divulgencePruneAndCheck(
+        alice,
+        bob,
+        alpha,
+        beta,
+        contract,
+        divulgence,
+        disclosureVisibility = false,
+      )
     } yield ()
   })
 
@@ -585,7 +601,15 @@ class ParticipantPruningIT extends LedgerTestSuite {
         alice,
         divulgence.exerciseCreateAndDisclose,
       )
-      _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
+      _ <- divulgencePruneAndCheck(
+        alice,
+        bob,
+        alpha,
+        beta,
+        contract,
+        divulgence,
+        disclosureVisibility = true,
+      )
     } yield ()
   })
 
@@ -607,6 +631,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
       beta: ParticipantTestContext,
       contract: Primitive.ContractId[Contract],
       divulgence: binding.Primitive.ContractId[Divulgence],
+      // TODO Divulgence pruning: Remove when immediate divulgence pruning is implemented
+      disclosureVisibility: Boolean,
   )(implicit ec: ExecutionContext) =
     for {
       // Check that Bob can fetch the contract
@@ -628,7 +654,6 @@ class ParticipantPruningIT extends LedgerTestSuite {
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
-      offsetAfter_divulgence_2 <- beta.currentEnd()
 
       _ <- beta.prune(offsetAfter_divulgence_1)
       // Check that Bob can still fetch the contract after pruning the first transaction
@@ -636,25 +661,45 @@ class ParticipantPruningIT extends LedgerTestSuite {
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
+      offsetAfter_divulgence_2 <- beta.currentEnd()
 
-      _ <- beta.prune(offsetAfter_divulgence_2)
-      // TODO divulgence pruning: Remove - The following assertion should fail once full divulgence pruning
-      //                          is implemented in the participant
-      _ <- beta
-        .exerciseAndGetContract[Dummy](
-          bob,
-          divulgence.exerciseCanFetch(_, contract),
-        )
+      // Dummy create needed to prune after the previous fetch (which also divulges)
+      _ <- beta.create(bob, DivulgenceProposal(bob, alice))
 
-      // TODO divulgence pruning: Un-comment the assertion below to make tests pass once
-      //                          full divulgence pruning is implemented in the participant
-      //
-      // _ <- beta
-      //   .exerciseAndGetContract[Dummy](
-      //     bob,
-      //     divulgence.exerciseCanFetch(_, contract),
-      //   )
-      //   .mustFail("Bob cannot access the divulged contract after the second pruning")
+      _ <- beta.prune(offsetAfter_divulgence_2, pruneAllDivulgedContracts = false)
+
+      // Bob can still fetch the divulged contract since the previous pruning
+      // did not prune divulged contracts without a corresponding archival
+      _ <- beta.exerciseAndGetContract[Dummy](
+        bob,
+        divulgence.exerciseCanFetch(_, contract),
+      )
+
+      offsetAfter_divulgence_3 <- beta.currentEnd()
+
+      // Dummy create needed to prune after the previous fetch (which also divulges)
+      _ <- beta.create(bob, DivulgenceProposal(bob, alice))
+
+      _ <- beta.prune(offsetAfter_divulgence_3)
+
+      // TODO Divulgence pruning: Check ACS equality before and after pruning
+      // TODO Divulgence pruning: Remove the true-clause of the if-statement below
+      //                          when disclosure pruning is implemented.
+      _ <-
+        if (disclosureVisibility) {
+          beta
+            .exerciseAndGetContract[Dummy](
+              bob,
+              divulgence.exerciseCanFetch(_, contract),
+            )
+        } else {
+          beta
+            .exerciseAndGetContract[Dummy](
+              bob,
+              divulgence.exerciseCanFetch(_, contract),
+            )
+            .mustFail("Bob cannot access the divulged contract after the second pruning")
+        }
     } yield ()
 
   private def populateLedgerAndGetOffsets(participant: ParticipantTestContext, submitter: Party)(

@@ -13,12 +13,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails,
-}
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationDuplicate, CommandDeduplicationNew, CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
@@ -33,34 +28,16 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractsReader,
-  LfValueTranslation,
-  PostCommitValidation,
-  QueryNonPrunedImpl,
-  TransactionsReader,
-}
+import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.{
-  DeduplicationKeyMaker,
-  LedgerDao,
-  LedgerReadDao,
-  MeteredLedgerDao,
-  MeteredLedgerReadDao,
-  PersistenceResponse,
-}
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.dao._
+import com.daml.platform.store.entries.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -599,14 +576,34 @@ private class JdbcLedgerDao(
   }
 
   override def prune(
-      pruneUpToInclusive: Offset
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-      storageBackend.pruneEvents(pruneUpToInclusive)(conn)
-      storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
-      storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
-      logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
-    }
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    val allDivulgencePruningParticle =
+      if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
+    logger.info(s"Starting pruning of ledger api server index db$allDivulgencePruningParticle")
+
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
+        storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(conn)(
+          loggingContext
+        )
+        storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
+        storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+
+        if (pruneAllDivulgedContracts) {
+          storageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(conn)
+        }
+      }
+      .andThen {
+        case Success(_) =>
+          logger.info(
+            s"Completed pruning of the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}"
+          )
+        case Failure(ex) =>
+          logger.warn("Pruning failed", ex)
+      }(servicesExecutionContext)
+  }
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables)(storageBackend.reset)
