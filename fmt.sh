@@ -156,7 +156,6 @@ run scalafmt "${scalafmt_args[@]:-}"
 run bazel run "$buildifier_target"
 
 # Check for breaking proto changes.
-run buf mod update
 run buf breaking --against "${buf_image}"
 
 # Note that we cannot use a symlink here because Windows.
