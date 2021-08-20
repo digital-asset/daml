@@ -9,8 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.api.health.HealthStatus.{healthy, unhealthy}
+import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.indexer.RecoveringIndexerSpec._
@@ -75,7 +74,7 @@ final class RecoveringIndexerSpec
         )
         testIndexer.openSubscriptions shouldBe mutable.Set.empty
         // When the indexer is shutdown, its status should be unhealthy/not serving
-        healthReporter.currentHealth() shouldBe unhealthy
+        healthReporter.currentHealth() shouldBe Unhealthy
       }
     }
 
@@ -110,7 +109,7 @@ final class RecoveringIndexerSpec
         )
         testIndexer.openSubscriptions shouldBe mutable.Set.empty
         // When the indexer is shutdown, its status should be unhealthy/not serving
-        healthReporter.currentHealth() shouldBe HealthStatus.unhealthy
+        healthReporter.currentHealth() shouldBe Unhealthy
       }
     }
 
@@ -141,7 +140,7 @@ final class RecoveringIndexerSpec
           Level.INFO -> "Stopped Indexer Server",
         )
         testIndexer.openSubscriptions shouldBe mutable.Set.empty
-        healthReporter.currentHealth() shouldBe HealthStatus.unhealthy
+        healthReporter.currentHealth() shouldBe Unhealthy
       }
     }
 
@@ -236,14 +235,14 @@ final class RecoveringIndexerSpec
         testIndexer.openSubscriptions shouldBe mutable.Set.empty
 
         healthStatusLogCapture should contain theSameElementsInOrderAs Seq(
-          unhealthy,
-          healthy,
-          unhealthy,
-          healthy,
-          unhealthy,
+          Unhealthy,
+          Healthy,
+          Unhealthy,
+          Healthy,
+          Unhealthy,
         )
         // When the indexer is shutdown, its status should be unhealthy/not serving
-        healthReporter.currentHealth() shouldBe HealthStatus.unhealthy
+        healthReporter.currentHealth() shouldBe Unhealthy
       }
     }
 
