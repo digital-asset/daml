@@ -64,7 +64,7 @@ changelog entry, please add an explicit, empty one, i.e. add
 CHANGELOG_BEGIN
 CHANGELOG_END
 
-to your commit message.
+to your commit message, making sure there's an empty line between the subject and the body.
 "
     return 1
 }
