@@ -33,8 +33,6 @@ final class RecoveringIndexerSpec
   private[this] implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private[this] var actorSystem: ActorSystem = _
 
-  private val someTimeout = 10.millis
-
   override def beforeEach(): Unit = {
     super.beforeEach()
     actorSystem = ActorSystem(getClass.getSimpleName)
@@ -50,10 +48,11 @@ final class RecoveringIndexerSpec
 
   "RecoveringIndexer" should {
     "work when the stream completes" in {
+      val timeout = 10.millis
       val recoveringIndexer =
-        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, timeout)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, someTimeout, someTimeout)
+        SubscribeResult("A", SuccessfullyCompletes, timeout, timeout)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -81,11 +80,12 @@ final class RecoveringIndexerSpec
     }
 
     "work when the stream is stopped" in {
+      val timeout = 10.millis
       val recoveringIndexer =
-        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, timeout)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, someTimeout, 10.seconds)
+        SubscribeResult("A", SuccessfullyCompletes, timeout, 10.seconds)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -115,10 +115,11 @@ final class RecoveringIndexerSpec
     }
 
     "wait until the subscription completes" in {
+      val timeout = 10.millis
       val recoveringIndexer =
-        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, timeout)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 100.millis, someTimeout)
+        SubscribeResult("A", SuccessfullyCompletes, 100.millis, timeout)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -145,13 +146,14 @@ final class RecoveringIndexerSpec
     }
 
     "recover from failure" in {
+      val timeout = 10.millis
       val recoveringIndexer =
-        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, timeout)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SubscriptionFails, someTimeout, someTimeout),
-        SubscribeResult("B", StreamFails, someTimeout, someTimeout),
-        SubscribeResult("C", SuccessfullyCompletes, someTimeout, someTimeout),
+        SubscribeResult("A", SubscriptionFails, timeout, timeout),
+        SubscribeResult("B", StreamFails, timeout, timeout),
+        SubscribeResult("C", SuccessfullyCompletes, timeout, timeout),
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
