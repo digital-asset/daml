@@ -613,6 +613,12 @@ object Queries {
       override def reduceRightTo[A, B](fa: F[A])(z: A => B)(f: (A, Eval[B]) => Eval[B]) =
         F.foldMapRight1(fa)(a => Eval later z(a))((a, eb) => f(a, Eval defer eb))
     }
+
+    implicit def monadFromCatsMonad[F[_]](implicit F: cats.Monad[F]): scalaz.Monad[F] =
+      new scalaz.Monad[F] {
+        override def bind[A, B](fa: F[A])(f: A => F[B]): F[B] = F.flatMap(fa)(f)
+        override def point[A](a: => A): F[A] = F.point(a)
+      }
   }
 }
 
