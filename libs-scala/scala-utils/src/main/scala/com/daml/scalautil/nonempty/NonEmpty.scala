@@ -5,9 +5,10 @@ package com.daml.scalautil.nonempty
 
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, OneAnd, Traverse}
+import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
+import scalaz.syntax.std.option._
 import NonEmptyCollCompat._
 
 /** The visible interface of [[NonEmpty]]; use that value to access
@@ -89,7 +90,6 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def updated(key: K, value: V): NonEmpty[Map[K, V]] = un((self: ESelf).updated(key, value))
     def ++(xs: Iterable[(K, V)]): NonEmpty[Map[K, V]] = un((self: ESelf) ++ xs)
     def keySet: NonEmpty[Set[K]] = un((self: ESelf).keySet)
-    def values: imm.Iterable[V] = un((self: ESelf).values)
     def transform[W](f: (K, V) => W): NonEmpty[Map[K, W]] = un((self: ESelf) transform f)
   }
 
@@ -136,9 +136,38 @@ object NonEmptyColl extends NonEmptyCollInstances {
     NonEmpty.substF(F)
 }
 
-sealed abstract class NonEmptyCollInstances {
+sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
   implicit def foldable[F[_]](implicit F: Foldable[F]): Foldable[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
+}
+
+sealed abstract class NonEmptyCollInstances0 {
+  implicit def foldable1[F[_]](implicit F: Foldable[F]): Foldable1[NonEmptyF[F, *]] =
+    NonEmpty.substF(new Foldable1[F] {
+      private[this] def errEmpty(fa: F[_]) =
+        throw new IllegalArgumentException(
+          s"empty structure coerced to non-empty: $fa: ${fa.getClass.getSimpleName}"
+        )
+
+      private[this] def assertNE[Z](original: F[_], fa: Option[Z]) =
+        fa.cata(identity, errEmpty(original))
+
+      override def foldMap1[A, B: Semigroup](fa: F[A])(f: A => B) =
+        assertNE(fa, F.foldMap1Opt(fa)(f))
+
+      override def foldMapRight1[A, B](fa: F[A])(z: A => B)(f: (A, => B) => B) =
+        assertNE(fa, F.foldMapRight1Opt(fa)(z)(f))
+
+      override def foldMapLeft1[A, B](fa: F[A])(z: A => B)(f: (B, A) => B) =
+        assertNE(fa, F.foldMapLeft1Opt(fa)(z)(f))
+
+      override def foldMap[A, B: Monoid](fa: F[A])(f: A => B) = F.foldMap(fa)(f)
+
+      override def foldRight[A, B](fa: F[A], z: => B)(f: (A, => B) => B) = F.foldRight(fa, z)(f)
+
+      override def foldLeft[A, B](fa: F[A], z: B)(f: (B, A) => B) =
+        F.foldLeft(fa, z)(f)
+    })
 
   import scala.language.implicitConversions
 
