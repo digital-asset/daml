@@ -10,7 +10,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 private[backend] trait StorageBackendTestsInitializeIngestion
-  extends Matchers
+    extends Matchers
     with Inside
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
@@ -90,8 +90,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       parties1 <- executeSql(backend.knownParties)
       config1 <- executeSql(backend.ledgerConfiguration)
       packages1 <- executeSql(backend.lfPackages)
-      contract41 <- executeSql(backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4")))
-      contract91 <- executeSql(backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#9")))
+      contract41 <- executeSql(
+        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4"))
+      )
+      contract91 <- executeSql(
+        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#9"))
+      )
 
       // Restart the indexer - should delete data from the partial insert above
       _ <- executeSql(backend.initializeIngestion)
@@ -103,8 +107,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       parties2 <- executeSql(backend.knownParties)
       config2 <- executeSql(backend.ledgerConfiguration)
       packages2 <- executeSql(backend.lfPackages)
-      contract42 <- executeSql(backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4")))
-      contract92 <- executeSql(backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#9")))
+      contract42 <- executeSql(
+        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4"))
+      )
+      contract92 <- executeSql(
+        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#9"))
+      )
     } yield {
       parties1 should have length 1
       packages1 should have size 1
