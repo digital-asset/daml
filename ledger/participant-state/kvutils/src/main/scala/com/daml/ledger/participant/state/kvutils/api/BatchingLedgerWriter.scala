@@ -7,7 +7,7 @@ import java.io.Closeable
 import java.util.UUID
 
 import akka.stream.Materializer
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Unhealthy}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1.SubmissionResult
@@ -61,7 +61,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     if (queueHandle.isAlive)
       writer.currentHealth()
     else
-      HealthStatus.unhealthy
+      Unhealthy
 
   private def commitBatch(
       submissions: Seq[DamlSubmissionBatch.CorrelatedSubmission]
