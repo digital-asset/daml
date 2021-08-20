@@ -6,17 +6,22 @@ package com.daml.http.dbbackend
 import cats.effect._
 import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
+import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
-import com.daml.scalautil.nonempty.{NonEmpty, +-:}
+import com.daml.scalautil.nonempty.{+-:, NonEmpty, NonEmptyF}
+import domain.Offset.`Offset ordering`
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{@@, NonEmptyList, OneAnd, Tags}
+import scalaz.{NonEmptyList, OneAnd}
+import scalaz.std.map._
+import scalaz.std.vector._
 import scalaz.syntax.tag._
+import scalaz.syntax.order._
 import spray.json.{JsNull, JsValue}
 
 import java.io.{Closeable, IOException}
@@ -129,10 +134,14 @@ object ContractDao {
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver,
-  ): ConnectionIO[Option[(domain.Offset, NonEmpty[Seq[domain.TemplateId.RequiredPkg]])]] = {
+  ): ConnectionIO[Option[(domain.Offset, NonEmpty[Set[domain.TemplateId.RequiredPkg]])]] = {
     type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
+    import scalaz.syntax.traverse._, scalaz.syntax.foldable1.{ToFoldableOps => _, _}
     for {
-      tpids <- templateIds.toVector.toF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
+      tpids <- {
+        import Queries.CompatImplicits.monadFromCatsMonad
+        templateIds.toVector.toF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
+      }: ConnectionIO[NonEmptyF[Vector, (SurrogateTpId, domain.TemplateId.RequiredPkg)]]
       surrogatesToDomains = tpids.toMap
       unsyncedRaw <- sjd.queries.unsyncedOffsets(
         domain.Offset unwrap expectedOffset,
@@ -142,6 +151,7 @@ object ContractDao {
         domain.Offset.tag.subst[Unsynced[String, *], String](unsyncedRaw)
       ): Unsynced[domain.Party, domain.Offset]
       lagging = unsynced collect (Function unlift { case (surrogateTpId, partyOffs) =>
+        import scalaz.std.iterable._
         partyOffs
           .collect {
             case (unsyncedParty, unsyncedOff)
@@ -153,7 +163,7 @@ object ContractDao {
           .map((surrogatesToDomains(surrogateTpId), _))
       })
     } yield lagging match {
-      case NonEmpty(lagging) => Some(lagging)
+      case NonEmpty(lagging) => Some((lagging.toF.maximum1, lagging.keySet))
       case _ => None
     }
   }
