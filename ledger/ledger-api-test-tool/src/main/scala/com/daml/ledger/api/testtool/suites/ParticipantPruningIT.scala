@@ -8,6 +8,7 @@ import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -532,6 +533,58 @@ class ParticipantPruningIT extends LedgerTestSuite {
   })
 
   test(
+    "PRDivulgenceArchivalPruning",
+    "Prune succeeds for divulgence events whose contracts are archived",
+    allocate(SingleParty, SingleParty),
+    runConcurrently = false, // pruning call may interact with other tests
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    for {
+      divulgence <- createDivulgence(alice, bob, alpha, beta)
+      contract <- alpha.create(alice, Contract(alice))
+
+      // Retroactively divulge Alice's contract to bob
+      _ <- alpha.exercise(
+        alice,
+        divulgence.exerciseDivulge(_, contract),
+      )
+
+      _ <- beta.exerciseAndGetContract[Dummy](
+        bob,
+        divulgence.exerciseCanFetch(_, contract),
+      )
+
+      offsetAfterDivulgence <- beta.currentEnd()
+
+      // Dummy create needed to prune after the previous fetch (which also divulges)
+      _ <- beta.create(bob, Dummy(bob))
+
+      _ <- beta.prune(offsetAfterDivulgence, pruneAllDivulgedContracts = false)
+
+      // Bob can still see the divulged contract
+      _ <- beta.exerciseAndGetContract[Dummy](
+        bob,
+        divulgence.exerciseCanFetch(_, contract),
+      )
+
+      offsetAfterDivulgence_2 <- beta.currentEnd()
+
+      _ <- alpha.exercise(alice, contract.exerciseArchive)
+
+      _ <- synchronize(alpha, beta)
+
+      _ <- beta.prune(offsetAfterDivulgence_2, pruneAllDivulgedContracts = false)
+
+      // Bob cannot see the divulged contract
+      _ <- beta
+        .exerciseAndGetContract[Dummy](
+          bob,
+          divulgence.exerciseCanFetch(_, contract),
+        )
+        .mustFail("Bob cannot access a divulged contract which was already archived")
+    } yield ()
+  })
+
+  test(
     "PRRetroactiveDivulgences",
     "Divulgence pruning succeeds",
     allocate(SingleParty, SingleParty),
@@ -641,7 +694,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      offsetAfter_divulgence_1 <- beta.currentEnd()
+      offsetAfterDivulgence_1 <- beta.currentEnd()
 
       // Alice re-divulges the contract to Bob
       _ <- alpha.exerciseAndGetContract[Contract](
@@ -655,18 +708,18 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      _ <- beta.prune(offsetAfter_divulgence_1)
+      _ <- beta.prune(offsetAfterDivulgence_1)
       // Check that Bob can still fetch the contract after pruning the first transaction
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
-      offsetAfter_divulgence_2 <- beta.currentEnd()
+      offsetAfterDivulgence_2 <- beta.currentEnd()
 
       // Dummy create needed to prune after the previous fetch (which also divulges)
-      _ <- beta.create(bob, DivulgenceProposal(bob, alice))
+      _ <- beta.create(bob, Dummy(bob))
 
-      _ <- beta.prune(offsetAfter_divulgence_2, pruneAllDivulgedContracts = false)
+      _ <- beta.prune(offsetAfterDivulgence_2, pruneAllDivulgedContracts = false)
 
       // Bob can still fetch the divulged contract since the previous pruning
       // did not prune divulged contracts without a corresponding archival
@@ -675,12 +728,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      offsetAfter_divulgence_3 <- beta.currentEnd()
+      offsetAfterDivulgence_3 <- beta.currentEnd()
 
       // Dummy create needed to prune after the previous fetch (which also divulges)
-      _ <- beta.create(bob, DivulgenceProposal(bob, alice))
+      _ <- beta.create(bob, Dummy(bob))
 
-      _ <- beta.prune(offsetAfter_divulgence_3)
+      _ <- beta.prune(offsetAfterDivulgence_3)
 
       // TODO Divulgence pruning: Check ACS equality before and after pruning
       // TODO Divulgence pruning: Remove the true-clause of the if-statement below

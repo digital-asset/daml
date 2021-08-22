@@ -585,10 +585,12 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-        storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(conn)(
-          loggingContext
+        storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(
+          conn,
+          loggingContext,
         )
-        storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
+
+        storageBackend.pruneCompletions(pruneUpToInclusive)(conn, loggingContext)
         storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
 
         if (pruneAllDivulgedContracts) {

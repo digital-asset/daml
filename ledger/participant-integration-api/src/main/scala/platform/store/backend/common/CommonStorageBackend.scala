@@ -190,16 +190,16 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .as(LedgerIdentityParser.singleOpt)(connection)
 
   private val SQL_UPDATE_MOST_RECENT_PRUNING =
-    SQL"""update parameters
-          set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
-          where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive}
-            or participant_pruned_up_to_inclusive is null"""
+    SQL("""
+        |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
+        |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
+        |""".stripMargin)
 
   private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS =
-    SQL"""update parameters
-          set participant_all_divulged_contracts_pruned_up_to_inclusive={prune_all_divulged_contracts_up_to_inclusive}
-          where participant_all_divulged_contracts_pruned_up_to_inclusive < {prune_all_divulged_contracts_up_to_inclusive}
-            or participant_all_divulged_contracts_pruned_up_to_inclusive is null"""
+    SQL("""
+        |update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive={prune_all_divulged_contracts_up_to_inclusive}
+        |where participant_pruned_up_to_inclusive < {prune_all_divulged_contracts_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
+        |""".stripMargin)
 
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
@@ -468,19 +468,46 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Completions
 
-  def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
-      .execute()(connection)
-    ()
+  def pruneCompletions(
+      pruneUpToInclusive: Offset
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
+    pruneWithLogging(queryDescription = "Command completions pruning") {
+      import com.daml.platform.store.Conversions.OffsetToStatement
+      SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
+    }(connection, loggingContext)
   }
 
   // Events
 
-  def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
-      connection: Connection
-  )(loggingContext: LoggingContext): Unit = {
+  def pruneEvents(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
+
+    if (pruneAllDivulgedContracts) {
+      pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events
+          delete from participant_events_divulgence delete_events
+          where delete_events.event_offset <= $pruneUpToInclusive
+          """
+      }(connection, loggingContext)
+    } else {
+      pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events (only for contracts archived before the specified offset)
+          delete from participant_events_divulgence delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive
+            and exists (
+              select 1 from participant_events_consuming_exercise archive_events
+              where
+                archive_events.event_offset <= $pruneUpToInclusive and
+                archive_events.contract_id = delete_events.contract_id
+            )"""
+      }(connection, loggingContext)
+    }
 
     pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
@@ -511,30 +538,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           where
             delete_events.event_offset <= $pruneUpToInclusive"""
     }(connection, loggingContext)
-
-    if (pruneAllDivulgedContracts) {
-      pruneWithLogging(queryDescription = "Retroactive divulgence events pruning") {
-        SQL"""
-          -- Retroactive divulgence events
-          delete from participant_events_divulgence delete_events
-          where delete_events.event_offset <= $pruneUpToInclusive
-          """
-      }(connection, loggingContext)
-    } else {
-      pruneWithLogging(queryDescription = "Retroactive divulgence events pruning") {
-        SQL"""
-          -- Retroactive divulgence events (only for contracts archived before the specified offset)
-          delete from participant_events_divulgence delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive
-            and exists (
-              select 1 from participant_events_consuming_exercise archive_events
-              where
-                archive_events.event_offset <= $pruneUpToInclusive and
-                archive_events.contract_id = delete_events.contract_id
-            )"""
-      }(connection, loggingContext)
-    }
   }
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(

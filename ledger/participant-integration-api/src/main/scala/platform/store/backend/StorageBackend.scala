@@ -207,7 +207,9 @@ trait CompletionStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit
+  def pruneCompletions(
+      pruneUpToInclusive: Offset
+  )(connection: Connection, loggingContext: LoggingContext): Unit
 }
 
 trait ContractStorageBackend {
@@ -236,8 +238,9 @@ trait EventStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
-      connection: Connection
-  )(loggingContext: LoggingContext): Unit
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
