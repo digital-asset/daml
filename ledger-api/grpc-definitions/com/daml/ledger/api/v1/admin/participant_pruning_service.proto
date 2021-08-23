@@ -50,7 +50,7 @@ message PruneRequest {
   // Optional, defaults to a random identifier, used for logging.
   string submission_id = 2;
 
-  // Prune all immediate and retroactive divulged contracts created before `prune_up_to`
+  // Prune all immediately and retroactively divulged contracts created before `prune_up_to`
   // independent of whether they were archived before `prune_up_to`. Useful to avoid leaking
   // storage on participant nodes that can see a divulged contract but not its archival.
   //
