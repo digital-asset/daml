@@ -50,7 +50,6 @@ private[backend] object H2StorageBackend
         |truncate table participant_events_create;
         |truncate table participant_events_consuming_exercise;
         |truncate table participant_events_non_consuming_exercise;
-        |truncate table parties;
         |truncate table party_entries;
         |set referential_integrity true;""".stripMargin)
       .execute()(connection)
@@ -69,7 +68,6 @@ private[backend] object H2StorageBackend
           |truncate table participant_events_create;
           |truncate table participant_events_consuming_exercise;
           |truncate table participant_events_non_consuming_exercise;
-          |truncate table parties;
           |truncate table party_entries;
           |set referential_integrity true;""".stripMargin)
       .execute()(connection)

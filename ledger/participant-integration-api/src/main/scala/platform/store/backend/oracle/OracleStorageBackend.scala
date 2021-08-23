@@ -50,7 +50,6 @@ private[backend] object OracleStorageBackend
       "truncate table participant_events_create cascade",
       "truncate table participant_events_consuming_exercise cascade",
       "truncate table participant_events_non_consuming_exercise cascade",
-      "truncate table parties cascade",
       "truncate table party_entries cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 
@@ -66,7 +65,6 @@ private[backend] object OracleStorageBackend
       "truncate table participant_events_create cascade",
       "truncate table participant_events_consuming_exercise cascade",
       "truncate table participant_events_non_consuming_exercise cascade",
-      "truncate table parties cascade",
       "truncate table party_entries cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 

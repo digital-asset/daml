@@ -8,7 +8,7 @@ import java.time.Instant
 import java.util.Date
 
 import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, int, long, str}
-import anorm.{Macro, RowParser, SQL, SqlParser, SqlQuery, SqlStringInterpolation, ~}
+import anorm.{Macro, RowParser, SQL, SqlParser, SqlQuery, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -31,6 +31,7 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
@@ -382,51 +383,50 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .asVectorOf(partyEntryParser)(connection)
   }
 
-  private val SQL_SELECT_MULTIPLE_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where party in ({parties}) and parties.ledger_offset <= parameters.ledger_end"
-    )
-
-  private case class ParsedPartyData(
-      party: String,
-      displayName: Option[String],
-      ledgerOffset: Offset,
-      explicit: Boolean,
-      isLocal: Boolean,
-  )
-
-  private val PartyDataParser: RowParser[ParsedPartyData] = {
-    import com.daml.platform.store.Conversions.columnToOffset
+  val partyDetailsParser: RowParser[PartyDetails] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    Macro.parser[ParsedPartyData](
-      "party",
-      "display_name",
-      "ledger_offset",
-      "explicit",
-      "is_local",
-    )
+    str("party") ~
+      str("display_name").? ~
+      bool("is_local") map { case party ~ displayName ~ isLocal =>
+        PartyDetails(
+          party = Ref.Party.assertFromString(party),
+          displayName = displayName,
+          isLocal = isLocal,
+        )
+      }
   }
 
-  private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
-    PartyDetails(Ref.Party.assertFromString(data.party), data.displayName, data.isLocal)
-
-  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] = {
-    import com.daml.platform.store.Conversions.partyToStatement
-    SQL_SELECT_MULTIPLE_PARTIES
-      .on("parties" -> parties)
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
+  private def queryParties(parties: Set[String], connection: Connection): Vector[PartyDetails] = {
+    val partyFilter =
+      if (parties.isEmpty) cSQL""
+      else cSQL"party_entries.party in ($parties) AND"
+    SQL"""
+        SELECT
+          parties.party,
+          parties.display_name,
+          parties.is_local
+        FROM (
+          SELECT
+            party_entries.party party,
+            party_entries.display_name display_name,
+            party_entries.is_local is_local,
+            row_number() OVER (PARTITION BY PARTY ORDER BY ledger_offset DESC) rn
+          FROM party_entries, parameters
+          WHERE
+            $partyFilter
+            party_entries.typ = 'accept'
+            AND party_entries.ledger_offset <= parameters.ledger_end
+        ) parties
+        WHERE
+          rn = 1
+       """.asVectorOf(partyDetailsParser)(connection)
   }
 
-  private val SQL_SELECT_ALL_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset"
-    )
+  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] =
+    queryParties(parties.view.map(_.toString).toSet, connection).toList
 
   def knownParties(connection: Connection): List[PartyDetails] =
-    SQL_SELECT_ALL_PARTIES
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
+    queryParties(Set.empty, connection).toList
 
   // Packages
 
