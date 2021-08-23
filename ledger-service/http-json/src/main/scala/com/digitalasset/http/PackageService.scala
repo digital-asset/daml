@@ -19,6 +19,7 @@ import scalaz._
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
+import scala.util.control.NonFatal
 
 private class PackageService(
     reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore

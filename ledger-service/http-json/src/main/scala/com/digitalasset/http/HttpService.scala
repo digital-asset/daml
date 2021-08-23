@@ -129,24 +129,33 @@ object HttpService {
         }
       )
 
-      lazyLedgerClient =
+      mkLazyLedgerClient = { (config: LedgerClientConfiguration) =>
         LazyF[Future, Jwt, DamlLedgerClient] { case Jwt(token) =>
           LedgerClient
             .fromRetried(
               channel,
               ledgerHost,
               ledgerPort,
-              clientConfig.copy(token = Some(token)),
+              config.copy(token = Some(token)),
               MaxInitialLedgerConnectRetryAttempts,
             )
             .map(_.valueOr(err => throw new Exception(err.message)))
         }
+      }
+
+      lazyLedgerClient = mkLazyLedgerClient(clientConfig)
+
+      lazyPkgManagementClient = mkLazyLedgerClient(
+        packageMaxInboundMessageSize.fold(clientConfig)(size =>
+          clientConfig.copy(maxInboundMessageSize = size)
+        )
+      )
 
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       packageService = new PackageService(jwt =>
         ids =>
-          lazyLedgerClient
+          lazyPkgManagementClient
             .get(jwt)
             .flatMap(pkgManagementClient =>
               doLoad(pkgManagementClient.packageClient, ids, some(jwt.value))
@@ -205,14 +214,14 @@ object HttpService {
       packageManagementService = new PackageManagementService(
         jwt =>
           lc =>
-            lazyLedgerClient
+            lazyPkgManagementClient
               .get(jwt)
               .flatMap(pkgManagementClient =>
                 LedgerClientJwt.listPackages(pkgManagementClient)(jwt)(lc)
               ),
         { case (jwt, packageId) =>
           lc =>
-            lazyLedgerClient
+            lazyPkgManagementClient
               .get(jwt)
               .flatMap(pkgManagementClient =>
                 LedgerClientJwt.getPackage(pkgManagementClient)(jwt, packageId)(lc)
@@ -220,7 +229,7 @@ object HttpService {
         },
         { case (jwt, byteString) =>
           lc =>
-            lazyLedgerClient
+            lazyPkgManagementClient
               .get(jwt)
               .flatMap { pkgManagementClient =>
                 val res =
