@@ -101,12 +101,11 @@ private[apiserver] final class ApiCommandService private (
       }.andThen(logger.logErrorsOnCall[Completion])
     }
 
-  private def newTracker(commands: Commands): Future[Tracker] = {
+  private def newTracker(key: TrackerKey): Future[Tracker] = {
     // Note: command completions are returned as long as at least one of the original submitters
     // is specified in the command completion request.
-    val parties = CommandsValidator.effectiveActAs(commands)
     // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
-    val metricsPrefixFirstParty = parties.min
+    val metricsPrefixFirstParty = key.parties.min
     for {
       ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
     } yield {
@@ -118,8 +117,8 @@ private[apiserver] final class ApiCommandService private (
               .getCompletionSource(
                 CompletionStreamRequest(
                   configuration.ledgerId.unwrap,
-                  commands.applicationId,
-                  parties.toList,
+                  key.applicationId,
+                  key.parties.toList,
                   Some(offset),
                 )
               )
@@ -232,7 +231,7 @@ private[apiserver] object ApiCommandService {
       generateSubmissionId = SubmissionIdGenerator.Random,
     )
 
-  final case class TrackerKey(application: String, parties: Set[String])
+  final case class TrackerKey(applicationId: String, parties: Set[String])
 
   final case class Configuration(
       ledgerId: LedgerId,

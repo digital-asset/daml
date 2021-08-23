@@ -26,7 +26,7 @@ import scala.util.{Failure, Success}
 private[services] final class TrackerMap[Key](
     retentionPeriod: FiniteDuration,
     getKey: Commands => Key,
-    newTracker: Commands => Future[Tracker],
+    newTracker: Key => Future[Tracker],
 )(implicit loggingContext: LoggingContext)
     extends Tracker
     with AutoCloseable {
@@ -76,7 +76,7 @@ private[services] final class TrackerMap[Key](
         lock.synchronized {
           trackerBySubmitter.getOrElse(
             key, {
-              val r = new TrackerMap.AsyncResource(newTracker(commands).map { t =>
+              val r = new TrackerMap.AsyncResource(newTracker(key).map { t =>
                 logger.info(s"Registered tracker for submitter $key")
                 new TrackerWithLastSubmission(t)
               })
