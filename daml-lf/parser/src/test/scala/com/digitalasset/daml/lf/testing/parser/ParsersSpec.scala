@@ -99,6 +99,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       val testCases = Table[String, Type](
         "string to parse" -> "expected type",
         "a" -> α,
+        "$alpha$" -> TVar(n"$$alpha$$"),
         "a b" -> TApp(α, β),
         "3" -> TNat(3),
         "a 3" -> TApp(α, TNat(3)),
@@ -360,7 +361,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     }
 
     "parses properly experiment" in {
-      parseExpr("$ ANSWER (Unit -> Int64)") shouldBe Right(
+      parseExpr("experimental ANSWER (Unit -> Int64)") shouldBe Right(
         EExperimental("ANSWER", t"Unit -> Int64")
       )
     }

@@ -56,6 +56,7 @@ import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions.RejectionReasonOps
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -166,13 +167,50 @@ private[sandbox] final class InMemoryLedger(
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
-    entries
-      .getSource(startExclusive, endInclusive)
-      .collect { case (offset, InMemoryLedgerEntry(entry)) =>
-        (offset, entry)
-      }
-      .collect(CompletionFromTransaction(applicationId.unwrap, parties))
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
+    val appId = applicationId.unwrap
+    entries.getSource(startExclusive, endInclusive).collect {
+      case (
+            offset,
+            InMemoryLedgerEntry(
+              LedgerEntry.Transaction(
+                Some(commandId),
+                transactionId,
+                Some(`appId`),
+                _,
+                actAs,
+                _,
+                _,
+                recordTime,
+                _,
+                _,
+              )
+            ),
+          ) if actAs.exists(parties) =>
+        offset -> CompletionFromTransaction.acceptedCompletion(
+          recordTime,
+          offset,
+          commandId,
+          transactionId,
+        )
+
+      case (
+            offset,
+            InMemoryLedgerEntry(
+              LedgerEntry.Rejection(recordTime, commandId, `appId`, _, actAs, reason)
+            ),
+          ) if actAs.exists(parties) =>
+        val status = reason.toParticipantStateRejectionReason.status
+        offset -> CompletionFromTransaction.rejectedCompletion(
+          recordTime,
+          offset,
+          commandId,
+          status,
+        )
+    }
+  }
 
   override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = entries.ledgerEnd
 

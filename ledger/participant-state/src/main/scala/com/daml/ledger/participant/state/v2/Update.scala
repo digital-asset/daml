@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v2
 import java.time.Duration
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.lf.data.Ref
@@ -342,7 +343,7 @@ object Update {
     }
 
     /** The status code for the command rejection. */
-    final class FinalReason(override val status: RpcStatus) extends RejectionReasonTemplate {
+    final case class FinalReason(override val status: RpcStatus) extends RejectionReasonTemplate {
       override def message: String = status.message
 
       override def code: Int = status.code

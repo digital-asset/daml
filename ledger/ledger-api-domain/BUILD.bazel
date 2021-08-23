@@ -20,6 +20,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
         "//libs-scala/logging-entries",
     ],
 )

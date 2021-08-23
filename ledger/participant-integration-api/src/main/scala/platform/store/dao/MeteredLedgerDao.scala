@@ -218,15 +218,11 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerDao.storeInitialState(ledgerEntries, newLedgerEnd),
     )
 
-  override def initializeLedger(ledgerId: LedgerId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.initializeLedger(ledgerId)
-
-  override def initializeParticipantId(participantId: ParticipantId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.initializeParticipantId(participantId)
+  override def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    ledgerDao.initialize(ledgerId, participantId)
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.reset()

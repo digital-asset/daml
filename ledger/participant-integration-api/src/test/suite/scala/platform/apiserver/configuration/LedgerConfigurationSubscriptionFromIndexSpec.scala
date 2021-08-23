@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.configuration
 
 import java.time.Duration
 
+import akka.NotUsed
 import akka.event.NoLogging
 import akka.stream.scaladsl.Source
 import akka.testkit.ExplicitlyTriggeredScheduler
@@ -17,7 +18,6 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscriptionFromIndexSpec._
 import com.daml.timer.Delayed
-import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
@@ -32,9 +32,7 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
     with Matchers
     with Eventually
     with Inside
-    with AkkaBeforeAndAfterAll
-    with MockitoSugar
-    with ArgumentMatchersSugar {
+    with AkkaBeforeAndAfterAll {
 
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -45,9 +43,10 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
         Configuration(7, LedgerTimeModel.reasonableDefault, Duration.ofDays(1))
       val configurationLoadTimeout = 5.seconds
 
-      val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration())
-        .thenReturn(Future.successful(Some(offset("0001") -> currentConfiguration)))
+      val index = new FakeIndexConfigManagementService(
+        currentConfiguration = Some(offset("0001") -> currentConfiguration),
+        streamingConfigurations = List.empty,
+      )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
       val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
@@ -90,10 +89,10 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
       }
       val configurationLoadTimeout = 5.seconds
 
-      val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
-      when(index.configurationEntries(None))
-        .thenReturn(Source(configurationEntries).concat(Source.never))
+      val index = new FakeIndexConfigManagementService(
+        currentConfiguration = None,
+        streamingConfigurations = configurationEntries,
+      )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
       val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
@@ -130,10 +129,10 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
       )
       val configurationLoadTimeout = 5.seconds
 
-      val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
-      when(index.configurationEntries(None))
-        .thenReturn(Source(configurationEntries).concat(Source.never))
+      val index = new FakeIndexConfigManagementService(
+        currentConfiguration = None,
+        streamingConfigurations = configurationEntries,
+      )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
       val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
@@ -185,10 +184,10 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
       )
       val configurationLoadTimeout = 5.seconds
 
-      val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
-      when(index.configurationEntries(None))
-        .thenReturn(Source(configurationEntries).concat(Source.never))
+      val index = new FakeIndexConfigManagementService(
+        currentConfiguration = None,
+        streamingConfigurations = configurationEntries,
+      )
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
       val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
         indexService = index,
@@ -212,14 +211,10 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
     }
 
     "give up waiting if the configuration takes too long to appear" in {
-      val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
-      when(index.configurationEntries(None)).thenReturn(Source.never)
-
       val configurationLoadTimeout = 500.millis
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
       val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
-        indexService = index,
+        indexService = EmptyIndexConfigManagementService,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
@@ -238,15 +233,11 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
     }
 
     "never becomes ready if stopped" in {
-      val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration()).thenReturn(Future.successful(None))
-      when(index.configurationEntries(None)).thenReturn(Source.never)
-
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
 
       val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
-        indexService = index,
+        indexService = EmptyIndexConfigManagementService,
         scheduler = scheduler,
         materializer = materializer,
         servicesExecutionContext = system.dispatcher,
@@ -270,10 +261,7 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
 
     "fail to subscribe if the initial lookup fails" in {
       val lookupFailure = new RuntimeException("It failed.")
-
-      val index = mock[IndexConfigManagementService]
-      when(index.lookupConfiguration()).thenReturn(Future.failed(lookupFailure))
-      when(index.configurationEntries(None)).thenReturn(Source.never)
+      val index = new FailingIndexConfigManagementService(lookupFailure)
 
       val configurationLoadTimeout = 1.second
       val scheduler = new ExplicitlyTriggeredScheduler(null, NoLogging, null)
@@ -302,4 +290,55 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
 object LedgerConfigurationSubscriptionFromIndexSpec {
   private def offset(value: String): LedgerOffset.Absolute =
     LedgerOffset.Absolute(Ref.LedgerString.assertFromString(value))
+
+  object EmptyIndexConfigManagementService extends IndexConfigManagementService {
+    override def lookupConfiguration()(implicit
+        loggingContext: LoggingContext
+    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+      Future.successful(None)
+
+    override def configurationEntries(
+        startExclusive: Option[LedgerOffset.Absolute]
+    )(implicit
+        loggingContext: LoggingContext
+    ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
+      Source.never
+  }
+
+  final class FakeIndexConfigManagementService(
+      currentConfiguration: Option[(LedgerOffset.Absolute, Configuration)],
+      streamingConfigurations: List[(LedgerOffset.Absolute, ConfigurationEntry)],
+  ) extends IndexConfigManagementService {
+    override def lookupConfiguration()(implicit
+        loggingContext: LoggingContext
+    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+      Future.successful(currentConfiguration)
+
+    override def configurationEntries(
+        startExclusive: Option[LedgerOffset.Absolute]
+    )(implicit
+        loggingContext: LoggingContext
+    ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] = {
+      val futureConfigurations = startExclusive match {
+        case None => streamingConfigurations
+        case Some(offset) => streamingConfigurations.dropWhile(offset.value > _._1.value)
+      }
+      Source(futureConfigurations).concat(Source.never)
+    }
+  }
+
+  final class FailingIndexConfigManagementService(lookupFailure: Exception)
+      extends IndexConfigManagementService {
+    override def lookupConfiguration()(implicit
+        loggingContext: LoggingContext
+    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+      Future.failed(lookupFailure)
+
+    override def configurationEntries(
+        startExclusive: Option[LedgerOffset.Absolute]
+    )(implicit
+        loggingContext: LoggingContext
+    ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
+      Source.never
+  }
 }

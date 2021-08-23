@@ -29,7 +29,7 @@ handle
     :: IdeState
     -> CodeLensParams
     -> LSP.LspM c (Either e (List CodeLens))
-handle ide (CodeLensParams{_textDocument=TextDocumentIdentifier uri}) = liftIO $ Right <$> do
+handle ide CodeLensParams{_textDocument=TextDocumentIdentifier uri} = liftIO $ Right <$> do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath' -> filePath) -> do
           logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)

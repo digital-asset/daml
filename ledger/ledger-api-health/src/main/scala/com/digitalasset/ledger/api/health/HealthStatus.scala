@@ -10,12 +10,14 @@ sealed abstract class HealthStatus extends Product with Serializable {
   }
 }
 
+case object Healthy extends HealthStatus
+
+case object Unhealthy extends HealthStatus
+
+// These methods are intended to be used by Java code, where the Scala values can be unidiomatic.
+// You are encouraged to use the Scala values above when writing Scala code.
 object HealthStatus {
   val healthy: HealthStatus = Healthy
 
   val unhealthy: HealthStatus = Unhealthy
 }
-
-case object Healthy extends HealthStatus
-
-case object Unhealthy extends HealthStatus

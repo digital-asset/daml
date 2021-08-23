@@ -107,14 +107,6 @@ object Error {
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error
 
-    final case class ContractIdFreshness(
-        localContractIds: Set[Value.ContractId],
-        globalContractIds: Set[Value.ContractId],
-    ) extends Error {
-      assert(localContractIds exists globalContractIds)
-      def message: String = "Conflicting discriminators between a global and local contract ID."
-    }
-
   }
 
   // Error happening during interpretation
