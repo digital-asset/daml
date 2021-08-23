@@ -334,12 +334,12 @@ sealed abstract class Queries(tablePrefix: String) {
       val q = query(tpid, queriesCondition)
       q.query[
         (String, Mark0, Key, Option[String], JsValue, SigsObs, SigsObs, Agreement)
-      ].map { case (cid, tpid, rawKey, key_hash, payload, signatories, observers, rawAgreement) =>
+      ].map { case (cid, tpid, rawKey, keyHash, payload, signatories, observers, rawAgreement) =>
         DBContract(
           contractId = cid,
           templateId = tpid,
           key = key(rawKey),
-          keyHash = key_hash,
+          keyHash = keyHash,
           payload = payload,
           signatories = sigsObs(signatories),
           observers = sigsObs(observers),
@@ -623,13 +623,7 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
 
   protected[this] override val maxListSize = None
 
-  protected[this] val contractsKeysIndexName =
-    Fragment.const0(s"${tablePrefix}contract_tpid_key_idx")
   protected[this] val contractsTableIndexName = Fragment.const0(s"${tablePrefix}contract_tpid_idx")
-
-  private[this] val indexContractsKeys = CreateIndex(sql"""
-      CREATE INDEX $contractsKeysIndexName ON $contractTableName USING BTREE (tpid, key)
-  """)
 
   private[this] val indexContractsTable = CreateIndex(sql"""
       CREATE INDEX $contractsTableIndexName ON $contractTableName (tpid)
@@ -637,11 +631,11 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
 
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
-    sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
+    sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(indexContractsTable, indexContractsKeys, contractKeyHashIndex)
+    super.initDatabaseDdls ++ Seq(indexContractsTable, contractKeyHashIndex)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
@@ -794,7 +788,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
 
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
-    sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
+    sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
   protected[this] override def initDatabaseDdls =
