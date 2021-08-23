@@ -405,14 +405,14 @@ object ScenarioRunner {
       traceLog = traceLog,
       warningLog = warningLog,
       commitLocation = location,
+      valueNormalization = false,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
-          onLedger.ptxInternal
-            .finish(valueNormalization = false) match {
+          onLedger.ptxInternal.finish match {
             case PartialTransaction.CompleteTransaction(tx, locationInfo, _) =>
               ledger.commit(committers, readAs, location, tx, locationInfo) match {
                 case Left(err) =>

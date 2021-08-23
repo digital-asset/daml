@@ -76,7 +76,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     res match {
       case _: SResultFinalValue =>
         machine.withOnLedger("RollbackTest") { onLedger =>
-          onLedger.ptx.finish() match {
+          onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
             case CompleteTransaction(_, _, _) =>

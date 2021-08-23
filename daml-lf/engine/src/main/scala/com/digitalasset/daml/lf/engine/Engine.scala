@@ -317,6 +317,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
+        valueNormalization = config.valueNormalization,
       )
       interpretLoop(machine, ledgerTime)
     }
@@ -389,7 +390,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
     }
 
-    onLedger.finish(config.valueNormalization) match {
+    onLedger.finish match {
       case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
         val meta = Tx.Metadata(
           submissionSeed = None,

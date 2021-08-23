@@ -16,7 +16,6 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersion,
-  Normalization,
 }
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
@@ -186,6 +185,7 @@ private[lf] object PartialTransaction {
       contractKeyUniqueness: ContractKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
+      valueNormalization: Boolean,
   ) = PartialTransaction(
     pkg2TxVersion,
     contractKeyUniqueness = contractKeyUniqueness,
@@ -200,6 +200,7 @@ private[lf] object PartialTransaction {
     globalKeyInputs = Map.empty,
     localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
+    valueNormalization = valueNormalization,
   )
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
@@ -282,6 +283,7 @@ private[lf] case class PartialTransaction(
     globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
+    valueNormalization: Boolean,
 ) {
 
   import PartialTransaction._
@@ -343,6 +345,19 @@ private[lf] case class PartialTransaction(
     }.toMap
   }
 
+  /** normValue: converts a speedy value into a normalized regular value,
+    * unless 'valueNormalization=false',
+    * suitable for a transaction node of 'version' determined by 'templateId'
+    */
+  def normValue(templateId: TypeConName, svalue: SValue): Value[Value.ContractId] = {
+    val version = packageToTransactionVersion(templateId.packageId)
+    if (valueNormalization) {
+      svalue.toValueNorm(version)
+    } else {
+      svalue.toValue
+    }
+  }
+
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This returns:
     * - a SubmittedTransaction in case of success ;
@@ -351,18 +366,12 @@ private[lf] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish(valueNormalization: Boolean = true): PartialTransaction.Result =
+  def finish: PartialTransaction.Result =
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = GenTransaction(nodes, roots)
-        val (tx1, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-        val tx =
-          if (valueNormalization) {
-            Normalization.normalizeGenTx(tx1)
-          } else {
-            tx1
-          }
+        val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
           SubmittedTransaction(
             TxVersion.asVersionedTransaction(tx)
@@ -403,7 +412,7 @@ private[lf] case class PartialTransaction(
   def insertCreate(
       auth: Authorize,
       templateId: Ref.Identifier,
-      arg: Value[Value.ContractId],
+      arg: SValue,
       agreementText: String,
       optLocation: Option[Location],
       signatories: Set[Party],
@@ -418,7 +427,7 @@ private[lf] case class PartialTransaction(
     val createNode = Node.NodeCreate(
       cid,
       templateId,
-      arg,
+      normValue(templateId, arg),
       agreementText,
       signatories,
       stakeholders,
@@ -556,7 +565,7 @@ private[lf] case class PartialTransaction(
       choiceObservers: Set[Party],
       mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
-      chosenValue: Value[Value.ContractId],
+      chosenValue: SValue,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -567,7 +576,7 @@ private[lf] case class PartialTransaction(
         choiceId = choiceId,
         consuming = consuming,
         actingParties = actingParties,
-        chosenValue = chosenValue,
+        chosenValue = normValue(templateId, chosenValue),
         signatories = signatories,
         stakeholders = stakeholders,
         choiceObservers = choiceObservers,
@@ -608,9 +617,10 @@ private[lf] case class PartialTransaction(
   /** Close normally an exercise context.
     * Must match a `beginExercises`.
     */
-  def endExercises(value: Value[Value.ContractId]): PartialTransaction =
+  def endExercises(svalue: SValue): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
+        val value = normValue(ec.templateId, svalue)
         val exerciseNode =
           makeExNode(ec).copy(children = context.children.toImmArray, exerciseResult = Some(value))
         val nodeId = ec.nodeId

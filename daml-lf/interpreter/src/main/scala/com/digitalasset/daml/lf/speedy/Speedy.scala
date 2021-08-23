@@ -130,8 +130,7 @@ private[lf] object Speedy {
       else {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
-    private[lf] def finish(valueNormalization: Boolean): PartialTransaction.Result =
-      ptx.finish(valueNormalization)
+    private[lf] def finish: PartialTransaction.Result = ptx.finish
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction(): IncompleteTransaction = ptx.finishIncomplete
 
@@ -787,6 +786,7 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
         commitLocation: Option[Location] = None,
+        valueNormalization: Boolean = true,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.interface.packageLanguageVersion.andThen(
@@ -804,7 +804,13 @@ private[lf] object Speedy {
         ledgerMode = OnLedger(
           validating = validating,
           ptx = PartialTransaction
-            .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
+            .initial(
+              pkg2TxVersion,
+              contractKeyUniqueness,
+              submissionTime,
+              initialSeeding,
+              valueNormalization,
+            ),
           committers = committers,
           readAs = readAs,
           commitLocation = commitLocation,
@@ -1298,8 +1304,8 @@ private[lf] object Speedy {
   ) extends Kont {
 
     def execute(sv: SValue): Unit = {
-      val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
+        val cached = SBuiltin.extractCachedContract(onLedger, templateId, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value
@@ -1315,7 +1321,7 @@ private[lf] object Speedy {
 
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
-        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toValue)
+        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
         checkAborted(onLedger.ptx)
       }
       machine.returnValue = exerciseResult

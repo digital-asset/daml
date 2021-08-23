@@ -27,10 +27,11 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     ContractKeyUniquenessMode.On,
     data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
+    valueNormalization = true,
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
-    inside(ptx.finish()) { case CompleteTransaction(tx, _, _) =>
+    inside(ptx.finish) { case CompleteTransaction(tx, _, _) =>
       tx.fold(Vector.empty[Value.ContractId]) {
         case (acc, (_, create: Node.NodeCreate[Value.ContractId])) => acc :+ create.coid
         case (acc, _) => acc
@@ -45,7 +46,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         .insertCreate(
           Authorize(Set(party)),
           templateId,
-          Value.ValueUnit,
+          SValue.Unit,
           "agreement",
           None,
           Set(party),
@@ -68,11 +69,11 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         choiceObservers = Set.empty,
         mbKey = None,
         byKey = false,
-        chosenValue = Value.ValueUnit,
+        chosenValue = SValue.Unit,
       )
 
     def endExercises_ : PartialTransaction =
-      ptx.endExercises(Value.ValueUnit)
+      ptx.endExercises(SValue.Unit)
 
     private val dummyException = SArithmeticError("Dummy", ImmArray.empty)
 

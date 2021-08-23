@@ -9,6 +9,7 @@ import java.util
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.transaction.{TransactionVersion, Util}
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
@@ -27,6 +28,11 @@ sealed trait SValue {
   import SValue.{SValue => _, _}
 
   def toValue: V[V.ContractId] = SValue.toValue(this)
+
+  def toValueNorm(version: TransactionVersion): V[V.ContractId] = {
+    val v = SValue.toValue(this)
+    Util.assertNormalizeValue(v, version) //TODO: avoid separate pass; inline norm into toValue
+  }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
