@@ -57,6 +57,11 @@ message Completion {
   //
   // Optional; the deduplication guarantee applies even if the completion omits this field.
   oneof deduplication_period {
+    // Specifies the start of the deduplication period by a completion stream offset.
+    //
+    // Must be a valid LedgerString (as described in ``value.proto``).
+    string deduplication_offset = 10;
+
     // Specifies the length of the deduplication period.
     // It is measured in record time of completions.
     //
