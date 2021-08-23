@@ -93,8 +93,11 @@ object Update {
   }
 
   /** Signal that a party is hosted at a participant.
+    * There might be multiple such events for the same party, in this case always the last one is the current one.
+    * Only exception from this rule is in case of participantId: once a party is added to a participant, it cannot be removed from there.
+    * (Which makes the paricipantId an ever extending set)
     *
-    * @param party         The newly allocated party identifier.
+    * @param party         The party identifier.
     * @param displayName   The user readable description of the party. May not be unique.
     * @param participantId The participant that this party was added to.
     * @param recordTime    The ledger-provided timestamp at which the party was allocated.
