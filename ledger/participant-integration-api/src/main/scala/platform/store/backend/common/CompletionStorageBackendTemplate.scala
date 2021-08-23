@@ -69,7 +69,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
         FROM
           participant_command_completions
         WHERE
-          completion_offset > $startExclusive AND
+          ($startExclusive is null or completion_offset > $startExclusive) AND
           completion_offset <= $endInclusive AND
           application_id = $applicationId AND
           ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", parties)}

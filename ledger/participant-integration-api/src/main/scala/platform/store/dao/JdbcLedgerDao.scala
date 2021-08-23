@@ -1212,17 +1212,17 @@ private[platform] object JdbcLedgerDao {
 
     protected[JdbcLedgerDao] def SQL_GET_PACKAGE_ENTRIES: String =
       """select * from package_entries
-        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     protected[JdbcLedgerDao] def SQL_GET_PARTY_ENTRIES: String =
       """select * from party_entries
-        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
-        |ledger_offset > {startExclusive} and ledger_offset <= {endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     // TODO: Avoid brittleness of error message checks
