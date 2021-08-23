@@ -74,8 +74,6 @@ private[backend] object H2StorageBackend
     ()
   }
 
-  override def duplicateKeyError: String = "Unique index or primary key violation"
-
   val SQL_INSERT_COMMAND: String =
     """merge into participant_command_submissions pcs
       |using dual on deduplication_key = {deduplicationKey}

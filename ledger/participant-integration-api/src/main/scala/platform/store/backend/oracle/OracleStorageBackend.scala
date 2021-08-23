@@ -68,8 +68,6 @@ private[backend] object OracleStorageBackend
       "truncate table party_entries cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 
-  override def duplicateKeyError: String = "unique constraint"
-
   val SQL_INSERT_COMMAND: String =
     """merge into participant_command_submissions pcs
       |using dual

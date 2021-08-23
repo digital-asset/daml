@@ -104,8 +104,6 @@ private[backend] object PostgresStorageBackend
     ()
   }
 
-  override val duplicateKeyError: String = "duplicate key"
-
   object PostgresQueryStrategy extends QueryStrategy {
 
     override def arrayIntersectionNonEmptyClause(
