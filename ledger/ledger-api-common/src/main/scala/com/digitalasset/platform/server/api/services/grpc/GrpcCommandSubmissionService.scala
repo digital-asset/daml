@@ -32,7 +32,6 @@ class GrpcCommandSubmissionService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
-    minSkew: () => Option[Duration],
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
@@ -66,7 +65,6 @@ class GrpcCommandSubmissionService(
             currentLedgerTime(),
             currentUtcTime(),
             maxDeduplicationTime(),
-            minSkew(),
           ),
         )
         .fold(

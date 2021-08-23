@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.time.Instant
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -18,7 +16,6 @@ import com.daml.ledger.test.model.Test._
 import com.daml.timer.Delayed
 import io.grpc.Status
 
-import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -42,62 +39,6 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
       party,
       DeduplicationPeriod.DeduplicationTime(deduplicationTime.asProtobuf),
     )
-  })
-
-  test(
-    "CDSimpleDeduplicationUsingStartTimestamp",
-    "Deduplicate commands within the deduplication time window which is specified by deduplication start",
-    allocate(SingleParty),
-    runConcurrently = false, //we modify the time model
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    ledger
-      .getTimeModel()
-      .flatMap(timeModelResponse => {
-        val timeModel = timeModelResponse.getTimeModel
-        val minSkew = deduplicationTime
-        val deduplicatedResult = for {
-          ledgerTime <- ledger.time()
-          maxRecordTime = ledgerTime.plusSeconds(30)
-          _ <- ledger.setTimeModel(
-            maxRecordTime,
-            timeModelResponse.configurationGeneration,
-            timeModel.update(_.minSkew := minSkew.asProtobuf),
-          )
-          _ <- eventually( // ensure time model was update
-            ledger
-              .getTimeModel()
-              .map(timeModel =>
-                assert(
-                  timeModel.configurationGeneration == timeModelResponse.configurationGeneration + 1,
-                  "Time model was not updated",
-                )
-              )
-          )
-          _ <- requestsAreSubmittedAndDeduplicated(
-            ledger = ledger,
-            party = party,
-            DeduplicationPeriod.DeduplicationStart(
-              Instant
-                .now()
-                .minusNanos(1)
-                .asProtobuf //ensure it's in the past compared to ledger clock
-            ),
-          )
-        } yield {}
-        deduplicatedResult.transformWith { testResult => // reset the deduplicationStartTime model
-          (for {
-            ledgerTime <- ledger.time()
-            _ <-
-              ledger
-                .setTimeModel(
-                  ledgerTime.plusSeconds(30),
-                  timeModelResponse.configurationGeneration + 1,
-                  timeModelResponse.getTimeModel,
-                )
-          } yield {})
-            .transform(_ => testResult)
-        }
-      })
   })
 
   private def requestsAreSubmittedAndDeduplicated(

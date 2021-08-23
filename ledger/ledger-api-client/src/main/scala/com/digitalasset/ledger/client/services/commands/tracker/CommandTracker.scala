@@ -314,7 +314,9 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
         maxDeduplicationDuration
       case DeduplicationPeriod.DeduplicationTime(duration) =>
         JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
-      case DeduplicationPeriod.DeduplicationStart(_) =>
+      case DeduplicationPeriod.DeduplicationOffset(
+            _
+          ) => //no way of extracting the duration from here, will be removed soon
         maxDeduplicationDuration
     }
     Instant

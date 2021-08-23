@@ -7,13 +7,13 @@ import java.time.Instant
 import java.util.UUID
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks, SubmissionIdGenerator}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
+import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks, SubmissionIdGenerator}
 import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
@@ -71,7 +71,6 @@ class SubmitRequestValidatorTest
     val submittedAt = Instant.now
     val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
-    val minSkew = java.time.Duration.ofSeconds(3)
     val deduplicationDuration = java.time.Duration.ofSeconds(
       api.deduplicationTime.seconds,
       api.deduplicationTime.nanos.toLong,
@@ -141,7 +140,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: commands",
@@ -157,7 +155,6 @@ class SubmitRequestValidatorTest
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationTime),
-              Some(internal.minSkew),
             ),
           INVALID_ARGUMENT,
           "Missing field: ledger_id",
@@ -172,7 +169,6 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.minSkew),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
@@ -189,7 +185,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: application_id",
@@ -204,7 +199,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           "Missing field: command_id",
@@ -220,7 +214,6 @@ class SubmitRequestValidatorTest
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationTime),
-              Some(internal.minSkew),
             ),
           INVALID_ARGUMENT,
           """Missing field: party or act_as""",
@@ -240,7 +233,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           )
         inside(result) { case Right(cmd) =>
           // actAs parties are gathered from "party" and "readAs" fields
@@ -259,7 +251,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -272,7 +263,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -287,7 +277,6 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.minSkew),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -302,7 +291,6 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.minSkew),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -316,7 +304,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           "Invalid field deduplication_period: Duration must be positive",
@@ -335,7 +322,6 @@ class SubmitRequestValidatorTest
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
           ),
           INVALID_ARGUMENT,
           s"Invalid field deduplication_period: The given deduplication time of ${java.time.Duration
@@ -351,7 +337,6 @@ class SubmitRequestValidatorTest
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationTime),
-          Some(internal.minSkew),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             deduplicationPeriod =
@@ -360,54 +345,11 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "not allow deduplication start to be in the future" in {
-        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands
-              .copy(deduplicationPeriod =
-                DeduplicationPeriodProto.DeduplicationStart(
-                  TimestampConversion.fromInstant(internal.submittedAt)
-                )
-              ),
-            internal.ledgerTime,
-            internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
-          ),
-          INVALID_ARGUMENT,
-          "Invalid field deduplication_period: Deduplication start time is equal to or after current time",
-        )
-      }
-
-      "not allow deduplication start to create a deduplication duration larger than the max" in {
-        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands
-              .copy(deduplicationPeriod =
-                DeduplicationPeriodProto.DeduplicationStart(
-                  TimestampConversion.fromInstant(
-                    internal.submittedAt.minusSeconds(internal.maxDeduplicationTime.getSeconds)
-                  )
-                )
-              ),
-            internal.ledgerTime,
-            internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
-            Some(internal.minSkew),
-          ),
-          INVALID_ARGUMENT,
-          s"Invalid field deduplication_period: The given deduplication start yields a duration of ${internal.maxDeduplicationTime
-            .plus(internal.minSkew)} which exceeds the maximum deduplication duration of ${internal.maxDeduplicationTime}",
-        )
-      }
-
       "not allow missing ledger configuration" in {
         val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
         requestMustFailWith(
           commandsValidator
-            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None, None),
+            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
           UNAVAILABLE,
           "The ledger configuration is not available.",
         )

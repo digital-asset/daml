@@ -3,13 +3,13 @@
 
 package com.daml.platform.server.api.validation
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 
-import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
@@ -108,8 +108,6 @@ trait FieldValidations {
       deduplicationPeriod: DeduplicationPeriodProto,
       maxDeduplicationTimeO: Option[Duration],
       fieldName: String,
-      minSkew: Option[Duration],
-      currentTime: Instant,
   ): Either[StatusRuntimeException, DeduplicationPeriod] = {
 
     maxDeduplicationTimeO.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
@@ -136,27 +134,12 @@ trait FieldValidations {
             result,
             s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
           ).map(DeduplicationPeriod.DeduplicationDuration)
-        case DeduplicationPeriodProto.DeduplicationStart(startFrom) =>
-          val start = TimestampConversion.toInstant(startFrom)
-          for {
-            minSkew <- minSkew.toRight(missingLedgerConfig())
-            _ <- Either.cond(
-              start.isBefore(currentTime),
-              start,
-              invalidField(fieldName, "Deduplication start time is equal to or after current time"),
+        case DeduplicationPeriodProto.DeduplicationOffset(offset) =>
+          Right(
+            DeduplicationPeriod.DeduplicationOffset(
+              Offset.fromHexString(Ref.HexString.assertFromString(offset))
             )
-            currentTimeDuration = DeduplicationPeriod.deduplicationDurationFromTime(
-              currentTime,
-              start,
-              minSkew,
-            )
-            _ <- validateDuration(
-              currentTimeDuration,
-              s"The given deduplication start yields a duration of $currentTimeDuration which exceeds the maximum deduplication duration of $maxDeduplicationDuration",
-            )
-          } yield {
-            DeduplicationPeriod.DeduplicationStart(start)
-          }
+          )
       }
     })
   }
