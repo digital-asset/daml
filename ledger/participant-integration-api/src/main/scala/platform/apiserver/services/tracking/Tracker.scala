@@ -20,27 +20,3 @@ trait Tracker extends AutoCloseable {
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]]
 
 }
-
-private[tracking] object Tracker {
-
-  class WithLastSubmission(delegate: Tracker) extends Tracker {
-
-    override def close(): Unit = delegate.close()
-
-    @volatile private var lastSubmission = System.nanoTime()
-
-    def getLastSubmission: Long = lastSubmission
-
-    override def track(request: SubmitAndWaitRequest)(implicit
-        executionContext: ExecutionContext,
-        loggingContext: LoggingContext,
-    ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-      lastSubmission = System.nanoTime()
-      delegate.track(request)
-    }
-  }
-
-  object WithLastSubmission {
-    def apply(delegate: Tracker): WithLastSubmission = new WithLastSubmission(delegate)
-  }
-}

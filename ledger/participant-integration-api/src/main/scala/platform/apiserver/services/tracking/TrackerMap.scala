@@ -13,6 +13,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   TrackedCompletionFailure,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.services.tracking.TrackerMap._
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration.{DurationLong, FiniteDuration}
@@ -35,7 +36,7 @@ private[services] final class TrackerMap[Key](
   private val lock = new Object()
 
   @volatile private var trackerBySubmitter =
-    HashMap.empty[Key, TrackerMap.AsyncResource[Tracker.WithLastSubmission]]
+    HashMap.empty[Key, TrackerMap.AsyncResource[TrackerWithLastSubmission]]
 
   require(
     retentionPeriod < Long.MaxValue.nanoseconds,
@@ -77,7 +78,7 @@ private[services] final class TrackerMap[Key](
             key, {
               val r = new TrackerMap.AsyncResource(newTracker(commands).map { t =>
                 logger.info(s"Registered tracker for submitter $key")
-                Tracker.WithLastSubmission(t)
+                new TrackerWithLastSubmission(t)
               })
               trackerBySubmitter += key -> r
               r
@@ -144,5 +145,23 @@ private[services] object TrackerMap {
       case Ready(t) => t.close()
       case _ =>
     }
+  }
+
+  private final class TrackerWithLastSubmission(delegate: Tracker) extends Tracker {
+    @volatile private var lastSubmission = System.nanoTime()
+
+    def getLastSubmission: Long = lastSubmission
+
+    override def track(
+        request: SubmitAndWaitRequest
+    )(implicit
+        executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+      lastSubmission = System.nanoTime()
+      delegate.track(request)
+    }
+
+    override def close(): Unit = delegate.close()
   }
 }
