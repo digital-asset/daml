@@ -110,7 +110,7 @@ private class PackageService(
             res
           }
         } catch {
-          case t: Throwable =>
+          case NonFatal(t) =>
             if (updateTaskUpdateSync.availablePermits() == 0)
               updateTaskUpdateSync.release()
             packageUpdateSync.release()
