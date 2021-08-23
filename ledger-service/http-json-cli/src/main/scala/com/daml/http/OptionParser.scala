@@ -147,8 +147,7 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
   opt[String]("access-token-file")
     .foreach(_ =>
       logger.warn(
-        s"Command-line option '--access-token-file' is deprecated. Please do NOT specify it because the auth behaviour is not influenced anymore by this." +
-          s"The jwt tokens from incoming requests are now used instead."
+        s"The '--access-token-file' command line option is deprecated and has no effect. The authorization for the retrieval of packages required to serve a request is performed with the JWT in the request itself."
       )
     )
     .text(
