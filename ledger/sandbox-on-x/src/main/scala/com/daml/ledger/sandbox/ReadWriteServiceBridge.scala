@@ -106,6 +106,7 @@ case class ReadWriteServiceBridge(
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     CompletableFuture.completedFuture(
       PruningResult.ParticipantPruned

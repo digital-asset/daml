@@ -73,10 +73,11 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     Timed.completionStage(
       metrics.daml.services.write.prune,
-      delegate.prune(pruneUpToInclusive, submissionId),
+      delegate.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts),
     )
 
   override def currentHealth(): HealthStatus =
