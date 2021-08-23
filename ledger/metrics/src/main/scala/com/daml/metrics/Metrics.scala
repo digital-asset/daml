@@ -427,7 +427,6 @@ final class Metrics(val registry: MetricRegistry) {
         val execAll: Timer = overall.executionTimer
 
         val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
-        val checkCompatibility: DatabaseMetrics = createDbMetrics("check_compatibility")
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")

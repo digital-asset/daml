@@ -35,6 +35,8 @@ import com.daml.platform.store.backend.{
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
 
+import scala.util.Using
+
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
@@ -117,7 +119,7 @@ private[backend] object PostgresStorageBackend
     }
   }
 
-  override def checkCompatibility(
+  private def checkCompatibility(
       connection: Connection
   )(implicit loggingContext: LoggingContext): Unit = {
     getPostgresVersion(connection) match {
@@ -214,6 +216,12 @@ private[backend] object PostgresStorageBackend
   )(implicit loggingContext: LoggingContext): DataSource = {
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
+
+    Using.resource(pgSimpleDataSource.getConnection()) { connection =>
+      checkCompatibility(connection)
+      connection.close()
+    }
+
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
         .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
