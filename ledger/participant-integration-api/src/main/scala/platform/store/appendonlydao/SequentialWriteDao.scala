@@ -7,12 +7,7 @@ import java.sql.Connection
 
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.platform.store.backend.{
-  DbDto,
-  IngestionStorageBackend,
-  ParameterStorageBackend,
-  StorageBackend,
-}
+import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -30,7 +25,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      lastEventSeqId = storageBackend.ledgerEnd(connection).lastEventSeqId.getOrElse(0)
+      lastEventSeqId = storageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
       lastEventSeqIdInitialized = true
     }
 
@@ -60,10 +55,10 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .pipe(storageBackend.batch)
         .pipe(storageBackend.insertBatch(connection, _))
 
-      storageBackend.updateParams(
-        StorageBackend.Params(
-          ledgerEnd = offset,
-          eventSeqId = lastEventSeqId,
+      storageBackend.updateLedgerEnd(
+        ParameterStorageBackend.LedgerEnd(
+          lastOffset = offset,
+          lastEventSeqId = lastEventSeqId,
         )
       )(connection)
     }

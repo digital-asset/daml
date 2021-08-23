@@ -7,13 +7,12 @@ import java.time.Instant
 
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
+import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.SqlFunctions
-import com.google.rpc.status.Status
+import com.google.rpc.status.{Status => StatusProto}
 
 private[platform] object CommandCompletionsTable {
 
@@ -25,19 +24,14 @@ private[platform] object CommandCompletionsTable {
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
     sharedColumns ~ str("transaction_id") map {
       case offset ~ recordTime ~ commandId ~ transactionId =>
-        CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime, offset),
-          completions = Seq(Completion(commandId, Some(Status()), transactionId)),
-        )
+        CompletionFromTransaction.acceptedCompletion(recordTime, offset, commandId, transactionId)
     }
 
   private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
     sharedColumns ~ int("status_code") ~ str("status_message") map {
       case offset ~ recordTime ~ commandId ~ statusCode ~ statusMessage =>
-        CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime, offset),
-          completions = Seq(Completion(commandId, Some(Status(statusCode, statusMessage)))),
-        )
+        val status = StatusProto.of(statusCode, statusMessage, Seq.empty)
+        CompletionFromTransaction.rejectedCompletion(recordTime, offset, commandId, status)
     }
 
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser

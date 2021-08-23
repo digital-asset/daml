@@ -152,7 +152,7 @@ object SqlLedgerReaderWriter {
           .flatMap { ledgerId =>
             if (providedLedgerId != ledgerId) {
               Failure(
-                new MismatchException.LedgerId(
+                MismatchException.LedgerId(
                   domain.LedgerId(ledgerId),
                   domain.LedgerId(providedLedgerId),
                 )

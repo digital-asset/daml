@@ -232,15 +232,23 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
 
-  /** Initializes the ledger. Must be called only once.
+  /** Initializes the database with the given ledger identity.
+    * If the database was already intialized, instead compares the given identity parameters
+    * to the existing ones, and returns a Future failed with [[com.daml.platform.common.MismatchException]]
+    * if they don't match.
+    *
+    * This method is idempotent.
+    * This method is NOT safe to call concurrently.
+    *
+    * This method must succeed at least once before other LedgerWriteDao methods may be used.
     *
     * @param ledgerId the ledger id to be stored
+    * @param participantId the participant id to be stored
     */
-  def initializeLedger(ledgerId: LedgerId)(implicit loggingContext: LoggingContext): Future[Unit]
-
-  def initializeParticipantId(participantId: ParticipantId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit]
+  def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): Future[Unit]
 
   // TODO append-only: cleanup
   def prepareTransactionInsert(

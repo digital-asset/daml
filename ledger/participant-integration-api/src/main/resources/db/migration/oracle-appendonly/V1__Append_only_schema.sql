@@ -124,16 +124,17 @@ CREATE INDEX idx_party_entries ON party_entries(submission_id);
 
 CREATE TABLE participant_command_completions
 (
-    completion_offset VARCHAR2(4000)  not null,
-    record_time       TIMESTAMP       not null,
+    completion_offset           VARCHAR2(4000)  NOT NULL,
+    record_time                 TIMESTAMP       NOT NULL,
 
-    application_id    NVARCHAR2(1000) not null,
-    submitters        CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
-    command_id        NVARCHAR2(1000) not null,
+    application_id              NVARCHAR2(1000) NOT NULL,
+    submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
+    command_id                  NVARCHAR2(1000) NOT NULL,
 
-    transaction_id    NVARCHAR2(1000), -- null if the command was rejected and checkpoints
-    status_code       INTEGER,         -- null for successful command and checkpoints
-    status_message    CLOB  -- null for successful command and checkpoints
+    transaction_id              NVARCHAR2(1000), -- null for rejected transactions and checkpoints
+    rejection_status_code       INTEGER,         -- null for accepted transactions and checkpoints
+    rejection_status_message    CLOB,            -- null for accepted transactions and checkpoints
+    rejection_status_details    BLOB             -- null for accepted transactions and checkpoints
 );
 
 CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
@@ -260,8 +261,7 @@ CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_e
 CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create(JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
--- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
-CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(ORA_HASH(contract_id));
+CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(contract_id);
 
 -- lookup by contract_key
 CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events_create(create_key_hash, event_sequential_id);
@@ -335,8 +335,7 @@ CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON p
 CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
--- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
-CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (ORA_HASH(contract_id));
+CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
@@ -548,8 +547,7 @@ CREATE TABLE parameters
     ledger_id                          NVARCHAR2(1000) not null,
     -- stores the head offset, meant to change with every new ledger entry
     ledger_end                         VARCHAR2(4000),
-    external_ledger_end                NVARCHAR2(1000),
-    participant_id                     NVARCHAR2(1000),
+    participant_id                     NVARCHAR2(1000) not null,
     participant_pruned_up_to_inclusive VARCHAR2(4000),
     ledger_end_sequential_id           NUMBER
 );

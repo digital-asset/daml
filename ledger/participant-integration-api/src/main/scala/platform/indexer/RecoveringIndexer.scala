@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Scheduler
 import akka.pattern.after
-import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.daml.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
@@ -47,7 +47,7 @@ private[indexer] final class RecoveringIndexer(
 
     val firstSubscription = subscribe().map(handle => {
       logger.info("Started Indexer Server")
-      updateHealthStatus(HealthStatus.healthy)
+      updateHealthStatus(Healthy)
       handle
     })
     subscription.set(firstSubscription)
@@ -85,7 +85,7 @@ private[indexer] final class RecoveringIndexer(
             if (subscription.compareAndSet(oldSubscription, newSubscription)) {
               resubscribeOnFailure(newSubscription)
               newSubscription.asFuture.map { _ =>
-                updateHealthStatus(HealthStatus.healthy)
+                updateHealthStatus(Healthy)
                 logger.info("Restarted Indexer Server")
               }
             } else { // we must have stopped the server during the restart
@@ -143,14 +143,14 @@ private[indexer] final class RecoveringIndexer(
         .release()
         .flatMap(_ => complete.future)
         .map(_ => {
-          updateHealthStatus(HealthStatus.unhealthy)
+          updateHealthStatus(Unhealthy)
           logger.info("Stopped Indexer Server")
         })
     })
   }
 
   private def reportErrorState(errorMessage: String, exception: Throwable): Unit = {
-    updateHealthStatus(HealthStatus.unhealthy)
+    updateHealthStatus(Unhealthy)
     logger.error(errorMessage, exception)
   }
 }
@@ -159,7 +159,7 @@ private[indexer] object RecoveringIndexer {
   def apply(scheduler: Scheduler, executionContext: ExecutionContext, restartDelay: FiniteDuration)(
       implicit loggingContext: LoggingContext
   ): RecoveringIndexer = {
-    val healthStatusRef = new AtomicReference[HealthStatus](HealthStatus.unhealthy)
+    val healthStatusRef = new AtomicReference[HealthStatus](Unhealthy)
 
     val healthReporter: ReportsHealth = () => healthStatusRef.get()
 

@@ -343,7 +343,7 @@ object Update {
     }
 
     /** The status code for the command rejection. */
-    final class FinalReason(override val status: RpcStatus) extends RejectionReasonTemplate {
+    final case class FinalReason(override val status: RpcStatus) extends RejectionReasonTemplate {
       override def message: String = status.message
 
       override def code: Int = status.code
