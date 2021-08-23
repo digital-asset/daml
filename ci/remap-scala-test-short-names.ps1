@@ -17,7 +17,7 @@ if ($scala_test_targets.count -gt 0) {
         @scala_test_targets `
         2>&1; $bazelexitcode=$lastexitcode)`
     | foreach { if ( $_ -match ">>>(?<filename>.*)" ) { Get-Content $Matches.filename } else { $errmsg += $_ } } `
-    | jq -s "map({key:.short_label,value:.long_label})|from_entries"
+    | jq -acsS "map({key:.short_label,value:.long_label})|from_entries"
 
   if ($lastexitcode -ne 0) {
     throw "jq returned non-zero exit code: $lastexitcode"
