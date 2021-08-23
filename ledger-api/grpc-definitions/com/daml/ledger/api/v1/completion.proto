@@ -49,8 +49,8 @@ message Completion {
   // Optional for historic completions where this data is not available.
   string submission_id = 6;
 
-  reserved "submission_rank";
-  reserved 7;
+  reserved "submission_rank"; // For future use.
+  reserved 7;                 // For future use.
 
   // The actual deduplication window used for the submission, which is derived from
   // ``Commands.deduplication_period``. The ledger may convert the deduplication period into other
