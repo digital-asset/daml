@@ -60,18 +60,18 @@ message Completion {
     // Specifies the start of the deduplication period by a completion stream offset.
     //
     // Must be a valid LedgerString (as described in ``value.proto``).
-    string deduplication_offset = 10;
+    string deduplication_offset = 7;
 
     // Specifies the length of the deduplication period.
     // It is measured in record time of completions.
     //
     // Must be non-negative.
-    google.protobuf.Duration deduplication_time = 11;
+    google.protobuf.Duration deduplication_time = 8;
 
     // Specifies a point in time in the past after which this submission should be de-duplicated
     // w.r.t. previous submissions of the same commands.
     //
     // It is measured in record time of completions.
-    google.protobuf.Timestamp deduplication_start = 12;
+    google.protobuf.Timestamp deduplication_start = 9;
   }
 }
