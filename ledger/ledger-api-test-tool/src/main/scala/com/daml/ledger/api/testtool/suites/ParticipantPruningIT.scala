@@ -8,7 +8,6 @@ import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -535,47 +534,49 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRDivulgenceArchivalPruning",
     "Prune succeeds for divulgence events whose contracts are archived",
-    allocate(SingleParty, SingleParty),
+    allocate(TwoParties),
     runConcurrently = false, // pruning call may interact with other tests
-  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+  )(implicit ec => { case Participants(Participant(participant, alice, bob)) =>
     for {
-      divulgence <- createDivulgence(alice, bob, alpha, beta)
-      contract <- alpha.create(alice, Contract(alice))
+      divulgence <- createDivulgence(alice, bob, participant, participant)
+      contract <- participant.create(alice, Contract(alice))
 
       // Retroactively divulge Alice's contract to bob
-      _ <- alpha.exercise(
+      _ <- participant.exercise(
         alice,
         divulgence.exerciseDivulge(_, contract),
       )
 
-      _ <- beta.exerciseAndGetContract[Dummy](
+      // Bob can see the divulged contract
+      _ <- participant.exerciseAndGetContract[Dummy](
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      offsetAfterDivulgence <- beta.currentEnd()
+      offsetAfterDivulgence <- participant.currentEnd()
 
       // Dummy create needed to prune after the previous fetch (which also divulges)
-      _ <- beta.create(bob, Dummy(bob))
+      _ <- participant.create(bob, Dummy(bob))
 
-      _ <- beta.prune(offsetAfterDivulgence, pruneAllDivulgedContracts = false)
+      _ <- participant.prune(offsetAfterDivulgence, pruneAllDivulgedContracts = false)
 
       // Bob can still see the divulged contract
-      _ <- beta.exerciseAndGetContract[Dummy](
+      _ <- participant.exerciseAndGetContract[Dummy](
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      _ <- alpha.exercise(alice, contract.exerciseArchive)
+      // Archive the divulged contract
+      _ <- participant.exercise(alice, contract.exerciseArchive)
 
-      offsetAfterDivulgence_2 <- beta.currentEnd()
+      offsetAfterDivulgence_2 <- participant.currentEnd()
 
-      _ <- synchronize(alpha, beta)
+      // Dummy create needed to prune after the previous fetch (which also divulges)
+      _ <- participant.create(bob, Dummy(bob))
 
-      _ <- beta.prune(offsetAfterDivulgence_2, pruneAllDivulgedContracts = false)
+      _ <- participant.prune(offsetAfterDivulgence_2, pruneAllDivulgedContracts = false)
 
-      // Bob cannot see the divulged contract
-      _ <- beta
+      _ <- participant
         .exerciseAndGetContract[Dummy](
           bob,
           divulgence.exerciseCanFetch(_, contract),
