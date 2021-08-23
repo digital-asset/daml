@@ -53,7 +53,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       SQL(
         "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
       ),
-      SQL("DELETE FROM parties WHERE ledger_offset > {ledger_offset}"),
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
     )
 
