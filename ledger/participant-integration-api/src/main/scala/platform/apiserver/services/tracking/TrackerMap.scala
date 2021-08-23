@@ -175,7 +175,7 @@ private[services] object TrackerMap {
       currentState match {
         case Waiting => managedFuture.flatMap(_ => withResource(f)) // try again
         case Ready(resource) => f(resource)
-        case Closed => Future.failed(new IllegalStateException())
+        case Closed => Future.failed(new IllegalStateException("The resource is closed."))
         case Failed(exception) => Future.failed(exception)
       }
 

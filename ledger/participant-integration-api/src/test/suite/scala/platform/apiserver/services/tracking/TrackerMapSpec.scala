@@ -174,6 +174,57 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
         failure2.getMessage should be("Missing application ID.")
       }
     }
+
+    "close all trackers" in {
+      val requestCount = 20
+      val expectedTrackerCount = 5
+      val openTrackerCount = new AtomicInteger(0)
+      val closedTrackerCount = new AtomicInteger(0)
+      val tracker = new TrackerMap[String](
+        retentionPeriod = 1.minute,
+        getKey = commands => commands.applicationId,
+        newTracker = _ =>
+          Future.successful {
+            openTrackerCount.incrementAndGet()
+            new Tracker {
+              override def track(
+                  request: SubmitAndWaitRequest
+              )(implicit
+                  executionContext: ExecutionContext,
+                  loggingContext: LoggingContext,
+              ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+                Future.successful(
+                  Right(
+                    CompletionSuccess(
+                      commandId = request.getCommands.commandId,
+                      transactionId = "",
+                      originalStatus = Status.defaultInstance,
+                    )
+                  )
+                )
+
+              override def close(): Unit = {
+                closedTrackerCount.incrementAndGet()
+                ()
+              }
+            }
+          },
+      )
+
+      val requests = (0 until requestCount).map { i =>
+        val key = (i % expectedTrackerCount).toString
+        SubmitAndWaitRequest.of(
+          commands = Some(Commands(commandId = i.toString, applicationId = key))
+        )
+      }
+      for {
+        _ <- Future.sequence(requests.map(tracker.track))
+        _ = tracker.close()
+      } yield {
+        openTrackerCount.get() should be(expectedTrackerCount)
+        closedTrackerCount.get() should be(expectedTrackerCount)
+      }
+    }
   }
 }
 
