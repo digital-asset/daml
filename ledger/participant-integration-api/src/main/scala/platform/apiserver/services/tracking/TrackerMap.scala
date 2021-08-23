@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicReference
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   TrackedCompletionFailure,
@@ -23,8 +22,9 @@ import scala.util.{Failure, Success}
 /** A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-private[services] final class TrackerMap(
+private[services] final class TrackerMap[Key](
     retentionPeriod: FiniteDuration,
+    getKey: Commands => Key,
     newTracker: Commands => Future[Tracker],
 )(implicit loggingContext: LoggingContext)
     extends Tracker
@@ -35,7 +35,7 @@ private[services] final class TrackerMap(
   private val lock = new Object()
 
   @volatile private var trackerBySubmitter =
-    HashMap.empty[TrackerMap.Key, TrackerMap.AsyncResource[Tracker.WithLastSubmission]]
+    HashMap.empty[Key, TrackerMap.AsyncResource[Tracker.WithLastSubmission]]
 
   require(
     retentionPeriod < Long.MaxValue.nanoseconds,
@@ -67,20 +67,19 @@ private[services] final class TrackerMap(
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     val commands = request.getCommands
-    val parties = CommandsValidator.effectiveActAs(commands)
-    val submitter = TrackerMap.Key(application = commands.applicationId, parties = parties)
+    val key = getKey(commands)
     // double-checked locking
     trackerBySubmitter
       .getOrElse(
-        submitter,
+        key,
         lock.synchronized {
           trackerBySubmitter.getOrElse(
-            submitter, {
+            key, {
               val r = new TrackerMap.AsyncResource(newTracker(commands).map { t =>
-                logger.info(s"Registered tracker for submitter $submitter")
+                logger.info(s"Registered tracker for submitter $key")
                 Tracker.WithLastSubmission(t)
               })
-              trackerBySubmitter += submitter -> r
+              trackerBySubmitter += key -> r
               r
             },
           )
@@ -97,9 +96,6 @@ private[services] final class TrackerMap(
 }
 
 private[services] object TrackerMap {
-
-  final case class Key(application: String, parties: Set[String])
-
   sealed trait AsyncResourceState[+T <: AutoCloseable]
   final case object Waiting extends AsyncResourceState[Nothing]
   final case object Closed extends AsyncResourceState[Nothing]

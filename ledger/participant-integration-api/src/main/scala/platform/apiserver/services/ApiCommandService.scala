@@ -67,8 +67,8 @@ private[apiserver] final class ApiCommandService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val submissionTracker: TrackerMap =
-    new TrackerMap(configuration.retentionPeriod, newTracker)
+  private val submissionTracker: TrackerMap[TrackerKey] =
+    new TrackerMap(configuration.retentionPeriod, getTrackerKey, newTracker)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
   private val trackerCleanupJob: Cancellable = materializer.system.scheduler
@@ -141,6 +141,11 @@ private[apiserver] final class ApiCommandService private (
         delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefixFirstParty),
       )
     }
+  }
+
+  private def getTrackerKey(commands: Commands): TrackerKey = {
+    val parties = CommandsValidator.effectiveActAs(commands)
+    TrackerKey(commands.applicationId, parties)
   }
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
@@ -226,6 +231,8 @@ private[apiserver] object ApiCommandService {
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       generateSubmissionId = SubmissionIdGenerator.Random,
     )
+
+  final case class TrackerKey(application: String, parties: Set[String])
 
   final case class Configuration(
       ledgerId: LedgerId,
