@@ -581,7 +581,9 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Unit] = {
     val allDivulgencePruningParticle =
       if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
-    logger.info(s"Starting pruning of ledger api server index db$allDivulgencePruningParticle")
+    logger.info(
+      s"Pruning the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}."
+    )
 
     dbDispatcher
       .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
@@ -600,7 +602,7 @@ private class JdbcLedgerDao(
       .andThen {
         case Success(_) =>
           logger.info(
-            s"Completed pruning of the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}"
+            s"Completed pruning of the ledger api server index db$allDivulgencePruningParticle"
           )
         case Failure(ex) =>
           logger.warn("Pruning failed", ex)

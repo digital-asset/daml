@@ -199,7 +199,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts: Boolean)
+    delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()

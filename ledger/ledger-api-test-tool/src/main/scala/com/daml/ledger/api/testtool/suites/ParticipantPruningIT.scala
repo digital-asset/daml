@@ -566,9 +566,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      offsetAfterDivulgence_2 <- beta.currentEnd()
-
       _ <- alpha.exercise(alice, contract.exerciseArchive)
+
+      offsetAfterDivulgence_2 <- beta.currentEnd()
 
       _ <- synchronize(alpha, beta)
 
