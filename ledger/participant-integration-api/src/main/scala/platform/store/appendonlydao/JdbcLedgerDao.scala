@@ -61,8 +61,6 @@ import com.daml.platform.store.entries.{
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-import scala.util.control.NonFatal
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -223,40 +221,31 @@ private class JdbcLedgerDao(
       }
     }
 
+  private val nonLocalParticipantId = Ref.ParticipantId.assertFromString("non-local-participant-id")
+
   override def storePartyEntry(
       offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      val savepoint = conn.setSavepoint()
       val offset = validateOffsetStep(offsetStep, conn)
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
-          Try({
-            sequentialIndexer.store(
-              conn,
-              offset,
-              Some(
-                state.Update.PartyAddedToParticipant(
-                  party = partyDetails.party,
-                  displayName = partyDetails.displayName.orNull,
-                  participantId = participantId,
-                  recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                  submissionId = submissionIdOpt,
-                )
-              ),
-            )
-            PersistenceResponse.Ok
-          }).recover {
-            case NonFatal(e) if e.getMessage.contains(storageBackend.duplicateKeyError) =>
-              logger.warn(
-                s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt"
+          sequentialIndexer.store(
+            conn,
+            offset,
+            Some(
+              state.Update.PartyAddedToParticipant(
+                party = partyDetails.party,
+                displayName = partyDetails.displayName.orNull,
+                participantId = if (partyDetails.isLocal) participantId else nonLocalParticipantId,
+                recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                submissionId = submissionIdOpt,
               )
-              conn.rollback(savepoint)
-              sequentialIndexer.store(conn, offset, None)
-              PersistenceResponse.Duplicate
-          }.get
+            ),
+          )
+          PersistenceResponse.Ok
 
         case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
           sequentialIndexer.store(
