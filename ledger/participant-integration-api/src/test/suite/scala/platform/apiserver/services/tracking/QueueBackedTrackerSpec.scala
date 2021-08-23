@@ -26,7 +26,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
-class TrackerImplTest
+class QueueBackedTrackerSpec
     extends AnyWordSpec
     with Matchers
     with BeforeAndAfterEach
@@ -38,14 +38,14 @@ class TrackerImplTest
 
   private var sut: Tracker = _
   private var consumer: TestSubscriber.Probe[NotUsed] = _
-  private var queue: SourceQueueWithComplete[TrackerImpl.QueueInput] = _
+  private var queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput] = _
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private def input(cid: Int) = SubmitAndWaitRequest(Some(Commands(commandId = cid.toString)))
 
   override protected def beforeEach(): Unit = {
     val (q, sink) = Source
-      .queue[TrackerImpl.QueueInput](1, OverflowStrategy.dropNew)
+      .queue[QueueBackedTracker.QueueInput](1, OverflowStrategy.dropNew)
       .map { in =>
         in.context.success(
           Right(
@@ -57,7 +57,7 @@ class TrackerImplTest
       .toMat(TestSink.probe[NotUsed])(Keep.both)
       .run()
     queue = q
-    sut = new TrackerImpl(q, Future.successful(Done))
+    sut = new QueueBackedTracker(q, Future.successful(Done))
     consumer = sink
   }
 

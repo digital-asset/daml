@@ -39,7 +39,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
-import com.daml.platform.apiserver.services.tracking.{Tracker, TrackerImpl, TrackerMap}
+import com.daml.platform.apiserver.services.tracking.{Tracker, QueueBackedTracker, TrackerMap}
 import com.daml.platform.server.api.ApiException
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
 import com.daml.util.Ctx
@@ -249,7 +249,7 @@ private[apiserver] object ApiCommandService {
           lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
         ).joinMat(commandTrackerFlow)(Keep.right)
 
-        TrackerImpl(
+        QueueBackedTracker(
           trackingFlow,
           configuration.inputBufferSize,
           capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefixFirstParty),
