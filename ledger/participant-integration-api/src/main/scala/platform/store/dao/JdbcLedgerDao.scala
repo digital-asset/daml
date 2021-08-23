@@ -1394,19 +1394,19 @@ private[platform] object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_GET_PACKAGE_ENTRIES: String =
       """select * from package_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_PARTY_ENTRIES: String =
       """select * from party_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
