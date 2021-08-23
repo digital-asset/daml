@@ -11,7 +11,7 @@ import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key, Party}
+import com.daml.platform.store.appendonlydao.events.Party
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.{
