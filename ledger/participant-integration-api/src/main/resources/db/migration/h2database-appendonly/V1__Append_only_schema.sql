@@ -69,19 +69,6 @@ CREATE TABLE package_entries (
 CREATE INDEX idx_package_entries ON package_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
--- Parties table
----------------------------------------------------------------------------------------------------
-CREATE TABLE parties (
-    party VARCHAR PRIMARY KEY NOT NULL,
-    display_name VARCHAR,
-    explicit BOOLEAN NOT NULL,
-    ledger_offset VARCHAR,
-    is_local BOOLEAN NOT NULL
-);
-
-CREATE INDEX idx_parties_ledger_offset ON parties (ledger_offset);
-
----------------------------------------------------------------------------------------------------
 -- Party entries table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE party_entries (
@@ -102,6 +89,7 @@ CREATE TABLE party_entries (
 );
 
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
+CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Submissions table
