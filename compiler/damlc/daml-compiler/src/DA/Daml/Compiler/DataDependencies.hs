@@ -982,7 +982,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# LANGUAGE MagicHash #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
+        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods -Wno-deprecations #-}"
         ]
 
 -- | A reference that can appear in a type or expression. We need to track
