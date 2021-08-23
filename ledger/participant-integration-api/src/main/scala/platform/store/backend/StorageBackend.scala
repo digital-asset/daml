@@ -229,7 +229,6 @@ trait ContractStorageBackend {
   ): Vector[StorageBackend.RawContractStateEvent]
 }
 
-// TODO append-only: Event related query consolidation
 trait EventStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations

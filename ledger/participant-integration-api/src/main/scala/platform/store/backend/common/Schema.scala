@@ -71,9 +71,9 @@ private[backend] object AppendOnlySchema {
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
     def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
-    def idempotentInsert(tableName: String, keyFieldIndex: Int)(
-        fields: (String, Field[DbDto.Package, _, _])*
-    ): Table[DbDto.Package]
+    def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+        fields: (String, Field[FROM, _, _])*
+    ): Table[FROM]
   }
 
   def apply(fieldStrategy: FieldStrategy): Schema[DbDto] = {
