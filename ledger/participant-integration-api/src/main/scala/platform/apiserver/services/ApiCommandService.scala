@@ -139,15 +139,11 @@ private[apiserver] final class ApiCommandService private (
             ledgerEnd,
             () => ledgerConfig.maxDeduplicationTime,
           )
-        val trackingFlow =
-          if (configuration.limitMaxCommandsInFlight)
-            MaxInFlight(
-              configuration.maxCommandsInFlight,
-              capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
-              lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
-            ).joinMat(tracker)(Keep.right)
-          else
-            tracker
+        val trackingFlow = MaxInFlight(
+          configuration.maxCommandsInFlight,
+          capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
+          lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
+        ).joinMat(tracker)(Keep.right)
         TrackerImpl(
           trackingFlow,
           configuration.inputBufferSize,
@@ -247,7 +243,6 @@ private[apiserver] object ApiCommandService {
       ledgerId: LedgerId,
       inputBufferSize: Int,
       maxCommandsInFlight: Int,
-      limitMaxCommandsInFlight: Boolean,
       retentionPeriod: FiniteDuration,
   )
 

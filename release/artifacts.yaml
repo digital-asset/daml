@@ -123,8 +123,6 @@
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
-- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.13
-  type: jar-deploy
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.14
   type: jar-deploy
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.dev

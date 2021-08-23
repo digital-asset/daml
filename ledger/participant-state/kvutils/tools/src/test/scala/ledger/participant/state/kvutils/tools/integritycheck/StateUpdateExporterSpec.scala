@@ -11,7 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.Update
@@ -101,7 +101,7 @@ object StateUpdateExporterSpec extends MockitoSugar {
         )
       )
 
-    override def currentHealth(): HealthStatus = HealthStatus.healthy
+    override def currentHealth(): HealthStatus = Healthy
   }
 
   private def aConfig(

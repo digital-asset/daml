@@ -9,7 +9,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -23,10 +23,10 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
-import com.daml.platform.store.backend
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.platform.store.{EventSequentialId, backend}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.duration.FiniteDuration
@@ -132,7 +132,7 @@ object ParallelIndexerFactory {
               .keepAlive( // TODO ha: remove as stable. This keepAlive approach was introduced for safety with async commit. This is still needed until HA is mandatory for Postgres to ensure safety with async commit. This will not needed anymore if HA is enabled by default, since the Ha mutual exclusion implementation with advisory locks makes impossible to let a db-shutdown go undetected.
                 keepAliveMaxIdleDuration,
                 () =>
-                  if (dbDispatcher.currentHealth() == HealthStatus.healthy) {
+                  if (dbDispatcher.currentHealth() == Healthy) {
                     logger.debug("Indexer keep-alive: database connectivity OK")
                   } else {
                     logger
@@ -175,7 +175,10 @@ object ParallelIndexerFactory {
                 )
                 .flatMap { initialized =>
                   val (killSwitch, completionFuture) =
-                    ingest(initialized.map(_.lastEventSeqId).getOrElse(0L), dbDispatcher)(
+                    ingest(
+                      initialized.map(_.lastEventSeqId).getOrElse(EventSequentialId.beforeBegin),
+                      dbDispatcher,
+                    )(
                       readService.stateUpdates(beginAfter = initialized.map(_.lastOffset))
                     )
                       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])

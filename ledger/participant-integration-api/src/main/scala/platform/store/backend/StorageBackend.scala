@@ -16,7 +16,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
 import com.daml.platform
-import com.daml.platform.store.DbType
+import com.daml.platform.store.{DbType, EventSequentialId}
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
@@ -49,7 +49,20 @@ trait StorageBackend[DB_BATCH]
     with EventStorageBackend
     with DataSourceStorageBackend
     with DBLockStorageBackend {
+
+  /** Truncates all storage backend tables, EXCEPT the packages table.
+    * Does not touch other tables, like the Flyway history table.
+    * Reason: the reset() call is used by the ledger API reset service,
+    * which is mainly used for application tests in another big project,
+    * and re-uploading packages after each test significantly slows down their test time.
+    */
   def reset(connection: Connection): Unit
+
+  /** Truncates ALL storage backend tables.
+    * Does not touch other tables, like the Flyway history table.
+    * The result is a database that looks the same as a freshly created database with Flyway migrations applied.
+    */
+  def resetAll(connection: Connection): Unit
   def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
 
@@ -106,7 +119,9 @@ trait ParameterStorageBackend {
     * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
     */
   final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
-    ledgerEnd(connection).getOrElse(ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, 0L))
+    ledgerEnd(connection).getOrElse(
+      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin)
+    )
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
