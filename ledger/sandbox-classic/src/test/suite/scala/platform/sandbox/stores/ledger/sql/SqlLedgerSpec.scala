@@ -13,6 +13,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
@@ -31,13 +32,14 @@ import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
+import com.daml.timer.RetryStrategy
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{Await, Future}
 
 final class SqlLedgerSpec
@@ -227,7 +229,55 @@ final class SqlLedgerSpec
         )
       }
     }
+
+    "not allow insertion of subsequent parties with the same identifier: operations should succeed without effect" in {
+      val party1 = Ref.Party.assertFromString("party1")
+      val party2 = Ref.Party.assertFromString("party2")
+      val submissionId1 = Ref.SubmissionId.assertFromString("submissionId1")
+      val submissionId2 = Ref.SubmissionId.assertFromString("submissionId2")
+      val submissionId3 = Ref.SubmissionId.assertFromString("submissionId3")
+      for {
+        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        partyAllocationResult1 <- sqlLedger.publishPartyAllocation(
+          submissionId = submissionId1,
+          party = party1,
+          displayName = Some("displayname1"),
+        )
+        // This will fail until the party is available
+        retrievedParty1 <- eventually(sqlLedger.getParties(Seq(party1)).map(_.head))
+        partyAllocationResult2 <- sqlLedger.publishPartyAllocation(
+          submissionId = submissionId2,
+          party = party1,
+          displayName = Some("displayname2"),
+        )
+        partyAllocationResult3 <- sqlLedger.publishPartyAllocation(
+          submissionId = submissionId3,
+          party = party2,
+          displayName = None,
+        )
+        // This will fail until the party which is added the last time is visible
+        // This also means that the second party addition is already processed as well
+        _ <- eventually(sqlLedger.getParties(Seq(party2)).map(_.head))
+        retrievedParty2 <- eventually(sqlLedger.getParties(Seq(party1)).map(_.head))
+      } yield {
+        partyAllocationResult1 shouldBe SubmissionResult.Acknowledged
+        retrievedParty1.displayName shouldBe Some("displayname1")
+        partyAllocationResult2 shouldBe SubmissionResult.Acknowledged
+        partyAllocationResult3 shouldBe SubmissionResult.Acknowledged
+        retrievedParty2.displayName shouldBe Some("displayname1")
+        val logs =
+          LogCollector.read[this.type]("com.daml.platform.sandbox.stores.ledger.sql.SqlLedger")
+        logs should contain(
+          Level.WARN -> "Ignoring duplicate party submission with ID party1 for submissionId Some(submissionId2)"
+        )
+      }
+    }
+
   }
+
+  private val retryStrategy = RetryStrategy.exponentialBackoff(10, Duration(12, "millis"))
+
+  private def eventually[T](f: => Future[T]): Future[T] = retryStrategy.apply((_, _) => f)
 
   private def createSqlLedger(validatePartyAllocation: Boolean): Future[Ledger] =
     createSqlLedger(None, None, List.empty, validatePartyAllocation)
