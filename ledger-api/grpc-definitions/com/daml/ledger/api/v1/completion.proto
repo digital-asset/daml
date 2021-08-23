@@ -58,13 +58,15 @@ message Completion {
   // Optional; the deduplication guarantee applies even if the completion omits this field.
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
-    // It is interpreted relative to the local clock at some point during the submission's processing.
+    // It is measured in record time of completions.
     //
     // Must be non-negative.
     google.protobuf.Duration deduplication_time = 11;
 
-    // Specifies a point in time in the past after which this submission should be de-duplicated w.r.t. previous submissions of the same commands.
-    // It is interpreted relative to the local clock at some point during the submission's processing.
+    // Specifies a point in time in the past after which this submission should be de-duplicated
+    // w.r.t. previous submissions of the same commands.
+    //
+    // It is measured in record time of completions.
     google.protobuf.Timestamp deduplication_start = 12;
   }
 }
