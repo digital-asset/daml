@@ -30,14 +30,10 @@ private[platform] object CompletionFromTransaction {
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
       completions = Seq(
-        Completion.of(
+        Completion(
           commandId = commandId,
           status = Some(OkStatus),
           transactionId = transactionId,
-          applicationId = null,
-          actAs = null,
-          submissionId = null,
-          deduplicationPeriod = null,
         )
       ),
     )
@@ -51,14 +47,10 @@ private[platform] object CompletionFromTransaction {
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
       completions = Seq(
-        Completion.of(
+        Completion(
           commandId = commandId,
           status = Some(status),
           transactionId = RejectionTransactionId,
-          applicationId = null,
-          actAs = null,
-          submissionId = null,
-          deduplicationPeriod = null,
         )
       ),
     )
