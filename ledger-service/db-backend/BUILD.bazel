@@ -41,6 +41,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/transaction",
         "//libs-scala/scala-utils",
     ],
 )

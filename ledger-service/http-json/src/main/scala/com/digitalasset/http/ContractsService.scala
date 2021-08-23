@@ -10,11 +10,9 @@ import akka.stream.Materializer
 import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
+import com.daml.http.domain.TemplateId.toLedgerApiValue
 import com.daml.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.daml.http.json.JsonProtocol.LfValueCodec
-import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
-  apiValueToJsValue => toDbCompatibleJson
-}
 import com.daml.http.query.ValuePredicate
 import util.{AbsoluteBookmark, ApiValueToLfValueConverter, ContractStreamStep, InsertDeleteStep}
 import com.daml.http.util.ContractStreamStep.{Acs, LiveBegin}
@@ -292,13 +290,17 @@ class ContractsService(
         )(implicit
             lc: LoggingContextOf[InstanceUUID]
         ): Future[Option[domain.ActiveContract[LfV]]] = {
-          import ctx.{jwt, parties, templateIds => templateId}
+          import ctx.{jwt, parties, templateIds => templateId}, com.daml.lf.crypto.Hash
           for {
             resolved <- toFuture(resolveTemplateId(templateId))
             found <- unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
-                ContractDao.fetchByKey(parties, resolved, toDbCompatibleJson(contractKey))
+                ContractDao.fetchByKey(
+                  parties,
+                  resolved,
+                  Hash.assertHashContractKey(toLedgerApiValue(resolved), contractKey),
+                )
             }
           } yield found
         }

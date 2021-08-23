@@ -178,6 +178,7 @@ private class ContractsFetch(
   ): Exception \/ PreInsertContract = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
+    import com.daml.lf.crypto.Hash
     for {
       ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
         new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception,
@@ -188,6 +189,11 @@ private class ContractsFetch(
       contractId = ac.contractId.unwrap,
       templateId = ac.templateId,
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
+      keyHash = lfKey.map(
+        Hash
+          .assertHashContractKey(TemplateId.toLedgerApiValue(ac.templateId), _)
+          .toHexString
+      ),
       payload = lfValueToDbJsValue(lfArg),
       signatories = ac.signatories,
       observers = ac.observers,

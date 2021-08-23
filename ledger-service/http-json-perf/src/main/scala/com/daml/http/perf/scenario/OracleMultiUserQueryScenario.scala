@@ -3,7 +3,7 @@
 
 package com.daml.http.perf.scenario
 
-import com.daml.http.perf.scenario.MultiUserQueryScenario._
+import com.daml.http.perf.scenario.OracleMultiUserQueryScenario._
 import io.gatling.core.Predef._
 import io.gatling.core.structure.PopulationBuilder
 import io.gatling.http.Predef._
@@ -19,7 +19,7 @@ private[scenario] trait HasRandomCurrency {
   }
 }
 
-object MultiUserQueryScenario {
+object OracleMultiUserQueryScenario {
   sealed trait RunMode { def name: String }
   case object PopulateCache extends RunMode { val name = "populateCache" }
   case object FetchByKey extends RunMode { val name = "fetchByKey" }
@@ -27,7 +27,7 @@ object MultiUserQueryScenario {
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class MultiUserQueryScenario
+class OracleMultiUserQueryScenario
     extends Simulation
     with SimulationConfig
     with HasRandomAmount
@@ -142,11 +142,10 @@ class MultiUserQueryScenario
   def getPopulationBuilder(runMode: RunMode): PopulationBuilder = {
     runMode match {
       case PopulateCache =>
-        val currIter = currencies.iterator
         writeScn
           .inject(atOnceUsers(numWriters))
           .andThen(
-            currQueryScn(numIterations = currencies.size, () => currIter.next())
+            currQueryScn(numIterations = 1, () => currencies.head)
               .inject(
                 nothingFor(2.seconds),
                 atOnceUsers(1),
