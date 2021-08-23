@@ -135,6 +135,45 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
         finalTrackerCounts should be(Map(Set("Alice") -> 1, Set("Bob") -> 2))
       }
     }
+
+    "clean up failed trackers" in {
+      val trackerCounts = TrieMap.empty[String, AtomicInteger]
+      val tracker = new TrackerMap[String](
+        retentionPeriod = 1.minute,
+        getKey = commands => commands.applicationId,
+        newTracker = applicationId => {
+          trackerCounts.getOrElseUpdate(applicationId, new AtomicInteger(0)).incrementAndGet()
+          if (applicationId.isEmpty)
+            Future.failed(new IllegalArgumentException("Missing application ID."))
+          else
+            Future.successful(new FakeTracker(transactionIds = Iterator.continually("")))
+        },
+      )
+
+      for {
+        _ <- tracker.track(
+          SubmitAndWaitRequest.of(
+            commands = Some(Commands(commandId = "1", applicationId = "test"))
+          )
+        )
+        failure1 <- tracker
+          .track(
+            SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "2", applicationId = "")))
+          )
+          .failed
+        _ = tracker.cleanup()
+        failure2 <- tracker
+          .track(
+            SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "3", applicationId = "")))
+          )
+          .failed
+      } yield {
+        val finalTrackerCounts = trackerCounts.view.mapValues(_.get()).toMap
+        finalTrackerCounts should be(Map("test" -> 1, "" -> 2))
+        failure1.getMessage should be("Missing application ID.")
+        failure2.getMessage should be("Missing application ID.")
+      }
+    }
   }
 }
 
