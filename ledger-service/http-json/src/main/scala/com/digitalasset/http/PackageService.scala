@@ -19,6 +19,8 @@ import scalaz._
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
+import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.util.control.NonFatal
 
 private class PackageService(
@@ -66,17 +68,17 @@ private class PackageService(
   private val _reload = {
     // Because things can go so easily wrong, the declaration of the mutex
     // was moved into a separate block, so it's easier to track down all interactions.
-    val packageUpdateSync = util.Concurrent.Mutex()
-    val updateTaskUpdateSync = util.Concurrent.Mutex()
-    @volatile var ongoingPackageUpdateTask = Future.successful(().right)
-    @volatile var isValid = false
+    val isPackageListBeingUpdated = new AtomicBoolean(false)
+    val updateTaskUpdateSync = new Semaphore(1, true)
+
+    @volatile var ongoingPackageListUpdateTask = Future.successful(().right)
 
     def reload(jwt: Jwt)(implicit
         ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
     ): Future[Error \/ Unit] = {
       def update() = {
-        val f =
+        val updateTask =
           EitherT
             .eitherT(
               Future(
@@ -98,24 +100,22 @@ private class PackageService(
             }
             .run
         try {
-          ongoingPackageUpdateTask = f.map(_ => ().right)
+          ongoingPackageListUpdateTask = updateTask.map(_ => ().right)
           // The task future has been updated, now all waiting threads can continue and pick it up.
-          isValid = true
           updateTaskUpdateSync.release()
-          f.transform { res =>
+          updateTask.transform { res =>
             // regardless of whether this was a success or failure
             // we always want to release the mutex here.
-            isValid = false
-            packageUpdateSync.release()
-            logger.debug("Released mutex after task finished")
+            isPackageListBeingUpdated.set(false)
+            logger.debug("Reset atomic boolean after task finished")
             res
           }
         } catch {
           case NonFatal(t) =>
             if (updateTaskUpdateSync.availablePermits() == 0)
               updateTaskUpdateSync.release()
-            packageUpdateSync.release()
-            logger.debug("Released mutex after catching exception")
+            isPackageListBeingUpdated.set(false)
+            logger.debug("Reset atomic boolean after catching exception")
             Future.failed(t)
         }
       }
@@ -123,15 +123,14 @@ private class PackageService(
       // the updateTask var could still contain the old value.
       // Thus we lock here, to ensure that all threads wait if an
       // update to that value is potentially incoming.
-      logger.debug("Trying to update packages (tryAcquire)")
-
+      logger.debug("Trying to update packages")
       updateTaskUpdateSync.acquire()
-      if (packageUpdateSync.tryAcquire())
+      if (isPackageListBeingUpdated.compareAndSet(false, true))
         update()
       else {
         updateTaskUpdateSync.release()
-        logger.debug(s"Picking up ongoing update task, is valid? $isValid")
-        ongoingPackageUpdateTask
+        logger.debug(s"Picking up an ongoing update task")
+        ongoingPackageListUpdateTask
       }
     }
 
