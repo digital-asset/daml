@@ -28,15 +28,11 @@ object DeduplicationPeriod {
   def deduplicateUntil(
       time: Instant,
       period: DeduplicationPeriod,
-      minSkew: Duration,
   ): Instant = period match {
     case DeduplicationDuration(duration) =>
       time.plus(duration)
     case DeduplicationOffset(_) =>
       throw new NotImplementedError("Offset deduplication is not supported")
-    case DeduplicationStart(start) =>
-      val duration = deduplicationDurationFromTime(time, start, minSkew)
-      time.plus(duration)
   }
 
   /** deduplication_start: compute the duration as submissionTime + config.minSkew - deduplication_start
@@ -72,15 +68,10 @@ object DeduplicationPeriod {
   /** The `offset` defines the start of the deduplication period. */
   final case class DeduplicationOffset(offset: Offset) extends DeduplicationPeriod
 
-  /** The instant `since` specifies the point in time where deduplication start */
-  final case class DeduplicationStart(since: Instant) extends DeduplicationPeriod
-
   implicit val `DeduplicationPeriod to LoggingValue`: ToLoggingValue[DeduplicationPeriod] = {
     case DeduplicationDuration(duration) =>
       LoggingValue.Nested.fromEntries("duration" -> duration)
     case DeduplicationOffset(offset) =>
       LoggingValue.Nested.fromEntries("offset" -> offset)
-    case DeduplicationStart(time) =>
-      LoggingValue.Nested.fromEntries("time" -> time)
   }
 }
