@@ -34,7 +34,7 @@ final case class EngineConfig(
     profileDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     // TODO: https://github.com/digital-asset/daml/issues/10504
-    //  swicth the default to true
+    //  switch the default to true
     requireSuffixedGlobalCids: Boolean = false,
 ) {
 
