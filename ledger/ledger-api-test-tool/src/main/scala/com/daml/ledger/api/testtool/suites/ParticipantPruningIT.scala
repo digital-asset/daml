@@ -8,6 +8,7 @@ import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -32,8 +33,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       failure <- participant
-        // TODO Divulgence pruning: Change to `true` once all divulgence pruning is implemented
-        .prune("", attempts = 1, pruneAllDivulgedContracts = false)
+        .prune("", attempts = 1, pruneAllDivulgedContracts = true)
         .mustFail("pruning without specifying an offset")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "prune_up_to not specified")
@@ -47,8 +47,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       cannotPruneNonHexOffset <- participant
-        // TODO Divulgence pruning: Change to `true` once all divulgence pruning is implemented
-        .prune("covfefe", attempts = 1, pruneAllDivulgedContracts = false)
+        .prune("covfefe", attempts = 1, pruneAllDivulgedContracts = true)
         .mustFail("pruning, specifiying a non-hexadecimal offset")
     } yield {
       assertGrpcError(
@@ -553,12 +552,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      offsetAfterDivulgence <- participant.currentEnd()
-
-      // Dummy create needed to prune after the previous fetch (which also divulges)
-      _ <- participant.create(bob, Dummy(bob))
-
-      _ <- participant.prune(offsetAfterDivulgence, pruneAllDivulgedContracts = false)
+      _ <- pruneAtCurrentOffset(participant, bob, pruneAllDivulgedContracts = false)
 
       // Bob can still see the divulged contract
       _ <- participant.exerciseAndGetContract[Dummy](
@@ -569,19 +563,20 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Archive the divulged contract
       _ <- participant.exercise(alice, contract.exerciseArchive)
 
-      offsetAfterDivulgence_2 <- participant.currentEnd()
-
-      // Dummy create needed to prune after the previous fetch (which also divulges)
-      _ <- participant.create(bob, Dummy(bob))
-
-      _ <- participant.prune(offsetAfterDivulgence_2, pruneAllDivulgedContracts = false)
+      _ <- pruneAtCurrentOffset(participant, bob, pruneAllDivulgedContracts = false)
 
       _ <- participant
         .exerciseAndGetContract[Dummy](
           bob,
           divulgence.exerciseCanFetch(_, contract),
         )
-        .mustFail("Bob cannot access a divulged contract which was already archived")
+        .mustFailWith("Bob cannot access a divulged contract which was already archived") {
+          exception =>
+            val errorMessage = exception.getMessage
+            errorMessage.contains(
+              "Contract could not be found with id"
+            ) && errorMessage.contains(contract.toString)
+        }
     } yield ()
   })
 
@@ -715,26 +710,10 @@ class ParticipantPruningIT extends LedgerTestSuite {
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
-      offsetAfterDivulgence_2 <- beta.currentEnd()
 
-      // Dummy create needed to prune after the previous fetch (which also divulges)
-      _ <- beta.create(bob, Dummy(bob))
+      _ <- synchronize(alpha, beta)
 
-      _ <- beta.prune(offsetAfterDivulgence_2, pruneAllDivulgedContracts = false)
-
-      // Bob can still fetch the divulged contract since the previous pruning
-      // did not prune divulged contracts without a corresponding archival
-      _ <- beta.exerciseAndGetContract[Dummy](
-        bob,
-        divulgence.exerciseCanFetch(_, contract),
-      )
-
-      offsetAfterDivulgence_3 <- beta.currentEnd()
-
-      // Dummy create needed to prune after the previous fetch (which also divulges)
-      _ <- beta.create(bob, Dummy(bob))
-
-      _ <- beta.prune(offsetAfterDivulgence_3)
+      _ <- pruneAtCurrentOffset(beta, bob, pruneAllDivulgedContracts = true)
 
       // TODO Divulgence pruning: Check ACS equality before and after pruning
       // TODO Divulgence pruning: Remove the true-clause of the if-statement below
@@ -801,4 +780,16 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant.getTransactionsRequest(parties = Seq(submitter), begin = endOffsetAtTestStart)
       )
     } yield trees
+
+  private def pruneAtCurrentOffset(
+      participant: ParticipantTestContext,
+      party: Party,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    for {
+      offset <- participant.currentEnd()
+      // Dummy needed to prune at this offset
+      _ <- participant.create(party, Dummy(party))
+      _ <- participant.prune(offset, pruneAllDivulgedContracts = pruneAllDivulgedContracts)
+    } yield ()
 }
