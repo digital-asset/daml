@@ -221,7 +221,7 @@ private class JdbcLedgerDao(
       }
     }
 
-  private val nonLocalParticipantId = Ref.ParticipantId.assertFromString("non-local-participant-id")
+  private val nonLocalParticipantId = Ref.ParticipantId.assertFromString("__HACK__non-local-participant-id")
 
   override def storePartyEntry(
       offsetStep: OffsetStep,
