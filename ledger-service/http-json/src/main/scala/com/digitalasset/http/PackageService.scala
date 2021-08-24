@@ -52,97 +52,98 @@ private class PackageService(
     }
   }
 
-  // volatile, reading threads don't need synchronization
-  @volatile private var state: State =
-    State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
+  private case class StateCache() {
+    // volatile, reading threads don't need synchronization
+    @volatile private var _state: State =
+      State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
 
-  // volatile, because we want to reduce the probability of unnecessary package updates
-  // due to multiple threads reading this.
-  // Writes to this are synchronized with a mutex, so in theory this should work out fine.
-  @volatile private var lastUpdated = LocalDateTime.MIN
+    def state: State = _state
 
-  // Regular updates should happen regardless of the current state every minute.
-  private def packagesShouldBeFetchedAgain =
-    lastUpdated.until(LocalDateTime.now(), temporal.ChronoUnit.SECONDS) >= 60L
+    // volatile, because we want to reduce the probability of unnecessary package updates
+    // due to multiple threads reading this.
+    // Writes to this are synchronized with a mutex, so in theory this should work out fine.
+    @volatile private var lastUpdated = LocalDateTime.MIN
 
-  private val _reload = {
-    // Because things can go so easily wrong, the declaration of the mutex
-    // was moved into a separate block, so it's easier to track down all interactions.
-    val isPackageListBeingUpdated = new AtomicBoolean(false)
-    @volatile var latch = new CountDownLatch(1)
+    // Regular updates should happen regardless of the current state every minute.
+    def packagesShouldBeFetchedAgain: Boolean =
+      lastUpdated.until(LocalDateTime.now(), temporal.ChronoUnit.SECONDS) >= 60L
 
-    @volatile var ongoingPackageListUpdateTask = Future.successful(().right)
+    private val isPackageListBeingUpdated = new AtomicBoolean(false)
+    @volatile private var latch = new CountDownLatch(1)
+    @volatile private var ongoingPackageListUpdateTask = Future.successful(().right)
+
+    private def update(jwt: Jwt)(implicit
+        ec: ExecutionContext,
+        lc: LoggingContextOf[InstanceUUID],
+    ) = {
+      val updateTask =
+        EitherT
+          .eitherT(
+            Future(
+              logger.debug("Trying to execute a package update")
+            ) *> reloadPackageStoreIfChanged(
+              jwt
+            )(_state.packageIds)
+          )
+          .map {
+            case Some(diff) =>
+              this._state = this._state.append(diff)
+              logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+              logger.debug(s"loaded diff: $diff")
+            case None => logger.debug(s"new package IDs not found")
+          }
+          .map { res =>
+            lastUpdated = LocalDateTime.now()
+            res
+          }
+          .run
+      try {
+        ongoingPackageListUpdateTask = updateTask.map(_ => ().right)
+        latch.countDown()
+        latch = new CountDownLatch(1)
+        // The task future has been updated, now all waiting threads can continue and pick it up.
+        updateTask.transform { res =>
+          // regardless of whether this was a success or failure
+          // we always want to release the mutex here.
+          logger.debug("Task finished, setting isPackageListBeingUpdated to false")
+          isPackageListBeingUpdated.set(false)
+          res
+        }
+      } catch {
+        case NonFatal(t) =>
+          if (latch.getCount > 0)
+            latch.countDown()
+          latch = new CountDownLatch(1)
+          logger.debug("Setting isPackageListBeingUpdated to false after catching an exception")
+          isPackageListBeingUpdated.set(false)
+          Future.failed(t)
+      }
+    }
 
     def reload(jwt: Jwt)(implicit
         ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
     ): Future[Error \/ Unit] = {
-      def update() = {
-        val updateTask =
-          EitherT
-            .eitherT(
-              Future(
-                logger.debug("Trying to execute a package update")
-              ) *> reloadPackageStoreIfChanged(
-                jwt
-              )(state.packageIds)
-            )
-            .map {
-              case Some(diff) =>
-                this.state = this.state.append(diff)
-                logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-                logger.debug(s"loaded diff: $diff")
-              case None => logger.debug(s"new package IDs not found")
-            }
-            .map { res =>
-              lastUpdated = LocalDateTime.now()
-              res
-            }
-            .run
-        try {
-          ongoingPackageListUpdateTask = updateTask.map(_ => ().right)
-          // The task future has been updated, now all waiting threads can continue and pick it up.
-          updateTask.transform { res =>
-            // regardless of whether this was a success or failure
-            // we always want to release the mutex here.
-            latch.countDown()
-            latch = new CountDownLatch(1)
-            isPackageListBeingUpdated.set(false)
-            logger.debug("Reset atomic boolean after task finished")
-            res
-          }
-        } catch {
-          case NonFatal(t) =>
-            latch.countDown()
-            latch = new CountDownLatch(1)
-            isPackageListBeingUpdated.set(false)
-            logger.debug("Reset atomic boolean after catching exception")
-            Future.failed(t)
-        }
-      }
-      // If an update is ongoing
-      // the updateTask var could still contain the old value.
-      // Thus we lock here, to ensure that all threads wait if an
-      // update to that value is potentially incoming.
       logger.debug("Trying to update packages")
+      // Only one thread is allowed to update
       if (isPackageListBeingUpdated.compareAndSet(false, true))
-        update()
+        update(jwt)
       else {
         latch.await()
         logger.debug(s"Picking up an ongoing update task")
         ongoingPackageListUpdateTask
       }
     }
-
-    (jwt: Jwt, ec: ExecutionContext, lc: LoggingContextOf[InstanceUUID]) => reload(jwt)(ec, lc)
   }
 
-  // synchronized via a mutex, so two threads cannot reload it concurrently
+  private val cache = StateCache()
+  private def state: State = cache.state
+
   @inline
   def reload(jwt: Jwt)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ) = _reload(jwt, ec, lc)
+  ): Future[Error \/ Unit] = cache.reload(jwt)
 
   def packageStore: PackageStore = state.packageStore
 
@@ -153,7 +154,7 @@ private class PackageService(
       lc: LoggingContextOf[InstanceUUID],
   ): ET[B] = for {
     packagesHadToBeFetchedAgain <-
-      if (packagesShouldBeFetchedAgain) EitherT(reload(jwt)).map(_ => true)
+      if (cache.packagesShouldBeFetchedAgain) EitherT(reload(jwt)).map(_ => true)
       else EitherT.pure(false): ET[Boolean]
     _ = logger.trace(s"Did we have to reload the packages: $packagesHadToBeFetchedAgain")
     result <- EitherT.pure(fn()): ET[B]
