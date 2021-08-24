@@ -38,8 +38,8 @@ object DeduplicationPeriod {
   /** deduplication_start: compute the duration as submissionTime + config.minSkew - deduplication_start
     * We measure `deduplication_start` on the ledger’s clock, and thus need to add the minSkew to compensate for the maximal skew that the participant might be behind the ledger’s clock.
     * @param time submission time or current time
-    * @param deduplicationStart the [[Instant]] from where we should start deduplication. it must be < than time
-    * @param minSkew The ledger min skew duration
+    * @param deduplicationStart the [[Instant]] from where we should start deduplication, must be < than time
+    * @param minSkew the minimum skew as specified by the current ledger time model
     */
   def deduplicationDurationFromTime(
       time: Instant,

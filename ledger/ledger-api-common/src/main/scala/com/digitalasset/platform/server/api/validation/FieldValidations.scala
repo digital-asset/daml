@@ -117,12 +117,7 @@ trait FieldValidations {
         if (duration.isNegative)
           Left(invalidField(fieldName, "Duration must be positive"))
         else if (duration.compareTo(maxDeduplicationDuration) > 0)
-          Left(
-            invalidField(
-              fieldName,
-              exceedsMaxDurationMessage,
-            )
-          )
+          Left(invalidField(fieldName, exceedsMaxDurationMessage))
         else Right(duration)
       }
       deduplicationPeriod match {

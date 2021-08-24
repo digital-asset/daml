@@ -34,7 +34,7 @@ final class CommandDeduplicationOffsetIT extends LedgerTestSuite {
       _ <- ledger.submit(requestA1)
       completionsA1Second <- ledger.firstCompletions(
         ledger.completionStreamRequest(ledgerEndAfterFirstSubmit)(party)
-      ) // this will deduplicated as the deduplication offset includes the first submitted command
+      ) // This will be deduplicated as the deduplication offset includes the first submitted command.
       ledgerEnd2 <- ledger.currentEnd()
       requestA2 = ledger
         .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
@@ -56,7 +56,7 @@ final class CommandDeduplicationOffsetIT extends LedgerTestSuite {
         assertSingleton("Expected only one first completion", completionsA1First)
       assert(
         completionCommandId1.commandId == requestA1.commands.get.commandId,
-        "The command ID of the first completion does not match the command ID of the submission",
+        "The command ID of the first completion does not match the command ID of the first submission",
       )
       assert(
         completionCommandId1.status.get.code == Code.OK.value,
@@ -66,11 +66,11 @@ final class CommandDeduplicationOffsetIT extends LedgerTestSuite {
         assertSingleton("Expected only one first failure", completionsA1Second)
       assert(
         failureCommandId1.commandId == requestA1.commands.get.commandId,
-        "The command ID of the second completion does not match the command ID of the submission",
+        "The command ID of the second completion does not match the command ID of the first submission",
       )
       assert(
         failureCommandId1.status.get.code == Code.ALREADY_EXISTS.value,
-        s"Second completion for the first submit was not deduplicated ${failureCommandId1.status}",
+        s"Second completion for the first submission was not deduplicated ${failureCommandId1.status}",
       )
 
       val completionCommandId2 =
@@ -81,7 +81,7 @@ final class CommandDeduplicationOffsetIT extends LedgerTestSuite {
 
       assert(
         completionCommandId2.commandId == requestA2.commands.get.commandId,
-        "The command ID of the second completion does not match the command ID of the submission",
+        "The command ID of the second completion does not match the command ID of the second submission",
       )
       assert(
         completionCommandId2.status.get.code == Code.OK.value,
@@ -91,7 +91,6 @@ final class CommandDeduplicationOffsetIT extends LedgerTestSuite {
         activeContracts.size == 2,
         s"There should be 2 active contracts, but received ${activeContracts.size} contracts, with events: $activeContracts",
       )
-
     }
   })
 }

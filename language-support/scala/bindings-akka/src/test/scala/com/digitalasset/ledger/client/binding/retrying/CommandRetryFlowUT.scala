@@ -41,7 +41,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
               SubmitRequest(Some(commands)),
               _,
             ) =>
-          // return a completion based on the input status code only on the first submit,
+          // Return a completion based on the input status code only on the first submission.
           if (nrOfRetries == 0) {
             Ctx(context, CompletionResponse(Completion(commands.commandId, Some(status))))
           } else {
