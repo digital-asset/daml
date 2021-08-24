@@ -16,6 +16,7 @@ import scala.annotation.tailrec
 
 private[engine] final class ValueTranslator(
     interface: language.Interface,
+    // See Preprocessor.requiredCidSuffix for more details about the following flag.
     requiredCidSuffix: Boolean,
 ) {
 
@@ -43,10 +44,13 @@ private[engine] final class ValueTranslator(
 
   private[preprocessing] val unsafeTranslateCid: ContractId => SValue.SContractId =
     if (requiredCidSuffix) {
-      case cid1: ContractId.V1 if cid1.suffix.isEmpty =>
-        throw Error.Preprocessing.NonSuffixCid(cid1)
-      case cid =>
-        SValue.SContractId(cid)
+      case cid1: ContractId.V1 =>
+        if (cid1.suffix.isEmpty)
+          throw Error.Preprocessing.NonSuffixedCid(cid1)
+        else
+          SValue.SContractId(cid1)
+      case cid0: ContractId.V0 =>
+        SValue.SContractId(cid0)
     }
     else
       SValue.SContractId

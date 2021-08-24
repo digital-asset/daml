@@ -105,7 +105,7 @@ object Error {
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
 
-    final case class NonSuffixCid(cid: Value.ContractId.V1) extends Error {
+    final case class NonSuffixedCid(cid: Value.ContractId.V1) extends Error {
       override def message: String =
         s"Provided Contract ID $cid is not suffixed"
     }

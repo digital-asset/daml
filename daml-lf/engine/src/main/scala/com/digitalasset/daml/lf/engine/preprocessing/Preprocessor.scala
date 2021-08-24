@@ -15,6 +15,26 @@ import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 
+/** The Command Preprocessor is responsible of the following tasks:
+  *  - normalizes value representation (e.g. resolves missing type
+  *    reference in record/variant/enumeration, infers missing labeled
+  *    record fields, orders labeled record fields, ...);
+  *  - checks value nesting does not overpass 100;
+  *  - checks a LF command/value is properly typed according the
+  *    Daml-LF package definitions;
+  *  - checks for Contract ID suffix (see [[requiredCidSuffix]]);
+  *  - translates a LF command/value into speedy command/value; and
+  *  - translates a complete transaction into a list of speedy
+  *    commands.
+  *
+  * @param compiledPackages a [[MutableCompiledPackages]] contains the
+  *   Daml-LF package definitions against the command should
+  *   resolved/typechecked. It is updated dynamically each time the
+  *   [[ResultNeedPackage]] continuation is called.
+  * @param requiredCidSuffix when `true` the preprocessor will reject
+  *   any value/command/transaction that contains V1 Contract IDs
+  *   without suffixed.
+  */
 private[engine] final class Preprocessor(
     compiledPackages: MutableCompiledPackages,
     requiredCidSuffix: Boolean = true,
@@ -148,6 +168,7 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessCommands(cmds)
     }
 
+  /** Translates a complete transaction. Assumes no contract ID suffixes are used */
   def translateTransactionRoots(
       tx: SubmittedTransaction
   ): Result[ImmArray[speedy.Command]] =

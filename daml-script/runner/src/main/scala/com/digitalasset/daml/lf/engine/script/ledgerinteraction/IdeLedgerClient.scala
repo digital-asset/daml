@@ -47,8 +47,6 @@ class IdeLedgerClient(
   def currentSubmission: Option[ScenarioRunner.CurrentSubmission] = _currentSubmission
 
   private[this] val preprocessor =
-    // TODO: https://github.com/digital-asset/daml/pull/10504
-    //  See if we can require CID Suffixes
     new preprocessing.CommandPreprocessor(compiledPackages.interface, requiredCidSuffix = false)
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
