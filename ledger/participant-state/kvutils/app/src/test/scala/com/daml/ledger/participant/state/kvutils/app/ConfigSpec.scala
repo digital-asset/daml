@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
@@ -11,6 +12,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
 
+import java.io.File
+import java.net.URL
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
@@ -58,11 +61,8 @@ final class ConfigSpec
 
   behavior of "Runner"
 
-  it should "require secretsUrl if server's private key is encrypted" in {
-    // TODO PBATKO this test case should actually
-    // omit --secrets-url and verify that
-    // CLI parses failed with an appropriate message
-    configParser(
+  it should "succeed when server's private key is encrypted and secret-url is provided" in {
+    val actual = configParser(
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
@@ -71,18 +71,51 @@ final class ConfigSpec
         "--secrets-url",
         "http://aaa",
       )
-    ) should not be None
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        secretsUrl = Some(new URL("http://aaa")),
+        keyFile = Some(new File("key.enc")),
+        keyCertChainFile = None,
+        trustCertCollectionFile = None,
+      )
+    )
   }
 
-  it should "do not require secretsUrl if server's private key is plaintext" in {
+  it should "fail when server's private key is encrypted but secret-url is not provided" in {
     configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.enc",
+      )
+    ) shouldBe None
+  }
+
+  it should "succeed when server's private key is in plaintext and secret-url is not provided" in {
+    val actual = configParser(
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
         "--pem",
         "key.txt",
       )
-    ) should not be None
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        secretsUrl = None,
+        keyFile = Some(new File("key.txt")),
+        keyCertChainFile = None,
+        trustCertCollectionFile = None,
+      )
+    )
   }
 
   it should "fail if a participant is not provided in run mode" in {

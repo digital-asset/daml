@@ -215,7 +215,6 @@ conformance_test(
         "//ledger/test-common/test-certificates:server.pem",
         "//ledger/test-common/test-certificates:server.pem.enc",
         "//ledger/test-common/test-certificates:ca.crt",
-        "//ledger/test-common/test-certificates:server-pem-decryption-parameters.json",
     ],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
@@ -224,7 +223,6 @@ conformance_test(
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
         "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
-        #        "--secrets-url file://$$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server-pem-decryption-parameters.json))",
         "--secrets-url https://gist.githubusercontent.com/pbatko-da/c83dff8ee8b7eb074b91694bbc7e7e01/raw/e5e069a9676a074dde71cf9f19cf0c4172ec3532/server-pem-decryption-parameters.json",
     ],
     test_tool_args = [

@@ -308,7 +308,6 @@ object Config {
         opt[String]("pem")
           .optional()
           .text(
-            // TODO PBATKO is this option (--pem) used for both server and client? 'cause '.enc' applies only to servers
             "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
           )
           .action((path, config) =>

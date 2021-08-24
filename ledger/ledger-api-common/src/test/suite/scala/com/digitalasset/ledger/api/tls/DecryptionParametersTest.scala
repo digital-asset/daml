@@ -58,6 +58,32 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
   }
 
   it should {
+    "extract algorithm name from long transformation string" in {
+      // given
+      val tested = DecryptionParameters(
+        transformation = "algorithm1/mode2/padding3",
+        keyInHex = "dummyKey",
+        initializationVectorInHex = "dummyIv",
+      )
+
+      // when & then
+      tested.algorithm shouldBe "algorithm1"
+    }
+
+    "extract algorithm name from short transformation string" in {
+      // given
+      val tested = DecryptionParameters(
+        transformation = "algorithm1",
+        keyInHex = "dummyKey",
+        initializationVectorInHex = "dummyIv",
+      )
+
+      // when & then
+      tested.algorithm shouldBe "algorithm1"
+    }
+  }
+
+  it should {
     "parse JSON file specifying decryption parameters" in {
       // given
       val jsonPayload =

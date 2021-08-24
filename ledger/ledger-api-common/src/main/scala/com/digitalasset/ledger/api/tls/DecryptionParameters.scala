@@ -35,10 +35,13 @@ case class DecryptionParameters(
     decrypt(bytes)
   }
 
+  private[tls] def algorithm: String = {
+    transformation.split("/")(0)
+  }
+
   private[tls] def decrypt(encrypted: Array[Byte]): Array[Byte] = {
     val key: Array[Byte] = Hex.decodeHex(keyInHex)
-    val secretKey =
-      new SecretKeySpec(key, "AES") // TODO PBATKO hardcoded. Is it good enough for now?
+    val secretKey = new SecretKeySpec(key, algorithm)
     val iv: Array[Byte] = Hex.decodeHex(initializationVectorInHex)
     val cipher = Cipher.getInstance(transformation)
     val ivParameterSpec = new IvParameterSpec(iv)

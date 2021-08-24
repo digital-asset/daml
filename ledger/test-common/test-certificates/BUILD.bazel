@@ -24,7 +24,6 @@ genrule(
         "server.pem.enc",
         "server.csr",
         "server.crt",
-        "server-pem-decryption-parameters.json",
         "ocsp.key.pem",
         "ocsp.csr",
         "ocsp.crt",
@@ -80,19 +79,12 @@ $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf)
 chmod 444 $(location server.crt)
 
 # Encrypt server's key and dump encryption parameters to a JSON file.
+# NOTE: Encryption details used to encrypt the private must be kept in sync with `ledger/test-common/files/server-pem-decryption-parameters.json`
 $(location @openssl_dev_env//:openssl) enc -aes-128-cbc \
     -in $(location server.pem) \
     -out $(location server.pem.enc) \
     -K 0034567890abcdef1234567890abcdef \
     -iv 1134567890abcdef1234567890abcdef
-cat <<EOT >> $(location server-pem-decryption-parameters.json)
-{
-	"algorithm": "AES/CBC/PKCS5Padding",
-	"key": "0034567890abcdef1234567890abcdef",
-	"iv": "1134567890abcdef1234567890abcdef",
-	"key_length" : 128
-}
-EOT
 
 # Generate Client CA private key
 $(location @openssl_dev_env//:openssl) genrsa -out $(location client.key) 4096

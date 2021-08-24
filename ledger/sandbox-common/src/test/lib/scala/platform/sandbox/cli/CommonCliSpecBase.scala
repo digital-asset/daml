@@ -118,10 +118,7 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "require secretsUrl if server's private key is encrypted" in {
-      // TODO PBATKO this test case should actually
-      // omit --secrets-url and verify that
-      // CLI parses failed with an appropriate message
+    "succeed when server's private key is encrypted and secret-url is provided" in {
       checkOption(
         Array(
           "--pem",
@@ -133,17 +130,26 @@ abstract class CommonCliSpecBase(
           Some(
             TlsConfiguration(
               enabled = true,
-              None,
-              Some(new File("key.enc")),
-              None,
               secretsUrl = Some(new URL("http://aaa")),
+              keyFile = Some(new File("key.enc")),
+              keyCertChainFile = None,
+              trustCertCollectionFile = None,
             )
           )
         ),
       )
     }
 
-    "not require secretsUrl if server's private key is plaintext" in {
+    "fail when server's private key is encrypted but secret-url is not provided" in {
+      checkOptionFail(
+        Array(
+          "--pem",
+          "key.enc",
+        )
+      )
+    }
+
+    "succeed when server's private key is in plaintext and secret-url is not provided" in {
       checkOption(
         Array(
           "--pem",
@@ -153,10 +159,10 @@ abstract class CommonCliSpecBase(
           Some(
             TlsConfiguration(
               enabled = true,
-              None,
-              Some(new File("key.txt")),
-              None,
               secretsUrl = None,
+              keyFile = Some(new File("key.txt")),
+              keyCertChainFile = None,
+              trustCertCollectionFile = None,
             )
           )
         ),
@@ -332,6 +338,11 @@ abstract class CommonCliSpecBase(
     val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
     val config = cli.parse(requiredArgs ++ args ++ Array(archive))
     config shouldEqual Some(expectedConfig)
+  }
+
+  protected def checkOptionFail(args: Array[String]): Assertion = {
+    val config = cli.parse(requiredArgs ++ args ++ Array(archive))
+    config shouldEqual None
   }
 }
 

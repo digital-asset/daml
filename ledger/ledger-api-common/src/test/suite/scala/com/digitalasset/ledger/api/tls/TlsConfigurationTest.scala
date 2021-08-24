@@ -90,8 +90,6 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
     }
 
     "attempt to decrypt private key using by fetching decryption params from an url" in {
-      // TODO PBATKO ideally I'd like to mock fetching and parsing the secrects but it seems hard to do.
-      // Alternative is to spin up a http server, but I'm already doing that in a different unit test
       // given
       val keyFilePath = Files.createTempFile("private-key", ".enc")
       Files.write(keyFilePath, "private-key-123".getBytes())
