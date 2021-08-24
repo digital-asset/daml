@@ -22,12 +22,12 @@ class AppendOnlySchemaMigrationSpec extends AsyncWordSpec with AkkaBeforeAndAfte
 
           // Migrate to the append-only schema
           _ <- Resource.fromFuture(
-            new FlywayMigrations(db.url).migrate(enableAppendOnlySchema = true)
+            new FlywayMigrations(db.url, enableAppendOnlySchema = true).migrate()
           )
 
           // Attempt to migrate to the (older) mutating schema - this must fail
           error <- Resource.fromFuture(
-            new FlywayMigrations(db.url).migrate(enableAppendOnlySchema = false).failed
+            new FlywayMigrations(db.url, enableAppendOnlySchema = false).migrate().failed
           )
         } yield error
       }
