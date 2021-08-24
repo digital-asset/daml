@@ -1,3 +1,6 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # $ErrorActionPreference = 'Stop' causes the script to fail because Bazel writes to stderr.
 $ErrorActionPreference = 'Continue'
 
