@@ -137,7 +137,7 @@ final class CommandClient(
             CommandSubmissionFlow[(Context, String)](submit(token), config.maxParallelSubmissions),
             offset => completionSource(parties, offset, token),
             ledgerEnd.getOffset,
-            () => config.defaultDeduplicationTime,
+            () => Some(config.defaultDeduplicationTime),
           )
         )(Keep.right)
     }

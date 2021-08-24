@@ -100,7 +100,7 @@ object Error {
   // as are not serializable.
   final case object NonComparableValues extends Error
 
-  final case class ContractIdFreshness(discriminator: crypto.Hash) extends Error
+  final case class ContractIdFreshness(globalCid: ContractId.V1) extends Error
 
   final case class ContractIdInContractKey(key: Value[ContractId]) extends Error
 

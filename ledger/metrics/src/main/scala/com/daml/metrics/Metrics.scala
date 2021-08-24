@@ -688,6 +688,9 @@ final class Metrics(val registry: MetricRegistry) {
             registry.timer(Prefix :+ "get_transaction_trees")
           val getFlatTransactions: Timer =
             registry.timer(Prefix :+ "get_flat_transactions")
+
+          val toFlatTransactions: Timer = registry.timer(Prefix :+ "to_flat_transactions")
+          val toTransactionTrees: Timer = registry.timer(Prefix :+ "to_transaction_trees")
         }
 
         val transactionTreesBufferSize: Counter =

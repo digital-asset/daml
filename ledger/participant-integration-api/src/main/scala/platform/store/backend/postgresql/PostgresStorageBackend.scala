@@ -88,6 +88,24 @@ private[backend] object PostgresStorageBackend
     ()
   }
 
+  override def resetAll(connection: Connection): Unit = {
+    SQL("""truncate table configuration_entries cascade;
+          |truncate table packages cascade;
+          |truncate table package_entries cascade;
+          |truncate table parameters cascade;
+          |truncate table participant_command_completions cascade;
+          |truncate table participant_command_submissions cascade;
+          |truncate table participant_events_divulgence cascade;
+          |truncate table participant_events_create cascade;
+          |truncate table participant_events_consuming_exercise cascade;
+          |truncate table participant_events_non_consuming_exercise cascade;
+          |truncate table parties cascade;
+          |truncate table party_entries cascade;
+          |""".stripMargin)
+      .execute()(connection)
+    ()
+  }
+
   override val duplicateKeyError: String = "duplicate key"
 
   object PostgresQueryStrategy extends QueryStrategy {
