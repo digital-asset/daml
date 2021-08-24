@@ -33,9 +33,6 @@ sealed abstract class Queries(tablePrefix: String) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
-  type SqlInterpol
-  type Conf
-
   val schemaVersion = 2
 
   protected[this] def dropIfExists(drop: Droppable): Fragment
@@ -133,7 +130,7 @@ sealed abstract class Queries(tablePrefix: String) {
      """,
   )
 
-  protected[this] def initDatabaseDdls(implicit conf: Conf): Vector[InitDdl] =
+  protected[this] def initDatabaseDdls: Vector[InitDdl] =
     Vector(
       createTemplateIdsTable,
       createOffsetTable,
@@ -141,7 +138,7 @@ sealed abstract class Queries(tablePrefix: String) {
       createVersionTable,
     )
 
-  private[http] final def dropAllTablesIfExist(implicit conf: Conf, log: LogHandler): ConnectionIO[Unit] = {
+  private[http] final def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     initDatabaseDdls.reverse
       .collect { case d: Droppable => dropIfExists(d) }
@@ -154,10 +151,9 @@ sealed abstract class Queries(tablePrefix: String) {
          VALUES ($schemaVersion)
          """.update.run.map(_ => ())
 
-  private[http] def parseConf(kvs: Map[String, String]): Either[String, Conf]
-
-  private[http] final def initDatabase(implicit conf: Conf, log: LogHandler): ConnectionIO[Unit] = {
-    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
+  private[http] final def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
+    import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
+    cats.syntax.apply._
     initDatabaseDdls.traverse_(_.create.update.run) *> insertVersion()
   }
 
@@ -253,12 +249,12 @@ sealed abstract class Queries(tablePrefix: String) {
 
   final def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
-  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] =
+  )(implicit log: LogHandler): ConnectionIO[Int] =
     primInsertContracts(dbcs.map(_.mapKeyPayloadParties(toDBContractKey(_), _.toJson, _.toArray)))
 
   protected[this] def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
-  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int]
+  )(implicit log: LogHandler): ConnectionIO[Int]
 
   final def deleteContracts(
       cids: Set[String]
@@ -286,8 +282,7 @@ sealed abstract class Queries(tablePrefix: String) {
       tpid: SurrogateTpId,
       predicate: Fragment,
   )(implicit
-      log: LogHandler,
-      ipol: SqlInterpol,
+      log: LogHandler
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
     selectContractsMultiTemplate(parties, ISeq((tpid, predicate)), MatchedQueryMarker.Unused)
       .map(_ copy (templateId = ()))
@@ -300,8 +295,7 @@ sealed abstract class Queries(tablePrefix: String) {
       queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
-      log: LogHandler,
-      ipol: SqlInterpol,
+      log: LogHandler
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]
 
   // implementation aid for selectContractsMultiTemplate
@@ -361,8 +355,7 @@ sealed abstract class Queries(tablePrefix: String) {
       tpid: SurrogateTpId,
       contractId: String,
   )(implicit
-      log: LogHandler,
-      ipol: SqlInterpol,
+      log: LogHandler
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, sql"c.contract_id = $contractId").option
 
@@ -371,8 +364,7 @@ sealed abstract class Queries(tablePrefix: String) {
       tpid: SurrogateTpId,
       key: Hash,
   )(implicit
-      log: LogHandler,
-      ipol: SqlInterpol,
+      log: LogHandler
   ): ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
     selectContracts(parties, tpid, keyEquality(key)).option
 
@@ -394,8 +386,6 @@ sealed abstract class Queries(tablePrefix: String) {
 }
 
 object Queries {
-  type Aux[DataInterpol] = Queries { type SqlInterpol = DataInterpol }
-
   sealed trait SurrogateTpIdTag
   val SurrogateTpId = Tag.of[SurrogateTpIdTag]
   type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) above
@@ -556,10 +546,10 @@ object Queries {
     }
   }
 
-  private[http] def Postgres(tablePrefix: String = ""): Aux[SqlInterpolation.StringArray] =
-    new PostgresQueries(tablePrefix)
-  private[http] def Oracle(tablePrefix: String = ""): Aux[SqlInterpolation.Unused] =
-    new OracleQueries(tablePrefix)
+  private[http] val Postgres: QueryBackend.Aux[SqlInterpolation.StringArray] =
+    PostgresQueryBackend
+  private[http] val Oracle: QueryBackend.Aux[SqlInterpolation.Unused] =
+    OracleQueryBackend
 
   private[http] object SqlInterpolation {
     final class StringArray()(implicit val gas: Get[Array[String]], val pas: Put[Array[String]])
@@ -600,11 +590,12 @@ object Queries {
   }
 }
 
-private final class PostgresQueries(tablePrefix: String) extends Queries(tablePrefix) {
+private final class PostgresQueries(tablePrefix: String)(implicit
+    ipol: Queries.SqlInterpolation.StringArray
+) extends Queries(tablePrefix) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
 
-  type SqlInterpol = Queries.SqlInterpolation.StringArray
   type Conf = Unit
 
   protected[this] override def dropIfExists(d: Droppable) =
@@ -634,7 +625,7 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
     sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
-  protected[this] override def initDatabaseDdls(implicit conf: Conf) =
+  protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++ Seq(indexContractsTable, contractKeyHashIndex)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
@@ -650,8 +641,6 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
     } yield version
   }
 
-  private[http] override def parseConf(kvs: Map[String, String]): Conf = ()
-
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
     ,observers TEXT ARRAY NOT NULL
@@ -663,7 +652,7 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
-  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
+  )(implicit log: LogHandler): ConnectionIO[Int] = {
     import ipol.pas
     Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
       s"""
@@ -679,8 +668,7 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
       queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
-      log: LogHandler,
-      ipol: SqlInterpol,
+      log: LogHandler
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
     val partyVector = parties.toVector
     import ipol.{gas, pas}
@@ -729,12 +717,14 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
   }
 }
 
-private final class OracleQueries(tablePrefix: String) extends Queries(tablePrefix) {
+import OracleQueries.DisableContractPayloadIndexing
+
+private final class OracleQueries(
+    tablePrefix: String,
+    disableContractPayloadIndexing: DisableContractPayloadIndexing,
+) extends Queries(tablePrefix) {
   import Queries._, InitDdl._
   import Implicits._
-
-  type SqlInterpol = Queries.SqlInterpolation.Unused
-  type Conf = Boolean
 
   protected[this] override def dropIfExists(d: Droppable) = {
     val sqlCode = d match {
@@ -799,10 +789,10 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     ON $contractTableName (payload) FOR JSON
     PARAMETERS('DATAGUIDE OFF')""")
 
-  protected[this] override def initDatabaseDdls(implicit conf: Conf) =
+  protected[this] override def initDatabaseDdls =
     super.initDatabaseDdls ++
       Seq(stakeholdersView, stakeholdersIndex, contractKeyHashIndex) ++
-      (if (conf) Seq.empty else Seq(indexPayload))
+      (if (disableContractPayloadIndexing) Seq.empty else Seq(indexPayload))
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     import cats.implicits._
@@ -821,11 +811,6 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     } yield version
   }
 
-  private[http] override def parseConf(kvs: Map[String, String]): Either[String, Conf] = {
-    val k = "workaroundQueryTokenTooLong"
-    kvs.get(k).cata(v => v.parseBoolean.toEither.leftMap(_ => s"$k must be a boolean, not $v"), false)
-  }
-
   protected[this] type DBContractKey = JsValue
 
   protected[this] override def toDBContractKey[CK: JsonWriter](x: CK): DBContractKey =
@@ -833,7 +818,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
-  )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
+  )(implicit log: LogHandler): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, DBContractKey, JsValue, JsValue]](
       s"""
@@ -851,8 +836,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
       queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
-      log: LogHandler,
-      ipol: SqlInterpol,
+      log: LogHandler
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] =
     queryByCondition(
       queries,
@@ -994,4 +978,9 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     sql"JSON_EXISTS($contractColumnName, " ++
       sql"${oracleShortPathEscape(pathc)} PASSING $literalRendered AS X)"
   }
+}
+
+private object OracleQueries {
+  val DisableContractPayloadIndexing = "disableContractPayloadIndexing"
+  type DisableContractPayloadIndexing = Boolean
 }
