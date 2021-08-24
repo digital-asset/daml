@@ -141,10 +141,13 @@ private[v2] object AdaptedV1WriteService {
         SubmissionResult.SynchronousError(rpcStatus)
     }
 
-  private def errorDetailsForFailure(failure: StatusRuntimeException): Seq[com.google.protobuf.any.Any] = {
+  private def errorDetailsForFailure(
+      failure: StatusRuntimeException
+  ): Seq[com.google.protobuf.any.Any] = {
     val metadata = Option(failure.getTrailers)
       .map { trailers =>
-        trailers.keys()
+        trailers
+          .keys()
           .asScala
           .map { key =>
             key -> trailers.get[String](Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))

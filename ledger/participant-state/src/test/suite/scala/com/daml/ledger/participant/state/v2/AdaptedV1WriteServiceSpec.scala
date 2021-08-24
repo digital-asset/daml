@@ -18,11 +18,17 @@ class AdaptedV1WriteServiceSpec extends AnyWordSpec with Matchers with TableDriv
         (v1.SubmissionResult.Overloaded, Status.RESOURCE_EXHAUSTED),
         (v1.SubmissionResult.NotSupported, Status.UNIMPLEMENTED),
         (v1.SubmissionResult.InternalError("some reason"), Status.INTERNAL),
-        (v1.SubmissionResult.SynchronousReject(Status.UNAVAILABLE.asRuntimeException(new Metadata())), Status.UNAVAILABLE),
+        (
+          v1.SubmissionResult.SynchronousReject(
+            Status.UNAVAILABLE.asRuntimeException(new Metadata())
+          ),
+          Status.UNAVAILABLE,
+        ),
       )
 
       forAll(cases) { case (input, expectedGrpcStatus) =>
-        val SubmissionResult.SynchronousError(actual) = AdaptedV1WriteService.adaptSubmissionResult(input)
+        val SubmissionResult.SynchronousError(actual) =
+          AdaptedV1WriteService.adaptSubmissionResult(input)
         actual.code should be(expectedGrpcStatus.getCode.value())
       }
     }
@@ -34,7 +40,8 @@ class AdaptedV1WriteServiceSpec extends AnyWordSpec with Matchers with TableDriv
       val expectedStatusRuntimeException = expectedStatus.asRuntimeException(expectedMetadata)
       val input = v1.SubmissionResult.SynchronousReject(expectedStatusRuntimeException)
 
-      val SubmissionResult.SynchronousError(actual) = AdaptedV1WriteService.adaptSubmissionResult(input)
+      val SubmissionResult.SynchronousError(actual) =
+        AdaptedV1WriteService.adaptSubmissionResult(input)
 
       actual.code should be(expectedStatus.getCode.value())
       actual.details should have size 1
@@ -46,9 +53,11 @@ class AdaptedV1WriteServiceSpec extends AnyWordSpec with Matchers with TableDriv
     }
 
     "handle null metadata for synchronous rejection" in {
-      val input = v1.SubmissionResult.SynchronousReject(Status.UNIMPLEMENTED.asRuntimeException(null))
+      val input =
+        v1.SubmissionResult.SynchronousReject(Status.UNIMPLEMENTED.asRuntimeException(null))
 
-      val SubmissionResult.SynchronousError(actual) = AdaptedV1WriteService.adaptSubmissionResult(input)
+      val SubmissionResult.SynchronousError(actual) =
+        AdaptedV1WriteService.adaptSubmissionResult(input)
 
       actual.code should be(Status.UNIMPLEMENTED.getCode.value())
       actual.details should have size 1
