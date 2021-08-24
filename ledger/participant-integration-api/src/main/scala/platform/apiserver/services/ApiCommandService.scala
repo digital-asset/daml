@@ -33,7 +33,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   TrackedCompletionFailure,
 }
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
-import com.daml.ledger.configuration.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -43,7 +42,6 @@ import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.daml.platform.server.api.ApiException
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
@@ -93,11 +91,7 @@ private[apiserver] final class ApiCommandService private (
       logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        ledgerConfigurationSubscription
-          .latestConfiguration()
-          .fold[Future[Either[TrackedCompletionFailure, CompletionSuccess]]](
-            Future.failed(ErrorFactories.missingLedgerConfig())
-          )(ledgerConfig => track(request, ledgerConfig))
+        track(request)
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
@@ -106,8 +100,7 @@ private[apiserver] final class ApiCommandService private (
     }
 
   private def track(
-      request: SubmitAndWaitRequest,
-      ledgerConfig: LedgerConfiguration,
+      request: SubmitAndWaitRequest
   )(implicit
       loggingContext: LoggingContext
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
@@ -137,7 +130,7 @@ private[apiserver] final class ApiCommandService private (
                 )
                 .mapConcat(CommandCompletionSource.toStreamElements),
             ledgerEnd,
-            () => ledgerConfig.maxDeduplicationTime,
+            () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
           )
         val trackingFlow = MaxInFlight(
           configuration.maxCommandsInFlight,
