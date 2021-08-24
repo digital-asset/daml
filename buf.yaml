@@ -4,7 +4,7 @@
 version: v1beta1
 
 deps:
-   - buf.build/googleapis/googleapis
+  - buf.build/googleapis/googleapis
 
 build:
   roots:
@@ -31,5 +31,5 @@ breaking:
   use:
     - WIRE_JSON
   ignore_only:
-    FIELD_SAME_ONEOF:
+    FIELD_SAME_ONEOF: # ignore field_same_oneof to not trigger an error from moving an existing field into a new oneof
       - com/daml/ledger/api/v1/commands.proto
