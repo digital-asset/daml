@@ -3,12 +3,13 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Instant
+import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlCommandDedupKey, DamlStateKey}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
@@ -41,7 +42,9 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       actAs = List(alice),
       applicationId = applicationId,
       commandId = commandId,
-      deduplicateUntil = Instant.EPOCH,
+      deduplicationPeriod = api.DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+      submissionId = Ref.LedgerString.assertFromString("submission"),
+      ledgerConfiguration = null,
     )
     keyValueSubmission.transactionToSubmission(
       submitterInfo = submitterInfo,

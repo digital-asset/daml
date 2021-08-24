@@ -8,14 +8,17 @@ import java.time.Instant
 import akka.stream.Materializer
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult.SynchronousError
 import com.daml.ledger.validator.TestHelper.aParticipantId
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.ledger.validator.{CommitStrategy, LedgerStateOperations}
 import com.daml.lf.data.Ref
+import com.google.rpc.code.Code
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.MockitoSugar
 import org.mockito.stubbing.ScalaFirstStubbing
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -60,7 +63,10 @@ class BatchedValidatingCommitterSpec
           ledgerStateOperations = mock[LedgerStateOperations[Unit]],
         )
         .map { actual =>
-          actual shouldBe SubmissionResult.InternalError("Validation failure")
+          inside(actual) { case SynchronousError(status) =>
+            status.code shouldBe Code.INTERNAL.value
+            status.message shouldBe "Validation failure"
+          }
         }
     }
   }
