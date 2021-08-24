@@ -153,7 +153,6 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
     .text(
       s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
     )
-    .hidden()
     .optional()
 
   opt[WebsocketConfig]("websocket-config")
