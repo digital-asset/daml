@@ -96,6 +96,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[state.PruningResult] =
     CompletableFuture.completedFuture(state.PruningResult.NotPruned(Status.UNIMPLEMENTED))
 

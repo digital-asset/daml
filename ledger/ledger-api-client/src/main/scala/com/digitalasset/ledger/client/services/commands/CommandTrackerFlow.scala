@@ -42,7 +42,7 @@ object CommandTrackerFlow {
       ]], SubmissionMat],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      maxDeduplicationTime: () => JDuration,
+      maxDeduplicationTime: () => Option[JDuration],
       backOffDuration: FiniteDuration = 1.second,
   ): Flow[Ctx[Context, SubmitRequest], Ctx[
     Context,

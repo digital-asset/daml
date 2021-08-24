@@ -16,7 +16,7 @@ Gatling scenarios extend from `io.gatling.core.scenario.Simulation`:
 - `com.daml.http.perf.scenario.SyncQueryConstantAcs`
 - `com.daml.http.perf.scenario.SyncQueryNewAcs`
 - `com.daml.http.perf.scenario.SyncQueryVariableAcs`
-- `com.daml.http.perf.scenario.MultiUserQueryScenario`
+- `com.daml.http.perf.scenario.OracleMultiUserQueryScenario`
 
 # 2. Running Gatling Scenarios from Bazel
 
@@ -34,9 +34,9 @@ $ bazel run //ledger-service/http-json-perf:http-json-perf-binary -- \
 --jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
 ```
 
-## 2.3 Running MultiUserQueryScenario
+## 2.3 Running OracleMultiUserQueryScenario
 
-Preferably retain the data between runs to specifically focus on testing query performance.
+We use an external docker oracle vm, so we want to retain the data between runs to specifically focus on testing query performance.
 use `RETAIN_DATA` and `USE_DEFAULT_USER` env vars to use a static user(`ORACLE_USER`) and preserve data.
 This scenario uses a single template `KeyedIou` defined in `LargeAcs.daml`.
 
@@ -48,7 +48,7 @@ We can control a few scenario parameters i.e `NUM_RECORDS` `NUM_QUERIES` `NUM_RE
 
 ```
 
-USE_DEFAULT_USER=true RETAIN_DATA=true RUN_MODE="populateCache" bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- --scenario=com.daml.http.perf.scenario.MultiUserQueryScenario --jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU --dars=$PWD/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar --query-store-index oracle
+USE_DEFAULT_USER=true RETAIN_DATA=true RUN_MODE="populateCache" bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- --scenario=com.daml.http.perf.scenario.OracleMultiUserQueryScenario --jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU --dars=$PWD/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar --query-store-index oracle
 
 ```
 
@@ -58,7 +58,7 @@ Query contracts by the defined key field.
 
 ```
 
-USE_DEFAULT_USER=true RETAIN_DATA=true RUN_MODE="fetchByKey" NUM_QUERIES=100 bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- --scenario=com.daml.http.perf.scenario.MultiUserQueryScenario --jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU --dars=$PWD/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar --query-store-index oracle
+USE_DEFAULT_USER=true RETAIN_DATA=true RUN_MODE="fetchByKey" NUM_QUERIES=100 bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- --scenario=com.daml.http.perf.scenario.OracleMultiUserQueryScenario --jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU --dars=$PWD/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar --query-store-index oracle
 
 ```
 
@@ -68,7 +68,7 @@ Query contracts by a field on the payload which is the `id` in this case.
 
 ```
 
-USE_DEFAULT_USER=true RETAIN_DATA=true RUN_MODE="fetchByQuery" bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- --scenario=com.daml.http.perf.scenario.MultiUserQueryScenario --jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU --dars=$PWD/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar --query-store-index oracle
+USE_DEFAULT_USER=true RETAIN_DATA=true RUN_MODE="fetchByQuery" bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- --scenario=com.daml.http.perf.scenario.OracleMultiUserQueryScenario --jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU --dars=$PWD/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar --query-store-index oracle
 
 ```
 

@@ -90,8 +90,9 @@ class KeyValueParticipantState(
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
-    writerAdapter.prune(pruneUpToInclusive, submissionId)
+    writerAdapter.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts)
 
   override def currentHealth(): HealthStatus =
     reader.currentHealth() and writer.currentHealth()
