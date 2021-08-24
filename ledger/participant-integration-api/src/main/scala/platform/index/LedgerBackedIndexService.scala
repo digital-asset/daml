@@ -116,13 +116,19 @@ private[platform] final class LedgerBackedIndexService(
         .map(_._2)
     }
 
-  private def convertOffset(offset: LedgerOffset)(implicit
-      loggingContext: LoggingContext
-  ): Try[Offset] = offset match {
-    case LedgerOffset.LedgerBegin => Success(Offset.beforeBegin)
-    case LedgerOffset.LedgerEnd => Success(ledger.ledgerEnd())
-    case LedgerOffset.Absolute(offset) => ApiOffset.fromString(offset)
-  }
+  private def convertOffset(
+      offset: LedgerOffset
+  )(implicit loggingContext: LoggingContext): Try[Offset] =
+    offset match {
+      case LedgerOffset.LedgerBegin => Success(Offset.beforeBegin)
+      case LedgerOffset.LedgerEnd => Success(ledger.ledgerEnd())
+      case LedgerOffset.Absolute(offset) => ApiOffset.fromString(offset)
+    }
+
+  private def convertOptionalOffset(
+      offset: Option[LedgerOffset]
+  )(implicit loggingContext: LoggingContext): Try[Option[Offset]] =
+    offset.map(convertOffset(_).map(Some(_))).getOrElse(Success(None))
 
   private def between[A](
       startExclusive: domain.LedgerOffset,
@@ -132,7 +138,7 @@ private[platform] final class LedgerBackedIndexService(
   ): Source[A, NotUsed] =
     convertOffset(startExclusive)
       .flatMap { begin =>
-        endInclusive.map(convertOffset(_).map(Some(_))).getOrElse(Success(None)).map {
+        convertOptionalOffset(endInclusive).map {
           case Some(`begin`) => Source.empty
           case Some(end) if begin > end =>
             Source.failed(
