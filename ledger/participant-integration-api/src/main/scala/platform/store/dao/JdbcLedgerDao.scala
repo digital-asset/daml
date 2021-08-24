@@ -43,6 +43,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
@@ -142,21 +143,51 @@ private class JdbcLedgerDao(
       ParametersTable.getInitialLedgerEnd
     )
 
-  override def initializeLedger(
-      ledgerId: LedgerId
+  override def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
       implicit connection =>
         queries.enforceSynchronousCommit
-        ParametersTable.setLedgerId(ledgerId.unwrap)(connection)
-    }
-
-  override def initializeParticipantId(
-      participantId: ParticipantId
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
-      queries.enforceSynchronousCommit
-      ParametersTable.setParticipantId(participantId.unwrap)(connection)
+        val existingLedgerId = ParametersTable.getLedgerId(connection)
+        val existingParticipantId = ParametersTable.getParticipantId(connection)
+        (existingLedgerId, existingParticipantId) match {
+          case (None, _) =>
+            logger.info(
+              s"Initializing new database for ledgerId '$ledgerId' and participantId '$participantId'"
+            )
+            ParametersTable.setLedgerId(ledgerId.unwrap)(connection)
+            ParametersTable.setParticipantId(participantId.unwrap)(connection)
+            ()
+          case (Some(`ledgerId`), None) =>
+            logger.info(
+              s"Found existing database for ledgerId '$ledgerId', initializing participantId '$participantId'"
+            )
+            ParametersTable.setParticipantId(participantId.unwrap)(connection)
+            ()
+          case (Some(`ledgerId`), Some(`participantId`)) =>
+            logger.info(
+              s"Found existing database for ledgerId '$ledgerId' and participantId '$participantId'"
+            )
+            ()
+          case (_, Some(existing)) if existing != participantId =>
+            logger.error(
+              s"Found existing database with mismatching participantId: existing '$existing', provided '$participantId'"
+            )
+            throw MismatchException.ParticipantId(
+              existing = existing,
+              provided = participantId,
+            )
+          case (Some(existing), _) =>
+            logger.error(
+              s"Found existing database with mismatching ledgerId: existing '$existing', provided '$ledgerId'"
+            )
+            throw MismatchException.LedgerId(
+              existing = existing,
+              provided = ledgerId,
+            )
+        }
     }
 
   override def lookupLedgerConfiguration()(implicit
@@ -755,6 +786,8 @@ private class JdbcLedgerDao(
               )
               .execute()
         }
+
+        logger.info("Done storing package entry")
         PersistenceResponse.Ok
     }
   }
@@ -1179,17 +1212,17 @@ private[platform] object JdbcLedgerDao {
 
     protected[JdbcLedgerDao] def SQL_GET_PACKAGE_ENTRIES: String =
       """select * from package_entries
-        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     protected[JdbcLedgerDao] def SQL_GET_PARTY_ENTRIES: String =
       """select * from party_entries
-        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
-        |ledger_offset > {startExclusive} and ledger_offset <= {endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     // TODO: Avoid brittleness of error message checks
@@ -1361,19 +1394,19 @@ private[platform] object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_GET_PACKAGE_ENTRIES: String =
       """select * from package_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_PARTY_ENTRIES: String =
       """select * from party_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 

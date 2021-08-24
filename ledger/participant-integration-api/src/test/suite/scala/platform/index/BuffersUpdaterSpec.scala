@@ -17,6 +17,7 @@ import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText, VersionedValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.BuffersUpdaterSpec.{contractStateEventMock, transactionLogUpdateMock}
+import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -307,7 +308,7 @@ final class BuffersUpdaterSpec
 }
 
 private object BuffersUpdaterSpec {
-  val mockSeed = new AtomicLong(0L)
+  val mockSeed = new AtomicLong(EventSequentialId.beforeBegin)
   /* We use the simplest embodiments of the interfaces as mocks and pick the eventSequentialId as discriminator */
   private def transactionLogUpdateMock() =
     TransactionLogUpdate.LedgerEndMarker(Offset.beforeBegin, mockSeed.getAndIncrement())

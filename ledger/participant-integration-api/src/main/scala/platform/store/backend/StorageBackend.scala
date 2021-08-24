@@ -16,7 +16,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
 import com.daml.platform
-import com.daml.platform.store.DbType
+import com.daml.platform.store.{DbType, EventSequentialId}
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
@@ -49,7 +49,20 @@ trait StorageBackend[DB_BATCH]
     with EventStorageBackend
     with DataSourceStorageBackend
     with DBLockStorageBackend {
+
+  /** Truncates all storage backend tables, EXCEPT the packages table.
+    * Does not touch other tables, like the Flyway history table.
+    * Reason: the reset() call is used by the ledger API reset service,
+    * which is mainly used for application tests in another big project,
+    * and re-uploading packages after each test significantly slows down their test time.
+    */
   def reset(connection: Connection): Unit
+
+  /** Truncates ALL storage backend tables.
+    * Does not touch other tables, like the Flyway history table.
+    * The result is a database that looks the same as a freshly created database with Flyway migrations applied.
+    */
+  def resetAll(connection: Connection): Unit
   def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
 
@@ -78,39 +91,63 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @param connection to be used when initializing
     * @return the LedgerEnd, which should be the basis for further indexing.
     */
-  def initialize(connection: Connection): StorageBackend.LedgerEnd
+  def initializeIngestion(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 }
 
-// TODO append-only: consolidate parameters table facing functions
 trait ParameterStorageBackend {
 
-  /** This method is used to update the parameters table: setting the new observable ledger-end, and other parameters.
+  /** This method is used to update the new observable ledger end.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * @param connection to be used when updating the parameters table
-    * @param params     the parameters
     */
-  def updateParams(params: StorageBackend.Params)(connection: Connection): Unit
+  def updateLedgerEnd(ledgerEnd: ParameterStorageBackend.LedgerEnd)(connection: Connection): Unit
 
-  /** Query the ledgerEnd, read from the parameters table.
+  /** Query the current ledger end, read from the parameters table.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * @param connection to be used to get the LedgerEnd
-    * @return the LedgerEnd, which should be the basis for further indexing
+    * @return the current LedgerEnd, or None if no ledger end exists
     */
-  def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd
-  def ledgerId(connection: Connection): Option[LedgerId]
-  def updateLedgerId(ledgerId: String)(connection: Connection): Unit
-  def participantId(connection: Connection): Option[ParticipantId]
-  def updateParticipantId(participantId: String)(connection: Connection): Unit
-  def ledgerEndOffset(connection: Connection): Offset
-  def ledgerEndOffsetAndSequentialId(connection: Connection): (Offset, Long)
-  def initialLedgerEnd(connection: Connection): Option[Offset]
+  def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
+
+  /** Query the current ledger end, returning a value that points to a point before the ledger begin
+    * if no ledger end exists.
+    * No significant CPU load, mostly blocking JDBC communication with the database backend.
+    *
+    * @param connection to be used to get the LedgerEnd
+    * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
+    */
+  final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
+    ledgerEnd(connection).getOrElse(
+      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin)
+    )
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
   def prunedUptoInclusive(connection: Connection): Option[Offset]
+
+  /** Initializes the parameters table and verifies or updates ledger identity parameters.
+    * This method is idempotent:
+    *  - If no identity parameters are stored, then they are set to the given value.
+    *  - If identity parameters are stored, then they are compared to the given ones.
+    *  - Ledger identity parameters are written at most once, and are never overwritten.
+    *  No significant CPU load, mostly blocking JDBC communication with the database backend.
+    *
+    *  This method is NOT safe to call concurrently.
+    */
+  def initializeParameters(params: ParameterStorageBackend.IdentityParams)(connection: Connection)(
+      implicit loggingContext: LoggingContext
+  ): Unit
+
+  /** Returns the ledger identity parameters, or None if the database hasn't been initialized yet. */
+  def ledgerIdentity(connection: Connection): Option[ParameterStorageBackend.IdentityParams]
+}
+
+object ParameterStorageBackend {
+  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long)
+  case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
 }
 
 trait ConfigurationStorageBackend {
@@ -283,10 +320,6 @@ object DBLockStorageBackend {
 }
 
 object StorageBackend {
-  case class Params(ledgerEnd: Offset, eventSeqId: Long)
-
-  case class LedgerEnd(lastOffset: Option[Offset], lastEventSeqId: Option[Long])
-
   case class RawContractState(
       templateId: Option[String],
       flatEventWitnesses: Set[Ref.Party],

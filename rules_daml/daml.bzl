@@ -19,13 +19,12 @@ _zipper = attr.label(
     cfg = "host",
 )
 
-ghc_opts = ["--ghc-option=-Werror"]
-
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
     project_version = ctx.attr.project_version
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
+    ghc_opts = ctx.attr.ghc_options
     opts = ghc_opts + ["--target={}".format(target)] if target else ghc_opts
     ctx.actions.write(
         output = daml_yaml,
@@ -62,6 +61,10 @@ _daml_configure = rule(
         "target": attr.string(
             doc = "DAML-LF version to output.",
         ),
+        "ghc_options": attr.string_list(
+            doc = "Options passed to GHC.",
+            default = ["--ghc-option=-Werror"],
+        ),
     },
 )
 
@@ -84,6 +87,7 @@ def _daml_build_impl(ctx):
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
+    ghc_opts = ctx.attr.ghc_options
     ctx.actions.run_shell(
         tools = [damlc],
         inputs = [daml_yaml] + srcs + input_dars,
@@ -145,6 +149,10 @@ _daml_build = rule(
         "dar": attr.output(
             mandatory = True,
             doc = "The generated DAR file.",
+        ),
+        "ghc_options": attr.string_list(
+            doc = "Options passed to GHC.",
+            default = ["--ghc-option=-Werror"],
         ),
         "_damlc": _damlc,
     },

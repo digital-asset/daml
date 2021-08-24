@@ -22,7 +22,7 @@ bazel run @stackage-unpinned//:pin
 ## Nixpkgs
 
 To update the nixpkgs revision, find a commit in nixkgs-unstable from
-https://github.com/NixOS/nixpkgs-channels/commits/nixpkgs-unstable and
+https://github.com/NixOS/nixpkgs/commits/nixpkgs-unstable and
 use it in the `rev` field in `nix/nixpkgs/default.src.json`.  Set the
 `sha256` to a dummy hash, e.g., 64 zeros and run `nix-build -A tools
 -A cached nix` and nix will tell you the correct hash.

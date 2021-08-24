@@ -67,6 +67,8 @@ da_scala_library(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        # TODO Divulgence pruning: Remove once KeyValueParticipantStateWriter doesn't need to return UNIMPLEMENTED for prune
+        "@maven//:io_grpc_grpc_api",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -238,8 +240,6 @@ proto_jars(
 
 REFERENCE_LEDGER_EXPORT_NAME = "reference-ledger-export"
 
-REFERENCE_LEDGER_EXPORT_PORT = 65102
-
 # Generates a ledger export by running the test tool against a kvutils-based ledger.
 client_server_build(
     name = REFERENCE_LEDGER_EXPORT_NAME,
@@ -249,15 +249,13 @@ client_server_build(
     client_args = [
         "--concurrent-test-runs=4",
         "--timeout-scale-factor=20",
-        "localhost:%d" % REFERENCE_LEDGER_EXPORT_PORT,
+        "localhost:%PORT%",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
-    runner_args = [str(REFERENCE_LEDGER_EXPORT_PORT)],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
+        "--participant=participant-id=export,port=0,port-file=%PORT_FILE%",
     ],
     visibility = [":__subpackages__"],
 ) if not is_windows else None

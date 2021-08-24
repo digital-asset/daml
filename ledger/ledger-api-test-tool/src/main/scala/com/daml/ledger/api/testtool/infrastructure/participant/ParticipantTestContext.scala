@@ -504,18 +504,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def exerciseAndGetContract[T](
       party: Party,
-      exercise: Party => Primitive.Update[_],
+      exercise: Party => Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
       .map(extractContracts)
       .map(_.head.asInstanceOf[Primitive.ContractId[T]])
-
-  def exerciseAndGetContracts[T](
-      party: Party,
-      exercise: Party => Primitive.Update[T],
-  ): Future[Seq[Primitive.ContractId[_]]] =
-    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
-      .map(extractContracts)
 
   def exerciseByKey[T](
       party: Party,
@@ -527,7 +520,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     submitAndWaitForTransactionTree(
       submitAndWaitRequest(
         party,
-        Command(
+        Command.of(
           Command.Command.ExerciseByKey(
             ExerciseByKeyCommand(
               Some(template.unwrap),
@@ -713,17 +706,28 @@ private[testtool] final class ParticipantTestContext private[participant] (
   ): Future[SetTimeModelResponse] =
     services.configManagement.setTimeModel(request)
 
-  def prune(pruneUpTo: String, attempts: Int): Future[PruneResponse] =
+  def prune(
+      pruneUpTo: String,
+      attempts: Int,
+      pruneAllDivulgedContracts: Boolean,
+  ): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
     eventually(
       attempts = attempts,
       runAssertion = {
-        services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
+        services.participantPruning.prune(
+          PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
+        )
       },
     )
 
-  def prune(pruneUpTo: LedgerOffset, attempts: Int = 10): Future[PruneResponse] =
-    prune(pruneUpTo.getAbsolute, attempts)
+  def prune(
+      pruneUpTo: LedgerOffset,
+      attempts: Int = 10,
+      // TODO Divulgence pruning: Change default to `true` once all divulgence pruning is implemented
+      pruneAllDivulgedContracts: Boolean = false,
+  ): Future[PruneResponse] =
+    prune(pruneUpTo.getAbsolute, attempts, pruneAllDivulgedContracts)
 
   private[infrastructure] def preallocateParties(
       n: Int,

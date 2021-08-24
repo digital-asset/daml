@@ -11,7 +11,7 @@ def _escape_args(args):
 
 def client_server_test(
         name,
-        runner = "//bazel_tools/client_server/runner:runner",
+        runner = "//bazel_tools/client_server/runner_with_port_file",
         runner_args = [],
         client = None,
         client_args = [],

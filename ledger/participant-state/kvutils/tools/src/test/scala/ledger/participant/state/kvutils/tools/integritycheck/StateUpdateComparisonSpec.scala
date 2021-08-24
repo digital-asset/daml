@@ -34,7 +34,7 @@ final class StateUpdateComparisonSpec
       val right = aConfigurationChangeRejected.copy(rejectionReason = "another reason")
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, List.empty, List.empty)
+        .compareUpdates(left, right, Iterable.empty, Iterable.empty, Iterable.empty)
         .map(_ => succeed)
     }
 
@@ -74,7 +74,7 @@ final class StateUpdateComparisonSpec
       val normalizers = List(BlindingInfoNormalizer)
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, normalizers, normalizers)
+        .compareUpdates(left, right, normalizers, normalizers, Iterable.empty)
         .map(_ => succeed)
     }
 
@@ -93,6 +93,7 @@ final class StateUpdateComparisonSpec
           right,
           expectedUpdateNormalizers = normalizers,
           actualUpdateNormalizers = normalizers,
+          pairwiseUpdateNormalizers = Iterable.empty,
         )
         .map(_ => succeed)
     }
@@ -191,6 +192,7 @@ final class StateUpdateComparisonSpec
         aCommandRejectedUpdate.copy(reason = right),
         expectedUpdateNormalizers = Iterable.empty,
         actualUpdateNormalizers = Iterable.empty,
+        pairwiseUpdateNormalizers = Iterable.empty,
       )
       .map(_ => succeed)
 }

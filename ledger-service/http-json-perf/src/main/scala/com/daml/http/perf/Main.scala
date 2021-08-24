@@ -199,17 +199,32 @@ object Main extends StrictLogging {
     )
 
     private[this] final class OracleRunner extends OracleAround {
+
+      private val defaultUser = "ORACLE_USER"
+      private val retainData = sys.env.get("RETAIN_DATA").exists(_ equalsIgnoreCase "true")
+      private val useDefaultUser = sys.env.get("USE_DEFAULT_USER").exists(_ equalsIgnoreCase "true")
       type St = oracle.User
 
       def start() = Try {
         connectToOracle()
-        createNewRandomUser(): St
+        if (useDefaultUser) createNewUser(defaultUser) else createNewRandomUser(): St
       }
 
-      def jdbcConfig(user: St) =
-        JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+      def jdbcConfig(user: St) = {
+        import DbStartupMode._
+        val startupMode: DbStartupMode = if (retainData) CreateIfNeededAndStart else CreateAndStart
+        JdbcConfig(
+          "oracle.jdbc.OracleDriver",
+          oracleJdbcUrl,
+          user.name,
+          user.pwd,
+          dbStartupMode = startupMode,
+        )
+      }
 
-      def stop(user: St) = Try(dropUser(user.name))
+      def stop(user: St) = {
+        if (retainData) Success((): Unit) else Try(dropUser(user.name))
+      }
     }
 
     def lookup(q: QueryStoreIndex): Option[T] = q match {

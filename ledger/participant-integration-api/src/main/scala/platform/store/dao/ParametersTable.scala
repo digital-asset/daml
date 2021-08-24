@@ -25,8 +25,8 @@ private[store] object ParametersTable {
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
 
-  private val ParticipantIdParser: RowParser[Option[ParticipantId]] =
-    participantId(ParticipantIdColumnName).map(ParticipantId(_)).?
+  private val ParticipantIdParser: RowParser[ParticipantId] =
+    participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
   private val LedgerEndParser: RowParser[Option[Offset]] =
     offset(LedgerEndColumnName).?
@@ -56,7 +56,7 @@ private[store] object ParametersTable {
     )
 
   def getParticipantId(connection: Connection): Option[ParticipantId] =
-    SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.single)(
+    SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.singleOpt)(
       connection
     )
 

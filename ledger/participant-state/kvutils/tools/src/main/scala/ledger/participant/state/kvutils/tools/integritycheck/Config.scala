@@ -19,6 +19,7 @@ case class Config(
     actualUpdatesPath: Option[Path] = None,
     expectedUpdateNormalizers: Iterable[UpdateNormalizer] = Iterable.empty,
     actualUpdateNormalizers: Iterable[UpdateNormalizer] = Iterable.empty,
+    pairwiseUpdateNormalizers: Iterable[PairwiseUpdateNormalizer] = Iterable.empty,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }

@@ -43,9 +43,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eToTextTypeConName |
       eThrow |
       (id ^? builtinFunctions) ^^ EBuiltin |
+      experimental |
       caseOf |
       id ^^ EVar |
-      experimental |
       (`(` ~> expr <~ `)`)
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
@@ -325,7 +325,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   )
 
   private lazy val experimental: Parser[Expr] =
-    `$` ~> id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
+    Id("experimental") ~>! id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
 
   /* Scenarios */
 

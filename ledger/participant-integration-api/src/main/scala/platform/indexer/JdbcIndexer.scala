@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ParticipantId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -17,8 +16,6 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.common
-import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.ParallelIndexerFactory
 import com.daml.platform.store.DbType.{
@@ -215,53 +212,30 @@ object JdbcIndexer {
 
     private def initializeLedger(
         dao: LedgerDao
-    )(implicit ec: ExecutionContext): Future[Option[Offset]] =
-      for {
-        initialConditions <- readService.ledgerInitialConditions().runWith(Sink.head)
-        existingLedgerId <- dao.lookupLedgerId()
-        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
-        _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
-          checkLedgerIds(_, providedLedgerId)
-        )
-        _ <- initOrCheckParticipantId(dao)
-        initialLedgerEnd <- dao.lookupInitialLedgerEnd()
-      } yield initialLedgerEnd
-
-    private def checkLedgerIds(
-        existingLedgerId: domain.LedgerId,
-        providedLedgerId: domain.LedgerId,
-    ): Future[Unit] =
-      if (existingLedgerId == providedLedgerId) {
-        logger.info(s"Found existing ledger with ID: $existingLedgerId")
-        Future.unit
-      } else {
-        Future.failed(new MismatchException.LedgerId(existingLedgerId, providedLedgerId))
+    )(implicit ec: ExecutionContext): Future[Option[Offset]] = {
+      // In a high availability setup, multiple indexers might try to initialize the database at the same time
+      // Add an identifier to correlate the log output for the attempt and the result
+      val initializationId = java.util.UUID.randomUUID().toString
+      LoggingContext.withEnrichedLoggingContext(
+        "initialization_id" -> initializationId
+      ) { implicit loggingContext =>
+        for {
+          initialConditions <- readService.ledgerInitialConditions().runWith(Sink.head)
+          providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+          providedParticipantId = domain.ParticipantId(
+            Ref.ParticipantId.assertFromString(config.participantId)
+          )
+          _ = logger.info(
+            s"Attempting to initialize with ledger ID $providedLedgerId and participant ID $providedParticipantId"
+          )
+          _ <- dao.initialize(
+            ledgerId = providedLedgerId,
+            participantId = providedParticipantId,
+          )
+          initialLedgerEnd <- dao.lookupInitialLedgerEnd()
+        } yield initialLedgerEnd
       }
-
-    private def initializeLedgerData(
-        providedLedgerId: domain.LedgerId,
-        ledgerDao: LedgerDao,
-    ): Future[Unit] = {
-      logger.info(s"Initializing ledger with ID: $providedLedgerId")
-      ledgerDao.initializeLedger(providedLedgerId)
     }
-
-    private def initOrCheckParticipantId(
-        dao: LedgerDao
-    )(implicit ec: ExecutionContext): Future[Unit] = {
-      val id = ParticipantId(Ref.ParticipantId.assertFromString(config.participantId))
-      dao
-        .lookupParticipantId()
-        .flatMap(
-          _.fold(dao.initializeParticipantId(id)) {
-            case `id` =>
-              Future.successful(logger.info(s"Found existing participant id '$id'"))
-            case retrievedLedgerId =>
-              Future.failed(new common.MismatchException.ParticipantId(retrievedLedgerId, id))
-          }
-        )
-    }
-
   }
 
   private val logger = ContextualizedLogger.get(classOf[JdbcIndexer])

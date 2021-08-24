@@ -127,7 +127,7 @@ class IdeLedgerClient(
     ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
   ] =
     Future {
-      val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
+      val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)

@@ -10,7 +10,6 @@ import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest, StartingOffset}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
-import JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
@@ -32,8 +31,10 @@ import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
+import com.daml.http.domain.TemplateId.toLedgerApiValue
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import com.daml.lf.crypto.Hash
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
@@ -400,11 +401,20 @@ object WebSocketService {
       def dbQueries(implicit
           sjd: dbbackend.SupportedJdbcDriver
       ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
-        q.toSeq map (_ rightMap { lfvKeys =>
+        q.toSeq map { case (t, lfvKeys) =>
           val khd +: ktl = lfvKeys.toVector
-          import dbbackend.Queries.joinFragment
-          joinFragment(OneAnd(khd, ktl) map (keyEquality(_)), sql" OR ")
-        })
+          import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
+          (
+            t,
+            joinFragment(
+              OneAnd(khd, ktl) map (k =>
+                keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))
+              ),
+              sql" OR ",
+            ),
+          )
+        }
+
       StreamPredicate(
         q.keySet,
         unresolved,
@@ -437,10 +447,10 @@ object WebSocketService {
 
   }
 
-  private[this] def keyEquality(k: LfV)(implicit
+  private[this] def keyEquality(k: Hash)(implicit
       sjd: dbbackend.SupportedJdbcDriver
   ): doobie.Fragment =
-    sjd.queries.keyEquality(LfValueDatabaseCodec.apiValueToJsValue(k))
+    sjd.queries.keyEquality(k)
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
       extends EnrichedContractKeyWithStreamQuery[Unit] {

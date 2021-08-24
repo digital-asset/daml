@@ -23,10 +23,6 @@ supported_databases = [
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
         ],
-        "conformance_test_tool_args": [
-            "--concurrent-test-runs=2",
-            "--timeout-scale-factor=4",
-        ],
     },
     {
         "name": "postgresql",
@@ -351,8 +347,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=2",
-        "--timeout-scale-factor=4",
     ],
 )
 
@@ -451,8 +445,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=2",
-        "--timeout-scale-factor=4",
         "--include=ParticipantPruningIT",
     ],
 )
@@ -521,8 +513,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=2",
-        "--timeout-scale-factor=4",
         "--include=MultiPartySubmissionIT",
     ],
 )

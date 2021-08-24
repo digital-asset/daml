@@ -43,13 +43,16 @@ client_server_build(
         "example-export/daml.yaml",
     ],
     client = ":example-export-client",
+    client_args = [
+        "--target-port=%PORT%",
+    ],
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "--port",
-        "0",
+        "--port=0",
+        "--port-file=%PORT_FILE%",
     ],
     server_files = ["//daml-script/test:script-test.dar"],
 )

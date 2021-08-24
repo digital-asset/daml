@@ -61,6 +61,7 @@ class IntegrityChecker[LogResult](
       actualReadServiceFactory.createReadService,
       config.expectedUpdateNormalizers,
       config.actualUpdateNormalizers,
+      config.pairwiseUpdateNormalizers,
     )
 
     checkIntegrity(

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}

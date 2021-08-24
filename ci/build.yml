@@ -286,7 +286,7 @@ jobs:
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
-        IMAGE=digitalasset/oracle:enterprise-19.3.0-preloaded-20210325-22-be14fb7
+        IMAGE=$(cat ci/oracle_image)
         docker pull $IMAGE
         # Cleanup stray containers that might still be running from
         # another build that didn’t get shut down cleanly.
@@ -337,6 +337,48 @@ jobs:
       parameters:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
+
+- job: platform_independence_test
+  dependsOn:
+    - Windows
+    - Linux
+    - macOS
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifactName: platform-independence-dar-linux
+        targetPath: $(Build.StagingDirectory)/platform-independence/linux/
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifactName: platform-independence-dar-windows
+        targetPath: $(Build.StagingDirectory)/platform-independence/windows/
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifactName: platform-independence-dar-macos
+        targetPath: $(Build.StagingDirectory)/platform-independence/macos/
+    - bash: |
+        set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+
+        DIR1=$(mktemp -d)
+        DIR2=$(mktemp -d)
+        DIR3=$(mktemp -d)
+        trap "rm -rf $DIR1; rm -rf $DIR2; rm -rf $DIR3" EXIT
+
+        unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux/platform-independence.dar
+        unzip -d $DIR2 $(Build.StagingDirectory)/platform-independence/windows/platform-independence.dar
+        unzip -d $DIR3 $(Build.StagingDirectory)/platform-independence/macos/platform-independence.dar
+
+        # hie/hi files may differ.
+        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR2
+        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR3
+      displayName: 'Compare platform-independence dars of different platforms.'
 
 - job: compatibility_ts_libs
   dependsOn:

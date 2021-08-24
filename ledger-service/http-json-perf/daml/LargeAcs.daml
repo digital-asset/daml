@@ -114,3 +114,18 @@ template NotIou
 
 data WhichTemplate = UseIou | UseNotIou
   deriving (Eq, Show)
+
+template KeyedIou
+  with
+    id: Int
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    observers : [Party]
+  where
+    signatory issuer, owner
+    observer observers
+
+    key (issuer, id): (Party, Int)
+    maintainer key._1

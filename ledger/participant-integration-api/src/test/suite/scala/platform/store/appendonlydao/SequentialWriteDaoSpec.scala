@@ -6,19 +6,14 @@ package com.daml.platform.store.appendonlydao
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
-import com.daml.platform.store.backend.StorageBackend.{LedgerEnd, Params}
-import com.daml.platform.store.backend.{
-  DbDto,
-  IngestionStorageBackend,
-  ParameterStorageBackend,
-  StorageBackend,
-}
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -28,7 +23,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
   behavior of "SequentialWriteDaoImpl"
 
   it should "store correctly in a happy path case" in {
-    val storageBackendCaptor = new StorageBackendCaptor(LedgerEnd(None, Some(5)))
+    val storageBackendCaptor = new StorageBackendCaptor(Some(LedgerEnd(Offset.beforeBegin, 5)))
     val testee = SequentialWriteDaoImpl(
       storageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
@@ -39,7 +34,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
 
     storageBackendCaptor.captured(0) shouldBe someParty
-    storageBackendCaptor.captured(1) shouldBe Params(offset("01"), 5)
+    storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5)
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(3)
@@ -49,16 +44,16 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       .captured(4)
       .asInstanceOf[DbDto.EventDivulgence]
       .event_sequential_id shouldBe 8
-    storageBackendCaptor.captured(5) shouldBe Params(offset("02"), 8)
-    storageBackendCaptor.captured(6) shouldBe Params(offset("03"), 8)
+    storageBackendCaptor.captured(5) shouldBe LedgerEnd(offset("02"), 8)
+    storageBackendCaptor.captured(6) shouldBe LedgerEnd(offset("03"), 8)
     storageBackendCaptor.captured(7) shouldBe someParty
     storageBackendCaptor.captured(8).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 9
-    storageBackendCaptor.captured(9) shouldBe Params(offset("04"), 9)
+    storageBackendCaptor.captured(9) shouldBe LedgerEnd(offset("04"), 9)
     storageBackendCaptor.captured should have size 10
   }
 
   it should "start event_seq_id from 1" in {
-    val storageBackendCaptor = new StorageBackendCaptor(LedgerEnd(None, None))
+    val storageBackendCaptor = new StorageBackendCaptor(None)
     val testee = SequentialWriteDaoImpl(
       storageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
@@ -66,14 +61,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     testee.store(someConnection, offset("03"), None)
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
 
-    storageBackendCaptor.captured(0) shouldBe Params(offset("03"), 0)
+    storageBackendCaptor.captured(0) shouldBe LedgerEnd(offset("03"), 0)
     storageBackendCaptor.captured(1) shouldBe someParty
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 1
-    storageBackendCaptor.captured(3) shouldBe Params(offset("04"), 1)
+    storageBackendCaptor.captured(3) shouldBe LedgerEnd(offset("04"), 1)
     storageBackendCaptor.captured should have size 4
   }
 
-  class StorageBackendCaptor(initialLedgerEnd: StorageBackend.LedgerEnd)
+  class StorageBackendCaptor(initialLedgerEnd: Option[ParameterStorageBackend.LedgerEnd])
       extends IngestionStorageBackend[Vector[DbDto]]
       with ParameterStorageBackend {
 
@@ -86,42 +81,36 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       captured = captured ++ batch
     }
 
-    override def initialize(connection: Connection): StorageBackend.LedgerEnd =
+    override def initializeIngestion(
+        connection: Connection
+    ): Option[ParameterStorageBackend.LedgerEnd] =
       throw new UnsupportedOperationException
 
-    override def updateParams(params: StorageBackend.Params)(connection: Connection): Unit =
+    override def updateLedgerEnd(
+        params: ParameterStorageBackend.LedgerEnd
+    )(connection: Connection): Unit =
       synchronized {
         connection shouldBe someConnection
         captured = captured :+ params
       }
 
     private var ledgerEndCalled = false
-    override def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd = synchronized {
-      connection shouldBe someConnection
-      ledgerEndCalled shouldBe false
-      ledgerEndCalled = true
-      initialLedgerEnd
-    }
+    override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
+      synchronized {
+        connection shouldBe someConnection
+        ledgerEndCalled shouldBe false
+        ledgerEndCalled = true
+        initialLedgerEnd
+      }
 
-    override def ledgerId(connection: Connection): Option[LedgerId] =
+    override def initializeParameters(params: ParameterStorageBackend.IdentityParams)(
+        connection: Connection
+    )(implicit loggingContext: LoggingContext): Unit =
       throw new UnsupportedOperationException
 
-    override def updateLedgerId(ledgerId: String)(connection: Connection): Unit =
-      throw new UnsupportedOperationException
-
-    override def participantId(connection: Connection): Option[ParticipantId] =
-      throw new UnsupportedOperationException
-
-    override def updateParticipantId(participantId: String)(connection: Connection): Unit =
-      throw new UnsupportedOperationException
-
-    override def ledgerEndOffset(connection: Connection): Offset =
-      throw new UnsupportedOperationException
-
-    override def ledgerEndOffsetAndSequentialId(connection: Connection): (Offset, Long) =
-      throw new UnsupportedOperationException
-
-    override def initialLedgerEnd(connection: Connection): Option[Offset] =
+    override def ledgerIdentity(
+        connection: Connection
+    ): Option[ParameterStorageBackend.IdentityParams] =
       throw new UnsupportedOperationException
 
     override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(

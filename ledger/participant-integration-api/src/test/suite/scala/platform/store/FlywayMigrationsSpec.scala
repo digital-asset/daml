@@ -11,7 +11,7 @@ import com.daml.platform.store.FlywayMigrationsSpec._
 import org.apache.commons.io.IOUtils
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.api.migration.JavaMigration
-import org.flywaydb.core.internal.resource.LoadableResource
+import org.flywaydb.core.api.resource.LoadableResource
 import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCache, Scanner}
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AnyWordSpec
@@ -27,7 +27,7 @@ class FlywayMigrationsSpec extends AnyWordSpec {
       assertFlywayMigrationFileHashes(DbType.Postgres, 10)
     }
     "always have a valid SHA-256 digest file accompanied (append-only)" in {
-      assertFlywayMigrationFileHashes(DbType.Postgres, 1, true)
+      assertFlywayMigrationFileHashes(DbType.Postgres, 1, enableAppendOnlySchema = true)
     }
   }
 
@@ -39,7 +39,7 @@ class FlywayMigrationsSpec extends AnyWordSpec {
     // modifying the existing migration instead of treating it as immutable, because we don't provide
     // data continuity with H2.
     "always have a valid SHA-256 digest file accompanied (append-only)" in {
-      assertFlywayMigrationFileHashes(DbType.H2Database, 1, true)
+      assertFlywayMigrationFileHashes(DbType.H2Database, 1, enableAppendOnlySchema = true)
     }
   }
 
@@ -48,7 +48,7 @@ class FlywayMigrationsSpec extends AnyWordSpec {
       assertFlywayMigrationFileHashes(DbType.Oracle, 1)
     }
     "always have a valid SHA-256 digest file accompanied (append-only)" in {
-      assertFlywayMigrationFileHashes(DbType.Oracle, 1, true)
+      assertFlywayMigrationFileHashes(DbType.Oracle, 1, enableAppendOnlySchema = true)
     }
   }
 }
@@ -86,8 +86,11 @@ object FlywayMigrationsSpec {
       config.getLocations.toList.asJava,
       getClass.getClassLoader,
       config.getEncoding,
+      false,
+      false,
       new ResourceNameCache,
       new LocationScannerCache,
+      false,
     )
 
   private def getExpectedDigest(
