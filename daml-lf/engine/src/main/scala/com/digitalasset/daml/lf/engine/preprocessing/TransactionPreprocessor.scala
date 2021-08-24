@@ -6,14 +6,12 @@ package engine
 package preprocessing
 
 import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction}
+import com.daml.lf.value.Value.ContractId
 
 private[preprocessing] final class TransactionPreprocessor(
-    compiledPackages: MutableCompiledPackages
+    commandPreprocessor: CommandPreprocessor
 ) {
-
-  val commandPreprocessor = new CommandPreprocessor(compiledPackages)
 
   private[this] def invalidRootNode(nodeId: NodeId, message: String) =
     throw Error.Preprocessing.RootNode(nodeId, message)
@@ -65,18 +63,18 @@ private[preprocessing] final class TransactionPreprocessor(
    * for more details.
    */
   @throws[Error.Preprocessing.Error]
-  def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction[NodeId, Cid]
+  def unsafeTranslateTransactionRoots(
+      tx: SubmittedTransaction
   ): ImmArray[speedy.Command] = {
 
     val result = tx.roots.foldLeft(BackStack.empty[speedy.Command]) { (acc, id) =>
       tx.nodes.get(id) match {
-        case Some(node: Node.GenActionNode[_, Cid]) =>
+        case Some(node: Node.GenActionNode[_, ContractId]) =>
           node match {
-            case create: Node.NodeCreate[Cid] =>
+            case create: Node.NodeCreate[ContractId] =>
               val cmd = commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
               acc :+ cmd
-            case exe: Node.NodeExercises[_, Cid] =>
+            case exe: Node.NodeExercises[_, ContractId] =>
               val cmd = exe.key match {
                 case Some(key) if exe.byKey =>
                   commandPreprocessor.unsafePreprocessExerciseByKey(

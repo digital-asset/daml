@@ -13,12 +13,10 @@ import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.value.Value
 import java.nio.file.Files
 
 import com.daml.lf.language.{Interface, LanguageVersion, LookupError, StablePackages}
 import com.daml.lf.validation.Validation
-import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -50,13 +48,17 @@ import com.daml.nameof.NameOf
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableVersions)) {
+class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
-  private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+  private[engine] val preprocessor =
+    new preprocessing.Preprocessor(
+      compiledPackages = compiledPackages,
+      requiredCidSuffix = config.requireSuffixedGlobalCids,
+    )
 
   def info = new EngineInfo(config)
 
@@ -169,7 +171,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       submissionSeed: crypto.Hash,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commands <- preprocessor.translateTransactionRoots(tx.transaction)
+      commands <- preprocessor.translateTransactionRoots(tx)
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
@@ -466,9 +468,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     } yield ()
   }
 
-  private[engine] def enrich(typ: Type, value: Value[ContractId]): Result[Value[ContractId]] =
-    preprocessor.translateValue(typ, value).map(_.toValue)
-
 }
 
 object Engine {
@@ -501,8 +500,13 @@ object Engine {
     }
   }
 
-  def DevEngine(): Engine = new Engine(new EngineConfig(LanguageVersion.DevVersions))
+  private def StableConfig =
+    EngineConfig(allowedLanguageVersions = LanguageVersion.StableVersions)
 
-  def StableEngine(): Engine = new Engine()
+  def StableEngine(): Engine = new Engine(StableConfig)
+
+  def DevEngine(): Engine = new Engine(
+    StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
+  )
 
 }
