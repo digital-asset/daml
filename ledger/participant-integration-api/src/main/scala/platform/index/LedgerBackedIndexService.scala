@@ -50,6 +50,7 @@ import com.daml.telemetry.{SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
+import scala.util.{Success, Try}
 
 private[platform] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
@@ -116,15 +117,12 @@ private[platform] final class LedgerBackedIndexService(
         .map(_._2)
     })
 
-  // Returns a function that memoizes the current end
-  // Can be used directly or shared throughout a request processing
-  private def convertOffset(implicit
+  private def convertOffset(offset: LedgerOffset)(implicit
       loggingContext: LoggingContext
-  ): LedgerOffset => Source[Offset, NotUsed] = {
-    case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
-    case LedgerOffset.LedgerEnd => Source.single(ledger.ledgerEnd())
-    case LedgerOffset.Absolute(offset) =>
-      ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
+  ): Try[Offset] = offset match {
+    case LedgerOffset.LedgerBegin => Success(Offset.beforeBegin)
+    case LedgerOffset.LedgerEnd => Success(ledger.ledgerEnd())
+    case LedgerOffset.Absolute(offset) => ApiOffset.fromString(offset)
   }
 
   private def between[A](
@@ -132,15 +130,11 @@ private[platform] final class LedgerBackedIndexService(
       endInclusive: Option[domain.LedgerOffset],
   )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
       loggingContext: LoggingContext
-  ): Source[A, NotUsed] = {
-    val convert = convertOffset
-    convert(startExclusive).flatMapConcat { begin =>
-      endInclusive
-        .map(convert(_).map(Some(_)))
-        .getOrElse(Source.single(None))
-        .flatMapConcat {
-          case Some(`begin`) =>
-            Source.empty
+  ): Source[A, NotUsed] =
+    convertOffset(startExclusive)
+      .flatMap { begin =>
+        endInclusive.map(convertOffset(_).map(Some(_))).getOrElse(Success(None)).map {
+          case Some(`begin`) => Source.empty
           case Some(end) if begin > end =>
             Source.failed(
               ErrorFactories.invalidArgument(
@@ -150,8 +144,8 @@ private[platform] final class LedgerBackedIndexService(
           case endOpt: Option[Offset] =>
             f(Some(begin), endOpt)
         }
-    }
-  }
+      }
+      .fold(Source.failed, identity)
 
   private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
     filter.filtersByParty.map { case (party, filters) =>
@@ -186,12 +180,12 @@ private[platform] final class LedgerBackedIndexService(
       startExclusive: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
-    val convert = convertOffset
-    convert(startExclusive).flatMapConcat { beginOpt =>
-      ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
-    }
-  }
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
+    convertOffset(startExclusive)
+      .map { begin =>
+        ledger.completions(Some(begin), None, applicationId, parties).map(_._2)
+      }
+      .fold(Source.failed, identity)
 
   // IndexPackagesService
   override def listLfPackages()(implicit
