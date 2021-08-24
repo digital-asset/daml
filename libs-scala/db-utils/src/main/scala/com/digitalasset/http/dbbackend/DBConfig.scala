@@ -13,7 +13,6 @@ import scalaz.{@@, Show, StateT, Tag, \/}
 
 import java.io.File
 import scala.util.Try
-import scalaz.\/.right
 
 object DBConfig {
   type SupportedJdbcDriverNames = Set[String] @@ SupportedJdbcDrivers
@@ -43,7 +42,7 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
   // If we don't DRY our keys, we will definitely forget to remove one.  We're
   // less likely to make a mistake in backend-specific conf if redundant data
   // isn't there. -SC
-  protected type Fields[A] = StateT[({ type l[a] = Either[String, a] })#l, Map[String, String], A]
+  protected type Fields[Z] = StateT[({ type l[a] = Either[String, a] })#l, Map[String, String], Z]
 
   protected[this] def create(x: Map[String, String], defaultDriver: Option[String])(implicit
       readCtx: ReadCtx
@@ -66,7 +65,7 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
   protected def optionalStringField(
       k: String
   ): Fields[Option[String]] =
-    StateT { m => Right(m.get(k).map((m removed k, _))) }
+    StateT { m => Right((m removed k, m get k)) }
 
   protected def optionalBooleanField(
       k: String
@@ -169,8 +168,10 @@ object JdbcConfig
           if (createSchema) CreateOnly else StartOnly
         }: Option[DbStartupMode]
       )
-      dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("start-mode")
-      remainingConf <- StateT.get
+      dbStartupMode <- optionalStringField("start-mode").flatMap { osm =>
+        StateT liftM osm.traverse(DbStartupMode.parseSchemaHandlingField)
+      }
+      remainingConf <- StateT.get: Fields[Map[String, String]]
     } yield JdbcConfig(
       driver = driver,
       url = url,
