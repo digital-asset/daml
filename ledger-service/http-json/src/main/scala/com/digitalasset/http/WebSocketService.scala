@@ -402,8 +402,6 @@ object WebSocketService {
           lc: LoggingContextOf[InstanceUUID],
           jwt: Jwt,
       ): Future[domain.ContractKeyStreamRequest[Hint, domain.LfValue]] = {
-//        implicit val _h = domain.HasTemplateId
-//          .by[({ type T[A] = domain.ContractKeyStreamRequest[Hint, A] })#T]
         decoder
           .decodeUnderlyingValuesToLf(a)
           .run
