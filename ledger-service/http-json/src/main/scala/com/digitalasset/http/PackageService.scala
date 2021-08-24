@@ -19,12 +19,10 @@ import scalaz._
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicBoolean
-import scala.util.control.NonFatal
 
 private class PackageService(
-    reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore
+    reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore,
+    timeoutInSeconds: Long = 60L,
 ) {
 
   private[this] val logger = ContextualizedLogger.get(getClass)
@@ -57,83 +55,47 @@ private class PackageService(
     @volatile private var _state: State =
       State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
 
-    def state: State = _state
+    private def updateState(diff: PackageStore): Unit = synchronized {
+      this._state = this._state.append(diff)
+    }
 
-    // volatile, because we want to reduce the probability of unnecessary package updates
-    // due to multiple threads reading this.
-    // Writes to this are synchronized with a mutex, so in theory this should work out fine.
     @volatile private var lastUpdated = Instant.MIN
+
+    private def updateInstant(instant: Instant): Unit = synchronized {
+      if (lastUpdated.isBefore(instant))
+        lastUpdated = instant
+    }
+
+    def state: State = _state
 
     // Regular updates should happen regardless of the current state every minute.
     def packagesShouldBeFetchedAgain: Boolean =
-      lastUpdated.until(Instant.now(), temporal.ChronoUnit.SECONDS) >= 60L
-
-    private val isPackageListBeingUpdated = new AtomicBoolean(false)
-    @volatile private var latch = new CountDownLatch(1)
-    @volatile private var ongoingPackageListUpdateTask = Future.successful(().right)
-
-    private def update(jwt: Jwt)(implicit
-        ec: ExecutionContext,
-        lc: LoggingContextOf[InstanceUUID],
-    ) = {
-      val updateTask =
-        EitherT
-          .eitherT(
-            Future(
-              logger.debug("Trying to execute a package update")
-            ) *> reloadPackageStoreIfChanged(
-              jwt
-            )(_state.packageIds)
-          )
-          .map {
-            case Some(diff) =>
-              this._state = this._state.append(diff)
-              logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-              logger.debug(s"loaded diff: $diff")
-            case None => logger.debug(s"new package IDs not found")
-          }
-          .map { res =>
-            lastUpdated = Instant.now()
-            res
-          }
-          .run
-      try {
-        ongoingPackageListUpdateTask = updateTask.map(_ => ().right)
-        latch.countDown()
-        latch = new CountDownLatch(1)
-        // The task future has been updated, now all waiting threads can continue and pick it up.
-        updateTask.transform { res =>
-          // regardless of whether this was a success or failure
-          // we always want to release the mutex here.
-          logger.debug("Task finished, setting isPackageListBeingUpdated to false")
-          isPackageListBeingUpdated.set(false)
-          res
-        }
-      } catch {
-        case NonFatal(t) =>
-          if (latch.getCount > 0)
-            latch.countDown()
-          latch = new CountDownLatch(1)
-          logger.debug("Setting isPackageListBeingUpdated to false after catching an exception")
-          isPackageListBeingUpdated.set(false)
-          Future.failed(t)
-      }
-    }
+      lastUpdated.until(Instant.now(), temporal.ChronoUnit.SECONDS) >= timeoutInSeconds
 
     def reload(jwt: Jwt)(implicit
         ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
-    ): Future[Error \/ Unit] = {
-      logger.debug("Trying to update packages")
-      // Only one thread is allowed to update
-      if (isPackageListBeingUpdated.compareAndSet(false, true))
-        update(jwt)
-      else {
-        latch.await()
-        logger.debug(s"Picking up an ongoing update task")
-        ongoingPackageListUpdateTask
-      }
-    }
+    ): Future[Error \/ Unit] =
+      EitherT
+        .eitherT(
+          Future(
+            logger.debug("Trying to execute a package update")
+          ) *> reloadPackageStoreIfChanged(
+            jwt
+          )(_state.packageIds)
+        )
+        .map {
+          case Some(diff) =>
+            updateState(diff)
+            logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+            logger.debug(s"loaded diff: $diff")
+          case None => logger.debug(s"new package IDs not found")
+        }
+        .map { res =>
+          updateInstant(Instant.now())
+          res
+        }
+        .run
   }
 
   private val cache = StateCache()
@@ -147,36 +109,56 @@ private class PackageService(
 
   def packageStore: PackageStore = state.packageStore
 
-  private def withFreshPackagesCheckAndRetry[B](
-      jwt: Jwt
-  )(fn: () => B, checkIfSuccess: B => Boolean)(implicit
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
-  ): ET[B] = for {
-    packagesHadToBeFetchedAgain <-
-      if (cache.packagesShouldBeFetchedAgain) EitherT(reload(jwt)).map(_ => true)
-      else EitherT.pure(false): ET[Boolean]
-    _ = logger.trace(s"Did we have to reload the packages: $packagesHadToBeFetchedAgain")
-    result <- EitherT.pure(fn()): ET[B]
-    _ = logger.trace(s"Result: $result")
-    finalResult <-
-      if (!checkIfSuccess(result) && !packagesHadToBeFetchedAgain) {
-        logger.trace(
-          s"Reloading packages although they should not be fetched again because our task was not successful so we want to ensure we didn't miss any recent packages"
-        )
-        EitherT(reload(jwt)).map(_ => fn())
-      } else EitherT.pure(result): ET[B]
-    _ = logger.trace(s"Final result: $finalResult")
-  } yield finalResult
-
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
   // `state.templateIdMap` will be cached in this case.
   def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId = {
     implicit lc: LoggingContextOf[InstanceUUID] => (jwt: Jwt) => (x: TemplateId.OptionalPkg) =>
-      withFreshPackagesCheckAndRetry[Option[TemplateId.RequiredPkg]](jwt)(
-        () => PackageService.resolveTemplateId(state.templateIdMap)(x),
-        _.isDefined,
-      ).run
+      {
+        type ResultType = Option[TemplateId.RequiredPkg]
+        def doSearch() = PackageService.resolveTemplateId(state.templateIdMap)(x)
+        def doReloadAndSearchAgain() = EitherT(reload(jwt)).map(_ => doSearch())
+        def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
+        for {
+          result <- EitherT.pure(doSearch()): ET[ResultType]
+          _ = logger.trace(s"Result: $result")
+          finalResult <-
+            x.packageId.fold {
+              if (result.isDefined)
+                // no package id and we do have the package, refresh if timeout
+                if (cache.packagesShouldBeFetchedAgain) {
+                  logger.trace(
+                    "no package id and we do have the package, refresh because of timeout"
+                  )
+                  doReloadAndSearchAgain()
+                } else {
+                  logger.trace("no package id and we do have the package, -no timeout- no refresh")
+                  keep(result)
+                }
+              // no package id and we don’t have the package, always refresh
+              else {
+                logger.trace("no package id and we don’t have the package, always refresh")
+                doReloadAndSearchAgain()
+              }
+            } { packageId =>
+              if (result.isDefined) {
+                logger.trace("package id defined & template id found, no refresh necessary")
+                keep(result)
+              } else {
+                // package id and we have the package, never refresh
+                if (state.packageIds.contains(packageId)) {
+                  logger.trace("package id and we have the package, never refresh")
+                  keep(result)
+                }
+                // package id and we don’t have the package, always refresh
+                else {
+                  logger.trace("package id and we don’t have the package, always refresh")
+                  doReloadAndSearchAgain()
+                }
+              }
+            }: ET[ResultType]
+          _ = logger.trace(s"Final result: $finalResult")
+        } yield finalResult
+      }.run
   }
 
   def resolveTemplateRecordType: ResolveTemplateRecordType =
