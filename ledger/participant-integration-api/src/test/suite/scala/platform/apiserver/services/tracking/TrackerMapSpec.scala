@@ -17,6 +17,7 @@ import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.collection.compat._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,8 +43,10 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
           SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "2", actAs = Seq("Bob"))))
         )
       } yield {
-        completion1 should matchPattern { case Right(CompletionSuccess("1", "transaction A")) => }
-        completion2 should matchPattern { case Right(CompletionSuccess("2", "transaction B")) => }
+        completion1 should matchPattern { case Right(CompletionSuccess("1", "transaction A", _)) =>
+        }
+        completion2 should matchPattern { case Right(CompletionSuccess("2", "transaction B", _)) =>
+        }
       }
     }
 
@@ -73,8 +76,10 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
         )
       } yield {
         trackerCount.get() should be(1)
-        completion1 should matchPattern { case Right(CompletionSuccess("X", "Alice, Bob: 0")) => }
-        completion2 should matchPattern { case Right(CompletionSuccess("Y", "Alice, Bob: 1")) => }
+        completion1 should matchPattern { case Right(CompletionSuccess("X", "Alice, Bob: 0", _)) =>
+        }
+        completion2 should matchPattern { case Right(CompletionSuccess("Y", "Alice, Bob: 1", _)) =>
+        }
       }
     }
 

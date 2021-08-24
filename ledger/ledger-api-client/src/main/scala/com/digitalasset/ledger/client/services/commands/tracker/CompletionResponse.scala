@@ -49,15 +49,6 @@ object CompletionResponse {
       originalStatus: StatusProto,
   )
 
-  object CompletionSuccess {
-
-    /** In most cases we're not interested in the original grpc status, as it's used only to keep backwards compatibility
-      */
-    def unapply(success: CompletionSuccess): Option[(String, String)] = Some(
-      success.commandId -> success.transactionId
-    )
-  }
-
   def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] =
     completion.status match {
       case Some(grpcStatus) if Code.OK.value() == grpcStatus.code =>
