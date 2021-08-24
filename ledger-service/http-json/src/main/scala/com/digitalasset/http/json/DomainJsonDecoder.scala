@@ -60,6 +60,15 @@ class DomainJsonDecoder(
     } yield fv
   }
 
+  def decodeCreateCommand(a: JsValue, jwt: Jwt)(implicit
+      ev1: JsonReader[domain.CreateCommand[JsValue, TemplateId.OptionalPkg]],
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[domain.CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]] = {
+    implicit val _jwt: Jwt = jwt
+    decodeCreateCommand(a)
+  }
+
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsValue]
   )(implicit
@@ -120,6 +129,15 @@ class DomainJsonDecoder(
     )
       .flatMap(decodeContractLocatorUnderlyingValue)
 
+  def decodeContractLocator(a: JsValue, jwt: Jwt)(implicit
+      ev: JsonReader[domain.ContractLocator[JsValue]],
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[domain.ContractLocator[domain.LfValue]] = {
+    implicit val _jwt: Jwt = jwt
+    decodeContractLocator(a)
+  }
+
   private def decodeContractLocatorUnderlyingValue(
       a: domain.ContractLocator[JsValue]
   )(implicit
@@ -162,6 +180,15 @@ class DomainJsonDecoder(
 
     } yield cmd1
 
+  def decodeExerciseCommand(a: JsValue, jwt: Jwt)(implicit
+      ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]],
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]]] = {
+    implicit val _jwt: Jwt = jwt
+    decodeExerciseCommand(a)
+  }
+
   def decodeCreateAndExerciseCommand(a: JsValue)(implicit
       ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue, TemplateId.OptionalPkg]],
       ec: ExecutionContext,
@@ -189,6 +216,19 @@ class DomainJsonDecoder(
       payload <- either(jsValueToApiValue(payloadT, fjj.payload).flatMap(mustBeApiRecord))
       argument <- either(jsValueToApiValue(argT, fjj.argument))
     } yield fjj.copy(payload = payload, argument = argument, templateId = tId)
+  }
+
+  def decodeCreateAndExerciseCommand(a: JsValue, jwt: Jwt)(implicit
+      ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue, TemplateId.OptionalPkg]],
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand[
+    lav1.value.Record,
+    lav1.value.Value,
+    TemplateId.RequiredPkg,
+  ]] = {
+    implicit val _jwt: Jwt = jwt
+    decodeCreateAndExerciseCommand(a)
   }
 
   private def templateId_(

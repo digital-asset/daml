@@ -278,11 +278,10 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
-      implicit val _jwt: Jwt = jwt
       for {
         cmd <-
           decoder
-            .decodeCreateCommand(reqBody)
+            .decodeCreateCommand(reqBody, jwt)
             .liftErr(InvalidUserInput): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
@@ -301,10 +300,11 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
-      implicit val _jwt: Jwt = jwt
       for {
         cmd <-
-          decoder.decodeExerciseCommand(reqBody).liftErr(InvalidUserInput): ET[
+          decoder
+            .decodeExerciseCommand(reqBody, jwt)
+            .liftErr(InvalidUserInput): ET[
             domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
@@ -333,10 +333,11 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
-      implicit val _jwt: Jwt = jwt
       for {
         cmd <-
-          decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput): ET[
+          decoder
+            .decodeCreateAndExerciseCommand(reqBody, jwt)
+            .liftErr(InvalidUserInput): ET[
             domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
@@ -365,11 +366,10 @@ class Endpoints(
 
       jsVal <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
         logger.debug(s"/v1/fetch reqBody: $reqBody")
-        implicit val _jwt: Jwt = jwt
         for {
           cl <-
             decoder
-              .decodeContractLocator(reqBody)
+              .decodeContractLocator(reqBody, jwt)
               .liftErr(InvalidUserInput): ET[domain.ContractLocator[LfValue]]
           _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
           _ = logger.debug(s"/v1/fetch cl: $cl")
