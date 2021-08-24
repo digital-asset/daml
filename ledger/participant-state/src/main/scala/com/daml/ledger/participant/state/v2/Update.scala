@@ -93,9 +93,11 @@ object Update {
   }
 
   /** Signal that a party is hosted at a participant.
-    * There might be multiple such events for the same party, in this case always the last one is the current one.
-    * Only exception from this rule is in case of participantId: once a party is added to a participant, it cannot be removed from there.
-    * (Which makes the paricipantId an ever extending set)
+    * 
+    * Repeated `PartyAddedToParticipant` updates are interpreted in the order of their offsets as follows:
+    * - last-write-wins semantics for `displayName`
+    * - set-union semantics for `participantId`; i.e., parties can only be added to, but not removed from a participant
+    * The `recordTime` and `submissionId` are always metadata for their specific `PartyAddedToParticipant` update.
     *
     * @param party         The party identifier.
     * @param displayName   The user readable description of the party. May not be unique.
