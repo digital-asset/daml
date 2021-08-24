@@ -22,6 +22,7 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
+  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -39,7 +40,8 @@ private[backend] object PostgresStorageBackend
     with CommonStorageBackend[AppendOnlySchema.Batch]
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
-    with CompletionStorageBackendTemplate {
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
 
   override def insertBatch(
       connection: Connection,

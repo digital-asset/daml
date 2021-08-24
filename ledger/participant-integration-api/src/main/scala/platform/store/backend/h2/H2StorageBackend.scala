@@ -21,6 +21,7 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
+  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -37,7 +38,8 @@ private[backend] object H2StorageBackend
     with CommonStorageBackend[AppendOnlySchema.Batch]
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
-    with CompletionStorageBackendTemplate {
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
 
   override def reset(connection: Connection): Unit = {
     SQL("""set referential_integrity false;

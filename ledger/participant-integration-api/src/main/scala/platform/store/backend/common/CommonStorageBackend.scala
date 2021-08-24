@@ -7,9 +7,9 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.Date
 
-import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, int, long, str}
+import anorm.SqlParser.{array, binaryStream, byteArray, date, flatten, int, long, str}
 import anorm.{Macro, RowParser, SQL, SqlParser, SqlQuery, ~}
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
@@ -20,9 +20,7 @@ import com.daml.platform.store.Conversions.{
   instant,
   ledgerString,
   offset,
-  party,
 }
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.MismatchException
@@ -32,7 +30,7 @@ import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectTy
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry}
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
 
@@ -308,130 +306,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .asVectorOf(configurationEntryParser)(connection)
   }
 
-  // Parties
-
-  private val SQL_GET_PARTY_ENTRIES = SQL(
-    """select * from party_entries
-      |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
-      |order by ledger_offset asc
-      |offset {queryOffset} rows
-      |fetch next {pageSize} rows only""".stripMargin
-  )
-
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    (offset("ledger_offset") ~
-      date("recorded_at") ~
-      ledgerString("submission_id").? ~
-      party("party").? ~
-      str("display_name").? ~
-      str("typ") ~
-      str("rejection_reason").? ~
-      bool("is_local").?)
-      .map(flatten)
-      .map {
-        case (
-              offset,
-              recordTime,
-              submissionIdOpt,
-              Some(party),
-              displayNameOpt,
-              `acceptType`,
-              None,
-              Some(isLocal),
-            ) =>
-          offset ->
-            PartyLedgerEntry.AllocationAccepted(
-              submissionIdOpt,
-              recordTime.toInstant,
-              PartyDetails(party, displayNameOpt, isLocal),
-            )
-        case (
-              offset,
-              recordTime,
-              Some(submissionId),
-              None,
-              None,
-              `rejectType`,
-              Some(reason),
-              None,
-            ) =>
-          offset -> PartyLedgerEntry.AllocationRejected(
-            submissionId,
-            recordTime.toInstant,
-            reason,
-          )
-        case invalidRow =>
-          sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
-      }
-  }
-
-  def partyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_GET_PARTY_ENTRIES
-      .on(
-        "startExclusive" -> startExclusive,
-        "endInclusive" -> endInclusive,
-        "pageSize" -> pageSize,
-        "queryOffset" -> queryOffset,
-      )
-      .asVectorOf(partyEntryParser)(connection)
-  }
-
-  val partyDetailsParser: RowParser[PartyDetails] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    str("party") ~
-      str("display_name").? ~
-      bool("is_local") map { case party ~ displayName ~ isLocal =>
-        PartyDetails(
-          party = Ref.Party.assertFromString(party),
-          displayName = displayName,
-          isLocal = isLocal,
-        )
-      }
-  }
-
-  private def queryParties(
-      parties: Option[Set[String]],
-      connection: Connection,
-  ): Vector[PartyDetails] = {
-    val partyFilter = parties match {
-      case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
-      case None => cSQL""
-    }
-    SQL"""
-        SELECT
-          parties.party,
-          parties.display_name,
-          parties.is_local
-        FROM (
-          SELECT
-            party_entries.party party,
-            party_entries.display_name display_name,
-            party_entries.is_local is_local,
-            row_number() OVER (PARTITION BY PARTY ORDER BY ledger_offset DESC) rn
-          FROM party_entries, parameters
-          WHERE
-            $partyFilter
-            party_entries.typ = 'accept'
-            AND party_entries.ledger_offset <= parameters.ledger_end
-        ) parties
-        WHERE
-          rn = 1
-       """.asVectorOf(partyDetailsParser)(connection)
-  }
-
-  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] =
-    queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
-
-  def knownParties(connection: Connection): List[PartyDetails] =
-    queryParties(None, connection).toList
-
   // Packages
 
   private val SQL_SELECT_PACKAGES =
@@ -487,8 +361,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
     """select * from package_entries
-      |where ({startExclusive} is null or ledger_offset > {startExclusive})
-      |and ledger_offset <= {endInclusive}
+      |where ({startExclusive} is null or ledger_offset>{startExclusive})
+      |and ledger_offset<={endInclusive}
       |order by ledger_offset asc
       |offset {queryOffset} rows
       |fetch next {pageSize} rows only""".stripMargin

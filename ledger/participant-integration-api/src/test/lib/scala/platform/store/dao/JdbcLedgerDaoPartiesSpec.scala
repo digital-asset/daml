@@ -219,7 +219,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     }
   }
 
-  it should "be able to store multiple parties with the same identifier, and the last update will be visible as query-ing" in {
+  it should "be able to store multiple parties with the same identifier, which was local once, and the last update will be visible as query-ing, except is_local: that stays true" in {
     if (enableAppendOnlySchema) {
       val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
       val dan = PartyDetails(
@@ -233,6 +233,59 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
         displayName = Some("Ultimately dangerous Dan"),
         isLocal = false,
       )
+      val beforeStartOffset = nextOffset()
+      val firstOffset = nextOffset()
+      for {
+        response <- storePartyEntry(dan, firstOffset)
+        _ = response should be(PersistenceResponse.Ok)
+        secondOffset = nextOffset()
+        response <- storePartyEntry(dan2, secondOffset)
+        _ = response should be(PersistenceResponse.Ok)
+        thirdOffset = nextOffset()
+        response <- storePartyEntry(dan3, thirdOffset)
+        _ = response should be(PersistenceResponse.Ok)
+        lastOffset = nextOffset()
+        response <- storePartyEntry(
+          dan4,
+          lastOffset,
+          Some(Ref.SubmissionId.assertFromString("final submission")),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        parties <- ledgerDao.getParties(Seq(danParty))
+        partyEntries <- ledgerDao
+          .getPartyEntries(beforeStartOffset, nextOffset())
+          .runWith(Sink.collection)
+      } yield {
+        parties shouldBe List(dan4.copy(isLocal = true)) // once local stays local
+        val partyEntriesMap = partyEntries.toMap
+        partyEntriesMap(firstOffset).asInstanceOf[AllocationAccepted].partyDetails shouldBe dan
+        partyEntriesMap(secondOffset).asInstanceOf[AllocationAccepted].partyDetails shouldBe dan2
+        partyEntriesMap(thirdOffset).asInstanceOf[AllocationAccepted].partyDetails shouldBe dan3
+        partyEntriesMap(lastOffset).asInstanceOf[AllocationAccepted].partyDetails shouldBe dan4
+        partyEntriesMap(lastOffset).submissionIdOpt shouldBe Some(
+          Ref.SubmissionId.assertFromString("final submission")
+        )
+      }
+    } else
+      Future.successful {
+        info(
+          "This test is only make sense for the append-only schema. For the mutable schema this test is disabled."
+        )
+        1 shouldBe 1
+      }
+  }
+
+  it should "be able to store multiple parties with the same identifier, which was never local once, and the last update will be visible as query-ing, also is_local: false" in {
+    if (enableAppendOnlySchema) {
+      val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
+      val dan = PartyDetails(
+        party = danParty,
+        displayName = Some("Dangerous Dan"),
+        isLocal = false,
+      )
+      val dan2 = dan.copy(displayName = Some("Even more dangerous Dan"))
+      val dan3 = dan.copy(displayName = Some("Even more so dangerous Dan"))
+      val dan4 = dan.copy(displayName = Some("Ultimately dangerous Dan"))
       val beforeStartOffset = nextOffset()
       val firstOffset = nextOffset()
       for {

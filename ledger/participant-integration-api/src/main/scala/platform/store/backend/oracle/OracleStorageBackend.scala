@@ -14,6 +14,7 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
+  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -37,7 +38,8 @@ private[backend] object OracleStorageBackend
     with CommonStorageBackend[AppendOnlySchema.Batch]
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
-    with CompletionStorageBackendTemplate {
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
 
   override def reset(connection: Connection): Unit =
     List(
@@ -109,6 +111,8 @@ private[backend] object OracleStorageBackend
 
     override def columnEqualityBoolean(column: String, value: String): String =
       s"""case when ($column = $value) then 1 else 0 end"""
+
+    override def booleanOrAggregationFunction: String = "max"
   }
 
   override def queryStrategy: QueryStrategy = OracleQueryStrategy
