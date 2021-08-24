@@ -221,8 +221,8 @@ private class JdbcLedgerDao(
       }
     }
 
-  private val nonLocalParticipantId =
-    Ref.ParticipantId.assertFromString("__HACK__non-local-participant-id")
+  private val NonLocalParticipantId =
+    Ref.ParticipantId.assertFromString("RESTRICTED_NON_LOCAL_PARTICIPANT_ID")
 
   override def storePartyEntry(
       offsetStep: OffsetStep,
@@ -245,7 +245,7 @@ private class JdbcLedgerDao(
                 // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
                 //
                 // This will be properly resolved once we move away from the `sandbox-classic` codebase.
-                participantId = if (partyDetails.isLocal) participantId else nonLocalParticipantId,
+                participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
                 recordTime = Time.Timestamp.assertFromInstant(recordTime),
                 submissionId = submissionIdOpt,
               )

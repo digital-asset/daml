@@ -93,7 +93,7 @@ object Update {
   }
 
   /** Signal that a party is hosted at a participant.
-    * 
+    *
     * Repeated `PartyAddedToParticipant` updates are interpreted in the order of their offsets as follows:
     * - last-write-wins semantics for `displayName`
     * - set-union semantics for `participantId`; i.e., parties can only be added to, but not removed from a participant
