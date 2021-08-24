@@ -62,11 +62,11 @@ private class PackageService(
     // volatile, because we want to reduce the probability of unnecessary package updates
     // due to multiple threads reading this.
     // Writes to this are synchronized with a mutex, so in theory this should work out fine.
-    @volatile private var lastUpdated = LocalDateTime.MIN
+    @volatile private var lastUpdated = Instant.MIN
 
     // Regular updates should happen regardless of the current state every minute.
     def packagesShouldBeFetchedAgain: Boolean =
-      lastUpdated.until(LocalDateTime.now(), temporal.ChronoUnit.SECONDS) >= 60L
+      lastUpdated.until(Instant.now(), temporal.ChronoUnit.SECONDS) >= 60L
 
     private val isPackageListBeingUpdated = new AtomicBoolean(false)
     @volatile private var latch = new CountDownLatch(1)
@@ -93,7 +93,7 @@ private class PackageService(
             case None => logger.debug(s"new package IDs not found")
           }
           .map { res =>
-            lastUpdated = LocalDateTime.now()
+            lastUpdated = Instant.now()
             res
           }
           .run
