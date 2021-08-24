@@ -81,12 +81,13 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       val tested = TlsConfiguration.Empty
 
       // when
-      val e = intercept[IllegalStateException] {
+      val e = intercept[PrivateKeyDecryptionException] {
         val _: InputStream = tested.prepareKeyInputStream(keyFile)
       }
 
       // then
-      e.getMessage shouldBe "Unable to convert TlsConfiguration(true,None,None,None,None,REQUIRE,false,List()) to SSL Context: cannot decrypt keyFile without secretsUrl."
+      e.getCause shouldBe a[IllegalStateException]
+      e.getCause.getMessage shouldBe "Unable to convert TlsConfiguration(true,None,None,None,None,REQUIRE,false,List()) to SSL Context: cannot decrypt keyFile without secretsUrl."
     }
 
     "attempt to decrypt private key using by fetching decryption params from an url" in {
@@ -99,10 +100,13 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       val tested = TlsConfiguration.Empty
         .copy(secretsUrl = Some(url))
 
-      // when & then: key decryption logic should attempt to connect to the url
-      assertThrows[ConnectException] {
+      // when
+      val e = intercept[PrivateKeyDecryptionException] {
         val _: InputStream = tested.prepareKeyInputStream(keyFile)
       }
+
+      // then key decryption logic should attempted to connect to the url
+      e.getCause shouldBe a[ConnectException]
     }
   }
 
