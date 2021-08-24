@@ -34,6 +34,7 @@ import scalaz.Scalaz.listInstance
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.domain.TemplateId.toLedgerApiValue
+import com.daml.http.domain.TemplateId.RequiredPkg
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
@@ -249,6 +250,42 @@ object WebSocketService {
         val indexedOffsets: Vector[Option[domain.Offset]] =
           request.queries.map(_.offset).toVector
 
+        def matchesOffset(queryIndex: Int, maybeEventOffset: Option[domain.Offset]): Boolean = {
+          import domain.Offset.ordering
+          import scalaz.syntax.order._
+          val matches =
+            for {
+              queryOffset <- indexedOffsets(queryIndex)
+              eventOffset <- maybeEventOffset
+            } yield eventOffset > queryOffset
+          matches.getOrElse(true)
+        }
+
+        def fn(
+            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), Int)]]
+        )(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
+          q.get(a.templateId).flatMap { preds =>
+            preds.collect(Function unlift { case ((_, p), ix) =>
+              val matchesPredicate = p(a.payload)
+              (matchesPredicate && matchesOffset(ix, o)).option(ix)
+            })
+          }
+        }
+
+        def dbQueriesPlan(
+            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), Int)]]
+        )(implicit
+            sjd: dbbackend.SupportedJdbcDriver
+        ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+          val annotated = q.toSeq.flatMap { case (tpid, nel) =>
+            nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
+          }
+          val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
+            (ix, pos)
+          }.toMap
+          (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
+        }
+
         request.queries.zipWithIndex
           .foldMapM { case (gacr, ix) =>
             for {
@@ -264,45 +301,14 @@ object WebSocketService {
             } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
           .map { case (resolved, unresolved, q) =>
-            def matchesOffset(queryIndex: Int, maybeEventOffset: Option[domain.Offset]): Boolean = {
-              import domain.Offset.ordering
-              import scalaz.syntax.order._
-              val matches =
-                for {
-                  queryOffset <- indexedOffsets(queryIndex)
-                  eventOffset <- maybeEventOffset
-                } yield eventOffset > queryOffset
-              matches.getOrElse(true)
-            }
-            def fn(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
-              q.get(a.templateId).flatMap { preds =>
-                preds.collect(Function unlift { case ((_, p), ix) =>
-                  val matchesPredicate = p(a.payload)
-                  (matchesPredicate && matchesOffset(ix, o)).option(ix)
-                })
-              }
-            }
-
-            def dbQueriesPlan(implicit
-                sjd: dbbackend.SupportedJdbcDriver
-            ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
-              val annotated = q.toSeq.flatMap { case (tpid, nel) =>
-                nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
-              }
-              val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
-                (ix, pos)
-              }.toMap
-              (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
-            }
-
             StreamPredicate(
               resolved,
               unresolved,
-              fn,
+              fn(q),
               { (parties, dao) =>
                 import dao.{logHandler, jdbcDriver}
                 import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
-                val (dbQueries, posMap) = dbQueriesPlan
+                val (dbQueries, posMap) = dbQueriesPlan(q)
                 selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
                   .map(_ map (_ rightMap (_ map posMap)))
               },
