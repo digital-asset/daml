@@ -127,9 +127,12 @@ CREATE TABLE participant_command_completions
     completion_offset           VARCHAR2(4000)  NOT NULL,
     record_time                 TIMESTAMP       NOT NULL,
 
-    application_id              NVARCHAR2(1000) NOT NULL,
+    -- The application ID has to be provided by the application.
+    -- Nullable for alignment with the PostgreSQL schema.
+    application_id              NVARCHAR2(1000),
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
-    submission_id               NVARCHAR2(1000) NOT NULL,
+    -- Nullable to support historical data.
+    submission_id               NVARCHAR2(1000),
 
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
     -- interval could have specified by the application as one of:

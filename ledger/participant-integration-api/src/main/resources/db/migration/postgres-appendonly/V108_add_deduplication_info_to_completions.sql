@@ -5,7 +5,8 @@
 
 ALTER TABLE participant_command_completions
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
-    ADD COLUMN submission_id text NOT NULL,
+    -- Nullable to support historical data.
+    ADD COLUMN submission_id text,
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
     -- interval could have specified by the application as one of:
     -- 1. an initial offset

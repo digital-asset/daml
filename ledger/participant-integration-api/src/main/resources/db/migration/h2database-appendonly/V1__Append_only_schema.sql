@@ -117,13 +117,16 @@ CREATE TABLE participant_command_submissions (
 CREATE TABLE participant_command_completions (
     completion_offset VARCHAR NOT NULL,
     record_time TIMESTAMP NOT NULL,
-    application_id VARCHAR NOT NULL,
+    -- The application ID has to be provided by the application.
+    -- Nullable for alignment with the PostgreSQL schema.
+    application_id VARCHAR,
     submitters ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
     -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
-    submission_id VARCHAR NOT NULL,
+    -- Nullable to support historical data.
+    submission_id VARCHAR,
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
     -- interval could have specified by the application as one of:
     -- 1. an initial offset
