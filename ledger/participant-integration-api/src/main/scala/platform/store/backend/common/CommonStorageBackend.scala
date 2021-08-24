@@ -312,7 +312,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val SQL_GET_PARTY_ENTRIES = SQL(
     """select * from party_entries
-      |where ({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+      |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
       |order by ledger_offset asc
       |offset {queryOffset} rows
       |fetch next {pageSize} rows only""".stripMargin
@@ -484,8 +484,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
     """select * from package_entries
-      |where ({startExclusive} is null or ledger_offset>{startExclusive})
-      |and ledger_offset<={endInclusive}
+      |where ({startExclusive} is null or ledger_offset > {startExclusive})
+      |and ledger_offset <= {endInclusive}
       |order by ledger_offset asc
       |offset {queryOffset} rows
       |fetch next {pageSize} rows only""".stripMargin
