@@ -122,8 +122,6 @@ CREATE TABLE participant_command_completions (
     command_id VARCHAR NOT NULL,
     -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
-    -- The application ID has to be provided by the application.
-    application_id VARCHAR NOT NULL,
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     submission_id VARCHAR NOT NULL,
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
