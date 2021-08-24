@@ -44,9 +44,9 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
+import scalaz.syntax.apply._
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
 object AbstractHttpServiceIntegrationTestFuns {
@@ -453,33 +453,31 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       actual: domain.ActiveContract[JsValue],
       create: domain.CreateCommand[v.Record, OptionalPkg],
       exercise: domain.ExerciseCommand[v.Value, _],
-  ): Assertion = {
+  ): Future[Assertion] = {
 
     val expectedContractFields: Seq[v.RecordField] = create.payload.fields
     val expectedNewOwner: v.Value = exercise.argument.sum.record
       .flatMap(_.fields.headOption)
       .flatMap(_.value)
       .getOrElse(fail("Cannot extract expected newOwner"))
-    val res =
-      instanceUUIDLogCtx(implicit lc =>
-        decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
-      ).map(active =>
-        inside(active.payload.sum.record.map(_.fields)) {
-          case Some(
-                Seq(
-                  v.RecordField("iou", Some(contractRecord)),
-                  v.RecordField("newOwner", Some(newOwner)),
-                )
-              ) =>
-            val contractFields: Seq[v.RecordField] =
-              contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
-            (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[
-              v.RecordField
-            ])
-            (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
-        }
-      )
-    Await.result(res, Duration.Inf)
+    instanceUUIDLogCtx(implicit lc =>
+      decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
+    ).map(active =>
+      inside(active.payload.sum.record.map(_.fields)) {
+        case Some(
+              Seq(
+                v.RecordField("iou", Some(contractRecord)),
+                v.RecordField("newOwner", Some(newOwner)),
+              )
+            ) =>
+          val contractFields: Seq[v.RecordField] =
+            contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
+          (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[
+            v.RecordField
+          ])
+          (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
+      }
+    )
   }
 
   protected def assertActiveContract(
@@ -487,7 +485,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   )(
       command: domain.CreateCommand[v.Record, OptionalPkg],
       encoder: DomainJsonEncoder,
-  ): Assertion = {
+  ): Future[Assertion] = {
 
     import encoder.implicits._
 
@@ -496,15 +494,17 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
         .traversePayload(SprayJson.encode[v.Record](_))
         .getOrElse(fail(s"Failed to encode command: $command"))
 
-    inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) { case \/-(activeContract) =>
-      (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
+    Future {
+      inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) { case \/-(activeContract) =>
+        (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
+      }
     }
   }
 
   protected def assertTemplateId(
       actual: domain.TemplateId.RequiredPkg,
       expected: OptionalPkg,
-  ): Assertion = {
+  ): Future[Assertion] = Future {
     expected.packageId.foreach(x => actual.packageId shouldBe x)
     actual.moduleName shouldBe expected.moduleName
     actual.entityName shouldBe expected.entityName
@@ -998,26 +998,29 @@ abstract class AbstractHttpServiceIntegrationTest
       uri: Uri,
   ): Future[Assertion] = {
     inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](exerciseResponse)) {
-      case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) => {
+      case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) =>
         // checking contracts
         inside(contract1) { case domain.Contract(-\/(archivedContract)) =>
-          (archivedContract.contractId.unwrap: String) shouldBe (exerciseCmd.reference.contractId.unwrap: String)
-        }
-        inside(contract2) { case domain.Contract(\/-(activeContract)) =>
-          assertActiveContract(decoder, activeContract, createCmd, exerciseCmd)
-        }
-        // checking exerciseResult
-        exerciseResult.length should be > (0)
-        val newContractLocator = domain.EnrichedContractId(
-          Some(domain.TemplateId(None, "Iou", "IouTransfer")),
-          domain.ContractId(exerciseResult),
-        )
-        postContractsLookup(newContractLocator, uri).flatMap { case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getContractId(getResult(output)) shouldBe newContractLocator.contractId
-        }: Future[Assertion]
-      }
+          Future {
+            (archivedContract.contractId.unwrap: String) shouldBe (exerciseCmd.reference.contractId.unwrap: String)
+          }
+        } *>
+          inside(contract2) { case domain.Contract(\/-(activeContract)) =>
+            assertActiveContract(decoder, activeContract, createCmd, exerciseCmd)
+          } *>
+          // checking exerciseResult
+          {
+            exerciseResult.length should be > (0)
+            val newContractLocator = domain.EnrichedContractId(
+              Some(domain.TemplateId(None, "Iou", "IouTransfer")),
+              domain.ContractId(exerciseResult),
+            )
+            postContractsLookup(newContractLocator, uri).flatMap { case (status, output) =>
+              status shouldBe StatusCodes.OK
+              assertStatus(output, StatusCodes.OK)
+              getContractId(getResult(output)) shouldBe newContractLocator.contractId
+            }: Future[Assertion]
+          }
     }
   }
 
@@ -1128,9 +1131,9 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "should be able to serialize and deserialize domain commands" in withLedger { client =>
     instanceUUIDLogCtx(implicit lc =>
-      jsonCodecs(client).map { case (encoder, decoder) =>
+      jsonCodecs(client).flatMap { case (encoder, decoder) =>
         testCreateCommandEncodingDecoding(encoder, decoder)
-        testExerciseCommandEncodingDecoding(encoder, decoder)
+          .flatMap(_ => testExerciseCommandEncodingDecoding(encoder, decoder))
       }: Future[Assertion]
     )
   }
@@ -1138,7 +1141,7 @@ abstract class AbstractHttpServiceIntegrationTest
   private def testCreateCommandEncodingDecoding(
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder,
-  ): Assertion = instanceUUIDLogCtx { implicit lc =>
+  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
     import json.JsonProtocol._
     import util.ErrorOps._
 
@@ -1151,20 +1154,17 @@ abstract class AbstractHttpServiceIntegrationTest
       command1 <- decoder.decodeCreateCommand(jsVal)
     } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
 
-    Await.result(
-      (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity)),
-      Duration.Inf,
-    )
+    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
   }
 
   private def testExerciseCommandEncodingDecoding(
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder,
-  ): Assertion = {
+  ): Future[Assertion] = {
     val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
     val jsVal: JsValue = encodeExercise(encoder)(command0)
     val command1 = decodeExercise(decoder)(jsVal)
-    Await.result(command1.map(_.bimap(removeRecordId, identity) should ===(command0)), Duration.Inf)
+    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
   }
 
   "request non-existent endpoint should return 404 with errors" in withHttpService {
