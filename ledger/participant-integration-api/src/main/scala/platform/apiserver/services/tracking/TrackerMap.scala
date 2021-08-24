@@ -46,23 +46,7 @@ private[services] final class TrackerMap[Key](
 
   private val retentionNanos = retentionPeriod.toNanos
 
-  val cleanup: Runnable = () =>
-    lock.synchronized {
-      val nanoTime = System.nanoTime()
-      trackerBySubmitter foreach { case (submitter, trackerResource) =>
-        trackerResource.ifPresent { tracker =>
-          if (nanoTime - tracker.getLastSubmission > retentionNanos) {
-            logger.info(
-              s"Shutting down tracker for $submitter after inactivity of $retentionPeriod"
-            )(trackerResource.loggingContext)
-            trackerBySubmitter -= submitter
-            tracker.close()
-          }
-        }
-      }
-    }
-
-  def track(
+  override def track(
       request: SubmitAndWaitRequest
   )(implicit
       executionContext: ExecutionContext,
@@ -90,6 +74,21 @@ private[services] final class TrackerMap[Key](
       .flatMap(_.track(request))
   }
 
+  def cleanup(): Unit = lock.synchronized {
+    val nanoTime = System.nanoTime()
+    trackerBySubmitter foreach { case (submitter, trackerResource) =>
+      trackerResource.ifPresent { tracker =>
+        if (nanoTime - tracker.getLastSubmission > retentionNanos) {
+          logger.info(
+            s"Shutting down tracker for $submitter after inactivity of $retentionPeriod"
+          )(trackerResource.loggingContext)
+          trackerBySubmitter -= submitter
+          tracker.close()
+        }
+      }
+    }
+  }
+
   def close(): Unit = lock.synchronized {
     logger.info(s"Shutting down ${trackerBySubmitter.size} trackers")
     trackerBySubmitter.values.foreach(_.close())
@@ -110,7 +109,7 @@ private[services] object TrackerMap {
   ): Tracker = {
     val delegate = new TrackerMap(retentionPeriod, getKey, newTracker)
     val trackerCleanupJob = materializer.system.scheduler
-      .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(delegate.cleanup)
+      .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(delegate.cleanup _)
     new Tracker {
       override def track(
           request: SubmitAndWaitRequest
