@@ -158,6 +158,67 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     )
   }
 
+  it should "inform the caller if they try to write a duplicate party" in {
+    if (enableAppendOnlySchema) Future.successful {
+      info(
+        "This test is only make sense for the mutable schema. For the append-only schema this test is disabled."
+      )
+      1 shouldBe 1
+    }
+    else {
+      val fred = PartyDetails(
+        party = Ref.Party.assertFromString(s"Fred-${UUID.randomUUID()}"),
+        displayName = Some("Fred Flintstone"),
+        isLocal = true,
+      )
+      for {
+        response <- storePartyEntry(fred, nextOffset())
+        _ = response should be(PersistenceResponse.Ok)
+        response <- storePartyEntry(fred, nextOffset())
+      } yield {
+        response should be(PersistenceResponse.Duplicate)
+      }
+    }
+  }
+
+  it should "store just offset when duplicate party update encountered" in {
+    if (enableAppendOnlySchema) Future.successful {
+      info(
+        "This test is only make sense for the mutable schema. For the append-only schema this test is disabled."
+      )
+      1 shouldBe 1
+    }
+    else {
+      val party = Ref.Party.assertFromString(s"Alice-${UUID.randomUUID()}")
+      val aliceDetails = PartyDetails(
+        party,
+        displayName = Some("Alice Arkwright"),
+        isLocal = true,
+      )
+      val aliceAgain = PartyDetails(
+        party,
+        displayName = Some("Alice Carthwright"),
+        isLocal = true,
+      )
+      val bobDetails = PartyDetails(
+        party = Ref.Party.assertFromString(s"Bob-${UUID.randomUUID()}"),
+        displayName = Some("Bob Bobertson"),
+        isLocal = true,
+      )
+      for {
+        response <- storePartyEntry(aliceDetails, nextOffset())
+        _ = response should be(PersistenceResponse.Ok)
+        response <- storePartyEntry(aliceAgain, nextOffset())
+        _ = response should be(PersistenceResponse.Duplicate)
+        response <- storePartyEntry(bobDetails, nextOffset())
+        _ = response should be(PersistenceResponse.Ok)
+        parties <- ledgerDao.listKnownParties()
+      } yield {
+        parties should contain.allOf(aliceDetails, bobDetails)
+      }
+    }
+  }
+
   it should "be able to store multiple parties with the same identifier, and the last update will be visible as query-ing" in {
     if (enableAppendOnlySchema) {
       val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
@@ -205,14 +266,13 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           Ref.SubmissionId.assertFromString("final submission")
         )
       }
-    } else {
+    } else
       Future.successful {
         info(
           "This test is only make sense for the append-only schema. For the mutable schema this test is disabled."
         )
         1 shouldBe 1
       }
-    }
   }
 
   private def storePartyEntry(
