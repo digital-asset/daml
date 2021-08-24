@@ -113,7 +113,12 @@ message DamlSubmitterInfo {
   string command_id = 2;
   string application_id = 3;
   reserved 4; // was maximum_record_time
-  google.protobuf.Timestamp deduplicate_until = 5;
+  oneof deduplication {
+      google.protobuf.Timestamp deduplicate_until = 5; //DEPRECATED, readonly for backwards compatibility
+      google.protobuf.Duration deduplication_time = 6;
+      string deduplication_offset = 7;
+  }
+  string submission_id = 9;
 }
 
 // Daml transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.

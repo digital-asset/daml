@@ -279,8 +279,8 @@ object KeyValueConsumption {
       }
 
     Update.TransactionAccepted(
-      optSubmitterInfo =
-        if (txEntry.hasSubmitterInfo) Some(parseSubmitterInfo(txEntry.getSubmitterInfo)) else None,
+      optCompletionInfo =
+        if (txEntry.hasSubmitterInfo) Some(parseCompletionInfo(txEntry.getSubmitterInfo)) else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
         workflowId = Some(txEntry.getWorkflowId)
@@ -363,12 +363,17 @@ object KeyValueConsumption {
           case _ =>
             "Record time outside of valid range"
         }
-        val rejectionReason = RejectionReasonV0.InvalidLedgerTime(reason)
         Some(
           Update.CommandRejected(
             recordTime = recordTime,
-            submitterInfo = parseSubmitterInfo(transactionRejectionEntry.getSubmitterInfo),
-            reason = rejectionReason,
+            completionInfo = parseCompletionInfo(transactionRejectionEntry.getSubmitterInfo),
+            reasonTemplate = FinalReason(
+              Status.of(
+                Code.INTERNAL.value,
+                reason,
+                Seq.empty,
+              )
+            ),
           )
         )
 

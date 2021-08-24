@@ -114,10 +114,9 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "generate a rejection entry for a transaction if record time is out of time bounds" in {
       def verifyCommandRejection(actual: Option[Update]): Unit = actual match {
-        case Some(Update.CommandRejected(recordTime, submitterInfo, reason)) =>
+        case Some(Update.CommandRejected(recordTime, completionInfo, _)) =>
           recordTime shouldBe aRecordTime
-          submitterInfo shouldBe Conversions.parseSubmitterInfo(someSubmitterInfo)
-          reason shouldBe a[RejectionReasonV0.InvalidLedgerTime]
+          completionInfo shouldBe Conversions.parseCompletionInfo(someSubmitterInfo)
           ()
         case _ => fail()
       }

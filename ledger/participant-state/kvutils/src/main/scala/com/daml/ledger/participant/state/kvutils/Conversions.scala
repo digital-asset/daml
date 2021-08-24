@@ -126,22 +126,44 @@ private[state] object Conversions {
       DamlSubmissionDedupKey.SubmissionKind.CONFIGURATION,
     )
 
-  def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
-    DamlSubmitterInfo.newBuilder
+  def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo = {
+    val submitterInfoBuilder = DamlSubmitterInfo.newBuilder
       .addAllSubmitters((subInfo.actAs: List[String]).asJava)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
-      .setDeduplicateUntil(
-        buildTimestamp(Time.Timestamp.assertFromInstant(subInfo.deduplicateUntil))
-      )
-      .build
+      .setSubmissionId(subInfo.submissionId)
+    subInfo.deduplicationPeriod match {
+      case DeduplicationPeriod.DeduplicationDuration(duration) =>
+        submitterInfoBuilder.setDeduplicationTime(buildDuration(duration))
+      case DeduplicationPeriod.DeduplicationOffset(offset) =>
+        submitterInfoBuilder.setDeduplicationOffset(offset.toHexString)
+    }
+    submitterInfoBuilder.build
+  }
 
-  def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
-    SubmitterInfo(
+  def parseCompletionInfo(subInfo: DamlSubmitterInfo): CompletionInfo = {
+    val deduplicationPeriod = subInfo.getDeduplicationCase match {
+      case DeduplicationCase.DEDUPLICATION_TIME =>
+        Some(DeduplicationPeriod.DeduplicationDuration(parseDuration(subInfo.getDeduplicationTime)))
+      case DeduplicationCase.DEDUPLICATION_OFFSET =>
+        Some(
+          DeduplicationPeriod.DeduplicationOffset(
+            Offset.fromHexString(Ref.HexString.assertFromString(subInfo.getDeduplicationOffset))
+          )
+        )
+      case DeduplicationCase.DEDUPLICATE_UNTIL => //backwards compat
+        None //FIXME can we convert from a future timestamp into a sensible dedup duration?
+      case DeduplicationCase.DEDUPLICATION_NOT_SET =>
+        None
+    }
+    CompletionInfo(
       actAs = subInfo.getSubmittersList.asScala.toList.map(Ref.Party.assertFromString),
       applicationId = Ref.LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = Ref.LedgerString.assertFromString(subInfo.getCommandId),
-      deduplicateUntil = parseTimestamp(subInfo.getDeduplicateUntil).toInstant,
+      optDeduplicationPeriod = deduplicationPeriod,
+      submissionId = Ref.SubmissionId.assertFromString(
+        subInfo.getSubmissionId
+      ), // FIXME this can be missing, what to do what to do
     )
 
   def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp =
