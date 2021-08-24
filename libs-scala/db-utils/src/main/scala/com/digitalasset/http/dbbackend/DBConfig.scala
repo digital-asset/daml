@@ -4,10 +4,12 @@
 package com.daml.http.dbbackend
 
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.std.either._
 import scalaz.std.option._
+import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{@@, Show, Tag, \/}
+import scalaz.{@@, Show, StateT, Tag, \/}
 
 import java.io.File
 import scala.util.Try
@@ -30,13 +32,18 @@ final case class JdbcConfig(
     minIdle: Int = JdbcConfig.MinIdle,
     connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
     idleTimeout: Long = JdbcConfig.IdleTimeout,
-    backendSpecificConf: Queries.BackendSpecificConf = false,
+    backendSpecificConf: Map[String, String] = Map.empty,
 )
 
 abstract class ConfigCompanion[A, ReadCtx](name: String) {
   import com.daml.scalautil.ExceptionOps._
 
   protected val indent: String = List.fill(8)(" ").mkString
+
+  // If we don't DRY our keys, we will definitely forget to remove one.  We're
+  // less likely to make a mistake in backend-specific conf if redundant data
+  // isn't there. -SC
+  protected type Fields[A] = StateT[({ type l[a] = Either[String, a] })#l, Map[String, String], A]
 
   protected[this] def create(x: Map[String, String], defaultDriver: Option[String])(implicit
       readCtx: ReadCtx
@@ -48,21 +55,26 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
       create(x, None).fold(e => throw new IllegalArgumentException(e), identity)
     }
 
-  protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
-    m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
+  protected def requiredField(k: String): Fields[String] =
+    StateT { m =>
+      m.get(k)
+        .filter(_.nonEmpty)
+        .map((m removed k, _))
+        .toRight(s"Invalid $name, must contain '$k' field")
+    }
 
-  protected def optionalStringField(m: Map[String, String])(
+  protected def optionalStringField(
       k: String
-  ): Either[String, Option[String]] =
-    right(m.get(k)).toEither
+  ): Fields[Option[String]] =
+    StateT { m => Right(m.get(k).map((m removed k, _))) }
 
-  protected def optionalBooleanField(m: Map[String, String])(
+  protected def optionalBooleanField(
       k: String
-  ): Either[String, Option[Boolean]] =
-    m.get(k).traverse(v => parseBoolean(k)(v)).toEither
+  ): Fields[Option[Boolean]] =
+    optionalStringField(k).flatMap(ov => StateT liftM (ov traverse parseBoolean(k)).toEither)
 
-  protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
-    m.get(k).traverse(v => parseLong(k)(v)).toEither
+  protected def optionalLongField(k: String): Fields[Option[Long]] =
+    optionalStringField(k).flatMap(ov => StateT liftM (ov traverse parseLong(k)).toEither)
 
   import scalaz.syntax.std.string._
 
@@ -72,8 +84,8 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
   protected def parseLong(k: String)(v: String): String \/ Long =
     v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
 
-  protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
-    requiredField(m)(k).flatMap(directory)
+  protected def requiredDirectoryField(k: String): Fields[File] =
+    requiredField(k).flatMap(s => StateT liftM directory(s))
 
   protected def directory(s: String): Either[String, File] =
     Try(new File(s).getAbsoluteFile).toEither.left
@@ -96,7 +108,7 @@ object JdbcConfig
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, start-mode=${a.dbStartupMode})"
   )
 
-  private[this] val WorkaroundQueryTokenTooLong = "workaroundQueryTokenTooLong"
+  private[this] val WorkaroundQueryTokenTooLong = "disableContractPayloadIndexing"
 
   def help(implicit supportedJdbcDriverNames: DBConfig.SupportedJdbcDriverNames): String =
     "Contains comma-separated key-value pairs. Where:\n" +
@@ -109,8 +121,8 @@ object JdbcConfig
       s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
         .mkString(",")}.\n" +
       (if (supportedJdbcDriverNames.unwrap exists (_ contains "oracle"))
-      s"${indent}$WorkaroundQueryTokenTooLong -- if true, use a slower schema on Oracle that supports querying with literals >256 bytes (DRG-50943)"
-      else "") +
+         s"${indent}$WorkaroundQueryTokenTooLong -- if true, use a slower schema on Oracle that supports querying with literals >256 bytes (DRG-50943)"
+       else "") +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
@@ -131,22 +143,24 @@ object JdbcConfig
 
   override def create(x: Map[String, String], defaultDriver: Option[String] = None)(implicit
       readCtx: DBConfig.SupportedJdbcDriverNames
-  ): Either[String, JdbcConfig] =
-    for {
+  ): Either[String, JdbcConfig] = {
+    val reducingX = for {
       driver <-
-        if (defaultDriver.isDefined) Right(x.getOrElse("driver", defaultDriver.get))
-        else requiredField(x)("driver")
+        defaultDriver.cata(
+          dd => optionalStringField("driver").map(_ getOrElse dd),
+          requiredField("driver"),
+        )
       DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames) = readCtx
-      _ <- Either.cond(
+      _ <- StateT liftM Either.cond(
         supportedJdbcDriverNames(driver),
         (),
         s"$driver unsupported.  Supported drivers: ${supportedJdbcDriverNames.mkString(", ")}",
       )
-      url <- requiredField(x)("url")
-      user <- requiredField(x)("user")
-      password <- requiredField(x)("password")
-      tablePrefix <- optionalStringField(x)("tablePrefix")
-      createSchema <- optionalBooleanField(x)("createSchema").map(
+      url <- requiredField("url")
+      user <- requiredField("user")
+      password <- requiredField("password")
+      tablePrefix <- optionalStringField("tablePrefix")
+      createSchema <- optionalBooleanField("createSchema").map(
         _.map { createSchema =>
           import DbStartupMode._
           logger.warn(
@@ -156,7 +170,7 @@ object JdbcConfig
         }: Option[DbStartupMode]
       )
       dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("start-mode")
-      workaroundQueryTokenTooLong <- optionalBooleanField(x)(WorkaroundQueryTokenTooLong)
+      remainingConf <- StateT.get
     } yield JdbcConfig(
       driver = driver,
       url = url,
@@ -164,8 +178,10 @@ object JdbcConfig
       password = password,
       tablePrefix = tablePrefix getOrElse "",
       dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
-      workaroundQueryTokenTooLong = workaroundQueryTokenTooLong getOrElse false,
+      backendSpecificConf = remainingConf,
     )
+    reducingX.eval(x)
+  }
 
   private def helpString(
       driver: String,
