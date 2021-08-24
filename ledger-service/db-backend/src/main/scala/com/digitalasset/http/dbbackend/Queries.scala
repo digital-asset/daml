@@ -34,6 +34,7 @@ sealed abstract class Queries(tablePrefix: String) {
   import Queries.Implicits._
 
   type SqlInterpol
+  type Conf
 
   val schemaVersion = 2
 
@@ -132,18 +133,17 @@ sealed abstract class Queries(tablePrefix: String) {
      """,
   )
 
-  protected[this] def initDatabaseDdls: Vector[InitDdl] =
+  protected[this] def initDatabaseDdls(implicit conf: Conf): Vector[InitDdl] =
     Vector(
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
+      createVersionTable,
     )
 
-  private[this] lazy val initDatabaseDdlsAndVersionTable = initDatabaseDdls :+ createVersionTable
-
-  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
+  private[http] final def dropAllTablesIfExist(implicit conf: Conf, log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    initDatabaseDdlsAndVersionTable.reverse
+    initDatabaseDdls.reverse
       .collect { case d: Droppable => dropIfExists(d) }
       .traverse_(_.update.run)
   }
@@ -154,17 +154,16 @@ sealed abstract class Queries(tablePrefix: String) {
          VALUES ($schemaVersion)
          """.update.run.map(_ => ())
 
-  private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
+  private[http] def parseConf(kvs: Map[String, String]): Either[String, Conf]
+
+  private[http] final def initDatabase(implicit conf: Conf, log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
-    for {
-      _ <- initDatabaseDdlsAndVersionTable.traverse_(_.create.update.run)
-      _ <- insertVersion()
-    } yield ()
+    initDatabaseDdls.traverse_(_.create.update.run) *> insertVersion()
   }
 
   protected[http] def version()(implicit log: LogHandler): ConnectionIO[Option[Int]]
 
-  def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
+  final def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
       log: LogHandler
   ): ConnectionIO[SurrogateTpId] =
     sql"""SELECT tpid FROM $templateIdTableName
@@ -606,6 +605,7 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
   import Implicits._
 
   type SqlInterpol = Queries.SqlInterpolation.StringArray
+  type Conf = Unit
 
   protected[this] override def dropIfExists(d: Droppable) =
     Fragment.const(s"DROP ${d.what} IF EXISTS ${d.name}")
@@ -634,7 +634,7 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
     sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
-  protected[this] override def initDatabaseDdls =
+  protected[this] override def initDatabaseDdls(implicit conf: Conf) =
     super.initDatabaseDdls ++ Seq(indexContractsTable, contractKeyHashIndex)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
@@ -649,6 +649,8 @@ private final class PostgresQueries(tablePrefix: String) extends Queries(tablePr
         else sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
     } yield version
   }
+
+  private[http] override def parseConf(kvs: Map[String, String]): Conf = ()
 
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
@@ -732,6 +734,7 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
   import Implicits._
 
   type SqlInterpol = Queries.SqlInterpolation.Unused
+  type Conf = Boolean
 
   protected[this] override def dropIfExists(d: Droppable) = {
     val sqlCode = d match {
@@ -796,8 +799,10 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
     ON $contractTableName (payload) FOR JSON
     PARAMETERS('DATAGUIDE OFF')""")
 
-  protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(stakeholdersView, stakeholdersIndex, contractKeyHashIndex, indexPayload)
+  protected[this] override def initDatabaseDdls(implicit conf: Conf) =
+    super.initDatabaseDdls ++
+      Seq(stakeholdersView, stakeholdersIndex, contractKeyHashIndex) ++
+      (if (conf) Seq.empty else Seq(indexPayload))
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     import cats.implicits._
@@ -814,6 +819,11 @@ private final class OracleQueries(tablePrefix: String) extends Queries(tablePref
           sql"SELECT version FROM $jsonApiSchemaVersionTableName".query[Int].option
         }
     } yield version
+  }
+
+  private[http] override def parseConf(kvs: Map[String, String]): Either[String, Conf] = {
+    val k = "workaroundQueryTokenTooLong"
+    kvs.get(k).cata(v => v.parseBoolean.toEither.leftMap(_ => s"$k must be a boolean, not $v"), false)
   }
 
   protected[this] type DBContractKey = JsValue
