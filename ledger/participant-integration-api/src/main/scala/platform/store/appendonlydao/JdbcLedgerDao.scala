@@ -239,6 +239,11 @@ private class JdbcLedgerDao(
               state.Update.PartyAddedToParticipant(
                 party = partyDetails.party,
                 displayName = partyDetails.displayName.orNull,
+                // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
+                // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
+                // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
+                //
+                // This will be properly resolved once we move away from the `sandbox-classic` codebase.
                 participantId = if (partyDetails.isLocal) participantId else nonLocalParticipantId,
                 recordTime = Time.Timestamp.assertFromInstant(recordTime),
                 submissionId = submissionIdOpt,
