@@ -109,7 +109,7 @@ private[services] object TrackerMap {
   ) extends Tracker {
     private val delegate = new TrackerMap(retentionPeriod, getKey, newTracker)
     private val trackerCleanupJob = materializer.system.scheduler
-      .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(delegate.cleanup _)
+      .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(() => delegate.cleanup())
 
     override def track(
         request: SubmitAndWaitRequest
