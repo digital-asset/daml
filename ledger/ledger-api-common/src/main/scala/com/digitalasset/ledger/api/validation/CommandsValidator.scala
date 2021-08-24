@@ -208,12 +208,11 @@ object CommandsValidator {
     Submitters(actAs, readAs)
   }
 
-  def effectiveActAs(commands: ProtoCommands): Set[String] = {
+  def effectiveActAs(commands: ProtoCommands): Set[String] =
     if (commands.party.isEmpty)
       commands.actAs.toSet
     else
       commands.actAs.toSet + commands.party
-  }
 
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
 
