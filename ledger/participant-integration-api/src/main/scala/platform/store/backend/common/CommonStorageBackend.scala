@@ -7,9 +7,9 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.Date
 
-import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, int, long, str}
-import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import anorm.SqlParser.{array, binaryStream, byteArray, date, flatten, int, long, str}
+import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, ~}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails

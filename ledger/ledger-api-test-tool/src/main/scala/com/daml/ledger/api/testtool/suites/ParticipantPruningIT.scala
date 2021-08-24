@@ -8,7 +8,6 @@ import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -710,8 +709,6 @@ class ParticipantPruningIT extends LedgerTestSuite {
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
-
-      _ <- synchronize(alpha, beta)
 
       _ <- pruneAtCurrentOffset(beta, bob, pruneAllDivulgedContracts = true)
 
