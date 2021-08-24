@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
@@ -13,6 +13,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.tracking.TrackerMapSpec._
+import com.daml.timer.Delayed
 import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -223,6 +224,53 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
       } yield {
         openTrackerCount.get() should be(expectedTrackerCount)
         closedTrackerCount.get() should be(expectedTrackerCount)
+      }
+    }
+
+    "close waiting trackers" in {
+      val openTracker = new AtomicBoolean(false)
+      val closedTracker = new AtomicBoolean(false)
+      val tracker = new TrackerMap[Unit](
+        retentionPeriod = 1.minute,
+        getKey = _ => (),
+        newTracker = _ =>
+          Delayed.by(1.second) {
+            openTracker.set(true)
+            new Tracker {
+              override def track(
+                  request: SubmitAndWaitRequest
+              )(implicit
+                  executionContext: ExecutionContext,
+                  loggingContext: LoggingContext,
+              ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+                Future.successful(
+                  Right(
+                    CompletionSuccess(
+                      commandId = request.getCommands.commandId,
+                      transactionId = "",
+                      originalStatus = Status.defaultInstance,
+                    )
+                  )
+                )
+
+              override def close(): Unit = {
+                closedTracker.set(true)
+                ()
+              }
+            }
+          },
+      )
+
+      val completionF = tracker.track(
+        SubmitAndWaitRequest.of(
+          commands = Some(Commands(commandId = "command"))
+        )
+      )
+      tracker.close()
+      Delayed.Future.by(1.second)(completionF).map { completion =>
+        openTracker.get() should be(true)
+        closedTracker.get() should be(true)
+        completion should matchPattern { case Right(_) => }
       }
     }
   }

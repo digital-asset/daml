@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.services.tracking
 
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
@@ -18,7 +19,7 @@ import com.daml.platform.apiserver.services.tracking.TrackerMap._
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration.{DurationLong, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup.
@@ -156,15 +157,7 @@ private[services] object TrackerMap {
 
     private val managedFuture = future.andThen {
       case Success(resource) =>
-        if (!state.compareAndSet(Waiting, Ready(resource))) {
-          // This is the punch line of AsyncResource.
-          // If we've been closed in the meantime, we must close the underlying resource also.
-          // This "on-failure-to-complete" behavior is not present in scala or java Futures.
-          resource.close()
-        }
-      // Someone should be listening to this failure downstream
-      // TODO(mthvedt): Refactor so at least one downstream listener is always present,
-      // and exceptions are never dropped.
+        state.set(Ready(resource))
       case Failure(exception) =>
         state.set(Failed(exception))
     }(DirectExecutionContext)
@@ -180,8 +173,20 @@ private[services] object TrackerMap {
       }
 
     def close(): Unit = state.getAndSet(Closed) match {
+      case Waiting =>
+        try {
+          Await.result(
+            managedFuture.transform(Success(_))(DirectExecutionContext),
+            10.seconds,
+          ) match {
+            case Success(resource) => resource.close()
+            case Failure(_) =>
+          }
+        } catch {
+          case _: InterruptedException | _: TimeoutException => // don't worry about it
+        }
       case Ready(resource) => resource.close()
-      case _ =>
+      case Failed(_) | Closed =>
     }
   }
 
