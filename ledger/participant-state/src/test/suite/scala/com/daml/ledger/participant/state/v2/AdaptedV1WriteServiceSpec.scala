@@ -33,7 +33,7 @@ class AdaptedV1WriteServiceSpec extends AnyWordSpec with Matchers with TableDriv
       }
     }
 
-    "transform synchronous rejections' details into an ErrorInfo" in {
+    "transform details of synchronous rejection into an ErrorInfo" in {
       val expectedMetadata = new Metadata()
       expectedMetadata.put(Metadata.Key.of("key", Metadata.ASCII_STRING_MARSHALLER), "value")
       val expectedStatus = Status.UNIMPLEMENTED.withDescription("not yet")
