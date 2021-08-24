@@ -285,35 +285,39 @@ object WebSocketService {
           }.toMap
           (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
-
-        request.queries.zipWithIndex
-          .foldMapM { case (gacr, ix) =>
-            for {
-              res <-
-                gacr.templateIds.toList
-                  .traverse(x => resolveTemplateId(lc)(jwt)(x).map(_.toOption.flatten.toLeft(x)))
-                  .map(
-                    _.toSet[Either[domain.TemplateId.RequiredPkg, domain.TemplateId.OptionalPkg]]
-                      .partitionMap(identity)
-                  )
-              (resolved, unresolved) = res
-              q = prepareFilters(resolved, gacr.query, lookupType): CompiledQueries
-            } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
-          }
-          .map { case (resolved, unresolved, q) =>
-            StreamPredicate(
-              resolved,
-              unresolved,
-              fn(q),
-              { (parties, dao) =>
-                import dao.{logHandler, jdbcDriver}
-                import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
-                val (dbQueries, posMap) = dbQueriesPlan(q)
-                selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
-                  .map(_ map (_ rightMap (_ map posMap)))
-              },
-            )
-          }
+        for {
+          res <-
+            request.queries.zipWithIndex
+              .foldMapM { case (gacr, ix) =>
+                for {
+                  res <-
+                    gacr.templateIds.toList
+                      .traverse(x =>
+                        resolveTemplateId(lc)(jwt)(x).map(_.toOption.flatten.toLeft(x))
+                      )
+                      .map(
+                        _.toSet[
+                          Either[domain.TemplateId.RequiredPkg, domain.TemplateId.OptionalPkg]
+                        ]
+                          .partitionMap(identity)
+                      )
+                  (resolved, unresolved) = res
+                  q = prepareFilters(resolved, gacr.query, lookupType): CompiledQueries
+                } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
+              }
+          (resolved, unresolved, q) = res
+        } yield StreamPredicate(
+          resolved,
+          unresolved,
+          fn(q),
+          { (parties, dao) =>
+            import dao.{logHandler, jdbcDriver}
+            import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+            val (dbQueries, posMap) = dbQueriesPlan(q)
+            selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
+              .map(_ map (_ rightMap (_ map posMap)))
+          },
+        )
       }
 
       private def prepareFilters(
