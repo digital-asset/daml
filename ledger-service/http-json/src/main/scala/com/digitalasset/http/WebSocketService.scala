@@ -165,7 +165,6 @@ object WebSocketService {
         decoder: DomainJsonDecoder,
         jv: JsValue,
     )(implicit
-        ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
         jwt: Jwt,
     ): Future[Error \/ (_ <: Query[_])]
@@ -183,7 +182,6 @@ object WebSocketService {
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: ValuePredicate.TypeLookup,
     )(implicit
-        ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
         jwt: Jwt,
     ): Future[StreamPredicate[Positive]]
@@ -211,7 +209,9 @@ object WebSocketService {
 
   }
 
-  implicit val SearchForeverRequestWithStreamQuery: StreamQueryReader[domain.SearchForeverRequest] =
+  implicit def SearchForeverRequestWithStreamQuery(implicit
+      ec: ExecutionContext
+  ): StreamQueryReader[domain.SearchForeverRequest] =
     new StreamQueryReader[domain.SearchForeverRequest]
       with StreamQuery[domain.SearchForeverRequest] {
 
@@ -219,7 +219,6 @@ object WebSocketService {
 
       override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue)(
           implicit
-          ec: ExecutionContext,
           lc: LoggingContextOf[InstanceUUID],
           jwt: Jwt,
       ) = {
@@ -239,7 +238,6 @@ object WebSocketService {
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup,
       )(implicit
-          ec: ExecutionContext,
           lc: LoggingContextOf[InstanceUUID],
           jwt: Jwt,
       ): Future[StreamPredicate[Positive]] = {
@@ -373,15 +371,15 @@ object WebSocketService {
 
     }
 
-  implicit val EnrichedContractKeyWithStreamQuery
-      : StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] =
+  implicit def EnrichedContractKeyWithStreamQuery(implicit
+      ec: ExecutionContext
+  ): StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] =
     new StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] {
 
       import JsonProtocol._
 
       override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue)(
           implicit
-          ec: ExecutionContext,
           lc: LoggingContextOf[InstanceUUID],
           jwt: Jwt,
       ) = {
@@ -400,15 +398,14 @@ object WebSocketService {
               as.map(a => decodeWithFallback(decoder, a)).sequence
             }
           } yield Query(bs, alg)
-        if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery)
-        else go(InitialEnrichedContractKeyWithStreamQuery)
+        if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery())
+        else go(InitialEnrichedContractKeyWithStreamQuery())
       }.run
 
       private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
           a: domain.ContractKeyStreamRequest[Hint, JsValue],
       )(implicit
-          ec: ExecutionContext,
           lc: LoggingContextOf[InstanceUUID],
           jwt: Jwt,
       ): Future[domain.ContractKeyStreamRequest[Hint, domain.LfValue]] =
@@ -421,8 +418,9 @@ object WebSocketService {
 
     }
 
-  private[this] sealed abstract class EnrichedContractKeyWithStreamQuery[Cid]
-      extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] {
+  private[this] sealed abstract class EnrichedContractKeyWithStreamQuery[Cid](implicit
+      val ec: ExecutionContext
+  ) extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] {
     type Positive = Unit
 
     protected type CKR[+V] = domain.ContractKeyStreamRequest[Cid, V]
@@ -432,7 +430,6 @@ object WebSocketService {
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: TypeLookup,
     )(implicit
-        ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
         jwt: Jwt,
     ): Future[StreamPredicate[Positive]] = {
@@ -524,13 +521,15 @@ object WebSocketService {
   ): doobie.Fragment =
     sjd.queries.keyEquality(k)
 
-  private[this] object InitialEnrichedContractKeyWithStreamQuery
-      extends EnrichedContractKeyWithStreamQuery[Unit] {
+  private[WebSocketService] final case class InitialEnrichedContractKeyWithStreamQuery()(implicit
+      ec: ExecutionContext
+  ) extends EnrichedContractKeyWithStreamQuery[Unit] {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = Some(Set.empty)
   }
 
-  private[this] object ResumingEnrichedContractKeyWithStreamQuery
-      extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
+  private[WebSocketService] final case class ResumingEnrichedContractKeyWithStreamQuery()(implicit
+      ec: ExecutionContext
+  ) extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
       val NelO = Foldable[NonEmptyList].compose[Option]
       request traverse (_.contractIdAtOffset) map NelO.toSet
