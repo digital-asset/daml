@@ -19,7 +19,7 @@ import scalaz._
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
-import java.util.concurrent.Semaphore
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.util.control.NonFatal
 
@@ -69,7 +69,7 @@ private class PackageService(
     // Because things can go so easily wrong, the declaration of the mutex
     // was moved into a separate block, so it's easier to track down all interactions.
     val isPackageListBeingUpdated = new AtomicBoolean(false)
-    val updateTaskUpdateSync = new Semaphore(1, true)
+    @volatile var latch = new CountDownLatch(1)
 
     @volatile var ongoingPackageListUpdateTask = Future.successful(().right)
 
@@ -102,18 +102,19 @@ private class PackageService(
         try {
           ongoingPackageListUpdateTask = updateTask.map(_ => ().right)
           // The task future has been updated, now all waiting threads can continue and pick it up.
-          updateTaskUpdateSync.release()
           updateTask.transform { res =>
             // regardless of whether this was a success or failure
             // we always want to release the mutex here.
+            latch.countDown()
+            latch = new CountDownLatch(1)
             isPackageListBeingUpdated.set(false)
             logger.debug("Reset atomic boolean after task finished")
             res
           }
         } catch {
           case NonFatal(t) =>
-            if (updateTaskUpdateSync.availablePermits() == 0)
-              updateTaskUpdateSync.release()
+            latch.countDown()
+            latch = new CountDownLatch(1)
             isPackageListBeingUpdated.set(false)
             logger.debug("Reset atomic boolean after catching exception")
             Future.failed(t)
@@ -124,11 +125,10 @@ private class PackageService(
       // Thus we lock here, to ensure that all threads wait if an
       // update to that value is potentially incoming.
       logger.debug("Trying to update packages")
-      updateTaskUpdateSync.acquire()
       if (isPackageListBeingUpdated.compareAndSet(false, true))
         update()
       else {
-        updateTaskUpdateSync.release()
+        latch.await()
         logger.debug(s"Picking up an ongoing update task")
         ongoingPackageListUpdateTask
       }
