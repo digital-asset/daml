@@ -6,7 +6,6 @@ package com.daml.platform.apiserver.services
 import java.time.Instant
 
 import akka.NotUsed
-import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
@@ -67,18 +66,18 @@ private[apiserver] final class ApiCommandService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val submissionTracker: TrackerMap[TrackerKey] =
-    new TrackerMap(configuration.retentionPeriod, getTrackerKey, newTracker)
-  private val staleCheckerInterval: FiniteDuration = 30.seconds
-
-  private val trackerCleanupJob: Cancellable = materializer.system.scheduler
-    .scheduleAtFixedRate(staleCheckerInterval, staleCheckerInterval)(submissionTracker.cleanup)
+  private val trackerCleanupInterval: FiniteDuration = 30.seconds
+  private val submissionTracker: Tracker = TrackerMap.selfCleaning(
+    configuration.retentionPeriod,
+    getTrackerKey,
+    newTracker,
+    trackerCleanupInterval,
+  )
 
   @volatile private var running = true
 
   override def close(): Unit = {
     logger.info("Shutting down Command Service")
-    trackerCleanupJob.cancel()
     running = false
     submissionTracker.close()
   }

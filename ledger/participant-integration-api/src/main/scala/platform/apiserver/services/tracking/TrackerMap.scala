@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.services.tracking
 
 import java.util.concurrent.atomic.AtomicReference
 
+import akka.stream.Materializer
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
@@ -97,6 +98,35 @@ private[services] final class TrackerMap[Key](
 }
 
 private[services] object TrackerMap {
+  def selfCleaning[Key](
+      retentionPeriod: FiniteDuration,
+      getKey: Commands => Key,
+      newTracker: Key => Future[Tracker],
+      cleanupInterval: FiniteDuration,
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Tracker = {
+    val delegate = new TrackerMap(retentionPeriod, getKey, newTracker)
+    val trackerCleanupJob = materializer.system.scheduler
+      .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(delegate.cleanup)
+    new Tracker {
+      override def track(
+          request: SubmitAndWaitRequest
+      )(implicit
+          executionContext: ExecutionContext,
+          loggingContext: LoggingContext,
+      ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+        delegate.track(request)
+
+      override def close(): Unit = {
+        trackerCleanupJob.cancel()
+        delegate.close()
+      }
+    }
+  }
+
   sealed trait AsyncResourceState[+T <: AutoCloseable]
   final case object Waiting extends AsyncResourceState[Nothing]
   final case object Closed extends AsyncResourceState[Nothing]
