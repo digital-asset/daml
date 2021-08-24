@@ -5,12 +5,20 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmitterInfo.DeduplicationCase
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.SubmitterInfo
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
+  ExternallyInconsistentTransaction,
+  InternallyInconsistentTransaction,
+}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction._
@@ -18,6 +26,8 @@ import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.google.protobuf.Empty
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -166,6 +176,7 @@ private[state] object Conversions {
       ), // FIXME this can be missing, what to do what to do
     )
 
+  }
   def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp =
     buildTimestamp(ts.toInstant)
 
@@ -328,6 +339,159 @@ private[state] object Conversions {
         }
         .map(_.result())
     }
+  }
+
+  def decodeTransactionRejectionEntry(
+      entry: DamlTransactionRejectionEntry
+  ): Option[FinalReason] = {
+    def buildStatus(code: Code, message: String) = {
+      Status.of(
+        code.value,
+        message,
+        Seq.empty,
+      )
+    }
+
+    val status = entry.getReasonCase match {
+      case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
+        val rejection = entry.getInvalidLedgerTime
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            s"Invalid ledger time: ${rejection.getDetails}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
+        val rejection = entry.getDisputed
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Disputed: ${rejection.getDetails}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
+        val rejection = entry.getSubmitterCannotActViaParticipant
+        Some(
+          buildStatus(
+            Code.PERMISSION_DENIED,
+            s"Submitter cannot act via participant: ${rejection.getDetails}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
+        val rejection = entry.getInconsistent
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            s"Inconsistent: ${rejection.getDetails}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
+        val rejection = entry.getResourcesExhausted
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            s"Resources exhausted: ${rejection.getDetails}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
+        None // no rejection for deduplicate
+      case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
+        val rejection = entry.getPartyNotKnownOnLedger
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Party not known on ledger: ${rejection.getDetails}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE =>
+        val rejection = entry.getValidationFailure
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Validation failure: ${rejection.getDetails}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.INTERNAL_DUPLICATE_KEYS =>
+        None
+      case DamlTransactionRejectionEntry.ReasonCase.INTERNAL_INCONSISTENT_KEYS =>
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            InternallyInconsistentTransaction.InconsistentKeys.description,
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_CONTRACTS =>
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            ExternallyInconsistentTransaction.InconsistentContracts.description,
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_DUPLICATE_KEYS =>
+        None
+      case DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS =>
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            ExternallyInconsistentTransaction.InconsistentKeys.description,
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.MISSING_INPUT_STATE =>
+        val rejection = entry.getMissingInputState
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Missing input state for key: ${rejection.getKey.toString}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.RECORD_TIME_OUT_OF_RANGE =>
+        val rejection = entry.getRecordTimeOutOfRange
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Record time out of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.CAUSAL_MONOTONICITY_VIOLATED =>
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Causal monotonicity violated",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER =>
+        val rejection = entry.getSubmittingPartyNotKnownOnLedger
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Submitting party ${rejection.getSubmitterParty} not known on ledger",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER =>
+        val rejection = entry.getPartiesNotKnownOnLedger
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            s"Parties not known on ledger ${rejection.getPartiesList.asScala.mkString("[", ",", "]")}",
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.INVALID_PARTICIPANT_STATE =>
+        val rejection = entry.getInvalidParticipantState
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            rejection.getDetails,
+          )
+        )
+      case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
+        Some(
+          buildStatus(
+            Code.UNKNOWN,
+            s"No reason set for rejection",
+          )
+        )
+    }
+    status.map(FinalReason)
   }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =

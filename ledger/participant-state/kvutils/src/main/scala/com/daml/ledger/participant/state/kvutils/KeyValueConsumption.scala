@@ -6,18 +6,16 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{
-  DivulgedContract,
-  RejectionReasonV0,
-  TransactionMeta,
-  Update,
-}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.v2.{TransactionMeta, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
@@ -34,7 +32,7 @@ object KeyValueConsumption {
   /** Construct participant-state [[Update]]s from a [[DamlLogEntry]].
     * Throws [[Err]] exception on badly formed data.
     *
-    * This method is expected to be used to implement [[com.daml.ledger.participant.state.v1.ReadService.stateUpdates]].
+    * This method is expected to be used to implement [[com.daml.ledger.participant.state.v2.ReadService.stateUpdates]].
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
@@ -195,7 +193,7 @@ object KeyValueConsumption {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry)
+        transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry).toList
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
         outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
@@ -222,40 +220,15 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
-  ): List[Update] = {
-    def wrap(reason: RejectionReasonV0) =
-      List(
-        Update.CommandRejected(
-          recordTime = recordTime,
-          submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
-          reason = reason,
-        )
+  ): Option[Update] = Conversions
+    .decodeTransactionRejectionEntry(rejEntry)
+    .map(reason => {
+      Update.CommandRejected(
+        recordTime = recordTime,
+        completionInfo = parseCompletionInfo(rejEntry.getSubmitterInfo),
+        reasonTemplate = reason,
       )
-
-    rejEntry.getReasonCase match {
-      case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
-        wrap(RejectionReasonV0.Disputed(rejEntry.getDisputed.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
-        wrap(RejectionReasonV0.Inconsistent(rejEntry.getInconsistent.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
-        wrap(RejectionReasonV0.ResourcesExhausted(rejEntry.getResourcesExhausted.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        List()
-      case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
-        wrap(RejectionReasonV0.PartyNotKnownOnLedger(rejEntry.getPartyNotKnownOnLedger.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
-        wrap(
-          RejectionReasonV0.SubmitterCannotActViaParticipant(
-            rejEntry.getSubmitterCannotActViaParticipant.getDetails
-          )
-        )
-      case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
-        wrap(RejectionReasonV0.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-        //TODO: Replace with "Unknown reason" error code or something similar
-        throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
-    }
-  }
+    })
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def transactionEntryToUpdate(
