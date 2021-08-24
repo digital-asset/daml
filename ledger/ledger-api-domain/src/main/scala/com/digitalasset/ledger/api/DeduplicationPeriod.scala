@@ -18,12 +18,10 @@ sealed trait DeduplicationPeriod extends Product with Serializable
 
 object DeduplicationPeriod {
 
-  /** Backwards compatibility
-    * Transforms the [[period]] into an [[Instant]] to be used for deduplication into the future.
-    * Offset deduplication is not supported
+  /** Transforms the [[period]] into an [[Instant]] to be used for deduplication into the future(deduplicateUntil).
+    * Only used for backwards compatibility
     * @param time The time to use for calculating the [[Instant]]. It can either be submission time or current time, based on usage
     * @param period The deduplication period
-    * @param minSkew Used when the deduplication period is computed from an [[Instant]] to account for time skew.
     */
   def deduplicateUntil(
       time: Instant,
@@ -35,8 +33,9 @@ object DeduplicationPeriod {
       throw new NotImplementedError("Offset deduplication is not supported")
   }
 
-  /** deduplication_start: compute the duration as submissionTime + config.minSkew - deduplication_start
-    * We measure `deduplication_start` on the ledger’s clock, and thus need to add the minSkew to compensate for the maximal skew that the participant might be behind the ledger’s clock.
+  /** Computes deduplication duration as the duration `time + minSkew - deduplicationStart`.
+    * We measure `deduplicationStart` on the ledger’s clock, and thus
+    *    we need to add the minSkew to compensate for the maximal skew that the participant might be behind the ledger’s clock.
     * @param time submission time or current time
     * @param deduplicationStart the [[Instant]] from where we should start deduplication, must be < than time
     * @param minSkew the minimum skew as specified by the current ledger time model
