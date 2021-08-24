@@ -324,7 +324,6 @@ object Config {
             config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url))))
           )
 
-        // TODO PBATKO code duplicated in CommonCliBase.scala
         checkConfig(c =>
           c.tlsConfig.fold(success) { tlsConfig =>
             if (
@@ -333,7 +332,7 @@ object Config {
               && tlsConfig.secretsUrl.isEmpty
             ) {
               failure(
-                "You need to provide a secrets server URL server's private key is encrypted file"
+                "You need to provide a secrets server URL if the server's private key is an encrypted file."
               )
             } else {
               success

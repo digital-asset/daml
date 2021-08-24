@@ -10,6 +10,7 @@ import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
 import java.net.URL
 import java.nio.file.Files
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 final case class TlsConfiguration(
     enabled: Boolean,
@@ -77,9 +78,12 @@ final case class TlsConfiguration(
 
   private[tls] def prepareKeyInputStream(keyFile: File): InputStream = {
     val bytes = if (keyFile.getName.endsWith(".enc")) {
-      // TODO PBATKO: How to handle problems: url connection failure, json parsing failure, etc?
-      val params = DecryptionParameters.fromSecretsServer(secretsUrlOrFail)
-      params.decrypt(encrypted = keyFile)
+      try {
+        val params = DecryptionParameters.fromSecretsServer(secretsUrlOrFail)
+        params.decrypt(encrypted = keyFile)
+      } catch {
+        case NonFatal(e) => throw new PrivateKeyDecryptionException(e)
+      }
     } else {
       Files.readAllBytes(keyFile.toPath)
     }

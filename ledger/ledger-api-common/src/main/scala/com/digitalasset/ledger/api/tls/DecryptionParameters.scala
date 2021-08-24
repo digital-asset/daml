@@ -15,21 +15,21 @@ import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 import scala.util.Using
 
+final class PrivateKeyDecryptionException(cause: Throwable) extends Exception(cause)
+
 /** @param transformation: "<algorithm>/<mode>/<padding>", for example: "AES/CBC/PKCS5Padding"
   * @param keyInHex: Hex encoded bytes of key.
   * @param initializationVectorInHex: Hex encoded bytes of IV.
-  * @param keyLengthInBytes: Key length in bytes. Currently unused.
+  *
+  * Decrypts a file encrypted by a transformation using AES algorithm.
+  * See also: https://docs.oracle.com/javase/8/docs/technotes/guides/security/crypto/CryptoSpec.html
   */
 case class DecryptionParameters(
     transformation: String,
     keyInHex: String,
     initializationVectorInHex: String,
-    keyLengthInBytes: Int,
 ) {
 
-  /** Decrypts a file encrypted by a transformation using AES algorithm.
-    * See also: https://docs.oracle.com/javase/8/docs/technotes/guides/security/crypto/CryptoSpec.html
-    */
   def decrypt(encrypted: File): Array[Byte] = {
     val bytes = Files.readAllBytes(encrypted.toPath)
     decrypt(bytes)
@@ -53,7 +53,6 @@ object DecryptionParametersJsonProtocol extends DefaultJsonProtocol {
     "algorithm",
     "key",
     "iv",
-    "key_length",
   )
 }
 

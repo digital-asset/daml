@@ -31,7 +31,6 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
       transformation = transformation,
       keyInHex = hexEncodedKey,
       initializationVectorInHex = hexEncodedIv,
-      keyLengthInBytes = 1,
     )
 
     "decrypt a byte array" in {
@@ -73,7 +72,6 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
         transformation = "algorithm1/mode2/padding3",
         keyInHex = "<hex encoded bytes of key>",
         initializationVectorInHex = "<hex encoded bytes of iv>",
-        keyLengthInBytes = 123,
       )
       // when
       val actual = DecryptionParameters.parsePayload(jsonPayload)
