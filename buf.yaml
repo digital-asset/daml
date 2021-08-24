@@ -26,6 +26,7 @@ lint:
     - DEFAULT
   except:
     - PACKAGE_VERSION_SUFFIX
+    - FIELD_SAME_ONFEOF
 
 breaking:
   use:
