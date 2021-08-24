@@ -7,9 +7,9 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.Date
 
-import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, int, long, str}
-import anorm.{Macro, RowParser, SQL, SqlParser, SqlQuery, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import anorm.SqlParser.{array, binaryStream, byteArray, date, flatten, int, long, str}
+import anorm.{Macro, RowParser, SQL, SqlParser, SqlQuery, ~}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
@@ -20,9 +20,7 @@ import com.daml.platform.store.Conversions.{
   instant,
   ledgerString,
   offset,
-  party,
 }
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.MismatchException
@@ -31,7 +29,8 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
-import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry}
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
 
@@ -53,7 +52,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       SQL(
         "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
       ),
-      SQL("DELETE FROM parties WHERE ledger_offset > {ledger_offset}"),
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
     )
 
@@ -308,127 +306,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .asVectorOf(configurationEntryParser)(connection)
   }
 
-  // Parties
-
-  private val SQL_GET_PARTY_ENTRIES = SQL(
-    """select * from party_entries
-      |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
-      |order by ledger_offset asc
-      |offset {queryOffset} rows
-      |fetch next {pageSize} rows only""".stripMargin
-  )
-
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    (offset("ledger_offset") ~
-      date("recorded_at") ~
-      ledgerString("submission_id").? ~
-      party("party").? ~
-      str("display_name").? ~
-      str("typ") ~
-      str("rejection_reason").? ~
-      bool("is_local").?)
-      .map(flatten)
-      .map {
-        case (
-              offset,
-              recordTime,
-              submissionIdOpt,
-              Some(party),
-              displayNameOpt,
-              `acceptType`,
-              None,
-              Some(isLocal),
-            ) =>
-          offset ->
-            PartyLedgerEntry.AllocationAccepted(
-              submissionIdOpt,
-              recordTime.toInstant,
-              PartyDetails(party, displayNameOpt, isLocal),
-            )
-        case (
-              offset,
-              recordTime,
-              Some(submissionId),
-              None,
-              None,
-              `rejectType`,
-              Some(reason),
-              None,
-            ) =>
-          offset -> PartyLedgerEntry.AllocationRejected(
-            submissionId,
-            recordTime.toInstant,
-            reason,
-          )
-        case invalidRow =>
-          sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
-      }
-  }
-
-  def partyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_GET_PARTY_ENTRIES
-      .on(
-        "startExclusive" -> startExclusive,
-        "endInclusive" -> endInclusive,
-        "pageSize" -> pageSize,
-        "queryOffset" -> queryOffset,
-      )
-      .asVectorOf(partyEntryParser)(connection)
-  }
-
-  private val SQL_SELECT_MULTIPLE_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where party in ({parties}) and parties.ledger_offset <= parameters.ledger_end"
-    )
-
-  private case class ParsedPartyData(
-      party: String,
-      displayName: Option[String],
-      ledgerOffset: Offset,
-      explicit: Boolean,
-      isLocal: Boolean,
-  )
-
-  private val PartyDataParser: RowParser[ParsedPartyData] = {
-    import com.daml.platform.store.Conversions.columnToOffset
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    Macro.parser[ParsedPartyData](
-      "party",
-      "display_name",
-      "ledger_offset",
-      "explicit",
-      "is_local",
-    )
-  }
-
-  private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
-    PartyDetails(Ref.Party.assertFromString(data.party), data.displayName, data.isLocal)
-
-  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] = {
-    import com.daml.platform.store.Conversions.partyToStatement
-    SQL_SELECT_MULTIPLE_PARTIES
-      .on("parties" -> parties)
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
-  }
-
-  private val SQL_SELECT_ALL_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset"
-    )
-
-  def knownParties(connection: Connection): List[PartyDetails] =
-    SQL_SELECT_ALL_PARTIES
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
-
   // Packages
 
   private val SQL_SELECT_PACKAGES =
@@ -484,8 +361,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
     """select * from package_entries
-      |where ({startExclusive} is null or ledger_offset > {startExclusive})
-      |and ledger_offset <= {endInclusive}
+      |where ({startExclusive} is null or ledger_offset>{startExclusive})
+      |and ledger_offset<={endInclusive}
       |order by ledger_offset asc
       |offset {queryOffset} rows
       |fetch next {pageSize} rows only""".stripMargin

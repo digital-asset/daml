@@ -226,6 +226,7 @@ test_deps = [
     "//libs-scala/ports",
     "//libs-scala/postgresql-testing",
     "//libs-scala/resources",
+    "//libs-scala/timer-utils",
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:ch_qos_logback_logback_core",
     "@maven//:com_typesafe_config",

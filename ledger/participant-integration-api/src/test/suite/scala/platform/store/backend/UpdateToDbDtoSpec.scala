@@ -117,14 +117,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           typ = JdbcLedgerDao.acceptType,
           rejection_reason = None,
           is_local = Some(true),
-        ),
-        DbDto.Party(
-          party = someParty,
-          display_name = Some(displayName),
-          explicit = true,
-          ledger_offset = Some(someOffset.toHexString),
-          is_local = true,
-        ),
+        )
       )
     }
 
@@ -151,14 +144,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           typ = JdbcLedgerDao.acceptType,
           rejection_reason = None,
           is_local = Some(false),
-        ),
-        DbDto.Party(
-          party = someParty,
-          display_name = Some(displayName),
-          explicit = true,
-          ledger_offset = Some(someOffset.toHexString),
-          is_local = false,
-        ),
+        )
       )
     }
 

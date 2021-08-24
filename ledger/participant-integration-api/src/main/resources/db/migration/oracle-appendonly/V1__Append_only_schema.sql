@@ -9,21 +9,6 @@
 -- reconstructed from the log of create and archive events.
 ---------------------------------------------------------------------------------------------------
 
-CREATE TABLE parties
-(
-    -- The unique identifier of the party
-    party         NVARCHAR2(1000) primary key not null,
-    -- A human readable name of the party, might not be unique
-    display_name  NVARCHAR2(1000),
-    -- True iff the party was added explicitly through an API call
-    explicit      NUMBER(1, 0)                not null,
-    -- For implicitly added parties: the offset of the transaction that introduced the party
-    -- For explicitly added parties: the ledger end at the time when the party was added
-    ledger_offset VARCHAR2(4000),
-    is_local      NUMBER(1, 0)                not null
-);
-CREATE INDEX parties_ledger_offset_idx ON parties(ledger_offset);
-
 CREATE TABLE packages
 (
     -- The unique identifier of the package (the hash of its content)
@@ -121,6 +106,7 @@ CREATE TABLE party_entries
             )
 );
 CREATE INDEX idx_party_entries ON party_entries(submission_id);
+CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
 
 CREATE TABLE participant_command_completions
 (
