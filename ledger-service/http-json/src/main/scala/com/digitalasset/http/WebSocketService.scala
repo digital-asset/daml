@@ -9,7 +9,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest, StartingOffset}
-import com.daml.http.json.{DomainJsonDecoder, JsonError, JsonProtocol, SprayJson}
+import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
@@ -411,14 +411,13 @@ object WebSocketService {
           ec: ExecutionContext,
           lc: LoggingContextOf[InstanceUUID],
           jwt: Jwt,
-      ): Future[domain.ContractKeyStreamRequest[Hint, domain.LfValue]] = {
+      ): Future[domain.ContractKeyStreamRequest[Hint, domain.LfValue]] =
         decoder
           .decodeUnderlyingValuesToLf(a)
           .run
-          .map((it: JsonError \/ domain.ContractKeyStreamRequest[Hint, domain.LfValue]) =>
-            it.valueOr(_ => a.map(_ => com.daml.lf.value.Value.ValueUnit))
+          .map(
+            _.valueOr(_ => a.map(_ => com.daml.lf.value.Value.ValueUnit))
           ) // unit will not match any key
-      }
 
     }
 
