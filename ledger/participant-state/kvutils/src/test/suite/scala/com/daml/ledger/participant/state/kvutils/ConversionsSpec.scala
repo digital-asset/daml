@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   commandDedupKey,
   decodeBlindingInfo,
   encodeBlindingInfo,
+  extractDivulgedContracts,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
@@ -44,15 +45,35 @@ class ConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly decode BlindingInfo" in {
-      val (decodedBlindingInfo, divulgedContracts) =
+      val decodedBlindingInfo =
         decodeBlindingInfo(correctlySortedEncodedBlindingInfo)
       decodedBlindingInfo.disclosure.toSet should contain theSameElementsAs wronglySortedBlindingInfo.disclosure.toSet
       decodedBlindingInfo.divulgence.toSet should contain theSameElementsAs wronglySortedBlindingInfo.divulgence.toSet
+    }
 
-      divulgedContracts shouldBe Map(
-        contractId0 -> Some(lfContractInstance0),
-        contractId1 -> Some(lfContractInstance1),
+    "correctly extract divulged contracts" in {
+      val maybeDivulgedContracts = extractDivulgedContracts(correctlySortedEncodedBlindingInfo)
+
+      maybeDivulgedContracts shouldBe Right(
+        Map(
+          contractId0 -> lfContractInstance0,
+          contractId1 -> lfContractInstance1,
+        )
       )
+    }
+
+    "return Left with missing contract ids when extracting divulged contracts if a contract instance is missing" in {
+      val encodedBlindingInfoWithMissingContractInstance =
+        correctlySortedEncodedBlindingInfo.toBuilder
+          .addDivulgences(
+            DivulgenceEntry.newBuilder().setContractId("some cid")
+          )
+          .build()
+
+      val maybeDivulgedContracts =
+        extractDivulgedContracts(encodedBlindingInfoWithMissingContractInstance)
+
+      maybeDivulgedContracts shouldBe Left(Vector("some cid"))
     }
 
     "deterministically encode deduplication keys with multiple submitters (order independence)" in {

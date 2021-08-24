@@ -16,8 +16,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
@@ -259,32 +257,6 @@ object KeyValueConsumption {
     }
   }
 
-  /** Check that all divulgence entries have an associated contract instance.
-    *
-    * NOTE: It is not a hard fault for the check to fail,
-    * but missing contracts can cause lookup failures during command interpretation if used.
-    * This can happen if the participant is hydrated from ledgers populated with versions of
-    * [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter]]
-    * predating the introduction of the `DivulgenceEntry.contractInstance` field.
-    */
-  private def checkDivulgence(
-      divulgedContracts: Map[ContractId, Option[
-        Value.ContractInst[Value.VersionedValue[ContractId]]
-      ]],
-      transactionId: LedgerString,
-  ): Unit =
-    if (divulgedContracts.nonEmpty) {
-      val missingContractInstances = divulgedContracts.iterator.collect { case (contractId, None) =>
-        contractId
-      }
-      if (missingContractInstances.nonEmpty) {
-        logger.warn(
-          s"Missing divulged contract instances in transaction $transactionId for contract ids: ${missingContractInstances
-            .mkString("[", ", ", "]")}. Command submissions using divulged contracts might fail."
-        )
-      }
-    }
-
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def transactionEntryToUpdate(
       entryId: DamlLogEntryId,
@@ -296,24 +268,16 @@ object KeyValueConsumption {
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
 
-    val maybeBlindingInfoWithDivulgedContracts =
-      if (txEntry.hasBlindingInfo)
-        Some(Conversions.decodeBlindingInfo(txEntry.getBlindingInfo))
-      else
-        None
+    val (maybeBlindingInfo, divulgedContracts) =
+      if (txEntry.hasBlindingInfo) {
+        val damlTransactionBlindingInfo = txEntry.getBlindingInfo
+        val blindingInfo = Some(Conversions.decodeBlindingInfo(damlTransactionBlindingInfo))
+        val divulgedContracts = validateDivulgedContracts(hexTxId, damlTransactionBlindingInfo)
 
-    maybeBlindingInfoWithDivulgedContracts.foreach { case (_, divulgedContracts) =>
-      checkDivulgence(divulgedContracts, hexTxId)
-    }
-
-    val divulgedContracts =
-      maybeBlindingInfoWithDivulgedContracts
-        .map { case (_, divulgedContractsIndex) =>
-          divulgedContractsIndex.iterator.collect { case (contractId, Some(contractInstance)) =>
-            DivulgedContract(contractId, contractInstance)
-          }.toList
-        }
-        .getOrElse(List.empty[DivulgedContract])
+        blindingInfo -> divulgedContracts
+      } else {
+        None -> List.empty
+      }
 
     Update.TransactionAccepted(
       optSubmitterInfo =
@@ -333,9 +297,39 @@ object KeyValueConsumption {
       transactionId = hexTxId,
       recordTime = recordTime,
       divulgedContracts = divulgedContracts,
-      blindingInfo = maybeBlindingInfoWithDivulgedContracts.map(_._1),
+      blindingInfo = maybeBlindingInfo,
     )
   }
+
+  /** Extracts divulgence entries and checks that they have an associated contract instance.
+    *
+    * NOTE: It is not a hard fault for the check to fail,
+    * but missing contracts can cause lookup failures during command interpretation if used.
+    * This can happen if the participant is hydrated from ledgers populated with versions of
+    * [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter]]
+    * predating the introduction of the `DivulgenceEntry.contractInstance` field.
+    */
+  private def validateDivulgedContracts(
+      hexTxId: LedgerString,
+      damlTransactionBlindingInfo: DamlTransactionBlindingInfo,
+  ) =
+    if (!damlTransactionBlindingInfo.getDivulgencesList.isEmpty) {
+      val maybeDivulgedContractsIndex =
+        Conversions.extractDivulgedContracts(damlTransactionBlindingInfo)
+
+      maybeDivulgedContractsIndex match {
+        case Right(divulgedContractsIndex) =>
+          divulgedContractsIndex.view.map { case (contractId, contractInstance) =>
+            DivulgedContract(contractId, contractInstance)
+          }.toList
+        case Left(missingContractIds) =>
+          logger.warn(
+            s"Missing divulged contract instances in transaction $hexTxId: ${missingContractIds
+              .mkString("[", ", ", "]")}. Command submissions using divulged contracts might fail."
+          )
+          List.empty
+      }
+    } else List.empty
 
   private[kvutils] case class TimeBounds(
       tooEarlyUntil: Option[Timestamp] = None,

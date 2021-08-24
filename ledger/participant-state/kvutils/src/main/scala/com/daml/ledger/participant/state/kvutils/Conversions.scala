@@ -19,6 +19,7 @@ import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.google.protobuf.Empty
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /** Utilities for converting between protobuf messages and our scala
@@ -250,45 +251,65 @@ private[state] object Conversions {
 
   def decodeBlindingInfo(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): (BlindingInfo, Map[ContractId, Option[Value.ContractInst[VersionedValue[ContractId]]]]) = {
-    val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.map {
-      divulgenceEntry =>
-        val maybeContractInstance =
-          if (divulgenceEntry.hasContractInstance)
-            Some(decodeContractInstance(divulgenceEntry.getContractInstance))
-          else
-            None
-
-        val contractId = decodeContractId(
-          divulgenceEntry.getContractId
-        )
+  ): BlindingInfo = {
+    val blindingInfoDivulgence =
+      damlTransactionBlindingInfo.getDivulgencesList.asScala.iterator.map { divulgenceEntry =>
+        val contractId = decodeContractId(divulgenceEntry.getContractId)
 
         val divulgedTo = divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
           .map(Ref.Party.assertFromString)
 
-        contractId -> (divulgedTo -> maybeContractInstance)
-    }.toMap
+        contractId -> divulgedTo
+      }.toMap
 
-    val blindingInfoDivulgence = divulgences.iterator.map { case (contractId, (parties, _)) =>
-      contractId -> parties
-    }.toMap
-
-    val blindingInfo = BlindingInfo(
-      disclosure = damlTransactionBlindingInfo.getDisclosuresList.asScala.map { disclosureEntry =>
+    val blindingInfoDisclosure = damlTransactionBlindingInfo.getDisclosuresList.asScala.map {
+      disclosureEntry =>
         decodeTransactionNodeId(
           disclosureEntry.getNodeId
         ) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
           .map(Ref.Party.assertFromString)
-      }.toMap,
+    }.toMap
+
+    BlindingInfo(
+      disclosure = blindingInfoDisclosure,
       divulgence = blindingInfoDivulgence,
     )
+  }
 
-    val divulgedContracts =
-      divulgences.iterator.map { case (contractId, (_, maybeContractInstance)) =>
-        contractId -> maybeContractInstance
-      }.toMap
+  def extractDivulgedContracts(
+      damlTransactionBlindingInfo: DamlTransactionBlindingInfo
+  ): Either[Seq[String], Map[ContractId, Value.ContractInst[VersionedValue[ContractId]]]] = {
+    val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
 
-    blindingInfo -> divulgedContracts
+    if (divulgences.isEmpty) {
+      Right(Map.empty)
+    } else {
+      val resultAccumulator: Either[Seq[String], mutable.Builder[
+        (ContractId, Value.ContractInst[VersionedValue[ContractId]]),
+        Map[ContractId, Value.ContractInst[VersionedValue[ContractId]]],
+      ]] = Right(Map.newBuilder)
+
+      divulgences
+        .foldLeft(resultAccumulator) {
+          case (Right(contractInstanceIndex), divulgenceEntry) =>
+            if (divulgenceEntry.hasContractInstance) {
+              val contractId = decodeContractId(divulgenceEntry.getContractId)
+              val contractInstance = decodeContractInstance(divulgenceEntry.getContractInstance)
+              Right(contractInstanceIndex += (contractId -> contractInstance))
+            } else {
+              Left(Vector(divulgenceEntry.getContractId))
+            }
+          case (Left(missingContracts), divulgenceEntry) =>
+            // If populated by an older version of the KV WriteService, the contract instances will be missing.
+            // Hence, we assume that, if one is missing, all are and return the list of missing ids.
+            if (divulgenceEntry.hasContractInstance) {
+              Left(missingContracts)
+            } else {
+              Left(missingContracts :+ divulgenceEntry.getContractId)
+            }
+        }
+        .map(_.result())
+    }
   }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =
