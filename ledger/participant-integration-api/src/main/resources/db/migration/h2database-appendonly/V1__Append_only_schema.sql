@@ -122,6 +122,19 @@ CREATE TABLE participant_command_completions (
     command_id VARCHAR NOT NULL,
     -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
+    -- The application ID has to be provided by the application.
+    application_id VARCHAR NOT NULL,
+    -- The submission ID will be provided by the participant or driver if the application didn't provide one.
+    submission_id VARCHAR NOT NULL,
+    -- The three alternatives below are mutually exclusive, i.e. the deduplication
+    -- interval could have specified by the application as one of:
+    -- 1. an initial offset
+    -- 2. an initial timestamp
+    -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
+    deduplication_offset VARCHAR,
+    deduplication_start TIMESTAMP,
+    deduplication_time_seconds BIGINT,
+    deduplication_time_nanos INT,
     -- The three columns below are `NULL` if the completion is for an accepted transaction.
     -- The `rejection_status_details` column contains a Protocol-Buffers-serialized message of type
     -- `daml.platform.index.StatusDetails`, containing the code, message, and further details

@@ -128,6 +128,19 @@ CREATE TABLE participant_command_completions
     record_time                 TIMESTAMP       NOT NULL,
 
     application_id              NVARCHAR2(1000) NOT NULL,
+    -- The submission ID will be provided by the participant or driver if the application didn't provide one.
+    submission_id               NVARCHAR2(1000) NOT NULL,
+
+    -- The three alternatives below are mutually exclusive, i.e. the deduplication
+    -- interval could have specified by the application as one of:
+    -- 1. an initial offset
+    -- 2. an initial timestamp
+    -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
+    deduplication_offset        VARCHAR2(4000),
+    deduplication_start         TIMESTAMP,
+    deduplication_time_seconds  NUMBER,
+    deduplication_time_nanos    NUMBER,
+
     submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
     command_id                  NVARCHAR2(1000) NOT NULL,
 
