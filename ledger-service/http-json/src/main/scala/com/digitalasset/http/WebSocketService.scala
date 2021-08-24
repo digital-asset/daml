@@ -433,6 +433,32 @@ object WebSocketService {
         lc: LoggingContextOf[InstanceUUID],
         jwt: Jwt,
     ): Future[StreamPredicate[Positive]] = {
+
+      // invariant: every set is non-empty
+      def getQ(
+          resolvedWithKey: Set[
+            (
+                com.daml.http.domain.TemplateId.RequiredPkg,
+                com.daml.http.query.ValuePredicate.LfV,
+            )
+          ]
+      ): Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
+        resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
+          (acc, el) =>
+            acc.get(el._1) match {
+              case Some(v) => acc.updated(el._1, v += el._2)
+              case None => acc.updated(el._1, HashSet(el._2))
+            }
+        )
+      def fn(
+          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]]
+      ): (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive] = { (a, _) =>
+        a.key match {
+          case None => None
+          case Some(k) =>
+            if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
+        }
+      }
       request.toList
         .traverse { x: CKR[LfV] =>
           resolveTemplateId(lc)(jwt)(x.ekey.templateId)
@@ -450,23 +476,7 @@ object WebSocketService {
           ].partitionMap(identity)
         )
         .map { case (resolvedWithKey, unresolved) =>
-          // invariant: every set is non-empty
-          val q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
-            resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
-              (acc, el) =>
-                acc.get(el._1) match {
-                  case Some(v) => acc.updated(el._1, v += el._2)
-                  case None => acc.updated(el._1, HashSet(el._2))
-                }
-            )
-          val fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive] = {
-            (a, _) =>
-              a.key match {
-                case None => None
-                case Some(k) =>
-                  if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
-              }
-          }
+          val q = getQ(resolvedWithKey)
           def dbQueries(implicit
               sjd: dbbackend.SupportedJdbcDriver
           ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
@@ -486,7 +496,7 @@ object WebSocketService {
           StreamPredicate(
             q.keySet,
             unresolved,
-            fn,
+            fn(q),
             { (parties, dao) =>
               import dao.{logHandler, jdbcDriver}
               import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
