@@ -38,38 +38,7 @@ def daml_haskell_deps():
     use_integer_simple = not is_windows
 
     #
-    # Executables
-    #
-
-    http_archive(
-        name = "proto3_suite",
-        build_file_content = """
-# XXX: haskell_cabal_binary inexplicably fails with
-#   realgcc.exe: error: CreateProcess: No such file or directory
-# So we use haskell_binary instead.
-load("@rules_haskell//haskell:defs.bzl", "haskell_binary")
-haskell_binary(
-    name = "compile-proto-file",
-    srcs = ["tools/compile-proto-file/Main.hs"],
-    compiler_flags = ["-w", "-optF=-w"],
-    deps = [
-        "@stackage//:base",
-        "@stackage//:optparse-applicative",
-        "@stackage//:proto3-suite",
-        "@stackage//:system-filepath",
-        "@stackage//:text",
-        "@stackage//:turtle",
-    ],
-    visibility = ["//visibility:public"],
-)
-""",
-        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
-        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
-        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
-    )
-
-    #
-    # Vendored Libraries
+    # Vendored Packages
     #
 
     http_archive(
@@ -258,6 +227,24 @@ haskell_cabal_library(
     haddock = False,
     deps = packages["proto3-suite"].deps,
     verbose = False,
+    visibility = ["//visibility:public"],
+)
+# XXX: haskell_cabal_binary inexplicably fails with
+#   realgcc.exe: error: CreateProcess: No such file or directory
+# So we use haskell_binary instead.
+load("@rules_haskell//haskell:defs.bzl", "haskell_binary")
+haskell_binary(
+    name = "compile-proto-file",
+    srcs = ["tools/compile-proto-file/Main.hs"],
+    compiler_flags = ["-w", "-optF=-w"],
+    deps = [
+        "@stackage//:base",
+        "@stackage//:optparse-applicative",
+        "@stackage//:proto3-suite",
+        "@stackage//:system-filepath",
+        "@stackage//:text",
+        "@stackage//:turtle",
+    ],
     visibility = ["//visibility:public"],
 )
 """,
