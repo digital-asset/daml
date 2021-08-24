@@ -258,7 +258,6 @@ object WebSocketService {
             } yield eventOffset > queryOffset
           matches.getOrElse(true)
         }
-
         def fn(
             q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), Int)]]
         )(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
@@ -459,50 +458,49 @@ object WebSocketService {
             if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
+      def dbQueries(
+          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]]
+      )(implicit
+          sjd: dbbackend.SupportedJdbcDriver
+      ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+        q.toSeq map { case (t, lfvKeys) =>
+          val khd +: ktl = lfvKeys.toVector
+          import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
+          (
+            t,
+            joinFragment(
+              OneAnd(khd, ktl) map (k =>
+                keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))
+              ),
+              sql" OR ",
+            ),
+          )
+        }
+      def streamPredicate(
+          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]],
+          unresolved: Set[OptionalPkg],
+      ) =
+        StreamPredicate(
+          q.keySet,
+          unresolved,
+          fn(q),
+          { (parties, dao) =>
+            import dao.{logHandler, jdbcDriver}
+            import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+            selectContractsMultiTemplate(parties, dbQueries(q), MatchedQueryMarker.Unused)
+          },
+        )
       request.toList
         .traverse { x: CKR[LfV] =>
           resolveTemplateId(lc)(jwt)(x.ekey.templateId)
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map(
-          _.toSet[
-            Either[
-              (
-                  com.daml.http.domain.TemplateId.RequiredPkg,
-                  com.daml.http.query.ValuePredicate.LfV,
-              ),
-              com.daml.http.domain.TemplateId.OptionalPkg,
-            ]
-          ].partitionMap(identity)
+          _.toSet[Either[(RequiredPkg, LfV), OptionalPkg]].partitionMap(identity)
         )
         .map { case (resolvedWithKey, unresolved) =>
           val q = getQ(resolvedWithKey)
-          def dbQueries(implicit
-              sjd: dbbackend.SupportedJdbcDriver
-          ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
-            q.toSeq map { case (t, lfvKeys) =>
-              val khd +: ktl = lfvKeys.toVector
-              import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
-              (
-                t,
-                joinFragment(
-                  OneAnd(khd, ktl) map (k =>
-                    keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))
-                  ),
-                  sql" OR ",
-                ),
-              )
-            }
-          StreamPredicate(
-            q.keySet,
-            unresolved,
-            fn(q),
-            { (parties, dao) =>
-              import dao.{logHandler, jdbcDriver}
-              import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
-              selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.Unused)
-            },
-          )
+          streamPredicate(q, unresolved)
         }
     }
 
