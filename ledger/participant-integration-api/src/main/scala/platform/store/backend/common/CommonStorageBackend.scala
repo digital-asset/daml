@@ -396,10 +396,14 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       }
   }
 
-  private def queryParties(parties: Set[String], connection: Connection): Vector[PartyDetails] = {
-    val partyFilter =
-      if (parties.isEmpty) cSQL""
-      else cSQL"party_entries.party in ($parties) AND"
+  private def queryParties(
+      parties: Option[Set[String]],
+      connection: Connection,
+  ): Vector[PartyDetails] = {
+    val partyFilter = parties match {
+      case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
+      case None => cSQL""
+    }
     SQL"""
         SELECT
           parties.party,
@@ -423,10 +427,10 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   }
 
   def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] =
-    queryParties(parties.view.map(_.toString).toSet, connection).toList
+    queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
 
   def knownParties(connection: Connection): List[PartyDetails] =
-    queryParties(Set.empty, connection).toList
+    queryParties(None, connection).toList
 
   // Packages
 
