@@ -66,8 +66,7 @@ private[platform] final class LedgerBackedIndexService(
       filter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
-    val (acs, ledgerEnd) = ledger
-      .activeContracts(convertFilter(filter), verbose)
+    val (acs, ledgerEnd) = ledger.activeContracts(convertFilter(filter), verbose)
     acs.concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
   }
 
@@ -77,13 +76,13 @@ private[platform] final class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
-    between(startExclusive, endInclusive)((from, to) => {
-      from.foreach(offset =>
+    between(startExclusive, endInclusive) { (from, to) =>
+      from.foreach { offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
-      )
-      to.foreach(offset =>
+      }
+      to.foreach { offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
-      )
+      }
       ledger
         .transactionTrees(
           startExclusive = from,
@@ -92,7 +91,7 @@ private[platform] final class LedgerBackedIndexService(
           verbose = verbose,
         )
         .map(_._2)
-    })
+    }
 
   override def transactions(
       startExclusive: domain.LedgerOffset,
@@ -100,13 +99,13 @@ private[platform] final class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
-    between(startExclusive, endInclusive)((from, to) => {
-      from.foreach(offset =>
+    between(startExclusive, endInclusive) { (from, to) =>
+      from.foreach { offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
-      )
-      to.foreach(offset =>
+      }
+      to.foreach { offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
-      )
+      }
       ledger
         .flatTransactions(
           startExclusive = from,
@@ -115,7 +114,7 @@ private[platform] final class LedgerBackedIndexService(
           verbose = verbose,
         )
         .map(_._2)
-    })
+    }
 
   private def convertOffset(offset: LedgerOffset)(implicit
       loggingContext: LoggingContext
