@@ -10,6 +10,7 @@ trait StorageBackendSuite
     with StorageBackendTestsInitialization
     with StorageBackendTestsInitializeIngestion
     with StorageBackendTestsIngestion
+    with StorageBackendTestsCompletions
     with StorageBackendTestsReset
     with StorageBackendTestsPruning {
   this: AsyncFlatSpec =>
