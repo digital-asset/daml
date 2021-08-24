@@ -26,8 +26,10 @@ lint:
     - DEFAULT
   except:
     - PACKAGE_VERSION_SUFFIX
-    - FIELD_SAME_ONEOF
 
 breaking:
   use:
     - WIRE_JSON
+  ignore_only:
+    FIELD_SAME_ONEOF:
+      - com/daml/ledger/api/v1/commands.proto
