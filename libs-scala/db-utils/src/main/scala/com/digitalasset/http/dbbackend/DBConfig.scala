@@ -30,6 +30,7 @@ final case class JdbcConfig(
     minIdle: Int = JdbcConfig.MinIdle,
     connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
     idleTimeout: Long = JdbcConfig.IdleTimeout,
+    backendSpecificConf: Queries.BackendSpecificConf = false,
 )
 
 abstract class ConfigCompanion[A, ReadCtx](name: String) {
@@ -95,6 +96,8 @@ object JdbcConfig
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, start-mode=${a.dbStartupMode})"
   )
 
+  private[this] val WorkaroundQueryTokenTooLong = "workaroundQueryTokenTooLong"
+
   def help(implicit supportedJdbcDriverNames: DBConfig.SupportedJdbcDriverNames): String =
     "Contains comma-separated key-value pairs. Where:\n" +
       s"${indent}driver -- JDBC driver class name, ${supportedJdbcDriverNames.unwrap.mkString(", ")} supported right now,\n" +
@@ -105,6 +108,9 @@ object JdbcConfig
       s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by start-mode, however if set it will always overrule start-mode.\n" +
       s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
         .mkString(",")}.\n" +
+      (if (supportedJdbcDriverNames.unwrap exists (_ contains "oracle"))
+      s"${indent}$WorkaroundQueryTokenTooLong -- if true, use a slower schema on Oracle that supports querying with literals >256 bytes (DRG-50943)"
+      else "") +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
@@ -150,6 +156,7 @@ object JdbcConfig
         }: Option[DbStartupMode]
       )
       dbStartupMode <- DbStartupMode.optionalSchemaHandlingField(x)("start-mode")
+      workaroundQueryTokenTooLong <- optionalBooleanField(x)(WorkaroundQueryTokenTooLong)
     } yield JdbcConfig(
       driver = driver,
       url = url,
@@ -157,6 +164,7 @@ object JdbcConfig
       password = password,
       tablePrefix = tablePrefix getOrElse "",
       dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
+      workaroundQueryTokenTooLong = workaroundQueryTokenTooLong getOrElse false,
     )
 
   private def helpString(
