@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 }
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.metrics.Metrics
 
 import scala.concurrent.Future

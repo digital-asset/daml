@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.`export`.{
   SubmissionAggregator,
   SubmissionInfo,
 }
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator.TestHelper.{FakeStateAccess, aParticipantId}
 import com.daml.ledger.validator.reading.StateReader
 import com.daml.ledger.validator.{LedgerStateOperations, LedgerStateWriteOperations}

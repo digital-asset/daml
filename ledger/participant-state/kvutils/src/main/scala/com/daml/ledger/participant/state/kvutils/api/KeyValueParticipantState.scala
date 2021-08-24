@@ -11,7 +11,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{
+import com.daml.ledger.participant.state.v2.{
   PruningResult,
   ReadService,
   SubmissionResult,
@@ -27,8 +27,8 @@ import com.daml.telemetry.TelemetryContext
 
 /** Implements read and write operations required for running a participant server.
   *
-  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[com.daml.ledger.participant.state.v1.ReadService]] and
-  * [[com.daml.ledger.participant.state.v1.WriteService]], respectively.
+  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[com.daml.ledger.participant.state.v2.ReadService]] and
+  * [[com.daml.ledger.participant.state.v2.WriteService]], respectively.
   * Will report [[com.daml.ledger.api.health.Healthy]] as health status only if both
   * `reader` and `writer` are healthy.
   *
@@ -47,8 +47,8 @@ class KeyValueParticipantState(
   private val writerAdapter =
     new KeyValueParticipantStateWriter(new TimedLedgerWriter(writer, metrics), metrics)
 
-  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-    readerAdapter.getLedgerInitialConditions()
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    readerAdapter.ledgerInitialConditions()
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     readerAdapter.stateUpdates(beginAfter)

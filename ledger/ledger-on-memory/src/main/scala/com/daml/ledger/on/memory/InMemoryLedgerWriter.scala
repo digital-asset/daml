@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, Daml
 import com.daml.ledger.participant.state.kvutils.api.{CommitMetadata, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.preexecution.{

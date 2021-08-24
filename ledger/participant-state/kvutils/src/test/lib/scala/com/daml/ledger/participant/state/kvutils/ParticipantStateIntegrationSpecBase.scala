@@ -10,21 +10,15 @@ import akka.Done
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{LedgerId, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
-import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1.{
-  ReadService,
-  RejectionReasonV0,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.v2.Update._
+import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.Decode
@@ -44,7 +38,6 @@ import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 
-import scala.collection.compat._
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.compat.java8.FutureConverters._
@@ -106,7 +99,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       newParticipantState(ledgerId = ledgerId).use { ps =>
         for {
           conditions <- ps
-            .getLedgerInitialConditions()
+            .ledgerInitialConditions()
             .runWith(Sink.head)
         } yield {
           conditions.ledgerId should be(ledgerId)
@@ -413,7 +406,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       "correctly implement transaction submission authorization" in participantState.use { ps =>
         val unallocatedParty = Ref.Party.assertFromString("nobody")
         for {
-          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+          lic <- ps.ledgerInitialConditions().runWith(Sink.head)
           _ <- ps
             .submitConfiguration(
               maxRecordTime = inTheFuture(10.seconds),
@@ -472,7 +465,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
           offset2 should be(toOffset(2))
           inside(update2) { case CommandRejected(_, _, reason) =>
-            reason should be(a[RejectionReasonV0.PartyNotKnownOnLedger])
+            reason should be(a[FinalReason])
           }
 
           offset3 should be(toOffset(3))
@@ -487,7 +480,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
     "submitConfiguration" should {
       "allow an administrator to submit a new configuration" in participantState.use { ps =>
         for {
-          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+          lic <- ps.ledgerInitialConditions().runWith(Sink.head)
 
           // Submit an initial configuration change
           _ <- ps
@@ -531,7 +524,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       "reject a duplicate submission" in participantState.use { ps =>
         val submissionIds = (newSubmissionId(), newSubmissionId())
         for {
-          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+          lic <- ps.ledgerInitialConditions().runWith(Sink.head)
 
           // Submit an initial configuration change
           result1 <- ps
@@ -637,10 +630,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val ledgerId = newLedgerId()
         for {
           retrievedLedgerId1 <- newParticipantState(ledgerId = ledgerId).use { ps =>
-            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+            ps.ledgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
           retrievedLedgerId2 <- newParticipantState(ledgerId = ledgerId).use { ps =>
-            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+            ps.ledgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
         } yield {
           retrievedLedgerId1 should be(ledgerId)
@@ -702,7 +695,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      deduplicateUntil = inTheFuture(10.seconds).toInstant,
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(10)),
+      submissionId = Ref.LedgerString.assertFromString("submissionId"),
+      ledgerConfiguration = null,
     )
 
   private def inTheFuture(duration: FiniteDuration): Timestamp =
@@ -778,7 +773,15 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _, _) =>
+      case TransactionAccepted(
+            Some(CompletionInfo(_, _, actualCommandId, _, _)),
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+          ) =>
         actualCommandId should be(expectedCommandId)
     }
 }

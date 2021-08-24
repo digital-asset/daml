@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
   outOfTimeBoundsEntryToUpdate,
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0, Update}
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.Empty
 import org.scalatest.matchers.should.Matchers

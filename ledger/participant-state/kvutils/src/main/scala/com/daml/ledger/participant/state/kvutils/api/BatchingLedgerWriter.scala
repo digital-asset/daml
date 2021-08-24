@@ -10,7 +10,7 @@ import akka.stream.Materializer
 import com.daml.ledger.api.health.{HealthStatus, Unhealthy}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

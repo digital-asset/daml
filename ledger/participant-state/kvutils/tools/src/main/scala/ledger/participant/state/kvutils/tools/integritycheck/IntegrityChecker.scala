@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
 }
-import com.daml.ledger.participant.state.v2.{AdaptedV1ReadService, ReadService}
+import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -105,7 +105,7 @@ class IntegrityChecker[LogResult](
       _ <- indexStateUpdates(
         config = config,
         metrics = metrics,
-        replayingReadService =
+        readService =
           if (config.indexOnly)
             expectedReadServiceFactory.createReadService
           else
@@ -125,13 +125,12 @@ class IntegrityChecker[LogResult](
   private def indexStateUpdates(
       config: Config,
       metrics: Metrics,
-      replayingReadService: ReplayingReadService,
+      readService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
-    val readService = new AdaptedV1ReadService(replayingReadService)
 
     // Start the indexer consuming the recorded state updates
-    println(s"Starting to index ${replayingReadService.updateCount()} updates.".white)
+    println(s"Starting to index ${readService.updateCount()} updates.".white)
     newLoggingContext { implicit loggingContext =>
       val feedHandleResourceOwner = for {
         indexer <- migrateAndStartIndexer(
@@ -160,7 +159,7 @@ class IntegrityChecker[LogResult](
             .fromNanos(System.nanoTime() - startTime)
             .toMillis
             .toDouble / 1000.0
-          val updatesPerSecond = replayingReadService.updateCount() / durationSeconds
+          val updatesPerSecond = readService.updateCount() / durationSeconds
           println()
           println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
         }

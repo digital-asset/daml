@@ -9,16 +9,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.v1.Update
-import com.daml.ledger.test.{
-  SimplePackageListTestDar,
-  SimplePackageOptionalTestDar,
-  SimplePackagePartyTestDar,
-  SimplePackageTextMapTestDar,
-  SimplePackageTupleTestDar,
-  SimplePackageVariantTestDar,
-  TestDar,
-}
+import com.daml.ledger.participant.state.v2.Update
+import com.daml.ledger.test._
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
@@ -520,7 +512,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-    "allow for missing submitter info in log entries" in KVTest.runTestWithSimplePackage(
+    "allow for missing completion info in log entries" in KVTest.runTestWithSimplePackage(
       alice,
       bob,
       eve,
@@ -542,7 +534,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         // Process into updates and verify
         val updates = KeyValueConsumption.logEntryToUpdate(entryId, strippedEntry.build)
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
-          txAccepted.optSubmitterInfo should be(None)
+          txAccepted.optCompletionInfo should be(None)
         }
       }
     }

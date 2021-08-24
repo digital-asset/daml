@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPartyAllocationEntry,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
@@ -88,7 +88,7 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
     .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(ATimestampInSeconds))
     .build()
 
-  private lazy val aPartyAddedToParticipantUpdate = v1.Update.PartyAddedToParticipant(
+  private lazy val aPartyAddedToParticipantUpdate = Update.PartyAddedToParticipant(
     Ref.Party.assertFromString(APartyName),
     "",
     Ref.ParticipantId.assertFromString(AParticipantId),
