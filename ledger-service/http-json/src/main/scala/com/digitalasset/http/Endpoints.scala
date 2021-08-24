@@ -412,36 +412,36 @@ class Endpoints(
 
   def query(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    inputAndJwtPayload[JwtPayload](req)
-      .flatMap(it =>
-        either(it).flatMap { case (jwt, jwtPayload, reqBody) =>
-          withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-            eitherT(
-              SprayJson
-                .decode[domain.GetActiveContractsRequest](reqBody)
-                .liftErr[Error](InvalidUserInput)
-                .map { cmd =>
-                  withEnrichedLoggingContext(
-                    LoggingContextOf.label[domain.GetActiveContractsRequest],
-                    "cmd" -> cmd.toString,
-                  ).run { implicit lc =>
-                    logger.debug(s"Processing a query request")
-                    contractsService
-                      .search(jwt, jwtPayload, cmd)
-                      .map(
-                        domain.SyncResponse.covariant.map(_)(
-                          _.via(handleSourceFailure)
-                            .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
-                        )
-                      )
-                  }
-                }
-                .sequence
-            )
-          }
-        }.run
-      )
+  ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
+    for {
+      it <- EitherT.eitherT(inputAndJwtPayload[JwtPayload](req))
+      (jwt, jwtPayload, reqBody) = it
+      res <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
+        val res =
+          SprayJson
+            .decode[domain.GetActiveContractsRequest](reqBody)
+            .liftErr[Error](InvalidUserInput)
+            .map { cmd =>
+              withEnrichedLoggingContext(
+                LoggingContextOf.label[domain.GetActiveContractsRequest],
+                "cmd" -> cmd.toString,
+              ).run { implicit lc =>
+                logger.debug(s"Processing a query request")
+                contractsService
+                  .search(jwt, jwtPayload, cmd)
+                  .map(
+                    domain.SyncResponse.covariant.map(_)(
+                      _.via(handleSourceFailure)
+                        .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+                    )
+                  )
+              }
+            }
+            .sequence
+        eitherT(res)
+      }
+    } yield res
+  }.run
 
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
