@@ -53,11 +53,11 @@ class AdaptedV1WriteServiceSpec extends AnyWordSpec with Matchers with TableDriv
     }
 
     "handle null metadata for synchronous rejection" in {
-      val input =
+      val inputWithNullMetadata =
         v1.SubmissionResult.SynchronousReject(Status.UNIMPLEMENTED.asRuntimeException(null))
 
       val SubmissionResult.SynchronousError(actual) =
-        AdaptedV1WriteService.adaptSubmissionResult(input)
+        AdaptedV1WriteService.adaptSubmissionResult(inputWithNullMetadata)
 
       actual.code should be(Status.UNIMPLEMENTED.getCode.value())
       actual.details should have size 1
