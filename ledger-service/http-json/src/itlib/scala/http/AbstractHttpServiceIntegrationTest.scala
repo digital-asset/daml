@@ -1132,8 +1132,11 @@ abstract class AbstractHttpServiceIntegrationTest
   "should be able to serialize and deserialize domain commands" in withLedger { client =>
     instanceUUIDLogCtx(implicit lc =>
       jsonCodecs(client).flatMap { case (encoder, decoder) =>
-        testCreateCommandEncodingDecoding(encoder, decoder)
-          .flatMap(_ => testExerciseCommandEncodingDecoding(encoder, decoder))
+        testCreateCommandEncodingDecoding(encoder, decoder) *>
+          testExerciseCommandEncodingDecoding(
+            encoder,
+            decoder,
+          )
       }: Future[Assertion]
     )
   }
