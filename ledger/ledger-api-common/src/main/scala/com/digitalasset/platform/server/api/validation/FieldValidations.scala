@@ -14,6 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.server.api.validation.ErrorFactories._
+import com.google.protobuf.duration.{Duration => DurationProto}
 import io.grpc.StatusRuntimeException
 
 import scala.util.Try
@@ -120,21 +121,28 @@ trait FieldValidations {
           Left(invalidField(fieldName, exceedsMaxDurationMessage))
         else Right(duration)
       }
+
+      def protoDurationToDurationPeriod(duration: DurationProto) = {
+        val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+        validateDuration(
+          result,
+          s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
+        ).map(DeduplicationPeriod.DeduplicationDuration)
+      }
+
       deduplicationPeriod match {
         case DeduplicationPeriodProto.Empty =>
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case DeduplicationPeriodProto.DeduplicationTime(duration) =>
-          val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
-          validateDuration(
-            result,
-            s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
-          ).map(DeduplicationPeriod.DeduplicationDuration)
+          protoDurationToDurationPeriod(duration)
         case DeduplicationPeriodProto.DeduplicationOffset(offset) =>
           Right(
             DeduplicationPeriod.DeduplicationOffset(
               Offset.fromHexString(Ref.HexString.assertFromString(offset))
             )
           )
+        case DeduplicationPeriodProto.DeduplicationDuration(duration) =>
+          protoDurationToDurationPeriod(duration)
       }
     })
   }
