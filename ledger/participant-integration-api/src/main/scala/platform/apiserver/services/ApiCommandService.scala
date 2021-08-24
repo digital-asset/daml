@@ -163,7 +163,7 @@ private[apiserver] object ApiCommandService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService = {
-    val submissionTracker = TrackerMap.selfCleaning(
+    val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.retentionPeriod,
       Tracking.getTrackerKey,
       Tracking.newTracker(configuration, services, ledgerConfigurationSubscription, metrics),

@@ -97,7 +97,7 @@ private[services] final class TrackerMap[Key](
 }
 
 private[services] object TrackerMap {
-  def selfCleaning[Key](
+  final class SelfCleaning[Key](
       retentionPeriod: FiniteDuration,
       getKey: Commands => Key,
       newTracker: Key => Future[Tracker],
@@ -106,23 +106,22 @@ private[services] object TrackerMap {
       materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Tracker = {
-    val delegate = new TrackerMap(retentionPeriod, getKey, newTracker)
-    val trackerCleanupJob = materializer.system.scheduler
+  ) extends Tracker {
+    private val delegate = new TrackerMap(retentionPeriod, getKey, newTracker)
+    private val trackerCleanupJob = materializer.system.scheduler
       .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(delegate.cleanup _)
-    new Tracker {
-      override def track(
-          request: SubmitAndWaitRequest
-      )(implicit
-          executionContext: ExecutionContext,
-          loggingContext: LoggingContext,
-      ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
-        delegate.track(request)
 
-      override def close(): Unit = {
-        trackerCleanupJob.cancel()
-        delegate.close()
-      }
+    override def track(
+        request: SubmitAndWaitRequest
+    )(implicit
+        executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+      delegate.track(request)
+
+    override def close(): Unit = {
+      trackerCleanupJob.cancel()
+      delegate.close()
     }
   }
 
