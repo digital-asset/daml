@@ -19,7 +19,6 @@ load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
 GHCIDE_REV = "e28a78b9a450fa7970320e78175b8dd382ce0fbd"
 GHCIDE_SHA256 = "b038f995c5b71d07b3f0fc973aa0970780bb9ad0365c6552a75ec5264fd3f8a6"
-GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
