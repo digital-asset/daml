@@ -127,7 +127,7 @@ private[backend] object PostgresStorageBackend
   )(implicit loggingContext: LoggingContext): Unit = {
     getPostgresVersion(connection) match {
       case Some((major, minor, patch)) =>
-        if (major < 10) {
+        if (major < 20) {
           logger.error(
             "Deprecated Postgres version. " +
               s"Found Postgres version $major.$minor.$patch., minimum required Postgres version is 10. " +
@@ -135,6 +135,7 @@ private[backend] object PostgresStorageBackend
               "Please upgrade your Postgres database to version 10 or later to fix this issue. " +
               "In the future, this deprecation warning may be upgraded to a fatal error."
           )
+          sys.error("simulated failure DPP-535")
         }
       case None =>
         logger.warn(
