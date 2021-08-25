@@ -1322,6 +1322,15 @@ message TemplateChoice {
   Location location = 8;
 }
 
+message InterfaceChoice {
+  Location location = 1;
+  int32 name_interned_string = 2;
+  bool consuming = 3;
+  Type arg_type = 4;
+  Type ret_type = 5;
+}
+
+
 // we restrict key expressions to records of projections, much like SQL
 message KeyExpr {
   message Projection {
@@ -1427,6 +1436,15 @@ message DefTemplate {
 
   // They key definition for the template, if present
   DefKey key = 10; // optional
+
+  // Interfaces that this template implements.
+  repeated TypeConName implements = 11; // *Available in versions >= 1.dev*
+}
+
+message DefInterface {
+  Location location = 1;
+  int32 tycon_interned_dname = 2;
+  repeated InterfaceChoice choices = 3;
 }
 
 // Exception definition
@@ -1559,6 +1577,7 @@ message Module {
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
   repeated DefException exceptions = 10; // *Available in versions >= 1.14*
+  repeated DefInterface interfaces = 11; // *Available in versions >= 1.dev*
 }
 
 message InternedDottedName {
