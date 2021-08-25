@@ -11,7 +11,6 @@ import akka.stream.scaladsl.{Flow, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId, Party}
 import com.daml.ledger.api.refinements.{CompositeCommand, CompositeCommandAdapter}
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -24,6 +23,7 @@ import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
 import com.daml.ledger.client.binding.util.Slf4JLogger
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -106,20 +106,19 @@ class LedgerClientBinding(
         createRetry,
       )
     } yield Flow[Ctx[C, CompositeCommand]]
-      .map(_.map(compositeCommandAdapter.transform))
+      .map(
+        _.map(compositeCommand =>
+          CommandSubmission(compositeCommandAdapter.transform(compositeCommand))
+        )
+      )
       .via(tracking)
 
   @nowarn("msg=parameter value ignored .* is never used") // matches CommandRetryFlow signature
   private def createRetry[C](
-      retryInfo: RetryInfo[C, SubmitRequest],
+      retryInfo: RetryInfo[C, CommandSubmission],
       ignored: Any,
-  ): SubmitRequest = {
-    if (retryInfo.value.commands.isEmpty) {
-      logger.warn(s"Retrying with empty commands for {}", retryInfo.value)
-    }
-
+  ): CommandSubmission =
     retryInfo.value
-  }
 
   type CommandsFlow[C] =
     Flow[Ctx[C, CompositeCommand], Ctx[C, Either[CompletionFailure, CompletionSuccess]], NotUsed]
@@ -128,7 +127,11 @@ class LedgerClientBinding(
     for {
       trackCommandsFlow <- ledgerClient.commandClient.trackCommands[C](List(party.unwrap))
     } yield Flow[Ctx[C, CompositeCommand]]
-      .map(_.map(compositeCommandAdapter.transform))
+      .map(
+        _.map(compositeCommand =>
+          CommandSubmission(compositeCommandAdapter.transform(compositeCommand))
+        )
+      )
       .via(trackCommandsFlow)
       .mapMaterializedValue(_ => NotUsed)
   }

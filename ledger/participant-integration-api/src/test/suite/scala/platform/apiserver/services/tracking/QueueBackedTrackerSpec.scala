@@ -10,8 +10,8 @@ import akka.stream.{Materializer, OverflowStrategy}
 import akka.{Done, NotUsed}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker.QueueInput
@@ -101,9 +101,7 @@ class QueueBackedTrackerSpec
 }
 
 object QueueBackedTrackerSpec {
-  private def input(commandId: Int) = SubmitAndWaitRequest.of(
-    commands = Some(Commands(commandId = commandId.toString))
-  )
+  private def input(commandId: Int) = CommandSubmission(Commands(commandId = commandId.toString))
 
   private def alwaysSuccessfulQueue(bufferSize: Int)(implicit
       materializer: Materializer
@@ -112,7 +110,7 @@ object QueueBackedTrackerSpec {
       .queue[QueueInput](bufferSize, OverflowStrategy.dropNew)
       .map { in =>
         val completion = CompletionResponse.CompletionSuccess(
-          commandId = in.value.getCommands.commandId,
+          commandId = in.value.commands.commandId,
           transactionId = "",
           originalStatus = StatusProto.defaultInstance,
         )

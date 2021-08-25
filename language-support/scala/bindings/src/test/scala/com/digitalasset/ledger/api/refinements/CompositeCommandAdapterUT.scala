@@ -11,16 +11,18 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
-
   CompositeCommandAdapter.getClass.getSimpleName should {
-
     "translate CompositeCommand to SubmitRequest" in {
-      val commands =
-        Seq(
-          Command(
-            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))
+      val commands = Seq(
+        Command.of(
+          Create(
+            CreateCommand.of(
+              templateId = Some(Identifier("packageId", "moduleName", "templateId")),
+              createArguments = None,
+            )
           )
         )
+      )
 
       val compositeCommand = CompositeCommand(
         commands,
@@ -29,16 +31,19 @@ class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
         WorkflowId("workflowId"),
       )
 
-      val submitRequest = CompositeCommandAdapter(
+      val extractedCommands = CompositeCommandAdapter(
         LedgerId("ledgerId"),
         ApplicationId("applicationId"),
       ).transform(compositeCommand)
 
-      submitRequest.commands shouldBe Some(
-        Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands)
+      extractedCommands shouldBe Commands(
+        ledgerId = "ledgerId",
+        workflowId = "workflowId",
+        applicationId = "applicationId",
+        commandId = "commandId",
+        party = "party",
+        commands = commands,
       )
     }
-
   }
-
 }

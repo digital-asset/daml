@@ -10,13 +10,12 @@ import akka.stream.FlowShape
 import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Partition}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.client.services.commands.CommandClient
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
 }
+import com.daml.ledger.client.services.commands.{CommandClient, CommandSubmission}
 import com.daml.util.Ctx
 import com.google.rpc.Code
 import scalaz.syntax.tag._
@@ -25,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object CommandRetryFlow {
 
-  type Value = SubmitRequest
+  type Value = CommandSubmission
   type In[C] = Ctx[C, Value]
   type Out[C] = Ctx[C, Either[CompletionFailure, CompletionSuccess]]
   type SubmissionFlowType[C] = Flow[In[C], Out[C], NotUsed]

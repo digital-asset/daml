@@ -7,10 +7,10 @@ import java.time.{Duration, Instant}
 
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
@@ -33,12 +33,12 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
   /** Uses the status received in the context for the first time,
     * then replies OK status as the ledger effective time is stepped.
     */
-  val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status, SubmitRequest]] =
-    Flow[In[RetryInfo[Status, SubmitRequest]]]
+  val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status, CommandSubmission]] =
+    Flow[In[RetryInfo[Status, CommandSubmission]]]
       .map {
         case Ctx(
               context @ RetryInfo(_, nrOfRetries, _, status),
-              SubmitRequest(Some(commands)),
+              CommandSubmission(commands),
               _,
             ) =>
           // Return a completion based on the input status code only on the first submission.
@@ -59,30 +59,27 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
 
   @nowarn("msg=parameter value response .* is never used") // matches createGraph signature
   private def createRetry(
-      retryInfo: RetryInfo[Status, SubmitRequest],
+      retryInfo: RetryInfo[Status, CommandSubmission],
       response: Either[CompletionFailure, CompletionSuccess],
-  ) = {
-    SubmitRequest(retryInfo.value.commands)
-  }
+  ): CommandSubmission =
+    CommandSubmission(retryInfo.value.commands)
 
-  val retryFlow: SubmissionFlowType[RetryInfo[Status, SubmitRequest]] =
+  val retryFlow: SubmissionFlowType[RetryInfo[Status, CommandSubmission]] =
     CommandRetryFlow.createGraph(mockCommandSubmission, timeProvider, maxRetryTime, createRetry)
 
   private def submitRequest(
       statusCode: Int,
       time: Instant,
-  ): Future[Seq[Out[RetryInfo[Status, SubmitRequest]]]] = {
+  ): Future[Seq[Out[RetryInfo[Status, CommandSubmission]]]] = {
 
-    val request = SubmitRequest(
-      Some(
-        Commands(
-          "ledgerId",
-          "workflowId",
-          "applicationId",
-          "commandId",
-          "party",
-          Seq.empty,
-        )
+    val request = CommandSubmission(
+      Commands(
+        ledgerId = "ledgerId",
+        workflowId = "workflowId",
+        applicationId = "applicationId",
+        commandId = "commandId",
+        party = "party",
+        commands = Seq.empty,
       )
     )
 
