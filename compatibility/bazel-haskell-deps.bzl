@@ -29,15 +29,13 @@ def daml_haskell_deps():
         },
         stack_snapshot_json =
             "//:stackage_snapshot_windows.json" if is_windows else "//:stackage_snapshot.json",
-        flags = dicts.add(
-            {
-                "cryptonite": ["-integer-gmp"],
-                "hashable": ["-integer-gmp"],
-                "integer-logarithms": ["-integer-gmp"],
-                "scientific": ["integer-simple"],
-                "text": ["integer-simple"],
-            } if use_integer_simple else {},
-        ),
+        flags = {
+            "cryptonite": ["-integer-gmp"],
+            "hashable": ["-integer-gmp"],
+            "integer-logarithms": ["-integer-gmp"],
+            "scientific": ["integer-simple"],
+            "text": ["integer-simple"],
+        } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
