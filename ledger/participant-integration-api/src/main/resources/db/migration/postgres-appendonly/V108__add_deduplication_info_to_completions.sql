@@ -1,7 +1,9 @@
 --  Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 --  SPDX-License-Identifier: Apache-2.0
 
--- Add columns to store command deduplication information in completions.
+---------------------------------------------------------------------------------------------------
+-- V108: Add columns to store command deduplication information in completions
+---------------------------------------------------------------------------------------------------
 
 ALTER TABLE participant_command_completions
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
@@ -13,6 +15,6 @@ ALTER TABLE participant_command_completions
     -- 2. an initial timestamp
     -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
     ADD COLUMN deduplication_offset text,
-    ADD COLUMN deduplication_start timestamp,
     ADD COLUMN deduplication_time_seconds bigint,
-    ADD COLUMN deduplication_time_nanos integer;
+    ADD COLUMN deduplication_time_nanos integer,
+    ADD COLUMN deduplication_start timestamp;

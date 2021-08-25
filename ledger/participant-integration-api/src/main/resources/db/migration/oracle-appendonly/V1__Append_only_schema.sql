@@ -137,12 +137,12 @@ CREATE TABLE participant_command_completions
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
     -- interval could have specified by the application as one of:
     -- 1. an initial offset
-    -- 2. an initial timestamp
-    -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
+    -- 2. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
+    -- 3. an initial timestamp
     deduplication_offset        VARCHAR2(4000),
-    deduplication_start         TIMESTAMP,
     deduplication_time_seconds  NUMBER,
     deduplication_time_nanos    NUMBER,
+    deduplication_start         TIMESTAMP,
 
     submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
     command_id                  NVARCHAR2(1000) NOT NULL,
