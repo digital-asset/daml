@@ -17,7 +17,11 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.parallel.ParallelIndexerFactory
+import com.daml.platform.indexer.parallel.{
+  InitializeParallelIngestion,
+  ParallelIndexerFactory,
+  ParallelIndexerSubscription,
+}
 import com.daml.platform.store.DbType.{
   AsynchronousCommit,
   LocalSynchronousCommit,
@@ -171,28 +175,12 @@ object JdbcIndexer {
               _ <- initializeLedger(ledgerDao)
             } yield ()
           )
+        storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl))
       } yield ParallelIndexerFactory(
         jdbcUrl = config.jdbcUrl,
-        storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl)),
-        participantId = config.participantId,
-        translation = new LfValueTranslation(
-          cache = lfValueTranslationCache,
-          metrics = metrics,
-          enricherO = None,
-          loadPackage = (_, _) => Future.successful(None),
-        ),
-        compressionStrategy =
-          if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
-          else CompressionStrategy.none(metrics),
-        mat = materializer,
-        maxInputBufferSize = config.maxInputBufferSize,
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
         ingestionParallelism = config.ingestionParallelism,
-        submissionBatchSize = config.submissionBatchSize,
-        tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
-        batchWithinMillis = config.batchWithinMillis,
-        metrics = metrics,
         dataSourceConfig = DataSourceConfig(
           postgresConfig = PostgresDataSourceConfig(
             synchronousCommit = Some(config.asyncCommitMode match {
@@ -203,6 +191,34 @@ object JdbcIndexer {
           )
         ),
         haConfig = config.haConfig,
+        metrics = metrics,
+        storageBackend = storageBackend,
+        initializeParallelIngestion = InitializeParallelIngestion(
+          storageBackend = storageBackend,
+          metrics = metrics,
+        ),
+        parallelIndexerSubscription = ParallelIndexerSubscription(
+          storageBackend = storageBackend,
+          participantId = config.participantId,
+          translation = new LfValueTranslation(
+            cache = lfValueTranslationCache,
+            metrics = metrics,
+            enricherO = None,
+            loadPackage = (_, _) => Future.successful(None),
+          ),
+          compressionStrategy =
+            if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
+            else CompressionStrategy.none(metrics),
+          maxInputBufferSize = config.maxInputBufferSize,
+          inputMappingParallelism = config.inputMappingParallelism,
+          batchingParallelism = config.batchingParallelism,
+          ingestionParallelism = config.ingestionParallelism,
+          submissionBatchSize = config.submissionBatchSize,
+          tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
+          batchWithinMillis = config.batchWithinMillis,
+          metrics = metrics,
+        ),
+        mat = materializer,
       )
     }
 
