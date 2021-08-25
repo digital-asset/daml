@@ -14,6 +14,7 @@ import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
+import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
 import com.daml.platform.server.api.ApiException
 import com.daml.util.Ctx
 import io.grpc.{Status => GrpcStatus}
@@ -25,28 +26,17 @@ import scala.util.{Failure, Success}
 /** Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
   */
-private[services] final class TrackerImpl(
-    queue: SourceQueueWithComplete[TrackerImpl.QueueInput],
+private[services] final class QueueBackedTracker(
+    queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput],
     done: Future[Done],
-)(implicit
-    loggingContext: LoggingContext
-) extends Tracker {
-
-  import TrackerImpl.logger
+)(implicit loggingContext: LoggingContext)
+    extends Tracker {
 
   override def track(request: SubmitAndWaitRequest)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     logger.trace("Tracking command")
-    submitNewRequest(request)
-  }
-
-  private def submitNewRequest(
-      request: SubmitAndWaitRequest
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     queue
       .offer(
@@ -105,7 +95,7 @@ private[services] final class TrackerImpl(
   }
 }
 
-private[services] object TrackerImpl {
+private[services] object QueueBackedTracker {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -122,7 +112,7 @@ private[services] object TrackerImpl {
       capacityCounter: Counter,
       lengthCounter: Counter,
       delayTimer: Timer,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): TrackerImpl = {
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
     val ((queue, mat), done) = InstrumentedSource
       .queue[QueueInput](
         inputBufferSize,
@@ -170,7 +160,7 @@ private[services] object TrackerImpl {
       )(DirectExecutionContext)
     }(DirectExecutionContext)
 
-    new TrackerImpl(queue, done)
+    new QueueBackedTracker(queue, done)
   }
 
   type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest]
