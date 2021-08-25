@@ -19,7 +19,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.ledger.client.testing.AkkaTest
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import org.scalatest.Inside
@@ -37,8 +36,13 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
   val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
     Flow[In[RetryInfo[Status]]]
       .map {
-        case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands)), _) =>
-          if (commands.deduplicationTime.get.nanos == 0) {
+        case Ctx(
+              context @ RetryInfo(_, nrOfRetries, _, status),
+              SubmitRequest(Some(commands)),
+              _,
+            ) =>
+          // Return a completion based on the input status code only on the first submission.
+          if (nrOfRetries == 0) {
             Ctx(context, CompletionResponse(Completion(commands.commandId, Some(status))))
           } else {
             Ctx(
@@ -58,10 +62,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
       retryInfo: RetryInfo[Status],
       response: Either[CompletionFailure, CompletionSuccess],
   ) = {
-    val commands = retryInfo.request.commands.get
-    val dedupTime = commands.deduplicationTime.get
-    val newDedupTime = dedupTime.copy(nanos = dedupTime.nanos + 1)
-    SubmitRequest(Some(commands.copy(deduplicationTime = Some(newDedupTime))))
+    SubmitRequest(retryInfo.request.commands)
   }
 
   val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
@@ -78,7 +79,6 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
           "commandId",
           "party",
           Seq.empty,
-          Some(protoDuration.of(120, 0)),
         )
       )
     )
@@ -92,7 +92,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
       .runWith(Sink.seq)
   }
 
-  CommandRetryFlow.getClass.getSimpleName should {
+  "command retry flow" should {
 
     "propagate OK status" in {
       submitRequest(Code.OK_VALUE, Instant.ofEpochSecond(45)) map { result =>

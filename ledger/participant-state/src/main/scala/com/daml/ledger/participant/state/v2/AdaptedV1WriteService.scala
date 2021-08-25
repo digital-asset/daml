@@ -89,11 +89,10 @@ private[v2] object AdaptedV1WriteService {
   private val NoErrorDetails = Seq.empty[com.google.protobuf.any.Any]
 
   def adaptSubmitterInfo(submitterInfo: SubmitterInfo): v1.SubmitterInfo = {
-    val deduplicateUntil = submitterInfo.deduplicationPeriod match {
-      case DeduplicationPeriod.DeduplicationDuration(duration) => Instant.now().plus(duration)
-      case DeduplicationPeriod.DeduplicationOffset(_) =>
-        throw new NotImplementedError("Deduplication offset not supported as deduplication period")
-    }
+    val deduplicateUntil = DeduplicationPeriod.deduplicateUntil(
+      Instant.now(),
+      submitterInfo.deduplicationPeriod,
+    )
     v1.SubmitterInfo(
       actAs = submitterInfo.actAs,
       applicationId = submitterInfo.applicationId,

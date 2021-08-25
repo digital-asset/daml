@@ -36,6 +36,7 @@ da_scala_library(
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//libs-scala/concurrent",

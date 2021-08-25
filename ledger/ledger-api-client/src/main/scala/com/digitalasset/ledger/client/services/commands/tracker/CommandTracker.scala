@@ -9,6 +9,7 @@ import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_submission_service._
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
@@ -233,12 +234,11 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
                   },
                 )
               case Some(maxDedup) =>
-                val deduplicationDuration = commands.deduplicationTime
-                  .map(d => JDuration.ofSeconds(d.seconds, d.nanos.toLong))
-                  .getOrElse(maxDedup)
+                val commandTimeout =
+                  maxTimeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
                 val trackingData = TrackingData(
                   commandId = commandId,
-                  commandTimeout = Instant.now().plus(deduplicationDuration),
+                  commandTimeout = commandTimeout,
                   context = submitRequest.context,
                 )
                 pendingCommands += commandId -> trackingData
@@ -316,6 +316,25 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
     }
 
     logic -> promise.future
+  }
+
+  private def maxTimeoutFromDeduplicationPeriod(
+      deduplicationPeriod: DeduplicationPeriod,
+      maxDeduplicationDuration: JDuration,
+  ) = {
+    val timeoutDuration = deduplicationPeriod match {
+      case DeduplicationPeriod.Empty =>
+        maxDeduplicationDuration
+      case DeduplicationPeriod.DeduplicationTime(duration) =>
+        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
+      case DeduplicationPeriod.DeduplicationOffset(
+            _
+          ) => //no way of extracting the duration from here, will be removed soon
+        maxDeduplicationDuration
+    }
+    Instant
+      .now()
+      .plus(timeoutDuration)
   }
 
   override def shape: CommandTrackerShape[Context] =

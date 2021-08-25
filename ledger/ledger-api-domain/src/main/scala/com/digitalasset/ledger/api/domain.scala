@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
@@ -283,11 +283,9 @@ object domain {
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplicationDuration: Duration,
+      deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
-  ) {
-    lazy val deduplicateUntil: Instant = submittedAt.plus(deduplicationDuration)
-  }
+  )
 
   object Commands {
 
@@ -302,7 +300,7 @@ object domain {
         "actAs" -> commands.actAs,
         "readAs" -> commands.readAs,
         "submittedAt" -> commands.submittedAt,
-        "deduplicationDuration" -> commands.deduplicationDuration,
+        "deduplicationPeriod" -> commands.deduplicationPeriod,
       )
   }
 
