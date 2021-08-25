@@ -15,7 +15,6 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.google.protobuf.ByteString
-import scalaz.{Either3, Left3, Middle3}
 
 /** Except where specified, values should be treated as opaque
   */
@@ -69,7 +68,7 @@ private[backend] object StorageBackendTestValues {
 
   def dtoPartyEntry(
       offset: Offset,
-      party: String = someParty.toString,
+      party: String = someParty,
   ): DbDto.PartyEntry = DbDto.PartyEntry(
     ledger_offset = offset.toHexString,
     recorded_at = someTime,
@@ -206,42 +205,61 @@ private[backend] object StorageBackendTestValues {
     )
   }
 
+  sealed trait Deduplication extends Product with Serializable {
+    import Deduplication.{Offset => DedupOffset, _}
+
+    def startOffset: Option[String] = this match {
+      case DedupOffset(offset) => Some(offset)
+      case _ => None
+    }
+    def duration: Option[SecondsAndNanos] = this match {
+      case Span(span) => Some(span)
+      case _ => None
+    }
+    def startInstant: Option[Instant] = this match {
+      case Start(instant) => Some(instant)
+      case _ => None
+    }
+  }
+  object Deduplication {
+    final case class SecondsAndNanos(seconds: Long, nanos: Int) {
+      def allComponentsAreNonNegative: Boolean = seconds >= 0 && nanos >= 0
+    }
+
+    final case class Offset(offset: String) extends Deduplication
+    final case class Span(span: SecondsAndNanos) extends Deduplication {
+      require(
+        span.allComponentsAreNonNegative,
+        s"All the deduplication window components must not be negative: $span",
+      )
+    }
+    final case class Start(instant: Instant) extends Deduplication
+  }
+
   def dtoCompletion(
       offset: Offset,
       submitter: String = "signatory",
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
       submissionId: Option[String] = Some(UUID.randomUUID().toString),
-      deduplication: Option[Either3[String, (Long, Int), Instant]] = None,
-  ): DbDto.CommandCompletion = {
-    val transactionId = transactionIdFromOffset(offset)
-
+      deduplication: Option[Deduplication] = None,
+  ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
       record_time = someTime,
       application_id = applicationId,
       submitters = Set(submitter),
       command_id = commandId,
-      transaction_id = Some(transactionId),
+      transaction_id = Some(transactionIdFromOffset(offset)),
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,
       submission_id = submissionId,
-      deduplication_offset = deduplication.flatMap {
-        case Left3(offset) => Some(offset)
-        case _ => None
-      },
-      deduplication_time_seconds = deduplication.flatMap {
-        case Middle3((seconds, _)) => Some(seconds)
-        case _ => None
-      },
-      deduplication_time_nanos = deduplication.flatMap {
-        case Middle3((_, nanos)) => Some(nanos)
-        case _ => None
-      },
-      deduplication_start = None,
+      deduplication_offset = deduplication.flatMap(_.startOffset),
+      deduplication_time_seconds = deduplication.flatMap(_.duration.map(_.seconds)),
+      deduplication_time_nanos = deduplication.flatMap(_.duration.map(_.nanos)),
+      deduplication_start = deduplication.flatMap(_.startInstant),
     )
-  }
 
   def dtoTransactionId(dto: DbDto): Ref.TransactionId = {
     dto match {
