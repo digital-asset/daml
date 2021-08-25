@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@auth0/auth0-react": "^1.6.0",
     "@daml.js/__PROJECT_NAME__": "file:daml.js/__PROJECT_NAME__-0.1.0",
     "@daml/ledger": "__VERSION__",
     "@daml/react": "__VERSION__",
     "@daml/types": "__VERSION__",
+    "dotenv": "^8.2.0",
     "jwt-simple": "^0.5.6",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
-    "dotenv": "^8.2.0",
     "semantic-ui-css": "^2.4.1",
     "semantic-ui-react": "^0.88.1"
   },

@@ -19,7 +19,8 @@
     "noEmit": true,
     "jsx": "react",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "noFallthroughCasesInSwitch": true
   },
   "include": [
     "src"
