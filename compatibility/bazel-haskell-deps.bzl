@@ -75,15 +75,12 @@ def daml_haskell_deps():
             "tasty-hunit",
             "text",
             "typed-process",
-            "optparse-applicative",
             "unix-compat",
             "unordered-containers",
             "utf8-string",
             "uuid",
-        ] + (["unix"] if not is_windows else ["Win32"]),
-        stack = "@stack_windows//:stack.exe" if is_windows else None,
-        tools = [
         ],
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
     )
 
     if is_windows:
