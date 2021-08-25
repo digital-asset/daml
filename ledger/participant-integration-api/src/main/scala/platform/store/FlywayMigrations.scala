@@ -240,7 +240,7 @@ private[platform] object FlywayMigrations {
   case class MigrateOnEmptySchema(appliedMigrations: Int, pendingMigrations: Int)
       extends RuntimeException(
         s"Asked to migrate-on-empty-schema, but encountered neither an empty database with $appliedMigrations " +
-          s"migrations already applied nor a fully-migrated databases with $pendingMigrations migrations pending."
+          s"migrations already applied nor a fully-migrated database with $pendingMigrations migrations pending."
       )
   case class EnforceEmptySchema(appliedMigrations: Int)
       extends RuntimeException(
