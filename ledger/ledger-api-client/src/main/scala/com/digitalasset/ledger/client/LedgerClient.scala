@@ -3,6 +3,8 @@
 
 package com.daml.ledger.client
 
+import com.daml.grpc.GrpcException
+
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
 
@@ -32,6 +34,7 @@ import io.grpc.stub.AbstractStub
 import io.grpc.{Channel, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 final class LedgerClient private (
     val channel: Channel,
@@ -100,10 +103,28 @@ object LedgerClient {
     for {
       ledgerId <- new LedgerIdentityClient(
         stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
-      )
-        .satisfies(config.ledgerIdRequirement)
+      ).satisfies(config.ledgerIdRequirement)
+        .transformWith {
+          case Success(Right(res)) =>
+            Future.successful(res)
+          case Success(Left(err)) =>
+            Future.failed(new IllegalArgumentException(err))
+          // This means we don't have a token for authorization
+          // such that ledger id verification is not possible.
+          // In this case we try to use the ledgerId we want to verify against which is hopefully provided
+          // via the config.
+          case Failure(e @ GrpcException.UNAUTHENTICATED()) =>
+            config.ledgerIdRequirement.optionalLedgerId
+              .map(LedgerId(_))
+              .fold(Future.failed[LedgerId](e))(Future.successful(_))
+          case Failure(t) => Future.failed(t)
+        }
     } yield {
-      new LedgerClient(channel, config, ledgerId)
+      new LedgerClient(
+        channel,
+        config,
+        ledgerId,
+      )
     }
   }
 

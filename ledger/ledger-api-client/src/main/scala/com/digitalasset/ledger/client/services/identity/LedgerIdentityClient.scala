@@ -18,16 +18,17 @@ final class LedgerIdentityClient(service: LedgerIdentityServiceStub) {
     */
   def satisfies(ledgerIdRequirement: LedgerIdRequirement, token: Option[String] = None)(implicit
       ec: ExecutionContext
-  ): Future[LedgerId] =
+  ): Future[Either[String, LedgerId]] =
     for {
       ledgerId <- getLedgerId(token)
     } yield {
       val requirement = ledgerIdRequirement
-      require(
-        requirement.isAccepted(ledgerId),
-        s"Required Ledger ID ${requirement.optionalLedgerId.get} does not match received Ledger ID $ledgerId",
-      )
-      LedgerId(ledgerId)
+      if (requirement.isAccepted(ledgerId))
+        Right(LedgerId(ledgerId))
+      else
+        Left(
+          s"Required Ledger ID ${requirement.optionalLedgerId.get} does not match received Ledger ID $ledgerId"
+        )
     }
 
   def getLedgerId(token: Option[String] = None): Future[String] =

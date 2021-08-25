@@ -18,6 +18,7 @@ import com.daml.platform.sandboxnext.SandboxNextFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.tag._
 
 final class LedgerClientAuthIT
     extends AsyncWordSpec
@@ -86,7 +87,7 @@ final class LedgerClientAuthIT
       }
     }
 
-    "it does not have a token" should {
+    "it does not have a token & no ledgerIdRequirement specified" should {
       "fail to construct" in {
         for {
           exception <- LedgerClient(channel, ClientConfigurationWithoutToken).failed
@@ -95,6 +96,19 @@ final class LedgerClientAuthIT
             succeed
           }
         }
+      }
+    }
+
+    "it does have a ledgerIdRequirement but not a token " should {
+      "construct" in {
+        for {
+          client <- LedgerClient(
+            channel,
+            ClientConfigurationWithoutToken.copy(ledgerIdRequirement =
+              LedgerIdRequirement(Some(LedgerId.unwrap))
+            ),
+          )
+        } yield client.ledgerId should equal(this.LedgerId)
       }
     }
   }
