@@ -117,7 +117,7 @@ private[backend] object PostgresStorageBackend
     logger.debug(s"Found Postgres version $version")
     val versionPattern = """(\d)+[.](\d)+[.](\d)+""".r
     version match {
-      case versionPattern(major, minor, patch) => Some(major.toInt, minor.toInt, patch.toInt)
+      case versionPattern(major, minor, patch) => Some((major.toInt, minor.toInt, patch.toInt))
       case _ => None
     }
   }
