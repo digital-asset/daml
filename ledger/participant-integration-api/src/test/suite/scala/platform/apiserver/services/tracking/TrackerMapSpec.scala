@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
@@ -13,6 +13,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.tracking.TrackerMapSpec._
+import com.daml.timer.Delayed
 import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -133,6 +134,143 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
       } yield {
         val finalTrackerCounts = trackerCounts.view.mapValues(_.get()).toMap
         finalTrackerCounts should be(Map(Set("Alice") -> 1, Set("Bob") -> 2))
+      }
+    }
+
+    "clean up failed trackers" in {
+      val trackerCounts = TrieMap.empty[String, AtomicInteger]
+      val tracker = new TrackerMap[String](
+        retentionPeriod = 1.minute,
+        getKey = commands => commands.applicationId,
+        newTracker = applicationId => {
+          trackerCounts.getOrElseUpdate(applicationId, new AtomicInteger(0)).incrementAndGet()
+          if (applicationId.isEmpty)
+            Future.failed(new IllegalArgumentException("Missing application ID."))
+          else
+            Future.successful(new FakeTracker(transactionIds = Iterator.continually("")))
+        },
+      )
+
+      for {
+        _ <- tracker.track(
+          SubmitAndWaitRequest.of(
+            commands = Some(Commands(commandId = "1", applicationId = "test"))
+          )
+        )
+        failure1 <- tracker
+          .track(
+            SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "2", applicationId = "")))
+          )
+          .failed
+        _ = tracker.cleanup()
+        failure2 <- tracker
+          .track(
+            SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "3", applicationId = "")))
+          )
+          .failed
+      } yield {
+        val finalTrackerCounts = trackerCounts.view.mapValues(_.get()).toMap
+        finalTrackerCounts should be(Map("test" -> 1, "" -> 2))
+        failure1.getMessage should be("Missing application ID.")
+        failure2.getMessage should be("Missing application ID.")
+      }
+    }
+
+    "close all trackers" in {
+      val requestCount = 20
+      val expectedTrackerCount = 5
+      val openTrackerCount = new AtomicInteger(0)
+      val closedTrackerCount = new AtomicInteger(0)
+      val tracker = new TrackerMap[String](
+        retentionPeriod = 1.minute,
+        getKey = commands => commands.applicationId,
+        newTracker = _ =>
+          Future.successful {
+            openTrackerCount.incrementAndGet()
+            new Tracker {
+              override def track(
+                  request: SubmitAndWaitRequest
+              )(implicit
+                  executionContext: ExecutionContext,
+                  loggingContext: LoggingContext,
+              ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+                Future.successful(
+                  Right(
+                    CompletionSuccess(
+                      commandId = request.getCommands.commandId,
+                      transactionId = "",
+                      originalStatus = Status.defaultInstance,
+                    )
+                  )
+                )
+
+              override def close(): Unit = {
+                closedTrackerCount.incrementAndGet()
+                ()
+              }
+            }
+          },
+      )
+
+      val requests = (0 until requestCount).map { i =>
+        val key = (i % expectedTrackerCount).toString
+        SubmitAndWaitRequest.of(
+          commands = Some(Commands(commandId = i.toString, applicationId = key))
+        )
+      }
+      for {
+        _ <- Future.sequence(requests.map(tracker.track))
+        _ = tracker.close()
+      } yield {
+        openTrackerCount.get() should be(expectedTrackerCount)
+        closedTrackerCount.get() should be(expectedTrackerCount)
+      }
+    }
+
+    "close waiting trackers" in {
+      val openTracker = new AtomicBoolean(false)
+      val closedTracker = new AtomicBoolean(false)
+      val tracker = new TrackerMap[Unit](
+        retentionPeriod = 1.minute,
+        getKey = _ => (),
+        newTracker = _ =>
+          Delayed.by(1.second) {
+            openTracker.set(true)
+            new Tracker {
+              override def track(
+                  request: SubmitAndWaitRequest
+              )(implicit
+                  executionContext: ExecutionContext,
+                  loggingContext: LoggingContext,
+              ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+                Future.successful(
+                  Right(
+                    CompletionSuccess(
+                      commandId = request.getCommands.commandId,
+                      transactionId = "",
+                      originalStatus = Status.defaultInstance,
+                    )
+                  )
+                )
+
+              override def close(): Unit = {
+                closedTracker.set(true)
+                ()
+              }
+            }
+          },
+      )
+
+      val completionF = tracker.track(
+        SubmitAndWaitRequest.of(
+          commands = Some(Commands(commandId = "command"))
+        )
+      )
+      tracker.close()
+      Delayed.Future.by(1.second)(completionF).map { completion =>
+        openTracker.get() should be(true)
+        closedTracker.get() should be(true)
+        completion should matchPattern { case Right(_) => }
       }
     }
   }
