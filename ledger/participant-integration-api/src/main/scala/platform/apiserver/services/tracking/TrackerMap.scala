@@ -25,7 +25,10 @@ import scala.util.{Failure, Success}
 /** A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup.
   * A tracker tracker, if you will.
   *
-  * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
+  * @param retentionPeriod The minimum duration for which to retain ready-but-idling trackers.
+  * @param getKey A function to compute the tracker key from the commands.
+  * @param newTracker A function to construct a new tracker.
+  *                   Called when there is no tracker for the given key.
   */
 private[services] final class TrackerMap[Key](
     retentionPeriod: FiniteDuration,
@@ -89,16 +92,18 @@ private[services] final class TrackerMap[Key](
     val currentTime = System.nanoTime()
     trackerBySubmitter.foreach { case (submitter, trackerResource) =>
       trackerResource.currentState match {
+        case Waiting => // there is nothing to clean up
         case Ready(tracker) =>
+          // close and forget expired trackers
           if (currentTime - tracker.getLastSubmission > retentionNanos) {
             logger.info(
               s"Shutting down tracker for $submitter after inactivity of $retentionPeriod"
             )(trackerResource.loggingContext)
-            trackerBySubmitter -= submitter
             tracker.close()
+            trackerBySubmitter -= submitter
           }
-        case Waiting => // do nothing
         case Failed(_) | Closed =>
+          // simply forget already-failed or closed trackers
           trackerBySubmitter -= submitter
       }
     }
