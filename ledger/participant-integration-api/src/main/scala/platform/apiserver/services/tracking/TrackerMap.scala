@@ -97,7 +97,7 @@ private[services] final class TrackerMap[Key](
             trackerBySubmitter -= submitter
             tracker.close()
           }
-        case Waiting(_) => // do nothing
+        case Waiting => // do nothing
         case Failed(_) | Closed =>
           trackerBySubmitter -= submitter
       }
@@ -141,8 +141,7 @@ private[services] object TrackerMap {
   }
 
   private sealed trait AsyncResourceState[+T <: AutoCloseable]
-  private final case class Waiting[T <: AutoCloseable](future: Future[T])
-      extends AsyncResourceState[T]
+  private final case object Waiting extends AsyncResourceState[Nothing]
   private final case class Ready[T <: AutoCloseable](resource: T) extends AsyncResourceState[T]
   private final case object Closed extends AsyncResourceState[Nothing]
   private final case class Failed(exception: Throwable) extends AsyncResourceState[Nothing]
@@ -153,30 +152,32 @@ private[services] object TrackerMap {
   final class AsyncResource[T <: AutoCloseable](
       start: Future[T]
   )(implicit val loggingContext: LoggingContext) {
-    // Must progress Waiting => Ready => Closed, Waiting => Closed, or Waiting => Failed.
-    private val state: AtomicReference[AsyncResourceState[T]] = new AtomicReference(
-      Waiting(
-        start.andThen {
-          case Success(resource) =>
-            state.set(Ready(resource))
-          case Failure(exception) =>
-            state.set(Failed(exception))
-        }(DirectExecutionContext)
-      )
-    )
+    // Must progress as follows:
+    //   - Waiting -> Closed,
+    //   - Waiting -> Ready -> Closed, or
+    //   - Waiting -> Failed.
+    private val state: AtomicReference[AsyncResourceState[T]] = new AtomicReference(Waiting)
+    private val future = start.andThen {
+      case Success(resource) =>
+        state.set(Ready(resource))
+      case Failure(exception) =>
+        state.set(Failed(exception))
+    }(DirectExecutionContext)
 
     private[TrackerMap] def currentState: AsyncResourceState[T] = state.get()
 
+    // This will recurse in the `Waiting` state, but only after `future` completes,
+    // which means that the state will have changed to either `Ready` or `Failed`.
     def withResource[U](f: T => Future[U])(implicit ex: ExecutionContext): Future[U] =
       currentState match {
-        case Waiting(future) => future.flatMap(_ => withResource(f)) // try again
+        case Waiting => future.flatMap(_ => withResource(f)) // try again
         case Ready(resource) => f(resource)
-        case Closed => Future.failed(new IllegalStateException("The resource is closed."))
         case Failed(exception) => Future.failed(exception)
+        case Closed => Future.failed(new IllegalStateException("The resource is closed."))
       }
 
     def close(): Unit = state.getAndSet(Closed) match {
-      case Waiting(future) =>
+      case Waiting =>
         try {
           Await.result(
             future.transform(Success(_))(DirectExecutionContext),
