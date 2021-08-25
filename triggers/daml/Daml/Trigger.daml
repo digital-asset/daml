@@ -68,7 +68,7 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- | Extract the contracts of a given template from the ACS.
 getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
-getContracts (ACS tpls pending) = mapOptional fromAny
+getContracts acs@(ACS tpls _) = mapOptional fromAny
                                 $ filter (\(cid, _) -> not $ cid `elem` allPending)
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
                                 $ optional [] Map.toList
@@ -77,7 +77,10 @@ getContracts (ACS tpls pending) = mapOptional fromAny
                                   tpls
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
-    allPending = concatMap snd $ Map.toList pending
+    allPending = getPendingContracts acs
+
+getPendingContracts : ACS -> [AnyContractId]
+getPendingContracts (ACS _ pending) = concatMap snd $ Map.toList pending
 
 getContractById : forall a. Template a => ContractId a -> ACS -> Optional a
 getContractById id (ACS tpls pending) = do
@@ -109,17 +112,24 @@ class ActionTriggerAny m where
   -- | Find the contract with the given `id` in the ACS, if present.
   queryContractId : Template a => ContractId a -> m (Optional a)
 
+  -- | Query the list of currently pending contracts as set by
+  -- `emitCommands`.
+  queryPendingContracts : m [AnyContractId]
+
 instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
   queryContractId id = TriggerA $ pure . getContractById id
+  queryPendingContracts = TriggerA $ \acs -> pure (getPendingContracts acs)
 
 instance ActionTriggerAny (TriggerUpdateA s) where
   implQuery = TriggerUpdateA $ pure . getContracts . snd
   queryContractId id = TriggerUpdateA $ pure . getContractById id . snd
+  queryPendingContracts = TriggerUpdateA $ \(_, acs) -> pure (getPendingContracts acs)
 
 instance ActionTriggerAny TriggerInitializeA where
   implQuery = TriggerInitializeA getContracts
   queryContractId = TriggerInitializeA . getContractById
+  queryPendingContracts = TriggerInitializeA getPendingContracts
 
 -- | Features possible in `updateState` and `rule`.
 class ActionTriggerAny m => ActionTriggerUpdate m where
