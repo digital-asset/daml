@@ -22,6 +22,7 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
+  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -39,7 +40,8 @@ private[backend] object PostgresStorageBackend
     with CommonStorageBackend[AppendOnlySchema.Batch]
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
-    with CompletionStorageBackendTemplate {
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
 
   override def insertBatch(
       connection: Connection,
@@ -81,7 +83,6 @@ private[backend] object PostgresStorageBackend
       |truncate table participant_events_create cascade;
       |truncate table participant_events_consuming_exercise cascade;
       |truncate table participant_events_non_consuming_exercise cascade;
-      |truncate table parties cascade;
       |truncate table party_entries cascade;
       |""".stripMargin)
       .execute()(connection)
@@ -99,14 +100,11 @@ private[backend] object PostgresStorageBackend
           |truncate table participant_events_create cascade;
           |truncate table participant_events_consuming_exercise cascade;
           |truncate table participant_events_non_consuming_exercise cascade;
-          |truncate table parties cascade;
           |truncate table party_entries cascade;
           |""".stripMargin)
       .execute()(connection)
     ()
   }
-
-  override val duplicateKeyError: String = "duplicate key"
 
   object PostgresQueryStrategy extends QueryStrategy {
 

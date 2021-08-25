@@ -14,7 +14,11 @@ import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
-private[engine] final class ValueTranslator(interface: language.Interface) {
+private[engine] final class ValueTranslator(
+    interface: language.Interface,
+    // See Preprocessor.requiredCidSuffix for more details about the following flag.
+    requiredCidSuffix: Boolean,
+) {
 
   import Preprocessor._
 
@@ -37,6 +41,19 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
 
     go(fields, Map.empty)
   }
+
+  private[preprocessing] val unsafeTranslateCid: ContractId => SValue.SContractId =
+    if (requiredCidSuffix) {
+      case cid1: ContractId.V1 =>
+        if (cid1.suffix.isEmpty)
+          throw Error.Preprocessing.NonSuffixedCid(cid1)
+        else
+          SValue.SContractId(cid1)
+      case cid0: ContractId.V0 =>
+        SValue.SContractId(cid0)
+    }
+    else
+      SValue.SContractId
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
@@ -89,7 +106,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                         typeError()
                     }
                   case (BTContractId, ValueContractId(c)) =>
-                    SValue.SContractId(c)
+                    unsafeTranslateCid(c)
                   case (BTOptional, ValueOptional(mbValue)) =>
                     mbValue match {
                       case Some(v) =>

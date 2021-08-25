@@ -11,6 +11,7 @@ load(
     "scala_test",
     "scala_test_suite",
 )
+load("@io_bazel_rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
 load(
     "@io_bazel_rules_scala//jmh:jmh.bzl",
     "scala_benchmark_jmh",
@@ -730,3 +731,53 @@ def da_scala_benchmark_jmh(
     deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     _wrap_rule_no_plugins(scala_benchmark_jmh, deps, runtime_deps, **kwargs)
+
+def _da_scala_test_short_name_aspect_impl(target, ctx):
+    is_scala_test = ctx.rule.kind == "scala_test"
+
+    srcs = getattr(ctx.rule.attr, "srcs", [])
+    has_single_src = type(srcs) == "list" and len(srcs) == 1
+
+    split = target.label.name.rsplit("_", 1)
+    is_numbered = len(split) == 2 and split[1].isdigit()
+    if is_numbered:
+        [name, number] = split
+
+    is_relevant = is_scala_test and has_single_src and is_numbered
+    if not is_relevant:
+        return []
+
+    src_name = srcs[0].label.name
+    long_name = "%s_test_suite_%s" % (name, sanitize_string_for_usage(src_name))
+    long_label = target.label.relative(long_name)
+    info_json = json.encode(struct(
+        short_label = str(target.label),
+        long_label = str(long_label),
+    ))
+
+    # Aspect generated providers are not available to Starlark cquery output,
+    # so we write the information to a file from where it can be collected in a
+    # separate step.
+    # See https://github.com/bazelbuild/bazel/issues/13866
+    info_out = ctx.actions.declare_file("{}_scala_test_info.json".format(target.label.name))
+    ctx.actions.write(info_out, content = info_json, is_executable = False)
+    return [OutputGroupInfo(scala_test_info = depset([info_out]))]
+
+da_scala_test_short_name_aspect = aspect(
+    implementation = _da_scala_test_short_name_aspect_impl,
+    doc = """\
+Maps shortened test names in da_scala_test_suite test-cases to long names.
+
+Test cases in da_scala_test_suite have shortened Bazel labels on Windows to
+avoid exceeding the MAX_PATH length limit on Windows. For the purposes of CI
+monitoring this makes it difficult to determine how a particular test case
+behaves across different platforms, since the name is different on Windows than
+on Linux and MacOS.
+
+This aspect generates a JSON file in the scala_test_info output group that
+describes a mapping from the shortened name to the regular long name.
+
+Such an output will be generated for any scala_test target that has a single
+source file and who's name follows the pattern `<name>_<number>`.
+""",
+)

@@ -434,7 +434,8 @@ private[lf] class Runner(
                   case ScriptF.Throw(SAny(ty, value)) =>
                     Future.failed(
                       Runner.InterpretationError(
-                        SError.SErrorDamlException(IE.UnhandledException(ty, value.toValue))
+                        SError
+                          .SErrorDamlException(IE.UnhandledException(ty, value.toUnnormalizedValue))
                       )
                     )
                   case cmd: ScriptF.Cmd =>

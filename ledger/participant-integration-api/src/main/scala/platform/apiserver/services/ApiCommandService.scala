@@ -6,7 +6,6 @@ package com.daml.platform.apiserver.services
 import java.time.Instant
 
 import akka.NotUsed
-import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
@@ -19,6 +18,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -33,34 +33,29 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   TrackedCompletionFailure,
 }
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
-import com.daml.ledger.configuration.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
-import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
+import com.daml.platform.apiserver.services.tracking.{Tracker, QueueBackedTracker, TrackerMap}
 import com.daml.platform.server.api.ApiException
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
-import io.grpc._
+import io.grpc.Status
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
 private[apiserver] final class ApiCommandService private (
     services: LocalServices,
-    configuration: ApiCommandService.Configuration,
-    ledgerConfigurationSubscription: LedgerConfigurationSubscription,
-    metrics: Metrics,
+    submissionTracker: Tracker,
 )(implicit
-    materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends CommandServiceGrpc.CommandService
@@ -68,17 +63,10 @@ private[apiserver] final class ApiCommandService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val submissionTracker: TrackerMap = TrackerMap(configuration.retentionPeriod)
-  private val staleCheckerInterval: FiniteDuration = 30.seconds
-
-  private val trackerCleanupJob: Cancellable = materializer.system.scheduler
-    .scheduleAtFixedRate(staleCheckerInterval, staleCheckerInterval)(submissionTracker.cleanup)
-
   @volatile private var running = true
 
   override def close(): Unit = {
     logger.info("Shutting down Command Service")
-    trackerCleanupJob.cancel()
     running = false
     submissionTracker.close()
   }
@@ -93,67 +81,13 @@ private[apiserver] final class ApiCommandService private (
       logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        ledgerConfigurationSubscription
-          .latestConfiguration()
-          .fold[Future[Either[TrackedCompletionFailure, CompletionSuccess]]](
-            Future.failed(ErrorFactories.missingLedgerConfig())
-          )(ledgerConfig => track(request, ledgerConfig))
+        submissionTracker.track(request)
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
         )
       }.andThen(logger.logErrorsOnCall[Completion])
     }
-
-  private def track(
-      request: SubmitAndWaitRequest,
-      ledgerConfig: LedgerConfiguration,
-  )(implicit
-      loggingContext: LoggingContext
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-    val appId = request.getCommands.applicationId
-    // Note: command completions are returned as long as at least one of the original submitters
-    // is specified in the command completion request.
-    val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-    val submitter = TrackerMap.Key(application = appId, parties = parties)
-    // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
-    val metricsPrefixFirstParty = parties.toList.min
-    submissionTracker.track(submitter, request) {
-      for {
-        ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
-      } yield {
-        val tracker =
-          CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
-            services.submissionFlow,
-            offset =>
-              services
-                .getCompletionSource(
-                  CompletionStreamRequest(
-                    configuration.ledgerId.unwrap,
-                    appId,
-                    parties.toList,
-                    Some(offset),
-                  )
-                )
-                .mapConcat(CommandCompletionSource.toStreamElements),
-            ledgerEnd,
-            () => ledgerConfig.maxDeduplicationTime,
-          )
-        val trackingFlow = MaxInFlight(
-          configuration.maxCommandsInFlight,
-          capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
-          lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
-        ).joinMat(tracker)(Keep.right)
-        TrackerImpl(
-          trackingFlow,
-          configuration.inputBufferSize,
-          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefixFirstParty),
-          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefixFirstParty),
-          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefixFirstParty),
-        )
-      }
-    }
-  }
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
     submitAndWaitInternal(request).map(
@@ -212,11 +146,11 @@ private[apiserver] final class ApiCommandService private (
         },
       )
     }
-
-  override def toString: String = ApiCommandService.getClass.getSimpleName
 }
 
 private[apiserver] object ApiCommandService {
+
+  private val trackerCleanupInterval = 30.seconds
 
   def create(
       configuration: Configuration,
@@ -228,9 +162,15 @@ private[apiserver] object ApiCommandService {
       materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): CommandServiceGrpc.CommandService with GrpcApiService =
+  ): CommandServiceGrpc.CommandService with GrpcApiService = {
+    val submissionTracker = new TrackerMap.SelfCleaning(
+      configuration.retentionPeriod,
+      Tracking.getTrackerKey,
+      Tracking.newTracker(configuration, services, ledgerConfigurationSubscription, metrics),
+      trackerCleanupInterval,
+    )
     new GrpcCommandService(
-      new ApiCommandService(services, configuration, ledgerConfigurationSubscription, metrics),
+      service = new ApiCommandService(services, submissionTracker),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
@@ -238,6 +178,7 @@ private[apiserver] object ApiCommandService {
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       generateSubmissionId = SubmissionIdGenerator.Random,
     )
+  }
 
   final case class Configuration(
       ledgerId: LedgerId,
@@ -257,5 +198,66 @@ private[apiserver] object ApiCommandService {
       getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],
       getFlatTransactionById: GetTransactionByIdRequest => Future[GetFlatTransactionResponse],
   )
+
+  private object Tracking {
+    final case class Key(applicationId: String, parties: Set[String])
+
+    def getTrackerKey(commands: Commands): Tracking.Key = {
+      val parties = CommandsValidator.effectiveActAs(commands)
+      Tracking.Key(commands.applicationId, parties)
+    }
+
+    def newTracker(
+        configuration: Configuration,
+        services: LocalServices,
+        ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+        metrics: Metrics,
+    )(
+        key: Tracking.Key
+    )(implicit
+        materializer: Materializer,
+        executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[Tracker] = {
+      // Note: command completions are returned as long as at least one of the original submitters
+      // is specified in the command completion request.
+      // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
+      val metricsPrefixFirstParty = key.parties.min
+      for {
+        ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
+      } yield {
+        val commandTrackerFlow =
+          CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
+            services.submissionFlow,
+            offset =>
+              services
+                .getCompletionSource(
+                  CompletionStreamRequest(
+                    configuration.ledgerId.unwrap,
+                    key.applicationId,
+                    key.parties.toList,
+                    Some(offset),
+                  )
+                )
+                .mapConcat(CommandCompletionSource.toStreamElements),
+            ledgerEnd,
+            () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+          )
+        val trackingFlow = MaxInFlight(
+          configuration.maxCommandsInFlight,
+          capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
+          lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
+        ).joinMat(commandTrackerFlow)(Keep.right)
+
+        QueueBackedTracker(
+          trackingFlow,
+          configuration.inputBufferSize,
+          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefixFirstParty),
+          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefixFirstParty),
+          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefixFirstParty),
+        )
+      }
+    }
+  }
 
 }

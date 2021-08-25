@@ -781,6 +781,23 @@ bulk_upload() {
   echo "$res"
 }
 
+patch() {
+  local job map
+  job="$1"
+  # Replace shortened Scala test names by their long names.
+  # See //bazel_tools:scala.bzl%da_scala_test_short_name_aspect.
+  map="scala-test-suite-name-map.json"
+  if ! [[ -f "$job/$map" ]]; then
+    echo "$job: no $map"
+  else
+    echo "$job: applying $map"
+    # Generates a sed command to replace short labels by long labels.
+    jq_command='to_entries | map("s|\(.key)\\b|\(.value)|g") | join(";")'
+    sed_command="$(jq -r "$jq_command" <"$job/$map")"
+    sed -i "$sed_command" "$job"/{build-events,build-profile,test-events,test-profile}.json
+  fi
+}
+
 push() {
   local job f pids
   job="$1"
@@ -852,6 +869,7 @@ for tar in $todo; do
     ensure_index "$job" "$(index "$job" jobs)"
     ensure_index "$job" "$(index "$job" events)"
     tar --force-local -x -z -f "$(basename "$tar")"
+    patch "$job"
     push "$job"
     rm -rf $job
     r=$(curl -H 'Content-Type: application/json' \

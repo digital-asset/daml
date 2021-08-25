@@ -7,11 +7,11 @@ import java.time.{Instant, Duration => JDuration}
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Keep, Source, SourceQueueWithComplete}
 import akka.stream.testkit.javadsl.TestSink
 import akka.stream.testkit.scaladsl.TestSource
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
+import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimestampConversion._
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -29,6 +29,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   NotOkResponse,
 }
 import com.daml.util.Ctx
+import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
@@ -39,7 +40,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationLong
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -80,8 +81,9 @@ class CommandTrackerFlowTest
       Some(
         Commands(
           commandId = commandId,
-          deduplicationTime =
-            dedupTime.map(t => com.google.protobuf.duration.Duration(t.getSeconds)),
+          deduplicationPeriod = dedupTime
+            .map(t => Commands.DeduplicationPeriod.DeduplicationTime(DurationProto(t.getSeconds)))
+            .getOrElse(Commands.DeduplicationPeriod.Empty),
         )
       )
     ),
@@ -115,11 +117,11 @@ class CommandTrackerFlowTest
       completionSource
     }
 
-    def send(elem: CompletionStreamElement) =
+    def send(elem: CompletionStreamElement): Future[QueueOfferResult] =
       for {
         state <- stateRef.get().future
         res <- state.queue.offer(elem)
-      } yield (res)
+      } yield res
 
     def breakCompletionsStream(): Future[Unit] =
       stateRef
@@ -127,13 +129,32 @@ class CommandTrackerFlowTest
         .future
         .map(state => state.queue.fail(new RuntimeException("boom")))
 
-    def getLastOffset = stateRef.get().future.map(_.startOffset)
+    def getLastOffset: Future[LedgerOffset] =
+      stateRef.get().future.map(_.startOffset)
 
   }
 
-  import Compat._
-
   "Command tracking flow" when {
+
+    "no configuration is available" should {
+      "fail immediately" in {
+        val Handle(submissions, results, _, _) =
+          runCommandTrackingFlow(allSubmissionsSuccessful, maxDeduplicationTime = None)
+
+        submissions.sendNext(submitRequest)
+
+        results.requestNext().value shouldEqual Left(
+          NotOkResponse(
+            commandId,
+            Status.of(
+              Code.UNAVAILABLE.value,
+              "The ledger configuration is not available.",
+              Seq.empty,
+            ),
+          )
+        )
+      }
+    }
 
     "two commands are submitted with the same ID" should {
 
@@ -523,7 +544,8 @@ class CommandTrackerFlowTest
         Ctx[(Int, String), SubmitRequest],
         Ctx[(Int, String), Try[Empty]],
         NotUsed,
-      ]
+      ],
+      maxDeduplicationTime: Option[JDuration] = Some(JDuration.ofSeconds(10)),
   ) = {
 
     val completionsMock = new CompletionStreamMock()
@@ -533,7 +555,7 @@ class CommandTrackerFlowTest
         submissionFlow,
         completionsMock.createCompletionsSource,
         LedgerOffset(Boundary(LEDGER_BEGIN)),
-        () => JDuration.ofSeconds(10),
+        () => maxDeduplicationTime,
       )
 
     val handle = submissionSource

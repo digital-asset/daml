@@ -69,7 +69,12 @@ class ReinterpretTest
   val lookupPackage = allPackages.get(_)
   val lookupKey = { _: GlobalKeyWithMaintainers => None }
 
-  private val engine = Engine.DevEngine()
+  private val engine = new Engine(
+    EngineConfig(
+      allowedLanguageVersions = language.LanguageVersion.DevVersions,
+      requireSuffixedGlobalCids = true,
+    )
+  )
 
   def Top(xs: Shape*) = Shape.Top(xs.toList)
   def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)

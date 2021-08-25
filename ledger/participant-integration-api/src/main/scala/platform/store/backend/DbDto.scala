@@ -118,14 +118,6 @@ object DbDto {
       is_local: Option[Boolean],
   ) extends DbDto
 
-  final case class Party(
-      party: String,
-      display_name: Option[String],
-      explicit: Boolean,
-      ledger_offset: Option[String],
-      is_local: Boolean,
-  ) extends DbDto
-
   final case class CommandCompletion(
       completion_offset: String,
       record_time: Instant,

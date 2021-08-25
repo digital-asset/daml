@@ -40,6 +40,7 @@ private[backend] object StorageBackendTestValues {
   val someIdentityParams: ParameterStorageBackend.IdentityParams =
     ParameterStorageBackend.IdentityParams(someLedgerId, someParticipantId)
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
+  val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
 
   val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
     .setHash("00001")
@@ -79,17 +80,6 @@ private[backend] object StorageBackendTestValues {
     is_local = Some(true),
   )
 
-  def dtoParty(
-      offset: Offset,
-      party: String = someParty.toString,
-  ): DbDto.Party = DbDto.Party(
-    party = party,
-    display_name = Some(party),
-    explicit = true,
-    ledger_offset = Some(offset.toHexString),
-    is_local = true,
-  )
-
   def dtoPackage(offset: Offset): DbDto.Package = DbDto.Package(
     package_id = someArchive.getHash,
     upload_id = "upload_id",
@@ -126,7 +116,7 @@ private[backend] object StorageBackendTestValues {
       ledger_effective_time = Some(someTime),
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
-      application_id = Some("application_id"),
+      application_id = Some(someApplicationId),
       submitters = None,
       node_index = Some(0),
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
@@ -169,7 +159,7 @@ private[backend] object StorageBackendTestValues {
       ledger_effective_time = Some(someTime),
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
-      application_id = Some("application_id"),
+      application_id = Some(someApplicationId),
       submitters = Some(Set(actor)),
       node_index = Some(0),
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
@@ -204,7 +194,7 @@ private[backend] object StorageBackendTestValues {
       event_offset = Some(offset.toHexString),
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
-      application_id = Some("application_id"),
+      application_id = Some(someApplicationId),
       submitters = Some(Set(submitter)),
       contract_id = contractId,
       template_id = Some(someTemplateId.toString),
@@ -219,12 +209,13 @@ private[backend] object StorageBackendTestValues {
       offset: Offset,
       submitter: String = "signatory",
       commandId: String = UUID.randomUUID().toString,
+      applicationId: String = someApplicationId,
   ): DbDto.CommandCompletion = {
     val transactionId = transactionIdFromOffset(offset)
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
       record_time = someTime,
-      application_id = "application_id",
+      application_id = applicationId,
       submitters = Set(submitter),
       command_id = commandId,
       transaction_id = Some(transactionId),

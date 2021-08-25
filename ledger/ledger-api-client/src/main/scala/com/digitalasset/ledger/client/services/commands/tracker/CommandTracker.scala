@@ -9,24 +9,25 @@ import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_submission_service._
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
+  NotOkResponse,
 }
 import com.daml.ledger.client.services.commands.{CompletionStreamElement, tracker}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => ProtoDuration}
 import com.google.protobuf.empty.Empty
-import com.google.rpc.code._
-import com.google.rpc.status.Status
-import io.grpc.{Status => RpcStatus}
+import com.google.rpc.status.{Status => StatusProto}
+import io.grpc.Status
 import org.slf4j.LoggerFactory
 
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
@@ -49,7 +50,7 @@ import scala.util.{Failure, Success, Try}
   * We also have an output for offsets, so the most recent offsets can be reused for recovery.
   */
 // TODO(mthvedt): This should have unit tests.
-private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDuration)
+private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Option[JDuration])
     extends GraphStageWithMaterializedValue[CommandTrackerShape[Context], Future[
       immutable.Map[String, Context]
     ]] {
@@ -208,13 +209,13 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
         }
       }
 
-      private def registerSubmission(submitRequest: Ctx[Context, SubmitRequest]): Unit = {
-        submitRequest.value.commands
-          .fold(
+      private def registerSubmission(submitRequest: Ctx[Context, SubmitRequest]): Unit =
+        submitRequest.value.commands match {
+          case None =>
             throw new IllegalArgumentException(
               "Commands field is missing from received SubmitRequest in CommandTracker"
             ) with NoStackTrace
-          ) { commands =>
+          case Some(commands) =>
             val commandId = commands.commandId
             logger.trace("Begin tracking of command {}", commandId)
             if (pendingCommands.contains(commandId)) {
@@ -223,23 +224,27 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
                 s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
               ) with NoStackTrace
             }
-            val commandTimeout = {
-              lazy val maxDedup = maxDeduplicationTime()
-              val dedup = commands.deduplicationTime.getOrElse(
-                ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano)
-              )
-              Instant.now().plusSeconds(dedup.seconds).plusNanos(dedup.nanos.toLong)
+            maxDeduplicationTime() match {
+              case None =>
+                emit(
+                  resultOut,
+                  submitRequest.map { _ =>
+                    val status = GrpcStatus.toProto(ErrorFactories.missingLedgerConfig().getStatus)
+                    Left(NotOkResponse(commandId, status))
+                  },
+                )
+              case Some(maxDedup) =>
+                val commandTimeout =
+                  maxTimeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
+                val trackingData = TrackingData(
+                  commandId = commandId,
+                  commandTimeout = commandTimeout,
+                  context = submitRequest.context,
+                )
+                pendingCommands += commandId -> trackingData
             }
-
-            pendingCommands += (commandId ->
-              TrackingData(
-                commandId,
-                commandTimeout,
-                submitRequest.context,
-              ))
-          }
-        ()
-      }
+            ()
+        }
 
       private def getOutputForTimeout(instant: Instant) = {
         logger.trace("Checking timeouts at {}", instant)
@@ -273,7 +278,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       private def getOutputForCompletion(completion: Completion) = {
         val (commandId, errorText) = {
           completion.status match {
-            case Some(status) if Code.fromValue(status.code) == Code.OK =>
+            case Some(StatusProto(code, _, _, _)) if code == Status.Code.OK.value =>
               completion.commandId -> "successful completion of command"
             case _ =>
               completion.commandId -> "failed completion of command"
@@ -288,7 +293,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
 
       private def getOutputForTerminalStatusCode(
           commandId: String,
-          status: Status,
+          status: StatusProto,
       ): Option[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
         logger.trace("Handling failure of command {}", commandId)
         pendingCommands
@@ -313,6 +318,25 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
     logic -> promise.future
   }
 
+  private def maxTimeoutFromDeduplicationPeriod(
+      deduplicationPeriod: DeduplicationPeriod,
+      maxDeduplicationDuration: JDuration,
+  ) = {
+    val timeoutDuration = deduplicationPeriod match {
+      case DeduplicationPeriod.Empty =>
+        maxDeduplicationDuration
+      case DeduplicationPeriod.DeduplicationTime(duration) =>
+        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
+      case DeduplicationPeriod.DeduplicationOffset(
+            _
+          ) => //no way of extracting the duration from here, will be removed soon
+        maxDeduplicationDuration
+    }
+    Instant
+      .now()
+      .plus(timeoutDuration)
+  }
+
   override def shape: CommandTrackerShape[Context] =
     CommandTrackerShape(submitRequestIn, submitRequestOut, commandResultIn, resultOut, offsetOut)
 
@@ -320,5 +344,5 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
 
 object CommandTracker {
   private val nonTerminalCodes =
-    Set(RpcStatus.Code.UNKNOWN, RpcStatus.Code.INTERNAL, RpcStatus.Code.OK)
+    Set(Status.Code.UNKNOWN, Status.Code.INTERNAL, Status.Code.OK)
 }

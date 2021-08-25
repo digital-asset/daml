@@ -29,6 +29,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/nameof",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

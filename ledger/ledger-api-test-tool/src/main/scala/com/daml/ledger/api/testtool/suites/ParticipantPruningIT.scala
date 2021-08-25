@@ -32,7 +32,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       failure <- participant
-        .prune("", attempts = 1)
+        // TODO Divulgence pruning: Change to `true` once all divulgence pruning is implemented
+        .prune("", attempts = 1, pruneAllDivulgedContracts = false)
         .mustFail("pruning without specifying an offset")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "prune_up_to not specified")
@@ -46,7 +47,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       cannotPruneNonHexOffset <- participant
-        .prune("cofefe", attempts = 1)
+        // TODO Divulgence pruning: Change to `true` once all divulgence pruning is implemented
+        .prune("covfefe", attempts = 1, pruneAllDivulgedContracts = false)
         .mustFail("pruning, specifiying a non-hexadecimal offset")
     } yield {
       assertGrpcError(

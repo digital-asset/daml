@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
 option java_outer_classname = "CompletionOuterClass";
@@ -29,4 +31,50 @@ message Completion {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string transaction_id = 3;
+
+  // The application ID that was used for the submission, as described in ``commands.proto``.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional for historic completions where this data is not available.
+  string application_id = 4;
+
+  // The set of parties on whose behalf the commands were executed.
+  // Contains the union of ``party`` and ``act_as`` from ``commands.proto``.
+  // The order of the parties need not be the same as in the submission.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional for historic completions where this data is not available.
+  repeated string act_as = 5;
+
+  // The submission ID this completion refers to, as described in ``commands.proto``.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional for historic completions where this data is not available.
+  string submission_id = 6;
+
+  reserved "submission_rank"; // For future use.
+  reserved 7;                 // For future use.
+
+  // The actual deduplication window used for the submission, which is derived from
+  // ``Commands.deduplication_period``. The ledger may convert the deduplication period into other
+  // descriptions and extend the period in implementation-specified ways.
+  //
+  // Used to audit the deduplication guarantee described in ``commands.proto``.
+  //
+  // Optional; the deduplication guarantee applies even if the completion omits this field.
+  oneof deduplication_period {
+    // Specifies the start of the deduplication period by a completion stream offset.
+    //
+    // Must be a valid LedgerString (as described in ``value.proto``).
+    string deduplication_offset = 8;
+
+    // Specifies the length of the deduplication period.
+    // It is measured in record time of completions.
+    //
+    // Must be non-negative.
+    google.protobuf.Duration deduplication_time = 9;
+
+    // Specifies a point in time in the past after which this submission should be de-duplicated
+    // w.r.t. previous submissions of the same commands.
+    //
+    // It is measured in record time of completions.
+    google.protobuf.Timestamp deduplication_start = 10;
+  }
 }
