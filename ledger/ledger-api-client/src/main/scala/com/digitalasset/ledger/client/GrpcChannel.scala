@@ -44,4 +44,15 @@ object GrpcChannel {
       )
   }
 
+  def withShutdownHook(
+      builder: NettyChannelBuilder,
+      configuration: LedgerClientConfiguration,
+  ): ManagedChannel = {
+    val channel = GrpcChannel(builder, configuration)
+    sys.addShutdownHook {
+      channel.shutdownNow()
+      ()
+    }
+    channel
+  }
 }

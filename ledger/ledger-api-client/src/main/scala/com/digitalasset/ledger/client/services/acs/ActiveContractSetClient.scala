@@ -16,11 +16,11 @@ import com.daml.ledger.api.v1.active_contracts_service.{
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
 import com.daml.util.akkastreams.ExtractMaterializedValue
-import scalaz.syntax.tag._
 
 import scala.concurrent.Future
+import scalaz.syntax.tag._
 
-object ActiveContractSetClient {
+object ActiveContractSetClientWithoutLedgerId {
 
   private val extractOffset =
     new ExtractMaterializedValue[GetActiveContractsResponse, String](r =>
@@ -29,14 +29,18 @@ object ActiveContractSetClient {
 
 }
 
-final class ActiveContractSetClient(ledgerId: LedgerId, service: ActiveContractsServiceStub)(
-    implicit esf: ExecutionSequencerFactory
+sealed class ActiveContractSetClientWithoutLedgerId(service: ActiveContractsServiceStub)(implicit
+    esf: ExecutionSequencerFactory
 ) {
 
-  import ActiveContractSetClient.extractOffset
+  import ActiveContractSetClientWithoutLedgerId.extractOffset
 
-  private def request(filter: TransactionFilter, verbose: Boolean) =
-    GetActiveContractsRequest(ledgerId.unwrap, Some(filter), verbose)
+  private def request(filter: TransactionFilter, verbose: Boolean, ledgerIdToUse: LedgerId) =
+    GetActiveContractsRequest(
+      ledgerIdToUse.unwrap,
+      Some(filter),
+      verbose,
+    )
 
   private def activeContractSource(
       request: GetActiveContractsRequest,
@@ -54,7 +58,31 @@ final class ActiveContractSetClient(ledgerId: LedgerId, service: ActiveContracts
       filter: TransactionFilter,
       verbose: Boolean = false,
       token: Option[String] = None,
+      ledgerIdToUse: LedgerId,
   ): Source[GetActiveContractsResponse, Future[String]] =
-    activeContractSource(request(filter, verbose), token).viaMat(extractOffset)(Keep.right)
+    activeContractSource(request(filter, verbose, ledgerIdToUse), token).viaMat(extractOffset)(
+      Keep.right
+    )
+}
 
+final class ActiveContractSetClient(
+    ledgerId: LedgerId,
+    service: ActiveContractsServiceStub,
+)(implicit
+    esf: ExecutionSequencerFactory
+) extends ActiveContractSetClientWithoutLedgerId(service) {
+
+  /** Returns a stream of GetActiveContractsResponse messages. The materialized value will
+    * be resolved to the offset that can be used as a starting offset for streaming transactions
+    * via the transaction service.
+    * If the stream completes before the offset can be set, the materialized future will
+    * be failed with an exception.
+    */
+  override def getActiveContracts(
+      filter: TransactionFilter,
+      verbose: Boolean = false,
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId = ledgerId,
+  ): Source[GetActiveContractsResponse, Future[String]] =
+    super.getActiveContracts(filter, verbose = verbose, token = token, ledgerId)
 }

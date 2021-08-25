@@ -62,13 +62,19 @@ object ScriptLedgerClient {
 // us to plug in something that interacts with the JSON API as well as
 // something that works against the gRPC API.
 trait ScriptLedgerClient {
-  def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+  def query(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
-  def queryContractId(parties: OneAnd[Set, Ref.Party], templateId: Identifier, cid: ContractId)(
-      implicit
+  def queryContractId(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      cid: ContractId,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]]

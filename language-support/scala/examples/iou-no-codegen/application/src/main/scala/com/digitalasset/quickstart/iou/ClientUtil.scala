@@ -38,7 +38,11 @@ class ClientUtil(
   def ledgerEnd(implicit ec: ExecutionContext): Future[LedgerOffset] =
     transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
-  def submitCommand(party: String, workflowId: WorkflowId, cmd: Command.Command): Future[Empty] = {
+  def submitCommand(
+      party: String,
+      workflowId: WorkflowId,
+      cmd: Command.Command,
+  ): Future[Empty] = {
     val commands = Commands(
       ledgerId = LedgerId.unwrap(ledgerId),
       workflowId = WorkflowId.unwrap(workflowId),

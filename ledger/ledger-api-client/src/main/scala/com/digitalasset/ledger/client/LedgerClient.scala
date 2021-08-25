@@ -5,7 +5,6 @@ package com.daml.ledger.client
 
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
-
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.domain.LedgerId
@@ -33,7 +32,7 @@ import io.grpc.{Channel, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerClient private (
+class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
     val ledgerId: LedgerId,
@@ -96,16 +95,12 @@ object LedgerClient {
   def apply(
       channel: Channel,
       config: LedgerClientConfiguration,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] =
     for {
       ledgerId <- new LedgerIdentityClient(
         stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
-      )
-        .satisfies(config.ledgerIdRequirement)
-    } yield {
-      new LedgerClient(channel, config, ledgerId)
-    }
-  }
+      ).satisfies(config.ledgerIdRequirement)
+    } yield new LedgerClient(channel, config, ledgerId)
 
   private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
     token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))
@@ -138,12 +133,6 @@ object LedgerClient {
       builder: NettyChannelBuilder,
       configuration: LedgerClientConfiguration,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-    val channel = GrpcChannel(builder, configuration)
-    sys.addShutdownHook {
-      channel.shutdownNow()
-      ()
-    }
-    apply(channel, configuration)
+    apply(GrpcChannel.withShutdownHook(builder, configuration), configuration)
   }
-
 }

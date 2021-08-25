@@ -19,11 +19,9 @@ import com.daml.http.json.{
 }
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
-import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
@@ -116,9 +114,9 @@ object HttpService {
         )
       ): ET[DamlLedgerClient]
 
-      ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
+//      ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
-      _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
+//      _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       packageService = new PackageService(

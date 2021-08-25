@@ -41,14 +41,12 @@ import scala.util.Try
   *
   * @param commandSubmissionService gRPC service reference.
   * @param commandCompletionService gRPC service reference.
-  * @param ledgerId                 Will be applied to submitted commands.
   * @param applicationId            Will be applied to submitted commands.
   * @param config                   Options for changing behavior.
   */
-final class CommandClient(
+sealed class CommandClientWithoutLedgerId(
     commandSubmissionService: CommandSubmissionServiceStub,
     commandCompletionService: CommandCompletionServiceStub,
-    ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
     logger: Logger = LoggerFactory.getLogger(getClass),
@@ -86,14 +84,18 @@ final class CommandClient(
   /** Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
     * stream to be established and torn down.
     */
-  def trackSingleCommand(submitRequest: SubmitRequest, token: Option[String] = None)(implicit
+  def trackSingleCommand(
+      submitRequest: SubmitRequest,
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId,
+  )(implicit
       mat: Materializer
   ): Future[Either[CompletionFailure, CompletionSuccess]] = {
     implicit val executionContext: ExecutionContextExecutor = mat.executionContext
     val commands = submitRequest.getCommands
     val effectiveActAs = CommandsValidator.effectiveSubmitters(commands).actAs
     for {
-      tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, token)
+      tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, token, ledgerIdToUse)
       result <- Source
         .single(Ctx.unit(CommandSubmission(commands)))
         .via(tracker)
@@ -110,11 +112,15 @@ final class CommandClient(
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
-  def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(implicit
+  def trackCommands[Context](
+      parties: Seq[String],
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId,
+  )(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] = {
     for {
-      tracker <- trackCommandsUnbounded[Context](parties, token)
+      tracker <- trackCommandsUnbounded[Context](parties, token, ledgerIdToUse)
     } yield {
       // The counters are ignored on the client
       MaxInFlight(config.maxCommandsInFlight, new Counter, new Counter)
@@ -128,21 +134,25 @@ final class CommandClient(
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
-  def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
+  def trackCommandsUnbounded[Context](
+      parties: Seq[String],
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId,
+  )(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] =
     for {
-      ledgerEnd <- getCompletionEnd(token)
+      ledgerEnd <- getCompletionEnd(token, ledgerIdToUse)
     } yield {
       partyFilter(parties.toSet)
-        .via(commandUpdaterFlow[Context])
+        .via(commandUpdaterFlow[Context](ledgerIdToUse))
         .viaMat(
           CommandTrackerFlow[Context, NotUsed](
             commandSubmissionFlow = CommandSubmissionFlow[(Context, String)](
               submit(token),
               config.maxParallelSubmissions,
             ),
-            createCommandCompletionSource = offset => completionSource(parties, offset, token),
+            createCommandCompletionSource = offset => completionSource(parties, offset, token, ledgerIdToUse),
             startingOffset = ledgerEnd.getOffset,
             maximumCommandTimeout = config.defaultDeduplicationTime,
           )
@@ -164,6 +174,7 @@ final class CommandClient(
       parties: Seq[String],
       offset: LedgerOffset,
       token: Option[String] = None,
+      ledgerIdToUse: LedgerId,
   ): Source[CompletionStreamElement, NotUsed] = {
     logger.debug(
       "Connecting to completion service with parties '{}' from offset: '{}'",
@@ -171,17 +182,22 @@ final class CommandClient(
       offset: Any,
     )
     CommandCompletionSource(
-      CompletionStreamRequest(ledgerId.unwrap, applicationId, parties, Some(offset)),
+      CompletionStreamRequest(
+        ledgerIdToUse.unwrap,
+        applicationId,
+        parties,
+        Some(offset),
+      ),
       LedgerClient.stub(commandCompletionService, token).completionStream,
     )
   }
 
-  private def commandUpdaterFlow[Context] =
+  private def commandUpdaterFlow[Context](ledgerIdToUse: LedgerId) =
     Flow[Ctx[Context, CommandSubmission]]
       .map(_.map { case submission @ CommandSubmission(commands) =>
-        if (LedgerId(commands.ledgerId) != ledgerId)
+        if (LedgerId(commands.ledgerId) != ledgerIdToUse)
           throw new IllegalArgumentException(
-            s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerId)"
+            s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerIdToUse)"
           )
         else if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
@@ -202,15 +218,106 @@ final class CommandClient(
       })
 
   def submissionFlow[Context](
-      token: Option[String] = None
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, CommandSubmission]]
-      .via(commandUpdaterFlow)
+      .via(commandUpdaterFlow(ledgerIdToUse))
       .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
   }
 
-  def getCompletionEnd(token: Option[String] = None): Future[CompletionEndResponse] =
+  def getCompletionEnd(
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId,
+  ): Future[CompletionEndResponse] =
     LedgerClient
       .stub(commandCompletionService, token)
-      .completionEnd(CompletionEndRequest(ledgerId.unwrap))
+      .completionEnd(
+        CompletionEndRequest(ledgerIdToUse.unwrap)
+      )
+}
+
+/** Enables easy access to command services and high level operations on top of them.
+  *
+  * @param commandSubmissionService gRPC service reference.
+  * @param commandCompletionService gRPC service reference.
+  * @param ledgerId                 Will be applied to submitted commands.
+  * @param applicationId            Will be applied to submitted commands.
+  * @param config                   Options for changing behavior.
+  */
+final class CommandClient(
+    commandSubmissionService: CommandSubmissionServiceStub,
+    commandCompletionService: CommandCompletionServiceStub,
+    val ledgerId: LedgerId,
+    applicationId: String,
+    config: CommandClientConfiguration,
+    logger: Logger = LoggerFactory.getLogger(getClass),
+)(implicit esf: ExecutionSequencerFactory)
+    extends CommandClientWithoutLedgerId(
+      commandSubmissionService,
+      commandCompletionService,
+      applicationId,
+      config,
+      logger,
+    ) {
+
+  /** Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
+    * stream to be established and torn down.
+    */
+  override def trackSingleCommand(
+      submitRequest: SubmitRequest,
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId = ledgerId,
+  )(implicit
+      mat: Materializer
+  ): Future[Either[CompletionFailure, CompletionSuccess]] =
+    super.trackSingleCommand(submitRequest, token, ledgerId)
+
+  /** Tracks the results (including timeouts) of incoming commands.
+    * Applies a maximum bound for in-flight commands which have been submitted, but not confirmed through command completions.
+    *
+    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
+    *
+    * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
+    */
+  override def trackCommands[Context](
+      parties: Seq[String],
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId = ledgerId,
+  )(implicit
+      ec: ExecutionContext
+  ): Future[TrackCommandFlow[Context]] = super.trackCommands(parties, token, ledgerId)
+
+  /** Tracks the results (including timeouts) of incoming commands.
+    *
+    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
+    *
+    * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
+    */
+  override def trackCommandsUnbounded[Context](
+      parties: Seq[String],
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId = ledgerId,
+  )(implicit
+      ec: ExecutionContext
+  ): Future[TrackCommandFlow[Context]] = super.trackCommandsUnbounded(parties, token, ledgerId)
+
+  override def completionSource(
+      parties: Seq[String],
+      offset: LedgerOffset,
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId = ledgerId,
+  ): Source[CompletionStreamElement, NotUsed] =
+    super.completionSource(parties, offset, token, ledgerId)
+
+  override def submissionFlow[Context](
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId = ledgerId,
+  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] =
+    super.submissionFlow(token, ledgerId)
+
+  override def getCompletionEnd(
+      token: Option[String] = None,
+      ledgerIdToUse: LedgerId = ledgerId,
+  ): Future[CompletionEndResponse] = super.getCompletionEnd(token, ledgerId)
 }
