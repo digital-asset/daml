@@ -70,14 +70,14 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
       : RowParser[Offset ~ Instant ~ String ~ String ~ Option[String] ~ String] =
     sharedColumns ~ str("transaction_id")
 
-  private val deduplicationOffsetColumn: RowParser[Option[String]] = str("deduplication_offset").?
-  private val deduplicationTimeSecondsColumn: RowParser[Option[Long]] = long(
-    "deduplication_time_seconds"
-  ).?
-  private val deduplicationTimeNanosColumn: RowParser[Option[Int]] = int(
-    "deduplication_time_nanos"
-  ).?
-  private val deduplicationStartColumn: RowParser[Instant] = instant("deduplication_start")
+  private val deduplicationOffsetColumn: RowParser[Option[String]] =
+    str("deduplication_offset").?
+  private val deduplicationTimeSecondsColumn: RowParser[Option[Long]] =
+    long("deduplication_time_seconds").?
+  private val deduplicationTimeNanosColumn: RowParser[Option[Int]] =
+    int("deduplication_time_nanos").?
+  private val deduplicationStartColumn: RowParser[Option[Instant]] =
+    instant("deduplication_start").?
 
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
     acceptedCommandSharedColumns ~
