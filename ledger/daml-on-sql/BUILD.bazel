@@ -153,6 +153,19 @@ conformance_test(
     ],
 )
 
+conformance_test(
+    name = "conformance-test-contract-ids",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:Accept",
+    ],
+)
+
 genrule(
     name = "docs",
     srcs = [

@@ -549,3 +549,18 @@ conformance_test(
         "--include=MultiPartySubmissionIT",
     ],
 )
+
+conformance_test(
+    name = "conformance-test-contract-ids",
+    ports = [6865],
+    server = ":conformance-test-h2-memory-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:Accept",
+    ],
+)
