@@ -13,6 +13,7 @@ da_scala_library(
     plugins = [silencer_plugin],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",

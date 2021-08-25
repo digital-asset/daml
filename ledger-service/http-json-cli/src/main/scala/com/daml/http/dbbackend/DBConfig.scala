@@ -6,13 +6,8 @@ package com.daml.http.dbbackend
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.either._
 import scalaz.std.option._
-import scalaz.syntax.std.option._
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{@@, Show, StateT, Tag, \/}
-
-import java.io.File
-import scala.util.Try
+import scalaz.{Show, StateT}
 
 import com.daml.dbutils, dbutils.DBConfig
 
@@ -59,7 +54,7 @@ private[http] object JdbcConfig
     s"<${DbStartupMode.allConfigValues.mkString("|")}>",
   )
 
-  override def create(x: Map[String, String], defaultDriver: Option[String] = None)(implicit
+  override def create(implicit
       readCtx: DBConfig.JdbcConfigDefaults
   ): Fields[JdbcConfig] =
     for {
@@ -79,7 +74,8 @@ private[http] object JdbcConfig
       }
       remainingConf <- StateT.get: Fields[Map[String, String]]
     } yield JdbcConfig(
-      baseConfig = baseConfig tablePrefix = tablePrefix getOrElse "",
+      baseConfig = baseConfig,
+      tablePrefix = tablePrefix getOrElse "",
       dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
       backendSpecificConf = remainingConf,
     )
