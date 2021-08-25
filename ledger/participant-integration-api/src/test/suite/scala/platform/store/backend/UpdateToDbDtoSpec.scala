@@ -254,10 +254,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         None,
       ),
       (
-        Some(DeduplicationDuration(Duration.ofDays(1L))),
+        Some(DeduplicationDuration(Duration.ofDays(1L).plusNanos(100))),
         None,
         Some(Duration.ofDays(1L).toMinutes * 60L),
-        Some(0),
+        Some(100),
       ),
     )
 
