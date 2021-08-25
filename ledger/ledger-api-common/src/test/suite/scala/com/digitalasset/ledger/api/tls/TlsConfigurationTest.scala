@@ -4,6 +4,7 @@
 package com.daml.ledger.api.tls
 
 import org.apache.commons.io.IOUtils
+import org.mockito.Mockito
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -96,17 +97,20 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       Files.write(keyFilePath, "private-key-123".getBytes())
       assume(Files.readAllBytes(keyFilePath) sameElements "private-key-123".getBytes)
       val keyFile = keyFilePath.toFile
-      val url = new URL("http://localhost/this/does/not/exist/sdkjfsldf")
+      val urlMock = Mockito.mock(classOf[URL])
+      Mockito.when(urlMock.openStream()).thenThrow(new ConnectException("Mocked url 123"))
       val tested = TlsConfiguration.Empty
-        .copy(secretsUrl = Some(url))
+        .copy(secretsUrl = Some(urlMock))
 
       // when
       val e = intercept[PrivateKeyDecryptionException] {
         val _: InputStream = tested.prepareKeyInputStream(keyFile)
       }
 
-      // then key decryption logic should attempted to connect to the url
+      // then We are not interested in decryption details (as that part is tested elsewhere).
+      // We only want to verify that the decryption code path was hit (as opposed to the no-decryption code path when private key is in plaintext)
       e.getCause shouldBe a[ConnectException]
+      e.getCause.getMessage shouldBe "Mocked url 123"
     }
   }
 
