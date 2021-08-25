@@ -379,6 +379,7 @@ final class SandboxServer(
         partyConfig = PartyConfiguration.default.copy(
           implicitPartyAllocation = config.implicitPartyAllocation
         ),
+        submissionConfig = config.submissionConfig,
         optTimeServiceBackend = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,

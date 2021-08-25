@@ -18,7 +18,11 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  SubmissionConfiguration,
+}
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
@@ -30,6 +34,7 @@ final case class Config[Extra](
     ledgerId: String,
     archiveFiles: Seq[Path],
     commandConfig: CommandConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
@@ -64,6 +69,7 @@ object Config {
       ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       commandConfig = CommandConfiguration.default,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -379,6 +385,16 @@ object Config {
           )
           .text(
             s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
+          )
+
+        opt[Unit]("disable-deduplication-unsafe")
+          .optional()
+          .hidden()
+          .action((_, config) =>
+            config.copy(submissionConfig = config.submissionConfig.copy(enbleDeduplication = false))
+          )
+          .text(
+            "Disable participant deduplication."
           )
 
         opt[Int]("max-inbound-message-size")
