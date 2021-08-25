@@ -81,17 +81,6 @@ private[backend] object StorageBackendTestValues {
     is_local = Some(true),
   )
 
-  def dtoParty(
-      offset: Offset,
-      party: String = someParty.toString,
-  ): DbDto.Party = DbDto.Party(
-    party = party,
-    display_name = Some(party),
-    explicit = true,
-    ledger_offset = Some(offset.toHexString),
-    is_local = true,
-  )
-
   def dtoPackage(offset: Offset): DbDto.Package = DbDto.Package(
     package_id = someArchive.getHash,
     upload_id = "upload_id",

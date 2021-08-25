@@ -69,8 +69,7 @@ private[backend] trait StorageBackendTestsIngestion
   it should "ingest a single party update" in {
     val someOffset = offset(1)
     val dtos = Vector(
-      dtoParty(someOffset),
-      dtoPartyEntry(someOffset),
+      dtoPartyEntry(someOffset)
     )
 
     for {

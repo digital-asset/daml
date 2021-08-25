@@ -63,7 +63,6 @@ trait StorageBackend[DB_BATCH]
     * The result is a database that looks the same as a freshly created database with Flyway migrations applied.
     */
   def resetAll(connection: Connection): Unit
-  def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
 
 trait IngestionStorageBackend[DB_BATCH] {
@@ -229,7 +228,6 @@ trait ContractStorageBackend {
   ): Vector[StorageBackend.RawContractStateEvent]
 }
 
-// TODO append-only: Event related query consolidation
 trait EventStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations

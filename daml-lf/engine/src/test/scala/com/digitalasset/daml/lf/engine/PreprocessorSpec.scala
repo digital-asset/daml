@@ -32,34 +32,70 @@ class PreprocessorSpec
   private implicit def toName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
   private[this] val recordCon =
-    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Record"))
+  private[this] val recordRefCon =
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:RecordRef"))
   private[this] val variantCon =
-    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Variant"))
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Either"))
   private[this] val enumCon =
-    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Enum"))
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Enum"))
   private[this] val tricky =
-    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Tricky"))
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Tricky"))
   private[this] val myListTyCons =
-    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:MyList"))
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:MyList"))
   private[this] val myNilCons = Ref.Name.assertFromString("MyNil")
   private[this] val myConsCons = Ref.Name.assertFromString("MyCons")
+  private[this] val alice = Ref.Party.assertFromString("Alice")
+  private[this] val dummySuffix = Bytes.assertFromString("00")
+  private[this] val cidWithSuffix =
+    ContractId.V1(crypto.Hash.hashPrivateKey("cidWithSuffix"), dummySuffix)
+  private[this] val cidWithoutSuffix =
+    ContractId.V1(crypto.Hash.hashPrivateKey("cidWithoutSuffix"), Bytes.Empty)
+  private[this] val typ = t"ContractId Mod:Record"
 
-  val pkg =
+  private[this] def suffixValue(v: Value[ContractId]) =
+    data.assertRight(v.suffixCid(_ => dummySuffix))
+
+  lazy val pkg =
     p"""
-        module Module {
+        module Mod {
 
-          record Record = { field : Int64 };
-          variant Variant = variant1 : Text | variant2 : Int64;
+          record @serializable Record = { field : Int64 };
+          variant @serializable Either (a: *) (b: *) = Left : a | Right : b;
           enum Enum = value1 | value2;
 
           record Tricky (b: * -> *) = { x : b Unit };
 
-          record MyCons = { head : Int64, tail: Module:MyList };
-          variant MyList = MyNil : Unit | MyCons: Module:MyCons ;
+          record MyCons = { head : Int64, tail: Mod:MyList };
+          variant MyList = MyNil : Unit | MyCons: Mod:MyCons ;
+
+          record @serializable RecordRef = { owner: Party, cid: (ContractId Mod:Record) };
+
+          val @noPartyLiterals toParties: Mod:RecordRef -> List Party =
+            \ (ref: Mod:RecordRef) -> Cons @Party [Mod:RecordRef {owner} ref] (Nil @Party);
+
+          template (this : RecordRef) = {
+            precondition True,
+            signatories Mod:toParties this,
+            observers Mod:toParties this,
+            agreement "Agreement",
+            choices {
+              choice Change (self) (newCid: ContractId Mod:Record) : ContractId Mod:RecordRef,
+                  controllers Mod:toParties this,
+                  observers Nil @Party
+                to create @Mod:RecordRef Mod:RecordRef { owner = Mod:RecordRef {owner} this, cid = newCid }
+            },
+            key @Party (Mod:RecordRef {owner} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
+          };
 
         }
 
     """
+
+  private[this] val compiledPackage = ConcurrentCompiledPackages()
+  assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone.Unit)
+  private[this] val preprocessor = new Preprocessor(compiledPackage, requiredCidSuffix = true)
+  import preprocessor.{translateValue, preprocessCommand}
 
   "translateValue" should {
 
@@ -86,11 +122,7 @@ class PreprocessorSpec
       ),
 //      TNumeric(TNat(9)) ,
 //        ValueNumeric(Numeric.assertFromString("9.000000000")),
-      (
-        TParty,
-        ValueParty(Ref.Party.assertFromString("Alice")),
-        SParty(Ref.Party.assertFromString("Alice")),
-      ),
+      (TParty, ValueParty(alice), SParty(alice)),
       (
         TContractId(Ast.TTyCon(recordCon)),
         ValueContractId(ContractId.assertFromString("#contractId")),
@@ -118,9 +150,9 @@ class PreprocessorSpec
         SRecord(recordCon, ImmArray("field"), ArrayList(SInt64(33))),
       ),
       (
-        Ast.TTyCon(variantCon),
-        ValueVariant(None, "variant1", ValueText("some test")),
-        SVariant(variantCon, "variant1", 0, SText("some test")),
+        TTyConApp(variantCon, ImmArray(TText, TInt64)),
+        ValueVariant(None, "Left", ValueText("some test")),
+        SVariant(variantCon, "Left", 0, SText("some test")),
       ),
       (Ast.TTyCon(enumCon), ValueEnum(None, "value1"), SEnum(enumCon, "value1", 0)),
       (
@@ -129,11 +161,6 @@ class PreprocessorSpec
         SRecord(tricky, ImmArray("x"), ArrayList(SValue.EmptyList)),
       ),
     )
-
-    val compiledPackage = ConcurrentCompiledPackages()
-    assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone.Unit)
-    val preprocessor = new Preprocessor(compiledPackage)
-    import preprocessor.translateValue
 
     "succeeds on well type values" in {
       forAll(testCases) { (typ, value, svalue) =>
@@ -171,6 +198,123 @@ class PreprocessorSpec
           err shouldBe Error.Preprocessing.ValueNesting(tooBig)
       }
     }
+
+    "reject non suffix Contract IDs" in {
+
+      val cidValueWithoutSuffix = ValueContractId(cidWithoutSuffix)
+
+      val testCases = Table[Ast.Type, Value[ContractId]](
+        ("type" -> "value"),
+        t"ContractId Mod:Record" -> cidValueWithoutSuffix,
+        TList(typ) -> ValueList(FrontStack(cidValueWithoutSuffix)),
+        TTextMap(typ) -> ValueTextMap(SortedLookupList(Map("0" -> cidValueWithoutSuffix))),
+        TGenMap(TInt64, typ) -> ValueGenMap(ImmArray(ValueInt64(1) -> cidValueWithoutSuffix)),
+        TGenMap(typ, TInt64) -> ValueGenMap(ImmArray(cidValueWithoutSuffix -> ValueInt64(0))),
+        TOptional(typ) -> ValueOptional(Some(cidValueWithoutSuffix)),
+        Ast.TTyCon(recordRefCon) -> ValueRecord(
+          None,
+          ImmArray(None -> ValueParty(alice), None -> cidValueWithoutSuffix),
+        ),
+        TTyConApp(variantCon, ImmArray(typ, TInt64)) -> ValueVariant(
+          None,
+          "Left",
+          cidValueWithoutSuffix,
+        ),
+      )
+
+      forAll(testCases) { (typ, value) =>
+        translateValue(typ, suffixValue(value)) shouldBe a[ResultDone[_]]
+        translateValue(typ, value) shouldBe a[ResultError]
+      }
+    }
+  }
+
+  "preprocessCommand" should {
+
+    import command._
+
+    def suffixCid(cid: ContractId) =
+      cid match {
+        case ContractId.V1(discriminator, suffix) if suffix.isEmpty =>
+          ContractId.V1(discriminator, dummySuffix)
+        case otherwise =>
+          otherwise
+      }
+
+    def suffixCmd(cmd: ApiCommand) =
+      cmd match {
+        case CreateCommand(templateId, argument) =>
+          CreateCommand(templateId, suffixValue(argument))
+        case ExerciseCommand(templateId, contractId, choiceId, argument) =>
+          ExerciseCommand(templateId, suffixCid(contractId), choiceId, suffixValue(argument))
+        case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
+          ExerciseByKeyCommand(templateId, contractKey, choiceId, suffixValue(argument))
+        case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument) =>
+          CreateAndExerciseCommand(
+            templateId,
+            suffixValue(createArgument),
+            choiceId,
+            suffixValue(choiceArgument),
+          )
+      }
+
+    "reject non suffix Contract IDs" in {
+
+      val key = ValueParty(alice)
+      val payloadWithoutSuffix = ValueRecord(
+        None,
+        ImmArray(None -> ValueParty(alice), None -> ValueContractId(cidWithoutSuffix)),
+      )
+      val payloadWithSuffix = ValueRecord(
+        None,
+        ImmArray(None -> ValueParty(alice), None -> ValueContractId(cidWithSuffix)),
+      )
+
+      val testCases = Table[ApiCommand](
+        "command",
+        CreateCommand(
+          recordRefCon,
+          payloadWithoutSuffix,
+        ),
+        ExerciseCommand(
+          recordRefCon,
+          cidWithSuffix,
+          "Change",
+          ValueContractId(cidWithoutSuffix),
+        ),
+        ExerciseCommand(
+          recordRefCon,
+          cidWithoutSuffix,
+          "Change",
+          ValueContractId(cidWithSuffix),
+        ),
+        CreateAndExerciseCommand(
+          recordRefCon,
+          payloadWithoutSuffix,
+          "Change",
+          ValueContractId(cidWithSuffix),
+        ),
+        CreateAndExerciseCommand(
+          recordRefCon,
+          payloadWithSuffix,
+          "Change",
+          ValueContractId(cidWithoutSuffix),
+        ),
+        ExerciseByKeyCommand(
+          recordRefCon,
+          key,
+          "Change",
+          ValueContractId(cidWithoutSuffix),
+        ),
+      )
+
+      forAll(testCases) { cmd =>
+        preprocessCommand(suffixCmd(cmd)) shouldBe a[ResultDone[_]]
+        preprocessCommand(cmd) shouldBe a[ResultError]
+      }
+
+    }
+
   }
 
 }

@@ -278,7 +278,7 @@ class ReplService(
               }
             case RunScriptRequest.Format.JSON =>
               try {
-                LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
+                LfValueCodec.apiValueToJsValue(v.toUnnormalizedValue).compactPrint
               } catch {
                 case SError.SErrorCrash(_, _) => throw new ReplServiceMain.NonSerializableValue()
 

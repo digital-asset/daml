@@ -37,7 +37,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       // 1: config change
       dtoConfiguration(offset(1), someConfiguration),
       // 2: party allocation
-      dtoParty(offset(2), "party1"),
       dtoPartyEntry(offset(2), "party1"),
       // 3: package upload
       dtoPackage(offset(3)),
@@ -55,7 +54,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       // 6: config change
       dtoConfiguration(offset(6), someConfiguration),
       // 7: party allocation
-      dtoParty(offset(7), "party2"),
       dtoPartyEntry(offset(7), "party2"),
       // 8: package upload
       dtoPackage(offset(8)),

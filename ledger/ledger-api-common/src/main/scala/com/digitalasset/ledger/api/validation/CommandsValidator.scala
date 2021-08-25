@@ -203,14 +203,16 @@ object CommandsValidator {
   }
 
   def effectiveSubmitters(commands: ProtoCommands): Submitters[String] = {
-    val effectiveActAs =
-      if (commands.party.isEmpty)
-        commands.actAs.toSet
-      else
-        commands.actAs.toSet + commands.party
-    val effectiveReadAs = commands.readAs.toSet -- effectiveActAs
-    Submitters(effectiveActAs, effectiveReadAs)
+    val actAs = effectiveActAs(commands)
+    val readAs = commands.readAs.toSet -- actAs
+    Submitters(actAs, readAs)
   }
+
+  def effectiveActAs(commands: ProtoCommands): Set[String] =
+    if (commands.party.isEmpty)
+      commands.actAs.toSet
+    else
+      commands.actAs.toSet + commands.party
 
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
 
