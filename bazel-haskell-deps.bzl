@@ -48,11 +48,11 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "lsp-types",
-    version = "{version}",
+    version = packages["lsp-types"].version,
     srcs = glob(["**"]),
     deps = packages["lsp-types"].deps,
     visibility = ["//visibility:public"],
-)""".format(version = LSP_TYPES_VERSION),
+)""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
@@ -71,34 +71,11 @@ load("@rules_haskell//haskell:defs.bzl", "haskell_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "ghcide",
-    version = "{version}",
+    version = packages["ghcide"].version,
     srcs = glob(["**"]),
     haddock = False,
-    flags = ["ghc-lib"],
-    deps = [
-        "@stackage//:aeson",
-        "@stackage//:async",
-        "@stackage//:data-default",
-        "@stackage//:dependent-map",
-        "@stackage//:dependent-sum",
-        "@stackage//:extra",
-        "@stackage//:fuzzy",
-        "@stackage//:ghc-lib",
-        "@stackage//:ghc-lib-parser",
-        "@stackage//:haddock-library",
-        "@stackage//:hashable",
-        "@stackage//:hslogger",
-        "@stackage//:lsp",
-        "@stackage//:lsp-types",
-        "@stackage//:network-uri",
-        "@stackage//:prettyprinter",
-        "@stackage//:prettyprinter-ansi-terminal",
-        "@stackage//:regex-tdfa",
-        "@stackage//:safe-exceptions",
-        "@stackage//:shake",
-        "@stackage//:unliftio",
-        "@stackage//:utf8-string",
-    ],
+    flags = packages["ghcide"].flags,
+    deps = packages["ghcide"].deps,
     visibility = ["//visibility:public"],
 )
 haskell_library(
@@ -134,7 +111,7 @@ haskell_library(
     ],
     visibility = ["//visibility:public"],
 )
-""".format(version = GHCIDE_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
@@ -222,7 +199,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "proto3-suite",
-    version = "0.4.2.0",
+    version = packages["proto3-suite"].version,
     srcs = glob(["src/**", "test-files/*.bin", "tests/*", "proto3-suite.cabal"]),
     haddock = False,
     deps = packages["proto3-suite"].deps,
@@ -237,14 +214,7 @@ haskell_binary(
     name = "compile-proto-file",
     srcs = ["tools/compile-proto-file/Main.hs"],
     compiler_flags = ["-w", "-optF=-w"],
-    deps = [
-        "@stackage//:base",
-        "@stackage//:optparse-applicative",
-        "@stackage//:proto3-suite",
-        "@stackage//:system-filepath",
-        "@stackage//:text",
-        "@stackage//:turtle",
-    ],
+    deps = [":proto3-suite"] + packages["proto3-suite"].deps,
     visibility = ["//visibility:public"],
 )
 """,
@@ -269,14 +239,14 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "js-jquery",
-    version = "{version}",
+    version = packages["js-jquery"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["js-jquery"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
 )
-""".format(version = JS_JQUERY_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-js-jquery.patch",
@@ -293,14 +263,14 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "js-dgtable",
-    version = "{version}",
+    version = packages["js-dgtable"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["js-dgtable"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
 )
-""".format(version = JS_DGTABLE_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-js-dgtable.patch",
@@ -317,14 +287,14 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "js-flot",
-    version = "{version}",
+    version = packages["js-flot"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["js-flot"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
 )
-""".format(version = JS_FLOT_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-js-flot.patch",
@@ -363,15 +333,15 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "shake",
-    version = "{version}",
+    version = packages["shake"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["shake"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
-    flags = ["embed-files"],
+    flags = packages["shake"].flags,
 )
-""".format(version = SHAKE_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-shake.patch",
@@ -388,26 +358,15 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "zip",
-    version = "{version}",
+    version = packages["zip"].version,
     srcs = glob(["**"]),
     haddock = False,
-    deps = [
-        "@stackage//:case-insensitive",
-        "@stackage//:cereal",
-        "@stackage//:conduit",
-        "@stackage//:conduit-extra",
-        "@stackage//:digest",
-        "@stackage//:dlist",
-        "@stackage//:exceptions",
-        "@stackage//:monad-control",
-        "@stackage//:resourcet",
-        "@stackage//:transformers-base",
-    ],
+    deps = packages["zip"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
-    flags = ["disable-bzip2", "disable-zstd"],
+    flags = packages["zip"].flags,
 )
-""".format(version = ZIP_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-zip.patch",
@@ -446,6 +405,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "ghcide": ["ghc-lib"],
                 "hlint": ["ghc-lib"],
                 "ghc-lib-parser-ex": ["ghc-lib"],
+                "shake": ["embed-files"],
                 "zip": ["disable-bzip2", "disable-zstd"],
             },
             {
