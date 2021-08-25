@@ -110,9 +110,12 @@ private[backend] object PostgresStorageBackend
     ()
   }
 
-  def getPostgresVersion(connection: Connection): Option[(Int, Int, Int)] = {
+  def getPostgresVersion(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Option[(Int, Int, Int)] = {
     val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
-    val versionPattern = """(\d)[.](\d)[.](\d)""".r
+    logger.debug(s"Found Postgres version $version")
+    val versionPattern = """(\d)+[.](\d)+[.](\d)+""".r
     version match {
       case versionPattern(major, minor, patch) => Some(major.toInt, minor.toInt, patch.toInt)
       case _ => None
@@ -124,7 +127,7 @@ private[backend] object PostgresStorageBackend
   )(implicit loggingContext: LoggingContext): Unit = {
     getPostgresVersion(connection) match {
       case Some((major, minor, patch)) =>
-        if (major.toInt < 10) {
+        if (major < 10) {
           logger.error(
             "Deprecated Postgres version. " +
               s"Found Postgres version $major.$minor.$patch., minimum required Postgres version is 10. " +
