@@ -1205,7 +1205,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = None,
+          submission_id = Some(completionInfo.submissionId),
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
