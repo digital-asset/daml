@@ -25,11 +25,12 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object CommandRetryFlow {
 
-  type In[C] = Ctx[C, SubmitRequest]
+  type Value = SubmitRequest
+  type In[C] = Ctx[C, Value]
   type Out[C] = Ctx[C, Either[CompletionFailure, CompletionSuccess]]
   type SubmissionFlowType[C] = Flow[In[C], Out[C], NotUsed]
   type CreateRetryFn[C] =
-    (RetryInfo[C], Either[CompletionFailure, CompletionSuccess]) => SubmitRequest
+    (RetryInfo[C, Value], Either[CompletionFailure, CompletionSuccess]) => Value
 
   private val RETRY_PORT = 0
   private val PROPAGATE_PORT = 1
@@ -42,13 +43,13 @@ object CommandRetryFlow {
       createRetry: CreateRetryFn[C],
   )(implicit ec: ExecutionContext): Future[SubmissionFlowType[C]] =
     for {
-      submissionFlow <- commandClient.trackCommands[RetryInfo[C]](List(party.unwrap))
+      submissionFlow <- commandClient.trackCommands[RetryInfo[C, Value]](List(party.unwrap))
       submissionFlowWithoutMat = submissionFlow.mapMaterializedValue(_ => NotUsed)
       graph = createGraph(submissionFlowWithoutMat, timeProvider, maxRetryTime, createRetry)
     } yield wrapGraph(graph, timeProvider)
 
   def wrapGraph[C](
-      graph: SubmissionFlowType[RetryInfo[C]],
+      graph: SubmissionFlowType[RetryInfo[C, Value]],
       timeProvider: TimeProvider,
   ): SubmissionFlowType[C] =
     Flow[In[C]]
@@ -57,44 +58,44 @@ object CommandRetryFlow {
       .map(RetryInfo.unwrap)
 
   def createGraph[C](
-      commandSubmissionFlow: SubmissionFlowType[RetryInfo[C]],
+      commandSubmissionFlow: SubmissionFlowType[RetryInfo[C, Value]],
       timeProvider: TimeProvider,
       maxRetryTime: TemporalAmount,
       createRetry: CreateRetryFn[C],
-  ): SubmissionFlowType[RetryInfo[C]] =
+  ): SubmissionFlowType[RetryInfo[C, Value]] =
     Flow
       .fromGraph(GraphDSL.create(commandSubmissionFlow) { implicit b => commandSubmission =>
         import GraphDSL.Implicits._
 
-        val merge = b.add(Merge[In[RetryInfo[C]]](inputPorts = 2, eagerComplete = true))
+        val merge = b.add(Merge[In[RetryInfo[C, Value]]](inputPorts = 2, eagerComplete = true))
 
         val retryDecider = b.add(
-          Partition[Out[RetryInfo[C]]](
+          Partition[Out[RetryInfo[C, Value]]](
             outputPorts = 2,
             {
               case Ctx(
-                    RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
+                    RetryInfo(value, nrOfRetries, firstSubmissionTime, _),
                     Left(CompletionResponse.NotOkResponse(_, status)),
                     _,
                   ) if RETRYABLE_ERROR_CODES.contains(status.code) =>
                 if ((firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime) {
                   RetryLogger.logStopRetrying(
-                    request,
+                    value,
                     status,
                     nrOfRetries,
                     firstSubmissionTime,
                   )
                   PROPAGATE_PORT
                 } else {
-                  RetryLogger.logNonFatal(request, status, nrOfRetries)
+                  RetryLogger.logNonFatal(value, status, nrOfRetries)
                   RETRY_PORT
                 }
               case Ctx(
-                    RetryInfo(request, nrOfRetries, _, _),
+                    RetryInfo(value, nrOfRetries, _, _),
                     Left(CompletionResponse.NotOkResponse(_, status)),
                     _,
                   ) =>
-                RetryLogger.logFatal(request, status, nrOfRetries)
+                RetryLogger.logFatal(value, status, nrOfRetries)
                 PROPAGATE_PORT
               case Ctx(_, Left(CompletionResponse.TimeoutResponse(_)), _) =>
                 PROPAGATE_PORT
@@ -106,7 +107,7 @@ object CommandRetryFlow {
           )
         )
 
-        val convertToRetry = b.add(Flow[Out[RetryInfo[C]]].map {
+        val convertToRetry = b.add(Flow[Out[RetryInfo[C, Value]]].map {
           case Ctx(retryInfo, failedCompletion, telemetryContext) =>
             Ctx(retryInfo.newRetry, createRetry(retryInfo, failedCompletion), telemetryContext)
         })

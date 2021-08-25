@@ -33,8 +33,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
   /** Uses the status received in the context for the first time,
     * then replies OK status as the ledger effective time is stepped.
     */
-  val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
-    Flow[In[RetryInfo[Status]]]
+  val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status, SubmitRequest]] =
+    Flow[In[RetryInfo[Status, SubmitRequest]]]
       .map {
         case Ctx(
               context @ RetryInfo(_, nrOfRetries, _, status),
@@ -59,16 +59,19 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
 
   @nowarn("msg=parameter value response .* is never used") // matches createGraph signature
   private def createRetry(
-      retryInfo: RetryInfo[Status],
+      retryInfo: RetryInfo[Status, SubmitRequest],
       response: Either[CompletionFailure, CompletionSuccess],
   ) = {
-    SubmitRequest(retryInfo.request.commands)
+    SubmitRequest(retryInfo.value.commands)
   }
 
-  val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
+  val retryFlow: SubmissionFlowType[RetryInfo[Status, SubmitRequest]] =
     CommandRetryFlow.createGraph(mockCommandSubmission, timeProvider, maxRetryTime, createRetry)
 
-  private def submitRequest(statusCode: Int, time: Instant): Future[Seq[Out[RetryInfo[Status]]]] = {
+  private def submitRequest(
+      statusCode: Int,
+      time: Instant,
+  ): Future[Seq[Out[RetryInfo[Status, SubmitRequest]]]] = {
 
     val request = SubmitRequest(
       Some(

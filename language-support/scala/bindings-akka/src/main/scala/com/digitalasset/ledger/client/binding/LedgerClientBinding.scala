@@ -81,7 +81,6 @@ class LedgerClientBinding(
                 case other => sys.error(s"Expected Created or Archived, got $other"): String
               }
               .mkString("[", ",", "]")}",
-          false,
         )
       )
       .via(DomainTransactionMapper(decoder))
@@ -111,12 +110,15 @@ class LedgerClientBinding(
       .via(tracking)
 
   @nowarn("msg=parameter value ignored .* is never used") // matches CommandRetryFlow signature
-  private def createRetry[C](retryInfo: RetryInfo[C], ignored: Any): SubmitRequest = {
-    if (retryInfo.request.commands.isEmpty) {
-      logger.warn(s"Retrying with empty commands for {}", retryInfo.request)
+  private def createRetry[C](
+      retryInfo: RetryInfo[C, SubmitRequest],
+      ignored: Any,
+  ): SubmitRequest = {
+    if (retryInfo.value.commands.isEmpty) {
+      logger.warn(s"Retrying with empty commands for {}", retryInfo.value)
     }
 
-    retryInfo.request
+    retryInfo.value
   }
 
   type CommandsFlow[C] =
@@ -155,15 +157,16 @@ object LedgerClientBinding {
   @nowarn(
     "msg=parameter value config .* is never used"
   ) // public function, unsure whether arg needed
-  def askLedgerId(channel: ManagedChannel, config: LedgerClientConfiguration)(implicit
-      ec: ExecutionContext
-  ): Future[String] =
+  def askLedgerId(
+      channel: ManagedChannel,
+      config: LedgerClientConfiguration,
+  )(implicit ec: ExecutionContext): Future[String] =
     LedgerIdentityServiceGrpc
       .stub(channel)
       .getLedgerIdentity(GetLedgerIdentityRequest())
       .map(_.ledgerId)
 
-  def transactionFilter(party: Party, templateSelector: TemplateSelector) =
+  def transactionFilter(party: Party, templateSelector: TemplateSelector): TransactionFilter =
     TransactionFilter(Map(party.unwrap -> templateSelector.toApi))
 
 }
