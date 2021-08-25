@@ -5,7 +5,6 @@ package com.daml.platform.store.backend
 
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
 import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.Inside._
 
 final class StorageBackendPostgresSpec
     extends AsyncFlatSpec
