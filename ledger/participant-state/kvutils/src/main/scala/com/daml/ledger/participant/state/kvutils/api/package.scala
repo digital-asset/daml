@@ -58,6 +58,7 @@ package object api {
 
   def createKeyValueLedger(reader: LedgerReader, writer: LedgerWriter): KeyValueLedger =
     new LedgerReader with LedgerWriter {
+
       override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
         reader.events(startExclusive)
 

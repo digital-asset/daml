@@ -44,6 +44,11 @@ class InMemoryLedgerReaderWriterIntegrationSpec
         engine = Engine.DevEngine(),
         committerExecutionContext = committerExecutionContext,
       )
-    } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
+    } yield new KeyValueParticipantState(
+      readerWriter,
+      readerWriter,
+      metrics,
+      apiDeduplicationEnabled = true,
+    )
 
 }

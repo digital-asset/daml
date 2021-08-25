@@ -320,15 +320,16 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         }
       }
 
-      "reject duplicate commands" in participantState.use { ps =>
-        val commandIds = ("X1", "X2")
-
+      //ignore as we don't support command deduplication currently at this level
+      "reject duplicate commands" ignore participantState.use { ps =>
+        val firstCommandId = "X1"
+        val secondCommandId = "X2"
         for {
           result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(alice, commandIds._1),
+              submitterInfo(alice, firstCommandId),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -338,7 +339,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           // Below submission is a duplicate, should get dropped.
           result3 <- ps
             .submitTransaction(
-              submitterInfo(alice, commandIds._1),
+              submitterInfo(alice, firstCommandId),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -346,7 +347,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             .toScala
           result4 <- ps
             .submitTransaction(
-              submitterInfo(alice, commandIds._2),
+              submitterInfo(alice, secondCommandId),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
@@ -363,10 +364,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           update1 should be(a[PartyAddedToParticipant])
 
           offset2 should be(toOffset(2))
-          matchTransaction(update2, commandIds._1)
+          matchTransaction(update2, firstCommandId)
 
           offset3 should be(toOffset(4))
-          matchTransaction(update3, commandIds._2)
+          matchTransaction(update3, secondCommandId)
         }
       }
 

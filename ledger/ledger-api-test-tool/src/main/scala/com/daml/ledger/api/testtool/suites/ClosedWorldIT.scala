@@ -28,7 +28,7 @@ class ClosedWorldIT extends LedgerTestSuite {
         .create(payer, Iou(payer, binding.Primitive.Party("unallocated"), onePound))
         .mustFail("referencing an unallocated party")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Party not known on ledger")
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Parties not known on ledger [unallocated]")
     }
   })
 }

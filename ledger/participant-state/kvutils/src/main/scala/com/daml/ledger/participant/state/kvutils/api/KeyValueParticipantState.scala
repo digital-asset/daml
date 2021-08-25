@@ -40,12 +40,19 @@ class KeyValueParticipantState(
     reader: LedgerReader,
     writer: LedgerWriter,
     metrics: Metrics,
+    apiDeduplicationEnabled: Boolean = false,
 ) extends ReadService
     with WriteService {
   private val readerAdapter =
     KeyValueParticipantStateReader(reader, metrics)
   private val writerAdapter =
-    new KeyValueParticipantStateWriter(new TimedLedgerWriter(writer, metrics), metrics)
+    new KeyValueParticipantStateWriter(
+      new TimedLedgerWriter(writer, metrics),
+      metrics,
+      apiDeduplicationEnabled,
+    )
+
+  override def isApiDeduplicationEnabled: Boolean = writerAdapter.isApiDeduplicationEnabled
 
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     readerAdapter.ledgerInitialConditions()

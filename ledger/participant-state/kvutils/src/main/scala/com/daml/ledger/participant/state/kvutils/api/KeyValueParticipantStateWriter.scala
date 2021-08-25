@@ -20,7 +20,11 @@ import com.daml.telemetry.TelemetryContext
 
 import scala.compat.java8.FutureConverters
 
-class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) extends WriteService {
+class KeyValueParticipantStateWriter(
+    writer: LedgerWriter,
+    metrics: Metrics,
+    override val isApiDeduplicationEnabled: Boolean = false,
+) extends WriteService {
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
