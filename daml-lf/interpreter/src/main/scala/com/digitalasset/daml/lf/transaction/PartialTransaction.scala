@@ -46,22 +46,24 @@ private[lf] object PartialTransaction {
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
-    // This is None for root actions since
-    // PartialTransaction does not keep track of committers.
-    def authorizers: Option[Set[Party]]
+    def authorizers: Set[Party]
   }
 
   sealed abstract class RootContextInfo extends ContextInfo {
-    override val authorizers: Option[Set[Party]] = None
+    val committers: Set[Party]
+    override val authorizers: Set[Party] = committers
   }
 
-  private[PartialTransaction] final class SeededTransactionRootContext(seed: crypto.Hash)
-      extends RootContextInfo {
+  private[PartialTransaction] final class SeededTransactionRootContext(
+      seed: crypto.Hash,
+      override val committers: Set[Party],
+  ) extends RootContextInfo {
     val actionChildSeed = crypto.Hash.deriveNodeSeed(seed, _)
   }
 
   private[PartialTransaction] final class SeededPartialTransactionRootContext(
-      seeds: ImmArray[Option[crypto.Hash]]
+      seeds: ImmArray[Option[crypto.Hash]],
+      override val committers: Set[Party],
   ) extends RootContextInfo {
     override val actionChildSeed: Int => crypto.Hash = { idx =>
       seeds.get(idx) match {
@@ -76,7 +78,9 @@ private[lf] object PartialTransaction {
     }
   }
 
-  private[PartialTransaction] object NoneSeededTransactionRootContext extends RootContextInfo {
+  private[PartialTransaction] final case class NoneSeededTransactionRootContext(
+      override val committers: Set[Party]
+  ) extends RootContextInfo {
     val actionChildSeed: Any => Nothing = { _ =>
       InternalError.runtimeException(
         NameOf.qualifiedNameOfCurrentFunc,
@@ -110,14 +114,14 @@ private[lf] object PartialTransaction {
       // An empty context, with no children; minChildVersion is set to the max-int.
       Context(info, TxVersion.VDev, BackStack.empty, 0)
 
-    def apply(initialSeeds: InitialSeeding): Context =
+    def apply(initialSeeds: InitialSeeding, committers: Set[Party]): Context =
       initialSeeds match {
         case InitialSeeding.TransactionSeed(seed) =>
-          Context(new SeededTransactionRootContext(seed))
+          Context(new SeededTransactionRootContext(seed, committers))
         case InitialSeeding.RootNodeSeeds(seeds) =>
-          Context(new SeededPartialTransactionRootContext(seeds))
+          Context(new SeededPartialTransactionRootContext(seeds, committers))
         case InitialSeeding.NoSeed =>
-          Context(NoneSeededTransactionRootContext)
+          Context(NoneSeededTransactionRootContext(committers))
       }
   }
 
@@ -159,7 +163,7 @@ private[lf] object PartialTransaction {
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
-    override val authorizers: Option[Set[Party]] = Some(actingParties union signatories)
+    override val authorizers: Set[Party] = actingParties union signatories
   }
 
   final case class ActiveLedgerState(
@@ -174,8 +178,8 @@ private[lf] object PartialTransaction {
       // the try so that we can restore them on rollback.
       beginState: ActiveLedgerState,
       // Set to the authorizers (the union of signatories & actors) of the nearest
-      // parent exercise or None if there is no parent exercise.
-      authorizers: Option[Set[Party]],
+      // parent exercise or the submitters if there is no parent exercise.
+      authorizers: Set[Party],
   ) extends ContextInfo {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
   }
@@ -186,6 +190,7 @@ private[lf] object PartialTransaction {
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
       transactionNormalization: Boolean,
+      committers: Set[Party],
   ) = PartialTransaction(
     pkg2TxVersion,
     contractKeyUniqueness = contractKeyUniqueness,
@@ -194,7 +199,7 @@ private[lf] object PartialTransaction {
     nodes = HashMap.empty,
     actionNodeSeeds = BackStack.empty,
     consumedBy = Map.empty,
-    context = Context(initialSeeds),
+    context = Context(initialSeeds, committers),
     aborted = None,
     keys = Map.empty,
     globalKeyInputs = Map.empty,

@@ -21,6 +21,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] val choiceId = data.Ref.Name.assertFromString("choice")
   private[this] val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("My contract"))
   private[this] val party = data.Ref.Party.assertFromString("Alice")
+  private[this] val committers: Set[data.Ref.Party] = Set.empty
 
   private[this] val initialState = PartialTransaction.initial(
     _ => TransactionVersion.maxVersion,
@@ -28,6 +29,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
     transactionNormalization = true,
+    committers,
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
