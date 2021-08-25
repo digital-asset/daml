@@ -10,7 +10,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction.Transaction
@@ -101,7 +101,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
 
-  private val engine: Engine = Engine.DevEngine()
+  private val engine: Engine =
+    new Engine(new EngineConfig(LanguageVersion.DevVersions, transactionNormalization = false))
 
   List(5000, 50000, 500000)
     .foreach { txSize =>

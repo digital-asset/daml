@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.ImmArray
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.PartialTransaction._
-import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
 import org.scalatest._
@@ -27,6 +27,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     ContractKeyUniquenessMode.On,
     data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
+    transactionNormalization = true,
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {

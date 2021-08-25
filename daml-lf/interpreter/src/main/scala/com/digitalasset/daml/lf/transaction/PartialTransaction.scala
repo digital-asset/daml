@@ -185,6 +185,7 @@ private[lf] object PartialTransaction {
       contractKeyUniqueness: ContractKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
+      transactionNormalization: Boolean,
   ) = PartialTransaction(
     pkg2TxVersion,
     contractKeyUniqueness = contractKeyUniqueness,
@@ -199,6 +200,7 @@ private[lf] object PartialTransaction {
     globalKeyInputs = Map.empty,
     localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
+    transactionNormalization = transactionNormalization,
   )
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
@@ -281,6 +283,7 @@ private[lf] case class PartialTransaction(
     globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
+    transactionNormalization: Boolean,
 ) {
 
   import PartialTransaction._
@@ -340,6 +343,27 @@ private[lf] case class PartialTransaction(
     this.actionNodeLocations.toImmArray.toSeq.zipWithIndex.collect { case (Some(loc), n) =>
       (NodeId(n), loc)
     }.toMap
+  }
+
+  /** normValue: converts a speedy value into a normalized regular value,
+    * unless 'transactionNormalization=false',
+    * suitable for a transaction node of 'version' determined by 'templateId'
+    */
+  def normValue(templateId: TypeConName, svalue: SValue): Value[Value.ContractId] = {
+    val version = packageToTransactionVersion(templateId.packageId)
+    if (transactionNormalization) {
+      svalue.toNormalizedValue(version)
+    } else {
+      svalue.toUnnormalizedValue
+    }
+  }
+
+  private def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
+    if (transactionNormalization && (version < TxVersion.minByKey)) {
+      false
+    } else {
+      byKey
+    }
   }
 
   /** Finish building a transaction; i.e., try to extract a complete
@@ -504,7 +528,7 @@ private[lf] case class PartialTransaction(
       signatories,
       stakeholders,
       key,
-      byKey,
+      normByKey(version, byKey),
       version,
     )
     mustBeActive(
@@ -657,7 +681,7 @@ private[lf] case class PartialTransaction(
       children = ImmArray(Nil),
       exerciseResult = None,
       key = ec.contractKey,
-      byKey = ec.byKey,
+      byKey = normByKey(version, ec.byKey),
       version = version,
     )
   }
@@ -707,7 +731,7 @@ private[lf] case class PartialTransaction(
     // we must never create a rollback containing a node with a version pre-dating exceptions
     if (context.minChildVersion < TxVersion.minExceptions) {
       throw SError.SErrorDamlException(
-        interpretation.Error.UnhandledException(ex.ty, ex.value.toValue)
+        interpretation.Error.UnhandledException(ex.ty, ex.value.toUnnormalizedValue)
       )
     }
     context.info match {

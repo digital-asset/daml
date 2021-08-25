@@ -28,6 +28,6 @@ class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
 
   @Benchmark
   def run(): Vector[Value[ContractId]] =
-    speedyValues.map(_.toValue)
+    speedyValues.map(_.toUnnormalizedValue)
 
 }
