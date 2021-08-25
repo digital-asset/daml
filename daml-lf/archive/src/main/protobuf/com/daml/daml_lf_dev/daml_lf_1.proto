@@ -1438,7 +1438,7 @@ message DefTemplate {
   DefKey key = 10; // optional
 
   // Interfaces that this template implements.
-  repeated TypeConName implements = 11; // *Available in versions >= 1.dev*
+  repeated TypeConName implements = 12; // *Available in versions >= 1.dev*
 }
 
 message DefInterface {
