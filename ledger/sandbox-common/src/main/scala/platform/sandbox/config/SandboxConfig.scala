@@ -16,7 +16,11 @@ import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  InitialLedgerConfiguration,
+  SubmissionConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
@@ -36,6 +40,7 @@ final case class SandboxConfig(
     delayBeforeSubmittingLedgerConfiguration: Duration,
     timeModel: LedgerTimeModel,
     commandConfig: CommandConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
@@ -104,6 +109,7 @@ object SandboxConfig {
       delayBeforeSubmittingLedgerConfiguration = Duration.ofSeconds(1),
       timeModel = LedgerTimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,
