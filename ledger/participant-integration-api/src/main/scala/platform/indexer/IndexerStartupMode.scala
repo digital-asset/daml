@@ -17,4 +17,6 @@ object IndexerStartupMode {
 
   case object MigrateOnEmptySchemaAndStart extends IndexerStartupMode
 
+  case object EnforceEmptySchemaAndMigrate extends IndexerStartupMode
+
 }

@@ -84,6 +84,14 @@ final class StandaloneIndexerServer(
             logger.debug("Waiting for the indexer to initialize the empty or up-to-date database.")
             healthReporter
           }
+      case IndexerStartupMode.EnforceEmptySchemaAndMigrate =>
+        Resource
+          .fromFuture(indexerFactory.enforceEmptySchemaAndMigrate())
+          .flatMap(startIndexer(indexer, _))
+          .map { healthReporter =>
+            logger.debug("Waiting for the indexer to initialize the database.")
+            healthReporter
+          }
     }
   }
 

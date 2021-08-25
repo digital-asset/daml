@@ -98,6 +98,13 @@ object JdbcIndexer {
         .migrateOnEmptySchema(config.enableAppendOnlySchema)
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
+    def enforceEmptySchemaAndMigrate()(implicit
+        resourceContext: ResourceContext
+    ): Future[ResourceOwner[Indexer]] =
+      flywayMigrations
+        .enforceEmptySchemaAndMigrate(config.enableAppendOnlySchema)
+        .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
+
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean
     )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =

@@ -13,6 +13,7 @@ import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import scopt.OptionParser
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
@@ -50,6 +51,13 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
   }
 
   override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
+
+  override def indexerConfig(
+      participantConfig: ParticipantConfig,
+      config: Config[Unit],
+  ): IndexerConfig = super
+    .indexerConfig(participantConfig, config)
+    .copy(startupMode = IndexerStartupMode.EnforceEmptySchemaAndMigrate)
 
   override val defaultExtraConfig: Unit = ()
 }

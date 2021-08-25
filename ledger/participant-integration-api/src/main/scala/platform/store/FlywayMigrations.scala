@@ -99,7 +99,7 @@ private[platform] class FlywayMigrations(
           throw StoppedProgressing(pendingMigrations)
         } else {
           logger.debug(
-            s"Concurrent migration has reduced the pending migrations set to ${pendingMigrations}, waiting until pending set is empty.."
+            s"Concurrent migration has reduced the pending migrations set to $pendingMigrations, waiting until pending set is empty.."
           )
           Thread.sleep(1000)
           flywayMigrationDone(retries - 1, Some(pendingMigrations))
@@ -134,12 +134,12 @@ private[platform] class FlywayMigrations(
       (flywayInfo.pending().length, flywayInfo.applied().length) match {
         case (0, appliedMigrations) =>
           Future.successful(
-            logger.info(s"No pending migrations with ${appliedMigrations} migrations applied.")
+            logger.info(s"No pending migrations with $appliedMigrations migrations applied.")
           )
         case (pendingMigrations, 0) =>
           Future.successful {
             logger.info(
-              s"Running Flyway migration on empty database with ${pendingMigrations} migrations pending..."
+              s"Running Flyway migration on empty database with $pendingMigrations migrations pending..."
             )
             val stepsTaken = flyway.migrate()
             logger.info(
@@ -148,6 +148,36 @@ private[platform] class FlywayMigrations(
           }
         case (pendingMigrations, appliedMigrations) =>
           val ex = MigrateOnEmptySchema(appliedMigrations, pendingMigrations)
+          logger.warn(ex.getMessage)
+          Future.failed(ex)
+      }
+    }
+
+  def enforceEmptySchemaAndMigrate(
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean = false
+  )(implicit resourceContext: ResourceContext): Future[Unit] =
+    dataSource.use { ds =>
+      val flyway = configurationBase(dbType, enableAppendOnlySchema, additionalMigrationPaths)
+        .dataSource(ds)
+        .ignoreFutureMigrations(false)
+        .load()
+      logger.info(
+        "Ensuring Flyway migration has either not started or there are no pending migrations..."
+      )
+      val flywayInfo = flyway.info()
+
+      flywayInfo.applied().length match {
+        case 0 =>
+          Future.successful {
+            logger.info("Running Flyway migration...")
+            val stepsTaken = flyway.migrate()
+            logger.info(
+              s"Flyway schema migration finished successfully, applying $stepsTaken steps."
+            )
+          }
+        case appliedMigrations =>
+          val ex = EnforceEmptySchema(appliedMigrations)
           logger.warn(ex.getMessage)
           Future.failed(ex)
       }
@@ -201,15 +231,19 @@ private[platform] object FlywayMigrations {
   ): FluentConfiguration =
     Flyway
       .configure()
-      .locations((locations(enableAppendOnlySchema, dbType) ++ additionalMigrationPaths): _*)
+      .locations(locations(enableAppendOnlySchema, dbType) ++ additionalMigrationPaths: _*)
 
   case class ExhaustedRetries(pendingMigrations: Int)
-      extends RuntimeException(s"Ran out of retries with ${pendingMigrations} migrations remaining")
+      extends RuntimeException(s"Ran out of retries with $pendingMigrations migrations remaining")
   case class StoppedProgressing(pendingMigrations: Int)
-      extends RuntimeException(s"Stopped progressing with ${pendingMigrations} migrations")
+      extends RuntimeException(s"Stopped progressing with $pendingMigrations migrations")
   case class MigrateOnEmptySchema(appliedMigrations: Int, pendingMigrations: Int)
       extends RuntimeException(
-        s"Asked to migrate-on-empty-schema, but encountered neither an empty database with ${appliedMigrations} " +
-          s"migrations already applied nor a fully-migrated databases with ${pendingMigrations} migrations pending."
+        s"Asked to migrate-on-empty-schema, but encountered neither an empty database with $appliedMigrations " +
+          s"migrations already applied nor a fully-migrated databases with $pendingMigrations migrations pending."
+      )
+  case class EnforceEmptySchema(appliedMigrations: Int)
+      extends RuntimeException(
+        s"Asked to enforce-empty-schema-and-migrate, but encountered a non-empty database with $appliedMigrations migrations already applied."
       )
 }
