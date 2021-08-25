@@ -5,7 +5,8 @@ package com.daml.platform.store.backend
 
 import java.util.UUID
 
-import com.daml.ledger.api.domain
+import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.daml.ledger.api.{domain, DeduplicationPeriod}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
@@ -27,6 +28,8 @@ object UpdateToDbDto {
     import state.Update._
     {
       case u: CommandRejected =>
+        val (deduplicationTimeSeconds, deduplicationTimeNanos) =
+          maybeDeduplicationTime(u.completionInfo.optDeduplicationPeriod)
         Iterator(
           DbDto.CommandCompletion(
             completion_offset = offset.toHexString,
@@ -39,6 +42,12 @@ object UpdateToDbDto {
             rejection_status_message = Some(u.reasonTemplate.message),
             rejection_status_details =
               Some(StatusDetails.of(u.reasonTemplate.status.details).toByteArray),
+            submission_id = Some(u.completionInfo.submissionId),
+            deduplication_offset =
+              maybeDeduplicationOffset(u.completionInfo.optDeduplicationPeriod).map(_.toHexString),
+            deduplication_time_seconds = deduplicationTimeSeconds,
+            deduplication_time_nanos = deduplicationTimeNanos,
+            deduplication_start = None,
           ),
           DbDto.CommandDeduplication(
             DeduplicationKeyMaker.make(
@@ -265,6 +274,8 @@ object UpdateToDbDto {
         }
 
         val completions = u.optCompletionInfo.iterator.map { completionInfo =>
+          val (deduplication_time_seconds, deduplication_time_nanos) =
+            maybeDeduplicationTime(completionInfo.optDeduplicationPeriod)
           DbDto.CommandCompletion(
             completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
@@ -275,6 +286,12 @@ object UpdateToDbDto {
             rejection_status_code = None,
             rejection_status_message = None,
             rejection_status_details = None,
+            submission_id = Some(completionInfo.submissionId),
+            deduplication_offset =
+              maybeDeduplicationOffset(completionInfo.optDeduplicationPeriod).map(_.toHexString),
+            deduplication_start = None,
+            deduplication_time_seconds = deduplication_time_seconds,
+            deduplication_time_nanos = deduplication_time_nanos,
           )
         }
 
@@ -282,4 +299,26 @@ object UpdateToDbDto {
     }
   }
 
+  private def maybeDeduplicationOffset(
+      maybeDeduplicationPeriod: Option[DeduplicationPeriod]
+  ): Option[Offset] =
+    maybeDeduplicationPeriod.flatMap {
+      case DeduplicationOffset(offset) => Some(offset)
+      case _ => None
+    }
+
+  private def maybeDeduplicationTime(
+      maybeDeduplicationPeriod: Option[DeduplicationPeriod]
+  ): (Option[Long], Option[Int]) =
+    maybeDeduplicationPeriod
+      .flatMap {
+        case DeduplicationDuration(duration) =>
+          Some((duration.getSeconds, duration.getNano))
+        case _ => None
+      }
+      .fold[(Option[Long], Option[Int])] {
+        (None, None)
+      } { case (seconds, nanos) =>
+        (Some(seconds), Some(nanos))
+      }
 }

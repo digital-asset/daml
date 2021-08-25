@@ -15,6 +15,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.google.protobuf.ByteString
+import scalaz.{Either3, Left3, Middle3}
 
 /** Except where specified, values should be treated as opaque
   */
@@ -221,8 +222,11 @@ private[backend] object StorageBackendTestValues {
       submitter: String = "signatory",
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
+      submissionId: Option[String] = Some(UUID.randomUUID().toString),
+      deduplication: Option[Either3[String, (Long, Int), Instant]] = None,
   ): DbDto.CommandCompletion = {
     val transactionId = transactionIdFromOffset(offset)
+
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
       record_time = someTime,
@@ -233,6 +237,20 @@ private[backend] object StorageBackendTestValues {
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,
+      submission_id = submissionId,
+      deduplication_offset = deduplication.flatMap {
+        case Left3(offset) => Some(offset)
+        case _ => None
+      },
+      deduplication_time_seconds = deduplication.flatMap {
+        case Middle3((seconds, _)) => Some(seconds)
+        case _ => None
+      },
+      deduplication_time_nanos = deduplication.flatMap {
+        case Middle3((_, nanos)) => Some(nanos)
+        case _ => None
+      },
+      deduplication_start = None,
     )
   }
 

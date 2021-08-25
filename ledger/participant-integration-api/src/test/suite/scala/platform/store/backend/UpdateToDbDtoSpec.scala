@@ -6,6 +6,7 @@ package com.daml.platform.store.backend
 import java.time.Duration
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -36,6 +37,7 @@ import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.scalactic.TripleEquals._
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -251,47 +253,81 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "handle CommandRejected" in {
-      val completionInfo = state.CompletionInfo(
-        actAs = List(someParty),
-        applicationId = someApplicationId,
-        commandId = someCommandId,
-        optDeduplicationPeriod = None,
-        submissionId = someSubmissionId,
-      )
-      val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
-      val update = state.Update.CommandRejected(
-        someRecordTime,
-        completionInfo,
-        new state.Update.CommandRejected.FinalReason(status),
-      )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+    val deduplicationPeriods = Table(
+      (
+        "Deduplication period",
+        "Expected deduplication offset",
+        "Expected deduplication time seconds",
+        "Expected deduplication time nanos",
+      ),
+      (None, None, None, None),
+      (
+        Some(DeduplicationOffset(Offset.beforeBegin)),
+        Some(Offset.beforeBegin.toHexString),
+        None,
+        None,
+      ),
+      (
+        Some(DeduplicationDuration(Duration.ofDays(1L))),
+        None,
+        Some(Duration.ofDays(1L).toMinutes * 60L),
+        Some(0),
+      ),
+    )
 
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.CommandCompletion(
-          completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.toInstant,
-          application_id = someApplicationId,
-          submitters = Set(someParty),
-          command_id = someCommandId,
-          transaction_id = None,
-          rejection_status_code = Some(status.code),
-          rejection_status_message = Some(status.message),
-          rejection_status_details = Some(StatusDetails.of(status.details).toByteArray),
-        ),
-        DbDto.CommandDeduplication(
-          DeduplicationKeyMaker.make(
-            domain.CommandId(completionInfo.commandId),
-            completionInfo.actAs,
+    "handle CommandRejected" in {
+      val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
+      forAll(deduplicationPeriods) {
+        case (
+              deduplicationPeriod,
+              expectedDeduplicationOffset,
+              expectedDeduplicationTimeSeconds,
+              expectedDeduplicationTimeNanos,
+            ) =>
+          val completionInfo = state.CompletionInfo(
+            actAs = List(someParty),
+            applicationId = someApplicationId,
+            commandId = someCommandId,
+            optDeduplicationPeriod = deduplicationPeriod,
+            submissionId = someSubmissionId,
           )
-        ),
-      )
+          val update = state.Update.CommandRejected(
+            someRecordTime,
+            completionInfo,
+            state.Update.CommandRejected.FinalReason(status),
+          )
+          val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
+            someOffset
+          )(update).toList
+
+          dtos should contain theSameElementsInOrderAs List(
+            DbDto.CommandCompletion(
+              completion_offset = someOffset.toHexString,
+              record_time = someRecordTime.toInstant,
+              application_id = someApplicationId,
+              submitters = Set(someParty),
+              command_id = someCommandId,
+              transaction_id = None,
+              rejection_status_code = Some(status.code),
+              rejection_status_message = Some(status.message),
+              rejection_status_details = Some(StatusDetails.of(status.details).toByteArray),
+              submission_id = Some(someSubmissionId),
+              deduplication_offset = expectedDeduplicationOffset,
+              deduplication_time_seconds = expectedDeduplicationTimeSeconds,
+              deduplication_time_nanos = expectedDeduplicationTimeNanos,
+              deduplication_start = None,
+            ),
+            DbDto.CommandDeduplication(
+              DeduplicationKeyMaker.make(
+                domain.CommandId(completionInfo.commandId),
+                completionInfo.actAs,
+              )
+            ),
+          )
+      }
     }
 
     "handle TransactionAccepted (single create node)" in {
-      val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = new TransactionBuilder()
       val createNode = builder.create(
@@ -304,56 +340,70 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
-        optCompletionInfo = Some(completionInfo),
-        transactionMeta = transactionMeta,
-        transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
-        recordTime = someRecordTime,
-        divulgedContracts = List.empty,
-        blindingInfo = None,
-      )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      forAll(deduplicationPeriods) {
+        case (
+              deduplicationPeriod,
+              expectedDeduplicationOffset,
+              expectedDeduplicationTimeSeconds,
+              expectedDeduplicationTimeNanos,
+            ) =>
+          val completionInfo = someCompletionInfo.copy(optDeduplicationPeriod = deduplicationPeriod)
+          val update = state.Update.TransactionAccepted(
+            optCompletionInfo = Some(completionInfo),
+            transactionMeta = transactionMeta,
+            transaction = transaction,
+            transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+            recordTime = someRecordTime,
+            divulgedContracts = List.empty,
+            blindingInfo = None,
+          )
+          val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
+            someOffset
+          )(update).toList
 
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.EventCreate(
-          event_offset = Some(someOffset.toHexString),
-          transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
-          command_id = Some(completionInfo.commandId),
-          workflow_id = transactionMeta.workflowId,
-          application_id = Some(completionInfo.applicationId),
-          submitters = Some(completionInfo.actAs.toSet),
-          node_index = Some(createNodeId.index),
-          event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
-          contract_id = createNode.coid.coid,
-          template_id = Some(createNode.coinst.template.toString),
-          flat_event_witnesses = Set("signatory", "observer"), // stakeholders
-          tree_event_witnesses = Set("signatory", "observer"), // informees
-          create_argument = Some(emptyArray),
-          create_signatories = Some(Set("signatory")),
-          create_observers = Some(Set("observer")),
-          create_agreement_text = None,
-          create_key_value = None,
-          create_key_hash = None,
-          create_argument_compression = compressionAlgorithmId,
-          create_key_value_compression = None,
-          event_sequential_id = 0,
-        ),
-        DbDto.CommandCompletion(
-          completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
-          application_id = completionInfo.applicationId,
-          submitters = completionInfo.actAs.toSet,
-          command_id = completionInfo.commandId,
-          transaction_id = Some(update.transactionId),
-          rejection_status_code = None,
-          rejection_status_message = None,
-          rejection_status_details = None,
-        ),
-      )
+          dtos should contain theSameElementsInOrderAs List(
+            DbDto.EventCreate(
+              event_offset = Some(someOffset.toHexString),
+              transaction_id = Some(update.transactionId),
+              ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+              command_id = Some(completionInfo.commandId),
+              workflow_id = transactionMeta.workflowId,
+              application_id = Some(completionInfo.applicationId),
+              submitters = Some(completionInfo.actAs.toSet),
+              node_index = Some(createNodeId.index),
+              event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
+              contract_id = createNode.coid.coid,
+              template_id = Some(createNode.coinst.template.toString),
+              flat_event_witnesses = Set("signatory", "observer"), // stakeholders
+              tree_event_witnesses = Set("signatory", "observer"), // informees
+              create_argument = Some(emptyArray),
+              create_signatories = Some(Set("signatory")),
+              create_observers = Some(Set("observer")),
+              create_agreement_text = None,
+              create_key_value = None,
+              create_key_hash = None,
+              create_argument_compression = compressionAlgorithmId,
+              create_key_value_compression = None,
+              event_sequential_id = 0,
+            ),
+            DbDto.CommandCompletion(
+              completion_offset = someOffset.toHexString,
+              record_time = update.recordTime.toInstant,
+              application_id = completionInfo.applicationId,
+              submitters = completionInfo.actAs.toSet,
+              command_id = completionInfo.commandId,
+              transaction_id = Some(update.transactionId),
+              rejection_status_code = None,
+              rejection_status_message = None,
+              rejection_status_details = None,
+              submission_id = Some(someSubmissionId),
+              deduplication_offset = expectedDeduplicationOffset,
+              deduplication_time_seconds = expectedDeduplicationTimeSeconds,
+              deduplication_time_nanos = expectedDeduplicationTimeNanos,
+              deduplication_start = None,
+            ),
+          )
+      }
     }
 
     "handle TransactionAccepted (single create node with agreement text)" in {
@@ -420,6 +470,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -500,6 +555,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -580,6 +640,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -743,6 +808,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -840,6 +910,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -961,6 +1036,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -1059,6 +1139,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -1134,6 +1219,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
+          submission_id = None,
+          deduplication_offset = None,
+          deduplication_time_nanos = None,
+          deduplication_time_seconds = None,
+          deduplication_start = None,
         ),
       )
     }
@@ -1284,7 +1374,7 @@ object UpdateToDbDtoSpec {
   // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
   // because this representation can efficiently be passed to Jdbc.
   // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
-  private implicit val DbDtoEq: org.scalactic.Equality[DbDto] = {
+  implicit private val DbDtoEq: org.scalactic.Equality[DbDto] = {
     case (a: DbDto, b: DbDto) =>
       (a.productPrefix === b.productPrefix) &&
         (a.productArity == b.productArity) &&
