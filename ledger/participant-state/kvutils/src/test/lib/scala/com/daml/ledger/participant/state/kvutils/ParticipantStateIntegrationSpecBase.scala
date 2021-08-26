@@ -38,6 +38,7 @@ import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 
+import scala.collection.compat._
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.compat.java8.FutureConverters._

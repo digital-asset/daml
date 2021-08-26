@@ -23,7 +23,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
-import scala.jdk.CollectionConverters.IterableHasAsJava
+import scala.jdk.CollectionConverters._
+
 private[transaction] class Rejections(metrics: Metrics) {
 
   final private val logger = ContextualizedLogger.get(getClass)
