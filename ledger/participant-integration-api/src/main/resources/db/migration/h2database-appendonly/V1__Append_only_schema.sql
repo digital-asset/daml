@@ -11,7 +11,8 @@ CREATE TABLE parameters (
   participant_id VARCHAR NOT NULL,
   ledger_end VARCHAR,
   ledger_end_sequential_id BIGINT,
-  participant_pruned_up_to_inclusive VARCHAR
+  participant_pruned_up_to_inclusive VARCHAR,
+  participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR
 );
 
 ---------------------------------------------------------------------------------------------------

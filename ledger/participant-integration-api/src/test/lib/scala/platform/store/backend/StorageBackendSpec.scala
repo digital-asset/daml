@@ -45,7 +45,7 @@ private[backend] trait StorageBackendSpec
     implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
     dbDispatcherResource = for {
       _ <- Resource.fromFuture(
-        new FlywayMigrations(jdbcUrl).migrate(enableAppendOnlySchema = true)
+        new FlywayMigrations(jdbcUrl, enableAppendOnlySchema = true).migrate()
       )
       dispatcher <- DbDispatcher
         .owner(

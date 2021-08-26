@@ -170,9 +170,7 @@ object SqlLedgerReaderWriter {
         head <- Resource.fromFuture(
           database
             .inReadTransaction("read_head") { queries =>
-              Future.fromTry(
-                queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex))
-              )
+              Future.fromTry(queries.selectLatestLogEntryId().map(_.getOrElse(StartIndex)))
             }
             .removeExecutionContext
         )

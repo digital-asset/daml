@@ -59,7 +59,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       before5 <- executeSql(backend.transactionTree(createTransactionId, filter))
       before6 <- executeSql(backend.rawEvents(0, 2L))
       // Prune
-      _ <- executeSql(backend.pruneEvents(offset(2)))
+      // TODO Divulgence pruning: Adapt the tests for all divulged contracts pruning and set the flag to `true`
+      _ <- executeSql(
+        backend.pruneEvents(offset(2), pruneAllDivulgedContracts = false)(_, loggingContext)
+      )
       _ <- executeSql(backend.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are not visible anymore
       after1 <- executeSql(backend.transactionEvents(range, filter))
@@ -109,7 +112,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       before5 <- executeSql(backend.transactionTree(createTransactionId, filter))
       before6 <- executeSql(backend.rawEvents(0, 1L))
       // Prune
-      _ <- executeSql(backend.pruneEvents(offset(1)))
+      // TODO Divulgence pruning: Adapt the tests for all divulged contracts pruning and set the flag to `true`
+      _ <- executeSql(
+        backend.pruneEvents(offset(1), pruneAllDivulgedContracts = false)(_, loggingContext)
+      )
       _ <- executeSql(backend.updatePrunedUptoInclusive(offset(1)))
       // Make sure the events are still visible - active contracts should not be pruned
       after1 <- executeSql(backend.transactionEvents(range, filter))
@@ -153,7 +159,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         backend.commandCompletions(offset(0), offset(1), applicationId, Set(someParty))
       )
       // Prune
-      _ <- executeSql(backend.pruneCompletions(offset(1)))
+      _ <- executeSql(backend.pruneCompletions(offset(1))(_, loggingContext))
       _ <- executeSql(backend.updatePrunedUptoInclusive(offset(1)))
       // Make sure the completion is not visible anymore
       after <- executeSql(

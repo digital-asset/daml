@@ -551,6 +551,7 @@ CREATE TABLE parameters
     ledger_end                         VARCHAR2(4000),
     participant_id                     NVARCHAR2(1000) not null,
     participant_pruned_up_to_inclusive VARCHAR2(4000),
+    participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR2(4000),
     ledger_end_sequential_id           NUMBER
 );
 

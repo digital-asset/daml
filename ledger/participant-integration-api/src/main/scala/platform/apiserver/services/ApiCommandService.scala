@@ -164,7 +164,7 @@ private[apiserver] object ApiCommandService {
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService = {
     val submissionTracker = new TrackerMap.SelfCleaning(
-      configuration.retentionPeriod,
+      configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
       Tracking.newTracker(configuration, services, ledgerConfigurationSubscription, metrics),
       trackerCleanupInterval,
@@ -184,7 +184,7 @@ private[apiserver] object ApiCommandService {
       ledgerId: LedgerId,
       inputBufferSize: Int,
       maxCommandsInFlight: Int,
-      retentionPeriod: FiniteDuration,
+      trackerRetentionPeriod: FiniteDuration,
   )
 
   final case class LocalServices(

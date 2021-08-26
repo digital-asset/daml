@@ -107,7 +107,8 @@ object StandaloneIndexerServer {
       allowExistingSchema: Boolean = false,
       additionalMigrationPaths: Seq[String] = Seq.empty,
   )(implicit rc: ResourceContext, loggingContext: LoggingContext): Future[Unit] = {
-    val flywayMigrations = new FlywayMigrations(jdbcUrl, additionalMigrationPaths)
-    flywayMigrations.migrate(allowExistingSchema, enableAppendOnlySchema)
+    val flywayMigrations =
+      new FlywayMigrations(jdbcUrl, enableAppendOnlySchema, additionalMigrationPaths)
+    flywayMigrations.migrate(allowExistingSchema)
   }
 }

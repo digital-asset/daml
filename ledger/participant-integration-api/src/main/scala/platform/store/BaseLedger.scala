@@ -205,11 +205,11 @@ private[platform] abstract class BaseLedger(
   ): Future[Unit] =
     ledgerDao.stopDeduplicatingCommand(commandId, submitters)
 
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
-    ledgerDao.prune(pruneUpToInclusive)
+    ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
   }
 
   override def close(): Unit = ()
