@@ -62,7 +62,7 @@ final class SqlLedgerReaderWriter(
               Timed
                 .value(
                   metrics.daml.ledger.log.read,
-                  database.inReadTransaction("read_log") { queries =>
+                  database.inReadTransaction(database.transactionNames.read_log) { queries =>
                     Future.fromTry(queries.selectFromLog(startExclusive, endInclusive))
                   },
                 )
@@ -145,7 +145,7 @@ object SqlLedgerReaderWriter {
       providedLedgerId: LedgerId,
       database: Database,
   ): Future[Database.Writer, Unit] =
-    database.inWriteTransaction("retrieve_ledger_id") { queries =>
+    database.inWriteTransaction(database.transactionNames.retrieve_ledger_id) { queries =>
       Future.fromTry(
         queries
           .updateOrRetrieveLedgerId(providedLedgerId)
@@ -169,7 +169,7 @@ object SqlLedgerReaderWriter {
       for {
         head <- Resource.fromFuture(
           database
-            .inReadTransaction("read_head") { queries =>
+            .inReadTransaction(database.transactionNames.read_head) { queries =>
               Future.fromTry(
                 queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex))
               )
@@ -192,7 +192,7 @@ object SqlLedgerReaderWriter {
         executionContext: sc.ExecutionContext
     ): sc.Future[T] =
       database
-        .inWriteTransaction("commit") { queries =>
+        .inWriteTransaction(database.transactionNames.commit) { queries =>
           body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metrics))
         }
         .removeExecutionContext

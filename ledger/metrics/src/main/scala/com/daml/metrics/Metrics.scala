@@ -40,12 +40,24 @@ final class Metrics(val registry: MetricRegistry) {
 
       def inputBufferLength(firstParty: String): Counter =
         registry.counter(Prefix :+ firstParty :+ "input_buffer_length")
+
+      /** Same as above
+        */
       def inputBufferCapacity(firstParty: String): Counter =
         registry.counter(Prefix :+ firstParty :+ "input_buffer_capacity")
+
+      /** Same as above
+        */
       def inputBufferDelay(firstParty: String): Timer =
         registry.timer(Prefix :+ firstParty :+ "input_buffer_delay")
+
+      /** Same as above
+        */
       def maxInFlightLength(firstParty: String): Counter =
         registry.counter(Prefix :+ firstParty :+ "max_in_flight_length")
+
+      /** Same as above
+        */
       def maxInFlightCapacity(firstParty: String): Counter =
         registry.counter(Prefix :+ firstParty :+ "max_in_flight_capacity")
     }
@@ -319,10 +331,27 @@ final class Metrics(val registry: MetricRegistry) {
         object transactions {
           private val Prefix: MetricName = database.Prefix :+ "transactions"
 
-          def acquireConnection(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "acquire_connection")
-          def run(name: String): Timer =
-            registry.timer(Prefix :+ name :+ "run")
+          /** Limit the number of transactions' metrics
+            * by explicitly listing the transactions names here.
+            */
+          object TransactionName {
+            sealed abstract class TransactionName(val name: String)
+            case object commit extends TransactionName("commit")
+            case object retrieve_ledger_id extends TransactionName("retrieve_ledger_id")
+            case object read_log extends TransactionName("read_log")
+            case object read_head extends TransactionName("read_head")
+            case object ledger_reset extends TransactionName("ledger_reset")
+          }
+
+          def acquireConnection(
+              name: Metrics.this.daml.ledger.database.transactions.TransactionName.TransactionName
+          ): Timer =
+            registry.timer(Prefix :+ name.name :+ "acquire_connection")
+          def run(
+              name: Metrics.this.daml.ledger.database.transactions.TransactionName.TransactionName
+          ): Timer =
+            registry.timer(Prefix :+ name.name :+ "run")
+
         }
       }
 

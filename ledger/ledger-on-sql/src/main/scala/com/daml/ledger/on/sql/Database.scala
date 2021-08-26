@@ -24,22 +24,30 @@ import scala.util.{Failure, Success}
 
 final class Database(
     queries: Connection => Queries,
-    metrics: Metrics,
+    val metrics: Metrics,
 )(implicit
     readerConnectionPool: ConnectionPool[Reader],
     writerConnectionPool: ConnectionPool[Writer],
 ) {
-  def inReadTransaction[T](name: String)(
+
+  def transactionNames: metrics.daml.ledger.database.transactions.TransactionName.type =
+    metrics.daml.ledger.database.transactions.TransactionName
+
+  def inReadTransaction[T](
+      name: metrics.daml.ledger.database.transactions.TransactionName.TransactionName
+  )(
       body: ReadQueries => Future[Reader, T]
   ): Future[Reader, T] =
     inTransaction(name)(body)
 
-  def inWriteTransaction[T](name: String)(body: Queries => Future[Writer, T]): Future[Writer, T] =
+  def inWriteTransaction[T](
+      name: metrics.daml.ledger.database.transactions.TransactionName.TransactionName
+  )(body: Queries => Future[Writer, T]): Future[Writer, T] =
     inTransaction(name)(body)
 
-  def inTransaction[X, T](name: String)(body: Queries => Future[X, T])(implicit
-      connectionPool: ConnectionPool[X]
-  ): Future[X, T] = {
+  def inTransaction[X, T](
+      name: metrics.daml.ledger.database.transactions.TransactionName.TransactionName
+  )(body: Queries => Future[X, T])(implicit connectionPool: ConnectionPool[X]): Future[X, T] = {
     import connectionPool.executionContext
     val connection =
       try {
@@ -49,7 +57,7 @@ final class Database(
         )
       } catch {
         case exception: SQLException =>
-          throw new ConnectionAcquisitionException(name, exception)
+          throw new ConnectionAcquisitionException(name.name, exception)
       }
     Timed.future(
       metrics.daml.ledger.database.transactions.run(name),
@@ -231,7 +239,7 @@ object Database {
         executionContext: ExecutionContext[Migrator]
     ): Future[Migrator, Database] = {
       val db = migrate()
-      db.inTransaction("ledger_reset") { queries =>
+      db.inTransaction(db.transactionNames.ledger_reset) { queries =>
         Future.fromTry(queries.truncate())
       }(adminConnectionPool)
         .map(_ => db)
