@@ -86,7 +86,7 @@ conformance_test(
         ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
         ",RaceConditionIT:RWArchiveVsLookupByKey,RaceConditionIT:RWArchiveVsNonConsumingChoice,RaceConditionIT:RWArchiveVsFetch,RaceConditionIT:WWDoubleArchive" +
         ",ExceptionsIT,ExceptionRaceConditionIT" +  # need UCK mode - added below
-        ",DeeplyNestedValueIT:Reject,DeeplyNestedValueIT:AcceptFailingLookupByKey100" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
+        ",DeeplyNestedValueIT" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
         ",CommandServiceIT:CSReturnStackTrace",  # FIXME: Ensure canton returns stack trace
     ],
 ) if not is_windows else None
