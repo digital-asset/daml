@@ -174,10 +174,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-            "InconsistentKeys"
-          )
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
         }
       }
 
@@ -197,10 +194,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-            "InconsistentKeys"
-          )
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
         }
       }
 
@@ -265,10 +259,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-            "InconsistentKeys"
-          )
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
         }
       }
 
@@ -336,10 +327,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       } yield {
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
         logEntry3.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        logEntry3.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
-        logEntry3.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-          "InconsistentKeys"
-        )
+        logEntry3.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
       }
     }
 
@@ -359,7 +347,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         } yield {
           configEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
           txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER
+          txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
         }
     }
 
@@ -398,7 +386,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
             .map(_._2)
         } yield {
           txEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          txEntry1.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER
+          txEntry1.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER
         }
     }
 
@@ -446,8 +434,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
             .map(_._2)
         } yield {
           txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
-          txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual disputed
+          txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE
         }
     }
 
@@ -460,7 +447,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         _ <- submitTransaction(submitter = bob, transaction = transaction, submissionSeed = seed)
           .map(_._2)
       } yield {
-        val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+        val disputed = DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE
         // Check that we're updating the metrics (assuming this test at least has been run)
         metrics.daml.kvutils.committer.transaction.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.transaction.rejection(disputed.name).getCount should be >= 1L

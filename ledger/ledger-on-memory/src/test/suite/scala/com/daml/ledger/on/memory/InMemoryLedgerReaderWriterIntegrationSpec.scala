@@ -48,7 +48,6 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       readerWriter,
       readerWriter,
       metrics,
-      apiDeduplicationEnabled = true,
     )
 
 }

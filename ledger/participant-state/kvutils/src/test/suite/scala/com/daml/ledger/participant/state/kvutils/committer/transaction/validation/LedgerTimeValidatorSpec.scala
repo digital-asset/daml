@@ -94,7 +94,7 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
         context.outOfTimeBoundsLogEntry should not be empty
         context.outOfTimeBoundsLogEntry.foreach { actualOutOfTimeBoundsLogEntry =>
           actualOutOfTimeBoundsLogEntry.hasTransactionRejectionEntry shouldBe true
-          actualOutOfTimeBoundsLogEntry.getTransactionRejectionEntry.hasInvalidLedgerTime shouldBe true
+          actualOutOfTimeBoundsLogEntry.getTransactionRejectionEntry.hasRecordTimeOutOfRange shouldBe true
         }
       }
 
@@ -116,7 +116,7 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
         context.outOfTimeBoundsLogEntry should not be empty
         context.outOfTimeBoundsLogEntry.foreach { actualOutOfTimeBoundsLogEntry =>
           actualOutOfTimeBoundsLogEntry.hasTransactionRejectionEntry shouldBe true
-          actualOutOfTimeBoundsLogEntry.getTransactionRejectionEntry.hasInvalidLedgerTime shouldBe true
+          actualOutOfTimeBoundsLogEntry.getTransactionRejectionEntry.hasRecordTimeOutOfRange shouldBe true
         }
       }
     }

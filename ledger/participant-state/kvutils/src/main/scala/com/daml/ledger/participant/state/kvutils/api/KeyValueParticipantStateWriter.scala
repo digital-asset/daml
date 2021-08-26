@@ -23,8 +23,9 @@ import scala.compat.java8.FutureConverters
 class KeyValueParticipantStateWriter(
     writer: LedgerWriter,
     metrics: Metrics,
-    override val isApiDeduplicationEnabled: Boolean = false,
 ) extends WriteService {
+
+  override def isApiDeduplicationEnabled: Boolean = true
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 

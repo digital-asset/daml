@@ -68,9 +68,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val result = transactionCommitter.authorizeSubmitters(context, tx)
       result shouldBe a[StepStop]
 
-      val rejectionReason =
-        getTransactionRejectionReason(result).getPartyNotKnownOnLedger.getDetails
-      rejectionReason should fullyMatch regex """Submitting party .+ not known"""
+      getTransactionRejectionReason(result).getReasonCase should be(
+        DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
+      )
     }
 
     "reject a submission when any of the submitters' participant id is incorrect" in {

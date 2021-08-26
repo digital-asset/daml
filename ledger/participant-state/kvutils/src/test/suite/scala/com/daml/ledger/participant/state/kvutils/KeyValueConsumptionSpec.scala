@@ -296,7 +296,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       .addSubmitters("a submitter")
       .setApplicationId("test")
       .setCommandId("a command ID")
-      .setDeduplicateUntil(com.google.protobuf.Timestamp.getDefaultInstance)
+      .setSubmissionId("submission id")
       .build
 
   private def aTransactionRejectionEntry: DamlTransactionRejectionEntry =

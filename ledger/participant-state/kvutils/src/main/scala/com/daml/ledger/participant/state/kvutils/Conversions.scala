@@ -173,7 +173,7 @@ private[state] object Conversions {
       optDeduplicationPeriod = deduplicationPeriod,
       submissionId = Ref.SubmissionId.assertFromString(
         subInfo.getSubmissionId
-      ), // FIXME this can be missing, what to do what to do
+      ), // FIXME this can be missing, what to do what to do (it will fail with an exception if it's empty)
     )
 
   }
