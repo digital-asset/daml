@@ -60,7 +60,7 @@ final class ContractIdIT extends LedgerTestSuite {
         }
       })
 
-    test("create") { implicit ec => (alpha, party) =>
+    test("create payload") { implicit ec => (alpha, party) =>
       alpha
         .create(party, ContractRef(party, ContractId(testedCid)))
         .transformWith(Future.successful)
@@ -97,7 +97,7 @@ final class ContractIdIT extends LedgerTestSuite {
       } yield result
     }
 
-    test("create argument in CreateAndExercise") { implicit ec => (alpha, party) =>
+    test("create-and-exercise payload") { implicit ec => (alpha, party) =>
       for {
         contractCid <- alpha.create(party, Contract(party))
         result <- alpha
@@ -111,7 +111,7 @@ final class ContractIdIT extends LedgerTestSuite {
       } yield result
     }
 
-    test("choice argument in CreateAndExercise") { implicit ec => (alpha, party) =>
+    test("create-and-exercise choice argument") { implicit ec => (alpha, party) =>
       for {
         contractCid <- alpha.create(party, Contract(party))
         result <- alpha
