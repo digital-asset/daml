@@ -440,3 +440,13 @@ server_conformance_test(
         "--exclude=ClosedWorldIT",
     ],
 )
+
+server_conformance_test(
+    name = "conformance-test-contract-ids",
+    server_args = ["--contract-id-seeding=testing-weak"],
+    servers = {"memory": SERVERS["memory"]},
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:Accept",
+    ],
+)

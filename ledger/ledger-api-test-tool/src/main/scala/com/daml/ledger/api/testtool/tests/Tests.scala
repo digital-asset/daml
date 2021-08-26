@@ -27,11 +27,12 @@ object Tests {
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
+      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
+      new DeeplyNestedValueIT,
       new DivulgenceIT,
       new HealthServiceIT,
       new IdentityIT,
@@ -54,15 +55,15 @@ object Tests {
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
-      new DeeplyNestedValueIT,
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
   val optional: Vector[LedgerTestSuite] =
     Vector(
-      new ParticipantPruningIT,
-      new MultiPartySubmissionIT,
       new CommandDeduplicationOffsetIT,
+      new ContractIdIT,
+      new MultiPartySubmissionIT,
+      new ParticipantPruningIT,
     )
 
   val retired: Vector[LedgerTestSuite] =

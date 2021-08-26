@@ -107,7 +107,7 @@ object Error {
 
     final case class NonSuffixedCid(cid: Value.ContractId.V1) extends Error {
       override def message: String =
-        s"Provided Contract ID $cid is not suffixed"
+        s"Provided Contract ID ${cid.coid} is not suffixed"
     }
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error

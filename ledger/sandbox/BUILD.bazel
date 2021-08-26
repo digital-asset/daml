@@ -313,3 +313,12 @@ server_conformance_test(
         "--include=ClosedWorldIT",
     ],
 )
+
+server_conformance_test(
+    name = "next-conformance-test-contract-ids",
+    servers = {"memory": NEXT_SERVERS["memory"]},
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:Accept",
+    ],
+)
