@@ -612,6 +612,9 @@ private class JdbcLedgerDao(
     *            regardless of the number of re-divulgences of the contract to the same party have occurred after the initial one.
     *            - In this case, pruning of all divulged contracts might lead to interpretation failures for command submissions despite
     *            them relying on divulgences that happened after the `pruneUpToInclusive` offset.
+    *            - We thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
+    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
+    *            transaction-local divulgence.
     *
     *        3.  Backwards compatibility restriction with regard to backfilling lookups:
     *            - Ledgers populated with an old KV WriteService that does not forward divulged contract instances
@@ -622,6 +625,9 @@ private class JdbcLedgerDao(
     *            - In the case of pruning of all divulged contracts (which includes immediate divulgence pruning),
     *            the previously-mentioned backfilling lookup might fail and lead to interpretation failures
     *            for command submissions that rely on divulged contracts whose associated immediate divulgence event has been pruned.
+    *            As for Consideration 2, we thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
+    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
+    *            transaction-local divulgence.
     */
   override def prune(
       pruneUpToInclusive: Offset,
