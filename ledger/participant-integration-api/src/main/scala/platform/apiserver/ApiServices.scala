@@ -243,7 +243,7 @@ private[daml] object ApiServices {
             commandConfig.trackerRetentionPeriod,
           ),
           // Using local services skips the gRPC layer, improving performance.
-          ApiCommandService.LocalServices(
+          new ApiCommandService.LocalServices(
             CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
             r => apiCompletionService.completionStreamSource(r),
             () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),

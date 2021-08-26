@@ -192,16 +192,16 @@ private[apiserver] object ApiCommandService {
       trackerRetentionPeriod: FiniteDuration,
   )
 
-  final case class LocalServices(
-      submissionFlow: Flow[
+  final class LocalServices(
+      val submissionFlow: Flow[
         Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), CommandSubmission],
         Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), Try[Empty]],
         NotUsed,
       ],
-      getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
-      getCompletionEnd: () => Future[CompletionEndResponse],
-      getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],
-      getFlatTransactionById: GetTransactionByIdRequest => Future[GetFlatTransactionResponse],
+      val getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
+      val getCompletionEnd: () => Future[CompletionEndResponse],
+      val getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],
+      val getFlatTransactionById: GetTransactionByIdRequest => Future[GetFlatTransactionResponse],
   )
 
   private object Tracking {
