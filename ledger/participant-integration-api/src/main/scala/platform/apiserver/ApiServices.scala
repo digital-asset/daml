@@ -236,23 +236,27 @@ private[daml] object ApiServices {
         // services internally. These connections do not use authorization, authorization wrappers are
         // only added here to all exposed services.
         val apiCommandService = ApiCommandService.create(
-          ApiCommandService.Configuration(
+          configuration = ApiCommandService.Configuration(
             ledgerId,
             commandConfig.inputBufferSize,
             commandConfig.maxCommandsInFlight,
             commandConfig.trackerRetentionPeriod,
           ),
           // Using local services skips the gRPC layer, improving performance.
-          new ApiCommandService.LocalServices(
+          submissionFlow =
             CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
-            r => apiCompletionService.completionStreamSource(r),
-            () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
-            apiTransactionService.getTransactionById,
-            apiTransactionService.getFlatTransactionById,
+          completionServices = new ApiCommandService.CompletionServices(
+            getCompletionSource = apiCompletionService.completionStreamSource,
+            getCompletionEnd =
+              () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           ),
-          timeProvider,
-          ledgerConfigurationSubscription,
-          metrics,
+          transactionServices = new ApiCommandService.TransactionServices(
+            getTransactionById = apiTransactionService.getTransactionById,
+            getFlatTransactionById = apiTransactionService.getFlatTransactionById,
+          ),
+          timeProvider = timeProvider,
+          ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+          metrics = metrics,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(

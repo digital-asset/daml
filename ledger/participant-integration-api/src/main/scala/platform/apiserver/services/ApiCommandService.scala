@@ -56,7 +56,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
 private[apiserver] final class ApiCommandService private (
-    services: LocalServices,
+    transactionServices: TransactionServices,
     submissionTracker: Tracker,
 )(implicit
     executionContext: ExecutionContext,
@@ -125,7 +125,7 @@ private[apiserver] final class ApiCommandService private (
             resp.transactionId,
             effectiveActAs.toList,
           )
-          services
+          transactionServices
             .getFlatTransactionById(txRequest)
             .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
         },
@@ -145,7 +145,7 @@ private[apiserver] final class ApiCommandService private (
             resp.transactionId,
             effectiveActAs.toList,
           )
-          services
+          transactionServices
             .getTransactionById(txRequest)
             .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
         },
@@ -157,9 +157,17 @@ private[apiserver] object ApiCommandService {
 
   private val trackerCleanupInterval = 30.seconds
 
+  type SubmissionFlow = Flow[
+    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), CommandSubmission],
+    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), Try[Empty]],
+    NotUsed,
+  ]
+
   def create(
       configuration: Configuration,
-      services: LocalServices,
+      submissionFlow: SubmissionFlow,
+      completionServices: CompletionServices,
+      transactionServices: TransactionServices,
       timeProvider: TimeProvider,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       metrics: Metrics,
@@ -171,11 +179,17 @@ private[apiserver] object ApiCommandService {
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
-      Tracking.newTracker(configuration, services, ledgerConfigurationSubscription, metrics),
+      Tracking.newTracker(
+        configuration,
+        submissionFlow,
+        completionServices,
+        ledgerConfigurationSubscription,
+        metrics,
+      ),
       trackerCleanupInterval,
     )
     new GrpcCommandService(
-      service = new ApiCommandService(services, submissionTracker),
+      service = new ApiCommandService(transactionServices, submissionTracker),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
@@ -192,14 +206,12 @@ private[apiserver] object ApiCommandService {
       trackerRetentionPeriod: FiniteDuration,
   )
 
-  final class LocalServices(
-      val submissionFlow: Flow[
-        Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), CommandSubmission],
-        Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), Try[Empty]],
-        NotUsed,
-      ],
+  final class CompletionServices(
       val getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
       val getCompletionEnd: () => Future[CompletionEndResponse],
+  )
+
+  final class TransactionServices(
       val getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],
       val getFlatTransactionById: GetTransactionByIdRequest => Future[GetFlatTransactionResponse],
   )
@@ -214,7 +226,8 @@ private[apiserver] object ApiCommandService {
 
     def newTracker(
         configuration: Configuration,
-        services: LocalServices,
+        submissionFlow: SubmissionFlow,
+        completionServices: CompletionServices,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         metrics: Metrics,
     )(
@@ -229,13 +242,13 @@ private[apiserver] object ApiCommandService {
       // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
       val metricsPrefixFirstParty = key.parties.min
       for {
-        ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
+        ledgerEnd <- completionServices.getCompletionEnd().map(_.getOffset)
       } yield {
         val commandTrackerFlow =
           CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
-            services.submissionFlow,
+            submissionFlow,
             offset =>
-              services
+              completionServices
                 .getCompletionSource(
                   CompletionStreamRequest(
                     configuration.ledgerId.unwrap,
