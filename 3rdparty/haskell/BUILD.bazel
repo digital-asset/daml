@@ -16,7 +16,7 @@ genrule(
     PROTO_FILE="$(location @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution.proto)"
     PROTO_FILE_NAME="$$(echo "$$PROTO_FILE" | sed 's|^.*\\(build/bazel/.*\\)|\\1|g')"
     PROTO_DIR=$$(echo $${PROTO_FILE%$$PROTO_FILE_NAME})
-    $(location @proto3_suite//:compile-proto-file) \
+    $(location @proto3-suite//:compile-proto-file) \
       --proto "$$PROTO_FILE_NAME" \
       --includeDir "$$PROTO_DIR" \
       --includeDir "external/com_google_protobuf/src" \
@@ -24,7 +24,7 @@ genrule(
       --out $(RULEDIR)
   """,
     tools = [
-        "@proto3_suite//:compile-proto-file",
+        "@proto3-suite//:compile-proto-file",
     ],
     visibility = ["//visibility:public"],
 )
