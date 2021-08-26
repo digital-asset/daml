@@ -877,27 +877,26 @@ private[platform] object JdbcLedgerDao {
         connectionTimeout,
         metrics,
       )
-      ledgerDao = new JdbcLedgerDao(
-        dbDispatcher,
-        servicesExecutionContext,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        validate,
-        metrics,
-        lfValueTranslationCache,
-        validatePartyAllocation,
-        enricher,
-        sequentialWriteDao(
-          participantId,
-          lfValueTranslationCache,
-          metrics,
-          compressionStrategy,
-          storageBackend,
-        ),
+    } yield new JdbcLedgerDao(
+      dbDispatcher,
+      servicesExecutionContext,
+      eventsPageSize,
+      eventsProcessingParallelism,
+      validate,
+      metrics,
+      lfValueTranslationCache,
+      validatePartyAllocation,
+      enricher,
+      sequentialWriteDao(
         participantId,
+        lfValueTranslationCache,
+        metrics,
+        compressionStrategy,
         storageBackend,
-      )
-    } yield ledgerDao
+      ),
+      participantId,
+      storageBackend,
+    )
   }
 
   val acceptType = "accept"
