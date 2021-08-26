@@ -39,7 +39,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
 
   "DbStartupOps" - {
 
-    import dao.{logHandler, jdbcDriver}
+    import dao.{logHandler, jdbcDriver}, jdbcDriver.q.queries
 
     import doobie.implicits.toSqlInterpolator, DbStartupOps.DbVersionState._, DbStartupOps._,
     com.daml.http.dbbackend.DbStartupMode._
@@ -48,7 +48,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
 
     def withFreshDb(fun: LoggingContextOf[InstanceUUID] => IO[Assertion]): Future[Assertion] =
       dao
-        .transact(jdbcDriver.queries.dropAllTablesIfExist)
+        .transact(queries.dropAllTablesIfExist)
         .flatMap(_ => fun(instanceUUIDLogCtx()))
         .unsafeToFuture()
 
@@ -58,11 +58,11 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
           res1 <- fromStartupMode(dao, CreateIfNeededAndStart)
           _ = res1 shouldBe true
           version <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+            sql"SELECT version FROM ${queries.jsonApiSchemaVersionTableName}"
               .query[Int]
               .unique
           )
-        } yield version shouldBe jdbcDriver.queries.schemaVersion
+        } yield version shouldBe queries.schemaVersion
     }
 
     "getDbVersionState will return Missing when the schema version table is missing" in withFreshDb {
@@ -79,13 +79,13 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
           res1 <- fromStartupMode(dao, CreateOnly)
           _ = res1 shouldBe true
           _ <- dao.transact(
-            sql"DELETE FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}".update.run
+            sql"DELETE FROM ${queries.jsonApiSchemaVersionTableName}".update.run
           )
           _ <- dao.transact(
-            sql"INSERT INTO ${jdbcDriver.queries.jsonApiSchemaVersionTableName}(version) VALUES($wrongVersion)".update.run
+            sql"INSERT INTO ${queries.jsonApiSchemaVersionTableName}(version) VALUES($wrongVersion)".update.run
           )
           res2 <- getDbVersionState
-        } yield res2 shouldBe Right(Mismatch(jdbcDriver.queries.schemaVersion, wrongVersion))
+        } yield res2 shouldBe Right(Mismatch(queries.schemaVersion, wrongVersion))
     }
 
     "getDbVersionState will return UpToDate when the schema version exists and is equal to the current one" in withFreshDb {
@@ -105,12 +105,12 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
           res2 <- fromStartupMode(dao, StartOnly)
           _ = res2 shouldBe true
           versions <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+            sql"SELECT version FROM ${queries.jsonApiSchemaVersionTableName}"
               .query[Int]
               .nel
           )
         } yield {
-          Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
+          Set.from(versions.toList) shouldBe Set(queries.schemaVersion)
         }
     }
 
@@ -126,10 +126,10 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
           res1 <- fromStartupMode(dao, CreateOnly)
           _ = res1 shouldBe true
           _ <- dao.transact(
-            sql"DELETE FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}".update.run
+            sql"DELETE FROM ${queries.jsonApiSchemaVersionTableName}".update.run
           )
           _ <- dao.transact(
-            sql"INSERT INTO ${jdbcDriver.queries.jsonApiSchemaVersionTableName}(version) VALUES(-1)".update.run
+            sql"INSERT INTO ${queries.jsonApiSchemaVersionTableName}(version) VALUES(-1)".update.run
           )
           res2 <- fromStartupMode(dao, StartOnly)
         } yield res2 shouldBe false
@@ -141,12 +141,12 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
           res1 <- fromStartupMode(dao, CreateOnly)
           _ = res1 shouldBe true
           versions <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+            sql"SELECT version FROM ${queries.jsonApiSchemaVersionTableName}"
               .query[Int]
               .nel
           )
         } yield {
-          Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
+          Set.from(versions.toList) shouldBe Set(queries.schemaVersion)
         }
     }
 
@@ -156,12 +156,12 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
           res1 <- fromStartupMode(dao, CreateAndStart)
           _ = res1 shouldBe true
           versions <- dao.transact(
-            sql"SELECT version FROM ${jdbcDriver.queries.jsonApiSchemaVersionTableName}"
+            sql"SELECT version FROM ${queries.jsonApiSchemaVersionTableName}"
               .query[Int]
               .nel
           )
         } yield {
-          Set.from(versions.toList) shouldBe Set(jdbcDriver.queries.schemaVersion)
+          Set.from(versions.toList) shouldBe Set(queries.schemaVersion)
         }
     }
 
@@ -169,7 +169,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
 
   "No collisions appear when creating tables with prefix when prior tables have been created without prefix" in {
     def removeAndInit(dao: ContractDao)(implicit logHandler: LogHandler = dao.logHandler) = {
-      val queries = dao.jdbcDriver.queries
+      import dao.jdbcDriver.q.queries
       dao.transact(queries.dropAllTablesIfExist.flatMap(_ => queries.initDatabase))
     }
     for {
