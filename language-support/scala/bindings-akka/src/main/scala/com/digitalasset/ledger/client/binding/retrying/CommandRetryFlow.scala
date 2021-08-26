@@ -24,12 +24,13 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object CommandRetryFlow {
 
-  type Value = CommandSubmission
-  type In[C] = Ctx[C, Value]
+  type In[C] = Ctx[C, CommandSubmission]
   type Out[C] = Ctx[C, Either[CompletionFailure, CompletionSuccess]]
   type SubmissionFlowType[C] = Flow[In[C], Out[C], NotUsed]
-  type CreateRetryFn[C] =
-    (RetryInfo[C, Value], Either[CompletionFailure, CompletionSuccess]) => Value
+  type CreateRetryFn[C] = (
+      RetryInfo[C, CommandSubmission],
+      Either[CompletionFailure, CompletionSuccess],
+  ) => CommandSubmission
 
   private val RETRY_PORT = 0
   private val PROPAGATE_PORT = 1
@@ -42,13 +43,14 @@ object CommandRetryFlow {
       createRetry: CreateRetryFn[C],
   )(implicit ec: ExecutionContext): Future[SubmissionFlowType[C]] =
     for {
-      submissionFlow <- commandClient.trackCommands[RetryInfo[C, Value]](List(party.unwrap))
+      submissionFlow <- commandClient
+        .trackCommands[RetryInfo[C, CommandSubmission]](List(party.unwrap))
       submissionFlowWithoutMat = submissionFlow.mapMaterializedValue(_ => NotUsed)
       graph = createGraph(submissionFlowWithoutMat, timeProvider, maxRetryTime, createRetry)
     } yield wrapGraph(graph, timeProvider)
 
   def wrapGraph[C](
-      graph: SubmissionFlowType[RetryInfo[C, Value]],
+      graph: SubmissionFlowType[RetryInfo[C, CommandSubmission]],
       timeProvider: TimeProvider,
   ): SubmissionFlowType[C] =
     Flow[In[C]]
@@ -57,19 +59,20 @@ object CommandRetryFlow {
       .map(RetryInfo.unwrap)
 
   def createGraph[C](
-      commandSubmissionFlow: SubmissionFlowType[RetryInfo[C, Value]],
+      commandSubmissionFlow: SubmissionFlowType[RetryInfo[C, CommandSubmission]],
       timeProvider: TimeProvider,
       maxRetryTime: TemporalAmount,
       createRetry: CreateRetryFn[C],
-  ): SubmissionFlowType[RetryInfo[C, Value]] =
+  ): SubmissionFlowType[RetryInfo[C, CommandSubmission]] =
     Flow
       .fromGraph(GraphDSL.create(commandSubmissionFlow) { implicit b => commandSubmission =>
         import GraphDSL.Implicits._
 
-        val merge = b.add(Merge[In[RetryInfo[C, Value]]](inputPorts = 2, eagerComplete = true))
+        val merge =
+          b.add(Merge[In[RetryInfo[C, CommandSubmission]]](inputPorts = 2, eagerComplete = true))
 
         val retryDecider = b.add(
-          Partition[Out[RetryInfo[C, Value]]](
+          Partition[Out[RetryInfo[C, CommandSubmission]]](
             outputPorts = 2,
             {
               case Ctx(
@@ -106,7 +109,7 @@ object CommandRetryFlow {
           )
         )
 
-        val convertToRetry = b.add(Flow[Out[RetryInfo[C, Value]]].map {
+        val convertToRetry = b.add(Flow[Out[RetryInfo[C, CommandSubmission]]].map {
           case Ctx(retryInfo, failedCompletion, telemetryContext) =>
             Ctx(retryInfo.newRetry, createRetry(retryInfo, failedCompletion), telemetryContext)
         })
