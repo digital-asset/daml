@@ -173,6 +173,9 @@ instance MonoTraversable ModuleRef DefDataType
 instance MonoTraversable ModuleRef DefTypeSyn
 instance MonoTraversable ModuleRef DefException
 
+instance MonoTraversable ModuleRef InterfaceChoice
+instance MonoTraversable ModuleRef DefInterface
+
 instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue

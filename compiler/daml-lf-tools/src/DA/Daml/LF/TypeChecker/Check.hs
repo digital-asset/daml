@@ -809,7 +809,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBin
     checkExpr upd (TUpdate retType)
 
 checkTemplate :: MonadGamma m => Module -> Template -> m ()
-checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey) = do
+checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey _implements) = do -- TODO interfaces
   let tcon = Qualified PRSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
   unless (null tparams) $ throwWithContext (EExpectedTemplatableType tpl)
@@ -853,7 +853,7 @@ checkDefException m DefException{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions _interfaces) = do -- TODO interfaces
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes

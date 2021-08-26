@@ -693,6 +693,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
+        let tplImplements = [] -- TODO interfaces
         pure Template {..}
 
     | otherwise =
