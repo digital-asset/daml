@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 
 private[scenario] trait HasRandomCurrency {
   protected val rng = new scala.util.Random(123456789)
-  final val currencies = List("USD", "GBP", "EUR", "CHF", "AUD")
+  final val currencies = Range.apply(0, 1000).map(i => s"CUR_$i").toList
 
   def randomCurrency(): String = {
     this.synchronized { rng.shuffle(currencies).head }
@@ -39,7 +39,7 @@ class OracleMultiUserQueryScenario
 
   //hardcoded for now , needs to be made configurable on cli
   private val numRecords = getEnvValueAsInt("NUM_RECORDS", 100000)
-  private val numQueries = getEnvValueAsInt("NUM_QUERIES", 1000)
+  private val numQueries = getEnvValueAsInt("NUM_QUERIES", 10000)
   private val numWriters = getEnvValueAsInt("NUM_WRITERS", 10)
   private val numReaders = getEnvValueAsInt("NUM_READERS", 100)
   private val runModeString = sys.env.getOrElse("RUN_MODE", "populateCache")
@@ -71,17 +71,9 @@ class OracleMultiUserQueryScenario
   }
 }"""))
 
-  private val fetchByQueryRequest =
-    http("SyncIdQueryRequest")
-      .post("/v1/query")
-      .body(StringBody("""{
-          "templateIds": ["LargeAcs:KeyedIou"],
-          "query": {"id": "${id}"}
-      }"""))
-
   private val writeScn = {
     val iter = msgIds.iterator
-    scenario("Write100kContracts")
+    scenario(s"WriteContracts_${numRecords}")
       .repeat(numRecords / numWriters) {
         feed(
           Iterator.continually(
@@ -96,17 +88,24 @@ class OracleMultiUserQueryScenario
       }
   }
 
-  private val fetchByQueryScn = {
-    val iter = msgIds.iterator
-    scenario("MultipleReadersByQueryScenario")
+  private val currencyQueryRequest =
+    http("SyncFetchByQuery")
+      .post("/v1/query")
+      .body(StringBody("""{
+          "templateIds": ["LargeAcs:KeyedIou"],
+          "query": {"currency": "${currency}"}
+      }"""))
+
+  // Scenario to fetch a subset of the ACS population
+  private def currQueryScn =
+    scenario(s"SyncFetchByQuery_${numRecords}-${numQueries}-${numReaders}")
       .repeat(numQueries / numReaders) {
-        feed(Iterator.continually(Map("id" -> String.valueOf(iter.next()))))
-          .exec(fetchByQueryRequest)
+        feed(Iterator.continually(Map("currency" -> randomCurrency())))
+          .exec(currencyQueryRequest)
       }
-  }
 
   private val fetchByKeyRequest =
-    http("SyncFetchRequest")
+    http("SyncFetchByKey")
       .post("/v1/fetch")
       .body(StringBody("""{
           "templateId": "LargeAcs:KeyedIou",
@@ -116,28 +115,14 @@ class OracleMultiUserQueryScenario
           }
       }"""))
 
-  private val currencyQueryRequest =
-    http("SyncCurrQueryRequest")
-      .post("/v1/query")
-      .body(StringBody("""{
-          "templateIds": ["LargeAcs:KeyedIou"],
-          "query": {"currency": "${currency}"}
-      }"""))
-
-  // Scenario to fetch a subset of the ACS population
-  private def currQueryScn(numIterations: Int, curr: () => String) =
-    scenario("MultipleReadersCurrQueryScenario")
-      .repeat(numIterations) {
-        feed(Iterator.continually(Map("currency" -> curr())))
-          .exec(currencyQueryRequest)
-      }
-
   //fetch by key scenario
-  private val fetchByKeyScn = scenario("MultipleReadersByKeyScenario")
-    .repeat(numQueries / numReaders) {
-      feed(Iterator.continually(Map("id" -> String.valueOf(queryId))))
-        .exec(fetchByKeyRequest)
-    }
+  private def fetchByKeyScn(numIterations: Int) = {
+    scenario(s"SyncFetchByKey_${numRecords}-${numQueries}-${numReaders}")
+      .repeat(numIterations) {
+        feed(Iterator.continually(Map("id" -> String.valueOf(queryId))))
+          .exec(fetchByKeyRequest)
+      }
+  }
 
   def getPopulationBuilder(runMode: RunMode): PopulationBuilder = {
     runMode match {
@@ -145,20 +130,19 @@ class OracleMultiUserQueryScenario
         writeScn
           .inject(atOnceUsers(numWriters))
           .andThen(
-            currQueryScn(numIterations = 1, () => currencies.head)
+            //single fetch to populate the cache
+            fetchByKeyScn(numIterations = 1)
               .inject(
                 nothingFor(2.seconds),
                 atOnceUsers(1),
               )
           )
       case FetchByKey =>
-        fetchByKeyScn.inject(
-          nothingFor(5.seconds),
-          atOnceUsers(numReaders / 2),
-          rampUsers(numReaders / 2).during(10.seconds),
+        fetchByKeyScn(numQueries / numReaders).inject(
+          atOnceUsers(numReaders)
         )
       case FetchByQuery =>
-        fetchByQueryScn.inject(
+        currQueryScn.inject(
           nothingFor(2.seconds),
           atOnceUsers(numReaders),
         )
