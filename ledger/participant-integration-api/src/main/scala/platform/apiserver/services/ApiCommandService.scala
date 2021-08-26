@@ -55,7 +55,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
-private[apiserver] final class ApiCommandService private (
+private[apiserver] final class ApiCommandService private[services] (
     transactionServices: TransactionServices,
     submissionTracker: Tracker,
 )(implicit
