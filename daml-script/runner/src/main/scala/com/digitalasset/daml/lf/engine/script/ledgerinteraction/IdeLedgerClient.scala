@@ -47,7 +47,11 @@ class IdeLedgerClient(
   def currentSubmission: Option[ScenarioRunner.CurrentSubmission] = _currentSubmission
 
   private[this] val preprocessor =
-    new preprocessing.CommandPreprocessor(compiledPackages.interface, requiredCidSuffix = false)
+    new preprocessing.CommandPreprocessor(
+      compiledPackages.interface,
+      requireV1ContractId = false,
+      requireV1ContractIdSuffix = false,
+    )
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger

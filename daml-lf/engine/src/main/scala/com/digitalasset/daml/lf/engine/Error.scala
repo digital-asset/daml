@@ -100,14 +100,14 @@ object Error {
         override val message: String,
     ) extends Error
 
-    final case class ValueNesting(value: Value[Value.ContractId]) extends Error {
+    final case class ValueNesting(culprit: Value[Value.ContractId]) extends Error {
       override def message: String =
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
 
-    final case class NonSuffixedCid(cid: Value.ContractId.V1) extends Error {
+    final case class IllegalContractId(cid: Value.ContractId) extends Error {
       override def message: String =
-        s"Provided Contract ID ${cid.coid} is not suffixed"
+        s"""Illegal Contract ID "${cid.coid}""""
     }
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error

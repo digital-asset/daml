@@ -35,9 +35,8 @@ final case class EngineConfig(
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
-    // TODO: https://github.com/digital-asset/daml/issues/10504
-    //  switch the default to true
-    requireSuffixedGlobalCids: Boolean = false,
+    requireV1ContractId: Boolean = false,
+    requireSuffixedGlobalContractId: Boolean = false,
 ) {
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =

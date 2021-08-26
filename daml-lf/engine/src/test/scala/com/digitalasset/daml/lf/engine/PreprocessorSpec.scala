@@ -13,11 +13,12 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import org.scalatest.Inside
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
 
 class PreprocessorSpec
     extends AnyWordSpec
@@ -26,7 +27,6 @@ class PreprocessorSpec
     with Inside {
 
   import Preprocessor.ArrayList
-
   import defaultParserParameters.{defaultPackageId => pkgId}
 
   private implicit def toName(s: String): Ref.Name = Ref.Name.assertFromString(s)
@@ -47,14 +47,9 @@ class PreprocessorSpec
   private[this] val myConsCons = Ref.Name.assertFromString("MyCons")
   private[this] val alice = Ref.Party.assertFromString("Alice")
   private[this] val dummySuffix = Bytes.assertFromString("00")
-  private[this] val cidWithSuffix =
-    ContractId.V1(crypto.Hash.hashPrivateKey("cidWithSuffix"), dummySuffix)
-  private[this] val cidWithoutSuffix =
-    ContractId.V1(crypto.Hash.hashPrivateKey("cidWithoutSuffix"), Bytes.Empty)
   private[this] val typ = t"ContractId Mod:Record"
-
-  private[this] def suffixValue(v: Value[ContractId]) =
-    data.assertRight(v.suffixCid(_ => dummySuffix))
+  private[this] val aCid =
+    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("a Contract ID"), dummySuffix)
 
   lazy val pkg =
     p"""
@@ -94,10 +89,15 @@ class PreprocessorSpec
 
   private[this] val compiledPackage = ConcurrentCompiledPackages()
   assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone.Unit)
-  private[this] val preprocessor = new Preprocessor(compiledPackage, requiredCidSuffix = true)
-  import preprocessor.{translateValue, preprocessCommand}
 
   "translateValue" should {
+
+    val valueTranslator = new ValueTranslator(
+      compiledPackage.interface,
+      requireV1ContractId = true,
+      requireV1ContractIdSuffix = false,
+    )
+    import valueTranslator.unsafeTranslateValue
 
     val testCases = Table[Ast.Type, Value[ContractId], speedy.SValue](
       ("type", "value", "svalue"),
@@ -125,8 +125,8 @@ class PreprocessorSpec
       (TParty, ValueParty(alice), SParty(alice)),
       (
         TContractId(Ast.TTyCon(recordCon)),
-        ValueContractId(ContractId.assertFromString("#contractId")),
-        SContractId(ContractId.assertFromString("#contractId")),
+        ValueContractId(aCid),
+        SContractId(aCid),
       ),
       (
         TList(TText),
@@ -164,15 +164,16 @@ class PreprocessorSpec
 
     "succeeds on well type values" in {
       forAll(testCases) { (typ, value, svalue) =>
-        translateValue(typ, value) shouldBe ResultDone(svalue)
+        unsafeTranslateValue(typ, value) shouldBe svalue
       }
     }
 
     "fails on non-well type values" in {
       forAll(testCases) { (typ1, value1, _) =>
         forAll(testCases) { (_, value2, _) =>
-          if (value1 != value2)
-            translateValue(typ1, value2) shouldBe a[ResultError]
+          if (value1 != value2) {
+            a[Error.Preprocessing.Error] shouldBe thrownBy(unsafeTranslateValue(typ1, value2))
+          }
         }
       }
     }
@@ -188,131 +189,217 @@ class PreprocessorSpec
               ValueRecord(None, ImmArray(None -> ValueInt64(n.toLong), None -> v)),
             )
         }
-
       val notTooBig = mkMyList(49)
       val tooBig = mkMyList(50)
+      val failure = Failure(Error.Preprocessing.ValueNesting(tooBig))
 
-      translateValue(Ast.TTyCon(myListTyCons), notTooBig) shouldBe a[ResultDone[_]]
-      inside(translateValue(Ast.TTyCon(myListTyCons), tooBig)) {
-        case ResultError(Error.Preprocessing(err)) =>
-          err shouldBe Error.Preprocessing.ValueNesting(tooBig)
-      }
+      Try(unsafeTranslateValue(Ast.TTyCon(myListTyCons), notTooBig)) shouldBe a[Success[_]]
+      Try(unsafeTranslateValue(Ast.TTyCon(myListTyCons), tooBig)) shouldBe failure
     }
 
-    "reject non suffix Contract IDs" in {
-
-      val cidValueWithoutSuffix = ValueContractId(cidWithoutSuffix)
-
-      val testCases = Table[Ast.Type, Value[ContractId]](
+    def testCasesForCid(culprit: ContractId) = {
+      val cid = ValueContractId(culprit)
+      Table[Ast.Type, Value[ContractId]](
         ("type" -> "value"),
-        t"ContractId Mod:Record" -> cidValueWithoutSuffix,
-        TList(typ) -> ValueList(FrontStack(cidValueWithoutSuffix)),
-        TTextMap(typ) -> ValueTextMap(SortedLookupList(Map("0" -> cidValueWithoutSuffix))),
-        TGenMap(TInt64, typ) -> ValueGenMap(ImmArray(ValueInt64(1) -> cidValueWithoutSuffix)),
-        TGenMap(typ, TInt64) -> ValueGenMap(ImmArray(cidValueWithoutSuffix -> ValueInt64(0))),
-        TOptional(typ) -> ValueOptional(Some(cidValueWithoutSuffix)),
+        t"ContractId Mod:Record" -> cid,
+        TList(typ) -> ValueList(FrontStack(cid)),
+        TTextMap(typ) -> ValueTextMap(SortedLookupList(Map("0" -> cid))),
+        TGenMap(TInt64, typ) -> ValueGenMap(ImmArray(ValueInt64(1) -> cid)),
+        TGenMap(typ, TInt64) -> ValueGenMap(ImmArray(cid -> ValueInt64(0))),
+        TOptional(typ) -> ValueOptional(Some(cid)),
         Ast.TTyCon(recordRefCon) -> ValueRecord(
           None,
-          ImmArray(None -> ValueParty(alice), None -> cidValueWithoutSuffix),
+          ImmArray(None -> ValueParty(alice), None -> cid),
         ),
         TTyConApp(variantCon, ImmArray(typ, TInt64)) -> ValueVariant(
           None,
           "Left",
-          cidValueWithoutSuffix,
+          cid,
         ),
       )
-
-      forAll(testCases) { (typ, value) =>
-        translateValue(typ, suffixValue(value)) shouldBe a[ResultDone[_]]
-        translateValue(typ, value) shouldBe a[ResultError]
-      }
     }
+
+    "accept all contract IDs when require flags are false" in {
+
+      val valueTranslator = new ValueTranslator(
+        compiledPackage.interface,
+        requireV1ContractId = false,
+        requireV1ContractIdSuffix = false,
+      )
+      val cids = List(
+        ContractId.V1
+          .assertBuild(crypto.Hash.hashPrivateKey("a suffixed V1 Contract ID"), dummySuffix),
+        ContractId.V1
+          .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty),
+        ContractId.V0.assertFromString("#a V0 Contract ID"),
+      )
+
+      cids.foreach(cid =>
+        forEvery(testCasesForCid(cid))((typ, value) =>
+          Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+        )
+      )
+    }
+
+    "reject V0 Contract IDs when requireV1ContractId flag is true" in {
+
+      val valueTranslator = new ValueTranslator(
+        compiledPackage.interface,
+        requireV1ContractId = true,
+        requireV1ContractIdSuffix = false,
+      )
+      val legalCid =
+        ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("a legal Contract ID"), dummySuffix)
+      val illegalCid =
+        ContractId.V0.assertFromString("#illegal Contract ID")
+      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+
+      forEvery(testCasesForCid(legalCid))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+      )
+      forEvery(testCasesForCid(illegalCid))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
+      )
+    }
+
+    "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
+
+      val valueTranslator = new ValueTranslator(
+        compiledPackage.interface,
+        requireV1ContractId = true,
+        requireV1ContractIdSuffix = true,
+      )
+      val legalCid =
+        ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("a legal Contract ID"), dummySuffix)
+      val illegalCid =
+        ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
+      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+
+      forEvery(testCasesForCid(legalCid))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+      )
+      forEvery(testCasesForCid(illegalCid))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
+      )
+    }
+
   }
 
   "preprocessCommand" should {
-
     import command._
 
-    def suffixCid(cid: ContractId) =
-      cid match {
-        case ContractId.V1(discriminator, suffix) if suffix.isEmpty =>
-          ContractId.V1(discriminator, dummySuffix)
-        case otherwise =>
-          otherwise
-      }
+    def payload(cid: ContractId) = ValueRecord(
+      None,
+      ImmArray(None -> ValueParty(alice), None -> ValueContractId(cid)),
+    )
 
-    def suffixCmd(cmd: ApiCommand) =
-      cmd match {
-        case CreateCommand(templateId, argument) =>
-          CreateCommand(templateId, suffixValue(argument))
-        case ExerciseCommand(templateId, contractId, choiceId, argument) =>
-          ExerciseCommand(templateId, suffixCid(contractId), choiceId, suffixValue(argument))
-        case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
-          ExerciseByKeyCommand(templateId, contractKey, choiceId, suffixValue(argument))
-        case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument) =>
-          CreateAndExerciseCommand(
-            templateId,
-            suffixValue(createArgument),
-            choiceId,
-            suffixValue(choiceArgument),
-          )
-      }
+    def testCases(culpritCid: ContractId, innocentCid: ContractId) = Table[ApiCommand](
+      "command",
+      CreateCommand(
+        recordRefCon,
+        payload(culpritCid),
+      ),
+      ExerciseCommand(
+        recordRefCon,
+        innocentCid,
+        "Change",
+        ValueContractId(culpritCid),
+      ),
+      ExerciseCommand(
+        recordRefCon,
+        culpritCid,
+        "Change",
+        ValueContractId(innocentCid),
+      ),
+      CreateAndExerciseCommand(
+        recordRefCon,
+        payload(culpritCid),
+        "Change",
+        ValueContractId(innocentCid),
+      ),
+      CreateAndExerciseCommand(
+        recordRefCon,
+        payload(innocentCid),
+        "Change",
+        ValueContractId(culpritCid),
+      ),
+      ExerciseByKeyCommand(
+        recordRefCon,
+        ValueParty(alice),
+        "Change",
+        ValueContractId(culpritCid),
+      ),
+    )
 
-    "reject non suffix Contract IDs" in {
+    "accept all contract IDs when require flags are false" in {
 
-      val key = ValueParty(alice)
-      val payloadWithoutSuffix = ValueRecord(
-        None,
-        ImmArray(None -> ValueParty(alice), None -> ValueContractId(cidWithoutSuffix)),
-      )
-      val payloadWithSuffix = ValueRecord(
-        None,
-        ImmArray(None -> ValueParty(alice), None -> ValueContractId(cidWithSuffix)),
-      )
-
-      val testCases = Table[ApiCommand](
-        "command",
-        CreateCommand(
-          recordRefCon,
-          payloadWithoutSuffix,
-        ),
-        ExerciseCommand(
-          recordRefCon,
-          cidWithSuffix,
-          "Change",
-          ValueContractId(cidWithoutSuffix),
-        ),
-        ExerciseCommand(
-          recordRefCon,
-          cidWithoutSuffix,
-          "Change",
-          ValueContractId(cidWithSuffix),
-        ),
-        CreateAndExerciseCommand(
-          recordRefCon,
-          payloadWithoutSuffix,
-          "Change",
-          ValueContractId(cidWithSuffix),
-        ),
-        CreateAndExerciseCommand(
-          recordRefCon,
-          payloadWithSuffix,
-          "Change",
-          ValueContractId(cidWithoutSuffix),
-        ),
-        ExerciseByKeyCommand(
-          recordRefCon,
-          key,
-          "Change",
-          ValueContractId(cidWithoutSuffix),
-        ),
+      val cmdPreprocessor = new CommandPreprocessor(
+        compiledPackage.interface,
+        requireV1ContractId = false,
+        requireV1ContractIdSuffix = false,
       )
 
-      forAll(testCases) { cmd =>
-        preprocessCommand(suffixCmd(cmd)) shouldBe a[ResultDone[_]]
-        preprocessCommand(cmd) shouldBe a[ResultError]
-      }
+      val cids = List(
+        ContractId.V1
+          .assertBuild(crypto.Hash.hashPrivateKey("a suffixed V1 Contract ID"), dummySuffix),
+        ContractId.V1
+          .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty),
+        ContractId.V0.assertFromString("#a V0 Contract ID"),
+      )
 
+      cids.foreach(cid =>
+        forEvery(testCases(cids.head, cid))(cmd =>
+          Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]
+        )
+      )
+
+    }
+
+    "reject V0 Contract IDs when requireV1ContractId flag is true" in {
+
+      val cmdPreprocessor = new CommandPreprocessor(
+        compiledPackage.interface,
+        requireV1ContractId = true,
+        requireV1ContractIdSuffix = false,
+      )
+
+      val List(aLegalCid, anotherLegalCid) =
+        List("a legal Contract ID", "another legal Contract ID").map(s =>
+          ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
+        )
+      val illegalCid = ContractId.V0.assertFromString("#illegal Contract ID")
+      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+
+      forEvery(testCases(aLegalCid, anotherLegalCid))(cmd =>
+        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]
+      )
+
+      forEvery(testCases(illegalCid, aLegalCid))(cmd =>
+        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe failure
+      )
+    }
+
+    "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
+
+      val cmdPreprocessor = new CommandPreprocessor(
+        compiledPackage.interface,
+        requireV1ContractId = true,
+        requireV1ContractIdSuffix = true,
+      )
+      val List(aLegalCid, anotherLegalCid) =
+        List("a legal Contract ID", "another legal Contract ID").map(s =>
+          ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
+        )
+      val illegalCid =
+        ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
+      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+
+      forEvery(testCases(aLegalCid, anotherLegalCid)) { cmd =>
+        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]
+      }
+      forEvery(testCases(illegalCid, aLegalCid)) { cmd =>
+        Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe failure
+      }
     }
 
   }

@@ -101,7 +101,7 @@ class EngineTest
 
   val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] =
     Map(
-      toContractId("#BasicTests:Simple:1") ->
+      toContractId("BasicTests:Simple:1") ->
         ContractInst(
           TypeConName(basicTestsPkgId, "BasicTests:Simple"),
           assertAsVersionedValue(
@@ -112,7 +112,7 @@ class EngineTest
           ),
           "",
         ),
-      toContractId("#BasicTests:CallablePayout:1") ->
+      toContractId("BasicTests:CallablePayout:1") ->
         ContractInst(
           TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
           assertAsVersionedValue(
@@ -126,7 +126,7 @@ class EngineTest
           ),
           "",
         ),
-      toContractId("#BasicTests:WithKey:1") ->
+      toContractId("BasicTests:WithKey:1") ->
         withKeyContractInst,
     )
 
@@ -136,7 +136,7 @@ class EngineTest
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
     )
       ->
-        toContractId("#BasicTests:WithKey:1")
+        toContractId("BasicTests:WithKey:1")
   )
 
   val lookupContract = defaultContracts.get(_)
@@ -151,7 +151,7 @@ class EngineTest
             BasicTests_WithKey,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
           ) =>
-        Some(toContractId("#BasicTests:WithKey:1"))
+        Some(toContractId("BasicTests:WithKey:1"))
       case _ =>
         None
     }
@@ -231,7 +231,7 @@ class EngineTest
     }
 
     "translate exercise commands argument including labels" in {
-      val originalCoid = toContractId("#BasicTests:CallablePayout:1")
+      val originalCoid = toContractId("BasicTests:CallablePayout:1")
       val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
       val command = ExerciseCommand(
         templateId,
@@ -247,7 +247,7 @@ class EngineTest
     }
 
     "translate exercise commands argument without labels" in {
-      val originalCoid = toContractId("#BasicTests:CallablePayout:1")
+      val originalCoid = toContractId("BasicTests:CallablePayout:1")
       val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
       val command = ExerciseCommand(
         templateId,
@@ -678,7 +678,7 @@ class EngineTest
     val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-    val cid = toContractId("#BasicTests:Simple:1")
+    val cid = toContractId("BasicTests:Simple:1")
     val command =
       ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))
     val submitters = Set(party)
@@ -1349,7 +1349,7 @@ class EngineTest
 
   "exercise callable command" should {
     val submissionSeed = hash("exercise callable command")
-    val originalCoid = toContractId("#BasicTests:CallablePayout:1")
+    val originalCoid = toContractId("BasicTests:CallablePayout:1")
     val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
@@ -1472,7 +1472,7 @@ class EngineTest
     // Test a couple of scenarios, with different combination of signatories/observers/actors on the parent action
 
     val submissionSeed = hash("dynamic fetch actors")
-    val fetchedCid = toContractId("#1")
+    val fetchedCid = toContractId("1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTArgs = ImmArray(
       (Some[Name]("sig1"), ValueParty(alice)),
@@ -1483,14 +1483,14 @@ class EngineTest
     val fetcherStrTid = "BasicTests:Fetcher"
     val fetcherTid = Identifier(basicTestsPkgId, fetcherStrTid)
 
-    val fetcher1Cid = toContractId("#2")
+    val fetcher1Cid = toContractId("2")
     val fetcher1TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(alice)),
       (Some[Name]("obs"), ValueParty(bob)),
       (Some[Name]("fetcher"), ValueParty(clara)),
     )
 
-    val fetcher2Cid = toContractId("#3")
+    val fetcher2Cid = toContractId("3")
     val fetcher2TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(party)),
       (Some[Name]("obs"), ValueParty(alice)),
@@ -1612,7 +1612,7 @@ class EngineTest
 
   "reinterpreting fetch nodes" should {
 
-    val fetchedCid = toContractId("#1")
+    val fetchedCid = toContractId("1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
@@ -1668,10 +1668,10 @@ class EngineTest
 
     val seed = hash("interpreting lookup by key nodes")
 
-    val lookedUpCid = toContractId("#1")
+    val lookedUpCid = toContractId("1")
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
-    val lookerUpCid = toContractId("#2")
+    val lookerUpCid = toContractId("2")
     val lookerUpInst = ContractInst(
       TypeConName(basicTestsPkgId, lookerUpTemplate),
       assertAsVersionedValue(
@@ -1873,7 +1873,7 @@ class EngineTest
   }
 
   "fetching contracts that have keys correctly fills in the transaction structure" when {
-    val fetchedCid = toContractId("#1")
+    val fetchedCid = toContractId("1")
     val now = Time.Timestamp.now()
     val submissionSeed = crypto.Hash.hashPrivateKey(
       "fetching contracts that have keys correctly fills in the transaction structure"
@@ -1919,7 +1919,7 @@ class EngineTest
     "fetched via a fetchByKey" in {
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
-      val fetcherCid = toContractId("#2")
+      val fetcherCid = toContractId("2")
       val fetcherInst = ContractInst(
         TypeConName(basicTestsPkgId, fetcherTemplate),
         assertAsVersionedValue(
@@ -1995,8 +1995,8 @@ class EngineTest
     val withKeyId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
     val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
-    val cid = toContractId("#BasicTests:WithKey:1")
-    val fetcherCid = toContractId("#42")
+    val cid = toContractId("BasicTests:WithKey:1")
+    val fetcherCid = toContractId("42")
     val fetcherInst = ContractInst(
       fetcherId,
       assertAsVersionedValue(
@@ -2259,14 +2259,16 @@ class EngineTest
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          requireSuffixedGlobalCids = true,
+          requireV1ContractId = true,
+          requireSuffixedGlobalContractId = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.On,
-          requireSuffixedGlobalCids = true,
+          requireV1ContractId = true,
+          requireSuffixedGlobalContractId = true,
         )
       )
       val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
@@ -2277,8 +2279,8 @@ class EngineTest
       val submissionSeed = hash("multikeys")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
-      val cid1 = toContractId("#1")
-      val cid2 = toContractId("#2")
+      val cid1 = toContractId("1")
+      val cid2 = toContractId("2")
       val keyedInst = ContractInst(
         TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
         assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(party))))),
@@ -2401,7 +2403,7 @@ class EngineTest
       val let = Time.Timestamp.now()
       val submissionSeed = hash("rollback")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("#1")
+      val cid = toContractId("1")
       val contracts = Map(
         cid -> ContractInst(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
@@ -2511,7 +2513,7 @@ class EngineTest
       val let = Time.Timestamp.now()
       val submissionSeed = hash("rollback")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("#1")
+      val cid = toContractId("1")
       val contracts = Map(
         cid -> ContractInst(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
@@ -2588,7 +2590,7 @@ class EngineTest
       val let = Time.Timestamp.now()
       val submissionSeed = hash("global-keys")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("#1")
+      val cid = toContractId("1")
       val contracts = Map(
         cid -> ContractInst(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
@@ -2677,7 +2679,8 @@ class EngineTest
       new Engine(
         EngineConfig(
           allowedLanguageVersions = VersionRange(min, max),
-          requireSuffixedGlobalCids = true,
+          requireV1ContractId = true,
+          requireSuffixedGlobalContractId = true,
         )
       )
 
@@ -2723,13 +2726,14 @@ class EngineTest
 
 object EngineTest {
 
-  private def engineConfig(requireCidSuffixes: Boolean) = EngineConfig(
-    allowedLanguageVersions = language.LanguageVersion.DevVersions,
-    requireSuffixedGlobalCids = requireCidSuffixes,
-  )
-
   private def newEngine(requireCidSuffixes: Boolean = false) =
-    new Engine(engineConfig(requireCidSuffixes))
+    new Engine(
+      EngineConfig(
+        allowedLanguageVersions = language.LanguageVersion.DevVersions,
+        requireV1ContractId = true,
+        requireSuffixedGlobalContractId = requireCidSuffixes,
+      )
+    )
 
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
@@ -2737,8 +2741,10 @@ object EngineTest {
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
+  private val dummySuffix = Bytes.assertFromString("00")
+
   private def toContractId(s: String): ContractId =
-    ContractId.assertFromString(s)
+    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)
@@ -2763,8 +2769,6 @@ object EngineTest {
     // we normalize the LEFT arg before calling isReplayedBy to mimic the effect of serialization
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
-
-  private val dummySuffix = Bytes.assertFromString("00")
 
   private def suffix(tx: Tx.Transaction) =
     data.assertRight(tx.suffixCid(_ => dummySuffix))
