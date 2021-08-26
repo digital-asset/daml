@@ -66,7 +66,7 @@ class QueryPayloadBenchmark extends ContractDaoBenchmark {
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
-    implicit val driver: SupportedJdbcDriver = dao.jdbcDriver
+    import dao.jdbcDriver
     val result = dao
       .transact(ContractDao.selectContracts(OneAnd(Party(party), Set.empty), tpid, whereClause))
       .unsafeRunSync()

@@ -304,7 +304,7 @@ class ValuePredicateTest
         )
       ) { (backend, sql: doobie.Fragment) =>
         // we aren't running the SQL, just looking at it
-        implicit val sjd: dbbackend.SupportedJdbcDriver = backend
+        implicit val sjd: dbbackend.SupportedJdbcDriver.TC = backend
         val frag = vp.toSqlWhereClause
         frag.toString should ===(sql.toString)
         fragmentElems(frag) should ===(fragmentElems(sql))

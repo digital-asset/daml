@@ -32,7 +32,7 @@ class ContractDao private (
     xa: ConnectionPool.T,
     dbAccessPool: ExecutorService,
 )(implicit
-    val jdbcDriver: SupportedJdbcDriver
+    val jdbcDriver: SupportedJdbcDriver.TC
 ) extends Closeable {
 
   private val logger = LoggerFactory.getLogger(classOf[ContractDao])
@@ -97,7 +97,7 @@ object ContractDao {
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
       implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Map[domain.Party, domain.Offset]] = {
     import sjd._
     for {
@@ -115,7 +115,7 @@ object ContractDao {
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
-  )(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] = {
+  )(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] = {
     import cats.implicits._
     import sjd._
     import scalaz.OneAnd._
@@ -146,7 +146,7 @@ object ContractDao {
       predicate: doobie.Fragment,
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
     import sjd._
     for {
@@ -165,7 +165,7 @@ object ContractDao {
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
     import sjd.{queries => _, _}, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
@@ -218,7 +218,7 @@ object ContractDao {
       contractId: domain.ContractId,
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
     import sjd._
     for {
@@ -237,7 +237,7 @@ object ContractDao {
       key: Hash,
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
     import sjd._
     for {
@@ -248,7 +248,7 @@ object ContractDao {
 
   private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ) =
     sjd.queries.surrogateTemplateId(
       templateId.packageId,

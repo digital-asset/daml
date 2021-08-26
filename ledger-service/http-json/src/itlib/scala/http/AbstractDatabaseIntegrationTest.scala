@@ -39,8 +39,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
 
   "DbStartupOps" - {
 
-    implicit lazy val logHandler: log.LogHandler = dao.logHandler
-    implicit lazy val jdbcDriver: SupportedJdbcDriver = dao.jdbcDriver
+    import dao.{logHandler, jdbcDriver}
 
     import doobie.implicits.toSqlInterpolator, DbStartupOps.DbVersionState._, DbStartupOps._,
     com.daml.http.dbbackend.DbStartupMode._
