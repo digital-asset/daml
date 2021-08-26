@@ -47,6 +47,9 @@ private[backend] object AppendOnlySchema {
     def bigint[FROM, _](extractor: FROM => Long): Field[FROM, Long, _] =
       Bigint(extractor)
 
+    def bigintOptional[FROM, _](extractor: FROM => Option[Long]): Field[FROM, Option[Long], _] =
+      BigintOptional(extractor)
+
     def smallintOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
 
@@ -219,6 +222,11 @@ private[backend] object AppendOnlySchema {
         "rejection_status_code" -> fieldStrategy.intOptional(_.rejection_status_code),
         "rejection_status_message" -> fieldStrategy.stringOptional(_.rejection_status_message),
         "rejection_status_details" -> fieldStrategy.byteaOptional(_.rejection_status_details),
+        "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
+        "deduplication_offset" -> fieldStrategy.stringOptional(_.submission_id),
+        "deduplication_time_seconds" -> fieldStrategy.bigintOptional(_.deduplication_time_seconds),
+        "deduplication_time_nanos" -> fieldStrategy.intOptional(_.deduplication_time_nanos),
+        "deduplication_start" -> fieldStrategy.timestampOptional(_.deduplication_start),
       )
 
     val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =
