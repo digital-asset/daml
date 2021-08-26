@@ -11,6 +11,12 @@ import OracleQueries.DisableContractPayloadIndexing
 
 private[http] sealed abstract class QueryBackend {
   type SqlInterpol
+  // Why does the difference between QueryBackend and Queries matter at all?
+  // Because we cannot talk about the `Conf` of a (String => Queries) without
+  // introducing another existential scope, which is not only a bit mind-twisting,
+  // but won't work at all in Scala 3.  So we introduce the scope *here*, with
+  // the added benefit that we can leave only the purely existential interactions
+  // with `Queries` as that type's responsibility.
   type Conf
 
   def queries(tablePrefix: String, conf: Conf)(implicit sqli: SqlInterpol): Queries
@@ -21,10 +27,7 @@ private[http] sealed abstract class QueryBackend {
 private[http] object QueryBackend {
   type RawConf = Map[String, String]
   type Aux[SqlI] = QueryBackend { type SqlInterpol = SqlI }
-  type Ap[SqlInterpol0, Conf0] = {
-    type SqlInterpol = SqlInterpol0
-    type Conf = Conf0
-  }
+  type Aux2[SqlI, Conf0] = QueryBackend { type SqlInterpol = SqlI; type Conf = Conf0 }
 }
 
 private[dbbackend] object PostgresQueryBackend extends QueryBackend {
