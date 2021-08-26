@@ -980,7 +980,7 @@ private final class OracleQueries(
   }
 }
 
-private object OracleQueries {
+private[http] object OracleQueries {
   val DisableContractPayloadIndexing = "disableContractPayloadIndexing"
   type DisableContractPayloadIndexing = Boolean
 }

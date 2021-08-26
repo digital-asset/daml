@@ -163,6 +163,37 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         )
       }
     }
+
+    "DisableContractPayloadIndexing" - {
+      import dbbackend.Queries.Oracle
+      import dbbackend.OracleQueries.DisableContractPayloadIndexing
+      // we can always use postgres here; but if we integrate driver init with cmdline parse
+      // we'll have to restrict this test block to EE-only
+      val jdbcConfigShared =
+        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password"
+      val expectedExtraConf = Map(DisableContractPayloadIndexing -> "true")
+
+      "parses from command-line string" in {
+        val jdbcConfigString = s"$jdbcConfigShared,$DisableContractPayloadIndexing=true"
+        val config = configParser(
+          Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions
+        ).getOrElse(fail())
+        import org.scalatest.OptionValues._
+        config.jdbcConfig.value.backendSpecificConf should ===(expectedExtraConf)
+      }
+
+      "then parses through backend" in {
+        Oracle.parseConf(expectedExtraConf) should ===(Right(true: DisableContractPayloadIndexing))
+      }
+
+      "or defaults to false" in {
+        Oracle.parseConf(Map.empty) should ===(Right(false: DisableContractPayloadIndexing))
+      }
+
+      "but fails on bad input" in {
+        Oracle.parseConf(Map(DisableContractPayloadIndexing -> "haha")).isLeft should ===(true)
+      }
+    }
   }
 
 }
