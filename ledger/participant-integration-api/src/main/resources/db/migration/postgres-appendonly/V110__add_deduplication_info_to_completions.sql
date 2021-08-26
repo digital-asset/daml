@@ -2,7 +2,7 @@
 --  SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V109: Add columns to store command deduplication information in completions
+-- V110: Add columns to store command deduplication information in completions
 ---------------------------------------------------------------------------------------------------
 
 ALTER TABLE participant_command_completions
