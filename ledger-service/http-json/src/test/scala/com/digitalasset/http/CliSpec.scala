@@ -17,10 +17,12 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
 
   val jdbcConfig = JdbcConfig(
-    "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5432/test?&ssl=true",
-    "postgres",
-    "password",
+    dbutils.JdbcConfig(
+      "org.postgresql.Driver",
+      "jdbc:postgresql://localhost:5432/test?&ssl=true",
+      "postgres",
+      "password",
+    ),
     tablePrefix = "",
     dbStartupMode = DbStartupMode.StartOnly,
   )

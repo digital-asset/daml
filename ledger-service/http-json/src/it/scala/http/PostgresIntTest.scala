@@ -20,10 +20,7 @@ class PostgresIntTest
 
 object PostgresIntTest {
   def defaultJdbcConfig(url: => String) = JdbcConfig(
-    driver = "org.postgresql.Driver",
-    url = url,
-    user = "test",
-    password = "",
+    dbutils.JdbcConfig(driver = "org.postgresql.Driver", url = url, user = "test", password = ""),
     dbStartupMode = DbStartupMode.CreateOnly,
     tablePrefix = "some_nice_prefix_",
   )
