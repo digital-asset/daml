@@ -168,6 +168,7 @@ message DamlTransactionBlindingInfo {
   message DivulgenceEntry {
     string contract_id = 1;
     repeated string divulged_to_local_parties = 2;
+    com.daml.lf.transaction.ContractInstance contract_instance = 3;
   }
 
   // Disclosure, specified in terms of local transaction node IDs.

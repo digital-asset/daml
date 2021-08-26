@@ -178,6 +178,26 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-multi-participant-pruning",
+    ports = [
+        6865,
+        6866,
+    ],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--participant=participant-id=example1,port=6865",
+        "--participant=participant-id=example2,port=6866",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
     name = "conformance-test-split-participant",
     ports = [
         6865,
@@ -205,6 +225,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences",
     ],
 )
 
@@ -235,5 +257,18 @@ conformance_test(
         "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
         "--perf-tests=PerformanceEnvelope.Latency.1000ms",
         "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-contract-ids",
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:Accept",
     ],
 )

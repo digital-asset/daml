@@ -7,17 +7,15 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
-import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
 import com.daml.ledger.test.model.Test._
 import com.daml.timer.Delayed
 import io.grpc.Status
 
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
@@ -34,27 +32,20 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    requestsAreSubmittedAndDeduplicated(
-      ledger,
-      party,
-      DeduplicationPeriod.DeduplicationTime(deduplicationTime.asProtobuf),
-    )
-  })
-
-  private def requestsAreSubmittedAndDeduplicated(
-      ledger: ParticipantTestContext,
-      party: Primitive.Party,
-      deduplicationPeriod: => DeduplicationPeriod,
-  )(implicit ec: ExecutionContext) = {
     lazy val requestA1 = ledger
       .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
       .update(
-        _.commands.deduplicationPeriod := deduplicationPeriod
+        _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationTime(
+          deduplicationTime.asProtobuf
+        )
       )
     lazy val requestA2 = ledger
       .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
       .update(
-        _.commands.deduplicationPeriod := deduplicationPeriod,
+        _.commands.deduplicationPeriod := DeduplicationPeriod
+          .DeduplicationDuration(
+            deduplicationTime.asProtobuf
+          ), //same semantics as `DeduplicationTime`
         _.commands.commandId := requestA1.commands.get.commandId,
       )
     for {
@@ -109,7 +100,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
         s"There should be 2 active contracts, but received $activeContracts",
       )
     }
-  }
+  })
 
   test(
     "CDStopOnSubmissionFailure",

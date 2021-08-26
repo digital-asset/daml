@@ -33,17 +33,8 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractsReader,
-  LfValueTranslation,
-  PostCommitValidation,
-  QueryNonPrunedImpl,
-  TransactionsReader,
-}
+import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
-import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
-import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
   DeduplicationKeyMaker,
   LedgerDao,
@@ -52,6 +43,8 @@ import com.daml.platform.store.dao.{
   MeteredLedgerReadDao,
   PersistenceResponse,
 }
+import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -61,6 +54,7 @@ import com.daml.platform.store.entries.{
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -598,15 +592,76 @@ private class JdbcLedgerDao(
     )
   }
 
+  /** Prunes the events and command completions tables.
+    *
+    * @param pruneUpToInclusive         Offset up to which to prune archived history inclusively.
+    * @param pruneAllDivulgedContracts  Enables pruning of all immediately and retroactively divulged contracts
+    *                                   up to `pruneUpToInclusive`.
+    *
+    * NOTE:  Pruning of all divulgence events needs to take into account the following considerations:
+    *        1.  Migration from mutating schema to append-only schema:
+    *            - Divulgence events ingested prior to the migration to the append-only schema do not have offsets assigned
+    *            and cannot be pruned incrementally (i.e. respecting the `pruneUpToInclusive)`.
+    *            - For this reason, when `pruneAllDivulgedContracts` is set, `pruneUpToInclusive` must be after
+    *            the last ingested event offset before the migration, otherwise an INVALID_ARGUMENT response is returned.
+    *            - On the first call with `pruneUpToInclusive` higher than the migration offset, all divulgence events are pruned.
+    *
+    *        2.  Backwards compatibility restriction with regard to transaction-local divulgence in the WriteService:
+    *            - Ledgers populated with WriteService versions that do not forward transaction-local divulgence
+    *            will hydrate the index with the divulgence events only once for a specific contract-party divulgence relationship
+    *            regardless of the number of re-divulgences of the contract to the same party have occurred after the initial one.
+    *            - In this case, pruning of all divulged contracts might lead to interpretation failures for command submissions despite
+    *            them relying on divulgences that happened after the `pruneUpToInclusive` offset.
+    *            - We thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
+    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
+    *            transaction-local divulgence.
+    *
+    *        3.  Backwards compatibility restriction with regard to backfilling lookups:
+    *            - Ledgers populated with an old KV WriteService that does not forward divulged contract instances
+    *            to the ReadService (see [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.blind]])
+    *            will hydrate the divulgence entries in the index without the create argument and template id.
+    *            - During command interpretation, on looking up a divulged contract, the create argument and template id
+    *            are backfilled from previous creates/immediate divulgence entries.
+    *            - In the case of pruning of all divulged contracts (which includes immediate divulgence pruning),
+    *            the previously-mentioned backfilling lookup might fail and lead to interpretation failures
+    *            for command submissions that rely on divulged contracts whose associated immediate divulgence event has been pruned.
+    *            As for Consideration 2, we thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
+    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
+    *            transaction-local divulgence.
+    */
   override def prune(
-      pruneUpToInclusive: Offset
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-      storageBackend.pruneEvents(pruneUpToInclusive)(conn)
-      storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
-      storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
-      logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
-    }
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    val allDivulgencePruningParticle =
+      if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
+    logger.info(
+      s"Pruning the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}."
+    )
+
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
+        storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(
+          conn,
+          loggingContext,
+        )
+
+        storageBackend.pruneCompletions(pruneUpToInclusive)(conn, loggingContext)
+        storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+
+        if (pruneAllDivulgedContracts) {
+          storageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(conn)
+        }
+      }
+      .andThen {
+        case Success(_) =>
+          logger.info(
+            s"Completed pruning of the ledger api server index db$allDivulgencePruningParticle"
+          )
+        case Failure(ex) =>
+          logger.warn("Pruning failed", ex)
+      }(servicesExecutionContext)
+  }
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables)(storageBackend.reset)

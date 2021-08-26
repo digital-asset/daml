@@ -8,8 +8,7 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -32,19 +31,16 @@ private[services] final class QueueBackedTracker(
 )(implicit loggingContext: LoggingContext)
     extends Tracker {
 
-  override def track(request: SubmitAndWaitRequest)(implicit
+  override def track(
+      submission: CommandSubmission
+  )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     queue
-      .offer(
-        Ctx(
-          trackedPromise,
-          SubmitRequest(request.commands),
-        )
-      )
+      .offer(Ctx(trackedPromise, submission))
       .flatMap[Either[TrackedCompletionFailure, CompletionSuccess]] {
         case QueueOfferResult.Enqueued =>
           trackedPromise.future.map(
@@ -101,7 +97,7 @@ private[services] object QueueBackedTracker {
 
   def apply(
       tracker: Flow[
-        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest],
+        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission],
         Ctx[
           Promise[Either[CompletionFailure, CompletionSuccess]],
           Either[CompletionFailure, CompletionSuccess],
@@ -163,5 +159,5 @@ private[services] object QueueBackedTracker {
     new QueueBackedTracker(queue, done)
   }
 
-  type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest]
+  type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission]
 }

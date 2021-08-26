@@ -33,7 +33,11 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   NotOkResponse,
 }
-import com.daml.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
+import com.daml.ledger.client.services.commands.{
+  CommandClient,
+  CommandSubmission,
+  CompletionStreamElement,
+}
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.participant.util.ValueConversions._
@@ -111,9 +115,9 @@ final class CommandClientIT
   private def submitRequest(commandId: String, individualCommands: Seq[Command]): SubmitRequest =
     buildRequest(testLedgerId, commandId, individualCommands)
 
-  private def submitRequestWithId(id: String): SubmitRequest =
+  private def submitRequestWithId(commandId: String): SubmitRequest =
     submitRequest(
-      id,
+      commandId,
       List(
         CreateCommand(
           Some(templateIds.dummy),
@@ -126,6 +130,9 @@ final class CommandClientIT
         ).wrap
       ),
     )
+
+  private def commandSubmissionWithId(commandId: String): CommandSubmission =
+    CommandSubmission(submitRequestWithId(commandId).getCommands)
 
   // Commands and completions can be read out of order. Since we use GRPC monocalls to send,
   // they can even be sent out of order.
@@ -228,7 +235,7 @@ final class CommandClientIT
 
         for {
           client <- commandClient()
-          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .via(client.submissionFlow())
             .map(_.map(_.isSuccess))
             .runWith(Sink.seq)
@@ -238,19 +245,21 @@ final class CommandClientIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in {
+        val aSubmission = commandSubmissionWithId("1")
+        val submission = aSubmission.copy(
+          commands = aSubmission.commands.update(_.ledgerId := testNotLedgerId.unwrap)
+        )
         Source
-          .single(
-            Ctx(1, submitRequestWithId("1").update(_.commands.ledgerId := testNotLedgerId.unwrap))
-          )
+          .single(Ctx(1, submission))
           .via(commandClientWithoutTime(testNotLedgerId).submissionFlow())
           .runWith(Sink.head)
           .map(err => IsStatusException(Status.NOT_FOUND)(err.value.failure.exception))
       }
 
       "fail with INVALID REQUEST for empty application ids" in {
+        val request = submitRequestWithId("7000").update(_.commands.applicationId := "")
         val resF = for {
           client <- commandClient(applicationId = "")
-          request = submitRequestWithId("7000").update(_.commands.applicationId := "")
           res <- client.submitSingleCommand(request)
         } yield res
 
@@ -270,7 +279,7 @@ final class CommandClientIT
           client <- commandClient(applicationId = "")
           completionsSource = client.completionSource(submittingPartyList, LedgerBegin)
           completions <- completionsSource.takeWithin(5.seconds).runWith(Sink.seq)
-        } yield (completions)
+        } yield completions
 
         completionsF.failed.map { failure =>
           failure should be(a[StatusRuntimeException])
@@ -298,7 +307,9 @@ final class CommandClientIT
         val resultF = for {
           client <- commandClient()
           checkpoint <- client.getCompletionEnd()
-          submissionResults <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          submissionResults <- Source(
+            commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString)))
+          )
             .flatMapMerge(10, randomDelay)
             .via(client.submissionFlow())
             .map(_.value)
@@ -328,7 +339,7 @@ final class CommandClientIT
         for {
           client <- commandClient()
           checkpoint <- client.getCompletionEnd()
-          _ <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          _ <- Source(commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .flatMapMerge(10, randomDelay)
             .via(client.submissionFlow())
             .map(_.context)
@@ -353,7 +364,7 @@ final class CommandClientIT
         for {
           client <- commandClient()
           tracker <- client.trackCommands[Int](submittingPartyList)
-          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .via(tracker)
             .map(_.context)
             .runWith(Sink.seq)
@@ -366,7 +377,7 @@ final class CommandClientIT
         for {
           client <- commandClient()
           tracker <- client.trackCommands[Int](submittingPartyList)
-          _ <- Source.empty[Ctx[Int, SubmitRequest]].via(tracker).runWith(Sink.ignore)
+          _ <- Source.empty[Ctx[Int, CommandSubmission]].via(tracker).runWith(Sink.ignore)
         } yield {
           succeed
         }

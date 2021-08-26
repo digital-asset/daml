@@ -5,7 +5,7 @@ package com.daml.ledger.client.services.commands
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
 import com.daml.telemetry.TelemetryContext
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
@@ -31,7 +31,7 @@ class CommandSubmissionFlowTest
         .thenAnswer(argCaptor.value)
 
       Source
-        .single(Ctx((), SubmitRequest.defaultInstance, mockTelemetryContext))
+        .single(Ctx((), CommandSubmission(Commands.defaultInstance), mockTelemetryContext))
         .via(CommandSubmissionFlow(_ => Future.successful(Empty.defaultInstance), 1))
         .runWith(Sink.head)
         .map { ctx =>

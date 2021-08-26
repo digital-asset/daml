@@ -17,7 +17,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_service._
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.transaction_service.{
@@ -32,14 +31,18 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   TrackedCompletionFailure,
 }
-import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
+import com.daml.ledger.client.services.commands.{
+  CommandCompletionSource,
+  CommandSubmission,
+  CommandTrackerFlow,
+}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
-import com.daml.platform.apiserver.services.tracking.{Tracker, QueueBackedTracker, TrackerMap}
+import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
 import com.daml.platform.server.api.ApiException
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
 import com.daml.util.Ctx
@@ -73,21 +76,23 @@ private[apiserver] final class ApiCommandService private (
 
   private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    val commands = request.getCommands
     withEnrichedLoggingContext(
-      logging.commandId(request.getCommands.commandId),
-      logging.partyString(request.getCommands.party),
-      logging.actAsStrings(request.getCommands.actAs),
-      logging.readAsStrings(request.getCommands.readAs),
+      logging.commandId(commands.commandId),
+      logging.partyString(commands.party),
+      logging.actAsStrings(commands.actAs),
+      logging.readAsStrings(commands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        submissionTracker.track(request)
+        submissionTracker.track(CommandSubmission(commands))
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
         )
       }.andThen(logger.logErrorsOnCall[Completion])
     }
+  }
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
     submitAndWaitInternal(request).map(
@@ -164,7 +169,7 @@ private[apiserver] object ApiCommandService {
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService = {
     val submissionTracker = new TrackerMap.SelfCleaning(
-      configuration.retentionPeriod,
+      configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
       Tracking.newTracker(configuration, services, ledgerConfigurationSubscription, metrics),
       trackerCleanupInterval,
@@ -184,12 +189,12 @@ private[apiserver] object ApiCommandService {
       ledgerId: LedgerId,
       inputBufferSize: Int,
       maxCommandsInFlight: Int,
-      retentionPeriod: FiniteDuration,
+      trackerRetentionPeriod: FiniteDuration,
   )
 
   final case class LocalServices(
       submissionFlow: Flow[
-        Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), SubmitRequest],
+        Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), CommandSubmission],
         Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), Try[Empty]],
         NotUsed,
       ],

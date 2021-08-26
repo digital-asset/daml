@@ -9,6 +9,7 @@ import java.security.MessageDigest
 
 import com.daml.platform.store.FlywayMigrationsSpec._
 import org.apache.commons.io.IOUtils
+import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.api.migration.JavaMigration
 import org.flywaydb.core.api.resource.LoadableResource
@@ -62,7 +63,9 @@ object FlywayMigrationsSpec {
       minMigrationCount: Int,
       enableAppendOnlySchema: Boolean = false,
   ): Unit = {
-    val config = FlywayMigrations.configurationBase(dbType, enableAppendOnlySchema)
+    val config = Flyway
+      .configure()
+      .locations(FlywayMigrations.locations(enableAppendOnlySchema, dbType): _*)
     val resourceScanner = scanner(config)
     val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
     resources.size should be >= minMigrationCount

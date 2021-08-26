@@ -8,7 +8,6 @@ import java.time.{Instant, Duration => JDuration}
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.v1.command_submission_service._
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -17,7 +16,11 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   NotOkResponse,
 }
-import com.daml.ledger.client.services.commands.{CompletionStreamElement, tracker}
+import com.daml.ledger.client.services.commands.{
+  CommandSubmission,
+  CompletionStreamElement,
+  tracker,
+}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
@@ -57,10 +60,10 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
 
   private val logger = LoggerFactory.getLogger(this.getClass.getName)
 
-  val submitRequestIn: Inlet[Ctx[Context, SubmitRequest]] =
-    Inlet[Ctx[Context, SubmitRequest]]("submitRequestIn")
-  val submitRequestOut: Outlet[Ctx[(Context, String), SubmitRequest]] =
-    Outlet[Ctx[(Context, String), SubmitRequest]]("submitRequestOut")
+  val submitRequestIn: Inlet[Ctx[Context, CommandSubmission]] =
+    Inlet[Ctx[Context, CommandSubmission]]("submitRequestIn")
+  val submitRequestOut: Outlet[Ctx[(Context, String), CommandSubmission]] =
+    Outlet[Ctx[(Context, String), CommandSubmission]]("submitRequestOut")
   val commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]] =
     Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]]("commandResultIn")
   val resultOut: Outlet[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] =
@@ -113,9 +116,9 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
             registerSubmission(submitRequest)
             logger.trace(
               "Submitted command {}",
-              submitRequest.value.getCommands.commandId,
+              submitRequest.value.commands.commandId,
             )
-            push(submitRequestOut, submitRequest.enrich(_ -> _.getCommands.commandId))
+            push(submitRequestOut, submitRequest.enrich(_ -> _.commands.commandId))
           }
 
           override def onUpstreamFinish(): Unit = {
@@ -209,42 +212,37 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
         }
       }
 
-      private def registerSubmission(submitRequest: Ctx[Context, SubmitRequest]): Unit =
-        submitRequest.value.commands match {
+      private def registerSubmission(submission: Ctx[Context, CommandSubmission]): Unit = {
+        val commands = submission.value.commands
+        val commandId = commands.commandId
+        logger.trace("Begin tracking of command {}", commandId)
+        if (pendingCommands.contains(commandId)) {
+          // TODO return an error identical to the server side duplicate command error once that's defined.
+          throw new IllegalStateException(
+            s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
+          ) with NoStackTrace
+        }
+        maxDeduplicationTime() match {
           case None =>
-            throw new IllegalArgumentException(
-              "Commands field is missing from received SubmitRequest in CommandTracker"
-            ) with NoStackTrace
-          case Some(commands) =>
-            val commandId = commands.commandId
-            logger.trace("Begin tracking of command {}", commandId)
-            if (pendingCommands.contains(commandId)) {
-              // TODO return an error identical to the server side duplicate command error once that's defined.
-              throw new IllegalStateException(
-                s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
-              ) with NoStackTrace
-            }
-            maxDeduplicationTime() match {
-              case None =>
-                emit(
-                  resultOut,
-                  submitRequest.map { _ =>
-                    val status = GrpcStatus.toProto(ErrorFactories.missingLedgerConfig().getStatus)
-                    Left(NotOkResponse(commandId, status))
-                  },
-                )
-              case Some(maxDedup) =>
-                val commandTimeout =
-                  maxTimeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
-                val trackingData = TrackingData(
-                  commandId = commandId,
-                  commandTimeout = commandTimeout,
-                  context = submitRequest.context,
-                )
-                pendingCommands += commandId -> trackingData
-            }
+            emit(
+              resultOut,
+              submission.map { _ =>
+                val status = GrpcStatus.toProto(ErrorFactories.missingLedgerConfig().getStatus)
+                Left(NotOkResponse(commandId, status))
+              },
+            )
+          case Some(maxDedup) =>
+            val commandTimeout =
+              maxTimeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
+            val trackingData = TrackingData(
+              commandId = commandId,
+              commandTimeout = commandTimeout,
+              context = submission.context,
+            )
+            pendingCommands += commandId -> trackingData
             ()
         }
+      }
 
       private def getOutputForTimeout(instant: Instant) = {
         logger.trace("Checking timeouts at {}", instant)
@@ -326,6 +324,8 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
       case DeduplicationPeriod.Empty =>
         maxDeduplicationDuration
       case DeduplicationPeriod.DeduplicationTime(duration) =>
+        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
+      case DeduplicationPeriod.DeduplicationDuration(duration) =>
         JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
       case DeduplicationPeriod.DeduplicationOffset(
             _

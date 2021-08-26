@@ -77,15 +77,15 @@ object ValueConversions {
   implicit def value2Optional(value: Value): Option[Value] = Some(value)
 
   implicit class ExerciseCommands(val exercise: ExerciseCommand) extends AnyVal {
-    def wrap = Command(Command.Command.Exercise(exercise))
+    def wrap = Command.of(Command.Command.Exercise(exercise))
   }
 
   implicit class ExerciseByKeyCommands(val exerciseByKey: ExerciseByKeyCommand) extends AnyVal {
-    def wrap = Command(Command.Command.ExerciseByKey(exerciseByKey))
+    def wrap = Command.of(Command.Command.ExerciseByKey(exerciseByKey))
   }
 
   implicit class CreateCommands(val create: CreateCommand) extends AnyVal {
-    def wrap = Command(Command.Command.Create(create))
+    def wrap = Command.of(Command.Command.Create(create))
   }
 
 }
