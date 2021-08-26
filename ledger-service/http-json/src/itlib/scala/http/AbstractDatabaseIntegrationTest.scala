@@ -4,11 +4,10 @@
 package com.daml.http
 
 import cats.effect.IO
-import com.daml.http.dbbackend.ConnectionPool.PoolSize
-import com.daml.http.dbbackend.{ContractDao, JdbcConfig, SupportedJdbcDriver}
+import com.daml.dbutils.ConnectionPool.PoolSize
+import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
-import doobie.util.log
 import doobie.util.log.LogHandler
 import org.scalatest.freespec.AsyncFreeSpecLike
 import org.scalatest.{Assertion, AsyncTestSuite, BeforeAndAfterAll, Inside}

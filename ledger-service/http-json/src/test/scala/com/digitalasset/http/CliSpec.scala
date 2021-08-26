@@ -5,6 +5,7 @@ package com.daml.http
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.dbutils
 import com.daml.http.dbbackend.{JdbcConfig, DbStartupMode}
 
 final class CliSpec extends AnyFreeSpec with Matchers {

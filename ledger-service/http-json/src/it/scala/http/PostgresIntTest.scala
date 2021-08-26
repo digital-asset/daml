@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.dbutils
 import com.daml.http.PostgresIntTest.defaultJdbcConfig
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.testing.postgresql.PostgresAroundAll

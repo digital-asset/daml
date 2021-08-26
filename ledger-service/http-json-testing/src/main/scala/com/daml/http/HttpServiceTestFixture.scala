@@ -14,9 +14,9 @@ import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.dbutils.ConnectionPool.PoolSize
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
-import com.daml.http.dbbackend.ConnectionPool.PoolSize
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
