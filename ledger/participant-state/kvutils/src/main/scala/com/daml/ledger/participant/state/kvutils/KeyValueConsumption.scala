@@ -273,7 +273,6 @@ object KeyValueConsumption {
         val damlTransactionBlindingInfo = txEntry.getBlindingInfo
         val blindingInfo = Some(Conversions.decodeBlindingInfo(damlTransactionBlindingInfo))
         val divulgedContracts = validateDivulgedContracts(hexTxId, damlTransactionBlindingInfo)
-
         blindingInfo -> divulgedContracts
       } else {
         None -> List.empty
@@ -314,10 +313,7 @@ object KeyValueConsumption {
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo,
   ) =
     if (!damlTransactionBlindingInfo.getDivulgencesList.isEmpty) {
-      val maybeDivulgedContractsIndex =
-        Conversions.extractDivulgedContracts(damlTransactionBlindingInfo)
-
-      maybeDivulgedContractsIndex match {
+      Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
         case Right(divulgedContractsIndex) =>
           divulgedContractsIndex.view.map { case (contractId, contractInstance) =>
             DivulgedContract(contractId, contractInstance)
@@ -329,7 +325,9 @@ object KeyValueConsumption {
           )
           List.empty
       }
-    } else List.empty
+    } else {
+      List.empty
+    }
 
   private[kvutils] case class TimeBounds(
       tooEarlyUntil: Option[Timestamp] = None,

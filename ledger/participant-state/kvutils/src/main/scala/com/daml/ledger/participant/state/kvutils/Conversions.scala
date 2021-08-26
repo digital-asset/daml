@@ -255,10 +255,8 @@ private[state] object Conversions {
     val blindingInfoDivulgence =
       damlTransactionBlindingInfo.getDivulgencesList.asScala.iterator.map { divulgenceEntry =>
         val contractId = decodeContractId(divulgenceEntry.getContractId)
-
         val divulgedTo = divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
           .map(Ref.Party.assertFromString)
-
         contractId -> divulgedTo
       }.toMap
 
@@ -280,7 +278,6 @@ private[state] object Conversions {
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
   ): Either[Seq[String], Map[ContractId, Value.ContractInst[VersionedValue[ContractId]]]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
-
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
@@ -288,7 +285,6 @@ private[state] object Conversions {
         (ContractId, Value.ContractInst[VersionedValue[ContractId]]),
         Map[ContractId, Value.ContractInst[VersionedValue[ContractId]]],
       ]] = Right(Map.newBuilder)
-
       divulgences
         .foldLeft(resultAccumulator) {
           case (Right(contractInstanceIndex), divulgenceEntry) =>
@@ -345,9 +341,12 @@ private[state] object Conversions {
   ): List[DivulgenceEntry] =
     divulgence.toList
       .sortBy(_._1.coid)
-      .map { case (cId, party) =>
+      .map { case (contractId, party) =>
         val contractInst =
-          divulgedContractsIndex.getOrElse(cId, throw Err.MissingDivulgedContractInstance(cId.coid))
-        encodeDivulgenceEntry(cId, party, contractInst)
+          divulgedContractsIndex.getOrElse(
+            contractId,
+            throw Err.MissingDivulgedContractInstance(contractId.coid),
+          )
+        encodeDivulgenceEntry(contractId, party, contractInst)
       }
 }
