@@ -99,7 +99,9 @@ object ContractDao {
   }
 
   // XXX SC Ideally we would do this _while parsing the command line_, but that
-  // will require moving
+  // will require moving selection and setup of a driver into a hook that the
+  // cmdline parser can use while constructing JdbcConfig.  That's a good idea
+  // anyway, and is significantly easier with the `Conf` separation
   private[this] def configureJdbc(cfg: JdbcConfig, driver: SupportedJdbcDriver.Available) =
     driver.configure(tablePrefix = cfg.tablePrefix, extraConf = cfg.backendSpecificConf)
 
