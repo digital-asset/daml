@@ -479,6 +479,9 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Events
 
+  protected def arrayContains(arrayColumnName: String, element: String): String =
+    s"$element = any($arrayColumnName)"
+
   def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -539,6 +542,35 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           where
             delete_events.event_offset <= $pruneUpToInclusive"""
     }(connection, loggingContext)
+
+    if (pruneAllDivulgedContracts) {
+      val prunedAllDivulgedContractsUpToInclusive =
+        SQL"""
+             select participant_all_divulged_contracts_pruned_up_to_inclusive
+             from parameters
+             """
+          .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+            connection
+          )
+          .getOrElse(Offset.beforeBegin)
+
+      pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
+        SQL"""
+            -- Immediate divulgence pruning
+            delete
+            from participant_events_create c
+            where event_offset > $prunedAllDivulgedContractsUpToInclusive
+            and event_offset <= $pruneUpToInclusive
+            and not exists (
+              select 1
+              from party_entries as p
+              where p.ledger_offset <= c.event_offset
+              and p.is_local
+              and #${arrayContains("c.flat_event_witnesses", "p.party")}
+            )
+         """
+      }(connection, loggingContext)
+    }
   }
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
