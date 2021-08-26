@@ -41,7 +41,8 @@ private[http] object JdbcConfig
         s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
           .mkString(",")}.\n" +
         (if (jcd.supportedJdbcDrivers exists (_ contains "oracle"))
-           s"${indent}$DisableContractPayloadIndexing -- if true, use a slower schema on Oracle that supports querying with literals >256 bytes (DRG-50943)"
+           s"${indent}$DisableContractPayloadIndexing -- if true, use a slower schema on Oracle that " +
+             "supports querying with literals >256 bytes (DRG-50943)\n"
          else "")
     )
 
