@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -48,7 +49,7 @@ import com.daml.platform.server.api.services.grpc.GrpcCommandService
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
-import io.grpc.Status
+import io.grpc.{Context, Status}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
@@ -85,7 +86,9 @@ private[apiserver] final class ApiCommandService private[services] (
       logging.readAsStrings(commands.readAs),
     ) { implicit loggingContext =>
       if (running) {
-        submissionTracker.track(CommandSubmission(commands))
+        val timeout = Option(Context.current().getDeadline)
+          .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
+        submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))

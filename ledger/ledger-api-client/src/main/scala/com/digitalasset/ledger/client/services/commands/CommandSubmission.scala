@@ -3,6 +3,8 @@
 
 package com.daml.ledger.client.services.commands
 
+import java.time.Duration
+
 import com.daml.ledger.api.v1.commands.Commands
 
-case class CommandSubmission(commands: Commands)
+case class CommandSubmission(commands: Commands, timeout: Option[Duration] = None)
