@@ -220,10 +220,7 @@ private[backend] object PostgresStorageBackend
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
 
-    Using.resource(pgSimpleDataSource.getConnection()) { connection =>
-      checkCompatibility(connection)
-      connection.close()
-    }
+    Using.resource(pgSimpleDataSource.getConnection())(checkCompatibility)
 
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
