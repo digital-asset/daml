@@ -22,7 +22,7 @@ import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
 import com.daml.platform.store.dao.LedgerDao
-import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata, LfValueTranslationCache}
+import com.daml.platform.store.{DbType, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -182,17 +182,24 @@ final class JdbcIndexerSpec
       enableAppendOnlySchema = false,
     )
     val metrics = new Metrics(new MetricRegistry)
-    new indexer.JdbcIndexer.Factory(
-      config = config,
-      readService = mockedReadService(),
-      servicesExecutionContext = materializer.executionContext,
-      metrics = metrics,
-      updateFlowOwnerBuilder =
-        mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
-      serverRole = ServerRole.Indexer,
-      flywayMigrations = new FlywayMigrations(config.jdbcUrl)(_, implicitly),
-      LfValueTranslationCache.Cache.none,
-    ).migrateSchema(allowExistingSchema = true)
+    StandaloneIndexerServer
+      .migrateOnly(
+        jdbcUrl = config.jdbcUrl,
+        enableAppendOnlySchema = config.enableAppendOnlySchema,
+        allowExistingSchema = true,
+      )
+      .flatMap(_ =>
+        new indexer.JdbcIndexer.Factory(
+          config = config,
+          readService = mockedReadService(),
+          servicesExecutionContext = materializer.executionContext,
+          metrics = metrics,
+          updateFlowOwnerBuilder =
+            mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
+          serverRole = ServerRole.Indexer,
+          LfValueTranslationCache.Cache.none,
+        ).initialized()
+      )
   }
 
   private def mockedUpdateFlowOwnerBuilder(

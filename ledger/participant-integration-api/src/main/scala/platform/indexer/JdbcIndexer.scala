@@ -32,7 +32,7 @@ import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.StorageBackend
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.dao.LedgerDao
-import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -45,7 +45,6 @@ object JdbcIndexer {
       metrics: Metrics,
       updateFlowOwnerBuilder: ExecuteUpdate.FlowOwnerBuilder,
       serverRole: ServerRole,
-      flywayMigrations: ResourceContext => FlywayMigrations,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit materializer: Materializer, loggingContext: LoggingContext) {
 
@@ -56,7 +55,6 @@ object JdbcIndexer {
         servicesExecutionContext: ExecutionContext,
         metrics: Metrics,
         lfValueTranslationCache: LfValueTranslationCache.Cache,
-        additionalMigrationPaths: Seq[String] = Seq.empty,
     )(implicit materializer: Materializer, loggingContext: LoggingContext) =
       this(
         config,
@@ -65,46 +63,8 @@ object JdbcIndexer {
         metrics,
         ExecuteUpdate.owner,
         serverRole,
-        new FlywayMigrations(
-          config.jdbcUrl,
-          config.enableAppendOnlySchema,
-          additionalMigrationPaths,
-        )(_, implicitly),
         lfValueTranslationCache,
       )
-
-    private val logger = ContextualizedLogger.get(this.getClass)
-
-    def validateSchema()(implicit
-        resourceContext: ResourceContext
-    ): Future[ResourceOwner[Indexer]] =
-      flywayMigrations(resourceContext)
-        .validate()
-        .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
-
-    def migrateSchema(
-        allowExistingSchema: Boolean
-    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =
-      flywayMigrations(resourceContext)
-        .migrate(allowExistingSchema)
-        .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
-
-    def resetSchema()(implicit
-        resourceContext: ResourceContext
-    ): Future[ResourceOwner[Indexer]] = initialized(resetSchema = true)
-
-    def validateAndWaitOnly()(implicit
-        resourceContext: ResourceContext
-    ): Future[Unit] =
-      flywayMigrations(resourceContext)
-        .validateAndWaitOnly()
-
-    def migrateOnEmptySchema()(implicit
-        resourceContext: ResourceContext
-    ): Future[ResourceOwner[Indexer]] =
-      flywayMigrations(resourceContext)
-        .migrateOnEmptySchema()
-        .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean
@@ -222,7 +182,7 @@ object JdbcIndexer {
       )
     }
 
-    private def initialized(resetSchema: Boolean)(implicit
+    def initialized(resetSchema: Boolean = false)(implicit
         resourceContext: ResourceContext
     ): Future[ResourceOwner[Indexer]] =
       if (config.enableAppendOnlySchema)
