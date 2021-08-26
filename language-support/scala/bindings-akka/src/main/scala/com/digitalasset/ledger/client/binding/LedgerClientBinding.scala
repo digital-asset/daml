@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
-import com.daml.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
+import com.daml.ledger.client.binding.retrying.CommandRetryFlow
 import com.daml.ledger.client.binding.util.Slf4JLogger
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.ledger.client.services.commands.CommandSubmission
@@ -103,7 +103,6 @@ class LedgerClientBinding(
         ledgerClient.commandClient,
         timeProvider,
         retryTimeout,
-        createRetry,
       )
     } yield Flow[Ctx[C, CompositeCommand]]
       .map(
@@ -112,13 +111,6 @@ class LedgerClientBinding(
         )
       )
       .via(tracking)
-
-  @nowarn("msg=parameter value ignored .* is never used") // matches CommandRetryFlow signature
-  private def createRetry[C](
-      retryInfo: RetryInfo[C, CommandSubmission],
-      ignored: Any,
-  ): CommandSubmission =
-    retryInfo.value
 
   type CommandsFlow[C] =
     Flow[Ctx[C, CompositeCommand], Ctx[C, Either[CompletionFailure, CompletionSuccess]], NotUsed]
