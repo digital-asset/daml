@@ -68,7 +68,7 @@ class ContractDao private (
 
 object ContractDao {
   import ConnectionPool.PoolSize
-  private[this] val supportedJdbcDrivers = Map[String, String => SupportedJdbcDriver](
+  private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
   )
@@ -80,20 +80,31 @@ object ContractDao {
       ec: ExecutionContext
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
-    implicit val sjd: SupportedJdbcDriver = supportedJdbcDrivers.getOrElse(
-      cfg.driver,
-      throw new IllegalArgumentException(
-        s"JDBC driver ${cfg.driver} is not one of ${supportedJdbcDrivers.keySet}"
-      ),
-    )(cfg.tablePrefix)
-    //pool for connections awaiting database access
-    val es = Executors.newWorkStealingPool(poolSize)
-    val (ds, conn) = ConnectionPool.connect(cfg, poolSize)(ExecutionContext.fromExecutor(es), cs)
-    new ContractDao(ds, conn, es)
+    val setup = for {
+      sjda <- supportedJdbcDrivers
+        .get(cfg.baseConfig.driver)
+        .toRight(
+          s"JDBC driver ${cfg.baseConfig.driver} is not one of ${supportedJdbcDrivers.keySet}"
+        )
+      sjdc <- configureJdbc(cfg, sjda)
+    } yield {
+      implicit val sjd: SupportedJdbcDriver.TC = sjdc
+      //pool for connections awaiting database access
+      val es = Executors.newWorkStealingPool(poolSize)
+      val (ds, conn) =
+        ConnectionPool.connect(cfg.baseConfig, poolSize)(ExecutionContext.fromExecutor(es), cs)
+      new ContractDao(ds, conn, es)
+    }
+    setup.fold(msg => throw new IllegalArgumentException(msg), identity)
   }
 
-  def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] =
-    sjd.queries.dropAllTablesIfExist *> sjd.queries.initDatabase
+  // XXX SC Ideally we would do this _while parsing the command line_, but that
+  // will require moving
+  private[this] def configureJdbc(cfg: JdbcConfig, driver: SupportedJdbcDriver.Available) =
+    driver.configure(tablePrefix = cfg.tablePrefix, extraConf = cfg.backendSpecificConf)
+
+  def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
+    sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase
 
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
       implicit
