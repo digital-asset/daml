@@ -12,7 +12,8 @@ import scala.concurrent.Future
   * ParticipantPruningService.
   */
 trait IndexParticipantPruningService {
-
-  def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+  def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit]
 
 }
