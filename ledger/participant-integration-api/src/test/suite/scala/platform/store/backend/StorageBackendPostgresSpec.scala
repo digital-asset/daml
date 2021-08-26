@@ -21,7 +21,6 @@ final class StorageBackendPostgresSpec
         // Minimum Postgres version used in tests
         versionNumbers._1 should be >= 9
         versionNumbers._2 should be >= 0
-        versionNumbers._3 should be >= 0
       }
     }
   }

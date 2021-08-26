@@ -112,12 +112,12 @@ private[backend] object PostgresStorageBackend
 
   def getPostgresVersion(
       connection: Connection
-  )(implicit loggingContext: LoggingContext): Option[(Int, Int, Int)] = {
+  )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
     val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
     logger.debug(s"Found Postgres version $version")
-    val versionPattern = """(\d)+[.](\d)+[.](\d)+""".r
+    val versionPattern = """(\d)+[.](\d)+.*""".r
     version match {
-      case versionPattern(major, minor, patch) => Some((major.toInt, minor.toInt, patch.toInt))
+      case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
       case _ => None
     }
   }
@@ -126,11 +126,11 @@ private[backend] object PostgresStorageBackend
       connection: Connection
   )(implicit loggingContext: LoggingContext): Unit = {
     getPostgresVersion(connection) match {
-      case Some((major, minor, patch)) =>
+      case Some((major, minor)) =>
         if (major < 10) {
           logger.error(
             "Deprecated Postgres version. " +
-              s"Found Postgres version $major.$minor.$patch., minimum required Postgres version is 10. " +
+              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
               "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
               "Please upgrade your Postgres database to version 10 or later to fix this issue. " +
               "In the future, this deprecation warning may be upgraded to a fatal error."
