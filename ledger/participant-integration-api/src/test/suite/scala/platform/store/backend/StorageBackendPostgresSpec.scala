@@ -24,4 +24,11 @@ final class StorageBackendPostgresSpec
       }
     }
   }
+
+  it should "correctly parse a Postgres version" in {
+    PostgresStorageBackend.parsePostgresVersion("1.2") shouldBe Some((1, 2))
+    PostgresStorageBackend.parsePostgresVersion("1.2.3") shouldBe Some((1, 2))
+    PostgresStorageBackend.parsePostgresVersion("1.2.3-alpha.4.5") shouldBe Some((1, 2))
+    PostgresStorageBackend.parsePostgresVersion("10.11") shouldBe Some((10, 11))
+  }
 }

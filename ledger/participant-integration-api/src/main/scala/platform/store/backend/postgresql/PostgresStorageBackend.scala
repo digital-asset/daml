@@ -115,6 +115,10 @@ private[backend] object PostgresStorageBackend
   )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
     val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
     logger.debug(s"Found Postgres version $version")
+    parsePostgresVersion(version)
+  }
+
+  def parsePostgresVersion(version: String): Option[(Int, Int)] = {
     val versionPattern = """(\d+)[.](\d+).*""".r
     version match {
       case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
