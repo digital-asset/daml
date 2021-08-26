@@ -98,7 +98,7 @@ private[sandbox] object SqlLedger {
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl).migrate(enableAppendOnlySchema = enableAppendOnlySchema)
+          new FlywayMigrations(jdbcUrl, enableAppendOnlySchema).migrate()
         )
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
