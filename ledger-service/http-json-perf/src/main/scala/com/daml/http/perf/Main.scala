@@ -7,6 +7,7 @@ import java.nio.file.{Files, Path}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.daml.dbutils
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
@@ -214,10 +215,7 @@ object Main extends StrictLogging {
         import DbStartupMode._
         val startupMode: DbStartupMode = if (retainData) CreateIfNeededAndStart else CreateAndStart
         JdbcConfig(
-          "oracle.jdbc.OracleDriver",
-          oracleJdbcUrl,
-          user.name,
-          user.pwd,
+          dbutils.JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd),
           dbStartupMode = startupMode,
         )
       }
@@ -236,10 +234,8 @@ object Main extends StrictLogging {
 
   private def jsonApiJdbcConfig(c: PostgresDatabase): JdbcConfig =
     JdbcConfig(
-      driver = "org.postgresql.Driver",
-      url = c.url,
-      user = "test",
-      password = "",
+      dbutils
+        .JdbcConfig(driver = "org.postgresql.Driver", url = c.url, user = "test", password = ""),
       dbStartupMode = DbStartupMode.CreateOnly,
     )
 
