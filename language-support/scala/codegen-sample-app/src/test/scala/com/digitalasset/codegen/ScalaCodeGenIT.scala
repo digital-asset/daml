@@ -12,7 +12,6 @@ import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -27,6 +26,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
@@ -39,8 +39,8 @@ import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.time.{Millis, Seconds, Span}
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -418,11 +418,11 @@ class ScalaCodeGenIT
     val commandId = CommandId(uniqueId)
     val workflowId = WorkflowId(uniqueId)
 
-    val request: SubmitRequest = submitRequest(workflowId, commandId, party, command)
+    val submission = aCommandSubmission(workflowId, commandId, party, command)
 
     val future = for {
       offset <- ledgerEnd()
-      statuses <- send(contextId, request)(1)
+      statuses <- send(contextId, submission)(1)
       transaction <- nextTransaction(party)(offset)
     } yield (statuses, transaction)
 
@@ -445,30 +445,31 @@ class ScalaCodeGenIT
 
   private def uniqueId = UUID.randomUUID.toString
 
-  private def submitRequest(
+  private def aCommandSubmission(
       workflowId: WorkflowId,
       commandId: CommandId,
       party: P.Party,
       seq: P.Update[_]*
-  ): SubmitRequest = {
-
-    val commands = Commands(
-      ledgerId = ledger.ledgerId.unwrap,
-      workflowId = WorkflowId.unwrap(workflowId),
-      applicationId = applicationId,
-      commandId = CommandId.unwrap(commandId),
-      party = P.Party.unwrap(party),
-      commands = seq.map(_.command),
+  ): CommandSubmission =
+    CommandSubmission(
+      Commands(
+        ledgerId = ledger.ledgerId.unwrap,
+        workflowId = WorkflowId.unwrap(workflowId),
+        applicationId = applicationId,
+        commandId = CommandId.unwrap(commandId),
+        party = P.Party.unwrap(party),
+        commands = seq.map(_.command),
+      )
     )
-    SubmitRequest(Some(commands))
-  }
 
-  private def send[A](context: A, requests: SubmitRequest*)(
+  private def send[A](context: A, submissions: CommandSubmission*)(
       take: Long
   ): Future[Seq[Ctx[A, Try[Empty]]]] =
-    send(requests.map(Ctx(context, _)): _*)(take)
+    send(submissions.map(Ctx(context, _)): _*)(take)
 
-  private def send[A](input: Ctx[A, SubmitRequest]*)(take: Long): Future[Seq[Ctx[A, Try[Empty]]]] =
+  private def send[A](
+      input: Ctx[A, CommandSubmission]*
+  )(take: Long): Future[Seq[Ctx[A, Try[Empty]]]] =
     Source
       .fromIterator(() => input.iterator)
       .via(ledger.commandClient.submissionFlow())
@@ -490,7 +491,7 @@ class ScalaCodeGenIT
   ): Future[Seq[Ctx[TestContext, Try[Empty]]]] =
     send(
       contextId,
-      submitRequest(
+      aCommandSubmission(
         workflowId,
         commandId,
         alice,
@@ -508,7 +509,7 @@ class ScalaCodeGenIT
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
       exerciseCommand = contractId.exerciseCall2(bob)
-      status <- send(contextId, submitRequest(workflowId, commandId, bob, exerciseCommand))(1)
+      status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
     } yield status
 
   private def bobExerciseTransfer(transaction: Transaction, newReceiver: P.Party)(
@@ -521,7 +522,7 @@ class ScalaCodeGenIT
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
       exerciseCommand = contractId.exerciseTransfer(actor = bob, newReceiver = newReceiver)
-      status <- send(contextId, submitRequest(workflowId, commandId, bob, exerciseCommand))(1)
+      status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
     } yield status
 
   private def assertTransaction(

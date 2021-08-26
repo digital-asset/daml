@@ -18,13 +18,13 @@ object CommandSubmissionFlow {
   def apply[Context](
       submit: SubmitRequest => Future[Empty],
       maxInFlight: Int,
-  ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
-    Flow[Ctx[Context, SubmitRequest]]
-      .log("submission at client", _.value.commands.fold("")(_.commandId))
-      .mapAsyncUnordered(maxInFlight) { case Ctx(context, request, telemetryContext) =>
+  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
+    Flow[Ctx[Context, CommandSubmission]]
+      .log("submission at client", _.value.commands.commandId)
+      .mapAsyncUnordered(maxInFlight) { case Ctx(context, submission, telemetryContext) =>
         telemetryContext
           .runInOpenTelemetryScope {
-            submit(request)
+            submit(SubmitRequest.of(Some(submission.commands)))
               .transform { tryResponse =>
                 Success(
                   Ctx(
