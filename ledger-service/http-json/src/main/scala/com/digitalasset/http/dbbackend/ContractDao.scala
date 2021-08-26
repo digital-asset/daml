@@ -99,7 +99,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Map[domain.Party, domain.Offset]] = {
-    import sjd._
+    import sjd.q.queries
     for {
       tpId <- surrogateTemplateId(templateId)
       offset <- queries
@@ -117,7 +117,7 @@ object ContractDao {
       lastOffsets: Map[domain.Party, domain.Offset],
   )(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] = {
     import cats.implicits._
-    import sjd._
+    import sjd.q.queries
     import scalaz.OneAnd._
     import scalaz.std.set._
     import scalaz.syntax.foldable._
@@ -148,7 +148,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
-    import sjd._
+    import sjd.q.queries
     for {
       tpId <- surrogateTemplateId(templateId)
 
@@ -167,7 +167,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
-    import sjd.{queries => _, _}, cats.syntax.traverse._, cats.instances.vector._
+    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
@@ -178,7 +178,7 @@ object ContractDao {
         trackMatchIndices match {
           case MatchedQueryMarker.ByNelInt =>
             for {
-              dbContracts <- sjd.queries
+              dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
                   domain.Party unsubst parties,
                   queries,
@@ -193,7 +193,7 @@ object ContractDao {
 
           case MatchedQueryMarker.Unused =>
             for {
-              dbContracts <- sjd.queries
+              dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
                   domain.Party unsubst parties,
                   queries,
@@ -220,7 +220,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import sjd._
+    import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- queries.fetchById(
@@ -239,7 +239,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import sjd._
+    import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- queries.fetchByKey(domain.Party unsubst parties, tpId, key)
@@ -250,7 +250,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
   ) =
-    sjd.queries.surrogateTemplateId(
+    sjd.q.queries.surrogateTemplateId(
       templateId.packageId,
       templateId.moduleName,
       templateId.entityName,

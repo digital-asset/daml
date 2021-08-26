@@ -450,7 +450,7 @@ object WebSocketService {
   private[this] def keyEquality(k: Hash)(implicit
       sjd: dbbackend.SupportedJdbcDriver.TC
   ): doobie.Fragment =
-    sjd.queries.keyEquality(k)
+    sjd.q.queries.keyEquality(k)
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
       extends EnrichedContractKeyWithStreamQuery[Unit] {

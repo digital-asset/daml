@@ -49,9 +49,8 @@ class InsertBenchmark extends ContractDaoBenchmark {
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
-    val driver: SupportedJdbcDriver = dao.jdbcDriver
-    import driver._
-    val inserted = dao.transact(driver.queries.insertContracts(contracts)).unsafeRunSync()
+    import dao.jdbcDriver.q.queries
+    val inserted = dao.transact(queries.insertContracts(contracts)).unsafeRunSync()
     assert(inserted == numContracts)
   }
 }

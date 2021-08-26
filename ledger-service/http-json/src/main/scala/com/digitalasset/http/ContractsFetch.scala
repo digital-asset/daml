@@ -465,7 +465,7 @@ private[http] object ContractsFetch {
   ): ConnectionIO[Map[K, SurrogateTpId]] = {
     import doobie.implicits._, cats.instances.vector._, cats.syntax.functor._,
     cats.syntax.traverse._
-    import sjd.queries.surrogateTemplateId
+    import sjd.q.queries.surrogateTemplateId
     ids.toVector
       .traverse(k => surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
       .map(_.toMap)
@@ -503,7 +503,7 @@ private[http] object ContractsFetch {
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._
       import json.JsonProtocol._
-      import sjd._
+      import sjd.q.queries
       (queries.deleteContracts(step.deletes.keySet) *>
         queries.insertContracts(
           step.inserts map (dbc =>
