@@ -3,13 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream}
-
 import com.daml.ledger.offset.Offset
 
 /** Helper functions for generating 16 byte [[Offset]]s from integers.
   * The created offset will look as follows:
-  * | highest index (64 bits) | middle index (32 bits) | lowest index (32 bits) |
+  * | zeros (8 bits) | highest index (56 bits) | middle index (32 bits) | lowest index (32 bits) |
   * Leading zeros will be retained when generating the resulting offset bytes.
   *
   * Example usage:
@@ -18,6 +16,7 @@ import com.daml.ledger.offset.Offset
   *   - If you may have multiple records per block then use [[OffsetBuilder.fromLong]] with the index within the block as the second argument.
   *
   * @see com.daml.ledger.offset.Offset
+  * @see com.daml.ledger.offset.VersionedOffsetBuilder
   * @see com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader
   */
 object OffsetBuilder {
@@ -26,50 +25,27 @@ object OffsetBuilder {
   private[kvutils] val lowestStart = 12
   private[kvutils] val end = 16
 
-  def onlyKeepHighestIndex(offset: Offset): Offset = {
-    val highest = highestIndex(offset)
-    fromLong(highest)
-  }
+  private val delegate = VersionedOffsetBuilder(version = 0)
 
-  def dropLowestIndex(offset: Offset): Offset = {
-    val (highest, middle, _) = split(offset)
-    fromLong(highest, middle)
-  }
+  def onlyKeepHighestIndex(offset: Offset): Offset = delegate.onlyKeepHighestIndex(offset)
 
-  def setMiddleIndex(offset: Offset, middle: Int): Offset = {
-    val (highest, _, lowest) = split(offset)
-    fromLong(highest, middle, lowest)
-  }
+  def dropLowestIndex(offset: Offset): Offset = delegate.dropLowestIndex(offset)
 
-  def setLowestIndex(offset: Offset, lowest: Int): Offset = {
-    val (highest, middle, _) = split(offset)
-    fromLong(highest, middle, lowest)
-  }
+  def setMiddleIndex(offset: Offset, middle: Int): Offset = delegate.setMiddleIndex(offset, middle)
 
-  def fromLong(first: Long, second: Int = 0, third: Int = 0): Offset = {
-    val bytes = new ByteArrayOutputStream
-    val stream = new DataOutputStream(bytes)
-    stream.writeLong(first)
-    stream.writeInt(second)
-    stream.writeInt(third)
-    Offset.fromByteArray(bytes.toByteArray)
-  }
+  def setLowestIndex(offset: Offset, lowest: Int): Offset = delegate.setLowestIndex(offset, lowest)
 
-  // `highestIndex` is used a lot, so it's worth optimizing a little rather than reusing `split`.
-  def highestIndex(offset: Offset): Long = {
-    val stream = new DataInputStream(new ByteArrayInputStream(offset.toByteArray))
-    stream.readLong()
-  }
+  def fromLong(first: Long, second: Int = 0, third: Int = 0): Offset =
+    delegate.of(first, second, third)
 
-  def middleIndex(offset: Offset): Int = split(offset)._2
+  def highestIndex(offset: Offset): Long = VersionedOffsetBuilder.highestIndex(offset)
 
-  def lowestIndex(offset: Offset): Int = split(offset)._3
+  def middleIndex(offset: Offset): Int = VersionedOffsetBuilder.middleIndex(offset)
 
-  def split(offset: Offset): (Long, Int, Int) = {
-    val stream = new DataInputStream(new ByteArrayInputStream(offset.toByteArray))
-    val highest = stream.readLong()
-    val middle = stream.readInt()
-    val lowest = stream.readInt()
+  def lowestIndex(offset: Offset): Int = VersionedOffsetBuilder.lowestIndex(offset)
+
+  private[kvutils] def split(offset: Offset): (Long, Int, Int) = {
+    val (highest, middle, lowest) = VersionedOffsetBuilder.split(offset)
     (highest, middle, lowest)
   }
 }
