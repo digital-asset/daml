@@ -125,7 +125,7 @@ class CommonCliBase(name: LedgerName) {
       opt[String]("secrets-url")
         .optional()
         .text(
-          "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+          "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
         )
         .action((url, config) => config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url)))))
 
