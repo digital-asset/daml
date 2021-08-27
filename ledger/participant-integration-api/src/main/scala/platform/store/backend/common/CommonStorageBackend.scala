@@ -7,9 +7,9 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.Date
 
-import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, int, long, str}
-import anorm.{Macro, RowParser, SQL, SqlParser, SqlQuery, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import anorm.SqlParser.{array, binaryStream, byteArray, date, flatten, int, long, str}
+import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, ~}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
@@ -20,9 +20,7 @@ import com.daml.platform.store.Conversions.{
   instant,
   ledgerString,
   offset,
-  party,
 }
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.MismatchException
@@ -31,7 +29,8 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
-import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry}
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
 
@@ -53,7 +52,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       SQL(
         "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
       ),
-      SQL("DELETE FROM parties WHERE ledger_offset > {ledger_offset}"),
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
     )
 
@@ -191,15 +189,33 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     SQL"select #$LedgerIdColumnName, #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
-  private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL("""
-                                                     |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
-                                                     |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
-                                                     |""".stripMargin)
+  private val SQL_UPDATE_MOST_RECENT_PRUNING =
+    SQL("""
+        |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
+        |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
+        |""".stripMargin)
+
+  private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS =
+    SQL("""
+        |update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive={prune_all_divulged_contracts_up_to_inclusive}
+        |where participant_pruned_up_to_inclusive < {prune_all_divulged_contracts_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
+        |""".stripMargin)
 
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL_UPDATE_MOST_RECENT_PRUNING
       .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
+      .execute()(connection)
+    ()
+  }
+
+  def updatePrunedAllDivulgedContractsUpToInclusive(
+      prunedUpToInclusive: Offset
+  )(connection: Connection): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+
+    SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS
+      .on("prune_all_divulged_contracts_up_to_inclusive" -> prunedUpToInclusive)
       .execute()(connection)
     ()
   }
@@ -308,127 +324,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .asVectorOf(configurationEntryParser)(connection)
   }
 
-  // Parties
-
-  private val SQL_GET_PARTY_ENTRIES = SQL(
-    """select * from party_entries
-      |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
-      |order by ledger_offset asc
-      |offset {queryOffset} rows
-      |fetch next {pageSize} rows only""".stripMargin
-  )
-
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    (offset("ledger_offset") ~
-      date("recorded_at") ~
-      ledgerString("submission_id").? ~
-      party("party").? ~
-      str("display_name").? ~
-      str("typ") ~
-      str("rejection_reason").? ~
-      bool("is_local").?)
-      .map(flatten)
-      .map {
-        case (
-              offset,
-              recordTime,
-              submissionIdOpt,
-              Some(party),
-              displayNameOpt,
-              `acceptType`,
-              None,
-              Some(isLocal),
-            ) =>
-          offset ->
-            PartyLedgerEntry.AllocationAccepted(
-              submissionIdOpt,
-              recordTime.toInstant,
-              PartyDetails(party, displayNameOpt, isLocal),
-            )
-        case (
-              offset,
-              recordTime,
-              Some(submissionId),
-              None,
-              None,
-              `rejectType`,
-              Some(reason),
-              None,
-            ) =>
-          offset -> PartyLedgerEntry.AllocationRejected(
-            submissionId,
-            recordTime.toInstant,
-            reason,
-          )
-        case invalidRow =>
-          sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
-      }
-  }
-
-  def partyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_GET_PARTY_ENTRIES
-      .on(
-        "startExclusive" -> startExclusive,
-        "endInclusive" -> endInclusive,
-        "pageSize" -> pageSize,
-        "queryOffset" -> queryOffset,
-      )
-      .asVectorOf(partyEntryParser)(connection)
-  }
-
-  private val SQL_SELECT_MULTIPLE_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where party in ({parties}) and parties.ledger_offset <= parameters.ledger_end"
-    )
-
-  private case class ParsedPartyData(
-      party: String,
-      displayName: Option[String],
-      ledgerOffset: Offset,
-      explicit: Boolean,
-      isLocal: Boolean,
-  )
-
-  private val PartyDataParser: RowParser[ParsedPartyData] = {
-    import com.daml.platform.store.Conversions.columnToOffset
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    Macro.parser[ParsedPartyData](
-      "party",
-      "display_name",
-      "ledger_offset",
-      "explicit",
-      "is_local",
-    )
-  }
-
-  private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
-    PartyDetails(Ref.Party.assertFromString(data.party), data.displayName, data.isLocal)
-
-  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] = {
-    import com.daml.platform.store.Conversions.partyToStatement
-    SQL_SELECT_MULTIPLE_PARTIES
-      .on("parties" -> parties)
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
-  }
-
-  private val SQL_SELECT_ALL_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset"
-    )
-
-  def knownParties(connection: Connection): List[PartyDetails] =
-    SQL_SELECT_ALL_PARTIES
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
-
   // Packages
 
   private val SQL_SELECT_PACKAGES =
@@ -484,8 +379,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
     """select * from package_entries
-      |where ({startExclusive} is null or ledger_offset > {startExclusive})
-      |and ledger_offset <= {endInclusive}
+      |where ({startExclusive} is null or ledger_offset>{startExclusive})
+      |and ledger_offset<={endInclusive}
       |order by ledger_offset asc
       |offset {queryOffset} rows
       |fetch next {pageSize} rows only""".stripMargin
@@ -573,29 +468,48 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Completions
 
-  def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
-      .execute()(connection)
-    ()
+  def pruneCompletions(
+      pruneUpToInclusive: Offset
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
+    pruneWithLogging(queryDescription = "Command completions pruning") {
+      import com.daml.platform.store.Conversions.OffsetToStatement
+      SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
+    }(connection, loggingContext)
   }
 
   // Events
 
-  def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
+  def pruneEvents(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    List(
-      SQL"""
-          -- Divulgence events (only for contracts archived before the specified offset)
+
+    if (pruneAllDivulgedContracts) {
+      pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events
+          delete from participant_events_divulgence delete_events
+          where delete_events.event_offset <= $pruneUpToInclusive
+          """
+      }(connection, loggingContext)
+    } else {
+      pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events (only for contracts archived before the specified offset)
           delete from participant_events_divulgence delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
+            delete_events.event_offset <= $pruneUpToInclusive
+            and exists (
+              select 1 from participant_events_consuming_exercise archive_events
+              where
+                archive_events.event_offset <= $pruneUpToInclusive and
                 archive_events.contract_id = delete_events.contract_id
-            )""",
+            )"""
+      }(connection, loggingContext)
+    }
+
+    pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
           -- Create events (only for contracts archived before the specified offset)
           delete from participant_events_create delete_events
@@ -606,18 +520,32 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive AND
                 archive_events.contract_id = delete_events.contract_id
-            )""",
+            )"""
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
       SQL"""
           -- Exercise events (consuming)
           delete from participant_events_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive""",
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
       SQL"""
           -- Exercise events (non-consuming)
           delete from participant_events_non_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive""",
-    ).foreach(_.execute()(connection))
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+  }
+
+  private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit = {
+    val deletedRows = query.executeUpdate()(connection)
+    logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(loggingContext)
   }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {

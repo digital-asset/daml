@@ -51,7 +51,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       // 1: config change
       dtoConfiguration(offset(1)),
       // 2: party allocation
-      dtoParty(offset(2)),
       dtoPartyEntry(offset(2)),
       // 3: package upload
       dtoPackage(offset(3)),
@@ -99,7 +98,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       // 1: config change
       dtoConfiguration(offset(1)),
       // 2: party allocation
-      dtoParty(offset(2)),
       dtoPartyEntry(offset(2)),
       // 3: package upload
       dtoPackage(offset(3)),

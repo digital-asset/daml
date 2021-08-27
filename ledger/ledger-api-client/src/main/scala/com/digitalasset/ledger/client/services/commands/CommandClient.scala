@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
@@ -55,7 +56,7 @@ final class CommandClient(
 
   type TrackCommandFlow[Context] =
     Flow[
-      Ctx[Context, SubmitRequest],
+      Ctx[Context, CommandSubmission],
       Ctx[Context, Either[CompletionFailure, CompletionSuccess]],
       Materialized[
         NotUsed,
@@ -89,10 +90,14 @@ final class CommandClient(
       mat: Materializer
   ): Future[Either[CompletionFailure, CompletionSuccess]] = {
     implicit val executionContext: ExecutionContextExecutor = mat.executionContext
-    val effectiveActAs = CommandsValidator.effectiveSubmitters(submitRequest.getCommands).actAs
+    val commands = submitRequest.getCommands
+    val effectiveActAs = CommandsValidator.effectiveSubmitters(commands).actAs
     for {
       tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, token)
-      result <- Source.single(Ctx.unit(submitRequest)).via(tracker).runWith(Sink.head)
+      result <- Source
+        .single(Ctx.unit(CommandSubmission(commands)))
+        .via(tracker)
+        .runWith(Sink.head)
     } yield {
       result.value
     }
@@ -142,8 +147,8 @@ final class CommandClient(
     }
 
   private def partyFilter[Context](allowedParties: Set[String]) =
-    Flow[Ctx[Context, SubmitRequest]].map { elem =>
-      val commands = elem.value.getCommands
+    Flow[Ctx[Context, CommandSubmission]].map { elem =>
+      val commands = elem.value.commands
       val effectiveActAs = CommandsValidator.effectiveSubmitters(commands).actAs
       if (effectiveActAs.subsetOf(allowedParties)) elem
       else
@@ -169,9 +174,8 @@ final class CommandClient(
   }
 
   private def commandUpdaterFlow[Context] =
-    Flow[Ctx[Context, SubmitRequest]]
-      .map(_.map { r =>
-        val commands = r.getCommands
+    Flow[Ctx[Context, CommandSubmission]]
+      .map(_.map { case submission @ CommandSubmission(commands) =>
         if (LedgerId(commands.ledgerId) != ledgerId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerId)"
@@ -180,22 +184,24 @@ final class CommandClient(
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)"
           )
-        val updateDedupTime = commands.deduplicationTime.orElse(
-          Some(
-            Duration
-              .of(
-                config.defaultDeduplicationTime.getSeconds,
-                config.defaultDeduplicationTime.getNano,
-              )
-          )
-        )
-        r.copy(commands = Some(commands.copy(deduplicationTime = updateDedupTime)))
+        val updatedDeduplicationPeriod = commands.deduplicationPeriod match {
+          case DeduplicationPeriod.Empty =>
+            DeduplicationPeriod.DeduplicationTime(
+              Duration
+                .of(
+                  config.defaultDeduplicationTime.getSeconds,
+                  config.defaultDeduplicationTime.getNano,
+                )
+            )
+          case existing => existing
+        }
+        submission.copy(commands = commands.copy(deduplicationPeriod = updatedDeduplicationPeriod))
       })
 
   def submissionFlow[Context](
       token: Option[String] = None
-  ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
-    Flow[Ctx[Context, SubmitRequest]]
+  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
+    Flow[Ctx[Context, CommandSubmission]]
       .via(commandUpdaterFlow)
       .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
   }

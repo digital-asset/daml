@@ -42,9 +42,9 @@ private[postgresql] object PGSchema {
     override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
       PGTable.transposedDelete(tableName)(field)
 
-    override def idempotentInsert(tableName: String, keyFieldIndex: Int)(
-        fields: (String, Field[DbDto.Package, _, _])*
-    ): Table[DbDto.Package] =
+    override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+        fields: (String, Field[FROM, _, _])*
+    ): Table[FROM] =
       PGTable.idempotentTransposedInsert(tableName, keyFieldIndex)(fields: _*)
   }
 

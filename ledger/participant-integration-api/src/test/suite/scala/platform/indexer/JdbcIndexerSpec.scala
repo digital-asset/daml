@@ -189,7 +189,7 @@ final class JdbcIndexerSpec
       updateFlowOwnerBuilder =
         mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
       serverRole = ServerRole.Indexer,
-      flywayMigrations = new FlywayMigrations(config.jdbcUrl),
+      flywayMigrations = new FlywayMigrations(config.jdbcUrl)(_, implicitly),
       LfValueTranslationCache.Cache.none,
     ).migrateSchema(allowExistingSchema = true)
   }

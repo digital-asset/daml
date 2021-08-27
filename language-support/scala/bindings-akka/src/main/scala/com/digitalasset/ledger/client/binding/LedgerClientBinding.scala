@@ -11,7 +11,6 @@ import akka.stream.scaladsl.{Flow, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId, Party}
 import com.daml.ledger.api.refinements.{CompositeCommand, CompositeCommandAdapter}
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -21,9 +20,10 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
-import com.daml.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
+import com.daml.ledger.client.binding.retrying.CommandRetryFlow
 import com.daml.ledger.client.binding.util.Slf4JLogger
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -81,7 +81,6 @@ class LedgerClientBinding(
                 case other => sys.error(s"Expected Created or Archived, got $other"): String
               }
               .mkString("[", ",", "]")}",
-          false,
         )
       )
       .via(DomainTransactionMapper(decoder))
@@ -104,20 +103,14 @@ class LedgerClientBinding(
         ledgerClient.commandClient,
         timeProvider,
         retryTimeout,
-        createRetry,
       )
     } yield Flow[Ctx[C, CompositeCommand]]
-      .map(_.map(compositeCommandAdapter.transform))
+      .map(
+        _.map(compositeCommand =>
+          CommandSubmission(compositeCommandAdapter.transform(compositeCommand))
+        )
+      )
       .via(tracking)
-
-  @nowarn("msg=parameter value ignored .* is never used") // matches CommandRetryFlow signature
-  private def createRetry[C](retryInfo: RetryInfo[C], ignored: Any): SubmitRequest = {
-    if (retryInfo.request.commands.isEmpty) {
-      logger.warn(s"Retrying with empty commands for {}", retryInfo.request)
-    }
-
-    retryInfo.request
-  }
 
   type CommandsFlow[C] =
     Flow[Ctx[C, CompositeCommand], Ctx[C, Either[CompletionFailure, CompletionSuccess]], NotUsed]
@@ -126,7 +119,11 @@ class LedgerClientBinding(
     for {
       trackCommandsFlow <- ledgerClient.commandClient.trackCommands[C](List(party.unwrap))
     } yield Flow[Ctx[C, CompositeCommand]]
-      .map(_.map(compositeCommandAdapter.transform))
+      .map(
+        _.map(compositeCommand =>
+          CommandSubmission(compositeCommandAdapter.transform(compositeCommand))
+        )
+      )
       .via(trackCommandsFlow)
       .mapMaterializedValue(_ => NotUsed)
   }
@@ -155,15 +152,16 @@ object LedgerClientBinding {
   @nowarn(
     "msg=parameter value config .* is never used"
   ) // public function, unsure whether arg needed
-  def askLedgerId(channel: ManagedChannel, config: LedgerClientConfiguration)(implicit
-      ec: ExecutionContext
-  ): Future[String] =
+  def askLedgerId(
+      channel: ManagedChannel,
+      config: LedgerClientConfiguration,
+  )(implicit ec: ExecutionContext): Future[String] =
     LedgerIdentityServiceGrpc
       .stub(channel)
       .getLedgerIdentity(GetLedgerIdentityRequest())
       .map(_.ledgerId)
 
-  def transactionFilter(party: Party, templateSelector: TemplateSelector) =
+  def transactionFilter(party: Party, templateSelector: TemplateSelector): TransactionFilter =
     TransactionFilter(Map(party.unwrap -> templateSelector.toApi))
 
 }

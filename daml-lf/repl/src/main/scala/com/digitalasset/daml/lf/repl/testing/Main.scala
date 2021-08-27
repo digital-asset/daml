@@ -486,7 +486,7 @@ object Repl {
             valueOpt match {
               case None => ()
               case Some(value) =>
-                val result = prettyValue(true)(value.toValue).render(128)
+                val result = prettyValue(true)(value.toUnnormalizedValue).render(128)
                 println("result:")
                 println(result)
             }

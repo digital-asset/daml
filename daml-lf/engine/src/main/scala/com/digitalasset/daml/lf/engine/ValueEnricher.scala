@@ -17,7 +17,7 @@ import com.daml.lf.value.Value.ContractId
 final class ValueEnricher(engine: Engine) {
 
   def enrichValue(typ: Ast.Type, value: Value[ContractId]): Result[Value[ContractId]] =
-    engine.enrich(typ, value)
+    engine.preprocessor.translateValue(typ, value).map(_.toUnnormalizedValue)
 
   def enrichContract(
       contract: Value.ContractInst[Value[ContractId]]

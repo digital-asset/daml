@@ -400,13 +400,17 @@ object Config {
         opt[Duration]("tracker-retention-period")
           .optional()
           .action((value, config) =>
-            config.copy(commandConfig =
-              config.commandConfig
-                .copy(retentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
+            config.copy(
+              commandConfig = config.commandConfig.copy(
+                trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS)
+              )
             )
           )
           .text(
-            s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
+            "The duration that the command service will keep an active command tracker for a given set of parties." +
+              " A longer period cuts down on the tracker instantiation cost for a party that seldom acts." +
+              " A shorter period causes a quick removal of unused trackers." +
+              s" Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
           )
 
         opt[Int]("max-inbound-message-size")

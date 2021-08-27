@@ -118,6 +118,11 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Unit =
       throw new UnsupportedOperationException
 
+    override def updatePrunedAllDivulgedContractsUpToInclusive(prunedUpToInclusive: Offset)(
+        connection: Connection
+    ): Unit =
+      throw new UnsupportedOperationException
+
     override def prunedUptoInclusive(connection: Connection): Option[Offset] =
       throw new UnsupportedOperationException
   }
@@ -135,12 +140,15 @@ object SequentialWriteDaoSpec {
     )
   )
 
-  private val someParty = DbDto.Party(
-    party = "party",
+  private val someParty = DbDto.PartyEntry(
+    ledger_offset = "",
+    recorded_at = null,
+    submission_id = null,
+    party = Some("party"),
     display_name = None,
-    explicit = true,
-    ledger_offset = None,
-    is_local = true,
+    typ = "accept",
+    rejection_reason = None,
+    is_local = Some(true),
   )
 
   private val someEventCreated = DbDto.EventCreate(

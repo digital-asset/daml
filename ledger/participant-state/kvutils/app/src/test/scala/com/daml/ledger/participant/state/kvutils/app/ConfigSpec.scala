@@ -185,7 +185,7 @@ final class ConfigSpec
       )
         .getOrElse(parsingFailure())
 
-    config.commandConfig.retentionPeriod should be(expectedPeriod)
+    config.commandConfig.trackerRetentionPeriod should be(expectedPeriod)
   }
 
   it should "set the client-auth parameter when provided" in {

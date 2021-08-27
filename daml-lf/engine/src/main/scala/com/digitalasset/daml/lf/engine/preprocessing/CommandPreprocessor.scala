@@ -7,17 +7,18 @@ package preprocessing
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 
 import scala.annotation.tailrec
 
-private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) {
+private[lf] final class CommandPreprocessor(
+    interface: language.Interface,
+    requiredCidSuffix: Boolean,
+) {
+
+  val valueTranslator = new ValueTranslator(interface, requiredCidSuffix)
 
   import Preprocessor._
-  import compiledPackages.interface
-
-  val valueTranslator = new ValueTranslator(interface)
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreate(
@@ -35,9 +36,10 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
       choiceId: Ref.ChoiceName,
       argument: Value[Value.ContractId],
   ): speedy.Command.Exercise = {
+    val cid = valueTranslator.unsafeTranslateCid(contractId)
     val choice = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
     val arg = valueTranslator.unsafeTranslateValue(choice, argument)
-    speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg)
+    speedy.Command.Exercise(templateId, cid, choiceId, arg)
   }
 
   @throws[Error.Preprocessing.Error]
@@ -109,7 +111,8 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
           choiceArgument,
         )
       case command.FetchCommand(templateId, coid) =>
-        speedy.Command.Fetch(templateId, SValue.SContractId(coid))
+        val cid = valueTranslator.unsafeTranslateCid(coid)
+        speedy.Command.Fetch(templateId, cid)
       case command.FetchByKeyCommand(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val sKey = valueTranslator.unsafeTranslateValue(ckTtype, key)

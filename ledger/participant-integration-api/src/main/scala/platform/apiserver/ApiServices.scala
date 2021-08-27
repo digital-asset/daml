@@ -240,7 +240,7 @@ private[daml] object ApiServices {
             ledgerId,
             commandConfig.inputBufferSize,
             commandConfig.maxCommandsInFlight,
-            commandConfig.retentionPeriod,
+            commandConfig.trackerRetentionPeriod,
           ),
           // Using local services skips the gRPC layer, improving performance.
           ApiCommandService.LocalServices(

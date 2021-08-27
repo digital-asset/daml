@@ -7,6 +7,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
 import com.daml.ledger.test.model.Test._
@@ -31,18 +32,22 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val requestA1 = ledger
+    lazy val requestA1 = ledger
       .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
       .update(
-        _.commands.deduplicationTime := deduplicationTime.asProtobuf
+        _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationTime(
+          deduplicationTime.asProtobuf
+        )
       )
-    val requestA2 = ledger
+    lazy val requestA2 = ledger
       .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
       .update(
-        _.commands.deduplicationTime := deduplicationTime.asProtobuf,
+        _.commands.deduplicationPeriod := DeduplicationPeriod
+          .DeduplicationDuration(
+            deduplicationTime.asProtobuf
+          ), //same semantics as `DeduplicationTime`
         _.commands.commandId := requestA1.commands.get.commandId,
       )
-
     for {
       // Submit command A (first deduplication window)
       // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -53,7 +58,6 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
         .submit(requestA1)
         .mustFail("submitting the first request for the second time")
       completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
-
       // Wait until the end of first deduplication window
       _ <- Delayed.by(deduplicationWindowWait)(())
 

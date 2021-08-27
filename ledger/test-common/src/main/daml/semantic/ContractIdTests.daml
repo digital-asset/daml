@@ -1,0 +1,23 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ContractIdTests where
+
+template Contract
+  with
+    party: Party
+  where
+    signatory party
+
+template ContractRef
+  with
+    party: Party
+    ref: ContractId Contract
+  where
+    signatory party
+    key party: Party
+    maintainer key
+    controller party can
+      Change: ContractId ContractRef
+        with newId: ContractId Contract
+        do create (ContractRef party newId)

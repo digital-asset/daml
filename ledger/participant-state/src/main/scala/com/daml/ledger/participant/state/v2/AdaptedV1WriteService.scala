@@ -89,11 +89,10 @@ private[v2] object AdaptedV1WriteService {
   private val NoErrorDetails = Seq.empty[com.google.protobuf.any.Any]
 
   def adaptSubmitterInfo(submitterInfo: SubmitterInfo): v1.SubmitterInfo = {
-    val deduplicateUntil = submitterInfo.deduplicationPeriod match {
-      case DeduplicationPeriod.DeduplicationDuration(duration) => Instant.now().plus(duration)
-      case DeduplicationPeriod.DeduplicationOffset(_) =>
-        throw new NotImplementedError("Deduplication offset not supported as deduplication period")
-    }
+    val deduplicateUntil = DeduplicationPeriod.deduplicateUntil(
+      Instant.now(),
+      submitterInfo.deduplicationPeriod,
+    )
     v1.SubmitterInfo(
       actAs = submitterInfo.actAs,
       applicationId = submitterInfo.applicationId,
@@ -124,15 +123,15 @@ private[v2] object AdaptedV1WriteService {
         SubmissionResult.Acknowledged
       case v1.SubmissionResult.Overloaded =>
         SubmissionResult.SynchronousError(
-          Status.of(Code.RESOURCE_EXHAUSTED.index, "Overloaded", NoErrorDetails)
+          Status.of(Code.RESOURCE_EXHAUSTED.value, "Overloaded", NoErrorDetails)
         )
       case v1.SubmissionResult.NotSupported =>
         SubmissionResult.SynchronousError(
-          Status.of(Code.UNIMPLEMENTED.index, "Not supported", NoErrorDetails)
+          Status.of(Code.UNIMPLEMENTED.value, "Not supported", NoErrorDetails)
         )
       case v1.SubmissionResult.InternalError(reason) =>
         SubmissionResult.SynchronousError(
-          Status.of(Code.INTERNAL.index, reason, NoErrorDetails)
+          Status.of(Code.INTERNAL.value, reason, NoErrorDetails)
         )
       case v1.SubmissionResult.SynchronousReject(failure) =>
         val status = failure.getStatus
@@ -144,14 +143,17 @@ private[v2] object AdaptedV1WriteService {
   private def errorDetailsForFailure(
       failure: StatusRuntimeException
   ): Seq[com.google.protobuf.any.Any] = {
-    val trailers = failure.getTrailers
-    val metadata = trailers
-      .keys()
-      .asScala
-      .map { key =>
-        key -> trailers.get[String](Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))
+    val metadata = Option(failure.getTrailers)
+      .map { trailers =>
+        trailers
+          .keys()
+          .asScala
+          .map { key =>
+            key -> trailers.get[String](Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))
+          }
+          .toMap
       }
-      .toMap
+      .getOrElse(Map.empty)
     val errorInfo = ErrorInfo.of(failure.getLocalizedMessage, "Synchronous rejection", metadata)
     Seq(com.google.protobuf.any.Any.pack(errorInfo))
   }

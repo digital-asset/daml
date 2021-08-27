@@ -943,14 +943,21 @@ private class JdbcLedgerDao(
   }
 
   override def prune(
-      pruneUpToInclusive: Offset
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    if (pruneAllDivulgedContracts)
+      logger.warn(
+        "Pruning all divulgence events is not supported on an index db using the mutable state schema. Upgrade to the append-only schema to prune all divulgence events."
+      )
+
     dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { implicit conn =>
       transactionsWriter.prepareEventsDelete(pruneUpToInclusive).execute()
       prepareCompletionsDelete(pruneUpToInclusive).execute()
       updateMostRecentPruning(pruneUpToInclusive)
       logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
     }
+  }
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables) { implicit conn =>
