@@ -5,7 +5,7 @@ package com.daml.ledger.rxjava;
 
 import com.daml.grpc.adapter.SingleThreadExecutionSequencerPool;
 import com.daml.ledger.rxjava.grpc.*;
-import io.grpc.Deadline;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
@@ -45,7 +45,7 @@ public final class DamlLedgerClient implements LedgerClient {
     private final NettyChannelBuilder builder;
     private Optional<String> expectedLedgerId = Optional.empty();
     private Optional<String> accessToken = Optional.empty();
-    private Optional<Deadline> deadline = Optional.empty();
+    private ClientInterceptor[] interceptors = new ClientInterceptor[0];
 
     private Builder(@NonNull NettyChannelBuilder channelBuilder) {
       this.builder = channelBuilder;
@@ -68,14 +68,14 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
-    public Builder withDeadline(@NonNull Deadline deadline) {
-      this.deadline = Optional.of(deadline);
+    public Builder withInterceptors(ClientInterceptor... interceptors) {
+      this.interceptors = interceptors;
       return this;
     }
 
     public DamlLedgerClient build() {
       return new DamlLedgerClient(
-          this.builder, this.expectedLedgerId, this.accessToken, this.deadline);
+          this.builder, this.expectedLedgerId, this.accessToken, this.interceptors);
     }
   }
 
@@ -115,8 +115,8 @@ public final class DamlLedgerClient implements LedgerClient {
    *     unsecured plaintext connection will be used. Must be an SslContext created for client
    *     applications via {@link GrpcSslContexts#forClient()}.
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
-   *     even better either {@link DamlLedgerClient#newBuilder}
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional,
+   *     ClientInterceptor[])} or even better either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
   public static DamlLedgerClient forLedgerIdAndHost(
@@ -134,8 +134,8 @@ public final class DamlLedgerClient implements LedgerClient {
    * ledger-id automatically discovered instead of provided.
    *
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
-   *     even better either {@link DamlLedgerClient#newBuilder}
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional,
+   *     ClientInterceptor[])} or even better either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
   public static DamlLedgerClient forHostWithLedgerIdDiscovery(
@@ -156,18 +156,18 @@ public final class DamlLedgerClient implements LedgerClient {
   private TimeClient timeClient;
   private String expectedLedgerId;
   private Optional<String> accessToken;
-  private final Optional<Deadline> deadline;
+  private final ClientInterceptor[] interceptors;
   private final ManagedChannel channel;
 
   private DamlLedgerClient(
       @NonNull NettyChannelBuilder channelBuilder,
       @NonNull Optional<String> expectedLedgerId,
       @NonNull Optional<String> accessToken,
-      @NonNull Optional<Deadline> deadline) {
+      ClientInterceptor... interceptors) {
     this.channel = channelBuilder.build();
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = accessToken;
-    this.deadline = deadline;
+    this.interceptors = interceptors;
   }
 
   /**
@@ -184,11 +184,11 @@ public final class DamlLedgerClient implements LedgerClient {
   public DamlLedgerClient(
       Optional<String> expectedLedgerId,
       @NonNull ManagedChannel channel,
-      Optional<Deadline> deadline) {
+      ClientInterceptor... interceptors) {
     this.channel = channel;
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = Optional.empty();
-    this.deadline = deadline;
+    this.interceptors = interceptors;
   }
 
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
@@ -213,7 +213,8 @@ public final class DamlLedgerClient implements LedgerClient {
     commandCompletionClient =
         new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     commandSubmissionClient =
-        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.deadline);
+        new CommandSubmissionClientImpl(
+            reportedLedgerId, channel, this.accessToken, this.interceptors);
     commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
     packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
     ledgerConfigurationClient =
