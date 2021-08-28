@@ -280,7 +280,7 @@ da_scala_test_suite(
                 "--verbose",
                 "--include=ParticipantPruningIT",
                 # Disable tests targeting only append-only schema functionality
-                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences",
+                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
             ],
         ),
         conformance_test(
@@ -441,6 +441,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
     ],
 )
 
@@ -459,6 +461,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
     ],
 )
 
@@ -477,6 +481,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
     ],
 )
 
@@ -493,7 +499,7 @@ conformance_test(
         "--verbose",
         "--include=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences",
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
     ],
 )
 

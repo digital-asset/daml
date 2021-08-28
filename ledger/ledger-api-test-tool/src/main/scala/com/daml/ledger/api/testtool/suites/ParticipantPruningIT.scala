@@ -551,7 +551,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      _ <- pruneAtCurrentOffset(participant, bob, pruneAllDivulgedContracts = false)
+      _ <- pruneAtCurrentOffset(
+        participant,
+        bob,
+        pruneAllDivulgedContracts = false,
+      )
 
       // Bob can still see the divulged contract
       _ <- participant.exerciseAndGetContract[Dummy](
@@ -562,7 +566,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Archive the divulged contract
       _ <- participant.exercise(alice, contract.exerciseArchive)
 
-      _ <- pruneAtCurrentOffset(participant, bob, pruneAllDivulgedContracts = false)
+      _ <- pruneAtCurrentOffset(
+        participant,
+        bob,
+        pruneAllDivulgedContracts = false,
+      )
 
       _ <- participant
         .exerciseAndGetContract[Dummy](
@@ -690,7 +698,6 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       _ <- pruneAtCurrentOffset(beta, bob, pruneAllDivulgedContracts = true)
 
-      // TODO Divulgence pruning: Check ACS equality before and after pruning
       _ <- beta
         .exerciseAndGetContract[Dummy](
           bob,
@@ -747,13 +754,22 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
   private def pruneAtCurrentOffset(
       participant: ParticipantTestContext,
-      party: Party,
+      localParty: Party,
       pruneAllDivulgedContracts: Boolean,
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       offset <- participant.currentEnd()
       // Dummy needed to prune at this offset
-      _ <- participant.create(party, Dummy(party))
+      _ <- participant.create(localParty, Dummy(localParty))
+
+      acsBeforePruning <- participant.activeContracts(localParty)
       _ <- participant.prune(offset, pruneAllDivulgedContracts = pruneAllDivulgedContracts)
-    } yield ()
+      acsAfterPruning <- participant.activeContracts(localParty)
+
+    } yield {
+      assert(
+        acsBeforePruning == acsAfterPruning,
+        s"Active contract set comparison before and after pruning failed: $acsBeforePruning vs $acsAfterPruning",
+      )
+    }
 }

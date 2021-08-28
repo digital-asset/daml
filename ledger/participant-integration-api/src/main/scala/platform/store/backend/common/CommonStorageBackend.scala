@@ -557,8 +557,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
         SQL"""
             -- Immediate divulgence pruning
-            delete
-            from participant_events_create c
+            delete from participant_events_create c
             where event_offset > $prunedAllDivulgedContractsUpToInclusive
             and event_offset <= $pruneUpToInclusive
             and not exists (
