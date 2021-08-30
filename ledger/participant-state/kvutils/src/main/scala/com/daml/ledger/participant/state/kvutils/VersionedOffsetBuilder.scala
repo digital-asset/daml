@@ -44,7 +44,10 @@ class VersionedOffsetBuilder(version: Byte) {
   }
 
   def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset = {
-    require(highest >= 0 && highest <= MaxHighest, s"highest ($highest) is out of range [0, $MaxHighest]")
+    require(
+      highest >= 0 && highest <= MaxHighest,
+      s"highest ($highest) is out of range [0, $MaxHighest]",
+    )
     require(middle >= 0, s"middle ($middle) is lower than 0")
     require(lowest >= 0, s"lowest ($lowest) is lower than 0")
 
