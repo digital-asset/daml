@@ -7,7 +7,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
-import com.daml.ledger.participant.state.v2.{TransactionMeta, Update}
+import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp

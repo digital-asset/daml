@@ -7,12 +7,7 @@ import java.time.Instant
 
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionRejectionEntry._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlTransactionRejectionEntry,
-  InvalidLedgerTime,
-  SubmitterCannotActViaParticipant,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
@@ -35,7 +30,7 @@ private[transaction] class Rejections(metrics: Metrics) {
       recordTime: Option[Timestamp],
   )(implicit loggingContext: LoggingContext): StepResult[A] =
     reject(
-      buildRejectionEntry(transactionEntry, rejection),
+      buildRejectionEntry(transactionEntry.submitterInfo, rejection),
       rejection.description,
       recordTime,
     )
@@ -61,22 +56,22 @@ private[transaction] class Rejections(metrics: Metrics) {
       maximumRecordTime: Instant,
   ): DamlTransactionRejectionEntry =
     buildRejectionEntry(
-      transactionEntry,
+      transactionEntry.submitterInfo,
       Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime),
     ).build
 
   private def buildRejectionEntry(
-      transactionEntry: DamlTransactionEntrySummary,
+      submitterInfo: DamlSubmitterInfo,
       rejection: Rejection,
   ): DamlTransactionRejectionEntry.Builder = {
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
-      .setSubmitterInfo(transactionEntry.submitterInfo)
+      .setSubmitterInfo(submitterInfo)
 
     rejection match {
       case Rejection.ValidationFailure(error) =>
         builder.setValidationFailure(
-          DamlTransactionRejectionEntry.ValidationFailure.newBuilder().setDetails(error.message)
+          ValidationFailure.newBuilder().setDetails(error.message)
         )
       case InternallyInconsistentTransaction.DuplicateKeys =>
         builder.setInternalDuplicateKeys(DuplicateKeys.newBuilder())

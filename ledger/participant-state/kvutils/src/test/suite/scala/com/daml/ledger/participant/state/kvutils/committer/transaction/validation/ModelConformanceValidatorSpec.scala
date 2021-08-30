@@ -9,10 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, lfTuple}
-import com.daml.ledger.participant.state.kvutils.committer.transaction.{
-  DamlTransactionEntrySummary,
-  Rejections,
-}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{DamlTransactionEntrySummary, Rejections}
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
@@ -25,8 +22,8 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.lf.transaction.TransactionOuterClass.ContractInstance
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction._
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
@@ -354,7 +351,7 @@ class ModelConformanceValidatorSpec
           DamlTransactionRejectionEntry.newBuilder
             .setSubmitterInfo(DamlSubmitterInfo.getDefaultInstance)
             .setCausalMonotonicityViolated(
-              DamlTransactionRejectionEntry.CausalMonotonicityViolated.newBuilder
+              CausalMonotonicityViolated.newBuilder
             )
         )
         .build()

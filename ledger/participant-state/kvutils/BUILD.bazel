@@ -111,6 +111,7 @@ da_scala_library(
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/transaction-test-lib",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
