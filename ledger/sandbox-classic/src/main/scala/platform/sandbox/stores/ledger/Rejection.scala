@@ -21,7 +21,7 @@ sealed trait Rejection {
   def toStateV1RejectionReason: v1.RejectionReason
 
   def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
-    new v2.Update.CommandRejected.FinalReason(
+    v2.Update.CommandRejected.FinalReason(
       RpcStatus.of(code.value(), description, Seq.empty)
     )
 }

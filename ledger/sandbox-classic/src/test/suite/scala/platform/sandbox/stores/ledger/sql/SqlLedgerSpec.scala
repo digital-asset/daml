@@ -4,8 +4,10 @@
 package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.io.File
-import java.time.Instant
+import java.time.{Duration, Instant}
+import java.util.UUID
 
+import akka.stream.scaladsl.Sink
 import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -13,15 +15,20 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.v2.SubmissionResult
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.{DeduplicationPeriod, domain}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
+import com.daml.lf.transaction.test.TransactionBuilder.EmptySubmitted
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.SeedService
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
@@ -33,18 +40,21 @@ import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import com.daml.timer.RetryStrategy
+import io.grpc.Status
+import org.scalatest.Inside
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
 final class SqlLedgerSpec
     extends AsyncWordSpec
     with Matchers
+    with Inside
     with AsyncTimeLimitedTests
     with ScaledTimeSpans
     with Eventually
@@ -273,9 +283,148 @@ final class SqlLedgerSpec
       }
     }
 
+    "publish a transaction" in {
+      val seedService = SeedService.WeakRandom
+      val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
+      val party = Ref.Party.assertFromString("party1")
+      val commandId = Ref.CommandId.assertFromString("commandId1")
+      val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
+      val now = Time.Timestamp.assertFromInstant(Instant.now())
+      for {
+        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        start = sqlLedger.ledgerEnd()
+        _ <- sqlLedger.publishConfiguration(
+          maxRecordTime = now.add(Duration.ofMinutes(1)),
+          submissionId = "configuration",
+          config = Configuration.reasonableInitialConfiguration,
+        )
+        result <- sqlLedger.publishTransaction(
+          submitterInfo = SubmitterInfo(
+            actAs = List(party),
+            applicationId = applicationId,
+            commandId = commandId,
+            deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
+            submissionId = submissionId,
+            ledgerConfiguration = Configuration.reasonableInitialConfiguration,
+          ),
+          transactionMeta = emptyTransactionMeta(seedService, ledgerEffectiveTime = now),
+          transaction = EmptySubmitted,
+        )
+        completion <- sqlLedger
+          .completions(
+            startExclusive = Some(start),
+            endInclusive = None,
+            applicationId = domain.ApplicationId(applicationId),
+            parties = Set(party),
+          )
+          .runWith(Sink.head)
+      } yield {
+        result should be(SubmissionResult.Acknowledged)
+        completion._1 should be > start
+        inside(completion._2.completions) {
+          case Seq(Completion(`commandId`, Some(status), _, _, _, _, _)) =>
+            status.code should be(Status.Code.OK.value)
+        }
+      }
+    }
+
+    "reject a transaction if no configuration is found" in {
+      val seedService = SeedService.WeakRandom
+      val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
+      val party = Ref.Party.assertFromString("party1")
+      val commandId = Ref.CommandId.assertFromString("commandId1")
+      val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
+      val now = Time.Timestamp.assertFromInstant(Instant.now())
+      for {
+        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        start = sqlLedger.ledgerEnd()
+        result <- sqlLedger.publishTransaction(
+          submitterInfo = SubmitterInfo(
+            actAs = List(party),
+            applicationId = applicationId,
+            commandId = commandId,
+            deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
+            submissionId = submissionId,
+            ledgerConfiguration = Configuration.reasonableInitialConfiguration,
+          ),
+          transactionMeta = emptyTransactionMeta(seedService, ledgerEffectiveTime = now),
+          transaction = EmptySubmitted,
+        )
+        completion <- sqlLedger
+          .completions(
+            startExclusive = Some(start),
+            endInclusive = None,
+            applicationId = domain.ApplicationId(applicationId),
+            parties = Set(party),
+          )
+          .runWith(Sink.head)
+      } yield {
+        result should be(SubmissionResult.Acknowledged)
+        completion._1 should be > start
+        inside(completion._2.completions) {
+          case Seq(Completion(`commandId`, Some(status), _, _, _, _, _)) =>
+            status.code should be(Status.Code.ABORTED.value)
+            status.message should be(
+              "No ledger configuration available, cannot validate ledger time"
+            )
+        }
+      }
+    }
+
+    "reject a transaction if the ledger effective time is out of bounds" in {
+      val seedService = SeedService.WeakRandom
+      val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
+      val party = Ref.Party.assertFromString("party1")
+      val commandId = Ref.CommandId.assertFromString("commandId1")
+      val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
+      val now = Time.Timestamp.assertFromInstant(Instant.now())
+      for {
+        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        start = sqlLedger.ledgerEnd()
+        _ <- sqlLedger.publishConfiguration(
+          maxRecordTime = now.add(Duration.ofMinutes(1)),
+          submissionId = "configuration",
+          config = Configuration.reasonableInitialConfiguration.copy(
+            timeModel = LedgerTimeModel.reasonableDefault.copy(
+              minSkew = Duration.ofSeconds(10),
+              maxSkew = Duration.ofSeconds(10),
+            )
+          ),
+        )
+        result <- sqlLedger.publishTransaction(
+          submitterInfo = SubmitterInfo(
+            actAs = List(party),
+            applicationId = applicationId,
+            commandId = commandId,
+            deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
+            submissionId = submissionId,
+            ledgerConfiguration = Configuration.reasonableInitialConfiguration,
+          ),
+          transactionMeta =
+            emptyTransactionMeta(seedService, ledgerEffectiveTime = now.add(Duration.ofMinutes(5))),
+          transaction = EmptySubmitted,
+        )
+        completion <- sqlLedger
+          .completions(
+            startExclusive = Some(start),
+            endInclusive = None,
+            applicationId = domain.ApplicationId(applicationId),
+            parties = Set(party),
+          )
+          .runWith(Sink.head)
+      } yield {
+        result should be(SubmissionResult.Acknowledged)
+        completion._1 should be > start
+        inside(completion._2.completions) {
+          case Seq(Completion(`commandId`, Some(status), _, _, _, _, _)) =>
+            status.code should be(Status.Code.ABORTED.value)
+            status.message should fullyMatch regex "Ledger time .* outside of range \\[.*]".r
+        }
+      }
+    }
   }
 
-  private val retryStrategy = RetryStrategy.exponentialBackoff(10, Duration(12, "millis"))
+  private val retryStrategy = RetryStrategy.exponentialBackoff(10, 12.millis)
 
   private def eventually[T](f: => Future[T]): Future[T] = retryStrategy.apply((_, _) => f)
 
@@ -371,4 +520,19 @@ object SqlLedgerSpec {
 
   private val testDar =
     DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
+
+  private def emptyTransactionMeta(
+      seedService: SeedService,
+      ledgerEffectiveTime: Time.Timestamp,
+  ) = {
+    TransactionMeta(
+      ledgerEffectiveTime = ledgerEffectiveTime,
+      workflowId = None,
+      submissionTime = ledgerEffectiveTime,
+      submissionSeed = seedService.nextSeed(),
+      optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    )
+  }
 }
