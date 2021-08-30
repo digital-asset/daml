@@ -426,7 +426,7 @@ class Endpoints(
                 LoggingContextOf.label[domain.GetActiveContractsRequest],
                 "cmd" -> cmd.toString,
               ).run { implicit lc =>
-                logger.debug(s"Processing a query request")
+                logger.debug("Processing a query request")
                 contractsService
                   .search(jwt, jwtPayload, cmd)
                   .map(
