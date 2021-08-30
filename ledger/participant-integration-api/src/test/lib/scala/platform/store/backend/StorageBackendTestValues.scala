@@ -41,6 +41,7 @@ private[backend] object StorageBackendTestValues {
     ParameterStorageBackend.IdentityParams(someLedgerId, someParticipantId)
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
   val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
+  val someSubmissionId: String = "submission_id"
 
   val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
     .setHash("00001")
@@ -205,44 +206,16 @@ private[backend] object StorageBackendTestValues {
     )
   }
 
-  sealed trait Deduplication extends Product with Serializable {
-    import Deduplication.{Offset => DedupOffset, _}
-
-    def startOffset: Option[String] = this match {
-      case DedupOffset(offset) => Some(offset)
-      case _ => None
-    }
-    def duration: Option[SecondsAndNanos] = this match {
-      case Span(span) => Some(span)
-      case _ => None
-    }
-    def startInstant: Option[Instant] = this match {
-      case Start(instant) => Some(instant)
-      case _ => None
-    }
-  }
-  object Deduplication {
-    final case class SecondsAndNanos(seconds: Long, nanos: Int) {
-      def allComponentsAreNonNegative: Boolean = seconds >= 0 && nanos >= 0
-    }
-
-    final case class Offset(offset: String) extends Deduplication
-    final case class Span(span: SecondsAndNanos) extends Deduplication {
-      require(
-        span.allComponentsAreNonNegative,
-        s"All the deduplication window components must not be negative: $span",
-      )
-    }
-    final case class Start(instant: Instant) extends Deduplication
-  }
-
   def dtoCompletion(
       offset: Offset,
       submitter: String = "signatory",
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
       submissionId: Option[String] = Some(UUID.randomUUID().toString),
-      deduplication: Option[Deduplication] = None,
+      deduplicationOffset: Option[String] = None,
+      deduplicationTimeSeconds: Option[Long] = None,
+      deduplicationTimeNanos: Option[Int] = None,
+      deduplicationStart: Option[Instant] = None,
   ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
@@ -255,10 +228,10 @@ private[backend] object StorageBackendTestValues {
       rejection_status_message = None,
       rejection_status_details = None,
       submission_id = submissionId,
-      deduplication_offset = deduplication.flatMap(_.startOffset),
-      deduplication_time_seconds = deduplication.flatMap(_.duration.map(_.seconds)),
-      deduplication_time_nanos = deduplication.flatMap(_.duration.map(_.nanos)),
-      deduplication_start = deduplication.flatMap(_.startInstant),
+      deduplication_offset = deduplicationOffset,
+      deduplication_time_seconds = deduplicationTimeSeconds,
+      deduplication_time_nanos = deduplicationTimeNanos,
+      deduplication_start = deduplicationStart,
     )
 
   def dtoTransactionId(dto: DbDto): Ref.TransactionId = {
