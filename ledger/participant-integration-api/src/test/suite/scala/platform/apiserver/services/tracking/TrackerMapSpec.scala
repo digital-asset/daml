@@ -29,6 +29,17 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "the tracker map" should {
+    "reject a retention period that is too long" in {
+      val exception = the[IllegalArgumentException] thrownBy new TrackerMap[Unit](
+        retentionPeriod = Duration.ofSeconds(Long.MaxValue),
+        getKey = _ => (),
+        newTracker = _ => Future.failed(new IllegalStateException("This should never be called.")),
+      )
+      exception.getMessage should be(
+        s"Retention period PT2562047788015215H30M7S is invalid. Must be between 1 and ${Long.MaxValue} nanoseconds."
+      )
+    }
+
     "delegate submissions to the constructed trackers" in {
       val transactionIds = Seq("transaction A", "transaction B").iterator
       val tracker = new TrackerMap[String](
