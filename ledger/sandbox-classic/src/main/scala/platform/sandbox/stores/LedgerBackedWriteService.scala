@@ -21,8 +21,12 @@ import io.grpc.Status
 
 import scala.compat.java8.FutureConverters
 
-private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
-    implicit loggingContext: LoggingContext
+private[stores] final class LedgerBackedWriteService(
+    ledger: Ledger,
+    timeProvider: TimeProvider,
+    enablePruning: Boolean,
+)(implicit
+    loggingContext: LoggingContext
 ) extends state.WriteService {
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
@@ -92,13 +96,15 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
     }
 
-  // WriteParticipantPruningService - not supported by sandbox-classic
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[state.PruningResult] =
-    CompletableFuture.completedFuture(state.PruningResult.NotPruned(Status.UNIMPLEMENTED))
+    CompletableFuture.completedFuture {
+      if (enablePruning) state.PruningResult.ParticipantPruned
+      else state.PruningResult.NotPruned(Status.UNIMPLEMENTED)
+    }
 
   override def isApiDeduplicationEnabled: Boolean = true
 }
