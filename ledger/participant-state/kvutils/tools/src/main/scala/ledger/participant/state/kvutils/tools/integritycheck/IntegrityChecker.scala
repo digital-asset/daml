@@ -105,7 +105,7 @@ class IntegrityChecker[LogResult](
       _ <- indexStateUpdates(
         config = config,
         metrics = metrics,
-        readService =
+        replayingReadService =
           if (config.indexOnly)
             expectedReadServiceFactory.createReadService
           else
@@ -125,21 +125,21 @@ class IntegrityChecker[LogResult](
   private def indexStateUpdates(
       config: Config,
       metrics: Metrics,
-      readService: ReplayingReadService,
+      replayingReadService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
     // Start the indexer consuming the recorded state updates
-    println(s"Starting to index ${readService.updateCount()} updates.".white)
+    println(s"Starting to index ${replayingReadService.updateCount()} updates.".white)
     newLoggingContext { implicit loggingContext =>
       val feedHandleResourceOwner = for {
         indexer <- migrateAndStartIndexer(
           createIndexerConfig(config),
-          readService,
+          replayingReadService,
           metrics,
           LfValueTranslationCache.Cache.none,
         )
-        feedHandle <- indexer.subscription(readService)
+        feedHandle <- indexer.subscription(replayingReadService)
       } yield (feedHandle, System.nanoTime())
 
       // Wait for the indexer to finish consuming the state updates.
@@ -159,7 +159,7 @@ class IntegrityChecker[LogResult](
             .fromNanos(System.nanoTime() - startTime)
             .toMillis
             .toDouble / 1000.0
-          val updatesPerSecond = readService.updateCount() / durationSeconds
+          val updatesPerSecond = replayingReadService.updateCount() / durationSeconds
           println()
           println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
         }
