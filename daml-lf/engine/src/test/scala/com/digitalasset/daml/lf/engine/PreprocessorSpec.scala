@@ -252,7 +252,7 @@ class PreprocessorSpec
         ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("a legal Contract ID"), dummySuffix)
       val illegalCid =
         ContractId.V0.assertFromString("#illegal Contract ID")
-      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+      val failure = Failure(Error.Preprocessing.IllegalContractId.V0ContractId(illegalCid))
 
       forEvery(testCasesForCid(legalCid))((typ, value) =>
         Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
@@ -273,7 +273,7 @@ class PreprocessorSpec
         ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("a legal Contract ID"), dummySuffix)
       val illegalCid =
         ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
-      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+      val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(testCasesForCid(legalCid))((typ, value) =>
         Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
@@ -368,7 +368,7 @@ class PreprocessorSpec
           ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
         )
       val illegalCid = ContractId.V0.assertFromString("#illegal Contract ID")
-      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+      val failure = Failure(Error.Preprocessing.IllegalContractId.V0ContractId(illegalCid))
 
       forEvery(testCases(aLegalCid, anotherLegalCid))(cmd =>
         Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]
@@ -392,7 +392,7 @@ class PreprocessorSpec
         )
       val illegalCid =
         ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
-      val failure = Failure(Error.Preprocessing.IllegalContractId(illegalCid))
+      val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(testCases(aLegalCid, anotherLegalCid)) { cmd =>
         Try(cmdPreprocessor.unsafePreprocessCommand(cmd)) shouldBe a[Success[_]]

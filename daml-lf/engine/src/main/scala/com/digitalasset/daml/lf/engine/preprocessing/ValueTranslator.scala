@@ -47,7 +47,7 @@ private[engine] final class ValueTranslator(
     if (requireV1ContractIdSuffix)
       cid =>
         if (cid.suffix.isEmpty)
-          throw Error.Preprocessing.IllegalContractId(cid)
+          throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
         else
           SValue.SContractId(cid)
     else
@@ -55,7 +55,7 @@ private[engine] final class ValueTranslator(
 
   private[this] val unsafeTranslateV0Cid: ContractId.V0 => SValue.SContractId =
     if (forbidV0ContractId)
-      cid => throw Error.Preprocessing.IllegalContractId(cid)
+      cid => throw Error.Preprocessing.IllegalContractId.V0ContractId(cid)
     else
       SValue.SContractId(_)
 

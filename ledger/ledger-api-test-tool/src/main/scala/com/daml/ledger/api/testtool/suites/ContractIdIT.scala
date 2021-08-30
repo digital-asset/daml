@@ -52,7 +52,7 @@ final class ContractIdIT extends LedgerTestSuite {
             assertGrpcError(
               err,
               Status.Code.INVALID_ARGUMENT,
-              s"""Illegal Contract ID "$testedCid".""",
+              s"""Illegal Contract ID "$testedCid"""",
             )
             ()
           case otherwise =>

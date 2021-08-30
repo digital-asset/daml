@@ -105,9 +105,24 @@ object Error {
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
 
-    final case class IllegalContractId(cid: Value.ContractId) extends Error {
+    final case class IllegalContractId(cid: Value.ContractId, reason: IllegalContractId.Reason)
+        extends Error {
       override def message: String =
-        s"""Illegal Contract ID "${cid.coid}""""
+        s"""Illegal Contract ID "${cid.coid}, """" + reason.details
+    }
+
+    object IllegalContractId {
+      sealed abstract class Reason extends Serializable with Product {
+        def details: String
+      }
+      case object V0ContractId extends Reason {
+        def details = "V0 Contract IDs are forbidden"
+        def apply(cid: Value.ContractId.V0): IllegalContractId = IllegalContractId(cid, this)
+      }
+      case object NonSuffixV1ContractId extends Reason {
+        def details = "non-suffixed V1 Contract IDs are forbidden"
+        def apply(cid: Value.ContractId.V1): IllegalContractId = IllegalContractId(cid, this)
+      }
     }
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error
