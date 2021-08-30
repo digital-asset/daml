@@ -64,8 +64,11 @@ object ScriptF {
   ) {
     def clients = _clients
     def compiledPackages = machine.compiledPackages
-    val valueTranslator =
-      new ValueTranslator(interface = compiledPackages.interface, requiredCidSuffix = false)
+    val valueTranslator = new ValueTranslator(
+      interface = compiledPackages.interface,
+      forbidV0ContractId = false,
+      requireV1ContractIdSuffix = false,
+    )
     val utcClock = Clock.systemUTC()
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =

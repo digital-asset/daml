@@ -16,8 +16,9 @@ import scala.annotation.tailrec
 
 private[engine] final class ValueTranslator(
     interface: language.Interface,
-    // See Preprocessor.requiredCidSuffix for more details about the following flag.
-    requiredCidSuffix: Boolean,
+    // See Preprocessor scala doc for more details about the following flags.
+    forbidV0ContractId: Boolean,
+    requireV1ContractIdSuffix: Boolean,
 ) {
 
   import Preprocessor._
@@ -42,18 +43,28 @@ private[engine] final class ValueTranslator(
     go(fields, Map.empty)
   }
 
-  private[preprocessing] val unsafeTranslateCid: ContractId => SValue.SContractId =
-    if (requiredCidSuffix) {
-      case cid1: ContractId.V1 =>
-        if (cid1.suffix.isEmpty)
-          throw Error.Preprocessing.NonSuffixedCid(cid1)
+  private[this] val unsafeTranslateV1Cid: ContractId.V1 => SValue.SContractId =
+    if (requireV1ContractIdSuffix)
+      cid =>
+        if (cid.suffix.isEmpty)
+          throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
         else
-          SValue.SContractId(cid1)
-      case cid0: ContractId.V0 =>
-        SValue.SContractId(cid0)
-    }
+          SValue.SContractId(cid)
     else
-      SValue.SContractId
+      SValue.SContractId(_)
+
+  private[this] val unsafeTranslateV0Cid: ContractId.V0 => SValue.SContractId =
+    if (forbidV0ContractId)
+      cid => throw Error.Preprocessing.IllegalContractId.V0ContractId(cid)
+    else
+      SValue.SContractId(_)
+
+  @throws[Error.Preprocessing.Error]
+  private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId =
+    cid match {
+      case cid1: ContractId.V1 => unsafeTranslateV1Cid(cid1)
+      case cid0: ContractId.V0 => unsafeTranslateV0Cid(cid0)
+    }
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
