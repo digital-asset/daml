@@ -92,13 +92,13 @@ private[platform] object CompletionFromTransaction {
       maybeDeduplicationTimeSeconds: Option[Long],
       maybeDeduplicationTimeNanos: Option[Int],
   ): Completion = {
-    val deduplicationPeriod = toApiDeduplicationPeriod(
+    val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
       maybeDeduplicationOffset,
       maybeDeduplicationTimeNanos,
       maybeDeduplicationTimeSeconds,
     )
-    maybeSubmissionId match {
-      case Some(submissionId) =>
+    (maybeSubmissionId, maybeDeduplicationPeriod) match {
+      case (Some(submissionId), Some(deduplicationPeriod)) =>
         Completion(
           commandId = commandId,
           status = maybeStatus,
@@ -107,13 +107,28 @@ private[platform] object CompletionFromTransaction {
           submissionId = submissionId,
           deduplicationPeriod = deduplicationPeriod,
         )
+      case (Some(submissionId), _) =>
+        Completion(
+          commandId = commandId,
+          status = maybeStatus,
+          transactionId = transactionId,
+          applicationId = applicationId,
+          submissionId = submissionId,
+        )
+      case (None, Some(deduplicationPeriod)) =>
+        Completion(
+          commandId = commandId,
+          status = maybeStatus,
+          transactionId = transactionId,
+          applicationId = applicationId,
+          deduplicationPeriod = deduplicationPeriod,
+        )
       case _ =>
         Completion(
           commandId = commandId,
           status = Some(OkStatus),
           transactionId = transactionId,
           applicationId = applicationId,
-          deduplicationPeriod = deduplicationPeriod,
         )
     }
   }
@@ -122,17 +137,20 @@ private[platform] object CompletionFromTransaction {
       maybeDeduplicationOffset: Option[String],
       maybeDeduplicationTimeNanos: Option[Int],
       maybeDeduplicationTimeSeconds: Option[Long],
-  ): Completion.DeduplicationPeriod =
+  ): Option[Completion.DeduplicationPeriod] =
     // The only invariant that should hold, considering legacy data, is that either
     // the deduplication time seconds and nanos are both populated, or neither is.
     (maybeDeduplicationOffset, (maybeDeduplicationTimeSeconds, maybeDeduplicationTimeNanos)) match {
+      case (None, (None, None)) => None
       case (Some(offset), _) =>
-        Completion.DeduplicationPeriod.DeduplicationOffset(offset)
+        Some(Completion.DeduplicationPeriod.DeduplicationOffset(offset))
       case (_, (Some(deduplicationTimeSeconds), Some(deduplicationTimeNanos))) =>
-        Completion.DeduplicationPeriod.DeduplicationTime(
-          new Duration(
-            seconds = deduplicationTimeSeconds,
-            nanos = deduplicationTimeNanos,
+        Some(
+          Completion.DeduplicationPeriod.DeduplicationTime(
+            new Duration(
+              seconds = deduplicationTimeSeconds,
+              nanos = deduplicationTimeNanos,
+            )
           )
         )
       case _ =>
