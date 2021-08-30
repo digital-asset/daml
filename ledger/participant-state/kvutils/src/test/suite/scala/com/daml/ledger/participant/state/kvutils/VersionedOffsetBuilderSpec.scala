@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-/** Other test cases are covered by [[OffsetBuilder]] */
+/** Other test cases are covered by [[OffsetBuilderSpec]] */
 class VersionedOffsetBuilderSpec
     extends AnyWordSpec
     with Matchers
