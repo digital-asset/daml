@@ -89,7 +89,7 @@ private class PackageService(
             updateState(diff)
             logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
             logger.debug(s"loaded diff: $diff")
-          case None => logger.debug(s"new package IDs not found")
+          case None => logger.debug("new package IDs not found")
         }
         .map { res =>
           updateInstant(Instant.now())
