@@ -60,7 +60,10 @@ final class ApiParticipantPruningService private (
               // systems back in sync by reissuing the prune request at the currently specified or later offset.
               _ <- pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts)
 
-              pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
+              pruneResponse <- pruneLedgerApiServerIndex(
+                pruneUpTo,
+                request.pruneAllDivulgedContracts,
+              )
 
             } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
         },
@@ -102,11 +105,12 @@ final class ApiParticipantPruningService private (
   }
 
   private def pruneLedgerApiServerIndex(
-      pruneUpTo: Offset
+      pruneUpTo: Offset,
+      pruneAllDivulgedContracts: Boolean,
   )(implicit logCtx: LoggingContext): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiString} inclusively")
     readBackend
-      .prune(pruneUpTo)
+      .prune(pruneUpTo, pruneAllDivulgedContracts)
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo.toApiString} inclusively.")
         PruneResponse()

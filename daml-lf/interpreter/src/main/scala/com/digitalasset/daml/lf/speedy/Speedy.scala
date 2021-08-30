@@ -343,7 +343,7 @@ private[lf] object Speedy {
 
     private[lf] def contextActors: Set[Party] =
       withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.info.authorizers.getOrElse(onLedger.committers)
+        onLedger.ptx.context.info.authorizers
       }
 
     private[lf] def auth: Authorize = Authorize(this.contextActors)
@@ -787,6 +787,7 @@ private[lf] object Speedy {
               submissionTime,
               initialSeeding,
               transactionNormalization,
+              committers,
             ),
           committers = committers,
           readAs = readAs,

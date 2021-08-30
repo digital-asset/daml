@@ -193,11 +193,12 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     )
 
   override def prune(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.index.prune,
-      ledger.prune(pruneUpToInclusive),
+      ledger.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
 }
 

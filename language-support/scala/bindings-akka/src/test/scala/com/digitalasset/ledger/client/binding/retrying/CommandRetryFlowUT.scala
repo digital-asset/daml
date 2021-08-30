@@ -7,26 +7,20 @@ import java.time.{Duration, Instant}
 
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
-  CompletionFailure,
-  CompletionSuccess,
-  NotOkResponse,
-}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.NotOkResponse
 import com.daml.ledger.client.testing.AkkaTest
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with Inside {
@@ -34,11 +28,16 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
   /** Uses the status received in the context for the first time,
     * then replies OK status as the ledger effective time is stepped.
     */
-  val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
-    Flow[In[RetryInfo[Status]]]
+  val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status, CommandSubmission]] =
+    Flow[In[RetryInfo[Status, CommandSubmission]]]
       .map {
-        case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands)), _) =>
-          if (commands.deduplicationTime.get.nanos == 0) {
+        case Ctx(
+              context @ RetryInfo(_, nrOfRetries, _, status),
+              CommandSubmission(commands),
+              _,
+            ) =>
+          // Return a completion based on the input status code only on the first submission.
+          if (nrOfRetries == 0) {
             Ctx(context, CompletionResponse(Completion(commands.commandId, Some(status))))
           } else {
             Ctx(
@@ -53,46 +52,36 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
   private val timeProvider = TimeProvider.Constant(Instant.ofEpochSecond(60))
   private val maxRetryTime = Duration.ofSeconds(30)
 
-  @nowarn("msg=parameter value response .* is never used") // matches createGraph signature
-  private def createRetry(
-      retryInfo: RetryInfo[Status],
-      response: Either[CompletionFailure, CompletionSuccess],
-  ) = {
-    val commands = retryInfo.request.commands.get
-    val dedupTime = commands.deduplicationTime.get
-    val newDedupTime = dedupTime.copy(nanos = dedupTime.nanos + 1)
-    SubmitRequest(Some(commands.copy(deduplicationTime = Some(newDedupTime))))
-  }
+  val retryFlow: SubmissionFlowType[RetryInfo[Status, CommandSubmission]] =
+    CommandRetryFlow.createGraph(mockCommandSubmission, timeProvider, maxRetryTime)
 
-  val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
-    CommandRetryFlow.createGraph(mockCommandSubmission, timeProvider, maxRetryTime, createRetry)
-
-  private def submitRequest(statusCode: Int, time: Instant): Future[Seq[Out[RetryInfo[Status]]]] = {
-
-    val request = SubmitRequest(
-      Some(
-        Commands(
-          "ledgerId",
-          "workflowId",
-          "applicationId",
-          "commandId",
-          "party",
-          Seq.empty,
-          Some(protoDuration.of(120, 0)),
-        )
+  private def submitRequest(
+      statusCode: Int,
+      time: Instant,
+  ): Future[Seq[Out[RetryInfo[Status, CommandSubmission]]]] = {
+    val request = CommandSubmission(
+      Commands(
+        ledgerId = "ledgerId",
+        workflowId = "workflowId",
+        applicationId = "applicationId",
+        commandId = "commandId",
+        party = "party",
+        commands = Seq.empty,
       )
     )
-
-    val input =
-      Ctx(RetryInfo(request, 0, time, Status(statusCode, "message", Seq.empty)), request)
-
-    Source
-      .single(input)
-      .via(retryFlow)
-      .runWith(Sink.seq)
+    val input = Ctx(
+      context = RetryInfo(
+        value = request,
+        nrOfRetries = 0,
+        firstSubmissionTime = time,
+        ctx = Status(statusCode, "message", Seq.empty),
+      ),
+      value = request,
+    )
+    Source.single(input).via(retryFlow).runWith(Sink.seq)
   }
 
-  CommandRetryFlow.getClass.getSimpleName should {
+  "command retry flow" should {
 
     "propagate OK status" in {
       submitRequest(Code.OK_VALUE, Instant.ofEpochSecond(45)) map { result =>

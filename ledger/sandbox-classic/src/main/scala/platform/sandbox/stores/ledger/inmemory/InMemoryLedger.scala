@@ -690,7 +690,7 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     // sandbox-classic in-memory ledger does not support pruning

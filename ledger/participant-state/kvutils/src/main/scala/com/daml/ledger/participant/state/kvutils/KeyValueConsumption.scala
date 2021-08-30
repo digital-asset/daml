@@ -6,8 +6,14 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0, TransactionMeta, Update}
+import com.daml.ledger.participant.state.v1.{
+  DivulgedContract,
+  RejectionReasonV0,
+  TransactionMeta,
+  Update,
+}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.google.common.io.BaseEncoding
@@ -261,6 +267,17 @@ object KeyValueConsumption {
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
+
+    val (maybeBlindingInfo, divulgedContracts) =
+      if (txEntry.hasBlindingInfo) {
+        val damlTransactionBlindingInfo = txEntry.getBlindingInfo
+        val blindingInfo = Some(Conversions.decodeBlindingInfo(damlTransactionBlindingInfo))
+        val divulgedContracts = validateDivulgedContracts(hexTxId, damlTransactionBlindingInfo)
+        blindingInfo -> divulgedContracts
+      } else {
+        None -> List.empty
+      }
+
     Update.TransactionAccepted(
       optSubmitterInfo =
         if (txEntry.hasSubmitterInfo) Some(parseSubmitterInfo(txEntry.getSubmitterInfo)) else None,
@@ -278,14 +295,39 @@ object KeyValueConsumption {
       transaction = CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
-      divulgedContracts = List.empty,
-      blindingInfo =
-        if (txEntry.hasBlindingInfo)
-          Some(Conversions.decodeBlindingInfo(txEntry.getBlindingInfo))
-        else
-          None,
+      divulgedContracts = divulgedContracts,
+      blindingInfo = maybeBlindingInfo,
     )
   }
+
+  /** Extracts divulgence entries and checks that they have an associated contract instance.
+    *
+    * NOTE: It is not a hard fault for the check to fail,
+    * but missing contracts can cause lookup failures during command interpretation if used.
+    * This can happen if the participant is hydrated from ledgers populated with versions of
+    * [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter]]
+    * predating the introduction of the `DivulgenceEntry.contractInstance` field.
+    */
+  private def validateDivulgedContracts(
+      hexTxId: LedgerString,
+      damlTransactionBlindingInfo: DamlTransactionBlindingInfo,
+  ) =
+    if (!damlTransactionBlindingInfo.getDivulgencesList.isEmpty) {
+      Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
+        case Right(divulgedContractsIndex) =>
+          divulgedContractsIndex.view.map { case (contractId, contractInstance) =>
+            DivulgedContract(contractId, contractInstance)
+          }.toList
+        case Left(missingContractIds) =>
+          logger.warn(
+            s"Missing divulged contract instances in transaction $hexTxId: ${missingContractIds
+              .mkString("[", ", ", "]")}. Command submissions using divulged contracts might fail."
+          )
+          List.empty
+      }
+    } else {
+      List.empty
+    }
 
   private[kvutils] case class TimeBounds(
       tooEarlyUntil: Option[Timestamp] = None,
