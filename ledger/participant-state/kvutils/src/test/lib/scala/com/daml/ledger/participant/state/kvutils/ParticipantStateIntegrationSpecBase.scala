@@ -33,6 +33,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.testing.TestDarReader
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.google.rpc.code.Code
 import org.scalatest.Inside._
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
@@ -466,8 +467,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           update1 should be(a[ConfigurationChanged])
 
           offset2 should be(toOffset(2))
-          inside(update2) { case CommandRejected(_, _, reason) =>
-            reason should be(a[FinalReason])
+          inside(update2) { case CommandRejected(_, _, FinalReason(status)) =>
+            status.code should be(Code.INVALID_ARGUMENT.value)
           }
 
           offset3 should be(toOffset(3))

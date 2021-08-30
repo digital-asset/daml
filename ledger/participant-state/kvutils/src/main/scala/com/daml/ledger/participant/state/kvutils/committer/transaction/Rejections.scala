@@ -98,9 +98,7 @@ private[transaction] class Rejections(metrics: Metrics) {
         builder.setInvalidParticipantState(
           InvalidParticipantState
             .newBuilder()
-            .setDetails(
-              error.getMessage
-            )
+            .setDetails(error.getMessage)
         )
       case Rejection.LedgerTimeOutOfRange(outOfRange) =>
         builder.setInvalidLedgerTime(

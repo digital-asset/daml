@@ -30,7 +30,6 @@ object Rejection {
     object InconsistentKeys extends Rejection {
       override val description: String =
         "InconsistentKeys: the transaction is internally inconsistent"
-
     }
   }
 
@@ -38,32 +37,27 @@ object Rejection {
     object InconsistentContracts extends Rejection {
       override def description: String =
         "InconsistentContracts: at least one contract has been archived since the submission"
-
     }
 
     object DuplicateKeys extends Rejection {
       override val description: String =
         "DuplicateKeys: at least one contract key is not unique"
-
     }
 
     object InconsistentKeys extends Rejection {
       override val description: String =
         "InconsistentKeys: at least one contract key has changed since the submission"
-
     }
   }
 
   final case class MissingInputState(key: DamlStateKey) extends Rejection {
     override lazy val description: String =
       s"Missing input state for key $key"
-
   }
 
   final case class InvalidParticipantState(error: Err) extends Rejection {
     override lazy val description: String =
       error.getMessage
-
   }
 
   final case class LedgerTimeOutOfRange(
@@ -71,7 +65,6 @@ object Rejection {
   ) extends Rejection {
     override lazy val description: String =
       outOfRange.message
-
   }
 
   final case class RecordTimeOutOfRange(
@@ -80,25 +73,21 @@ object Rejection {
   ) extends Rejection {
     override lazy val description: String =
       s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
-
   }
 
   object CausalMonotonicityViolated extends Rejection {
     override val description: String =
       "Causal monotonicity violated"
-
   }
 
   final case class SubmittingPartyNotKnownOnLedger(submitter: Ref.Party) extends Rejection {
     override lazy val description: String =
       s"Submitting party '$submitter' not known"
-
   }
 
   final case class PartiesNotKnownOnLedger(parties: Iterable[Ref.Party]) extends Rejection {
     override lazy val description: String =
       s"Parties not known on ledger: ${parties.mkString("[", ", ", "]")}"
-
   }
 
   final case class SubmitterCannotActViaParticipant(
@@ -107,6 +96,5 @@ object Rejection {
   ) extends Rejection {
     override lazy val description: String =
       s"Party '$submitter' not hosted by participant $participantId"
-
   }
 }

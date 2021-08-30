@@ -36,6 +36,7 @@ class InMemoryLedgerWriterSpec
     "not signal new head in case of failure" in {
       val mockDispatcher = mock[Dispatcher[Index]]
       val mockCommitter = mock[InMemoryLedgerWriter.Committer]
+      val error = SubmissionResult.SynchronousError(Status())
       when(
         mockCommitter.commit(
           any[Ref.ParticipantId],
@@ -46,7 +47,7 @@ class InMemoryLedgerWriterSpec
         )(any[ExecutionContext])
       )
         .thenReturn(
-          Future.successful(SubmissionResult.SynchronousError(Status()))
+          Future.successful(error)
         )
       val instance = new InMemoryLedgerWriter(
         participantId = Ref.ParticipantId.assertFromString("participant ID"),
@@ -66,7 +67,7 @@ class InMemoryLedgerWriterSpec
         )
         .map { actual =>
           verify(mockDispatcher, times(0)).signalNewHead(any[Int])
-          actual should be(a[SubmissionResult.SynchronousError])
+          actual should be(error)
         }
     }
   }

@@ -114,9 +114,9 @@ message DamlSubmitterInfo {
   string command_id = 2;
   string application_id = 3;
   reserved 4; // was maximum_record_time
-  oneof deduplication {
+  oneof deduplication_period {
       google.protobuf.Timestamp deduplicate_until = 5; //DEPRECATED, readonly for backwards compatibility
-      google.protobuf.Duration deduplication_time = 6;
+      google.protobuf.Duration deduplication_duration = 6;
       string deduplication_offset = 7;
   }
   string submission_id = 9;
@@ -193,15 +193,18 @@ message DamlTransactionRejectionEntry {
   reserved 5; // was reason.maximum_record_time_exceeded
 
   oneof reason {
+    // errors used in v1 which are still used in v2
     InvalidLedgerTime invalid_ledger_time = 9;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
-    //v1 reasons DEPRECATED
+
+    // v1 reasons (these are DEPRECATED)
     Inconsistent inconsistent = 2;
     Disputed disputed = 3;
     ResourcesExhausted resources_exhausted = 4;
     Duplicate duplicate_command = 6;
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
-    //v2 reasons
+
+    // v2 reasons
     ValidationFailure validation_failure = 10;
     DuplicateKeys internal_duplicate_keys = 11;
     InconsistentKeys internal_inconsistent_keys = 12;
@@ -213,34 +216,7 @@ message DamlTransactionRejectionEntry {
     CausalMonotonicityViolated causal_monotonicity_violated = 18;
     SubmittingPartyNotKnownOnLedger submitting_party_not_known_on_ledger = 19;
     PartiesNotKnownOnLedger parties_not_known_on_ledger = 20;
-    InvalidParticipantState  invalid_participant_state = 21;
-  }
-  message ValidationFailure {
-    string details = 1;
-  }
-  message DuplicateKeys {
-  }
-  message InconsistentKeys{
-  }
-  message InconsistentContracts {
-  }
-  message MissingInputState {
-    DamlStateKey key = 1;
-  }
-  message InvalidParticipantState {
-    string details = 1;
-  }
-  message RecordTimeOutOfRange {
-    google.protobuf.Timestamp minimum_record_time = 1;
-    google.protobuf.Timestamp maximum_record_time = 2;
-  }
-  message CausalMonotonicityViolated {
-  }
-  message SubmittingPartyNotKnownOnLedger {
-    string submitter_party = 1;
-  }
-  message PartiesNotKnownOnLedger {
-    repeated string parties = 1;
+    InvalidParticipantState invalid_participant_state = 21;
   }
 }
 // A public package upload.
@@ -419,7 +395,7 @@ message DamlCommandDedupKey {
   string application_id = 2;
   string command_id = 3;
 }
-
+// should this be removed? how do we handle transitions?
 message DamlCommandDedupValue {
   reserved 1; // was record_time
   // the time until when future commands with the same
@@ -514,6 +490,8 @@ message DamlContractKeyState {
 
 // Errors
 
+// V1
+
 // The transaction relied on contracts or keys being active that were no longer active.
 message Inconsistent {
   string details = 1;
@@ -589,4 +567,34 @@ message TimedOut {
 // The requested entity already exists.
 message AlreadyExists {
   string details = 1;
+}
+
+// V2
+
+message ValidationFailure {
+    string details = 1;
+}
+message DuplicateKeys {
+}
+message InconsistentKeys{
+}
+message InconsistentContracts {
+}
+message MissingInputState {
+    DamlStateKey key = 1;
+}
+message InvalidParticipantState {
+    string details = 1;
+}
+message RecordTimeOutOfRange {
+    google.protobuf.Timestamp minimum_record_time = 1;
+    google.protobuf.Timestamp maximum_record_time = 2;
+}
+message CausalMonotonicityViolated {
+}
+message SubmittingPartyNotKnownOnLedger {
+    string submitter_party = 1;
+}
+message PartiesNotKnownOnLedger {
+    repeated string parties = 1;
 }

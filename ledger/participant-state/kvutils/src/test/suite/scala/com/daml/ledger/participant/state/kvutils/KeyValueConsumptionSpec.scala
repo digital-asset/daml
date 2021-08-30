@@ -16,8 +16,10 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.Empty
+import com.google.rpc.code.Code
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
@@ -114,9 +116,10 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "generate a rejection entry for a transaction if record time is out of time bounds" in {
       def verifyCommandRejection(actual: Option[Update]): Unit = actual match {
-        case Some(Update.CommandRejected(recordTime, completionInfo, _)) =>
+        case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
           recordTime shouldBe aRecordTime
           completionInfo shouldBe Conversions.parseCompletionInfo(someSubmitterInfo)
+          status.code shouldBe Code.INVALID_ARGUMENT.value
           ()
         case _ => fail()
       }

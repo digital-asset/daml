@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmitterInfo.DeduplicationCase
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmitterInfo.DeduplicationPeriodCase
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
@@ -144,7 +144,7 @@ private[state] object Conversions {
       .setSubmissionId(subInfo.submissionId)
     subInfo.deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
-        submitterInfoBuilder.setDeduplicationTime(buildDuration(duration))
+        submitterInfoBuilder.setDeduplicationDuration(buildDuration(duration))
       case DeduplicationPeriod.DeduplicationOffset(offset) =>
         submitterInfoBuilder.setDeduplicationOffset(offset.toHexString)
     }
@@ -152,18 +152,20 @@ private[state] object Conversions {
   }
 
   def parseCompletionInfo(subInfo: DamlSubmitterInfo): CompletionInfo = {
-    val deduplicationPeriod = subInfo.getDeduplicationCase match {
-      case DeduplicationCase.DEDUPLICATION_TIME =>
-        Some(DeduplicationPeriod.DeduplicationDuration(parseDuration(subInfo.getDeduplicationTime)))
-      case DeduplicationCase.DEDUPLICATION_OFFSET =>
+    val deduplicationPeriod = subInfo.getDeduplicationPeriodCase match {
+      case DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
+        Some(
+          DeduplicationPeriod.DeduplicationDuration(parseDuration(subInfo.getDeduplicationDuration))
+        )
+      case DeduplicationPeriodCase.DEDUPLICATION_OFFSET =>
         Some(
           DeduplicationPeriod.DeduplicationOffset(
             Offset.fromHexString(Ref.HexString.assertFromString(subInfo.getDeduplicationOffset))
           )
         )
-      case DeduplicationCase.DEDUPLICATE_UNTIL => //backwards compat
+      case DeduplicationPeriodCase.DEDUPLICATE_UNTIL => //backwards compat
         None //FIXME can we convert from a future timestamp into a sensible dedup duration?
-      case DeduplicationCase.DEDUPLICATION_NOT_SET =>
+      case DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
         None
     }
     CompletionInfo(
@@ -345,11 +347,7 @@ private[state] object Conversions {
       entry: DamlTransactionRejectionEntry
   ): Option[FinalReason] = {
     def buildStatus(code: Code, message: String) = {
-      Status.of(
-        code.value,
-        message,
-        Seq.empty,
-      )
+      Status.of(code.value, message, Seq.empty)
     }
 
     val status = entry.getReasonCase match {
