@@ -322,7 +322,6 @@ class CommonCliBase(name: LedgerName) {
 
       // TODO append-only: cleanup
       opt[Unit]("enable-append-only-schema")
-        .hidden()
         .optional()
         .action((_, config) => config.copy(enableAppendOnlySchema = true))
         .text(

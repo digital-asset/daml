@@ -549,7 +549,6 @@ object Config {
         // TODO append-only: remove after removing support for the current (mutating) schema
         opt[Unit]("index-append-only-schema")
           .optional()
-          .hidden()
           .text(
             s"Use the append-only index database with parallel ingestion."
           )
