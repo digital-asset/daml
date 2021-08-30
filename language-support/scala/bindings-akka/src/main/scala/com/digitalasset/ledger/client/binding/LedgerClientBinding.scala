@@ -57,7 +57,7 @@ class LedgerClientBinding(
       templateSelector: TemplateSelector,
       startOffset: LedgerOffset,
       endOffset: Option[LedgerOffset],
-      token: Option[String],
+      token: Option[String] = None,
   ): Source[DomainTransaction, NotUsed] = {
 
     logger.debug(
