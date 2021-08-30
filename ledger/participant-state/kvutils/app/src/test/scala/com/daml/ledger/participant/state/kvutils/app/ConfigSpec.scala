@@ -3,8 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.util.concurrent.TimeUnit
-
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
@@ -13,6 +12,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
 
+import java.io.File
+import java.net.URL
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final class ConfigSpec
@@ -49,9 +51,72 @@ final class ConfigSpec
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None),
   ): Option[Config[Unit]] =
-    Config.parse("Test", (_: OptionParser[Config[Unit]]) => (), (), parameters, getEnvVar)
+    Config.parse(
+      name = "Test",
+      extraOptions = (_: OptionParser[Config[Unit]]) => (),
+      defaultExtra = (),
+      args = parameters,
+      getEnvVar = getEnvVar,
+    )
 
   behavior of "Runner"
+
+  it should "succeed when server's private key is encrypted and secret-url is provided" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.enc",
+        "--secrets-url",
+        "http://aaa",
+      )
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        secretsUrl = Some(new URL("http://aaa")),
+        keyFile = Some(new File("key.enc")),
+        keyCertChainFile = None,
+        trustCertCollectionFile = None,
+      )
+    )
+  }
+
+  it should "fail when server's private key is encrypted but secret-url is not provided" in {
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.enc",
+      )
+    ) shouldBe None
+  }
+
+  it should "succeed when server's private key is in plaintext and secret-url is not provided" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.txt",
+      )
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        secretsUrl = None,
+        keyFile = Some(new File("key.txt")),
+        keyCertChainFile = None,
+        trustCertCollectionFile = None,
+      )
+    )
+  }
 
   it should "fail if a participant is not provided in run mode" in {
     configParser(Seq.empty) shouldEqual None
@@ -59,14 +124,16 @@ final class ConfigSpec
 
   it should "fail if a participant is not provided when dumping the index metadata" in {
     configParser(Seq(dumpIndexMetadataCommand)) shouldEqual None
-  }
 
+  }
   it should "succeed if a participant is provided when dumping the index metadata" in {
-    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url"))
+    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url")) should not be empty
   }
 
   it should "succeed if more than one participant is provided when dumping the index metadata" in {
-    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url", "some-other-jdbc-url"))
+    configParser(
+      Seq(dumpIndexMetadataCommand, "some-jdbc-url", "some-other-jdbc-url")
+    ) should not be empty
   }
 
   it should "get the jdbc string from the command line argument when provided" in {
