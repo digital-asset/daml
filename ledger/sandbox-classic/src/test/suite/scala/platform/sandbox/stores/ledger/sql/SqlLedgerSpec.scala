@@ -267,12 +267,12 @@ final class SqlLedgerSpec
     }
 
     "publish a transaction" in {
+      val now = Time.Timestamp.assertFromInstant(Instant.now())
       val seedService = SeedService.WeakRandom
       val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
       val party = Ref.Party.assertFromString("party1")
       val commandId = Ref.CommandId.assertFromString("commandId1")
       val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
-      val now = Time.Timestamp.assertFromInstant(Instant.now())
       for {
         sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
@@ -312,12 +312,12 @@ final class SqlLedgerSpec
     }
 
     "reject a transaction if no configuration is found" in {
+      val now = Time.Timestamp.assertFromInstant(Instant.now())
       val seedService = SeedService.WeakRandom
       val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
       val party = Ref.Party.assertFromString("party1")
       val commandId = Ref.CommandId.assertFromString("commandId1")
       val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
-      val now = Time.Timestamp.assertFromInstant(Instant.now())
       for {
         sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
@@ -355,23 +355,32 @@ final class SqlLedgerSpec
     }
 
     "reject a transaction if the ledger effective time is out of bounds" in {
+      val nowInstant = Instant.parse("2021-09-01T18:00:00Z")
+      val now = Time.Timestamp.assertFromInstant(nowInstant)
+      val timeProvider = TimeProvider.Constant(nowInstant)
+
+      val minSkew = Duration.ofSeconds(10)
+      val maxSkew = Duration.ofSeconds(30)
+
       val seedService = SeedService.WeakRandom
       val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
       val party = Ref.Party.assertFromString("party1")
       val commandId = Ref.CommandId.assertFromString("commandId1")
       val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
-      val now = Time.Timestamp.assertFromInstant(Instant.now())
+      val transactionLedgerEffectiveTime = now.add(Duration.ofMinutes(5))
       for {
-        sqlLedger <- createSqlLedger()
+        sqlLedger <- createSqlLedger(
+          ledgerId = None,
+          participantId = None,
+          packages = List.empty,
+          timeProvider = timeProvider,
+        )
         start = sqlLedger.ledgerEnd()
         _ <- sqlLedger.publishConfiguration(
           maxRecordTime = now.add(Duration.ofMinutes(1)),
           submissionId = "configuration",
           config = Configuration.reasonableInitialConfiguration.copy(
-            timeModel = LedgerTimeModel.reasonableDefault.copy(
-              minSkew = Duration.ofSeconds(10),
-              maxSkew = Duration.ofSeconds(10),
-            )
+            timeModel = LedgerTimeModel.reasonableDefault.copy(minSkew = minSkew, maxSkew = maxSkew)
           ),
         )
         result <- sqlLedger.publishTransaction(
@@ -384,7 +393,7 @@ final class SqlLedgerSpec
             ledgerConfiguration = Configuration.reasonableInitialConfiguration,
           ),
           transactionMeta =
-            emptyTransactionMeta(seedService, ledgerEffectiveTime = now.add(Duration.ofMinutes(5))),
+            emptyTransactionMeta(seedService, ledgerEffectiveTime = transactionLedgerEffectiveTime),
           transaction = EmptySubmitted,
         )
         completion <- sqlLedger
@@ -401,7 +410,11 @@ final class SqlLedgerSpec
         inside(completion._2.completions) {
           case Seq(Completion(`commandId`, Some(status), _, _, _, _, _)) =>
             status.code should be(Status.Code.ABORTED.value)
-            status.message should fullyMatch regex "Ledger time .* outside of range \\[.*]".r
+            val lowerBound = nowInstant.minus(minSkew)
+            val upperBound = nowInstant.plus(maxSkew)
+            status.message should be(
+              s"Ledger time ${transactionLedgerEffectiveTime.toInstant} outside of range [$lowerBound, $upperBound]"
+            )
         }
       }
     }
@@ -436,6 +449,7 @@ final class SqlLedgerSpec
       ledgerId: Option[LedgerId],
       participantId: Option[ParticipantId],
       packages: List[DamlLf.Archive],
+      timeProvider: TimeProvider = TimeProvider.UTC,
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     val ledger =
@@ -447,7 +461,7 @@ final class SqlLedgerSpec
         databaseConnectionTimeout = 250.millis,
         providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         participantId = participantId.getOrElse(DefaultParticipantId),
-        timeProvider = TimeProvider.UTC,
+        timeProvider = timeProvider,
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)
           .fold(sys.error, identity),
