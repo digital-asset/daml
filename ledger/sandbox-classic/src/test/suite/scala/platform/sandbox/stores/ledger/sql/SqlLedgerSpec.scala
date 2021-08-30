@@ -14,6 +14,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
+import com.google.protobuf.any.{Any => AnyProto}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
@@ -40,6 +41,7 @@ import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import com.daml.timer.RetryStrategy
+import com.google.rpc.error_details.ErrorInfo
 import io.grpc.Status
 import org.scalatest.Inside
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
@@ -355,6 +357,17 @@ final class SqlLedgerSpec
             status.message should be(
               "No ledger configuration available, cannot validate ledger time"
             )
+            status.details should be(
+              Seq(
+                AnyProto.pack(
+                  ErrorInfo.of(
+                    reason = "NO_LEDGER_CONFIGURATION",
+                    domain = "com.daml.on.sql",
+                    metadata = Map.empty,
+                  )
+                )
+              )
+            )
         }
       }
     }
@@ -418,7 +431,22 @@ final class SqlLedgerSpec
             val lowerBound = nowInstant.minus(minSkew)
             val upperBound = nowInstant.plus(maxSkew)
             status.message should be(
-              s"Ledger time ${transactionLedgerEffectiveTime.toInstant} outside of range [$lowerBound, $upperBound]"
+              s"Ledger time 2021-09-01T18:05:00Z outside of range [2021-09-01T17:59:50Z, 2021-09-01T18:00:30Z]"
+            )
+            status.details should be(
+              Seq(
+                AnyProto.pack(
+                  ErrorInfo.of(
+                    reason = "INVALID_LEDGER_TIME",
+                    domain = "com.daml.on.sql",
+                    metadata = Map(
+                      "ledgerTime" -> transactionLedgerEffectiveTime.toInstant.toString,
+                      "lowerBound" -> lowerBound.toString,
+                      "upperBound" -> upperBound.toString,
+                    ),
+                  )
+                )
+              )
             )
         }
       }
