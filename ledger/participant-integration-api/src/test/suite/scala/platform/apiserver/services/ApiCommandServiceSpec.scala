@@ -5,11 +5,12 @@ package com.daml.platform.apiserver.services
 
 import java.util.UUID
 
+import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.CompletionSuccess
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.ApiCommandServiceSpec._
@@ -45,8 +46,11 @@ class ApiCommandServiceSpec
       when(
         submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
       ).thenReturn(
-        Future.successful(Right(CompletionSuccess("command ID", "transaction ID", OkStatus)))
+        Future.successful(
+          Right(CompletionResponse.CompletionSuccess("command ID", "transaction ID", OkStatus))
+        )
       )
+
       openChannel(new ApiCommandService(UnimplementedTransactionServices, submissionTracker)).use {
         stub =>
           val request = SubmitAndWaitRequest.of(Some(commands))
@@ -56,6 +60,36 @@ class ApiCommandServiceSpec
               eqTo(CommandSubmission(commands))
             )(any[ExecutionContext], any[LoggingContext])
             succeed
+          }
+      }
+    }
+
+    "time out if the tracker times out" in {
+      val commands = Commands(
+        ledgerId = "ledger ID",
+        commandId = "command ID",
+        commands = Seq(
+          Command.of(Command.Command.Create(CreateCommand()))
+        ),
+      )
+      val submissionTracker = mock[Tracker]
+      when(
+        submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
+      ).thenReturn(
+        Future.successful(
+          Left(
+            CompletionResponse.QueueCompletionFailure(
+              CompletionResponse.TimeoutResponse("command ID")
+            )
+          )
+        )
+      )
+
+      openChannel(new ApiCommandService(UnimplementedTransactionServices, submissionTracker)).use {
+        stub =>
+          val request = SubmitAndWaitRequest.of(Some(commands))
+          stub.submitAndWaitForTransactionId(request).failed.map { exception =>
+            exception should matchPattern { case GrpcException(GrpcStatus.ABORTED(), _) => }
           }
       }
     }
