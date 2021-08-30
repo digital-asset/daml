@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Bytes
-import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,14 +21,14 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "always return an offset of the same length" in {
-      forAll(genHighest, arbitrary[Int], arbitrary[Int]) { (highest, middle, lowest) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
         offset.bytes.length should be(OffsetBuilder.end)
       }
     }
 
     "construct and extract" in {
-      forAll(genHighest, arbitrary[Int], arbitrary[Int]) { (highest, middle, lowest) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
 
         OffsetBuilder.highestIndex(offset) should be(highest)
@@ -40,7 +39,7 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "set the middle index" in {
-      forAll(genHighest, arbitrary[Int], arbitrary[Int], arbitrary[Int]) {
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], Gen.posNum[Int]) {
         (highest, middle, lowest, newMiddle) =>
           val offset = OffsetBuilder.fromLong(highest, middle, lowest)
           val modifiedOffset = OffsetBuilder.setMiddleIndex(offset, newMiddle)
@@ -50,7 +49,7 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "only change individual indexes" in {
-      forAll(genHighest, arbitrary[Int], arbitrary[Int], arbitrary[Int]) {
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], Gen.posNum[Int]) {
         (highest, middle, lowest, newLowest) =>
           val offset = OffsetBuilder.fromLong(highest, middle, lowest)
           val modifiedOffset = OffsetBuilder.setLowestIndex(offset, newLowest)
@@ -60,7 +59,7 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "zero out the middle and lowest index" in {
-      forAll(genHighest, arbitrary[Int], arbitrary[Int]) { (highest, middle, lowest) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
         val modifiedOffset = OffsetBuilder.onlyKeepHighestIndex(offset)
 
@@ -69,7 +68,7 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "zero out the lowest index" in {
-      forAll(genHighest, arbitrary[Int], arbitrary[Int]) { (highest, middle, lowest) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
         val modifiedOffset = OffsetBuilder.dropLowestIndex(offset)
 
