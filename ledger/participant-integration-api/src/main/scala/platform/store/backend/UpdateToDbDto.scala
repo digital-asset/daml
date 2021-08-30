@@ -268,17 +268,21 @@ object UpdateToDbDto {
       transactionId: Option[Ref.TransactionId],
       completionInfo: CompletionInfo,
   ): DbDto.CommandCompletion = {
-    val (deduplicationTimeSeconds, deduplicationTimeNanos) =
+    val (deduplicationOffset, deduplicationTimeSeconds, deduplicationTimeNanos) =
       completionInfo.optDeduplicationPeriod
         .flatMap {
+          case DeduplicationOffset(offset) =>
+            Some(Left(offset))
           case DeduplicationDuration(duration) =>
-            Some((duration.getSeconds, duration.getNano))
-          case _ => None
+            Some(Right((duration.getSeconds, duration.getNano)))
         }
-        .fold[(Option[Long], Option[Int])] {
-          (None, None)
-        } { case (seconds, nanos) =>
-          (Some(seconds), Some(nanos))
+        .fold[(Option[String], Option[Long], Option[Int])] {
+          (None, None, None)
+        } {
+          case Left(offset) =>
+            (Some(offset.toHexString), None, None)
+          case Right((seconds, nanos)) =>
+            (None, Some(seconds), Some(nanos))
         }
 
     DbDto.CommandCompletion(
@@ -292,12 +296,7 @@ object UpdateToDbDto {
       rejection_status_message = None,
       rejection_status_details = None,
       submission_id = Some(completionInfo.submissionId),
-      deduplication_offset = completionInfo.optDeduplicationPeriod
-        .flatMap {
-          case DeduplicationOffset(offset) => Some(offset)
-          case _ => None
-        }
-        .map(_.toHexString),
+      deduplication_offset = deduplicationOffset,
       deduplication_time_seconds = deduplicationTimeSeconds,
       deduplication_time_nanos = deduplicationTimeNanos,
       deduplication_start = None,
