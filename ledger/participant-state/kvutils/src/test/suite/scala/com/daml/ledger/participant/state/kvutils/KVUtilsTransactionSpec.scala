@@ -174,7 +174,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
         }
       }
 
@@ -194,7 +194,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
         }
       }
 
@@ -259,7 +259,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
         }
       }
 
@@ -327,7 +327,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       } yield {
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
         logEntry3.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        logEntry3.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
+        logEntry3.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
       }
     }
 

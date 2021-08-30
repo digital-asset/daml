@@ -379,17 +379,17 @@ private[state] object Conversions {
           ValidationFailure.newBuilder().setDetails(error.message)
         )
       case InternallyInconsistentTransaction.DuplicateKeys =>
-        builder.setInternalDuplicateKeys(DuplicateKeys.newBuilder())
+        builder.setInternallyDuplicateKeys(DuplicateKeys.newBuilder())
       case InternallyInconsistentTransaction.InconsistentKeys =>
-        builder.setInternalInconsistentKeys(InconsistentKeys.newBuilder())
+        builder.setInternallyInconsistentKeys(InconsistentKeys.newBuilder())
       case ExternallyInconsistentTransaction.InconsistentContracts =>
-        builder.setExternalInconsistentContracts(
+        builder.setExternallyInconsistentContracts(
           InconsistentContracts.newBuilder()
         )
       case ExternallyInconsistentTransaction.DuplicateKeys =>
-        builder.setExternalDuplicateKeys(DuplicateKeys.newBuilder())
+        builder.setExternallyDuplicateKeys(DuplicateKeys.newBuilder())
       case ExternallyInconsistentTransaction.InconsistentKeys =>
-        builder.setExternalInconsistentKeys(InconsistentKeys.newBuilder())
+        builder.setExternallyInconsistentKeys(InconsistentKeys.newBuilder())
       case Rejection.MissingInputState(key) =>
         builder.setMissingInputState(
           MissingInputState.newBuilder().setKey(key)
@@ -512,25 +512,25 @@ private[state] object Conversions {
             s"Validation failure: ${rejection.getDetails}",
           )
         )
-      case DamlTransactionRejectionEntry.ReasonCase.INTERNAL_DUPLICATE_KEYS =>
+      case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_DUPLICATE_KEYS =>
         None
-      case DamlTransactionRejectionEntry.ReasonCase.INTERNAL_INCONSISTENT_KEYS =>
+      case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
             Code.ABORTED,
             InternallyInconsistentTransaction.InconsistentKeys.description,
           )
         )
-      case DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_CONTRACTS =>
+      case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_CONTRACTS =>
         Some(
           buildStatus(
             Code.ABORTED,
             ExternallyInconsistentTransaction.InconsistentContracts.description,
           )
         )
-      case DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_DUPLICATE_KEYS =>
+      case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS =>
         None
-      case DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS =>
+      case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
             Code.ABORTED,

@@ -7,14 +7,7 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlContractKey,
-  DamlContractKeyState,
-  DamlContractState,
-  DamlStateKey,
-  DamlStateValue,
-  DamlTransactionRejectionEntry,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createTransactionEntry,
@@ -93,7 +86,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
           val rejectionReason =
             getTransactionRejectionReason(result).getReasonCase
           rejectionReason should be(
-            DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
+            DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
           )
       }
     }
@@ -110,7 +103,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
       val rejectionReason =
         getTransactionRejectionReason(result).getReasonCase
-      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_DUPLICATE_KEYS)
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "return DuplicateKeys when a local contract conflicts with a global contract" in {
@@ -122,7 +115,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result shouldBe a[StepStop]
       val rejectionReason =
         getTransactionRejectionReason(result).getReasonCase
-      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_DUPLICATE_KEYS)
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "succeeds when a global contract gets archived before a local contract gets created" in {
@@ -168,7 +161,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
       val rejectionReason =
         getTransactionRejectionReason(result).getReasonCase
-      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_DUPLICATE_KEYS)
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "not return DuplicateKeys between local contracts if first create is rolled back" in {
@@ -197,7 +190,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
       val rejectionReason =
         getTransactionRejectionReason(result).getReasonCase
-      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_DUPLICATE_KEYS)
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "return DuplicateKeys between local contracts even if the first one was archived in a rollback" in {
@@ -215,7 +208,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
       val rejectionReason =
         getTransactionRejectionReason(result).getReasonCase
-      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_DUPLICATE_KEYS)
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "return InconsistentKeys on conflict local and global contracts even if global was archived in a rollback" in {
@@ -232,7 +225,9 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
 
       val rejectionReason =
         getTransactionRejectionReason(result).getReasonCase
-      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS)
+      rejectionReason should be(
+        DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
+      )
     }
 
     "fail if a contract is not active anymore" in {
@@ -255,7 +250,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       val transaction = builder.buildSubmitted()
       val result = validate(context, transaction)
       inside(result) { case StepStop(logEntry) =>
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.EXTERNAL_INCONSISTENT_KEYS
+        logEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
       }
     }
   }

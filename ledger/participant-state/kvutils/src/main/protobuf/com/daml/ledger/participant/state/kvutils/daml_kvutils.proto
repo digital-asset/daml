@@ -10,7 +10,9 @@
 //
 
 syntax = "proto3";
+
 package com.daml.ledger.participant.state.kvutils;
+
 option java_package = "com.daml.ledger.participant.state.kvutils";
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
@@ -115,9 +117,9 @@ message DamlSubmitterInfo {
   string application_id = 3;
   reserved 4; // was maximum_record_time
   oneof deduplication_period {
-      google.protobuf.Timestamp deduplicate_until = 5; //DEPRECATED, readonly for backwards compatibility
-      google.protobuf.Duration deduplication_duration = 6;
-      string deduplication_offset = 7;
+    google.protobuf.Timestamp deduplicate_until = 5; //DEPRECATED, readonly for backwards compatibility
+    google.protobuf.Duration deduplication_duration = 6;
+    string deduplication_offset = 7;
   }
   string submission_id = 9;
 }
@@ -193,24 +195,30 @@ message DamlTransactionRejectionEntry {
   reserved 5; // was reason.maximum_record_time_exceeded
 
   oneof reason {
-    // errors used in v1 which are still used in v2
+
+    // Rejections used by both participant.state v1 and v2 API.
     InvalidLedgerTime invalid_ledger_time = 9;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
 
-    // v1 reasons (these are DEPRECATED)
+    //
+    // Rejections used by participant.state.v1 API.
+    // Note that these are deprecated.
+    //
     Inconsistent inconsistent = 2;
     Disputed disputed = 3;
     ResourcesExhausted resources_exhausted = 4;
     Duplicate duplicate_command = 6;
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
 
-    // v2 reasons
+    //
+    // Rejections used by participant.state.v2 API.
+    //
     ValidationFailure validation_failure = 10;
-    DuplicateKeys internal_duplicate_keys = 11;
-    InconsistentKeys internal_inconsistent_keys = 12;
-    InconsistentContracts external_inconsistent_contracts = 13;
-    DuplicateKeys external_duplicate_keys = 14;
-    InconsistentKeys external_inconsistent_keys = 15;
+    DuplicateKeys internally_duplicate_keys = 11;
+    InconsistentKeys internally_inconsistent_keys = 12;
+    InconsistentContracts externally_inconsistent_contracts = 13;
+    DuplicateKeys externally_duplicate_keys = 14;
+    InconsistentKeys externally_inconsistent_keys = 15;
     MissingInputState missing_input_state = 16;
     RecordTimeOutOfRange record_time_out_of_range = 17;
     CausalMonotonicityViolated causal_monotonicity_violated = 18;
@@ -395,7 +403,7 @@ message DamlCommandDedupKey {
   string application_id = 2;
   string command_id = 3;
 }
-// should this be removed? how do we handle transitions?
+
 message DamlCommandDedupValue {
   reserved 1; // was record_time
   // the time until when future commands with the same
@@ -569,32 +577,33 @@ message AlreadyExists {
   string details = 1;
 }
 
-// V2
-
+//
+// Rejections used by participant.state.v2 API.
+//
 message ValidationFailure {
-    string details = 1;
+  string details = 1;
 }
 message DuplicateKeys {
 }
-message InconsistentKeys{
+message InconsistentKeys {
 }
 message InconsistentContracts {
 }
 message MissingInputState {
-    DamlStateKey key = 1;
+  DamlStateKey key = 1;
 }
 message InvalidParticipantState {
-    string details = 1;
+  string details = 1;
 }
 message RecordTimeOutOfRange {
-    google.protobuf.Timestamp minimum_record_time = 1;
-    google.protobuf.Timestamp maximum_record_time = 2;
+  google.protobuf.Timestamp minimum_record_time = 1;
+  google.protobuf.Timestamp maximum_record_time = 2;
 }
 message CausalMonotonicityViolated {
 }
 message SubmittingPartyNotKnownOnLedger {
-    string submitter_party = 1;
+  string submitter_party = 1;
 }
 message PartiesNotKnownOnLedger {
-    repeated string parties = 1;
+  repeated string parties = 1;
 }

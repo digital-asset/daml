@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Instant
 
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
@@ -140,7 +140,11 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       def verifyCommandRejection(actual: Option[Update]): Unit = actual match {
         case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
           recordTime shouldBe aRecordTime
-          completionInfo shouldBe Conversions.parseCompletionInfo(aLogEntryId, someSubmitterInfo)
+          completionInfo shouldBe Conversions.parseCompletionInfo(
+            aLogEntryId,
+            parseInstant(recordTime),
+            someSubmitterInfo,
+          )
           completionInfo.submissionId shouldBe someSubmitterInfo.getSubmissionId
           status.code shouldBe Code.INVALID_ARGUMENT.value
           ()
