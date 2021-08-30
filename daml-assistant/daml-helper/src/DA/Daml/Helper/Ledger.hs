@@ -594,9 +594,12 @@ httpBsRequest args method path modify = do
 
 makeRequest :: LedgerArgs -> Method -> Path -> (Request -> Request) -> IO Request
 makeRequest LedgerArgs {sslConfigM, tokM, port, host} method path modify = do
-  when (isJust sslConfigM) $
-    fail "The HTTP JSON API doesn't support TLS requests, but a TLS flag was set."
+  secure <- case sslConfigM of
+    Nothing -> pure False
+    Just (L.ClientSSLConfig Nothing Nothing Nothing) -> pure True
+    Just _ -> fail "The HTTP JSON API does not support --pem, --crt and --cacrt flags."
   pure $
+    setRequestSecure secure $
     setRequestPort port $
     setRequestHost (BSC.pack host) $
     setRequestMethod (unMethod method) $
