@@ -66,7 +66,7 @@ object ScriptF {
     def compiledPackages = machine.compiledPackages
     val valueTranslator = new ValueTranslator(
       interface = compiledPackages.interface,
-      requireV1ContractId = false,
+      forbidV0ContractId = false,
       requireV1ContractIdSuffix = false,
     )
     val utcClock = Clock.systemUTC()

@@ -21,7 +21,7 @@ class ValueTranslatorBenchmark extends BenchmarkWithLedgerExport {
     decodedValues = submissions.values.map(_.mapValue(assertDecode).mapValue(_.value)).toVector
     translator = new ValueTranslator(
       submissions.compiledPackages.interface,
-      requireV1ContractId = false,
+      forbidV0ContractId = false,
       requireV1ContractIdSuffix = false,
     )
   }

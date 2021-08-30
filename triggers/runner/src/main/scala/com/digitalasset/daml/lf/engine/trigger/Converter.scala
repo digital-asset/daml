@@ -500,7 +500,7 @@ object Converter {
   def apply(compiledPackages: CompiledPackages, triggerIds: TriggerIds): Converter = {
     val valueTranslator = new preprocessing.ValueTranslator(
       compiledPackages.interface,
-      requireV1ContractId = false,
+      forbidV0ContractId = false,
       requireV1ContractIdSuffix = false,
     )
     Converter(

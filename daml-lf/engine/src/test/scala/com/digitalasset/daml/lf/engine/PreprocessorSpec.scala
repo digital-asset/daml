@@ -94,7 +94,7 @@ class PreprocessorSpec
 
     val valueTranslator = new ValueTranslator(
       compiledPackage.interface,
-      requireV1ContractId = true,
+      forbidV0ContractId = true,
       requireV1ContractIdSuffix = false,
     )
     import valueTranslator.unsafeTranslateValue
@@ -223,7 +223,7 @@ class PreprocessorSpec
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.interface,
-        requireV1ContractId = false,
+        forbidV0ContractId = false,
         requireV1ContractIdSuffix = false,
       )
       val cids = List(
@@ -245,7 +245,7 @@ class PreprocessorSpec
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.interface,
-        requireV1ContractId = true,
+        forbidV0ContractId = true,
         requireV1ContractIdSuffix = false,
       )
       val legalCid =
@@ -266,7 +266,7 @@ class PreprocessorSpec
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.interface,
-        requireV1ContractId = true,
+        forbidV0ContractId = true,
         requireV1ContractIdSuffix = true,
       )
       val legalCid =
@@ -335,7 +335,7 @@ class PreprocessorSpec
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.interface,
-        requireV1ContractId = false,
+        forbidV0ContractId = false,
         requireV1ContractIdSuffix = false,
       )
 
@@ -359,7 +359,7 @@ class PreprocessorSpec
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.interface,
-        requireV1ContractId = true,
+        forbidV0ContractId = true,
         requireV1ContractIdSuffix = false,
       )
 
@@ -383,7 +383,7 @@ class PreprocessorSpec
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.interface,
-        requireV1ContractId = true,
+        forbidV0ContractId = true,
         requireV1ContractIdSuffix = true,
       )
       val List(aLegalCid, anotherLegalCid) =

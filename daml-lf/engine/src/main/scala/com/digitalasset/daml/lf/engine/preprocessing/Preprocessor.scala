@@ -31,7 +31,7 @@ import scala.annotation.tailrec
   *   Daml-LF package definitions against the command should
   *   resolved/typechecked. It is updated dynamically each time the
   *   [[ResultNeedPackage]] continuation is called.
-  * @param requireV1ContractId when `true` the preprocessor will reject
+  * @param forbidV0ContractId when `true` the preprocessor will reject
   *   any value/command/transaction that contains V0 Contract IDs
   *   without suffixed.
   * @param requireV1ContractIdSuffix when `true` the preprocessor will reject
@@ -40,7 +40,7 @@ import scala.annotation.tailrec
   */
 private[engine] final class Preprocessor(
     compiledPackages: MutableCompiledPackages,
-    requireV1ContractId: Boolean = true,
+    forbidV0ContractId: Boolean = true,
     requireV1ContractIdSuffix: Boolean = true,
 ) {
 
@@ -51,7 +51,7 @@ private[engine] final class Preprocessor(
   val commandPreprocessor =
     new CommandPreprocessor(
       interface = interface,
-      requireV1ContractId = requireV1ContractId,
+      forbidV0ContractId = forbidV0ContractId,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)

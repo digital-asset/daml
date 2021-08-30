@@ -21,7 +21,7 @@ class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
     val translator =
       new ValueTranslator(
         interface = submissions.compiledPackages.interface,
-        requireV1ContractId = false,
+        forbidV0ContractId = false,
         requireV1ContractIdSuffix = false,
       )
     speedyValues = decodedValues.map(x => assertTranslate(translator)(x.mapValue(_.value)))

@@ -13,15 +13,15 @@ import scala.annotation.tailrec
 
 private[lf] final class CommandPreprocessor(
     interface: language.Interface,
-    // See Preprocessor.requiredCidSuffix for more details about the following flags.
-    requireV1ContractId: Boolean,
+    // See Preprocessor scala doc for more details about the following flags.
+    forbidV0ContractId: Boolean,
     requireV1ContractIdSuffix: Boolean,
 ) {
 
   val valueTranslator =
     new ValueTranslator(
       interface = interface,
-      requireV1ContractId = requireV1ContractId,
+      forbidV0ContractId = forbidV0ContractId,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
 
