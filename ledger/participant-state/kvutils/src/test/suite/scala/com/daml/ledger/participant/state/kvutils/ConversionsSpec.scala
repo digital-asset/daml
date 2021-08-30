@@ -47,7 +47,7 @@ import io.grpc.Status.Code
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
+import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.jdk.CollectionConverters._
 
@@ -114,26 +114,80 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     }
 
     "encode/decode rejections" should {
+
       val submitterInfo = DamlSubmitterInfo.newBuilder().build()
+      val now = Instant.now
 
-      def rejectionEntryIsConverted(rejection: Rejection, expectedCode: Code) = {
-        val encodedEntry = Conversions
-          .encodeTransactionRejectionEntry(
-            submitterInfo,
-            rejection,
+      "convert rejection to proto models and back to expected grpc code" in {
+        forAll(
+          Table(
+            ("rejection", "expected code"),
+            (
+              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.InternallyInconsistentTransaction.InconsistentKeys,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.InvalidParticipantState(Err.InternalError("error")),
+              Code.ABORTED,
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(now, now),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
+              Code.ABORTED,
+            ),
+            (
+              Rejection.CausalMonotonicityViolated,
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.PartiesNotKnownOnLedger(Seq.empty),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.SubmitterCannotActViaParticipant(
+                Ref.Party.assertFromString("party"),
+                Ref.ParticipantId.assertFromString("id"),
+              ),
+              Code.PERMISSION_DENIED,
+            ),
           )
-          .build()
-        Conversions
-          .decodeTransactionRejectionEntry(encodedEntry)
-          .value
-          .code shouldBe expectedCode.value()
-      }
-
-      "convert validation failure" in {
-        rejectionEntryIsConverted(
-          Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-          Code.INVALID_ARGUMENT,
-        )
+        ) { (rejection, expectedCode) =>
+          {
+            val encodedEntry = Conversions
+              .encodeTransactionRejectionEntry(
+                submitterInfo,
+                rejection,
+              )
+              .build()
+            Conversions
+              .decodeTransactionRejectionEntry(encodedEntry)
+              .value
+              .code shouldBe expectedCode.value()
+          }
+        }
       }
 
       "convert internal duplicate keys" in {
@@ -147,20 +201,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           .decodeTransactionRejectionEntry(encodedEntry) shouldBe None
       }
 
-      "convert internal inconsistent keys" in {
-        rejectionEntryIsConverted(
-          Rejection.InternallyInconsistentTransaction.InconsistentKeys,
-          Code.ABORTED,
-        )
-      }
-
-      "convert external inconsistent contracts" in {
-        rejectionEntryIsConverted(
-          Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
-          Code.ABORTED,
-        )
-      }
-
       "convert external external duplicate keys" in {
         val encodedEntry = Conversions
           .encodeTransactionRejectionEntry(
@@ -172,110 +212,48 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           .decodeTransactionRejectionEntry(encodedEntry) shouldBe None
       }
 
-      "convert external inconsistent keys" in {
-        rejectionEntryIsConverted(
-          Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
-          Code.ABORTED,
-        )
-      }
-
-      "convert missing input state" in {
-        rejectionEntryIsConverted(
-          Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
-          Code.INVALID_ARGUMENT,
-        )
-      }
-
-      "convert invalid participant state" in {
-        rejectionEntryIsConverted(
-          Rejection.InvalidParticipantState(Err.InternalError("error")),
-          Code.ABORTED,
-        )
-      }
-
-      "convert ledger time out of range" in {
-        val now = Instant.now
-        rejectionEntryIsConverted(
-          Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
-          Code.ABORTED,
-        )
-      }
-
-      "convert record time out of range" in {
-        val now = Instant.now()
-        rejectionEntryIsConverted(
-          Rejection.RecordTimeOutOfRange(now, now),
-          Code.INVALID_ARGUMENT,
-        )
-      }
-
-      "convert causal monotonicity violated" in {
-        rejectionEntryIsConverted(
-          Rejection.CausalMonotonicityViolated,
-          Code.INVALID_ARGUMENT,
-        )
-      }
-
-      "convert submitting party not know on ledger" in {
-        rejectionEntryIsConverted(
-          Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
-          Code.INVALID_ARGUMENT,
-        )
-      }
-
-      "convert parties not known on ledger" in {
-        rejectionEntryIsConverted(
-          Rejection.PartiesNotKnownOnLedger(Seq.empty),
-          Code.INVALID_ARGUMENT,
-        )
-      }
-
-      "convert submitter cannot act via participant" in {
-        rejectionEntryIsConverted(
-          Rejection.SubmitterCannotActViaParticipant(
-            Ref.Party.assertFromString("party"),
-            Ref.ParticipantId.assertFromString("id"),
-          ),
-          Code.PERMISSION_DENIED,
-        )
-      }
-
       "convert v1 rejections" should {
 
-        "handle inconsistent" in {
-          Conversions
-            .decodeTransactionRejectionEntry(
-              DamlTransactionRejectionEntry
-                .newBuilder()
-                .setInconsistent(Inconsistent.newBuilder())
-                .build()
+        "handle with expected status codes" in {
+          forAll(
+            Table(
+              ("rejection builder", "code"),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setInconsistent(Inconsistent.newBuilder()),
+                Code.ABORTED,
+              ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setDisputed(Disputed.newBuilder()),
+                Code.INVALID_ARGUMENT,
+              ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setResourcesExhausted(ResourcesExhausted.newBuilder()),
+                Code.ABORTED,
+              ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
+                Code.INVALID_ARGUMENT,
+              ),
             )
-            .value
-            .code shouldBe Code.ABORTED.value()
-        }
-
-        "handle disputed" in {
-          Conversions
-            .decodeTransactionRejectionEntry(
-              DamlTransactionRejectionEntry
-                .newBuilder()
-                .setDisputed(Disputed.newBuilder())
-                .build()
-            )
-            .value
-            .code shouldBe Code.INVALID_ARGUMENT.value()
-        }
-
-        "handle resources exhausted" in {
-          Conversions
-            .decodeTransactionRejectionEntry(
-              DamlTransactionRejectionEntry
-                .newBuilder()
-                .setResourcesExhausted(ResourcesExhausted.newBuilder())
-                .build()
-            )
-            .value
-            .code shouldBe Code.ABORTED.value()
+          ) { (rejectionBuilder, code) =>
+            {
+              Conversions
+                .decodeTransactionRejectionEntry(
+                  rejectionBuilder(DamlTransactionRejectionEntry.newBuilder())
+                    .build()
+                )
+                .value
+                .code shouldBe code.value()
+            }
+          }
         }
 
         "handle duplicate" in {
@@ -288,17 +266,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ) shouldBe None
         }
 
-        "handle party not known on ledger" in {
-          Conversions
-            .decodeTransactionRejectionEntry(
-              DamlTransactionRejectionEntry
-                .newBuilder()
-                .setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder())
-                .build()
-            )
-            .value
-            .code shouldBe Code.INVALID_ARGUMENT.value()
-        }
       }
     }
 
