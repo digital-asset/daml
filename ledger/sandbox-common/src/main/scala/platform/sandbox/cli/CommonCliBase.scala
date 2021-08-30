@@ -3,9 +3,6 @@
 
 package com.daml.platform.sandbox.cli
 
-import java.io.File
-import java.time.Duration
-
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
@@ -24,6 +21,9 @@ import io.netty.handler.ssl.ClientAuth
 import scalaz.syntax.tag._
 import scopt.OptionParser
 
+import java.io.File
+import java.net.URL
+import java.time.Duration
 import scala.util.Try
 
 // [[SandboxConfig]] should not expose Options for mandatory fields as such validations should not
@@ -122,6 +122,29 @@ class CommonCliBase(name: LedgerName) {
           )
         )
 
+      opt[String]("secrets-url")
+        .optional()
+        .text(
+          "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+        )
+        .action((url, config) => config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url)))))
+
+      checkConfig(c =>
+        c.tlsConfig.fold(success) { tlsConfig =>
+          if (
+            tlsConfig.keyFile.isDefined
+            && tlsConfig.keyFile.get.getName.endsWith(".enc")
+            && tlsConfig.secretsUrl.isEmpty
+          ) {
+            failure(
+              "You need to provide a secrets server URL if the server's private key is an encrypted file."
+            )
+          } else {
+            success
+          }
+        }
+      )
+
       opt[String]("crt")
         .optional()
         .text(
@@ -156,9 +179,17 @@ class CommonCliBase(name: LedgerName) {
         .action((clientAuth, config) =>
           config.copy(tlsConfig =
             config.tlsConfig
-              .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
-                Some(c.copy(clientAuth = clientAuth))
-              )
+              .fold(
+                Some(
+                  TlsConfiguration(
+                    enabled = true,
+                    keyCertChainFile = None,
+                    keyFile = None,
+                    trustCertCollectionFile = None,
+                    clientAuth = clientAuth,
+                  )
+                )
+              )(c => Some(c.copy(clientAuth = clientAuth)))
           )
         )
 

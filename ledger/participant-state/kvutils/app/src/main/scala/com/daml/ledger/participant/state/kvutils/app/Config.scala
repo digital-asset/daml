@@ -3,12 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.io.File
-import java.nio.file.Path
-import java.time.Duration
-import java.util.UUID
-import java.util.concurrent.TimeUnit
-
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceOwner
@@ -23,6 +17,12 @@ import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
+import java.io.File
+import java.net.URL
+import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
@@ -307,10 +307,38 @@ object Config {
 
         opt[String]("pem")
           .optional()
-          .text("TLS: The pem file to be used as the private key.")
+          .text(
+            "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
+          )
           .action((path, config) =>
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
+
+        opt[String]("secrets-url")
+          .optional()
+          .text(
+            "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+          )
+          .action((url, config) =>
+            config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url))))
+          )
+
+        checkConfig(c =>
+          c.tlsConfig.fold(success) { tlsConfig =>
+            if (
+              tlsConfig.keyFile.isDefined
+              && tlsConfig.keyFile.get.getName.endsWith(".enc")
+              && tlsConfig.secretsUrl.isEmpty
+            ) {
+              failure(
+                "You need to provide a secrets server URL if the server's private key is an encrypted file."
+              )
+            } else {
+              success
+            }
+          }
+        )
+
         opt[String]("crt")
           .optional()
           .text(
@@ -372,11 +400,7 @@ object Config {
         opt[Duration]("tracker-retention-period")
           .optional()
           .action((value, config) =>
-            config.copy(
-              commandConfig = config.commandConfig.copy(
-                trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS)
-              )
-            )
+            config.copy(commandConfig = config.commandConfig.copy(trackerRetentionPeriod = value))
           )
           .text(
             "The duration that the command service will keep an active command tracker for a given set of parties." +

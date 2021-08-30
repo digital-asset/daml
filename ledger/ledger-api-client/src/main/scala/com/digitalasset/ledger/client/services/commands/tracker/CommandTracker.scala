@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
-import java.time.{Instant, Duration => JDuration}
+import java.time.{Duration, Instant}
 
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
@@ -14,14 +14,12 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
-  NotOkResponse,
 }
 import com.daml.ledger.client.services.commands.{
   CommandSubmission,
   CompletionStreamElement,
   tracker,
 }
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.{Status => StatusProto}
@@ -30,7 +28,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
@@ -52,11 +50,13 @@ import scala.util.{Failure, Success, Try}
   * </li></ul>
   * We also have an output for offsets, so the most recent offsets can be reused for recovery.
   */
-// TODO(mthvedt): This should have unit tests.
-private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Option[JDuration])
-    extends GraphStageWithMaterializedValue[CommandTrackerShape[Context], Future[
-      immutable.Map[String, Context]
-    ]] {
+private[commands] class CommandTracker[Context](
+    maximumCommandTimeout: Duration,
+    timeoutDetectionPeriod: FiniteDuration,
+) extends GraphStageWithMaterializedValue[
+      CommandTrackerShape[Context],
+      Future[Map[String, Context]],
+    ] {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getName)
 
@@ -80,9 +80,9 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
     val logic: TimerGraphStageLogic = new TimerGraphStageLogic(shape) {
 
       val timeout_detection = "timeout-detection"
-      override def preStart(): Unit = {
-        scheduleWithFixedDelay(timeout_detection, 1.second, 1.second)
 
+      override def preStart(): Unit = {
+        scheduleWithFixedDelay(timeout_detection, timeoutDetectionPeriod, timeoutDetectionPeriod)
       }
 
       override protected def onTimer(timerKey: Any): Unit = {
@@ -222,26 +222,15 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
             s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
           ) with NoStackTrace
         }
-        maxDeduplicationTime() match {
-          case None =>
-            emit(
-              resultOut,
-              submission.map { _ =>
-                val status = GrpcStatus.toProto(ErrorFactories.missingLedgerConfig().getStatus)
-                Left(NotOkResponse(commandId, status))
-              },
-            )
-          case Some(maxDedup) =>
-            val commandTimeout =
-              maxTimeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
-            val trackingData = TrackingData(
-              commandId = commandId,
-              commandTimeout = commandTimeout,
-              context = submission.context,
-            )
-            pendingCommands += commandId -> trackingData
-            ()
-        }
+        val commandTimeout =
+          timeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maximumCommandTimeout)
+        val trackingData = TrackingData(
+          commandId = commandId,
+          commandTimeout = commandTimeout,
+          context = submission.context,
+        )
+        pendingCommands += commandId -> trackingData
+        ()
       }
 
       private def getOutputForTimeout(instant: Instant) = {
@@ -259,11 +248,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
               List(
                 Ctx(
                   trackingData.context,
-                  Left(
-                    CompletionResponse.TimeoutResponse(
-                      commandId = trackingData.commandId
-                    )
-                  ),
+                  Left(CompletionResponse.TimeoutResponse(commandId = trackingData.commandId)),
                 )
               )
             } else {
@@ -316,25 +301,26 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
     logic -> promise.future
   }
 
-  private def maxTimeoutFromDeduplicationPeriod(
+  private def timeoutFromDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriod,
-      maxDeduplicationDuration: JDuration,
+      maximumCommandTimeout: Duration,
   ) = {
-    val timeoutDuration = deduplicationPeriod match {
+    val deduplicationDuration = deduplicationPeriod match {
       case DeduplicationPeriod.Empty =>
-        maxDeduplicationDuration
+        None
       case DeduplicationPeriod.DeduplicationTime(duration) =>
-        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
+        Some(Duration.ofSeconds(duration.seconds, duration.nanos.toLong))
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
-        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
-      case DeduplicationPeriod.DeduplicationOffset(
-            _
-          ) => //no way of extracting the duration from here, will be removed soon
-        maxDeduplicationDuration
+        Some(Duration.ofSeconds(duration.seconds, duration.nanos.toLong))
+      case DeduplicationPeriod.DeduplicationOffset(_) =>
+        // no way of extracting the duration from here, will be removed soon
+        None
     }
-    Instant
-      .now()
-      .plus(timeoutDuration)
+    val timeout = deduplicationDuration match {
+      case None => maximumCommandTimeout
+      case Some(duration) => implicitly[Ordering[Duration]].min(maximumCommandTimeout, duration)
+    }
+    Instant.now().plus(timeout)
   }
 
   override def shape: CommandTrackerShape[Context] =

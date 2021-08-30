@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.services.commands
 
-import java.time.{Instant, Duration => JDuration}
+import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -13,6 +13,7 @@ import akka.stream.testkit.scaladsl.TestSource
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimestampConversion._
+import com.daml.concurrent.ExecutionContext
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
@@ -58,7 +59,7 @@ class CommandTrackerFlowTest
       _.map(_ => Success(Empty.defaultInstance))
     }
 
-  private val shortDuration = JDuration.ofSeconds(1L)
+  private val shortDuration = Duration.ofSeconds(1L)
 
   private lazy val submissionSource = TestSource.probe[Ctx[Int, CommandSubmission]]
   private lazy val resultSink =
@@ -74,7 +75,7 @@ class CommandTrackerFlowTest
   private val successStatus = Status(Code.OK.value)
   private val context = 1
   private val submission = newSubmission(commandId)
-  private def newSubmission(commandId: String, dedupTime: Option[JDuration] = None) = Ctx(
+  private def newSubmission(commandId: String, dedupTime: Option[Duration] = None) = Ctx(
     context,
     CommandSubmission(
       Commands(
@@ -100,7 +101,7 @@ class CommandTrackerFlowTest
         startOffset: LedgerOffset,
     )
 
-    private implicit val ec = DirectExecutionContext
+    private implicit val ec: ExecutionContext[Nothing] = DirectExecutionContext
     private val stateRef = new AtomicReference[Promise[State]](Promise[State]())
 
     def createCompletionsSource(
@@ -132,26 +133,6 @@ class CommandTrackerFlowTest
   }
 
   "Command tracking flow" when {
-
-    "no configuration is available" should {
-      "fail immediately" in {
-        val Handle(submissions, results, _, _) =
-          runCommandTrackingFlow(allSubmissionsSuccessful, maxDeduplicationTime = None)
-
-        submissions.sendNext(submission)
-
-        results.requestNext().value shouldEqual Left(
-          NotOkResponse(
-            commandId,
-            Status.of(
-              Code.UNAVAILABLE.value,
-              "The ledger configuration is not available.",
-              Seq.empty,
-            ),
-          )
-        )
-      }
-    }
 
     "two commands are submitted with the same ID" should {
 
@@ -285,7 +266,6 @@ class CommandTrackerFlowTest
     "no completion arrives" should {
 
       "not timeout the command while MRT <= RT" in {
-
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
@@ -299,9 +279,45 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "timeout the command when the MRT passes" in {
+      "time out the command when the deduplication time passes" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        // TODO(RA): test timeouts
+        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofMillis(100))))
+
+        results.expectNext(
+          500.milliseconds,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
+        succeed
+      }
+
+      "use the maximum command timeout, if provided" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(
+          allSubmissionsSuccessful,
+          maximumCommandTimeout = Duration.ofMillis(500),
+        )
+
+        submissions.sendNext(submission)
+
+        results.expectNext(
+          1.second,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
+        succeed
+      }
+
+      "cap the timeout at the maximum command timeout" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(
+          allSubmissionsSuccessful,
+          maximumCommandTimeout = Duration.ofMillis(100),
+        )
+
+        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofSeconds(10))))
+
+        results.expectNext(
+          500.millis,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
         succeed
       }
     }
@@ -309,7 +325,6 @@ class CommandTrackerFlowTest
     "successful completion arrives" should {
 
       "output the completion" in {
-
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
@@ -542,17 +557,18 @@ class CommandTrackerFlowTest
         Ctx[(Int, String), Try[Empty]],
         NotUsed,
       ],
-      maxDeduplicationTime: Option[JDuration] = Some(JDuration.ofSeconds(10)),
-  ) = {
+      maximumCommandTimeout: Duration = Duration.ofSeconds(10),
+  ): Handle = {
 
     val completionsMock = new CompletionStreamMock()
 
     val trackingFlow =
       CommandTrackerFlow[Int, NotUsed](
-        submissionFlow,
-        completionsMock.createCompletionsSource,
-        LedgerOffset(Boundary(LEDGER_BEGIN)),
-        () => maxDeduplicationTime,
+        commandSubmissionFlow = submissionFlow,
+        createCommandCompletionSource = completionsMock.createCompletionsSource,
+        startingOffset = LedgerOffset(Boundary(LEDGER_BEGIN)),
+        maximumCommandTimeout = maximumCommandTimeout,
+        timeoutDetectionPeriod = 1.millisecond,
       )
 
     val handle = submissionSource

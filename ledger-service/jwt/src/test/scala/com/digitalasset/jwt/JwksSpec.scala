@@ -3,42 +3,14 @@
 
 package com.daml.jwt
 
-import java.net.InetSocketAddress
-
-import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
-import java.security.KeyPairGenerator
-import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
-
 import com.daml.jwt.domain.DecodedJwt
+import com.daml.testing.SimpleHttpServer
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.show._
 
-/** Helper to create a HTTP server that serves a constant response on the "/result" URL */
-private object SimpleHttpServer {
-  def start(response: String): HttpServer = {
-    val server = HttpServer.create(new InetSocketAddress(0), 0)
-    server.createContext("/result", new HttpResultHandler(response))
-    server.setExecutor(null)
-    server.start()
-    server
-  }
-
-  def responseUrl(server: HttpServer) =
-    s"http://localhost:${server.getAddress.getPort}/result"
-
-  def stop(server: HttpServer): Unit =
-    server.stop(0)
-
-  private[this] class HttpResultHandler(response: String) extends HttpHandler {
-    def handle(t: HttpExchange): Unit = {
-      t.sendResponseHeaders(200, response.getBytes().length.toLong)
-      val os = t.getResponseBody
-      os.write(response.getBytes)
-      os.close()
-    }
-  }
-}
+import java.security.KeyPairGenerator
+import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
 
 class JwksSpec extends AnyFlatSpec with Matchers {
 
