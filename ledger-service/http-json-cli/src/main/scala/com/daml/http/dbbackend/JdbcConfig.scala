@@ -11,7 +11,7 @@ import scalaz.{Show, StateT}
 
 import com.daml.dbutils, dbutils.DBConfig
 
-private[http] final case class JdbcConfig private (
+private[http] final case class JdbcConfig(
     baseConfig: dbutils.JdbcConfig,
     tablePrefix: String = "",
     dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,

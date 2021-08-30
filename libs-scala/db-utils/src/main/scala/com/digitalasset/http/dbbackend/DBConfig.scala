@@ -54,14 +54,14 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
     StateT { m =>
       m.get(k)
         .filter(_.nonEmpty)
-        .map((m removed k, _))
+        .map((m - k, _))
         .toRight(s"Invalid $name, must contain '$k' field")
     }
 
   protected def optionalStringField(
       k: String
   ): Fields[Option[String]] =
-    StateT { m => Right((m removed k, m get k)) }
+    StateT { m => Right((m - k, m get k)) }
 
   protected def optionalBooleanField(
       k: String
