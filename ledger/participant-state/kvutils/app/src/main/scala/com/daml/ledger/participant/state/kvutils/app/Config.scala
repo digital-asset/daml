@@ -12,7 +12,11 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  SubmissionConfiguration,
+}
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
@@ -30,6 +34,7 @@ final case class Config[Extra](
     ledgerId: String,
     archiveFiles: Seq[Path],
     commandConfig: CommandConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
@@ -64,6 +69,7 @@ object Config {
       ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       commandConfig = CommandConfiguration.default,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -409,6 +415,17 @@ object Config {
               s" Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
           )
 
+        opt[Unit]("disable-deduplication-unsafe")
+          .optional()
+          .hidden()
+          .action((_, config) =>
+            config
+              .copy(submissionConfig = config.submissionConfig.copy(enableDeduplication = false))
+          )
+          .text(
+            "Disable participant-side command deduplication."
+          )
+
         opt[Int]("max-inbound-message-size")
           .optional()
           .text(
@@ -545,9 +562,11 @@ object Config {
         // TODO append-only: remove after removing support for the current (mutating) schema
         opt[Unit]("index-append-only-schema")
           .optional()
-          .hidden()
           .text(
-            s"Use the append-only index database with parallel ingestion."
+            "Use the append-only index database with parallel ingestion." +
+              " The first time this flag is enabled, the index database will migrate to a new schema that allows for significantly higher ingestion performance." +
+              " This migration is irreversible, subsequent starts will have to enable this flag as well." +
+              " In the future, this flag will be removed and this application will automatically migrate to the new schema."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 

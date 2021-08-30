@@ -42,6 +42,7 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   InitialLedgerConfiguration,
   PartyConfiguration,
+  SubmissionConfiguration,
 }
 import com.daml.platform.server.api.services.grpc.{
   GrpcCommandCompletionService,
@@ -86,6 +87,7 @@ private[daml] object ApiServices {
       initialLedgerConfiguration: Option[InitialLedgerConfiguration],
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
+      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -227,7 +229,8 @@ private[daml] object ApiServices {
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation
+            partyConfig.implicitPartyAllocation,
+            submissionConfig.enableDeduplication,
           ),
           metrics,
         )

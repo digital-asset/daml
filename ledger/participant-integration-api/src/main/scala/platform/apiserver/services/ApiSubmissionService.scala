@@ -80,7 +80,8 @@ private[apiserver] object ApiSubmissionService {
     )
 
   final case class Configuration(
-      implicitPartyAllocation: Boolean
+      implicitPartyAllocation: Boolean,
+      enableDeduplication: Boolean,
   )
 
 }
@@ -114,7 +115,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       val evaluatedCommand = ledgerConfigurationSubscription
         .latestConfiguration() match {
         case Some(ledgerConfiguration) =>
-          if (writeService.isApiDeduplicationEnabled) {
+          if (writeService.isApiDeduplicationEnabled && configuration.enableDeduplication) {
             deduplicateAndRecordOnLedger(
               seedService.nextSeed(),
               request.commands,
