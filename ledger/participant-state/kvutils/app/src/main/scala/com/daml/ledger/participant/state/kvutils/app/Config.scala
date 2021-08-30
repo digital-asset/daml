@@ -391,7 +391,8 @@ object Config {
           .optional()
           .hidden()
           .action((_, config) =>
-            config.copy(submissionConfig = config.submissionConfig.copy(enableDeduplication = false))
+            config
+              .copy(submissionConfig = config.submissionConfig.copy(enableDeduplication = false))
           )
           .text(
             "Disable participant deduplication."
