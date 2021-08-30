@@ -154,7 +154,11 @@ private[state] object Conversions {
 
   val FillerSubmissionIdPrefix = "submission-"
 
-  def parseCompletionInfo(entryId: DamlLogEntryId, subInfo: DamlSubmitterInfo): CompletionInfo = {
+  def parseCompletionInfo(
+      entryId: DamlLogEntryId,
+      recordTime: Instant,
+      subInfo: DamlSubmitterInfo,
+  ): CompletionInfo = {
     val deduplicationPeriod = subInfo.getDeduplicationPeriodCase match {
       case DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
         Some(
@@ -166,8 +170,15 @@ private[state] object Conversions {
             Offset.fromHexString(Ref.HexString.assertFromString(subInfo.getDeduplicationOffset))
           )
         )
-      case DeduplicationPeriodCase.DEDUPLICATE_UNTIL => //backwards compat
-        None //FIXME can we convert from a future timestamp into a sensible dedup duration?
+      case DeduplicationPeriodCase.DEDUPLICATE_UNTIL =>
+        //backwards compatibility
+        // we no longer support deduplicate until, and in v1 it was always relative to record time
+        // to keep backwards compatibility and simulate the new deduplication period we calculate the duration from the record time
+        val until = parseInstant(subInfo.getDeduplicateUntil)
+        val duration = Duration.between(recordTime, until).abs()
+        Some(
+          DeduplicationPeriod.DeduplicationDuration(duration)
+        )
       case DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
         None
     }
@@ -202,6 +213,8 @@ private[state] object Conversions {
 
   def parseInstant(ts: com.google.protobuf.Timestamp): Instant =
     Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong)
+
+  def parseInstant(ts: Time.Timestamp): Instant = parseInstant(buildTimestamp(ts))
 
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
     crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))

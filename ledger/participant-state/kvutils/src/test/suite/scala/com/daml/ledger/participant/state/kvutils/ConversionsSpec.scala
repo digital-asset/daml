@@ -3,10 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions.{
+  buildTimestamp,
   commandDedupKey,
   decodeBlindingInfo,
   encodeBlindingInfo,
@@ -303,7 +305,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     "decode completion info" should {
       val entryId =
         DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8("entryid")).build()
-
+      val recordTime = Instant.now()
       def submitterInfo = {
         DamlSubmitterInfo.newBuilder().setApplicationId("id").setCommandId("commandId")
       }
@@ -311,6 +313,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       "use entry id as submission id" in {
         val completionInfo = parseCompletionInfo(
           entryId,
+          recordTime,
           submitterInfo.build(),
         )
         completionInfo.submissionId shouldBe s"${Conversions.FillerSubmissionIdPrefix}entryid"
@@ -320,9 +323,30 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         val submissionId = "submissionId"
         val completionInfo = parseCompletionInfo(
           entryId,
+          recordTime,
           submitterInfo.setSubmissionId(submissionId).build(),
         )
         completionInfo.submissionId shouldBe submissionId
+      }
+
+      "calculate duration for deduplication for backwards compatibility with deduplicate until" in {
+        val completionInfo = parseCompletionInfo(
+          entryId,
+          recordTime,
+          submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.plusSeconds(30))).build(),
+        )
+        completionInfo.optDeduplicationPeriod.value shouldBe DeduplicationPeriod
+          .DeduplicationDuration(Duration.ofSeconds(30))
+      }
+
+      "handle deduplication which is the past relative to record time" in {
+        val completionInfo = parseCompletionInfo(
+          entryId,
+          recordTime,
+          submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.minusSeconds(30))).build(),
+        )
+        completionInfo.optDeduplicationPeriod.value shouldBe DeduplicationPeriod
+          .DeduplicationDuration(Duration.ofSeconds(30))
       }
     }
   }

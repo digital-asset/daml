@@ -230,7 +230,8 @@ object KeyValueConsumption {
     .map(reason => {
       Update.CommandRejected(
         recordTime = recordTime,
-        completionInfo = parseCompletionInfo(entryId, rejEntry.getSubmitterInfo),
+        completionInfo =
+          parseCompletionInfo(entryId, parseInstant(recordTime), rejEntry.getSubmitterInfo),
         reasonTemplate = reason,
       )
     })
@@ -258,7 +259,8 @@ object KeyValueConsumption {
 
     Update.TransactionAccepted(
       optCompletionInfo =
-        if (txEntry.hasSubmitterInfo) Some(parseCompletionInfo(entryId, txEntry.getSubmitterInfo))
+        if (txEntry.hasSubmitterInfo)
+          Some(parseCompletionInfo(entryId, parseInstant(recordTime), txEntry.getSubmitterInfo))
         else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
@@ -346,8 +348,11 @@ object KeyValueConsumption {
         Some(
           Update.CommandRejected(
             recordTime = recordTime,
-            completionInfo =
-              parseCompletionInfo(entryId, transactionRejectionEntry.getSubmitterInfo),
+            completionInfo = parseCompletionInfo(
+              entryId,
+              Conversions.parseInstant(recordTime),
+              transactionRejectionEntry.getSubmitterInfo,
+            ),
             reasonTemplate = FinalReason(
               Status.of(
                 Code.INVALID_ARGUMENT.value, // TODO does this make sense?
