@@ -269,7 +269,7 @@ class IntegrityChecker[LogResult](
             jdbcUrl = config.jdbcUrl,
             enableAppendOnlySchema = config.enableAppendOnlySchema,
           )
-          .flatMap(_ => indexerFactory.initialized())(materializer.executionContext)
+          .map(_ => indexerFactory.initialized())(materializer.executionContext)
       )
       migrated <- migrating
     } yield migrated

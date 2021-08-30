@@ -12,7 +12,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
-import scala.util.chaining._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class StandaloneIndexerServer(
@@ -53,10 +52,9 @@ final class StandaloneIndexerServer(
         initializedDebugLogMessage: String = "Waiting for the indexer to initialize the database.",
         resetSchema: Boolean = false,
     ): Resource[ReportsHealth] =
-      migration
-        .flatMap(_ => indexerFactory.initialized(resetSchema))
-        .pipe(Resource.fromFuture)
-        .flatMap(_.acquire())
+      Resource
+        .fromFuture(migration)
+        .flatMap(_ => indexerFactory.initialized(resetSchema).acquire())
         .flatMap(indexer.start)
         .map { case (healthReporter, _) =>
           logger.debug(initializedDebugLogMessage)

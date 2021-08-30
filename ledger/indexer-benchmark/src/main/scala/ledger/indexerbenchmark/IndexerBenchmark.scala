@@ -93,7 +93,7 @@ class IndexerBenchmark() {
                 jdbcUrl = config.indexerConfig.jdbcUrl,
                 enableAppendOnlySchema = config.indexerConfig.enableAppendOnlySchema,
               )
-              .flatMap(_ => indexerFactory.initialized())(indexerEC),
+              .map(_ => indexerFactory.initialized())(indexerEC),
             Duration(5, "minute"),
           )
           .acquire()

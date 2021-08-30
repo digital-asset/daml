@@ -68,7 +68,7 @@ object JdbcIndexer {
 
     def initialized(resetSchema: Boolean = false)(implicit
         resourceContext: ResourceContext
-    ): Future[ResourceOwner[Indexer]] =
+    ): ResourceOwner[Indexer] =
       if (config.enableAppendOnlySchema)
         initializedAppendOnlySchema(resetSchema)
       else
@@ -76,8 +76,8 @@ object JdbcIndexer {
 
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean
-    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =
-      Future.successful(for {
+    )(implicit resourceContext: ResourceContext): ResourceOwner[Indexer] =
+      for {
         ledgerDao <- com.daml.platform.store.dao.JdbcLedgerDao.writeOwner(
           serverRole,
           config.jdbcUrl,
@@ -109,86 +109,89 @@ object JdbcIndexer {
           materializer.executionContext,
           loggingContext,
         )
-      } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow, readService))
+      } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow, readService)
 
     private[this] def initializedAppendOnlySchema(resetSchema: Boolean)(implicit
         resourceContext: ResourceContext
-    ): Future[ResourceOwner[Indexer]] = {
+    ): ResourceOwner[Indexer] = {
       implicit val executionContext: ExecutionContext = resourceContext.executionContext
-      for {
-        // Note: the LedgerDao interface is only used for initialization here, it can be released immediately
-        // after initialization is finished. Hence the use of ResourceOwner.use().
-        _ <- com.daml.platform.store.appendonlydao.JdbcLedgerDao
-          .writeOwner(
-            serverRole,
-            config.jdbcUrl,
-            config.databaseConnectionPoolSize,
-            config.databaseConnectionTimeout,
-            config.eventsPageSize,
-            config.eventsProcessingParallelism,
-            servicesExecutionContext,
-            metrics,
-            lfValueTranslationCache,
-            enricher = None,
-            participantId = config.participantId,
-          )
-          .use(ledgerDao =>
-            for {
-              _ <-
-                if (resetSchema) {
-                  ledgerDao.reset()
-                } else {
-                  Future.successful(())
-                }
-              _ <- initializeLedger(ledgerDao)
-            } yield ()
-          )
-        storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl))
-      } yield ParallelIndexerFactory(
-        jdbcUrl = config.jdbcUrl,
-        inputMappingParallelism = config.inputMappingParallelism,
-        batchingParallelism = config.batchingParallelism,
-        ingestionParallelism = config.ingestionParallelism,
-        dataSourceConfig = DataSourceConfig(
-          postgresConfig = PostgresDataSourceConfig(
-            synchronousCommit = Some(config.asyncCommitMode match {
-              case SynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.On
-              case AsynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.Off
-              case LocalSynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.Local
-            })
-          )
-        ),
-        haConfig = config.haConfig,
-        metrics = metrics,
-        storageBackend = storageBackend,
-        initializeParallelIngestion = InitializeParallelIngestion(
-          storageBackend = storageBackend,
-          metrics = metrics,
-        ),
-        parallelIndexerSubscription = ParallelIndexerSubscription(
-          storageBackend = storageBackend,
-          participantId = config.participantId,
-          translation = new LfValueTranslation(
-            cache = lfValueTranslationCache,
+      val storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl))
+      ResourceOwner
+        .forFuture(() =>
+          com.daml.platform.store.appendonlydao.JdbcLedgerDao
+            .writeOwner(
+              serverRole,
+              config.jdbcUrl,
+              config.databaseConnectionPoolSize,
+              config.databaseConnectionTimeout,
+              config.eventsPageSize,
+              config.eventsProcessingParallelism,
+              servicesExecutionContext,
+              metrics,
+              lfValueTranslationCache,
+              enricher = None,
+              participantId = config.participantId,
+            )
+            .use(ledgerDao =>
+              for {
+                _ <-
+                  if (resetSchema) {
+                    ledgerDao.reset()
+                  } else {
+                    Future.successful(())
+                  }
+                _ <- initializeLedger(ledgerDao)
+              } yield ()
+            )
+        )
+        .flatMap(_ =>
+          ParallelIndexerFactory(
+            jdbcUrl = config.jdbcUrl,
+            inputMappingParallelism = config.inputMappingParallelism,
+            batchingParallelism = config.batchingParallelism,
+            ingestionParallelism = config.ingestionParallelism,
+            dataSourceConfig = DataSourceConfig(
+              postgresConfig = PostgresDataSourceConfig(
+                synchronousCommit = Some(config.asyncCommitMode match {
+                  case SynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.On
+                  case AsynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.Off
+                  case LocalSynchronousCommit =>
+                    PostgresDataSourceConfig.SynchronousCommitValue.Local
+                })
+              )
+            ),
+            haConfig = config.haConfig,
             metrics = metrics,
-            enricherO = None,
-            loadPackage = (_, _) => Future.successful(None),
-          ),
-          compressionStrategy =
-            if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
-            else CompressionStrategy.none(metrics),
-          maxInputBufferSize = config.maxInputBufferSize,
-          inputMappingParallelism = config.inputMappingParallelism,
-          batchingParallelism = config.batchingParallelism,
-          ingestionParallelism = config.ingestionParallelism,
-          submissionBatchSize = config.submissionBatchSize,
-          tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
-          batchWithinMillis = config.batchWithinMillis,
-          metrics = metrics,
-        ),
-        mat = materializer,
-        readService = readService,
-      )
+            storageBackend = storageBackend,
+            initializeParallelIngestion = InitializeParallelIngestion(
+              storageBackend = storageBackend,
+              metrics = metrics,
+            ),
+            parallelIndexerSubscription = ParallelIndexerSubscription(
+              storageBackend = storageBackend,
+              participantId = config.participantId,
+              translation = new LfValueTranslation(
+                cache = lfValueTranslationCache,
+                metrics = metrics,
+                enricherO = None,
+                loadPackage = (_, _) => Future.successful(None),
+              ),
+              compressionStrategy =
+                if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
+                else CompressionStrategy.none(metrics),
+              maxInputBufferSize = config.maxInputBufferSize,
+              inputMappingParallelism = config.inputMappingParallelism,
+              batchingParallelism = config.batchingParallelism,
+              ingestionParallelism = config.ingestionParallelism,
+              submissionBatchSize = config.submissionBatchSize,
+              tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
+              batchWithinMillis = config.batchWithinMillis,
+              metrics = metrics,
+            ),
+            mat = materializer,
+            readService = readService,
+          )
+        )
     }
 
     private def initializeLedger(

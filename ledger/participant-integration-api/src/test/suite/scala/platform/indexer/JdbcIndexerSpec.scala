@@ -189,7 +189,7 @@ final class JdbcIndexerSpec
         enableAppendOnlySchema = config.enableAppendOnlySchema,
         allowExistingSchema = true,
       )
-      .flatMap(_ =>
+      .map(_ =>
         new indexer.JdbcIndexer.Factory(
           config = config,
           readService = readService,
