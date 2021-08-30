@@ -84,9 +84,19 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
       deduplicationOffsetColumn ~
       deduplicationTimeSecondsColumn ~ deduplicationTimeNanosColumn ~
       deduplicationStartColumn map {
-        case offset ~ recordTime ~ commandId ~ _ ~ _ ~ transactionId ~
-            _ ~ _ ~ _ ~ _ =>
-          CompletionFromTransaction.acceptedCompletion(recordTime, offset, commandId, transactionId)
+        case offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ transactionId ~
+            deduplicationOffset ~ deduplicationTimeSeconds ~ deduplicationTimeNanos ~ _ =>
+          CompletionFromTransaction.acceptedCompletion(
+            recordTime,
+            offset,
+            commandId,
+            transactionId,
+            applicationId,
+            submissionId,
+            deduplicationOffset,
+            deduplicationTimeSeconds,
+            deduplicationTimeNanos,
+          )
       }
 
   private val rejectionStatusCodeColumn: RowParser[Int] = int("rejection_status_code")
@@ -102,12 +112,22 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
       rejectionStatusCodeColumn ~
       rejectionStatusMessageColumn ~
       rejectionStatusDetailsColumn map {
-        case offset ~ recordTime ~ commandId ~ _ ~ _ ~
-            _ ~ _ ~ _ ~ _ ~
+        case offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~
+            deduplicationOffset ~ deduplicationTimeSeconds ~ deduplicationTimeNanos ~ _ ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
-          CompletionFromTransaction.rejectedCompletion(recordTime, offset, commandId, status)
+          CompletionFromTransaction.rejectedCompletion(
+            recordTime,
+            offset,
+            commandId,
+            status,
+            applicationId,
+            submissionId,
+            deduplicationOffset,
+            deduplicationTimeSeconds,
+            deduplicationTimeNanos,
+          )
       }
 
   private val completionParser: RowParser[CompletionStreamResponse] =

@@ -5,7 +5,7 @@ package com.daml.platform.store.dao
 
 import java.time.Instant
 
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
+import anorm.{~, Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -18,20 +18,26 @@ private[platform] object CommandCompletionsTable {
 
   import SqlParser.{int, str}
 
-  private val sharedColumns: RowParser[Offset ~ Instant ~ String] =
-    offset("completion_offset") ~ instant("record_time") ~ str("command_id")
+  private val sharedColumns: RowParser[Offset ~ Instant ~ String ~ String] =
+    offset("completion_offset") ~ instant("record_time") ~ str("command_id") ~ str("application_id")
 
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
     sharedColumns ~ str("transaction_id") map {
-      case offset ~ recordTime ~ commandId ~ transactionId =>
-        CompletionFromTransaction.acceptedCompletion(recordTime, offset, commandId, transactionId)
+      case offset ~ recordTime ~ commandId ~ applicationId ~ transactionId =>
+        CompletionFromTransaction.acceptedCompletion(
+          recordTime,
+          offset,
+          commandId,
+          transactionId,
+          applicationId,
+        )
     }
 
   private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
     sharedColumns ~ int("status_code") ~ str("status_message") map {
-      case offset ~ recordTime ~ commandId ~ statusCode ~ statusMessage =>
+      case offset ~ recordTime ~ commandId ~ applicationId ~ statusCode ~ statusMessage =>
         val status = StatusProto.of(statusCode, statusMessage, Seq.empty)
-        CompletionFromTransaction.rejectedCompletion(recordTime, offset, commandId, status)
+        CompletionFromTransaction.rejectedCompletion(recordTime, offset, commandId, status, applicationId)
     }
 
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser
@@ -45,7 +51,7 @@ private[platform] object CommandCompletionsTable {
   ): SimpleSql[Row] = {
     val submittersInPartiesClause =
       sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
-    SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions where ($startExclusive is null or completion_offset > $startExclusive) and completion_offset <= $endInclusive and application_id = $applicationId and #$submittersInPartiesClause order by completion_offset asc"
+    SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message, application_id from participant_command_completions where ($startExclusive is null or completion_offset > $startExclusive) and completion_offset <= $endInclusive and application_id = $applicationId and #$submittersInPartiesClause order by completion_offset asc"
   }
 
   def prepareCompletionsDelete(endInclusive: Offset): SimpleSql[Row] =

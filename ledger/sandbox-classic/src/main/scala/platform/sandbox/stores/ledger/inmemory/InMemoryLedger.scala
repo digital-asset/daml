@@ -194,6 +194,7 @@ private[sandbox] final class InMemoryLedger(
           offset,
           commandId,
           transactionId,
+          appId,
         )
 
       case (
@@ -208,6 +209,7 @@ private[sandbox] final class InMemoryLedger(
           offset,
           commandId,
           status,
+          appId
         )
     }
   }
