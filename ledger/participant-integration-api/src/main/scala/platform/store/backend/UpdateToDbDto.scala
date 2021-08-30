@@ -30,7 +30,7 @@ object UpdateToDbDto {
     {
       case u: CommandRejected =>
         Iterator(
-          commandCompletion(offset, u.recordTime, u.completionInfo).copy(
+          commandCompletion(offset, u.recordTime, transactionId = None, u.completionInfo).copy(
             rejection_status_code = Some(u.reasonTemplate.code),
             rejection_status_message = Some(u.reasonTemplate.message),
             rejection_status_details =
@@ -254,7 +254,9 @@ object UpdateToDbDto {
         }
 
         val completions =
-          u.optCompletionInfo.iterator.map(commandCompletion(offset, u.recordTime, _))
+          u.optCompletionInfo.iterator.map(
+            commandCompletion(offset, u.recordTime, Some(u.transactionId), _)
+          )
 
         events ++ divulgences ++ completions
     }
@@ -263,6 +265,7 @@ object UpdateToDbDto {
   private def commandCompletion(
       offset: Offset,
       recordTime: Time.Timestamp,
+      transactionId: Option[Ref.TransactionId],
       completionInfo: CompletionInfo,
   ): DbDto.CommandCompletion = {
     val (deduplicationTimeSeconds, deduplicationTimeNanos) =
@@ -284,7 +287,7 @@ object UpdateToDbDto {
       application_id = completionInfo.applicationId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,
-      transaction_id = None,
+      transaction_id = transactionId,
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,
