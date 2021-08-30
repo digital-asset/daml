@@ -113,6 +113,11 @@ private[backend] object OracleStorageBackend
       s"""case when ($column = $value) then 1 else 0 end"""
 
     override def booleanOrAggregationFunction: String = "max"
+
+    override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
+      s"EXISTS (SELECT 1 FROM JSON_TABLE($arrayColumnName, '$$[*]' columns (value PATH '$$')) WHERE value = $elementColumnName)"
+
+    override def isTrue(booleanColumnName: String): String = s"$booleanColumnName = 1"
   }
 
   override def queryStrategy: QueryStrategy = OracleQueryStrategy

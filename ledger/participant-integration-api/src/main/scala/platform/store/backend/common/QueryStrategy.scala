@@ -47,4 +47,12 @@ trait QueryStrategy {
     * @return the function name
     */
   def booleanOrAggregationFunction: String = "bool_or"
+
+  /** Predicate which tests if the element referenced by the `elementColumnName`
+    * is in the array from column `arrayColumnName`
+    */
+  def arrayContains(arrayColumnName: String, elementColumnName: String): String
+
+  /** Boolean predicate */
+  def isTrue(booleanColumnName: String): String
 }

@@ -37,7 +37,6 @@ import scalaz.syntax.tag._
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
   // Ingestion
 
   private val SQL_DELETE_OVERSPILL_ENTRIES: List[SqlQuery] =
@@ -54,6 +53,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       ),
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
     )
+
+  def queryStrategy: QueryStrategy
 
   override def initializeIngestion(
       connection: Connection
@@ -479,9 +480,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Events
 
-  protected def arrayContains(arrayColumnName: String, element: String): String =
-    s"$element = any($arrayColumnName)"
-
   def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -544,33 +542,39 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     }(connection, loggingContext)
 
     if (pruneAllDivulgedContracts) {
-      val prunedAllDivulgedContractsUpToInclusive =
-        SQL"""
-             select participant_all_divulged_contracts_pruned_up_to_inclusive
-             from parameters
-             """
-          .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
-            connection
-          )
-          .getOrElse(Offset.beforeBegin)
+      val pruneAfterClause =
+        participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
+          case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
+          case None => cSQL""
+        }
 
       pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
         SQL"""
             -- Immediate divulgence pruning
             delete from participant_events_create c
-            where event_offset > $prunedAllDivulgedContractsUpToInclusive
-            and event_offset <= $pruneUpToInclusive
+            where event_offset <= $pruneUpToInclusive
+            -- Only prune create events which did not have a locally hosted party before their creation offset
             and not exists (
               select 1
-              from party_entries as p
-              where p.ledger_offset <= c.event_offset
-              and p.is_local
-              and #${arrayContains("c.flat_event_witnesses", "p.party")}
+              from party_entries p
+              where p.typ = 'accept'
+              and p.ledger_offset <= c.event_offset
+              and #${queryStrategy.isTrue("p.is_local")}
+              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party")}
             )
+            $pruneAfterClause
          """
       }(connection, loggingContext)
     }
   }
+
+  private def participantAllDivulgedContractsPrunedUpToInclusive(
+      connection: Connection
+  ): Option[Offset] =
+    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
+      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+        connection
+      )
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
       connection: Connection,
