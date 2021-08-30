@@ -33,7 +33,7 @@ import io.grpc.{Channel, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class LedgerClient private (
+final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
     val ledgerId: LedgerId,
