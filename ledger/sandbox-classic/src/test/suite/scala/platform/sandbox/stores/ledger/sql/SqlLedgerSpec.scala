@@ -86,7 +86,7 @@ final class SqlLedgerSpec
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger ID" in {
       for {
-        ledger <- createSqlLedger(validatePartyAllocation = false)
+        ledger <- createSqlLedger()
       } yield {
         ledger.ledgerId should not be ""
       }
@@ -94,7 +94,7 @@ final class SqlLedgerSpec
 
     "be able to be created from scratch with a given ledger ID" in {
       for {
-        ledger <- createSqlLedger(ledgerId, validatePartyAllocation = false)
+        ledger <- createSqlLedger(ledgerId)
       } yield {
         ledger.ledgerId should be(ledgerId)
       }
@@ -102,9 +102,9 @@ final class SqlLedgerSpec
 
     "be able to be reused keeping the old ledger ID" in {
       for {
-        ledger1 <- createSqlLedger(ledgerId, validatePartyAllocation = false)
-        ledger2 <- createSqlLedger(ledgerId, validatePartyAllocation = false)
-        ledger3 <- createSqlLedger(validatePartyAllocation = false)
+        ledger1 <- createSqlLedger(ledgerId)
+        ledger2 <- createSqlLedger(ledgerId)
+        ledger3 <- createSqlLedger()
       } yield {
         ledger1.ledgerId should not be LedgerId
         ledger1.ledgerId should be(ledger2.ledgerId)
@@ -114,11 +114,8 @@ final class SqlLedgerSpec
 
     "refuse to create a new ledger when there is already one with a different ledger ID" in {
       for {
-        _ <- createSqlLedger(ledgerId = "TheLedger", validatePartyAllocation = false)
-        throwable <- createSqlLedger(
-          ledgerId = "AnotherLedger",
-          validatePartyAllocation = false,
-        ).failed
+        _ <- createSqlLedger(ledgerId)
+        throwable <- createSqlLedger(ledgerId = "AnotherLedger").failed
       } yield {
         throwable.getMessage should be(
           "The provided ledger id does not match the existing one. Existing: \"TheLedger\", Provided: \"AnotherLedger\"."
@@ -129,7 +126,7 @@ final class SqlLedgerSpec
     "correctly initialized the participant ID" in {
       val participantId = makeParticipantId("TheOnlyParticipant")
       for {
-        _ <- createSqlLedgerWithParticipantId(participantId, validatePartyAllocation = false)
+        _ <- createSqlLedgerWithParticipantId(participantId)
         metadata <- IndexMetadata.read(postgresDatabase.url)
       } yield {
         metadata.participantId shouldEqual participantId
@@ -139,8 +136,8 @@ final class SqlLedgerSpec
     "allow to resume on an existing participant ID" in {
       val participantId = makeParticipantId("TheParticipant")
       for {
-        _ <- createSqlLedgerWithParticipantId(participantId, validatePartyAllocation = false)
-        _ <- createSqlLedgerWithParticipantId(participantId, validatePartyAllocation = false)
+        _ <- createSqlLedgerWithParticipantId(participantId)
+        _ <- createSqlLedgerWithParticipantId(participantId)
         metadata <- IndexMetadata.read(postgresDatabase.url)
       } yield {
         metadata.participantId shouldEqual participantId
@@ -151,11 +148,8 @@ final class SqlLedgerSpec
       val expectedExisting = makeParticipantId("TheParticipant")
       val expectedProvided = makeParticipantId("AnotherParticipant")
       for {
-        _ <- createSqlLedgerWithParticipantId(expectedExisting, validatePartyAllocation = false)
-        throwable <- createSqlLedgerWithParticipantId(
-          expectedProvided,
-          validatePartyAllocation = false,
-        ).failed
+        _ <- createSqlLedgerWithParticipantId(expectedExisting)
+        throwable <- createSqlLedgerWithParticipantId(expectedProvided).failed
       } yield {
         throwable match {
           case mismatch: MismatchException.ParticipantId =>
@@ -169,7 +163,7 @@ final class SqlLedgerSpec
 
     "load no packages by default" in {
       for {
-        ledger <- createSqlLedger(validatePartyAllocation = false)
+        ledger <- createSqlLedger()
         packages <- ledger.listLfPackages()
       } yield {
         packages should have size 0
@@ -178,10 +172,7 @@ final class SqlLedgerSpec
 
     "load packages if provided with a dynamic ledger ID" in {
       for {
-        ledger <- createSqlLedger(
-          packages = testDar.all,
-          validatePartyAllocation = false,
-        )
+        ledger <- createSqlLedger(packages = testDar.all)
         packages <- ledger.listLfPackages()
       } yield {
         packages should have size testDar.all.length.toLong
@@ -190,11 +181,7 @@ final class SqlLedgerSpec
 
     "load packages if provided with a static ledger ID" in {
       for {
-        ledger <- createSqlLedger(
-          ledgerId = "TheLedger",
-          packages = testDar.all,
-          validatePartyAllocation = false,
-        )
+        ledger <- createSqlLedger(ledgerId = "TheLedger", packages = testDar.all)
         packages <- ledger.listLfPackages()
       } yield {
         packages should have size testDar.all.length.toLong
@@ -203,12 +190,8 @@ final class SqlLedgerSpec
 
     "load no packages if the ledger already exists" in {
       for {
-        _ <- createSqlLedger(ledgerId = "TheLedger", validatePartyAllocation = false)
-        ledger <- createSqlLedger(
-          ledgerId = "TheLedger",
-          packages = testDar.all,
-          validatePartyAllocation = false,
-        )
+        _ <- createSqlLedger(ledgerId = "TheLedger")
+        ledger <- createSqlLedger(ledgerId = "TheLedger", packages = testDar.all)
         packages <- ledger.listLfPackages()
       } yield {
         packages should have size 0
@@ -217,7 +200,7 @@ final class SqlLedgerSpec
 
     "be healthy" in {
       for {
-        ledger <- createSqlLedger(validatePartyAllocation = false)
+        ledger <- createSqlLedger()
       } yield {
         ledger.currentHealth() should be(Healthy)
       }
@@ -230,7 +213,7 @@ final class SqlLedgerSpec
       */
     "does not use async commit when building JdbcLedgerDao" in {
       for {
-        _ <- createSqlLedger(validatePartyAllocation = false)
+        _ <- createSqlLedger()
       } yield {
         val hikariDataSourceLogs =
           LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
@@ -247,7 +230,7 @@ final class SqlLedgerSpec
       val submissionId2 = Ref.SubmissionId.assertFromString("submissionId2")
       val submissionId3 = Ref.SubmissionId.assertFromString("submissionId3")
       for {
-        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        sqlLedger <- createSqlLedger()
         partyAllocationResult1 <- sqlLedger.publishPartyAllocation(
           submissionId = submissionId1,
           party = party1,
@@ -291,7 +274,7 @@ final class SqlLedgerSpec
       val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
       val now = Time.Timestamp.assertFromInstant(Instant.now())
       for {
-        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
         _ <- sqlLedger.publishConfiguration(
           maxRecordTime = now.add(Duration.ofMinutes(1)),
@@ -336,7 +319,7 @@ final class SqlLedgerSpec
       val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
       val now = Time.Timestamp.assertFromInstant(Instant.now())
       for {
-        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
         result <- sqlLedger.publishTransaction(
           submitterInfo = SubmitterInfo(
@@ -379,7 +362,7 @@ final class SqlLedgerSpec
       val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
       val now = Time.Timestamp.assertFromInstant(Instant.now())
       for {
-        sqlLedger <- createSqlLedger(validatePartyAllocation = false)
+        sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
         _ <- sqlLedger.publishConfiguration(
           maxRecordTime = now.add(Duration.ofMinutes(1)),
@@ -428,59 +411,31 @@ final class SqlLedgerSpec
 
   private def eventually[T](f: => Future[T]): Future[T] = retryStrategy.apply((_, _) => f)
 
-  private def createSqlLedger(validatePartyAllocation: Boolean): Future[Ledger] =
-    createSqlLedger(None, None, List.empty, validatePartyAllocation)
+  private def createSqlLedger(): Future[Ledger] =
+    createSqlLedger(ledgerId = None, participantId = None, packages = List.empty)
 
-  private def createSqlLedger(
-      ledgerId: String,
-      validatePartyAllocation: Boolean,
-  ): Future[Ledger] =
-    createSqlLedger(ledgerId, List.empty, validatePartyAllocation)
+  private def createSqlLedger(ledgerId: String): Future[Ledger] =
+    createSqlLedger(ledgerId = ledgerId, packages = List.empty)
 
-  private def createSqlLedger(
-      ledgerId: LedgerId,
-      validatePartyAllocation: Boolean,
-  ): Future[Ledger] =
-    createSqlLedger(ledgerId, List.empty, validatePartyAllocation)
+  private def createSqlLedger(ledgerId: LedgerId): Future[Ledger] =
+    createSqlLedger(ledgerId = Some(ledgerId), participantId = None, packages = List.empty)
 
-  private def createSqlLedger(
-      packages: List[DamlLf.Archive],
-      validatePartyAllocation: Boolean,
-  ): Future[Ledger] =
-    createSqlLedger(None, None, packages, validatePartyAllocation)
+  private def createSqlLedger(packages: List[DamlLf.Archive]): Future[Ledger] =
+    createSqlLedger(ledgerId = None, participantId = None, packages = packages)
 
-  private def createSqlLedger(
-      ledgerId: String,
-      packages: List[DamlLf.Archive],
-      validatePartyAllocation: Boolean,
-  ): Future[Ledger] = {
-    val assertedLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString(ledgerId))
-    createSqlLedger(assertedLedgerId, packages, validatePartyAllocation)
+  private def createSqlLedger(ledgerId: String, packages: List[DamlLf.Archive]): Future[Ledger] = {
+    val ledgerIdString: String = Ref.LedgerString.assertFromString(ledgerId)
+    val assertedLedgerId: LedgerId = LedgerId(ledgerIdString)
+    createSqlLedger(ledgerId = Some(assertedLedgerId), participantId = None, packages = packages)
   }
 
-  private def createSqlLedger(
-      ledgerId: LedgerId,
-      packages: List[DamlLf.Archive],
-      validatePartyAllocation: Boolean,
-  ): Future[Ledger] =
-    createSqlLedger(Some(ledgerId), None, packages, validatePartyAllocation)
-
-  private def createSqlLedgerWithParticipantId(
-      participantId: ParticipantId,
-      validatePartyAllocation: Boolean,
-  ): Future[Ledger] =
-    createSqlLedger(None, Some(participantId), List.empty, validatePartyAllocation)
-
-  private def makeParticipantId(id: String): ParticipantId =
-    ParticipantId(Ref.ParticipantId.assertFromString(id))
-
-  private val DefaultParticipantId = makeParticipantId("test-participant-id")
+  private def createSqlLedgerWithParticipantId(participantId: ParticipantId): Future[Ledger] =
+    createSqlLedger(ledgerId = None, participantId = Some(participantId), packages = List.empty)
 
   private def createSqlLedger(
       ledgerId: Option[LedgerId],
       participantId: Option[ParticipantId],
       packages: List[DamlLf.Archive],
-      validatePartyAllocation: Boolean,
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     val ledger =
@@ -506,7 +461,7 @@ final class SqlLedgerSpec
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         engine = new Engine(),
-        validatePartyAllocation = validatePartyAllocation,
+        validatePartyAllocation = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture
@@ -516,10 +471,15 @@ final class SqlLedgerSpec
 object SqlLedgerSpec {
   private val queueDepth = 128
 
-  private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
+  private val ledgerId: LedgerId = LedgerId("TheLedger")
 
   private val testDar =
     DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
+
+  private val DefaultParticipantId = makeParticipantId("test-participant-id")
+
+  private def makeParticipantId(id: String): ParticipantId =
+    ParticipantId(Ref.ParticipantId.assertFromString(id))
 
   private def emptyTransactionMeta(
       seedService: SeedService,
