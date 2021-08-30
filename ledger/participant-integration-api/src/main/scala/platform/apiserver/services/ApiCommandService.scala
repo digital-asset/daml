@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -51,7 +51,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
@@ -203,7 +203,7 @@ private[apiserver] object ApiCommandService {
       ledgerId: LedgerId,
       inputBufferSize: Int,
       maxCommandsInFlight: Int,
-      trackerRetentionPeriod: FiniteDuration,
+      trackerRetentionPeriod: Duration,
   )
 
   final class CompletionServices(

@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.services.tracking
 
+import java.time.Duration
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
@@ -31,7 +32,7 @@ import scala.util.{Failure, Success}
   *                   Called when there is no tracker for the given key.
   */
 private[services] final class TrackerMap[Key](
-    retentionPeriod: FiniteDuration,
+    retentionPeriod: Duration,
     getKey: Commands => Key,
     newTracker: Key => Future[Tracker],
 )(implicit loggingContext: LoggingContext)
@@ -45,12 +46,15 @@ private[services] final class TrackerMap[Key](
   @volatile private var trackerBySubmitter =
     HashMap.empty[Key, TrackerMap.AsyncResource[TrackerWithLastSubmission]]
 
-  require(
-    retentionPeriod < Long.MaxValue.nanoseconds,
-    s"Retention period $retentionPeriod is too long. Must be below ${Long.MaxValue} nanoseconds.",
-  )
-
-  private val retentionNanos = retentionPeriod.toNanos
+  private val retentionNanos =
+    try {
+      retentionPeriod.toNanos
+    } catch {
+      case _: ArithmeticException =>
+        throw new IllegalArgumentException(
+          s"Retention period $retentionPeriod is invalid. Must be between 1 and ${Long.MaxValue} nanoseconds."
+        )
+    }
 
   override def track(
       submission: CommandSubmission
@@ -117,7 +121,7 @@ private[services] final class TrackerMap[Key](
 
 private[services] object TrackerMap {
   final class SelfCleaning[Key](
-      retentionPeriod: FiniteDuration,
+      retentionPeriod: Duration,
       getKey: Commands => Key,
       newTracker: Key => Future[Tracker],
       cleanupInterval: FiniteDuration,

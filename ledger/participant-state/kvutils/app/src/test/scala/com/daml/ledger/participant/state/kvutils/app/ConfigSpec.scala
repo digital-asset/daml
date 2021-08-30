@@ -3,6 +3,10 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.io.File
+import java.net.URL
+import java.time.Duration
+
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
@@ -11,11 +15,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
-
-import java.io.File
-import java.net.URL
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
 
 final class ConfigSpec
     extends AnyFlatSpec
@@ -175,10 +174,7 @@ final class ConfigSpec
 
   it should "get the tracker retention period when provided" in {
     val periodStringRepresentation = "P0DT1H2M3S"
-    val expectedPeriod =
-      FiniteDuration(1, TimeUnit.HOURS) +
-        FiniteDuration(2, TimeUnit.MINUTES) +
-        FiniteDuration(3, TimeUnit.SECONDS)
+    val expectedPeriod = Duration.ofHours(1).plusMinutes(2).plusSeconds(3)
     val config =
       configParser(parameters =
         minimalValidOptions ++ List(trackerRetentionPeriod, periodStringRepresentation)
