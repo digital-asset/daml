@@ -12,8 +12,8 @@ import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.dbutils.JdbcConfig
 import com.daml.dec.DirectExecutionContext
+import com.daml.dbutils.JdbcConfig
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
