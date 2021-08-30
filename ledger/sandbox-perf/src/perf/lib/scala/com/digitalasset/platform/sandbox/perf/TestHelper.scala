@@ -5,6 +5,7 @@ package com.daml.platform.sandbox.perf
 
 import java.io.File
 import java.util.UUID
+
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse

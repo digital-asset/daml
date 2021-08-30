@@ -5,6 +5,7 @@ package com.daml.ledger.client
 
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
+
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.domain.LedgerId

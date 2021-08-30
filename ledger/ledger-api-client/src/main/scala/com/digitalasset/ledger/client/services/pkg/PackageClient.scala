@@ -7,9 +7,9 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service._
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
 import com.daml.ledger.client.LedgerClient
+import scalaz.syntax.tag._
 
 import scala.concurrent.Future
-import scalaz.syntax.tag._
 
 class PackageClientWithoutLedgerId(service: PackageServiceStub) {
 

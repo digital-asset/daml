@@ -16,9 +16,9 @@ import com.daml.ledger.api.v1.active_contracts_service.{
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
 import com.daml.util.akkastreams.ExtractMaterializedValue
+import scalaz.syntax.tag._
 
 import scala.concurrent.Future
-import scalaz.syntax.tag._
 
 object ActiveContractSetClientWithoutLedgerId {
 

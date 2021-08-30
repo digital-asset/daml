@@ -4,6 +4,7 @@
 package com.daml.lf.engine.script.ledgerinteraction
 
 import java.time.Instant
+
 import akka.util.ByteString
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -123,10 +124,7 @@ class JsonLedgerClient(
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
-  override def query(
-      parties: OneAnd[Set, Ref.Party],
-      templateId: Identifier,
-  )(implicit
+  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ) = {
@@ -258,10 +256,7 @@ class JsonLedgerClient(
     )
   }
 
-  override def allocateParty(
-      partyIdHint: String,
-      displayName: String,
-  )(implicit
+  override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ) = {
