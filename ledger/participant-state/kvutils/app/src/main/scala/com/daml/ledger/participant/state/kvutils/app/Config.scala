@@ -571,6 +571,41 @@ object Config {
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 
+        // TODO append-only: remove after removing support for the current (mutating) schema
+        checkConfig(c => {
+          if (
+            c.enableAppendOnlySchema && c.participants.exists(
+              _.indexerConfig.databaseConnectionPoolSize != ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize
+            )
+          ) {
+            failure(
+              "The following participant setting keys are not compatible with the --index-append-only-schema flag: " +
+                "indexer-connection-pool-size."
+            )
+          } else if (
+            !c.enableAppendOnlySchema && c.participants.exists(pc =>
+              pc.indexerConfig.maxInputBufferSize != ParticipantIndexerConfig.DefaultMaxInputBufferSize ||
+                pc.indexerConfig.inputMappingParallelism != ParticipantIndexerConfig.DefaultInputMappingParallelism ||
+                pc.indexerConfig.ingestionParallelism != ParticipantIndexerConfig.DefaultIngestionParallelism ||
+                pc.indexerConfig.submissionBatchSize != ParticipantIndexerConfig.DefaultSubmissionBatchSize ||
+                pc.indexerConfig.tailingRateLimitPerSecond != ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond ||
+                pc.indexerConfig.batchWithinMillis != ParticipantIndexerConfig.DefaultBatchWithinMillis
+            )
+          ) {
+            failure(
+              "The following participant setting keys can only be used together with the --index-append-only-schema flag: " +
+                "indexer-max-input-buffer-size, " +
+                "indexer-input-mapping-parallelism, " +
+                "indexer-ingestion-parallelism, " +
+                "indexer-batching-parallelism, " +
+                "indexer-submission-batch-size, " +
+                "indexer-tailing-rate-limit-per-second, " +
+                "indexer-batch-within-millis. "
+            )
+          } else
+            success
+        })
+
         opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
