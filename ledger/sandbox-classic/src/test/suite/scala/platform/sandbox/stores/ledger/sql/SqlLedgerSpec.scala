@@ -213,7 +213,12 @@ final class SqlLedgerSpec
       */
     "does not use async commit when building JdbcLedgerDao" in {
       for {
-        _ <- createSqlLedger()
+        _ <- createSqlLedger(
+          ledgerId = None,
+          participantId = None,
+          packages = List.empty,
+          enableAppendOnlySchema = false,
+        )
       } yield {
         val hikariDataSourceLogs =
           LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
@@ -450,6 +455,7 @@ final class SqlLedgerSpec
       participantId: Option[ParticipantId],
       packages: List[DamlLf.Archive],
       timeProvider: TimeProvider = TimeProvider.UTC,
+      enableAppendOnlySchema: Boolean = true,
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     val ledger =
@@ -476,6 +482,8 @@ final class SqlLedgerSpec
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         engine = new Engine(),
         validatePartyAllocation = false,
+        enableAppendOnlySchema = enableAppendOnlySchema,
+        enableCompression = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture
