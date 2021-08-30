@@ -136,8 +136,7 @@ private[backend] object PostgresStorageBackend
             "Deprecated Postgres version. " +
               s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
               "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
-              "Please upgrade your Postgres database to version 10 or later to fix this issue. " +
-              "In the future, this deprecation warning may be upgraded to a fatal error."
+              "Please upgrade your Postgres database to version 10 or later to fix this issue."
           )
         }
       case None =>
