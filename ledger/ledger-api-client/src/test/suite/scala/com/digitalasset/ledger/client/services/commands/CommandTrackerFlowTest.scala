@@ -136,7 +136,7 @@ class CommandTrackerFlowTest
     "no configuration is available" should {
       "fail immediately" in {
         val Handle(submissions, results, _, _) =
-          runCommandTrackingFlow(allSubmissionsSuccessful, maxDeduplicationTime = None)
+          runCommandTrackingFlow(allSubmissionsSuccessful, maximumExpiryTime = None)
 
         submissions.sendNext(submission)
 
@@ -542,7 +542,7 @@ class CommandTrackerFlowTest
         Ctx[(Int, String), Try[Empty]],
         NotUsed,
       ],
-      maxDeduplicationTime: Option[JDuration] = Some(JDuration.ofSeconds(10)),
+      maximumExpiryTime: Option[JDuration] = Some(JDuration.ofSeconds(10)),
   ) = {
 
     val completionsMock = new CompletionStreamMock()
@@ -552,7 +552,7 @@ class CommandTrackerFlowTest
         submissionFlow,
         completionsMock.createCompletionsSource,
         LedgerOffset(Boundary(LEDGER_BEGIN)),
-        () => maxDeduplicationTime,
+        () => maximumExpiryTime,
       )
 
     val handle = submissionSource

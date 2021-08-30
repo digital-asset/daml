@@ -53,10 +53,12 @@ import scala.util.{Failure, Success, Try}
   * We also have an output for offsets, so the most recent offsets can be reused for recovery.
   */
 // TODO(mthvedt): This should have unit tests.
-private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Option[JDuration])
-    extends GraphStageWithMaterializedValue[CommandTrackerShape[Context], Future[
-      immutable.Map[String, Context]
-    ]] {
+private[commands] class CommandTracker[Context](
+    maximumExpiryTime: () => Option[JDuration]
+) extends GraphStageWithMaterializedValue[
+      CommandTrackerShape[Context],
+      Future[Map[String, Context]],
+    ] {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getName)
 
@@ -222,7 +224,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
             s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
           ) with NoStackTrace
         }
-        maxDeduplicationTime() match {
+        maximumExpiryTime() match {
           case None =>
             emit(
               resultOut,
@@ -233,7 +235,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
             )
           case Some(maxDedup) =>
             val commandTimeout =
-              maxTimeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
+              timeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
             val trackingData = TrackingData(
               commandId = commandId,
               commandTimeout = commandTimeout,
@@ -316,13 +318,13 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
     logic -> promise.future
   }
 
-  private def maxTimeoutFromDeduplicationPeriod(
+  private def timeoutFromDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriod,
-      maxDeduplicationDuration: JDuration,
+      maximumExpiryTime: JDuration,
   ) = {
     val timeoutDuration = deduplicationPeriod match {
       case DeduplicationPeriod.Empty =>
-        maxDeduplicationDuration
+        maximumExpiryTime
       case DeduplicationPeriod.DeduplicationTime(duration) =>
         JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
@@ -330,11 +332,9 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => Opti
       case DeduplicationPeriod.DeduplicationOffset(
             _
           ) => //no way of extracting the duration from here, will be removed soon
-        maxDeduplicationDuration
+        maximumExpiryTime
     }
-    Instant
-      .now()
-      .plus(timeoutDuration)
+    Instant.now().plus(timeoutDuration)
   }
 
   override def shape: CommandTrackerShape[Context] =
