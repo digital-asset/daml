@@ -153,6 +153,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   ledgerId = config.ledgerId,
                   config = factory.apiServerConfig(participantConfig, config),
                   commandConfig = config.commandConfig,
+                  submissionConfig = config.submissionConfig,
                   partyConfig = factory.partyConfig(config),
                   optWriteService = Some(writeService),
                   authService = factory.authService(config),
