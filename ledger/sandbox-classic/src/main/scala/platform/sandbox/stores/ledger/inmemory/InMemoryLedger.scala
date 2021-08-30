@@ -209,7 +209,7 @@ private[sandbox] final class InMemoryLedger(
           offset,
           commandId,
           status,
-          appId
+          appId,
         )
     }
   }

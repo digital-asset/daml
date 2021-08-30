@@ -37,7 +37,13 @@ private[platform] object CommandCompletionsTable {
     sharedColumns ~ int("status_code") ~ str("status_message") map {
       case offset ~ recordTime ~ commandId ~ applicationId ~ statusCode ~ statusMessage =>
         val status = StatusProto.of(statusCode, statusMessage, Seq.empty)
-        CompletionFromTransaction.rejectedCompletion(recordTime, offset, commandId, status, applicationId)
+        CompletionFromTransaction.rejectedCompletion(
+          recordTime,
+          offset,
+          commandId,
+          status,
+          applicationId,
+        )
     }
 
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser
