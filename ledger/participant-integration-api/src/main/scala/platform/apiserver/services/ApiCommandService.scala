@@ -221,8 +221,6 @@ private[apiserver] object ApiCommandService {
     ): Future[Tracker] = {
       // Note: command completions are returned as long as at least one of the original submitters
       // is specified in the command completion request.
-      // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
-      val metricsPrefixFirstParty = key.parties.min
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
       } yield {
@@ -245,16 +243,16 @@ private[apiserver] object ApiCommandService {
           )
         val trackingFlow = MaxInFlight(
           configuration.maxCommandsInFlight,
-          capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
-          lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
+          capacityCounter = metrics.daml.commands.maxInFlightCapacity,
+          lengthCounter = metrics.daml.commands.maxInFlightLength,
         ).joinMat(commandTrackerFlow)(Keep.right)
 
         TrackerImpl(
           trackingFlow,
           configuration.inputBufferSize,
-          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefixFirstParty),
-          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefixFirstParty),
-          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefixFirstParty),
+          capacityCounter = metrics.daml.commands.inputBufferCapacity,
+          lengthCounter = metrics.daml.commands.inputBufferLength,
+          delayTimer = metrics.daml.commands.inputBufferDelay,
         )
       }
     }
