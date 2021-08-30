@@ -322,19 +322,22 @@ private[commands] class CommandTracker[Context](
       deduplicationPeriod: DeduplicationPeriod,
       maximumExpiryTime: JDuration,
   ) = {
-    val timeoutDuration = deduplicationPeriod match {
+    val deduplicationDuration = deduplicationPeriod match {
       case DeduplicationPeriod.Empty =>
-        maximumExpiryTime
+        None
       case DeduplicationPeriod.DeduplicationTime(duration) =>
-        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
+        Some(JDuration.ofSeconds(duration.seconds, duration.nanos.toLong))
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
-        JDuration.ofSeconds(duration.seconds, duration.nanos.toLong)
-      case DeduplicationPeriod.DeduplicationOffset(
-            _
-          ) => //no way of extracting the duration from here, will be removed soon
-        maximumExpiryTime
+        Some(JDuration.ofSeconds(duration.seconds, duration.nanos.toLong))
+      case DeduplicationPeriod.DeduplicationOffset(_) =>
+        // no way of extracting the duration from here, will be removed soon
+        None
     }
-    Instant.now().plus(timeoutDuration)
+    val timeout = deduplicationDuration match {
+      case None => maximumExpiryTime
+      case Some(duration) => implicitly[Ordering[JDuration]].min(maximumExpiryTime, duration)
+    }
+    Instant.now().plus(timeout)
   }
 
   override def shape: CommandTrackerShape[Context] =

@@ -325,6 +325,21 @@ class CommandTrackerFlowTest
         )
         succeed
       }
+
+      "cap the timeout at the maximum expiry time" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(
+          allSubmissionsSuccessful,
+          maximumExpiryTime = Some(JDuration.ofSeconds(1)),
+        )
+
+        submissions.sendNext(newSubmission(commandId, dedupTime = Some(JDuration.ofSeconds(10))))
+
+        results.expectNext(
+          2.seconds,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
+        succeed
+      }
     }
 
     "successful completion arrives" should {
