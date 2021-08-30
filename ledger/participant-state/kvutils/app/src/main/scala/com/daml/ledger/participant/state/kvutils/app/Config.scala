@@ -550,7 +550,10 @@ object Config {
         opt[Unit]("index-append-only-schema")
           .optional()
           .text(
-            s"Use the append-only index database with parallel ingestion."
+            "Use the append-only index database with parallel ingestion." +
+              " The first time this flag is enabled, the index database will migrate to a new schema that allows for significantly higher ingestion performance." +
+              " This migration is irreversible, subsequent starts will have to enable this flag as well." +
+              " In the future, this flag will be removed and this application will automatically migrate to the new schema."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 

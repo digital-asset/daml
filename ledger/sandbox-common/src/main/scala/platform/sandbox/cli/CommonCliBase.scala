@@ -325,7 +325,10 @@ class CommonCliBase(name: LedgerName) {
         .optional()
         .action((_, config) => config.copy(enableAppendOnlySchema = true))
         .text(
-          s"Turns on append-only schema support."
+          s"Turns on append-only schema support." +
+            " The first time this flag is enabled, the database will migrate to a new schema that allows for significantly higher ingestion performance." +
+            " This migration is irreversible, subsequent starts will have to enable this flag as well." +
+            " In the future, this flag will be removed and this application will automatically migrate to the new schema."
         )
 
       // TODO append-only: cleanup
