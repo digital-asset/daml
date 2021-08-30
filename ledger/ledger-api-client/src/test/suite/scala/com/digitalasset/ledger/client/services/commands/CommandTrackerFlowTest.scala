@@ -13,6 +13,7 @@ import akka.stream.testkit.scaladsl.TestSource
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimestampConversion._
+import com.daml.concurrent.ExecutionContext
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
@@ -100,7 +101,7 @@ class CommandTrackerFlowTest
         startOffset: LedgerOffset,
     )
 
-    private implicit val ec = DirectExecutionContext
+    private implicit val ec: ExecutionContext[Nothing] = DirectExecutionContext
     private val stateRef = new AtomicReference[Promise[State]](Promise[State]())
 
     def createCompletionsSource(
@@ -285,7 +286,6 @@ class CommandTrackerFlowTest
     "no completion arrives" should {
 
       "not timeout the command while MRT <= RT" in {
-
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
@@ -300,8 +300,29 @@ class CommandTrackerFlowTest
       }
 
       "timeout the command when the MRT passes" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        // TODO(RA): test timeouts
+        submissions.sendNext(newSubmission(commandId, dedupTime = Some(JDuration.ofMillis(500))))
+
+        results.expectNext(
+          2.seconds,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
+        succeed
+      }
+
+      "use the maximum expiry time, if provided" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(
+          allSubmissionsSuccessful,
+          maximumExpiryTime = Some(JDuration.ofSeconds(1)),
+        )
+
+        submissions.sendNext(submission)
+
+        results.expectNext(
+          2.seconds,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
         succeed
       }
     }
@@ -309,7 +330,6 @@ class CommandTrackerFlowTest
     "successful completion arrives" should {
 
       "output the completion" in {
-
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
@@ -543,7 +563,7 @@ class CommandTrackerFlowTest
         NotUsed,
       ],
       maximumExpiryTime: Option[JDuration] = Some(JDuration.ofSeconds(10)),
-  ) = {
+  ): Handle = {
 
     val completionsMock = new CompletionStreamMock()
 

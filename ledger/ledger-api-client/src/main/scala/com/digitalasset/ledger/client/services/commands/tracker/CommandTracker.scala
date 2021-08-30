@@ -82,9 +82,9 @@ private[commands] class CommandTracker[Context](
     val logic: TimerGraphStageLogic = new TimerGraphStageLogic(shape) {
 
       val timeout_detection = "timeout-detection"
+
       override def preStart(): Unit = {
         scheduleWithFixedDelay(timeout_detection, 1.second, 1.second)
-
       }
 
       override protected def onTimer(timerKey: Any): Unit = {
