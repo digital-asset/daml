@@ -426,7 +426,7 @@ private final class SqlLedger(
               completionInfo = Some(submitterInfo.toCompletionInfo),
               recordTime = recordTime,
               offsetStep = CurrentOffset(offset),
-              reason = reason.toStateV2RejectionReason,
+              reason = reason.toStateRejectionReason,
             ),
           _ => {
             val divulgedContracts = Nil

@@ -5,54 +5,69 @@ package com.daml.platform.sandbox.stores.ledger
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.LedgerTimeModel
-import com.daml.ledger.participant.state.{v1, v2}
-import io.grpc.Status
+import com.daml.ledger.participant.state.{v2 => state}
+import com.google.protobuf.any.{Any => AnyProto}
+import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.Status
 
 sealed trait Rejection {
-  val reason: String
-
-  val code: Status.Code
-
-  def description: String
-
   def toDomainRejectionReason: domain.RejectionReason
 
-  def toStateV1RejectionReason: v1.RejectionReason
-
-  def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
-    new v2.Update.CommandRejected.FinalReason(
-      RpcStatus.of(code.value(), description, Seq.empty)
-    )
+  def toStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate
 }
 
 object Rejection {
+  val ErrorDomain = "com.daml.on.sql"
+
   object NoLedgerConfiguration extends Rejection {
-    override val reason: String = "NO_LEDGER_CONFIGURATION"
-
-    override val description: String =
+    private val description: String =
       "No ledger configuration available, cannot validate ledger time"
-
-    override val code: Status.Code = Status.Code.ABORTED
 
     override lazy val toDomainRejectionReason: domain.RejectionReason =
       domain.RejectionReason.InvalidLedgerTime(description)
 
-    override lazy val toStateV1RejectionReason: v1.RejectionReason =
-      v1.RejectionReasonV0.InvalidLedgerTime(description)
+    override lazy val toStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+      state.Update.CommandRejected.FinalReason(
+        RpcStatus.of(
+          code = Status.Code.ABORTED.value(),
+          message = description,
+          details = Seq(
+            AnyProto.pack(
+              ErrorInfo.of(
+                reason = "NO_LEDGER_CONFIGURATION",
+                domain = ErrorDomain,
+                metadata = Map.empty,
+              )
+            )
+          ),
+        )
+      )
   }
 
   final case class InvalidLedgerTime(outOfRange: LedgerTimeModel.OutOfRange) extends Rejection {
-    override val reason: String = "INVALID_LEDGER_TIME"
-
-    override val code: Status.Code = Status.Code.ABORTED
-
-    override lazy val description: String = outOfRange.message
-
     override lazy val toDomainRejectionReason: domain.RejectionReason =
-      domain.RejectionReason.InvalidLedgerTime(description)
+      domain.RejectionReason.InvalidLedgerTime(outOfRange.message)
 
-    override lazy val toStateV1RejectionReason: v1.RejectionReason =
-      v1.RejectionReasonV0.InvalidLedgerTime(description)
+    override lazy val toStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+      state.Update.CommandRejected.FinalReason(
+        RpcStatus.of(
+          code = Status.Code.ABORTED.value(),
+          message = outOfRange.message,
+          details = Seq(
+            AnyProto.pack(
+              ErrorInfo.of(
+                reason = "INVALID_LEDGER_TIME",
+                domain = ErrorDomain,
+                metadata = Map(
+                  "ledgerTime" -> outOfRange.ledgerTime.toString,
+                  "lowerBound" -> outOfRange.lowerBound.toString,
+                  "upperBound" -> outOfRange.upperBound.toString,
+                ),
+              )
+            )
+          ),
+        )
+      )
   }
 }
