@@ -107,6 +107,10 @@ object Ordering extends scala.math.Ordering[SValue] {
   }
   @inline
   private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int = {
+    // Note that the engine never produce V0 contract IDs directly
+    // (V0 contract ID scheme can only be "emulated" at commit using
+    // `com.daml.lf.transaction.LegacyTransactionCommitter`).
+    // So we can assume here that all V0 Contract IDs are global.
     (cid1, cid2) match {
       case (ContractId.V0(s1), ContractId.V0(s2)) =>
         s1 compareTo s2

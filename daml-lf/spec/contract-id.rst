@@ -80,7 +80,7 @@ In a transaction we distinguish two kinds of contract IDs:
      IDs referenced in the arguments of the create and exercise
      commands;
    * that are fetched or looked up by key unless they are local;
-   * are referenced in the payloads of the fetched contracts.
+   * are referenced in the input contracts.
 
 Note that local contract IDs correspond to the ID of output contracts
 together with those contracts that have been both created and archived
@@ -113,17 +113,17 @@ Contract ID Comparability
 -------------------------
 
 The so-called *contract ID comparability restriction*, states that the
-comparison of a local contract ID with a global contract IDs
-that have the same discriminator is forbidden. Engine compliant with
-this specification, should reject with a fatal error any attempt to
-compare during interpretation such IDs, either explicitly (using
-Generic equality and order builtins) or implicitly (though ordering of
-key in generic maps). Ledger implementations that suffix contract IDs
-should furthermore enforce that all global Contract IDs are suffixed.
+comparison of a local contract ID with a global contract ID with the
+same discriminator is forbidden. Any attempt to compare such IDs
+during interpretation, either explicitly (using Generic equality and
+order builtins) or implicitly (though ordering of key in generic
+maps), must be rejected. Ledger implementations that suffix contract
+IDs should furthermore enforce that all global Contract IDs are
+suffixed.
 
 This ensures that only the discriminators, not the suffix are needed
-to compare the contract IDs of created contracts w.r.t. other contract
-IDs.
+to compare the contract IDs of local contract IDs w.r.t. global
+contract IDs.
 
 
 Submission time
@@ -242,7 +242,7 @@ The submission performs the following steps:
 
 Depending on the ledger implementation, the local contract IDs are
 suffixed with a suffix in a later step. This yields the *committed
-transaction*. In the case the ledger require suffixing
+transaction*.
 
 For ledgers that do not require suffixing, committed and
 submitted transactions coincide. Committed transactions are the source
