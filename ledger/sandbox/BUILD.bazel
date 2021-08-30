@@ -322,3 +322,16 @@ server_conformance_test(
         "--include=ContractIdIT:Accept",
     ],
 )
+
+# TODO append-only: cleanup
+server_conformance_test(
+    name = "next-conformance-test-append-only",
+    server_args = [
+        "--enable-append-only-schema",
+    ],
+    servers = {"postgresql": NEXT_SERVERS["postgresql"]},
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
