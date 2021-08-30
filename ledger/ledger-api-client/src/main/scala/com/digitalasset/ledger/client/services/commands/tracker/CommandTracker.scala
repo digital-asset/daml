@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
@@ -50,9 +50,9 @@ import scala.util.{Failure, Success, Try}
   * </li></ul>
   * We also have an output for offsets, so the most recent offsets can be reused for recovery.
   */
-// TODO(mthvedt): This should have unit tests.
 private[commands] class CommandTracker[Context](
-    maximumCommandTimeout: Duration
+    maximumCommandTimeout: Duration,
+    timeoutDetectionPeriod: FiniteDuration,
 ) extends GraphStageWithMaterializedValue[
       CommandTrackerShape[Context],
       Future[Map[String, Context]],
@@ -82,7 +82,7 @@ private[commands] class CommandTracker[Context](
       val timeout_detection = "timeout-detection"
 
       override def preStart(): Unit = {
-        scheduleWithFixedDelay(timeout_detection, 1.second, 1.second)
+        scheduleWithFixedDelay(timeout_detection, timeoutDetectionPeriod, timeoutDetectionPeriod)
       }
 
       override protected def onTimer(timerKey: Any): Unit = {

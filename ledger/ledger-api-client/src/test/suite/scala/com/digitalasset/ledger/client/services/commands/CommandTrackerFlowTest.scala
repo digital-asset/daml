@@ -279,13 +279,13 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "timeout the command when the MRT passes" in {
+      "time out the command when the deduplication time passes" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofMillis(500))))
+        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofMillis(100))))
 
         results.expectNext(
-          2.seconds,
+          500.milliseconds,
           Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
         )
         succeed
@@ -294,13 +294,13 @@ class CommandTrackerFlowTest
       "use the maximum command timeout, if provided" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumCommandTimeout = Duration.ofSeconds(1),
+          maximumCommandTimeout = Duration.ofMillis(500),
         )
 
         submissions.sendNext(submission)
 
         results.expectNext(
-          2.seconds,
+          1.second,
           Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
         )
         succeed
@@ -309,13 +309,13 @@ class CommandTrackerFlowTest
       "cap the timeout at the maximum command timeout" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumCommandTimeout = Duration.ofSeconds(1),
+          maximumCommandTimeout = Duration.ofMillis(100),
         )
 
         submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofSeconds(10))))
 
         results.expectNext(
-          2.seconds,
+          500.millis,
           Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
         )
         succeed
@@ -568,6 +568,7 @@ class CommandTrackerFlowTest
         createCommandCompletionSource = completionsMock.createCompletionsSource,
         startingOffset = LedgerOffset(Boundary(LEDGER_BEGIN)),
         maximumCommandTimeout = maximumCommandTimeout,
+        timeoutDetectionPeriod = 1.millisecond,
       )
 
     val handle = submissionSource

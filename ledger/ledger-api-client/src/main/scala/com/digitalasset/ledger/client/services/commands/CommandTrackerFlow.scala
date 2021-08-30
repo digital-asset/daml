@@ -47,6 +47,7 @@ object CommandTrackerFlow {
       startingOffset: LedgerOffset,
       maximumCommandTimeout: Duration,
       backOffDuration: FiniteDuration = 1.second,
+      timeoutDetectionPeriod: FiniteDuration = 1.second,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[
     Context,
     Either[CompletionFailure, CompletionSuccess],
@@ -55,7 +56,7 @@ object CommandTrackerFlow {
     Context,
   ]] = {
 
-    val trackerExternal = new CommandTracker[Context](maximumCommandTimeout)
+    val trackerExternal = new CommandTracker[Context](maximumCommandTimeout, timeoutDetectionPeriod)
 
     Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>
