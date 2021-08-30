@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -51,7 +51,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
@@ -179,13 +179,7 @@ private[apiserver] object ApiCommandService {
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
-      Tracking.newTracker(
-        configuration,
-        submissionFlow,
-        completionServices,
-        ledgerConfigurationSubscription,
-        metrics,
-      ),
+      Tracking.newTracker(configuration, submissionFlow, completionServices, metrics),
       trackerCleanupInterval,
     )
     new GrpcCommandService(
@@ -203,7 +197,7 @@ private[apiserver] object ApiCommandService {
       ledgerId: LedgerId,
       inputBufferSize: Int,
       maxCommandsInFlight: Int,
-      trackerRetentionPeriod: FiniteDuration,
+      trackerRetentionPeriod: Duration,
   )
 
   final class CompletionServices(
@@ -228,7 +222,6 @@ private[apiserver] object ApiCommandService {
         configuration: Configuration,
         submissionFlow: SubmissionFlow,
         completionServices: CompletionServices,
-        ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         metrics: Metrics,
     )(
         key: Tracking.Key
@@ -246,8 +239,8 @@ private[apiserver] object ApiCommandService {
       } yield {
         val commandTrackerFlow =
           CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
-            submissionFlow,
-            offset =>
+            commandSubmissionFlow = submissionFlow,
+            createCommandCompletionSource = offset =>
               completionServices
                 .getCompletionSource(
                   CompletionStreamRequest(
@@ -258,8 +251,14 @@ private[apiserver] object ApiCommandService {
                   )
                 )
                 .mapConcat(CommandCompletionSource.toStreamElements),
-            ledgerEnd,
-            () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+            startingOffset = ledgerEnd,
+            // We use the tracker retention period as the maximum command timeout, because the is
+            // the maximum length of time we can guarantee that the tracker stays alive (assuming
+            // the server stays up). If we set it any longer, the tracker might be shut down while
+            // we wait.
+            // In the future, we may want to configure this separately, but for now, we use re-use
+            // the tracker retention period for convenience.
+            maximumCommandTimeout = configuration.trackerRetentionPeriod,
           )
         val trackingFlow = MaxInFlight(
           configuration.maxCommandsInFlight,

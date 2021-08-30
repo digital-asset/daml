@@ -400,11 +400,7 @@ object Config {
         opt[Duration]("tracker-retention-period")
           .optional()
           .action((value, config) =>
-            config.copy(
-              commandConfig = config.commandConfig.copy(
-                trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS)
-              )
-            )
+            config.copy(commandConfig = config.commandConfig.copy(trackerRetentionPeriod = value))
           )
           .text(
             "The duration that the command service will keep an active command tracker for a given set of parties." +

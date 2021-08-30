@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.services.commands
 
-import java.time.{Duration => JDuration}
+import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
@@ -45,8 +45,9 @@ object CommandTrackerFlow {
       ],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      maxDeduplicationTime: () => Option[JDuration],
+      maximumCommandTimeout: Duration,
       backOffDuration: FiniteDuration = 1.second,
+      timeoutDetectionPeriod: FiniteDuration = 1.second,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[
     Context,
     Either[CompletionFailure, CompletionSuccess],
@@ -55,7 +56,7 @@ object CommandTrackerFlow {
     Context,
   ]] = {
 
-    val trackerExternal = new CommandTracker[Context](maxDeduplicationTime)
+    val trackerExternal = new CommandTracker[Context](maximumCommandTimeout, timeoutDetectionPeriod)
 
     Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>
