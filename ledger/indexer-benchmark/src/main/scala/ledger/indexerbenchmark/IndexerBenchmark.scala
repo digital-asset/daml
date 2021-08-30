@@ -100,9 +100,9 @@ class IndexerBenchmark() {
 
         _ = println("Starting the indexing...")
         startTime = System.nanoTime()
-        handle <- indexer.subscription(readService).acquire()
+        handle <- indexer.acquire()
 
-        _ <- Resource.fromFuture(handle.completed())
+        _ <- Resource.fromFuture(handle)
         stopTime = System.nanoTime()
         _ = println("Indexing done.")
 

@@ -12,6 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Time.Timestamp
@@ -138,11 +139,10 @@ final class JdbcIndexerSpec
       OffsetUpdate(OffsetStep(Some(offset2), offset3), update3),
     )
 
-    initializeIndexer(participantId, flow)
+    initializeIndexer(participantId, mockedReadService(offsets zip mockedUpdates), flow)
       .flatMap {
         _.use {
-          _.subscription(mockedReadService(offsets zip mockedUpdates))
-            .use(_.completed())
+          _.use(identity)
         }
       }
       .map(_ => captureBuffer should contain theSameElementsInOrderAs expected)
@@ -151,7 +151,7 @@ final class JdbcIndexerSpec
   private def asyncCommitTest(mode: DbType.AsyncCommitMode): Future[Assertion] = {
     val participantId = "the-participant"
     for {
-      indexer <- initializeIndexer(participantId, jdbcAsyncCommitMode = mode)
+      indexer <- initializeIndexer(participantId, mockedReadService(), jdbcAsyncCommitMode = mode)
       _ = LogCollector.clear[this.type]
       _ <- runAndShutdown(indexer)
     } yield {
@@ -167,10 +167,11 @@ final class JdbcIndexerSpec
     owner.use(_ => Future.unit)
 
   private def runAndShutdownIndexer(participantId: String): Future[Unit] =
-    initializeIndexer(participantId).flatMap(runAndShutdown)
+    initializeIndexer(participantId, mockedReadService()).flatMap(runAndShutdown)
 
   private def initializeIndexer(
       participantId: String,
+      readService: ReadService,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed] = noOpFlow,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit,
   ): Future[ResourceOwner[Indexer]] = {
@@ -191,7 +192,7 @@ final class JdbcIndexerSpec
       .flatMap(_ =>
         new indexer.JdbcIndexer.Factory(
           config = config,
-          readService = mockedReadService(),
+          readService = readService,
           servicesExecutionContext = materializer.executionContext,
           metrics = metrics,
           updateFlowOwnerBuilder =

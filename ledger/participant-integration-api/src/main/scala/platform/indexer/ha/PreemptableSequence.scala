@@ -63,7 +63,7 @@ trait SequenceHelper {
   ): Future[T]
 
   /** Delegate the preemptable-future sequence to another Handle
-    * - the completion Future future of the PreemptableSequence will only finish after this Hanlde finishes,
+    * - the completion Future future of the PreemptableSequence will only finish after this Handle finishes,
     *   and previously registered release functions all completed
     * - KillSwitch events will be replayed to this handle
     * - In case of abort/shutdown the PreemptableSequence's completion result will conform to the KillSwitch usage,

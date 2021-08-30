@@ -55,9 +55,9 @@ final class StandaloneIndexerServer(
     ): Resource[ReportsHealth] =
       migration
         .flatMap(_ => indexerFactory.initialized(resetSchema))
-        .map(_.flatMap(_.subscription(readService)))
         .pipe(Resource.fromFuture)
-        .flatMap(subscription => indexer.start(() => subscription.acquire()))
+        .flatMap(_.acquire())
+        .flatMap(indexer.start)
         .map { case (healthReporter, _) =>
           logger.debug(initializedDebugLogMessage)
           healthReporter

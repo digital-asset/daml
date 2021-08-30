@@ -54,7 +54,7 @@ final class RecoveringIndexerSpec
         SubscribeResult("A", SuccessfullyCompletes, timeout, timeout)
       )
 
-      val resource = recoveringIndexer.start(() => testIndexer.subscribe())
+      val resource = recoveringIndexer.start(testIndexer())
       for {
         (healthReporter, complete) <- resource.asFuture
         _ <- complete.transformWith(finallyRelease(resource))
@@ -87,7 +87,7 @@ final class RecoveringIndexerSpec
         SubscribeResult("A", SuccessfullyCompletes, timeout, 10.seconds)
       )
 
-      val resource = recoveringIndexer.start(() => testIndexer.subscribe())
+      val resource = recoveringIndexer.start(testIndexer())
 
       for {
         _ <- akka.pattern.after(100.millis, actorSystem.scheduler)(Future.unit)
@@ -121,7 +121,7 @@ final class RecoveringIndexerSpec
         SubscribeResult("A", SuccessfullyCompletes, 100.millis, timeout)
       )
 
-      val resource = recoveringIndexer.start(() => testIndexer.subscribe())
+      val resource = recoveringIndexer.start(testIndexer())
       for {
         (healthReporter, complete) <- resource.asFuture
         _ <- Future {
@@ -155,7 +155,7 @@ final class RecoveringIndexerSpec
         SubscribeResult("C", SuccessfullyCompletes, timeout, timeout),
       )
 
-      val resource = recoveringIndexer.start(() => testIndexer.subscribe())
+      val resource = recoveringIndexer.start(testIndexer())
 
       for {
         (_, complete) <- resource.asFuture
@@ -213,7 +213,7 @@ final class RecoveringIndexerSpec
         SubscribeResult("C", SuccessfullyCompletes, timeout, timeout),
       )
 
-      val resource = recoveringIndexer.start(() => testIndexer.subscribe())
+      val resource = recoveringIndexer.start(testIndexer())
 
       for {
         (healthReporter, complete) <- resource.asFuture
@@ -257,7 +257,7 @@ final class RecoveringIndexerSpec
       )
 
       val t0 = System.nanoTime()
-      val resource = recoveringIndexer.start(() => testIndexer.subscribe())
+      val resource = recoveringIndexer.start(testIndexer())
       resource.asFuture
         .flatMap(_._2)
         .transformWith(finallyRelease(resource))
@@ -313,14 +313,13 @@ object RecoveringIndexerSpec {
       ()
     }
 
-    val openSubscriptions: mutable.Set[IndexFeedHandle] = mutable.Set()
+    val openSubscriptions: mutable.Set[Future[Unit]] = mutable.Set()
 
     def actions: Seq[IndexerEvent] = actionsQueue.toArray(Array.empty[IndexerEvent]).toSeq
 
     class TestIndexerFeedHandle(
         result: SubscribeResult
-    )(implicit executionContext: ExecutionContext)
-        extends IndexFeedHandle {
+    )(implicit executionContext: ExecutionContext) {
       private[this] val promise = Promise[Unit]()
 
       if (result.status == SuccessfullyCompletes) {
@@ -343,16 +342,15 @@ object RecoveringIndexerSpec {
         promise.future
       }
 
-      override def completed(): Future[Unit] = {
+      def completed(): Future[Unit] = {
         promise.future
       }
     }
 
-    def subscribe()(implicit context: ResourceContext): Resource[IndexFeedHandle] =
-      new Subscription().acquire()
+    def apply(): Indexer = new Subscription()
 
-    class Subscription extends ResourceOwner[IndexFeedHandle] {
-      override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] = {
+    class Subscription extends ResourceOwner[Future[Unit]] {
+      override def acquire()(implicit context: ResourceContext): Resource[Future[Unit]] = {
         val result = results.next()
         Resource(Future {
           addAction(EventSubscribeCalled(result.name))
@@ -361,7 +359,7 @@ object RecoveringIndexerSpec {
             if (result.status != SubscriptionFails) {
               addAction(EventSubscribeSuccess(result.name))
               val handle = new TestIndexerFeedHandle(result)
-              openSubscriptions += handle
+              openSubscriptions += handle.completed()
               handle
             } else {
               addAction(EventSubscribeFail(result.name))
@@ -371,10 +369,10 @@ object RecoveringIndexerSpec {
         })(handle => {
           val complete = handle.stop()
           complete.onComplete { _ =>
-            openSubscriptions -= handle
+            openSubscriptions -= handle.completed()
           }
           complete
-        })
+        }).map(_.completed())
       }
     }
   }

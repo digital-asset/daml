@@ -6,14 +6,14 @@ package com.daml.platform.indexer.parallel
 import java.util.concurrent.Executors
 
 import akka.stream.{KillSwitch, Materializer}
-import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
+import com.daml.platform.indexer.Indexer
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
@@ -37,7 +37,8 @@ object ParallelIndexerFactory {
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
       mat: Materializer,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
+      readService: ReadService,
+  )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
@@ -73,81 +74,68 @@ object ParallelIndexerFactory {
             )
         else
           ResourceOwner.successful(NoopHaCoordinator)
-    } yield {
-      def subscribe(resourceContext: ResourceContext)(readService: state.ReadService): Handle = {
-        implicit val rc: ResourceContext = resourceContext
-        implicit val ec: ExecutionContext = resourceContext.executionContext
-        haCoordinator.protectedExecution { connectionInitializer =>
-          val killSwitchPromise = Promise[KillSwitch]()
+    } yield toIndexer { resourceContext =>
+      implicit val rc: ResourceContext = resourceContext
+      implicit val ec: ExecutionContext = resourceContext.executionContext
+      haCoordinator.protectedExecution { connectionInitializer =>
+        val killSwitchPromise = Promise[KillSwitch]()
 
-          val completionFuture = DbDispatcher
-            .owner(
-              // this is tha DataSource which will be wrapped by HikariCP, and which will drive the ingestion
-              // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-              dataSource = storageBackend.createDataSource(
-                jdbcUrl = jdbcUrl,
-                dataSourceConfig = dataSourceConfig,
-                connectionInitHook = Some(connectionInitializer.initialize),
-              ),
-              serverRole = ServerRole.Indexer,
-              connectionPoolSize =
-                ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
-              connectionTimeout = FiniteDuration(
-                250,
-                "millis",
-              ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
-              metrics = metrics,
-            )
-            .use { dbDispatcher =>
-              initializeParallelIngestion(
+        val completionFuture = DbDispatcher
+          .owner(
+            // this is tha DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+            // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
+            dataSource = storageBackend.createDataSource(
+              jdbcUrl = jdbcUrl,
+              dataSourceConfig = dataSourceConfig,
+              connectionInitHook = Some(connectionInitializer.initialize),
+            ),
+            serverRole = ServerRole.Indexer,
+            connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
+            connectionTimeout = FiniteDuration(
+              250,
+              "millis",
+            ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+            metrics = metrics,
+          )
+          .use { dbDispatcher =>
+            initializeParallelIngestion(
+              dbDispatcher = dbDispatcher,
+              readService = readService,
+              ec = ec,
+            ).map(
+              parallelIndexerSubscription(
+                inputMapperExecutor = inputMapperExecutor,
+                batcherExecutor = batcherExecutor,
                 dbDispatcher = dbDispatcher,
-                readService = readService,
-                ec = ec,
-              ).map(
-                parallelIndexerSubscription(
-                  inputMapperExecutor = inputMapperExecutor,
-                  batcherExecutor = batcherExecutor,
-                  dbDispatcher = dbDispatcher,
-                  materializer = mat,
-                )
-              ).flatMap { handle =>
-                // the tricky bit:
-                // the future in the completion handler will be this one
-                // but the future for signaling for the HaCoordinator, that the protected execution is initialized needs to complete precisely here
-                killSwitchPromise.success(handle.killSwitch)
-                handle.completed
-              }
-            }
-
-          killSwitchPromise.future
-            .map(Handle(completionFuture.map(_ => ()), _))
-        }
-      }
-
-      toIndexer(subscribe)
-    }
-  }
-
-  def toIndexer(ingestionPipeOn: ResourceContext => state.ReadService => Handle): Indexer =
-    readService =>
-      new ResourceOwner[IndexFeedHandle] {
-        override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] = {
-          Resource {
-            Future {
-              val handle = ingestionPipeOn(context)(readService)
-              new SubscriptionIndexFeedHandle(handle.killSwitch, handle.completed)
-            }
-          } { handle =>
-            handle.killSwitch.shutdown()
-            handle.completed.recover { case NonFatal(_) =>
-              ()
+                materializer = mat,
+              )
+            ).flatMap { handle =>
+              // the tricky bit:
+              // the future in the completion handler will be this one
+              // but the future for signaling for the HaCoordinator, that the protected execution is initialized needs to complete precisely here
+              killSwitchPromise.success(handle.killSwitch)
+              handle.completed
             }
           }
-        }
-      }
 
-  class SubscriptionIndexFeedHandle(
-      val killSwitch: KillSwitch,
-      override val completed: Future[Unit],
-  ) extends IndexFeedHandle
+        killSwitchPromise.future
+          .map(Handle(completionFuture.map(_ => ()), _))
+      }
+    }
+
+  def toIndexer(subscription: ResourceContext => Handle): Indexer =
+    new Indexer {
+      override def acquire()(implicit context: ResourceContext): Resource[Future[Unit]] = {
+        Resource {
+          Future {
+            subscription(context)
+          }
+        } { handle =>
+          handle.killSwitch.shutdown()
+          handle.completed.recover { case NonFatal(_) =>
+            ()
+          }
+        }.map(_.completed)
+      }
+    }
 }

@@ -145,7 +145,7 @@ class IntegrityChecker[LogResult](
           metrics,
           LfValueTranslationCache.Cache.none,
         )
-        feedHandle <- indexer.subscription(replayingReadService)
+        feedHandle <- indexer
       } yield (feedHandle, System.nanoTime())
 
       // Wait for the indexer to finish consuming the state updates.
@@ -155,7 +155,7 @@ class IntegrityChecker[LogResult](
       // Any failure (e.g., during the decoding of the recorded state updates, or
       // during the indexing of a state update) will result in a failed Future.
       feedHandleResourceOwner.use { case (feedHandle, startTime) =>
-        Future.successful(startTime).zip(feedHandle.completed())
+        Future.successful(startTime).zip(feedHandle)
       }
     }.transform {
       case Success((startTime, _)) =>

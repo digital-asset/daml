@@ -66,6 +66,14 @@ object JdbcIndexer {
         lfValueTranslationCache,
       )
 
+    def initialized(resetSchema: Boolean = false)(implicit
+        resourceContext: ResourceContext
+    ): Future[ResourceOwner[Indexer]] =
+      if (config.enableAppendOnlySchema)
+        initializedAppendOnlySchema(resetSchema)
+      else
+        initializedMutatingSchema(resetSchema)
+
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean
     )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =
@@ -101,7 +109,7 @@ object JdbcIndexer {
           materializer.executionContext,
           loggingContext,
         )
-      } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow))
+      } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow, readService))
 
     private[this] def initializedAppendOnlySchema(resetSchema: Boolean)(implicit
         resourceContext: ResourceContext
@@ -179,16 +187,9 @@ object JdbcIndexer {
           metrics = metrics,
         ),
         mat = materializer,
+        readService = readService,
       )
     }
-
-    def initialized(resetSchema: Boolean = false)(implicit
-        resourceContext: ResourceContext
-    ): Future[ResourceOwner[Indexer]] =
-      if (config.enableAppendOnlySchema)
-        initializedAppendOnlySchema(resetSchema)
-      else
-        initializedMutatingSchema(resetSchema)
 
     private def initializeLedger(
         dao: LedgerDao
@@ -227,13 +228,11 @@ private[daml] class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
     metrics: Metrics,
     executeUpdate: ExecuteUpdate,
+    readService: state.ReadService,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends Indexer {
 
   import JdbcIndexer.logger
-
-  override def subscription(readService: state.ReadService): ResourceOwner[IndexFeedHandle] =
-    new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(implicit
       loggingContext: LoggingContext
@@ -269,32 +268,20 @@ private[daml] class JdbcIndexer private[indexer] (
         }
       }
 
-  private class SubscriptionResourceOwner(
-      readService: state.ReadService
-  )(implicit loggingContext: LoggingContext)
-      extends ResourceOwner[IndexFeedHandle] {
-    override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] =
-      Resource(Future {
-        val (killSwitch, completionFuture) = readService
-          .stateUpdates(startExclusive)
-          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .via(zipWithPreviousOffset(startExclusive))
-          .via(handleStateUpdate)
-          .toMat(Sink.ignore)(Keep.both)
-          .run()
-
-        new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
-      })(handle =>
-        for {
-          _ <- Future(handle.killSwitch.shutdown())
-          _ <- handle.completed.recover { case NonFatal(_) => () }
-        } yield ()
-      )
-  }
-
-  private class SubscriptionIndexFeedHandle(
-      val killSwitch: KillSwitch,
-      override val completed: Future[Unit],
-  ) extends IndexFeedHandle
+  override def acquire()(implicit context: ResourceContext): Resource[Future[Unit]] =
+    Resource(Future {
+      readService
+        .stateUpdates(startExclusive)
+        .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+        .via(zipWithPreviousOffset(startExclusive))
+        .via(handleStateUpdate)
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+    }) { case (killSwitch, completionFuture) =>
+      for {
+        _ <- Future(killSwitch.shutdown())
+        _ <- completionFuture.recover { case NonFatal(_) => () }
+      } yield ()
+    }.map(_._2.map(_ => ()))
 
 }
