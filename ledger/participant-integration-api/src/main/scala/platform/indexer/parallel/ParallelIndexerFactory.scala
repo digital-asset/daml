@@ -102,6 +102,7 @@ object ParallelIndexerFactory {
               dbDispatcher = dbDispatcher,
               readService = readService,
               ec = ec,
+              mat = mat,
             ).map(
               parallelIndexerSubscription(
                 inputMapperExecutor = inputMapperExecutor,
