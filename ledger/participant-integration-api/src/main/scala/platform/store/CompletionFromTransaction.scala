@@ -126,7 +126,7 @@ private[platform] object CompletionFromTransaction {
       case _ =>
         Completion(
           commandId = commandId,
-          status = Some(OkStatus),
+          status = maybeStatus,
           transactionId = transactionId,
           applicationId = applicationId,
         )
