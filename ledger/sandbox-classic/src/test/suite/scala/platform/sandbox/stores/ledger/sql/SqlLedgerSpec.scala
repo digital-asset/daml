@@ -5,7 +5,6 @@ package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.io.File
 import java.time.{Duration, Instant}
-import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import ch.qos.logback.classic.Level
@@ -14,7 +13,6 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
-import com.google.protobuf.any.{Any => AnyProto}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
@@ -41,6 +39,7 @@ import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import com.daml.timer.RetryStrategy
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.error_details.ErrorInfo
 import io.grpc.Status
 import org.scalatest.Inside
@@ -64,6 +63,8 @@ final class SqlLedgerSpec
     with AkkaBeforeAndAfterAll
     with PostgresAroundEach
     with MetricsAround {
+
+  import TestIdentifiers._
 
   protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -231,11 +232,6 @@ final class SqlLedgerSpec
     }
 
     "not allow insertion of subsequent parties with the same identifier: operations should succeed without effect" in {
-      val party1 = Ref.Party.assertFromString("party1")
-      val party2 = Ref.Party.assertFromString("party2")
-      val submissionId1 = Ref.SubmissionId.assertFromString("submissionId1")
-      val submissionId2 = Ref.SubmissionId.assertFromString("submissionId2")
-      val submissionId3 = Ref.SubmissionId.assertFromString("submissionId3")
       for {
         sqlLedger <- createSqlLedger()
         partyAllocationResult1 <- sqlLedger.publishPartyAllocation(
@@ -275,11 +271,6 @@ final class SqlLedgerSpec
 
     "publish a transaction" in {
       val now = Time.Timestamp.assertFromInstant(Instant.now())
-      val seedService = SeedService.WeakRandom
-      val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
-      val party = Ref.Party.assertFromString("party1")
-      val commandId = Ref.CommandId.assertFromString("commandId1")
-      val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
       for {
         sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
@@ -290,11 +281,11 @@ final class SqlLedgerSpec
         )
         result <- sqlLedger.publishTransaction(
           submitterInfo = SubmitterInfo(
-            actAs = List(party),
+            actAs = List(party1),
             applicationId = applicationId,
-            commandId = commandId,
+            commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
-            submissionId = submissionId,
+            submissionId = submissionId1,
             ledgerConfiguration = Configuration.reasonableInitialConfiguration,
           ),
           transactionMeta = emptyTransactionMeta(seedService, ledgerEffectiveTime = now),
@@ -305,14 +296,14 @@ final class SqlLedgerSpec
             startExclusive = Some(start),
             endInclusive = None,
             applicationId = domain.ApplicationId(applicationId),
-            parties = Set(party),
+            parties = Set(party1),
           )
           .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         completion._1 should be > start
         inside(completion._2.completions) {
-          case Seq(Completion(`commandId`, Some(status), _, _, _, _, _)) =>
+          case Seq(Completion(`commandId1`, Some(status), _, _, _, _, _)) =>
             status.code should be(Status.Code.OK.value)
         }
       }
@@ -320,21 +311,16 @@ final class SqlLedgerSpec
 
     "reject a transaction if no configuration is found" in {
       val now = Time.Timestamp.assertFromInstant(Instant.now())
-      val seedService = SeedService.WeakRandom
-      val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
-      val party = Ref.Party.assertFromString("party1")
-      val commandId = Ref.CommandId.assertFromString("commandId1")
-      val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
       for {
         sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
         result <- sqlLedger.publishTransaction(
           submitterInfo = SubmitterInfo(
-            actAs = List(party),
+            actAs = List(party1),
             applicationId = applicationId,
-            commandId = commandId,
+            commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
-            submissionId = submissionId,
+            submissionId = submissionId1,
             ledgerConfiguration = Configuration.reasonableInitialConfiguration,
           ),
           transactionMeta = emptyTransactionMeta(seedService, ledgerEffectiveTime = now),
@@ -345,14 +331,14 @@ final class SqlLedgerSpec
             startExclusive = Some(start),
             endInclusive = None,
             applicationId = domain.ApplicationId(applicationId),
-            parties = Set(party),
+            parties = Set(party1),
           )
           .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         completion._1 should be > start
         inside(completion._2.completions) {
-          case Seq(Completion(`commandId`, Some(status), _, _, _, _, _)) =>
+          case Seq(Completion(`commandId1`, Some(status), _, _, _, _, _)) =>
             status.code should be(Status.Code.ABORTED.value)
             status.message should be(
               "No ledger configuration available, cannot validate ledger time"
@@ -379,12 +365,10 @@ final class SqlLedgerSpec
 
       val minSkew = Duration.ofSeconds(10)
       val maxSkew = Duration.ofSeconds(30)
+      val configuration = Configuration.reasonableInitialConfiguration.copy(
+        timeModel = LedgerTimeModel.reasonableDefault.copy(minSkew = minSkew, maxSkew = maxSkew)
+      )
 
-      val seedService = SeedService.WeakRandom
-      val applicationId = Ref.ApplicationId.assertFromString(UUID.randomUUID().toString)
-      val party = Ref.Party.assertFromString("party1")
-      val commandId = Ref.CommandId.assertFromString("commandId1")
-      val submissionId = Ref.SubmissionId.assertFromString("submissionId1")
       val transactionLedgerEffectiveTime = now.add(Duration.ofMinutes(5))
       for {
         sqlLedger <- createSqlLedger(
@@ -397,18 +381,16 @@ final class SqlLedgerSpec
         _ <- sqlLedger.publishConfiguration(
           maxRecordTime = now.add(Duration.ofMinutes(1)),
           submissionId = "configuration",
-          config = Configuration.reasonableInitialConfiguration.copy(
-            timeModel = LedgerTimeModel.reasonableDefault.copy(minSkew = minSkew, maxSkew = maxSkew)
-          ),
+          config = configuration,
         )
         result <- sqlLedger.publishTransaction(
           submitterInfo = SubmitterInfo(
-            actAs = List(party),
+            actAs = List(party1),
             applicationId = applicationId,
-            commandId = commandId,
+            commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
-            submissionId = submissionId,
-            ledgerConfiguration = Configuration.reasonableInitialConfiguration,
+            submissionId = submissionId1,
+            ledgerConfiguration = configuration,
           ),
           transactionMeta =
             emptyTransactionMeta(seedService, ledgerEffectiveTime = transactionLedgerEffectiveTime),
@@ -419,14 +401,14 @@ final class SqlLedgerSpec
             startExclusive = Some(start),
             endInclusive = None,
             applicationId = domain.ApplicationId(applicationId),
-            parties = Set(party),
+            parties = Set(party1),
           )
           .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         completion._1 should be > start
         inside(completion._2.completions) {
-          case Seq(Completion(`commandId`, Some(status), _, _, _, _, _)) =>
+          case Seq(Completion(`commandId1`, Some(status), _, _, _, _, _)) =>
             status.code should be(Status.Code.ABORTED.value)
             val lowerBound = nowInstant.minus(minSkew)
             val upperBound = nowInstant.plus(maxSkew)
@@ -521,6 +503,8 @@ final class SqlLedgerSpec
 object SqlLedgerSpec {
   private val queueDepth = 128
 
+  private val seedService = SeedService.WeakRandom
+
   private val ledgerId: LedgerId = LedgerId("TheLedger")
 
   private val testDar =
@@ -544,5 +528,15 @@ object SqlLedgerSpec {
       optNodeSeeds = None,
       optByKeyNodes = None,
     )
+  }
+
+  private object TestIdentifiers {
+    val applicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application")
+    val party1: Ref.Party = Ref.Party.assertFromString("party1")
+    val party2: Ref.Party = Ref.Party.assertFromString("party2")
+    val commandId1: Ref.CommandId = Ref.CommandId.assertFromString("commandId1")
+    val submissionId1: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submissionId1")
+    val submissionId2: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submissionId2")
+    val submissionId3: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submissionId3")
   }
 }
