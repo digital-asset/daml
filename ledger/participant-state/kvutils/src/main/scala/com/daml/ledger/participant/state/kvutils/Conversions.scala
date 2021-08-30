@@ -152,7 +152,9 @@ private[state] object Conversions {
     submitterInfoBuilder.build
   }
 
-  def parseCompletionInfo(subInfo: DamlSubmitterInfo): CompletionInfo = {
+  val FillerSubmissionIdPrefix = "submission-"
+
+  def parseCompletionInfo(entryId: DamlLogEntryId, subInfo: DamlSubmitterInfo): CompletionInfo = {
     val deduplicationPeriod = subInfo.getDeduplicationPeriodCase match {
       case DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
         Some(
@@ -174,9 +176,15 @@ private[state] object Conversions {
       applicationId = Ref.LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = Ref.LedgerString.assertFromString(subInfo.getCommandId),
       optDeduplicationPeriod = deduplicationPeriod,
-      submissionId = Ref.SubmissionId.assertFromString(
-        subInfo.getSubmissionId
-      ), // FIXME this can be missing, what to do what to do (it will fail with an exception if it's empty)
+      submissionId = Option(subInfo.getSubmissionId)
+        .filter(_.nonEmpty)
+        .map(
+          Ref.SubmissionId.assertFromString
+        )
+        .getOrElse(
+          Ref.SubmissionId
+            .assertFromString(FillerSubmissionIdPrefix + entryId.getEntryId.toStringUtf8)
+        ),
     )
 
   }

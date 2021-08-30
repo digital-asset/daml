@@ -193,10 +193,14 @@ object KeyValueConsumption {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry).toList
+        transactionRejectionEntryToUpdate(
+          entryId,
+          recordTime,
+          entry.getTransactionRejectionEntry,
+        ).toList
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
-        outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
+        outOfTimeBoundsEntryToUpdate(entryId, recordTime, entry.getOutOfTimeBoundsEntry).toList
 
       case DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY =>
         List.empty
@@ -218,6 +222,7 @@ object KeyValueConsumption {
     }
 
   private def transactionRejectionEntryToUpdate(
+      entryId: DamlLogEntryId,
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
   ): Option[Update] = Conversions
@@ -225,7 +230,7 @@ object KeyValueConsumption {
     .map(reason => {
       Update.CommandRejected(
         recordTime = recordTime,
-        completionInfo = parseCompletionInfo(rejEntry.getSubmitterInfo),
+        completionInfo = parseCompletionInfo(entryId, rejEntry.getSubmitterInfo),
         reasonTemplate = reason,
       )
     })
@@ -253,7 +258,8 @@ object KeyValueConsumption {
 
     Update.TransactionAccepted(
       optCompletionInfo =
-        if (txEntry.hasSubmitterInfo) Some(parseCompletionInfo(txEntry.getSubmitterInfo)) else None,
+        if (txEntry.hasSubmitterInfo) Some(parseCompletionInfo(entryId, txEntry.getSubmitterInfo))
+        else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
         workflowId = Some(txEntry.getWorkflowId)
@@ -309,6 +315,7 @@ object KeyValueConsumption {
   )
 
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
+      entryId: DamlLogEntryId,
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
   ): Option[Update] = {
@@ -320,7 +327,7 @@ object KeyValueConsumption {
 
     val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
     wrappedLogEntry.getPayloadCase match {
-      case _ if deduplicated =>
+      case _ if deduplicated => // TODO does this still make sense?
         // We don't emit updates for deduplicated submissions.
         None
 
@@ -339,10 +346,11 @@ object KeyValueConsumption {
         Some(
           Update.CommandRejected(
             recordTime = recordTime,
-            completionInfo = parseCompletionInfo(transactionRejectionEntry.getSubmitterInfo),
+            completionInfo =
+              parseCompletionInfo(entryId, transactionRejectionEntry.getSubmitterInfo),
             reasonTemplate = FinalReason(
               Status.of(
-                Code.INTERNAL.value,
+                Code.INVALID_ARGUMENT.value, // TODO does this make sense?
                 reason,
                 Seq.empty,
               )

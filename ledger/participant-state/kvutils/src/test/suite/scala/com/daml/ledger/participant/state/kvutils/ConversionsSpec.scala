@@ -11,12 +11,14 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   decodeBlindingInfo,
   encodeBlindingInfo,
   extractDivulgedContracts,
+  parseCompletionInfo,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntryId,
   DamlStateKey,
   DamlSubmitterInfo,
   DamlTransactionBlindingInfo,
@@ -38,6 +40,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.ValueOuterClass
+import com.google.protobuf.ByteString
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
@@ -294,6 +297,32 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             .value
             .code shouldBe Code.INVALID_ARGUMENT.value()
         }
+      }
+    }
+
+    "decode completion info" should {
+      val entryId =
+        DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8("entryid")).build()
+
+      def submitterInfo = {
+        DamlSubmitterInfo.newBuilder().setApplicationId("id").setCommandId("commandId")
+      }
+
+      "use entry id as submission id" in {
+        val completionInfo = parseCompletionInfo(
+          entryId,
+          submitterInfo.build(),
+        )
+        completionInfo.submissionId shouldBe s"${Conversions.FillerSubmissionIdPrefix}entryid"
+      }
+
+      "use defined submission id" in {
+        val submissionId = "submissionId"
+        val completionInfo = parseCompletionInfo(
+          entryId,
+          submitterInfo.setSubmissionId(submissionId).build(),
+        )
+        completionInfo.submissionId shouldBe submissionId
       }
     }
   }

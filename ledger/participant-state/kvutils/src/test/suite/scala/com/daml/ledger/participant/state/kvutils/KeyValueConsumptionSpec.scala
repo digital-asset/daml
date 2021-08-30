@@ -16,10 +16,12 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
-import com.google.protobuf.Empty
+import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
@@ -27,7 +29,9 @@ import org.scalatest.prop.Tables.Table
 import org.scalatest.wordspec.AnyWordSpec
 
 class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
-  private val aLogEntryId = DamlLogEntryId.getDefaultInstance
+  private val aLogEntryIdString = "test"
+  private val aLogEntryId =
+    DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(aLogEntryIdString)).build()
   private val aLogEntryWithoutRecordTime = DamlLogEntry.newBuilder
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
     .build
@@ -69,6 +73,24 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         .setTimeUpdateEntry(Empty.getDefaultInstance)
         .build
       logEntryToUpdate(aLogEntryId, timeUpdateEntry, recordTimeForUpdate = None) shouldBe Nil
+    }
+
+    "use log entry id for submission id" in {
+      val entry = DamlLogEntry
+        .newBuilder()
+        .setRecordTime(Conversions.buildTimestamp(aRecordTime))
+        .setTransactionRejectionEntry(
+          DamlTransactionRejectionEntry
+            .newBuilder()
+            .setSubmitterInfo(someSubmitterInfo.toBuilder.clearSubmissionId())
+            .setDisputed(Disputed.newBuilder())
+        )
+        .build()
+
+      val actual :: Nil = logEntryToUpdate(aLogEntryId, entry)
+      inside(actual) { case CommandRejected(_, completionInfo, _) =>
+        completionInfo.submissionId shouldBe s"submission-$aLogEntryIdString"
+      }
     }
   }
 
@@ -118,7 +140,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       def verifyCommandRejection(actual: Option[Update]): Unit = actual match {
         case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
           recordTime shouldBe aRecordTime
-          completionInfo shouldBe Conversions.parseCompletionInfo(someSubmitterInfo)
+          completionInfo shouldBe Conversions.parseCompletionInfo(aLogEntryId, someSubmitterInfo)
+          completionInfo.submissionId shouldBe someSubmitterInfo.getSubmissionId
           status.code shouldBe Code.INVALID_ARGUMENT.value
           ()
         case _ => fail()
@@ -273,9 +296,11 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       ) =>
         val inputEntry = buildOutOfTimeBoundsEntry(timeBounds, logEntryType)
         if (assertions.throwsInternalError) {
-          assertThrows[Err.InternalError](outOfTimeBoundsEntryToUpdate(recordTime, inputEntry))
+          assertThrows[Err.InternalError](
+            outOfTimeBoundsEntryToUpdate(aLogEntryId, recordTime, inputEntry)
+          )
         } else {
-          val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
+          val actual = outOfTimeBoundsEntryToUpdate(aLogEntryId, recordTime, inputEntry)
           assertions.verify(actual)
           ()
         }
