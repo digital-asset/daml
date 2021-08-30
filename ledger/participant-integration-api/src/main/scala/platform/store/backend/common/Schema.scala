@@ -223,7 +223,7 @@ private[backend] object AppendOnlySchema {
         "rejection_status_message" -> fieldStrategy.stringOptional(_.rejection_status_message),
         "rejection_status_details" -> fieldStrategy.byteaOptional(_.rejection_status_details),
         "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
-        "deduplication_offset" -> fieldStrategy.stringOptional(_.submission_id),
+        "deduplication_offset" -> fieldStrategy.stringOptional(_.deduplication_offset),
         "deduplication_time_seconds" -> fieldStrategy.bigintOptional(_.deduplication_time_seconds),
         "deduplication_time_nanos" -> fieldStrategy.intOptional(_.deduplication_time_nanos),
         "deduplication_start" -> fieldStrategy.timestampOptional(_.deduplication_start),
