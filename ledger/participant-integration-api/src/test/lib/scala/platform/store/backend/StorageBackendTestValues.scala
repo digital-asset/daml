@@ -41,7 +41,7 @@ private[backend] object StorageBackendTestValues {
     ParameterStorageBackend.IdentityParams(someLedgerId, someParticipantId)
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
   val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
-  val someSubmissionId: String = "submission_id"
+  val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
 
   val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
     .setHash("00001")
