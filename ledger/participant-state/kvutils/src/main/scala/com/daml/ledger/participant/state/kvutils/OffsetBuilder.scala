@@ -38,14 +38,14 @@ object OffsetBuilder {
   def fromLong(first: Long, second: Int = 0, third: Int = 0): Offset =
     delegate.of(first, second, third)
 
-  def highestIndex(offset: Offset): Long = VersionedOffsetBuilder.highestIndex(offset)
+  def highestIndex(offset: Offset): Long = delegate.highestIndex(offset)
 
-  def middleIndex(offset: Offset): Int = VersionedOffsetBuilder.middleIndex(offset)
+  def middleIndex(offset: Offset): Int = delegate.middleIndex(offset)
 
-  def lowestIndex(offset: Offset): Int = VersionedOffsetBuilder.lowestIndex(offset)
+  def lowestIndex(offset: Offset): Int = delegate.lowestIndex(offset)
 
   private[kvutils] def split(offset: Offset): (Long, Int, Int) = {
-    val (highest, middle, lowest) = VersionedOffsetBuilder.split(offset)
+    val (highest, middle, lowest) = delegate.split(offset)
     (highest, middle, lowest)
   }
 }

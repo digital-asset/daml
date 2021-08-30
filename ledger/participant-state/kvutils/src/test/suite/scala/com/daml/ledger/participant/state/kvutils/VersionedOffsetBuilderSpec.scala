@@ -20,13 +20,14 @@ class VersionedOffsetBuilderSpec
     "construct and extract" in {
       forAll(arbitrary[Byte], genHighest, Gen.posNum[Int], Gen.posNum[Int]) {
         (version, highest, middle, lowest) =>
-          val offset = VersionedOffsetBuilder(version).of(highest, middle, lowest)
+          val builder = VersionedOffsetBuilder(version)
+          val offset = builder.of(highest, middle, lowest)
 
-          VersionedOffsetBuilder.version(offset) should be(version)
-          VersionedOffsetBuilder.highestIndex(offset) should be(highest)
-          VersionedOffsetBuilder.middleIndex(offset) should be(middle)
-          VersionedOffsetBuilder.lowestIndex(offset) should be(lowest)
-          VersionedOffsetBuilder.split(offset) should be((highest, middle, lowest))
+          builder.version(offset) should be(version)
+          builder.highestIndex(offset) should be(highest)
+          builder.middleIndex(offset) should be(middle)
+          builder.lowestIndex(offset) should be(lowest)
+          builder.split(offset) should be((highest, middle, lowest))
       }
     }
 
@@ -62,11 +63,27 @@ class VersionedOffsetBuilderSpec
           ) should have message s"requirement failed: lowest ($lowest) is lower than 0"
       }
     }
+
+    "fail on a wrong version" in {
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], genDifferentVersions) {
+        (highest, middle, lowest, versions) =>
+          val offset = VersionedOffsetBuilder(versions._1).of(highest, middle, lowest)
+          the[IllegalArgumentException] thrownBy VersionedOffsetBuilder(versions._2).highestIndex(
+            offset
+          ) should have message s"requirement failed: wrong version ${versions._1}, should be ${versions._2}"
+      }
+    }
   }
 }
 
 object VersionedOffsetBuilderSpec {
   private val genHighest = Gen.chooseNum(0L, VersionedOffsetBuilder.MaxHighest)
+
   private val genOutOfRangeHighest =
     Gen.oneOf(Gen.negNum[Long], Gen.chooseNum(VersionedOffsetBuilder.MaxHighest + 1, Long.MaxValue))
+
+  private val genDifferentVersions = for {
+    version1 <- arbitrary[Byte]
+    version2 <- arbitrary[Byte].suchThat(_ != version1)
+  } yield (version1, version2)
 }
