@@ -8,6 +8,7 @@ import java.time.{Duration, Instant}
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CommandTracker._
@@ -223,8 +224,23 @@ private[commands] class CommandTracker[Context](
           ) with NoStackTrace
         }
         val commandTimeout = submission.value.timeout match {
-          case None => maximumCommandTimeout
+          // The command submission timeout takes precedence.
           case Some(timeout) => durationOrdering.min(timeout, maximumCommandTimeout)
+          case None =>
+            commands.deduplicationPeriod match {
+              // We keep supporting the `deduplication_time` field as the command timeout,
+              // for historical reasons.
+              case Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTimeProto) =>
+                val deduplicationTime = Duration.ofSeconds(
+                  deduplicationTimeProto.seconds,
+                  deduplicationTimeProto.nanos.toLong,
+                )
+                durationOrdering.min(deduplicationTime, maximumCommandTimeout)
+              // All other deduplication periods were added recently and should not influence the
+              // command timeout.
+              case _ =>
+                maximumCommandTimeout
+            }
         }
         val trackingData = TrackingData(
           commandId = commandId,
