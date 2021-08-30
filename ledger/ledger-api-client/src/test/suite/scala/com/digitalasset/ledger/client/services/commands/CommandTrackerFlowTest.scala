@@ -29,7 +29,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   NotOkResponse,
 }
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
@@ -75,17 +74,9 @@ class CommandTrackerFlowTest
   private val successStatus = Status(Code.OK.value)
   private val context = 1
   private val submission = newSubmission(commandId)
-  private def newSubmission(commandId: String, dedupTime: Option[Duration] = None) = Ctx(
-    context,
-    CommandSubmission(
-      Commands(
-        commandId = commandId,
-        deduplicationPeriod = dedupTime
-          .map(t => Commands.DeduplicationPeriod.DeduplicationTime(DurationProto(t.getSeconds)))
-          .getOrElse(Commands.DeduplicationPeriod.Empty),
-      )
-    ),
-  )
+
+  private def newSubmission(commandId: String, timeout: Option[Duration] = None) =
+    Ctx(context, CommandSubmission(Commands(commandId = commandId), timeout))
 
   private case class Handle(
       submissions: TestPublisher.Probe[Ctx[Int, CommandSubmission]],
@@ -279,10 +270,10 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "time out the command when the deduplication time passes" in {
+      "timeout the command when the timeout passes" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofMillis(100))))
+        submissions.sendNext(newSubmission(commandId, timeout = Some(Duration.ofMillis(100))))
 
         results.expectNext(
           500.milliseconds,
@@ -312,7 +303,7 @@ class CommandTrackerFlowTest
           maximumCommandTimeout = Duration.ofMillis(100),
         )
 
-        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofSeconds(10))))
+        submissions.sendNext(newSubmission(commandId, timeout = Some(Duration.ofSeconds(10))))
 
         results.expectNext(
           500.millis,
@@ -342,7 +333,8 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val timedOutCommandId = "timedOutCommandId"
-        val submitRequestShortDedupTime = newSubmission(timedOutCommandId, Some(shortDuration))
+        val submitRequestShortDedupTime =
+          newSubmission(timedOutCommandId, timeout = Some(shortDuration))
         submissions.sendNext(submitRequestShortDedupTime)
 
         results.expectNext(
@@ -368,7 +360,8 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val timedOutCommandId = "timedOutCommandId"
-        val submitRequestShortDedupTime = newSubmission(timedOutCommandId, Some(shortDuration))
+        val submitRequestShortDedupTime =
+          newSubmission(timedOutCommandId, timeout = Some(shortDuration))
 
         // we send 2 requests
         submissions.sendNext(submitRequestShortDedupTime)

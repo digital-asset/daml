@@ -8,9 +8,9 @@ import java.time.{Duration, Instant}
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.services.commands.tracker.CommandTracker._
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -222,11 +222,13 @@ private[commands] class CommandTracker[Context](
             s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
           ) with NoStackTrace
         }
-        val commandTimeout =
-          timeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maximumCommandTimeout)
+        val commandTimeout = submission.value.timeout match {
+          case None => maximumCommandTimeout
+          case Some(timeout) => durationOrdering.min(timeout, maximumCommandTimeout)
+        }
         val trackingData = TrackingData(
           commandId = commandId,
-          commandTimeout = commandTimeout,
+          commandTimeout = Instant.now().plus(commandTimeout),
           context = submission.context,
         )
         pendingCommands += commandId -> trackingData
@@ -301,34 +303,14 @@ private[commands] class CommandTracker[Context](
     logic -> promise.future
   }
 
-  private def timeoutFromDeduplicationPeriod(
-      deduplicationPeriod: DeduplicationPeriod,
-      maximumCommandTimeout: Duration,
-  ) = {
-    val deduplicationDuration = deduplicationPeriod match {
-      case DeduplicationPeriod.Empty =>
-        None
-      case DeduplicationPeriod.DeduplicationTime(duration) =>
-        Some(Duration.ofSeconds(duration.seconds, duration.nanos.toLong))
-      case DeduplicationPeriod.DeduplicationDuration(duration) =>
-        Some(Duration.ofSeconds(duration.seconds, duration.nanos.toLong))
-      case DeduplicationPeriod.DeduplicationOffset(_) =>
-        // no way of extracting the duration from here, will be removed soon
-        None
-    }
-    val timeout = deduplicationDuration match {
-      case None => maximumCommandTimeout
-      case Some(duration) => implicitly[Ordering[Duration]].min(maximumCommandTimeout, duration)
-    }
-    Instant.now().plus(timeout)
-  }
-
   override def shape: CommandTrackerShape[Context] =
     CommandTrackerShape(submitRequestIn, submitRequestOut, commandResultIn, resultOut, offsetOut)
 
 }
 
 object CommandTracker {
+  private val durationOrdering = implicitly[Ordering[Duration]]
+
   private val nonTerminalCodes =
     Set(Status.Code.UNKNOWN, Status.Code.INTERNAL, Status.Code.OK)
 }
