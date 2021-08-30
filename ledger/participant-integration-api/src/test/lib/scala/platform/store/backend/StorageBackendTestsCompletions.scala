@@ -3,9 +3,8 @@
 
 package com.daml.platform.store.backend
 
-import java.time.Duration
-
 import com.daml.ledger.offset.Offset
+import com.google.protobuf.duration.Duration
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -99,7 +98,7 @@ private[backend] trait StorageBackendTestsCompletions
       completions should have length 2
       val List(completionWithSubmissionId, completionWithoutSubmissionId) = completions
       completionWithSubmissionId.completions should have length 1
-      completionWithSubmissionId.completions.head.submissionId should be(submissionId)
+      completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
       completionWithoutSubmissionId.completions should have length 1
       completionWithoutSubmissionId.completions.head.submissionId should be("")
     }
@@ -107,14 +106,14 @@ private[backend] trait StorageBackendTestsCompletions
 
   it should "correctly persist and retrieve command deduplication offsets" in {
     val party = someParty
-    val anOffset = "someOffset"
+    val anOffsetHex = offset(0).toHexString
 
     val dtos = Vector(
       dtoConfiguration(offset(1)),
       dtoCompletion(
         offset(2),
         submitter = party,
-        deduplicationOffset = Some(anOffset),
+        deduplicationOffset = Some(anOffsetHex),
       ),
       dtoCompletion(offset(3), submitter = party, deduplicationOffset = None),
     )
@@ -132,7 +131,7 @@ private[backend] trait StorageBackendTestsCompletions
         completions
       completionWithDeduplicationOffset.completions should have length 1
       completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
-        Some(anOffset)
+        Some(anOffsetHex)
       )
       completionWithoutDeduplicationOffset.completions should have length 1
       completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should not be defined
@@ -143,7 +142,7 @@ private[backend] trait StorageBackendTestsCompletions
     val party = someParty
     val seconds = 100L
     val nanos = 10
-    val expectedDuration = Duration.ofSeconds(seconds).plusNanos(nanos.toLong)
+    val expectedDuration = Duration.of(seconds, nanos)
 
     val dtos = Vector(
       dtoConfiguration(offset(1)),
@@ -173,8 +172,8 @@ private[backend] trait StorageBackendTestsCompletions
       val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
         completions
       completionWithDeduplicationOffset.completions should have length 1
-      completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
-        expectedDuration
+      completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationTime should be(
+        Some(expectedDuration)
       )
       completionWithoutDeduplicationOffset.completions should have length 1
       completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationTime should not be defined
@@ -185,6 +184,10 @@ private[backend] trait StorageBackendTestsCompletions
     val party = someParty
     val seconds = 100L
     val nanos = 10
+
+    val expectedErrorMessage =
+      "One of deduplication time seconds and nanos has been provided " +
+        "but they must be either both provided or both absent"
 
     val dtos1 = Vector(
       dtoConfiguration(offset(1)),
@@ -204,11 +207,8 @@ private[backend] trait StorageBackendTestsCompletions
         backend.commandCompletions(offset(1), offset(2), someApplicationId, Set(party))
       ).failed
     } yield {
-      result.getCause shouldBe an[IllegalArgumentException]
-      result.getCause.getMessage should be(
-        "One of deduplication time seconds and nanos has been provided " +
-          "but they must be either both provided or both absent"
-      )
+      result shouldBe an[IllegalArgumentException]
+      result.getMessage should be(expectedErrorMessage)
     }
 
     val dtos2 = Vector(
@@ -227,11 +227,8 @@ private[backend] trait StorageBackendTestsCompletions
         backend.commandCompletions(offset(2), offset(3), someApplicationId, Set(party))
       ).failed
     } yield {
-      result.getCause shouldBe an[IllegalArgumentException]
-      result.getCause.getMessage should be(
-        "One of deduplication time seconds and nanos has been provided " +
-          "but they must be either both provided or both absent"
-      )
+      result shouldBe an[IllegalArgumentException]
+      result.getMessage should be(expectedErrorMessage)
     }
   }
 }
