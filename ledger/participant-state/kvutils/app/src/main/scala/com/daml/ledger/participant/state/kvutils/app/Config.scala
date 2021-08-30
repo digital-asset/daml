@@ -174,6 +174,7 @@ object Config {
               "indexer-max-input-buffer-size, " +
               "indexer-input-mapping-parallelism, " +
               "indexer-ingestion-parallelism, " +
+              "indexer-batching-parallelism, " +
               "indexer-submission-batch-size, " +
               "indexer-tailing-rate-limit-per-second, " +
               "indexer-batch-within-millis, " +
