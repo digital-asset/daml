@@ -230,7 +230,7 @@ private[daml] object ApiServices {
           commandExecutor,
           ApiSubmissionService.Configuration(
             partyConfig.implicitPartyAllocation,
-            submissionConfig.enbleDeduplication,
+            submissionConfig.enableDeduplication,
           ),
           metrics,
         )
