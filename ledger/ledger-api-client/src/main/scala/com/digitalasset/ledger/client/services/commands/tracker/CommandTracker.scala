@@ -236,8 +236,7 @@ private[commands] class CommandTracker[Context](
                   deduplicationTimeProto.nanos.toLong,
                 )
                 durationOrdering.min(deduplicationTime, maximumCommandTimeout)
-              // All other deduplication periods were added recently and should not influence the
-              // command timeout.
+              // All other deduplication periods do not influence the command timeout.
               case _ =>
                 maximumCommandTimeout
             }

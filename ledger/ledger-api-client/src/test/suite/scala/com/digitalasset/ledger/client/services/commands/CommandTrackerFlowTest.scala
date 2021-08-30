@@ -358,20 +358,12 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val timedOutCommandId = "timedOutCommandId"
-        val submitRequestShortDedupTime =
-          newSubmission(timedOutCommandId, timeout = Some(shortDuration))
-        submissions.sendNext(submitRequestShortDedupTime)
+
+        submissions.sendNext(newSubmission(timedOutCommandId, timeout = Some(shortDuration)))
 
         results.expectNext(
           shortDuration.getSeconds.seconds * 3,
-          Ctx(
-            context,
-            Left(
-              CompletionResponse.TimeoutResponse(
-                timedOutCommandId
-              )
-            ),
-          ),
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(timedOutCommandId))),
         )
 
         // since the command timed out before, the tracker shouldn't send the completion through
@@ -395,14 +387,7 @@ class CommandTrackerFlowTest
         // the tracker observes the timeout before the completion, thus "consuming" the pull on the result output
         results.expectNext(
           3.seconds,
-          Ctx(
-            context,
-            Left(
-              CompletionResponse.TimeoutResponse(
-                timedOutCommandId
-              )
-            ),
-          ),
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(timedOutCommandId))),
         )
         // we now receive a completion
         completionStreamMock.send(successfulCompletion(commandId))
