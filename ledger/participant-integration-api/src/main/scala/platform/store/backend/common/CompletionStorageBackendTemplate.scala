@@ -87,15 +87,15 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
         case offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ transactionId ~
             deduplicationOffset ~ deduplicationTimeSeconds ~ deduplicationTimeNanos ~ _ =>
           CompletionFromTransaction.acceptedCompletion(
-            recordTime,
-            offset,
-            commandId,
-            transactionId,
-            applicationId,
-            submissionId,
-            deduplicationOffset,
-            deduplicationTimeSeconds,
-            deduplicationTimeNanos,
+            recordTime = recordTime,
+            offset = offset,
+            commandId = commandId,
+            transactionId = transactionId,
+            applicationId = applicationId,
+            maybeSubmissionId = submissionId,
+            maybeDeduplicationOffset = deduplicationOffset,
+            maybeDeduplicationTimeSeconds = deduplicationTimeSeconds,
+            maybeDeduplicationTimeNanos = deduplicationTimeNanos,
           )
       }
 
@@ -118,15 +118,15 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
           CompletionFromTransaction.rejectedCompletion(
-            recordTime,
-            offset,
-            commandId,
-            status,
-            applicationId,
-            submissionId,
-            deduplicationOffset,
-            deduplicationTimeSeconds,
-            deduplicationTimeNanos,
+            recordTime = recordTime,
+            offset = offset,
+            commandId = commandId,
+            status = status,
+            applicationId = applicationId,
+            maybeSubmissionId = submissionId,
+            maybeDeduplicationOffset = deduplicationOffset,
+            maybeDeduplicationTimeSeconds = deduplicationTimeSeconds,
+            maybeDeduplicationTimeNanos = deduplicationTimeNanos,
           )
       }
 
@@ -150,5 +150,4 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
     rejectionStatusDetails
       .map(stream => StatusDetails.parseFrom(stream).details)
       .getOrElse(Seq.empty)
-
 }

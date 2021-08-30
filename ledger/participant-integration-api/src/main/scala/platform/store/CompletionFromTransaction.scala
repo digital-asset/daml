@@ -37,14 +37,14 @@ private[platform] object CompletionFromTransaction {
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
       completions = Seq(
         toApiCompletion(
-          commandId,
-          transactionId,
-          applicationId,
-          Some(OkStatus),
-          maybeSubmissionId,
-          maybeDeduplicationOffset,
-          maybeDeduplicationTimeSeconds,
-          maybeDeduplicationTimeNanos,
+          commandId = commandId,
+          transactionId = transactionId,
+          applicationId = applicationId,
+          maybeStatus = Some(OkStatus),
+          maybeSubmissionId = maybeSubmissionId,
+          maybeDeduplicationOffset = maybeDeduplicationOffset,
+          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
         )
       ),
     )
@@ -64,14 +64,14 @@ private[platform] object CompletionFromTransaction {
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
       completions = Seq(
         toApiCompletion(
-          commandId,
-          RejectionTransactionId,
-          applicationId,
-          Some(status),
-          maybeSubmissionId,
-          maybeDeduplicationOffset,
-          maybeDeduplicationTimeSeconds,
-          maybeDeduplicationTimeNanos,
+          commandId = commandId,
+          transactionId = RejectionTransactionId,
+          applicationId = applicationId,
+          maybeStatus = Some(status),
+          maybeSubmissionId = maybeSubmissionId,
+          maybeDeduplicationOffset = maybeDeduplicationOffset,
+          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
         )
       ),
     )
@@ -93,9 +93,9 @@ private[platform] object CompletionFromTransaction {
       maybeDeduplicationTimeNanos: Option[Int],
   ): Completion = {
     val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
-      maybeDeduplicationOffset,
-      maybeDeduplicationTimeNanos,
-      maybeDeduplicationTimeSeconds,
+      maybeDeduplicationOffset = maybeDeduplicationOffset,
+      maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+      maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
     )
     (maybeSubmissionId, maybeDeduplicationPeriod) match {
       case (Some(submissionId), Some(deduplicationPeriod)) =>
@@ -135,8 +135,8 @@ private[platform] object CompletionFromTransaction {
 
   private def toApiDeduplicationPeriod(
       maybeDeduplicationOffset: Option[String],
-      maybeDeduplicationTimeNanos: Option[Int],
       maybeDeduplicationTimeSeconds: Option[Long],
+      maybeDeduplicationTimeNanos: Option[Int],
   ): Option[Completion.DeduplicationPeriod] =
     // The only invariant that should hold, considering legacy data, is that either
     // the deduplication time seconds and nanos are both populated, or neither is.
