@@ -52,7 +52,7 @@ import scala.util.{Failure, Success, Try}
   */
 // TODO(mthvedt): This should have unit tests.
 private[commands] class CommandTracker[Context](
-    maximumExpiryTime: Duration
+    maximumCommandTimeout: Duration
 ) extends GraphStageWithMaterializedValue[
       CommandTrackerShape[Context],
       Future[Map[String, Context]],
@@ -223,7 +223,7 @@ private[commands] class CommandTracker[Context](
           ) with NoStackTrace
         }
         val commandTimeout =
-          timeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maximumExpiryTime)
+          timeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maximumCommandTimeout)
         val trackingData = TrackingData(
           commandId = commandId,
           commandTimeout = commandTimeout,
@@ -303,7 +303,7 @@ private[commands] class CommandTracker[Context](
 
   private def timeoutFromDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriod,
-      maximumExpiryTime: Duration,
+      maximumCommandTimeout: Duration,
   ) = {
     val deduplicationDuration = deduplicationPeriod match {
       case DeduplicationPeriod.Empty =>
@@ -317,8 +317,8 @@ private[commands] class CommandTracker[Context](
         None
     }
     val timeout = deduplicationDuration match {
-      case None => maximumExpiryTime
-      case Some(duration) => implicitly[Ordering[Duration]].min(maximumExpiryTime, duration)
+      case None => maximumCommandTimeout
+      case Some(duration) => implicitly[Ordering[Duration]].min(maximumCommandTimeout, duration)
     }
     Instant.now().plus(timeout)
   }

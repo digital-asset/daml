@@ -252,7 +252,13 @@ private[apiserver] object ApiCommandService {
                 )
                 .mapConcat(CommandCompletionSource.toStreamElements),
             startingOffset = ledgerEnd,
-            maximumExpiryTime = configuration.trackerRetentionPeriod,
+            // We use the tracker retention period as the maximum command timeout, because the is
+            // the maximum length of time we can guarantee that the tracker stays alive (assuming
+            // the server stays up). If we set it any longer, the tracker might be shut down while
+            // we wait.
+            // In the future, we may want to configure this separately, but for now, we use re-use
+            // the tracker retention period for convenience.
+            maximumCommandTimeout = configuration.trackerRetentionPeriod,
           )
         val trackingFlow = MaxInFlight(
           configuration.maxCommandsInFlight,

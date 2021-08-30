@@ -291,10 +291,10 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "use the maximum expiry time, if provided" in {
+      "use the maximum command timeout, if provided" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumExpiryTime = Duration.ofSeconds(1),
+          maximumCommandTimeout = Duration.ofSeconds(1),
         )
 
         submissions.sendNext(submission)
@@ -306,10 +306,10 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "cap the timeout at the maximum expiry time" in {
+      "cap the timeout at the maximum command timeout" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumExpiryTime = Duration.ofSeconds(1),
+          maximumCommandTimeout = Duration.ofSeconds(1),
         )
 
         submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofSeconds(10))))
@@ -557,17 +557,17 @@ class CommandTrackerFlowTest
         Ctx[(Int, String), Try[Empty]],
         NotUsed,
       ],
-      maximumExpiryTime: Duration = Duration.ofSeconds(10),
+      maximumCommandTimeout: Duration = Duration.ofSeconds(10),
   ): Handle = {
 
     val completionsMock = new CompletionStreamMock()
 
     val trackingFlow =
       CommandTrackerFlow[Int, NotUsed](
-        submissionFlow,
-        completionsMock.createCompletionsSource,
-        LedgerOffset(Boundary(LEDGER_BEGIN)),
-        maximumExpiryTime,
+        commandSubmissionFlow = submissionFlow,
+        createCommandCompletionSource = completionsMock.createCompletionsSource,
+        startingOffset = LedgerOffset(Boundary(LEDGER_BEGIN)),
+        maximumCommandTimeout = maximumCommandTimeout,
       )
 
     val handle = submissionSource

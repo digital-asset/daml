@@ -144,7 +144,7 @@ final class CommandClient(
             ),
             createCommandCompletionSource = offset => completionSource(parties, offset, token),
             startingOffset = ledgerEnd.getOffset,
-            maximumExpiryTime = config.defaultDeduplicationTime,
+            maximumCommandTimeout = config.defaultDeduplicationTime,
           )
         )(Keep.right)
     }
