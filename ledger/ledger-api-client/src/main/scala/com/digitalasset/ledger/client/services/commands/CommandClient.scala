@@ -178,7 +178,7 @@ final class CommandClient(
 
   private def commandUpdaterFlow[Context] =
     Flow[Ctx[Context, CommandSubmission]]
-      .map(_.map { case submission @ CommandSubmission(commands) =>
+      .map(_.map { case submission @ CommandSubmission(commands, _) =>
         if (LedgerId(commands.ledgerId) != ledgerId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerId)"
