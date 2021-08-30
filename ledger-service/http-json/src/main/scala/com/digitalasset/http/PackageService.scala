@@ -50,7 +50,7 @@ private class PackageService(
     }
   }
 
-  private case class StateCache() {
+  private class StateCache private () {
     // volatile, reading threads don't need synchronization
     @volatile private var _state: State =
       State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
@@ -96,6 +96,10 @@ private class PackageService(
           res
         }
         .run
+  }
+
+  private object StateCache {
+    def apply() = new StateCache()
   }
 
   private val cache = StateCache()

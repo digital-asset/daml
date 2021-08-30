@@ -529,19 +529,27 @@ object WebSocketService {
   ): doobie.Fragment =
     sjd.queries.keyEquality(k)
 
-  private[WebSocketService] final case class InitialEnrichedContractKeyWithStreamQuery()(implicit
-      ec: ExecutionContext
+  private[WebSocketService] final class InitialEnrichedContractKeyWithStreamQuery private ()(
+      implicit ec: ExecutionContext
   ) extends EnrichedContractKeyWithStreamQuery[Unit] {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = Some(Set.empty)
   }
 
-  private[WebSocketService] final case class ResumingEnrichedContractKeyWithStreamQuery()(implicit
-      ec: ExecutionContext
+  object InitialEnrichedContractKeyWithStreamQuery {
+    def apply()(implicit ec: ExecutionContext) = new InitialEnrichedContractKeyWithStreamQuery()
+  }
+
+  private[WebSocketService] final class ResumingEnrichedContractKeyWithStreamQuery private ()(
+      implicit ec: ExecutionContext
   ) extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
       val NelO = Foldable[NonEmptyList].compose[Option]
       request traverse (_.contractIdAtOffset) map NelO.toSet
     }
+  }
+
+  object ResumingEnrichedContractKeyWithStreamQuery {
+    def apply()(implicit ec: ExecutionContext) = new ResumingEnrichedContractKeyWithStreamQuery()
   }
 
   private abstract sealed class TickTriggerOrStep[+A] extends Product with Serializable
