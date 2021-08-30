@@ -18,7 +18,7 @@ class VersionedOffsetBuilderSpec
 
   "VersionedOffsetBuilder" should {
     "construct and extract" in {
-      forAll(arbitrary[Byte], genHighest, arbitrary[Int], arbitrary[Int]) {
+      forAll(arbitrary[Byte], genHighest, Gen.posNum[Int], Gen.posNum[Int]) {
         (version, highest, middle, lowest) =>
           val offset = VersionedOffsetBuilder(version).of(highest, middle, lowest)
 
@@ -31,13 +31,35 @@ class VersionedOffsetBuilderSpec
     }
 
     "fail on a highest that is out of range" in {
-      forAll(arbitrary[Byte], genOutOfRangeHighest, arbitrary[Int], arbitrary[Int]) {
+      forAll(arbitrary[Byte], genOutOfRangeHighest, Gen.posNum[Int], Gen.posNum[Int]) {
         (version, highest, middle, lowest) =>
           the[IllegalArgumentException] thrownBy VersionedOffsetBuilder(version).of(
             highest,
             middle,
             lowest,
-          ) should have message s"Highest: $highest is out of range [0, ${VersionedOffsetBuilder.MaxHighest}]"
+          ) should have message s"requirement failed: highest ($highest) is out of range [0, ${VersionedOffsetBuilder.MaxHighest}]"
+      }
+    }
+
+    "fail on a negative middle index" in {
+      forAll(arbitrary[Byte], genHighest, Gen.negNum[Int], Gen.posNum[Int]) {
+        (version, highest, middle, lowest) =>
+          the[IllegalArgumentException] thrownBy VersionedOffsetBuilder(version).of(
+            highest,
+            middle,
+            lowest,
+          ) should have message s"requirement failed: middle ($middle) is lower than 0"
+      }
+    }
+
+    "fail on a negative lowest index" in {
+      forAll(arbitrary[Byte], genHighest, Gen.posNum[Int], Gen.negNum[Int]) {
+        (version, highest, middle, lowest) =>
+          the[IllegalArgumentException] thrownBy VersionedOffsetBuilder(version).of(
+            highest,
+            middle,
+            lowest,
+          ) should have message s"requirement failed: lowest ($lowest) is lower than 0"
       }
     }
   }
