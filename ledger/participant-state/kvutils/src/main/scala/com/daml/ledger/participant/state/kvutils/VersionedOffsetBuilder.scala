@@ -43,16 +43,16 @@ class VersionedOffsetBuilder(version: Byte) {
     of(highest, middle, lowest)
   }
 
-  def of(first: Long, second: Int = 0, third: Int = 0): Offset = {
-    if (first < 0 || first > MaxHighest)
-      throw new IllegalArgumentException(s"Highest: $first is out of range [0, $MaxHighest]")
+  def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset = {
+    if (highest < 0 || highest > MaxHighest)
+      throw new IllegalArgumentException(s"Highest: $highest is out of range [0, $MaxHighest]")
 
     val bytes = new ByteArrayOutputStream
     val stream = new DataOutputStream(bytes)
     stream.writeByte(version.toInt)
-    writeHighest(first, stream)
-    stream.writeInt(second)
-    stream.writeInt(third)
+    writeHighest(highest, stream)
+    stream.writeInt(middle)
+    stream.writeInt(lowest)
     Offset.fromByteArray(bytes.toByteArray)
   }
 }
