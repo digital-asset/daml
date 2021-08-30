@@ -17,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class RejectionSpec extends AnyWordSpec with Matchers {
   "Rejection.NoLedgerConfiguration" should {
     "convert to a state rejection reason" in {
-      Rejection.NoLedgerConfiguration.toStateV2RejectionReason should be(
+      Rejection.NoLedgerConfiguration.toStateRejectionReason should be(
         state.Update.CommandRejected.FinalReason(
           StatusProto.of(
             code = Status.Code.ABORTED.value,
@@ -44,7 +44,7 @@ class RejectionSpec extends AnyWordSpec with Matchers {
       val upperBound = Instant.parse("2021-07-20T09:10:00Z")
       val outOfRange = LedgerTimeModel.OutOfRange(ledgerTime, lowerBound, upperBound)
 
-      Rejection.InvalidLedgerTime(outOfRange).toStateV2RejectionReason should be(
+      Rejection.InvalidLedgerTime(outOfRange).toStateRejectionReason should be(
         state.Update.CommandRejected.FinalReason(
           StatusProto.of(
             code = Status.Code.ABORTED.value,
