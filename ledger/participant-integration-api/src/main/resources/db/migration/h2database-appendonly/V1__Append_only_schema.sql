@@ -106,9 +106,7 @@ CREATE TABLE participant_command_submissions (
 CREATE TABLE participant_command_completions (
     completion_offset VARCHAR NOT NULL,
     record_time TIMESTAMP NOT NULL,
-    -- The application ID has to be provided by the application.
-    -- Nullable for alignment with the PostgreSQL schema.
-    application_id VARCHAR,
+    application_id VARCHAR NOT NULL,
     submitters ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
     -- The transaction ID is `NULL` for rejected transactions.
