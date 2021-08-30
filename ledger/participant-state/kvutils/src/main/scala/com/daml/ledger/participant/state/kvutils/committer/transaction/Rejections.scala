@@ -6,19 +6,13 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 import java.time.Instant
 
 import com.codahale.metrics.Counter
-import com.daml.ledger.participant.state.kvutils.Conversions._
+import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
-  ExternallyInconsistentTransaction,
-  InternallyInconsistentTransaction,
-}
 import com.daml.ledger.participant.state.kvutils.committer.{StepResult, StepStop}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-
-import scala.jdk.CollectionConverters._
 
 private[transaction] class Rejections(metrics: Metrics) {
 
@@ -30,7 +24,7 @@ private[transaction] class Rejections(metrics: Metrics) {
       recordTime: Option[Timestamp],
   )(implicit loggingContext: LoggingContext): StepResult[A] =
     reject(
-      buildRejectionEntry(transactionEntry.submitterInfo, rejection),
+      Conversions.encodeTransactionRejectionEntry(transactionEntry.submitterInfo, rejection),
       rejection.description,
       recordTime,
     )
@@ -55,91 +49,12 @@ private[transaction] class Rejections(metrics: Metrics) {
       minimumRecordTime: Instant,
       maximumRecordTime: Instant,
   ): DamlTransactionRejectionEntry =
-    buildRejectionEntry(
-      transactionEntry.submitterInfo,
-      Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime),
-    ).build
-
-  private def buildRejectionEntry(
-      submitterInfo: DamlSubmitterInfo,
-      rejection: Rejection,
-  ): DamlTransactionRejectionEntry.Builder = {
-    val builder = DamlTransactionRejectionEntry.newBuilder
-    builder
-      .setSubmitterInfo(submitterInfo)
-
-    rejection match {
-      case Rejection.ValidationFailure(error) =>
-        builder.setValidationFailure(
-          ValidationFailure.newBuilder().setDetails(error.message)
-        )
-      case InternallyInconsistentTransaction.DuplicateKeys =>
-        builder.setInternalDuplicateKeys(DuplicateKeys.newBuilder())
-      case InternallyInconsistentTransaction.InconsistentKeys =>
-        builder.setInternalInconsistentKeys(InconsistentKeys.newBuilder())
-      case ExternallyInconsistentTransaction.InconsistentContracts =>
-        builder.setExternalInconsistentContracts(
-          InconsistentContracts.newBuilder()
-        )
-      case ExternallyInconsistentTransaction.DuplicateKeys =>
-        builder.setExternalDuplicateKeys(DuplicateKeys.newBuilder())
-      case ExternallyInconsistentTransaction.InconsistentKeys =>
-        builder.setExternalInconsistentKeys(InconsistentKeys.newBuilder())
-      case Rejection.MissingInputState(key) =>
-        builder.setMissingInputState(
-          MissingInputState.newBuilder().setKey(key)
-        )
-      case Rejection.InvalidParticipantState(error) =>
-        builder.setInvalidParticipantState(
-          InvalidParticipantState
-            .newBuilder()
-            .setDetails(error.getMessage)
-        )
-      case Rejection.LedgerTimeOutOfRange(outOfRange) =>
-        builder.setInvalidLedgerTime(
-          InvalidLedgerTime
-            .newBuilder(
-            )
-            .setDetails(outOfRange.message)
-            .setLedgerTime(buildTimestamp(outOfRange.ledgerTime))
-            .setLowerBound(buildTimestamp(outOfRange.lowerBound))
-            .setUpperBound(buildTimestamp(outOfRange.upperBound))
-        )
-      case Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime) =>
-        builder.setRecordTimeOutOfRange(
-          RecordTimeOutOfRange
-            .newBuilder()
-            .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
-            .setMinimumRecordTime(buildTimestamp(minimumRecordTime))
-        )
-      case Rejection.CausalMonotonicityViolated =>
-        builder.setCausalMonotonicityViolated(
-          CausalMonotonicityViolated.newBuilder()
-        )
-      case Rejection.SubmittingPartyNotKnownOnLedger(submitter) =>
-        builder.setSubmittingPartyNotKnownOnLedger(
-          SubmittingPartyNotKnownOnLedger
-            .newBuilder()
-            .setSubmitterParty(submitter)
-        )
-      case Rejection.PartiesNotKnownOnLedger(parties) =>
-        val stringParties: Iterable[String] = parties
-        builder.setPartiesNotKnownOnLedger(
-          PartiesNotKnownOnLedger
-            .newBuilder()
-            .addAllParties(stringParties.asJava)
-        )
-      case rejection @ Rejection.SubmitterCannotActViaParticipant(submitter, participantId) =>
-        builder.setSubmitterCannotActViaParticipant(
-          SubmitterCannotActViaParticipant
-            .newBuilder()
-            .setSubmitterParty(submitter)
-            .setParticipantId(participantId)
-            .setDetails(rejection.description)
-        )
-    }
-    builder
-  }
+    Conversions
+      .encodeTransactionRejectionEntry(
+        transactionEntry.submitterInfo,
+        Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime),
+      )
+      .build
 
   private object Metrics {
     val rejections: Map[Int, Counter] =

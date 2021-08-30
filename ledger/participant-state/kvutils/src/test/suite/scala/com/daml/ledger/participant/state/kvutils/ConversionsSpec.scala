@@ -3,6 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.time.Instant
+
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   commandDedupKey,
   decodeBlindingInfo,
@@ -14,25 +17,36 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlin
   DivulgenceEntry,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlStateKey,
   DamlSubmitterInfo,
   DamlTransactionBlindingInfo,
+  DamlTransactionRejectionEntry,
+  Disputed,
+  Duplicate,
+  Inconsistent,
+  PartyNotKnownOnLedger,
+  ResourcesExhausted,
 }
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.engine.Error
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.ValueOuterClass
+import io.grpc.Status.Code
+import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.jdk.CollectionConverters._
 
-class ConversionsSpec extends AnyWordSpec with Matchers {
+class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
       encodeBlindingInfo(
@@ -92,6 +106,195 @@ class ConversionsSpec extends AnyWordSpec with Matchers {
       val key1 = deduplicationKeyBytesFor(List("alice"))
       val key2 = deduplicationKeyBytesFor(List("alice", "bob"))
       key1 should not be key2
+    }
+
+    "encode/decode rejections" should {
+      val submitterInfo = DamlSubmitterInfo.newBuilder().build()
+
+      def rejectionEntryIsConverted(rejection: Rejection, expectedCode: Code) = {
+        val encodedEntry = Conversions
+          .encodeTransactionRejectionEntry(
+            submitterInfo,
+            rejection,
+          )
+          .build()
+        Conversions
+          .decodeTransactionRejectionEntry(encodedEntry)
+          .value
+          .code shouldBe expectedCode.value()
+      }
+
+      "convert validation failure" in {
+        rejectionEntryIsConverted(
+          Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
+          Code.INVALID_ARGUMENT,
+        )
+      }
+
+      "convert internal duplicate keys" in {
+        val encodedEntry = Conversions
+          .encodeTransactionRejectionEntry(
+            submitterInfo,
+            Rejection.InternallyInconsistentTransaction.DuplicateKeys,
+          )
+          .build()
+        Conversions
+          .decodeTransactionRejectionEntry(encodedEntry) shouldBe None
+      }
+
+      "convert internal inconsistent keys" in {
+        rejectionEntryIsConverted(
+          Rejection.InternallyInconsistentTransaction.InconsistentKeys,
+          Code.ABORTED,
+        )
+      }
+
+      "convert external inconsistent contracts" in {
+        rejectionEntryIsConverted(
+          Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
+          Code.ABORTED,
+        )
+      }
+
+      "convert external external duplicate keys" in {
+        val encodedEntry = Conversions
+          .encodeTransactionRejectionEntry(
+            submitterInfo,
+            Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
+          )
+          .build()
+        Conversions
+          .decodeTransactionRejectionEntry(encodedEntry) shouldBe None
+      }
+
+      "convert external inconsistent keys" in {
+        rejectionEntryIsConverted(
+          Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
+          Code.ABORTED,
+        )
+      }
+
+      "convert missing input state" in {
+        rejectionEntryIsConverted(
+          Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
+          Code.INVALID_ARGUMENT,
+        )
+      }
+
+      "convert invalid participant state" in {
+        rejectionEntryIsConverted(
+          Rejection.InvalidParticipantState(Err.InternalError("error")),
+          Code.ABORTED,
+        )
+      }
+
+      "convert ledger time out of range" in {
+        val now = Instant.now
+        rejectionEntryIsConverted(
+          Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
+          Code.ABORTED,
+        )
+      }
+
+      "convert record time out of range" in {
+        val now = Instant.now()
+        rejectionEntryIsConverted(
+          Rejection.RecordTimeOutOfRange(now, now),
+          Code.INVALID_ARGUMENT,
+        )
+      }
+
+      "convert causal monotonicity violated" in {
+        rejectionEntryIsConverted(
+          Rejection.CausalMonotonicityViolated,
+          Code.INVALID_ARGUMENT,
+        )
+      }
+
+      "convert submitting party not know on ledger" in {
+        rejectionEntryIsConverted(
+          Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
+          Code.INVALID_ARGUMENT,
+        )
+      }
+
+      "convert parties not known on ledger" in {
+        rejectionEntryIsConverted(
+          Rejection.PartiesNotKnownOnLedger(Seq.empty),
+          Code.INVALID_ARGUMENT,
+        )
+      }
+
+      "convert submitter cannot act via participant" in {
+        rejectionEntryIsConverted(
+          Rejection.SubmitterCannotActViaParticipant(
+            Ref.Party.assertFromString("party"),
+            Ref.ParticipantId.assertFromString("id"),
+          ),
+          Code.PERMISSION_DENIED,
+        )
+      }
+
+      "convert v1 rejections" should {
+
+        "handle inconsistent" in {
+          Conversions
+            .decodeTransactionRejectionEntry(
+              DamlTransactionRejectionEntry
+                .newBuilder()
+                .setInconsistent(Inconsistent.newBuilder())
+                .build()
+            )
+            .value
+            .code shouldBe Code.ABORTED.value()
+        }
+
+        "handle disputed" in {
+          Conversions
+            .decodeTransactionRejectionEntry(
+              DamlTransactionRejectionEntry
+                .newBuilder()
+                .setDisputed(Disputed.newBuilder())
+                .build()
+            )
+            .value
+            .code shouldBe Code.INVALID_ARGUMENT.value()
+        }
+
+        "handle resources exhausted" in {
+          Conversions
+            .decodeTransactionRejectionEntry(
+              DamlTransactionRejectionEntry
+                .newBuilder()
+                .setResourcesExhausted(ResourcesExhausted.newBuilder())
+                .build()
+            )
+            .value
+            .code shouldBe Code.ABORTED.value()
+        }
+
+        "handle duplicate" in {
+          Conversions
+            .decodeTransactionRejectionEntry(
+              DamlTransactionRejectionEntry
+                .newBuilder()
+                .setDuplicateCommand(Duplicate.newBuilder())
+                .build()
+            ) shouldBe None
+        }
+
+        "handle party not known on ledger" in {
+          Conversions
+            .decodeTransactionRejectionEntry(
+              DamlTransactionRejectionEntry
+                .newBuilder()
+                .setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder())
+                .build()
+            )
+            .value
+            .code shouldBe Code.INVALID_ARGUMENT.value()
+        }
+      }
     }
   }
 

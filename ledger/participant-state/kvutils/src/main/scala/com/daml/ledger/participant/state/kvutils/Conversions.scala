@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlin
   DivulgenceEntry,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
   InternallyInconsistentTransaction,
@@ -341,6 +342,87 @@ private[state] object Conversions {
         }
         .map(_.result())
     }
+  }
+
+  def encodeTransactionRejectionEntry(
+      submitterInfo: DamlSubmitterInfo,
+      rejection: Rejection,
+  ): DamlTransactionRejectionEntry.Builder = {
+    val builder = DamlTransactionRejectionEntry.newBuilder
+    builder
+      .setSubmitterInfo(submitterInfo)
+
+    rejection match {
+      case Rejection.ValidationFailure(error) =>
+        builder.setValidationFailure(
+          ValidationFailure.newBuilder().setDetails(error.message)
+        )
+      case InternallyInconsistentTransaction.DuplicateKeys =>
+        builder.setInternalDuplicateKeys(DuplicateKeys.newBuilder())
+      case InternallyInconsistentTransaction.InconsistentKeys =>
+        builder.setInternalInconsistentKeys(InconsistentKeys.newBuilder())
+      case ExternallyInconsistentTransaction.InconsistentContracts =>
+        builder.setExternalInconsistentContracts(
+          InconsistentContracts.newBuilder()
+        )
+      case ExternallyInconsistentTransaction.DuplicateKeys =>
+        builder.setExternalDuplicateKeys(DuplicateKeys.newBuilder())
+      case ExternallyInconsistentTransaction.InconsistentKeys =>
+        builder.setExternalInconsistentKeys(InconsistentKeys.newBuilder())
+      case Rejection.MissingInputState(key) =>
+        builder.setMissingInputState(
+          MissingInputState.newBuilder().setKey(key)
+        )
+      case Rejection.InvalidParticipantState(error) =>
+        builder.setInvalidParticipantState(
+          InvalidParticipantState
+            .newBuilder()
+            .setDetails(error.getMessage)
+        )
+      case Rejection.LedgerTimeOutOfRange(outOfRange) =>
+        builder.setInvalidLedgerTime(
+          InvalidLedgerTime
+            .newBuilder(
+            )
+            .setDetails(outOfRange.message)
+            .setLedgerTime(buildTimestamp(outOfRange.ledgerTime))
+            .setLowerBound(buildTimestamp(outOfRange.lowerBound))
+            .setUpperBound(buildTimestamp(outOfRange.upperBound))
+        )
+      case Rejection.RecordTimeOutOfRange(minimumRecordTime, maximumRecordTime) =>
+        builder.setRecordTimeOutOfRange(
+          RecordTimeOutOfRange
+            .newBuilder()
+            .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
+            .setMinimumRecordTime(buildTimestamp(minimumRecordTime))
+        )
+      case Rejection.CausalMonotonicityViolated =>
+        builder.setCausalMonotonicityViolated(
+          CausalMonotonicityViolated.newBuilder()
+        )
+      case Rejection.SubmittingPartyNotKnownOnLedger(submitter) =>
+        builder.setSubmittingPartyNotKnownOnLedger(
+          SubmittingPartyNotKnownOnLedger
+            .newBuilder()
+            .setSubmitterParty(submitter)
+        )
+      case Rejection.PartiesNotKnownOnLedger(parties) =>
+        val stringParties: Iterable[String] = parties
+        builder.setPartiesNotKnownOnLedger(
+          PartiesNotKnownOnLedger
+            .newBuilder()
+            .addAllParties(stringParties.asJava)
+        )
+      case rejection @ Rejection.SubmitterCannotActViaParticipant(submitter, participantId) =>
+        builder.setSubmitterCannotActViaParticipant(
+          SubmitterCannotActViaParticipant
+            .newBuilder()
+            .setSubmitterParty(submitter)
+            .setParticipantId(participantId)
+            .setDetails(rejection.description)
+        )
+    }
+    builder
   }
 
   def decodeTransactionRejectionEntry(
