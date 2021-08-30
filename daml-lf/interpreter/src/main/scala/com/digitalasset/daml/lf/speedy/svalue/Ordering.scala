@@ -125,11 +125,11 @@ object Ordering extends scala.math.Ordering[SValue] {
           if (suffix2.isEmpty) {
             0
           } else {
-            throw SError.SErrorDamlException(interpretation.Error.ContractIdFreshness(cid2))
+            throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid2))
           }
         } else {
           if (suffix2.isEmpty) {
-            throw SError.SErrorDamlException(interpretation.Error.ContractIdFreshness(cid1))
+            throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid1))
           } else {
             Bytes.ordering.compare(suffix1, suffix2)
           }

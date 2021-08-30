@@ -26,17 +26,18 @@ projection. That is, the contract IDs for contracts created in the
 projection of a transaction to a set of parties can be computed
 solely from the projection and input seeds.
 
-**Unlinkability**: It is computationally infeasible to link the contract
-contents to the contract ID unless the create node is witnessed or the input seeds are known. The
-contract contents include the contract instance, the template ID, the
-stakeholders / signatories / maintainers, and the contract key.
+**Unlinkability**: It is computationally infeasible to link the
+contract contents to the contract ID unless the create node is
+witnessed or the input seeds are known. The contract contents include
+the contract instance, the template ID, the stakeholders / signatories
+/ maintainers, and the contract key.
 
-**Freshness**: It is computationally infeasible to find contracts C1 and
-C2 with the same contract ID such that one of the following holds:
+**Freshness**: It is computationally infeasible to find contracts C1
+and C2 with the same contract ID such that one of the following holds:
 
 * The contracts have different stakeholders.
 * The contracts are created by different transactions.
-* The contracts are created by different subactions of the same
+* The contracts are created by different sub-actions of the same
   transaction forest where the seeds are pairwise different.
 
 **Distinctness**: The ledger can enforce that the seeds are pairwise
@@ -64,8 +65,8 @@ where
   uniqueness of the contract ID in a distributed ledger.
 
 
-Discriminator freshness
------------------------
+Local/Global Contract IDs
+-------------------------
 
 In a transaction we distinguish two kinds of contract IDs:
 
@@ -73,28 +74,20 @@ In a transaction we distinguish two kinds of contract IDs:
   transaction.
 
 * The *global* contract IDs are the contract IDs that:
-   
+
    * appear in the commands that produced the transaction. This
      includes the IDs of the exercised contract, together with all the
      IDs referenced in the arguments of the create and exercise
      commands;
    * that are fetched or looked up by key unless they are local;
-   * are referenced in the input contracts.
+   * are referenced in the payloads of the fetched contracts.
 
 Note that local contract IDs correspond to the ID of output contracts
-together with those contracts that have been created and archived in
-the transaction. On the other hand, global contract IDs do not
-only reference IDs of some contracts that have been previously
-persisted on the ledger, but also any arbitrary contract IDs that the
-submitter has referenced in its submission.
-
-The so-called *discriminator freshness condition* holds if the
-discriminators from local contract IDs are distinct from the
-discriminators from global contract IDs.
-
-This ensures that only the discriminators, not the suffix are needed
-to order the contract IDs of created contracts w.r.t. other contract
-IDs. 
+together with those contracts that have been both created and archived
+in the transaction. On the other hand, global contract IDs do not only
+reference IDs of some contracts that have been previously persisted on
+the ledger, but also any arbitrary contract IDs that the submitter has
+referenced in its submission.
 
 
 Contract ID uniqueness
@@ -114,6 +107,23 @@ can completely avoid suffixing by enforcing that the pair (submission
 seed, submission time) is not used by two different submission, as the
 discriminator allocation scheme ensures in this case the uniqueness of
 allocated discriminators.
+
+
+Contract ID Comparability
+-------------------------
+
+The so-called *contract ID comparability restriction*, states that the
+comparison of a local contract ID with a global contract IDs
+that have the same discriminator is forbidden. Engine compliant with
+this specification, should reject with a fatal error any attempt to
+compare during interpretation such IDs, either explicitly (using
+Generic equality and order builtins) or implicitly (though ordering of
+key in generic maps). Ledger implementations that suffix contract IDs
+should furthermore enforce that all global Contract IDs are suffixed.
+
+This ensures that only the discriminators, not the suffix are needed
+to compare the contract IDs of created contracts w.r.t. other contract
+IDs.
 
 
 Submission time
@@ -232,9 +242,11 @@ The submission performs the following steps:
 
 Depending on the ledger implementation, the local contract IDs are
 suffixed with a suffix in a later step. This yields the *committed
-transaction*. For ledgers that do not require suffixing, committed and submitted
-transactions coincide. Committed transactions are the source of truth to
-derive the state of the ledger.
+transaction*. In the case the ledger require suffixing
+
+For ledgers that do not require suffixing, committed and
+submitted transactions coincide. Committed transactions are the source
+of truth to derive the state of the ledger.
 
 
 Validation
