@@ -123,7 +123,7 @@ private[platform] object CompletionFromTransaction {
       maybeDeduplicationTimeNanos: Option[Int],
       maybeDeduplicationTimeSeconds: Option[Long],
   ): Completion.DeduplicationPeriod =
-    // The only invariant tha should hold, considering legacy data, is that either
+    // The only invariant that should hold, considering legacy data, is that either
     // the deduplication time seconds and nanos are both populated, or neither is.
     (maybeDeduplicationOffset, (maybeDeduplicationTimeSeconds, maybeDeduplicationTimeNanos)) match {
       case (Some(offset), _) =>
