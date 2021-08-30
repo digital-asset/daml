@@ -14,14 +14,12 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
-  NotOkResponse,
 }
 import com.daml.ledger.client.services.commands.{
   CommandSubmission,
   CompletionStreamElement,
   tracker,
 }
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.{Status => StatusProto}
@@ -54,7 +52,7 @@ import scala.util.{Failure, Success, Try}
   */
 // TODO(mthvedt): This should have unit tests.
 private[commands] class CommandTracker[Context](
-    maximumExpiryTime: () => Option[Duration]
+    maximumExpiryTime: Duration
 ) extends GraphStageWithMaterializedValue[
       CommandTrackerShape[Context],
       Future[Map[String, Context]],
@@ -224,26 +222,15 @@ private[commands] class CommandTracker[Context](
             s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
           ) with NoStackTrace
         }
-        maximumExpiryTime() match {
-          case None =>
-            emit(
-              resultOut,
-              submission.map { _ =>
-                val status = GrpcStatus.toProto(ErrorFactories.missingLedgerConfig().getStatus)
-                Left(NotOkResponse(commandId, status))
-              },
-            )
-          case Some(maxDedup) =>
-            val commandTimeout =
-              timeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maxDedup)
-            val trackingData = TrackingData(
-              commandId = commandId,
-              commandTimeout = commandTimeout,
-              context = submission.context,
-            )
-            pendingCommands += commandId -> trackingData
-            ()
-        }
+        val commandTimeout =
+          timeoutFromDeduplicationPeriod(commands.deduplicationPeriod, maximumExpiryTime)
+        val trackingData = TrackingData(
+          commandId = commandId,
+          commandTimeout = commandTimeout,
+          context = submission.context,
+        )
+        pendingCommands += commandId -> trackingData
+        ()
       }
 
       private def getOutputForTimeout(instant: Instant) = {
@@ -261,11 +248,7 @@ private[commands] class CommandTracker[Context](
               List(
                 Ctx(
                   trackingData.context,
-                  Left(
-                    CompletionResponse.TimeoutResponse(
-                      commandId = trackingData.commandId
-                    )
-                  ),
+                  Left(CompletionResponse.TimeoutResponse(commandId = trackingData.commandId)),
                 )
               )
             } else {

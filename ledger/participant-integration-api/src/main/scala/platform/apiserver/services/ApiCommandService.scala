@@ -179,13 +179,7 @@ private[apiserver] object ApiCommandService {
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
-      Tracking.newTracker(
-        configuration,
-        submissionFlow,
-        completionServices,
-        ledgerConfigurationSubscription,
-        metrics,
-      ),
+      Tracking.newTracker(configuration, submissionFlow, completionServices, metrics),
       trackerCleanupInterval,
     )
     new GrpcCommandService(
@@ -228,7 +222,6 @@ private[apiserver] object ApiCommandService {
         configuration: Configuration,
         submissionFlow: SubmissionFlow,
         completionServices: CompletionServices,
-        ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         metrics: Metrics,
     )(
         key: Tracking.Key
@@ -246,8 +239,8 @@ private[apiserver] object ApiCommandService {
       } yield {
         val commandTrackerFlow =
           CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
-            submissionFlow,
-            offset =>
+            commandSubmissionFlow = submissionFlow,
+            createCommandCompletionSource = offset =>
               completionServices
                 .getCompletionSource(
                   CompletionStreamRequest(
@@ -258,8 +251,8 @@ private[apiserver] object ApiCommandService {
                   )
                 )
                 .mapConcat(CommandCompletionSource.toStreamElements),
-            ledgerEnd,
-            () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+            startingOffset = ledgerEnd,
+            maximumExpiryTime = configuration.trackerRetentionPeriod,
           )
         val trackingFlow = MaxInFlight(
           configuration.maxCommandsInFlight,

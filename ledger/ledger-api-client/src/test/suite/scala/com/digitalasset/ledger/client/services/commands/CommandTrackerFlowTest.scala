@@ -134,26 +134,6 @@ class CommandTrackerFlowTest
 
   "Command tracking flow" when {
 
-    "no configuration is available" should {
-      "fail immediately" in {
-        val Handle(submissions, results, _, _) =
-          runCommandTrackingFlow(allSubmissionsSuccessful, maximumExpiryTime = None)
-
-        submissions.sendNext(submission)
-
-        results.requestNext().value shouldEqual Left(
-          NotOkResponse(
-            commandId,
-            Status.of(
-              Code.UNAVAILABLE.value,
-              "The ledger configuration is not available.",
-              Seq.empty,
-            ),
-          )
-        )
-      }
-    }
-
     "two commands are submitted with the same ID" should {
 
       "fail the stream" in {
@@ -314,7 +294,7 @@ class CommandTrackerFlowTest
       "use the maximum expiry time, if provided" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumExpiryTime = Some(Duration.ofSeconds(1)),
+          maximumExpiryTime = Duration.ofSeconds(1),
         )
 
         submissions.sendNext(submission)
@@ -329,7 +309,7 @@ class CommandTrackerFlowTest
       "cap the timeout at the maximum expiry time" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumExpiryTime = Some(Duration.ofSeconds(1)),
+          maximumExpiryTime = Duration.ofSeconds(1),
         )
 
         submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofSeconds(10))))
@@ -577,7 +557,7 @@ class CommandTrackerFlowTest
         Ctx[(Int, String), Try[Empty]],
         NotUsed,
       ],
-      maximumExpiryTime: Option[Duration] = Some(Duration.ofSeconds(10)),
+      maximumExpiryTime: Duration = Duration.ofSeconds(10),
   ): Handle = {
 
     val completionsMock = new CompletionStreamMock()
@@ -587,7 +567,7 @@ class CommandTrackerFlowTest
         submissionFlow,
         completionsMock.createCompletionsSource,
         LedgerOffset(Boundary(LEDGER_BEGIN)),
-        () => maximumExpiryTime,
+        maximumExpiryTime,
       )
 
     val handle = submissionSource

@@ -138,10 +138,13 @@ final class CommandClient(
         .via(commandUpdaterFlow[Context])
         .viaMat(
           CommandTrackerFlow[Context, NotUsed](
-            CommandSubmissionFlow[(Context, String)](submit(token), config.maxParallelSubmissions),
-            offset => completionSource(parties, offset, token),
-            ledgerEnd.getOffset,
-            () => Some(config.defaultDeduplicationTime),
+            commandSubmissionFlow = CommandSubmissionFlow[(Context, String)](
+              submit(token),
+              config.maxParallelSubmissions,
+            ),
+            createCommandCompletionSource = offset => completionSource(parties, offset, token),
+            startingOffset = ledgerEnd.getOffset,
+            maximumExpiryTime = config.defaultDeduplicationTime,
           )
         )(Keep.right)
     }

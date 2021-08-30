@@ -45,7 +45,7 @@ object CommandTrackerFlow {
       ],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      maximumExpiryTime: () => Option[Duration],
+      maximumExpiryTime: Duration,
       backOffDuration: FiniteDuration = 1.second,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[
     Context,
