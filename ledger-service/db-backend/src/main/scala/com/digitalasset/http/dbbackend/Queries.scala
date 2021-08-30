@@ -130,13 +130,14 @@ sealed abstract class Queries(tablePrefix: String) {
      """,
   )
 
-  protected[this] def initDatabaseDdls: Vector[InitDdl] =
+  private[this] def initDatabaseDdls: Vector[InitDdl] =
     Vector(
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
-      createVersionTable,
-    )
+    ) ++ extraDatabaseDdls :+ createVersionTable
+
+  protected[this] def extraDatabaseDdls: Seq[InitDdl]
 
   private[http] final def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
@@ -625,8 +626,8 @@ private final class PostgresQueries(tablePrefix: String)(implicit
     sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
-  protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(indexContractsTable, contractKeyHashIndex)
+  protected[this] override def extraDatabaseDdls =
+    Seq(indexContractsTable, contractKeyHashIndex)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
@@ -789,9 +790,8 @@ private final class OracleQueries(
     ON $contractTableName (payload) FOR JSON
     PARAMETERS('DATAGUIDE OFF')""")
 
-  protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++
-      Seq(stakeholdersView, stakeholdersIndex, contractKeyHashIndex) ++
+  protected[this] override def extraDatabaseDdls =
+    Seq(stakeholdersView, stakeholdersIndex, contractKeyHashIndex) ++
       (if (disableContractPayloadIndexing) Seq.empty else Seq(indexPayload))
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
