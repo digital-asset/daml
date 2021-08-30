@@ -152,7 +152,8 @@ sealed class CommandClientWithoutLedgerId(
               submit(token),
               config.maxParallelSubmissions,
             ),
-            createCommandCompletionSource = offset => completionSource(parties, offset, token, ledgerIdToUse),
+            createCommandCompletionSource =
+              offset => completionSource(parties, offset, token, ledgerIdToUse),
             startingOffset = ledgerEnd.getOffset,
             maximumCommandTimeout = config.defaultDeduplicationTime,
           )
