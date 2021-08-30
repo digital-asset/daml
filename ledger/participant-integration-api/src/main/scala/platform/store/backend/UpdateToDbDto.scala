@@ -270,20 +270,15 @@ object UpdateToDbDto {
   ): DbDto.CommandCompletion = {
     val (deduplicationOffset, deduplicationTimeSeconds, deduplicationTimeNanos) =
       completionInfo.optDeduplicationPeriod
-        .flatMap {
+        .map {
           case DeduplicationOffset(offset) =>
-            Some(Left(offset))
-          case DeduplicationDuration(duration) =>
-            Some(Right((duration.getSeconds, duration.getNano)))
-        }
-        .fold[(Option[String], Option[Long], Option[Int])] {
-          (None, None, None)
-        } {
-          case Left(offset) =>
             (Some(offset.toHexString), None, None)
-          case Right((seconds, nanos)) =>
-            (None, Some(seconds), Some(nanos))
-        }
+          case DeduplicationDuration(duration) =>
+            (None, Some(duration.getSeconds), Some(duration.getNano))
+        } match {
+        case Some(value) => value
+        case _ => (None, None, None)
+      }
 
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
