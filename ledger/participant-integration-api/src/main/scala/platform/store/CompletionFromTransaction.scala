@@ -155,7 +155,7 @@ private[platform] object CompletionFromTransaction {
         )
       case _ =>
         throw new IllegalArgumentException(
-          "One of deduplication time's seconds and nanos has been provided " +
+          "One of deduplication time seconds and nanos has been provided " +
             "but they must be either both provided or both absent"
         )
     }
