@@ -395,7 +395,7 @@ object Config {
               .copy(submissionConfig = config.submissionConfig.copy(enableDeduplication = false))
           )
           .text(
-            "Disable participant deduplication."
+            "Disable participant-side command deduplication."
           )
 
         opt[Int]("max-inbound-message-size")
