@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.services.commands
 
-import java.time.{Duration => JDuration}
+import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
@@ -45,7 +45,7 @@ object CommandTrackerFlow {
       ],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      maximumExpiryTime: () => Option[JDuration],
+      maximumExpiryTime: () => Option[Duration],
       backOffDuration: FiniteDuration = 1.second,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[
     Context,

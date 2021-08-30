@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.services.commands
 
-import java.time.{Instant, Duration => JDuration}
+import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -59,7 +59,7 @@ class CommandTrackerFlowTest
       _.map(_ => Success(Empty.defaultInstance))
     }
 
-  private val shortDuration = JDuration.ofSeconds(1L)
+  private val shortDuration = Duration.ofSeconds(1L)
 
   private lazy val submissionSource = TestSource.probe[Ctx[Int, CommandSubmission]]
   private lazy val resultSink =
@@ -75,7 +75,7 @@ class CommandTrackerFlowTest
   private val successStatus = Status(Code.OK.value)
   private val context = 1
   private val submission = newSubmission(commandId)
-  private def newSubmission(commandId: String, dedupTime: Option[JDuration] = None) = Ctx(
+  private def newSubmission(commandId: String, dedupTime: Option[Duration] = None) = Ctx(
     context,
     CommandSubmission(
       Commands(
@@ -302,7 +302,7 @@ class CommandTrackerFlowTest
       "timeout the command when the MRT passes" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(newSubmission(commandId, dedupTime = Some(JDuration.ofMillis(500))))
+        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofMillis(500))))
 
         results.expectNext(
           2.seconds,
@@ -314,7 +314,7 @@ class CommandTrackerFlowTest
       "use the maximum expiry time, if provided" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumExpiryTime = Some(JDuration.ofSeconds(1)),
+          maximumExpiryTime = Some(Duration.ofSeconds(1)),
         )
 
         submissions.sendNext(submission)
@@ -329,10 +329,10 @@ class CommandTrackerFlowTest
       "cap the timeout at the maximum expiry time" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
-          maximumExpiryTime = Some(JDuration.ofSeconds(1)),
+          maximumExpiryTime = Some(Duration.ofSeconds(1)),
         )
 
-        submissions.sendNext(newSubmission(commandId, dedupTime = Some(JDuration.ofSeconds(10))))
+        submissions.sendNext(newSubmission(commandId, dedupTime = Some(Duration.ofSeconds(10))))
 
         results.expectNext(
           2.seconds,
@@ -577,7 +577,7 @@ class CommandTrackerFlowTest
         Ctx[(Int, String), Try[Empty]],
         NotUsed,
       ],
-      maximumExpiryTime: Option[JDuration] = Some(JDuration.ofSeconds(10)),
+      maximumExpiryTime: Option[Duration] = Some(Duration.ofSeconds(10)),
   ): Handle = {
 
     val completionsMock = new CompletionStreamMock()

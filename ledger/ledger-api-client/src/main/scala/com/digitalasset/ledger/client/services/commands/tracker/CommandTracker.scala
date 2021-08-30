@@ -3,7 +3,7 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
-import java.time.{Instant, Duration => JDuration}
+import java.time.{Duration, Instant}
 
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
@@ -54,7 +54,7 @@ import scala.util.{Failure, Success, Try}
   */
 // TODO(mthvedt): This should have unit tests.
 private[commands] class CommandTracker[Context](
-    maximumExpiryTime: () => Option[JDuration]
+    maximumExpiryTime: () => Option[Duration]
 ) extends GraphStageWithMaterializedValue[
       CommandTrackerShape[Context],
       Future[Map[String, Context]],
@@ -320,22 +320,22 @@ private[commands] class CommandTracker[Context](
 
   private def timeoutFromDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriod,
-      maximumExpiryTime: JDuration,
+      maximumExpiryTime: Duration,
   ) = {
     val deduplicationDuration = deduplicationPeriod match {
       case DeduplicationPeriod.Empty =>
         None
       case DeduplicationPeriod.DeduplicationTime(duration) =>
-        Some(JDuration.ofSeconds(duration.seconds, duration.nanos.toLong))
+        Some(Duration.ofSeconds(duration.seconds, duration.nanos.toLong))
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
-        Some(JDuration.ofSeconds(duration.seconds, duration.nanos.toLong))
+        Some(Duration.ofSeconds(duration.seconds, duration.nanos.toLong))
       case DeduplicationPeriod.DeduplicationOffset(_) =>
         // no way of extracting the duration from here, will be removed soon
         None
     }
     val timeout = deduplicationDuration match {
       case None => maximumExpiryTime
-      case Some(duration) => implicitly[Ordering[JDuration]].min(maximumExpiryTime, duration)
+      case Some(duration) => implicitly[Ordering[Duration]].min(maximumExpiryTime, duration)
     }
     Instant.now().plus(timeout)
   }
