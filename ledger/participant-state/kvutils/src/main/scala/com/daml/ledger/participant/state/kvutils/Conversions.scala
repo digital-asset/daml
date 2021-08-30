@@ -414,8 +414,8 @@ private[state] object Conversions {
         builder.setRecordTimeOutOfRange(
           RecordTimeOutOfRange
             .newBuilder()
-            .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
             .setMinimumRecordTime(buildTimestamp(minimumRecordTime))
+            .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
         )
       case Rejection.CausalMonotonicityViolated =>
         builder.setCausalMonotonicityViolated(
@@ -495,7 +495,7 @@ private[state] object Conversions {
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        None // no rejection for deduplicate
+        None // No rejection for duplicate commands.
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartyNotKnownOnLedger
         Some(
@@ -557,7 +557,7 @@ private[state] object Conversions {
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            s"Causal monotonicity violated",
+            "Causal monotonicity violated",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER =>
@@ -588,7 +588,7 @@ private[state] object Conversions {
         Some(
           buildStatus(
             Code.UNKNOWN,
-            s"No reason set for rejection",
+            "No reason set for rejection",
           )
         )
     }
