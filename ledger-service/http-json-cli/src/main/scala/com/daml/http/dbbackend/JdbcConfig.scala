@@ -13,7 +13,6 @@ import com.daml.dbutils, dbutils.DBConfig
 
 private[http] final case class JdbcConfig private (
     baseConfig: dbutils.JdbcConfig,
-    createSchema: Boolean = false,
     tablePrefix: String = "",
     dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
     backendSpecificConf: Map[String, String] = Map.empty,
