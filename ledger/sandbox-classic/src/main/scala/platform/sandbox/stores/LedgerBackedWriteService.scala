@@ -102,6 +102,12 @@ private[stores] final class LedgerBackedWriteService(
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[state.PruningResult] =
     CompletableFuture.completedFuture {
+      // The API pruning service performs pruning in two steps:
+      // 1. pruning the ledger using a write service
+      // 2. pruning the index db
+      // For the sandbox-classic the ledger and the index db are the same thing, so returning
+      // `state.PruningResult.ParticipantPruned` results in proceeding to the step 2. effectively pruning the db,
+      // while returning `state.PruningResult.NotPruned(Status.UNIMPLEMENTED)` prevents pruning at all.
       if (enablePruning) state.PruningResult.ParticipantPruned
       else state.PruningResult.NotPruned(Status.UNIMPLEMENTED)
     }
