@@ -16,12 +16,10 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.v2.Update
-import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
-import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
@@ -73,24 +71,6 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         .setTimeUpdateEntry(Empty.getDefaultInstance)
         .build
       logEntryToUpdate(aLogEntryId, timeUpdateEntry, recordTimeForUpdate = None) shouldBe Nil
-    }
-
-    "use log entry id for submission id" in {
-      val entry = DamlLogEntry
-        .newBuilder()
-        .setRecordTime(Conversions.buildTimestamp(aRecordTime))
-        .setTransactionRejectionEntry(
-          DamlTransactionRejectionEntry
-            .newBuilder()
-            .setSubmitterInfo(someSubmitterInfo.toBuilder.clearSubmissionId())
-            .setDisputed(Disputed.newBuilder())
-        )
-        .build()
-
-      val actual :: Nil = logEntryToUpdate(aLogEntryId, entry)
-      inside(actual) { case CommandRejected(_, completionInfo, _) =>
-        completionInfo.submissionId shouldBe s"submission-$aLogEntryIdString"
-      }
     }
   }
 
@@ -144,7 +124,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             parseInstant(recordTime),
             someSubmitterInfo,
           )
-          completionInfo.submissionId shouldBe someSubmitterInfo.getSubmissionId
+          completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)
           status.code shouldBe Code.INVALID_ARGUMENT.value
           ()
         case _ => fail()
