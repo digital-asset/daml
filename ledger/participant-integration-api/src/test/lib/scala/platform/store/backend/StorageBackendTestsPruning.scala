@@ -164,7 +164,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
     val contract1_retroactiveDivulgence =
       dtoDivulgence(
-        offset = offset(3),
+        offset = Some(offset(3)),
         eventSequentialId = 3L,
         contractId = contract1_id,
         divulgee = partyName,
@@ -236,7 +236,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       signatory = signatory,
     )
     val contract1_divulgence = dtoDivulgence(
-      offset = offset(2),
+      offset = Some(offset(2)),
       eventSequentialId = 2L,
       contractId = contract1_id,
       divulgee = "party",
@@ -248,7 +248,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = contract1_id,
     )
     val contract2_divulgence = dtoDivulgence(
-      offset = offset(4),
+      offset = Some(offset(4)),
       eventSequentialId = 4L,
       contractId = contract2_id,
       divulgee = divulgee,
