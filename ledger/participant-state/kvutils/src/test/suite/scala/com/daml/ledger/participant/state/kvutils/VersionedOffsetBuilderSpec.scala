@@ -68,9 +68,15 @@ class VersionedOffsetBuilderSpec
       forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], genDifferentVersions) {
         (highest, middle, lowest, versions) =>
           val offset = VersionedOffsetBuilder(versions._1).of(highest, middle, lowest)
-          the[IllegalArgumentException] thrownBy VersionedOffsetBuilder(versions._2).highestIndex(
-            offset
-          ) should have message s"requirement failed: wrong version ${versions._1}, should be ${versions._2}"
+          val offsetBuilder = VersionedOffsetBuilder(versions._2)
+          val testedMethods =
+            List(offsetBuilder.version(_), offsetBuilder.highestIndex(_), offsetBuilder.split(_))
+
+          testedMethods.foreach { method =>
+            the[IllegalArgumentException] thrownBy method(
+              offset
+            ) should have message s"requirement failed: wrong version ${versions._1}, should be ${versions._2}"
+          }
       }
     }
   }
