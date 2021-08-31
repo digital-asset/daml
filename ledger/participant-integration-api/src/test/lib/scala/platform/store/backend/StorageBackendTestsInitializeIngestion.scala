@@ -46,7 +46,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, false, "#4"),
-      dtoDivulgence(offset(5), 3L, "#4"),
+      dtoDivulgence(Some(offset(5)), 3L, "#4"),
       dtoCompletion(offset(5)),
     )
 
@@ -63,7 +63,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoCompletion(offset(9)),
       // 10: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(10), 5L, false, "#9"),
-      dtoDivulgence(offset(10), 6L, "#9"),
+      dtoDivulgence(Some(offset(10)), 6L, "#9"),
       dtoCompletion(offset(10)),
     )
 

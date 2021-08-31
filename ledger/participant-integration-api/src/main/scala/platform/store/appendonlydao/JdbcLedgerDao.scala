@@ -641,6 +641,12 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
+        storageBackend.validatePruningOffsetAgainstMigration(
+          pruneUpToInclusive,
+          pruneAllDivulgedContracts,
+          conn,
+        )
+
         storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(
           conn,
           loggingContext,
