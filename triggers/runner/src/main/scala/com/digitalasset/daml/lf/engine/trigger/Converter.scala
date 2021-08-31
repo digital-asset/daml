@@ -78,10 +78,10 @@ object Converter {
   private case class AnyContractKey(key: SValue)
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    lfValueToApiRecord(true, v.toValue)
+    lfValueToApiRecord(true, v.toUnnormalizedValue)
 
   private def toLedgerValue(v: SValue): Either[String, value.Value] =
-    lfValueToApiValue(true, v.toValue)
+    lfValueToApiValue(true, v.toUnnormalizedValue)
 
   private def fromIdentifier(id: value.Identifier): SValue = {
     STypeRep(
@@ -498,7 +498,11 @@ object Converter {
   }
 
   def apply(compiledPackages: CompiledPackages, triggerIds: TriggerIds): Converter = {
-    val valueTranslator = new preprocessing.ValueTranslator(compiledPackages.interface)
+    val valueTranslator = new preprocessing.ValueTranslator(
+      compiledPackages.interface,
+      forbidV0ContractId = false,
+      requireV1ContractIdSuffix = false,
+    )
     Converter(
       fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),

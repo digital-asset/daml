@@ -6,24 +6,55 @@ package engine
 package preprocessing
 
 import java.util
-
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{GenTransaction, NodeId}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 
-private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackages) {
+/** The Command Preprocessor is responsible of the following tasks:
+  *  - normalizes value representation (e.g. resolves missing type
+  *    reference in record/variant/enumeration, infers missing labeled
+  *    record fields, orders labeled record fields, ...);
+  *  - checks value nesting does not overpass 100;
+  *  - checks a LF command/value is properly typed according the
+  *    Daml-LF package definitions;
+  *  - checks for Contract ID suffix (see [[requireV1ContractIdSuffix]]);
+  *  - translates a LF command/value into speedy command/value; and
+  *  - translates a complete transaction into a list of speedy
+  *    commands.
+  *
+  * @param compiledPackages a [[MutableCompiledPackages]] contains the
+  *   Daml-LF package definitions against the command should
+  *   resolved/typechecked. It is updated dynamically each time the
+  *   [[ResultNeedPackage]] continuation is called.
+  * @param forbidV0ContractId when `true` the preprocessor will reject
+  *   any value/command/transaction that contains V0 Contract IDs
+  *   without suffixed.
+  * @param requireV1ContractIdSuffix when `true` the preprocessor will reject
+  *   any value/command/transaction that contains V1 Contract IDs
+  *   without suffixed.
+  */
+private[engine] final class Preprocessor(
+    compiledPackages: MutableCompiledPackages,
+    forbidV0ContractId: Boolean = true,
+    requireV1ContractIdSuffix: Boolean = true,
+) {
 
   import Preprocessor._
-  val transactionPreprocessor = new TransactionPreprocessor(compiledPackages)
-  import transactionPreprocessor._
-  import commandPreprocessor._
-  import valueTranslator.unsafeTranslateValue
+
   import compiledPackages.interface
+
+  val commandPreprocessor =
+    new CommandPreprocessor(
+      interface = interface,
+      forbidV0ContractId = forbidV0ContractId,
+      requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+    )
+  val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
 
   // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeen0`
   private def getDependencies(
@@ -127,14 +158,14 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     */
   def translateValue(ty0: Ast.Type, v0: Value[Value.ContractId]): Result[SValue] =
     safelyRun(getDependencies(List(ty0), List.empty)) {
-      unsafeTranslateValue(ty0, v0)
+      commandPreprocessor.valueTranslator.unsafeTranslateValue(ty0, v0)
     }
 
   private[engine] def preprocessCommand(
       cmd: command.Command
   ): Result[speedy.Command] =
     safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
-      unsafePreprocessCommand(cmd)
+      commandPreprocessor.unsafePreprocessCommand(cmd)
     }
 
   /** Translates  LF commands to a speedy commands.
@@ -143,16 +174,17 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
-      unsafePreprocessCommands(cmds)
+      commandPreprocessor.unsafePreprocessCommands(cmds)
     }
 
-  def translateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction[NodeId, Cid]
+  /** Translates a complete transaction. Assumes no contract ID suffixes are used */
+  def translateTransactionRoots(
+      tx: SubmittedTransaction
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(
       getDependencies(List.empty, tx.rootNodes.toList.map(_.templateId))
     ) {
-      unsafeTranslateTransactionRoots(tx)
+      transactionPreprocessor.unsafeTranslateTransactionRoots(tx)
     }
 
 }

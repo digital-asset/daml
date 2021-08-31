@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.{
@@ -53,7 +53,7 @@ final class LogAppendingReadServiceFactory(
             Source.fromIterator(() => recordedBlocksSnapshot.iterator)
           }
 
-        override def currentHealth(): HealthStatus = HealthStatus.healthy
+        override def currentHealth(): HealthStatus = Healthy
 
         override def ledgerId(): LedgerId = "FakeParticipantStateReaderLedgerId"
       }

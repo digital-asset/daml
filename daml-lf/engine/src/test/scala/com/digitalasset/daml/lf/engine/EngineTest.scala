@@ -39,8 +39,6 @@ import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
-import scalaz.std.either._
-import scalaz.syntax.apply._
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
@@ -103,7 +101,7 @@ class EngineTest
 
   val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] =
     Map(
-      toContractId("#BasicTests:Simple:1") ->
+      toContractId("BasicTests:Simple:1") ->
         ContractInst(
           TypeConName(basicTestsPkgId, "BasicTests:Simple"),
           assertAsVersionedValue(
@@ -114,7 +112,7 @@ class EngineTest
           ),
           "",
         ),
-      toContractId("#BasicTests:CallablePayout:1") ->
+      toContractId("BasicTests:CallablePayout:1") ->
         ContractInst(
           TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
           assertAsVersionedValue(
@@ -128,7 +126,7 @@ class EngineTest
           ),
           "",
         ),
-      toContractId("#BasicTests:WithKey:1") ->
+      toContractId("BasicTests:WithKey:1") ->
         withKeyContractInst,
     )
 
@@ -138,7 +136,7 @@ class EngineTest
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
     )
       ->
-        toContractId("#BasicTests:WithKey:1")
+        toContractId("BasicTests:WithKey:1")
   )
 
   val lookupContract = defaultContracts.get(_)
@@ -153,15 +151,17 @@ class EngineTest
             BasicTests_WithKey,
             ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
           ) =>
-        Some(toContractId("#BasicTests:WithKey:1"))
+        Some(toContractId("BasicTests:WithKey:1"))
       case _ =>
         None
     }
 
-  // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
-  val engine = Engine.DevEngine()
+  val suffixLenientEngine = newEngine()
+  val suffixStrictEngine = newEngine(requireCidSuffixes = true)
   val preprocessor =
-    new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
+    new preprocessing.Preprocessor(
+      ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
+    )
 
   "valid data variant identifier" should {
     "found and return the argument types" in {
@@ -231,7 +231,7 @@ class EngineTest
     }
 
     "translate exercise commands argument including labels" in {
-      val originalCoid = toContractId("#BasicTests:CallablePayout:1")
+      val originalCoid = toContractId("BasicTests:CallablePayout:1")
       val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
       val command = ExerciseCommand(
         templateId,
@@ -247,7 +247,7 @@ class EngineTest
     }
 
     "translate exercise commands argument without labels" in {
-      val originalCoid = toContractId("#BasicTests:CallablePayout:1")
+      val originalCoid = toContractId("BasicTests:CallablePayout:1")
       val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
       val command = ExerciseCommand(
         templateId,
@@ -437,7 +437,9 @@ class EngineTest
         loadPackage("daml-lf/tests/Optional.dar")
 
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
+        new preprocessing.Preprocessor(
+          ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
+        )
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
       val someValue =
@@ -463,7 +465,9 @@ class EngineTest
 
     "returns correct error when resuming" in {
       val translator =
-        new preprocessing.Preprocessor(ConcurrentCompiledPackages(engine.config.getCompilerConfig))
+        new preprocessing.Preprocessor(
+          ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
+        )
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord =
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
@@ -491,7 +495,7 @@ class EngineTest
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe a[Right[_, _]]
-    val interpretResult = engine
+    val interpretResult = suffixLenientEngine
       .submit(
         submitters,
         readAs,
@@ -507,18 +511,19 @@ class EngineTest
 
     "reinterpret to the same result" in {
       val Right((tx, txMeta)) = interpretResult
+      val stx = suffix(tx)
 
       val Right((rtx, newMeta)) =
         reinterpret(
-          engine,
+          suffixStrictEngine,
           Set(party),
-          tx.roots,
-          tx,
+          stx.roots,
+          stx,
           txMeta,
           let,
           lookupPackage,
         )
-      isReplayedBy(tx, rtx) shouldBe Right(())
+      isReplayedBy(stx, rtx) shouldBe Right(())
       txMeta.nodeSeeds shouldBe newMeta.nodeSeeds
     }
 
@@ -527,7 +532,7 @@ class EngineTest
       val Right(submitter) = tx.guessSubmitter
       val submitters = Set(submitter)
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = engine
+      val validated = suffixLenientEngine
         .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
@@ -581,7 +586,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
       withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
-      engine
+      suffixLenientEngine
         .submit(actAs, readAs, Commands(ImmArray(cmd), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
     }
@@ -595,18 +600,19 @@ class EngineTest
     "reinterpret to the same result" in {
       forAll(cases) { case (templateId, signatories, submitters) =>
         val Right((tx, txMeta)) = interpretResult(templateId, signatories, submitters)
+        val stx = suffix(tx)
 
         val Right((rtx, _)) =
           reinterpret(
-            engine,
+            suffixStrictEngine,
             signatories.map(_._2),
-            tx.roots,
-            tx,
+            stx.roots,
+            stx,
             txMeta,
             let,
             lookupPackage,
           )
-        isReplayedBy(tx, rtx) shouldBe Right(())
+        isReplayedBy(stx, rtx) shouldBe Right(())
       }
     }
 
@@ -614,7 +620,7 @@ class EngineTest
       forAll(cases) { case (templateId, signatories, submitters) =>
         val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
         val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-        val validated = engine
+        val validated = suffixLenientEngine
           .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
           .consume(
             lookupContract,
@@ -634,7 +640,7 @@ class EngineTest
         val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
 
         val replaySubmitters = submitters + party
-        val replayResult = engine.replay(
+        val replayResult = suffixLenientEngine.replay(
           submitters = replaySubmitters,
           tx = tx,
           ledgerEffectiveTime = let,
@@ -652,7 +658,7 @@ class EngineTest
         val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
 
         val replaySubmitters = submitters.drop(1)
-        val replayResult = engine.replay(
+        val replayResult = suffixLenientEngine.replay(
           submitters = replaySubmitters,
           tx = tx,
           ledgerEffectiveTime = let,
@@ -672,7 +678,7 @@ class EngineTest
     val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-    val cid = toContractId("#BasicTests:Simple:1")
+    val cid = toContractId("BasicTests:Simple:1")
     val command =
       ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))
     val submitters = Set(party)
@@ -685,7 +691,7 @@ class EngineTest
     val interpretResult =
       res
         .flatMap { cmds =>
-          engine
+          suffixLenientEngine
             .interpretCommands(
               validating = false,
               submitters = submitters,
@@ -705,7 +711,7 @@ class EngineTest
     val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
-      val Right((rtx, _)) = engine
+      val Right((rtx, _)) = suffixLenientEngine
         .submit(
           Set(party),
           readAs,
@@ -722,23 +728,25 @@ class EngineTest
     }
 
     "reinterpret to the same result" in {
+      val stx = suffix(tx)
+
       val Right((rtx, _)) =
         reinterpret(
-          engine,
+          suffixStrictEngine,
           Set(party),
-          tx.roots,
-          tx,
+          stx.roots,
+          stx,
           txMeta,
           let,
           lookupPackage,
           defaultContracts,
         )
-      isReplayedBy(tx, rtx) shouldBe Right(())
+      isReplayedBy(stx, rtx) shouldBe Right(())
     }
 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = engine
+      val validated = suffixLenientEngine
         .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
@@ -772,7 +780,7 @@ class EngineTest
     res shouldBe a[Right[_, _]]
 
     "fail at submission" in {
-      val submitResult = engine
+      val submitResult = suffixLenientEngine
         .submit(
           submitters,
           readAs,
@@ -821,7 +829,7 @@ class EngineTest
     val result =
       res
         .flatMap { cmds =>
-          engine
+          suffixLenientEngine
             .interpretCommands(
               validating = false,
               submitters = submitters,
@@ -840,7 +848,7 @@ class EngineTest
     val Right((tx, txMeta)) = result
 
     "be translated" in {
-      val submitResult = engine
+      val Right((rtx, _)) = suffixLenientEngine
         .submit(
           submitters,
           readAs,
@@ -848,40 +856,33 @@ class EngineTest
           participant,
           submissionSeed,
         )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-        .map(_._1)
-      (result.map(_._1) |@| submitResult)((tx, rtx) => isReplayedBy(tx, rtx)) shouldBe Right(
-        Right(())
-      )
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      isReplayedBy(tx, rtx) shouldBe Right(())
     }
 
     "reinterpret to the same result" in {
+      val stx = suffix(tx)
 
-      val reinterpretResult =
+      val Right((rtx, _)) =
         reinterpret(
-          engine,
+          suffixStrictEngine,
           Set(alice),
-          tx.roots,
-          tx,
+          stx.roots,
+          stx,
           txMeta,
           let,
           lookupPackage,
           defaultContracts,
           defaultKey,
         )
-          .map(_._1)
-      (result.map(_._1) |@| reinterpretResult)((tx, rtx) => isReplayedBy(tx, rtx)) shouldBe Right(
-        Right(())
-      )
+
+      isReplayedBy(stx, rtx) shouldBe Right(())
     }
 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = engine
+      val validated = suffixLenientEngine
         .validate(submitters, ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
@@ -924,7 +925,7 @@ class EngineTest
       )
       val submitters = Set(alice)
 
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -962,7 +963,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -997,7 +998,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -1043,7 +1044,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -1098,7 +1099,7 @@ class EngineTest
     val interpretResult =
       res
         .flatMap { cmds =>
-          engine
+          suffixLenientEngine
             .interpretCommands(
               validating = false,
               submitters = submitters,
@@ -1127,18 +1128,17 @@ class EngineTest
     }
 
     "reinterpret to the same result" in {
+      val stx = suffix(tx)
 
-      val reinterpretResult =
-        reinterpret(engine, Set(party), tx.roots, tx, txMeta, let, lookupPackage)
-          .map(_._1)
-      (interpretResult.map(_._1) |@| reinterpretResult)((tx, rtx) =>
-        isReplayedBy(tx, rtx)
-      ) shouldBe Right(Right(()))
+      val Right((rtx, _)) =
+        reinterpret(suffixStrictEngine, Set(party), stx.roots, stx, txMeta, let, lookupPackage)
+
+      isReplayedBy(stx, rtx) shouldBe Right(())
     }
 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = engine
+      val validated = suffixLenientEngine
         .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
         .consume(
           lookupContract,
@@ -1349,7 +1349,7 @@ class EngineTest
 
   "exercise callable command" should {
     val submissionSeed = hash("exercise callable command")
-    val originalCoid = toContractId("#BasicTests:CallablePayout:1")
+    val originalCoid = toContractId("BasicTests:CallablePayout:1")
     val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
@@ -1363,7 +1363,7 @@ class EngineTest
     val submitters = Set(bob)
     val readAs = (Set.empty: Set[Party])
 
-    val Right((tx, txMeta)) = engine
+    val Right((tx, txMeta)) = suffixLenientEngine
       .submit(
         submitters,
         readAs,
@@ -1380,7 +1380,7 @@ class EngineTest
     val Right(cmds) = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    val Right((rtx, _)) = engine
+    val Right((rtx, _)) = suffixLenientEngine
       .interpretCommands(
         validating = false,
         submitters = submitters,
@@ -1399,19 +1399,21 @@ class EngineTest
     val blindingInfo = Blinding.blind(tx)
 
     "reinterpret to the same result" in {
+      val stx = suffix(tx)
 
       val Right((rtx, _)) =
         reinterpret(
-          engine,
+          suffixStrictEngine,
           Set(bob),
-          tx.transaction.roots,
-          tx,
+          stx.transaction.roots,
+          stx,
           txMeta,
           let,
           lookupPackage,
           defaultContracts,
         )
-      isReplayedBy(rtx, tx) shouldBe Right(())
+
+      isReplayedBy(rtx, stx) shouldBe Right(())
     }
 
     "blinded correctly" in {
@@ -1470,7 +1472,7 @@ class EngineTest
     // Test a couple of scenarios, with different combination of signatories/observers/actors on the parent action
 
     val submissionSeed = hash("dynamic fetch actors")
-    val fetchedCid = toContractId("#1")
+    val fetchedCid = toContractId("1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTArgs = ImmArray(
       (Some[Name]("sig1"), ValueParty(alice)),
@@ -1481,14 +1483,14 @@ class EngineTest
     val fetcherStrTid = "BasicTests:Fetcher"
     val fetcherTid = Identifier(basicTestsPkgId, fetcherStrTid)
 
-    val fetcher1Cid = toContractId("#2")
+    val fetcher1Cid = toContractId("2")
     val fetcher1TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(alice)),
       (Some[Name]("obs"), ValueParty(bob)),
       (Some[Name]("fetcher"), ValueParty(clara)),
     )
 
-    val fetcher2Cid = toContractId("#3")
+    val fetcher2Cid = toContractId("3")
     val fetcher2TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(party)),
       (Some[Name]("obs"), ValueParty(alice)),
@@ -1545,7 +1547,7 @@ class EngineTest
 
       res
         .flatMap { cmds =>
-          engine
+          suffixLenientEngine
             .interpretCommands(
               validating = false,
               submitters = submitters,
@@ -1586,7 +1588,7 @@ class EngineTest
         val nid = NodeId(0) //we must use node-0 so the constructed tx is normalized
         val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
         val Right((reinterpreted, _)) =
-          engine
+          suffixLenientEngine
             .reinterpret(
               n.requiredAuthorizers,
               FetchCommand(n.templateId, n.coid),
@@ -1610,7 +1612,7 @@ class EngineTest
 
   "reinterpreting fetch nodes" should {
 
-    val fetchedCid = toContractId("#1")
+    val fetchedCid = toContractId("1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
@@ -1637,7 +1639,7 @@ class EngineTest
     }
 
     "succeed with a fresh engine, correctly compiling packages" in {
-      val engine = Engine.DevEngine()
+      val engine = newEngine()
 
       val fetchNode = FetchCommand(
         templateId = fetchedTid,
@@ -1666,10 +1668,10 @@ class EngineTest
 
     val seed = hash("interpreting lookup by key nodes")
 
-    val lookedUpCid = toContractId("#1")
+    val lookedUpCid = toContractId("1")
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
-    val lookerUpCid = toContractId("#2")
+    val lookerUpCid = toContractId("2")
     val lookerUpInst = ContractInst(
       TypeConName(basicTestsPkgId, lookerUpTemplate),
       assertAsVersionedValue(
@@ -1713,7 +1715,7 @@ class EngineTest
       )
       val submitters = Set(alice)
       val readAs = (Set.empty: Set[Party])
-      val Right((tx, _)) = engine
+      val Right((tx, _)) = newEngine()
         .submit(submitters, readAs, Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(
           lookupContractMap.get,
@@ -1739,7 +1741,7 @@ class EngineTest
       val submitters = Set(alice)
       val readAs = (Set.empty: Set[Party])
 
-      val Right((tx, txMeta)) = engine
+      val Right((tx, txMeta)) = suffixLenientEngine
         .submit(submitters, readAs, Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(
           lookupContractMap.get,
@@ -1752,8 +1754,7 @@ class EngineTest
       lookupNode.result shouldBe Some(lookedUpCid)
 
       val Right((reinterpreted, _)) =
-        Engine
-          .DevEngine()
+        newEngine()
           .reinterpret(
             submitters,
             LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
@@ -1780,7 +1781,7 @@ class EngineTest
       val submitters = Set(alice)
       val readAs = (Set.empty: Set[Party])
 
-      val Right((tx, txMeta)) = engine
+      val Right((tx, txMeta)) = suffixLenientEngine
         .submit(submitters, readAs, Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(
           lookupContractMap.get,
@@ -1794,8 +1795,7 @@ class EngineTest
       lookupNode.result shouldBe None
 
       val Right((reinterpreted, _)) =
-        Engine
-          .DevEngine()
+        newEngine()
           .reinterpret(
             submitters,
             LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
@@ -1822,7 +1822,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -1855,7 +1855,7 @@ class EngineTest
         )
       val submitters = Set(party)
       val readAs = (Set.empty: Set[Party])
-      engine
+      suffixLenientEngine
         .submit(
           submitters,
           readAs,
@@ -1873,7 +1873,7 @@ class EngineTest
   }
 
   "fetching contracts that have keys correctly fills in the transaction structure" when {
-    val fetchedCid = toContractId("#1")
+    val fetchedCid = toContractId("1")
     val now = Time.Timestamp.now()
     val submissionSeed = crypto.Hash.hashPrivateKey(
       "fetching contracts that have keys correctly fills in the transaction structure"
@@ -1888,7 +1888,7 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val Right((tx, _)) = engine
+      val Right((tx, _)) = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -1919,7 +1919,7 @@ class EngineTest
     "fetched via a fetchByKey" in {
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
-      val fetcherCid = toContractId("#2")
+      val fetcherCid = toContractId("2")
       val fetcherInst = ContractInst(
         TypeConName(basicTestsPkgId, fetcherTemplate),
         assertAsVersionedValue(
@@ -1961,7 +1961,7 @@ class EngineTest
           lookupKey,
         )
 
-      val Right((tx, _)) = engine
+      val Right((tx, _)) = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -1995,8 +1995,8 @@ class EngineTest
     val withKeyId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
     val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
-    val cid = toContractId("#BasicTests:WithKey:1")
-    val fetcherCid = toContractId("#42")
+    val cid = toContractId("BasicTests:WithKey:1")
+    val fetcherCid = toContractId("42")
     val fetcherInst = ContractInst(
       fetcherId,
       assertAsVersionedValue(
@@ -2026,7 +2026,7 @@ class EngineTest
     val submitters = Set(alice)
     val readAs = (Set.empty: Set[Party])
     def run(cmds: ImmArray[ApiCommand]) =
-      engine
+      suffixLenientEngine
         .submit(submitters, readAs, Commands(cmds, now, ""), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -2075,7 +2075,7 @@ class EngineTest
       )
       val submitters = Set(party)
       val readAs = (Set.empty: Set[Party])
-      engine
+      suffixLenientEngine
         .submit(
           submitters,
           readAs,
@@ -2098,7 +2098,7 @@ class EngineTest
         for {
           submitter <- tx.guessSubmitter
           ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-          res <- engine
+          res <- suffixLenientEngine
             .validate(
               Set(submitter),
               ntx,
@@ -2122,16 +2122,18 @@ class EngineTest
 
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
+      val stx = suffix(tx)
+
       val ImmArray(_, exeNode1) = tx.transaction.roots
       val Node.NodeExercises(_, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
       reinterpret(
-        engine,
+        suffixStrictEngine,
         Set(party),
         nids,
-        tx,
+        stx,
         txMeta,
         let,
         lookupPackage,
@@ -2169,7 +2171,7 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -2198,7 +2200,7 @@ class EngineTest
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
 
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -2229,7 +2231,7 @@ class EngineTest
       val Right(cmds) = preprocessor
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
-      val result = engine
+      val result = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -2257,12 +2259,16 @@ class EngineTest
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
+          requireV1ContractId = true,
+          requireSuffixedGlobalContractId = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.On,
+          requireV1ContractId = true,
+          requireSuffixedGlobalContractId = true,
         )
       )
       val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
@@ -2273,8 +2279,8 @@ class EngineTest
       val submissionSeed = hash("multikeys")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
-      val cid1 = toContractId("#1")
-      val cid2 = toContractId("#2")
+      val cid1 = toContractId("1")
+      val cid2 = toContractId("2")
       val keyedInst = ContractInst(
         TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
         assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(party))))),
@@ -2397,7 +2403,7 @@ class EngineTest
       val let = Time.Timestamp.now()
       val submissionSeed = hash("rollback")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("#1")
+      val cid = toContractId("1")
       val contracts = Map(
         cid -> ContractInst(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
@@ -2427,7 +2433,7 @@ class EngineTest
             lookupPackage,
             lookupKey,
           )
-        engine
+        suffixLenientEngine
           .interpretCommands(
             validating = false,
             submitters = submitters,
@@ -2507,7 +2513,7 @@ class EngineTest
       val let = Time.Timestamp.now()
       val submissionSeed = hash("rollback")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("#1")
+      val cid = toContractId("1")
       val contracts = Map(
         cid -> ContractInst(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
@@ -2537,7 +2543,7 @@ class EngineTest
             lookupPackage,
             lookupKey,
           )
-        engine
+        suffixLenientEngine
           .interpretCommands(
             validating = false,
             submitters = submitters,
@@ -2584,7 +2590,7 @@ class EngineTest
       val let = Time.Timestamp.now()
       val submissionSeed = hash("global-keys")
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("#1")
+      val cid = toContractId("1")
       val contracts = Map(
         cid -> ContractInst(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
@@ -2619,7 +2625,7 @@ class EngineTest
             lookupPackage,
             mockedKeyLookup,
           )
-        val result = engine
+        val result = suffixLenientEngine
           .interpretCommands(
             validating = false,
             submitters = submitters,
@@ -2672,7 +2678,9 @@ class EngineTest
     def engine(min: LV, max: LV) =
       new Engine(
         EngineConfig(
-          allowedLanguageVersions = VersionRange(min, max)
+          allowedLanguageVersions = VersionRange(min, max),
+          requireV1ContractId = true,
+          requireSuffixedGlobalContractId = true,
         )
       )
 
@@ -2718,14 +2726,25 @@ class EngineTest
 
 object EngineTest {
 
+  private def newEngine(requireCidSuffixes: Boolean = false) =
+    new Engine(
+      EngineConfig(
+        allowedLanguageVersions = language.LanguageVersion.DevVersions,
+        requireV1ContractId = true,
+        requireSuffixedGlobalContractId = requireCidSuffixes,
+      )
+    )
+
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)
 
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
+  private val dummySuffix = Bytes.assertFromString("00")
+
   private def toContractId(s: String): ContractId =
-    ContractId.assertFromString(s)
+    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)
@@ -2751,6 +2770,11 @@ object EngineTest {
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
+  private def suffix(tx: Tx.Transaction) =
+    data.assertRight(tx.suffixCid(_ => dummySuffix))
+
+  // Mimics Canton reinterpreation
+  // requires a suffixed transaction.
   private def reinterpret(
       engine: Engine,
       submitters: Set[Party],
@@ -2811,7 +2835,8 @@ object EngineTest {
               lookupPackages,
               k => keys0.get(k.globalKey),
             )
-          (tr1, meta1) = currentStep
+          (tr0, meta1) = currentStep
+          tr1 = suffix(tr0)
           (contracts1, keys1) = tr1.transaction.fold((contracts0, keys0)) {
             case (
                   (contracts, keys),

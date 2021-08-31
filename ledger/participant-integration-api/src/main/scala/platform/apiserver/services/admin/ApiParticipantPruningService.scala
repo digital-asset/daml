@@ -54,13 +54,16 @@ final class ApiParticipantPruningService private (
             logger.info(s"Pruning up to ${request.pruneUpTo}")
             (for {
 
-              pruneUpTo <- validateRequest(request: PruneRequest)
+              pruneUpTo <- validateRequest(request)
 
               // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
               // systems back in sync by reissuing the prune request at the currently specified or later offset.
-              _ <- pruneWriteService(pruneUpTo, submissionId)
+              _ <- pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts)
 
-              pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
+              pruneResponse <- pruneLedgerApiServerIndex(
+                pruneUpTo,
+                request.pruneAllDivulgedContracts,
+              )
 
             } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
         },
@@ -80,7 +83,11 @@ final class ApiParticipantPruningService private (
       )
   }
 
-  private def pruneWriteService(pruneUpTo: Offset, submissionId: Ref.SubmissionId)(implicit
+  private def pruneWriteService(
+      pruneUpTo: Offset,
+      submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit
       logCtx: LoggingContext
   ): Future[Unit] = {
     import state.PruningResult._
@@ -88,7 +95,7 @@ final class ApiParticipantPruningService private (
       s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service"
     )
     FutureConverters
-      .toScala(writeBackend.prune(pruneUpTo, submissionId))
+      .toScala(writeBackend.prune(pruneUpTo, submissionId, pruneAllDivulgedContracts))
       .flatMap {
         case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
         case ParticipantPruned =>
@@ -98,11 +105,12 @@ final class ApiParticipantPruningService private (
   }
 
   private def pruneLedgerApiServerIndex(
-      pruneUpTo: Offset
+      pruneUpTo: Offset,
+      pruneAllDivulgedContracts: Boolean,
   )(implicit logCtx: LoggingContext): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiString} inclusively")
     readBackend
-      .prune(pruneUpTo)
+      .prune(pruneUpTo, pruneAllDivulgedContracts)
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo.toApiString} inclusively.")
         PruneResponse()

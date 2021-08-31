@@ -76,8 +76,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     go(this)
   }
 
-  def toSqlWhereClause(implicit sjd: dbbackend.SupportedJdbcDriver): Fragment = {
-    import sjd.queries.{cmpContractPathToScalar, containsAtContractPath, equalAtContractPath}
+  def toSqlWhereClause(implicit sjd: dbbackend.SupportedJdbcDriver.TC): Fragment = {
+    import sjd.q.queries.{cmpContractPathToScalar, containsAtContractPath, equalAtContractPath}
     import dbbackend.Queries.{JsonPath => Path}, dbbackend.Queries.OrderOperator._
 
     object RefName {

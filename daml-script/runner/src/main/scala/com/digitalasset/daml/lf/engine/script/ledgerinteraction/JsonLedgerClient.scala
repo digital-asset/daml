@@ -180,7 +180,7 @@ class JsonLedgerClient(
       _ <- validateTokenParties(parties, "queryContractKey")
       fetchResponse <- requestSuccess[FetchKeyArgs, FetchResponse](
         uri.path./("v1")./("fetch"),
-        FetchKeyArgs(templateId, key.toValue),
+        FetchKeyArgs(templateId, key.toUnnormalizedValue),
       )
     } yield {
       val ctx = templateId.qualifiedName

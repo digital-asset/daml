@@ -21,12 +21,15 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
 
   private implicit val lc: LoggingContext = LoggingContext.ForTesting
 
-  private val someParty = DbDto.Party(
-    party = "party",
+  private val someParty = DbDto.PartyEntry(
+    ledger_offset = "",
+    recorded_at = null,
+    submission_id = null,
+    party = Some("party"),
     display_name = None,
-    explicit = true,
-    ledger_offset = None,
-    is_local = true,
+    typ = "accept",
+    rejection_reason = None,
+    is_local = Some(true),
   )
 
   private val someTime = Instant.now

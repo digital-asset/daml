@@ -5,6 +5,7 @@ package com.daml.http
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.dbutils
 import com.daml.http.dbbackend.{JdbcConfig, DbStartupMode}
 
 final class CliSpec extends AnyFreeSpec with Matchers {
@@ -16,10 +17,12 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
 
   val jdbcConfig = JdbcConfig(
-    "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5432/test?&ssl=true",
-    "postgres",
-    "password",
+    dbutils.JdbcConfig(
+      "org.postgresql.Driver",
+      "jdbc:postgresql://localhost:5432/test?&ssl=true",
+      "postgres",
+      "password",
+    ),
     tablePrefix = "",
     dbStartupMode = DbStartupMode.StartOnly,
   )
@@ -158,6 +161,37 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         config.jdbcConfig shouldBe Some(
           jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly)
         )
+      }
+    }
+
+    "DisableContractPayloadIndexing" - {
+      import dbbackend.Queries.Oracle
+      import dbbackend.OracleQueries.DisableContractPayloadIndexing
+      // we can always use postgres here; but if we integrate driver init with cmdline parse
+      // we'll have to restrict this test block to EE-only
+      val jdbcConfigShared =
+        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password"
+      val expectedExtraConf = Map(DisableContractPayloadIndexing -> "true")
+
+      "parses from command-line string" in {
+        val jdbcConfigString = s"$jdbcConfigShared,$DisableContractPayloadIndexing=true"
+        val config = configParser(
+          Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions
+        ).getOrElse(fail())
+        import org.scalatest.OptionValues._
+        config.jdbcConfig.value.backendSpecificConf should ===(expectedExtraConf)
+      }
+
+      "then parses through backend" in {
+        Oracle.parseConf(expectedExtraConf) should ===(Right(true: DisableContractPayloadIndexing))
+      }
+
+      "or defaults to false" in {
+        Oracle.parseConf(Map.empty) should ===(Right(false: DisableContractPayloadIndexing))
+      }
+
+      "but fails on bad input" in {
+        Oracle.parseConf(Map(DisableContractPayloadIndexing -> "haha")).isLeft should ===(true)
       }
     }
   }

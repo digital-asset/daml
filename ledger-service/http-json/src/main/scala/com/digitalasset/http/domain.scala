@@ -268,6 +268,13 @@ object domain {
         Ref.DottedName.assertFromString(a.moduleName),
         Ref.DottedName.assertFromString(a.entityName),
       )
+
+    def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
+      val qfName = qualifiedName(a)
+      val packageId = Ref.PackageId.assertFromString(a.packageId)
+      Ref.Identifier(packageId, qfName)
+    }
+
   }
 
   object Contract {

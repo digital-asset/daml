@@ -174,10 +174,10 @@ final class Conversions(
                 builder.setContractIdInContractKey(
                   proto.ScenarioError.ContractIdInContractKey.newBuilder.setKey(convertValue(key))
                 )
-              case ContractIdFreshness(_) =>
+              case ContractIdComparability(_) =>
                 // We crash here because you cannot construct a cid yourself in scenarios
                 // or daml script.
-                builder.setCrash(s"Contract Id freshness Error")
+                builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueExceedsMaxNesting =>
@@ -257,7 +257,7 @@ final class Conversions(
     def unserializable(what: String): proto.Value =
       proto.Value.newBuilder.setUnserializable(what).build
     try {
-      convertValue(svalue.toValue)
+      convertValue(svalue.toUnnormalizedValue)
     } catch {
       case _: SError.SErrorCrash => {
         // We cannot rely on serializability information since we do not have that available in the IDE.

@@ -3,46 +3,22 @@
 
 package com.daml.ledger.client.services.acs
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Keep, Source}
+import akka.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsServiceStub
-import com.daml.ledger.api.v1.active_contracts_service.{
-  GetActiveContractsRequest,
-  GetActiveContractsResponse,
-}
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.ledger.client.LedgerClient
-import com.daml.util.akkastreams.ExtractMaterializedValue
-import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
-object ActiveContractSetClient {
-
-  private val extractOffset =
-    new ExtractMaterializedValue[GetActiveContractsResponse, String](r =>
-      if (r.offset.nonEmpty) Some(r.offset) else None
-    )
-
-}
-
-final class ActiveContractSetClient(ledgerId: LedgerId, service: ActiveContractsServiceStub)(
-    implicit esf: ExecutionSequencerFactory
+final class ActiveContractSetClient(
+    ledgerId: LedgerId,
+    service: ActiveContractsServiceStub,
+)(implicit
+    esf: ExecutionSequencerFactory
 ) {
-
-  import ActiveContractSetClient.extractOffset
-
-  private def request(filter: TransactionFilter, verbose: Boolean) =
-    GetActiveContractsRequest(ledgerId.unwrap, Some(filter), verbose)
-
-  private def activeContractSource(
-      request: GetActiveContractsRequest,
-      token: Option[String],
-  ): Source[GetActiveContractsResponse, NotUsed] =
-    ClientAdapter.serverStreaming(request, LedgerClient.stub(service, token).getActiveContracts)
+  private val it = new withoutledgerid.ActiveContractSetClient(service)
 
   /** Returns a stream of GetActiveContractsResponse messages. The materialized value will
     * be resolved to the offset that can be used as a starting offset for streaming transactions
@@ -55,6 +31,5 @@ final class ActiveContractSetClient(ledgerId: LedgerId, service: ActiveContracts
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[GetActiveContractsResponse, Future[String]] =
-    activeContractSource(request(filter, verbose), token).viaMat(extractOffset)(Keep.right)
-
+    it.getActiveContracts(filter, verbose = verbose, token = token, ledgerId)
 }

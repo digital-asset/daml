@@ -141,10 +141,13 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.stopDeduplicatingCommand(commandId, submitters),
     )
 
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    Timed.future(metrics.daml.index.db.prune, ledgerDao.prune(pruneUpToInclusive))
+    Timed.future(
+      metrics.daml.index.db.prune,
+      ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
+    )
 }
 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)

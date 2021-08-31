@@ -10,7 +10,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{
   Configuration,
   LedgerId,
@@ -75,7 +75,7 @@ case class ReadWriteServiceBridge(
       )
     )
 
-  override def currentHealth(): HealthStatus = HealthStatus.healthy
+  override def currentHealth(): HealthStatus = Healthy
 
   override def allocateParty(
       hint: Option[Ref.Party],
@@ -106,6 +106,7 @@ case class ReadWriteServiceBridge(
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     CompletableFuture.completedFuture(
       PruningResult.ParticipantPruned

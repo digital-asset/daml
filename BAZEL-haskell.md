@@ -122,7 +122,7 @@ stack_snapshot(
     ],
     vendored_packages = {
         "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
-        "proto3-suite": "@proto3_suite//:proto3-suite",
+        "proto3-suite": "@proto3-suite//:proto3-suite",
     },
     local_snapshot = "//:stack-snapshot.yaml",
     stack_snapshot_json = "//:stackage_snapshot.json",

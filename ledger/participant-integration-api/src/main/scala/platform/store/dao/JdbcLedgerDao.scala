@@ -943,14 +943,21 @@ private class JdbcLedgerDao(
   }
 
   override def prune(
-      pruneUpToInclusive: Offset
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    if (pruneAllDivulgedContracts)
+      logger.warn(
+        "Pruning all divulgence events is not supported on an index db using the mutable state schema. Upgrade to the append-only schema to prune all divulgence events."
+      )
+
     dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { implicit conn =>
       transactionsWriter.prepareEventsDelete(pruneUpToInclusive).execute()
       prepareCompletionsDelete(pruneUpToInclusive).execute()
       updateMostRecentPruning(pruneUpToInclusive)
       logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
     }
+  }
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables) { implicit conn =>
@@ -1212,17 +1219,17 @@ private[platform] object JdbcLedgerDao {
 
     protected[JdbcLedgerDao] def SQL_GET_PACKAGE_ENTRIES: String =
       """select * from package_entries
-        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     protected[JdbcLedgerDao] def SQL_GET_PARTY_ENTRIES: String =
       """select * from party_entries
-        |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+        |where ({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
-        |ledger_offset > {startExclusive} and ledger_offset <= {endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
     // TODO: Avoid brittleness of error message checks
@@ -1394,19 +1401,19 @@ private[platform] object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_GET_PACKAGE_ENTRIES: String =
       """select * from package_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_PARTY_ENTRIES: String =
       """select * from party_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
-        |({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
+        |({startExclusive} is null or ledger_offset > {startExclusive}) and ledger_offset <= {endInclusive}
         |order by ledger_offset asc
         |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
 

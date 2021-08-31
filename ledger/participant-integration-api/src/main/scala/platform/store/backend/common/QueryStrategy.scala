@@ -39,4 +39,12 @@ trait QueryStrategy {
       columnName: String,
       parties: Set[Ref.Party],
   ): CompositeSql
+
+  /** Would be used in column selectors in GROUP BY situations to see whether a boolean column had true
+    * Example: getting all groups and see wheter they have someone who had covid:
+    *   SELECT group_name, booleanOrAggregationFunction(has_covid) GROUP BY group_name;
+    *
+    * @return the function name
+    */
+  def booleanOrAggregationFunction: String = "bool_or"
 }

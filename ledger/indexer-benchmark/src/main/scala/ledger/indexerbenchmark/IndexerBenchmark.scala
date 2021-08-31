@@ -11,7 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Snapshot}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1.{ReadService, Update}
@@ -198,7 +198,7 @@ class IndexerBenchmark() {
         assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
         Source.fromIterator(() => updates)
       }
-      override def currentHealth(): HealthStatus = HealthStatus.healthy
+      override def currentHealth(): HealthStatus = Healthy
     }
   }
 

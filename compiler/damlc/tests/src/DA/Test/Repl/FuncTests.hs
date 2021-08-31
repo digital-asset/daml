@@ -216,6 +216,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , matchOutput "^Source:.*$"
           , matchOutput "^Severity:.*$"
           , matchOutput "^Message:.*$"
+          , matchOutput "^.*Line0.daml.*$"
           , matchOutput "^.*Could not find module.*$"
           , matchOutput "^.*It is not a module.*$"
           , input "import DA.Time"
@@ -360,6 +361,13 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "let lookup1 k = Map.lookup k m"
           , input "lookup1 1"
           , matchOutput "^Some 2$"
+          ]
+    , testInteraction' "out of scope type"
+          [  -- import a function to build a map but not the type itself
+            input "import DA.Map (fromList)"
+          , input "let m = fromList [(0,0)]"
+          , input "m"
+          , matchOutput "Map \\[\\(0,0\\)\\]"
           ]
     ]
   where

@@ -29,7 +29,13 @@ private[platform] object CompletionFromTransaction {
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
-      completions = Seq(Completion.of(commandId, Some(OkStatus), transactionId)),
+      completions = Seq(
+        Completion(
+          commandId = commandId,
+          status = Some(OkStatus),
+          transactionId = transactionId,
+        )
+      ),
     )
 
   def rejectedCompletion(
@@ -40,7 +46,13 @@ private[platform] object CompletionFromTransaction {
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
-      completions = Seq(Completion.of(commandId, Some(status), RejectionTransactionId)),
+      completions = Seq(
+        Completion(
+          commandId = commandId,
+          status = Some(status),
+          transactionId = RejectionTransactionId,
+        )
+      ),
     )
 
   private def toApiCheckpoint(recordTime: Instant, offset: Offset): Checkpoint =

@@ -14,6 +14,7 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
+  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -37,7 +38,8 @@ private[backend] object OracleStorageBackend
     with CommonStorageBackend[AppendOnlySchema.Batch]
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
-    with CompletionStorageBackendTemplate {
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
 
   override def reset(connection: Connection): Unit =
     List(
@@ -50,11 +52,23 @@ private[backend] object OracleStorageBackend
       "truncate table participant_events_create cascade",
       "truncate table participant_events_consuming_exercise cascade",
       "truncate table participant_events_non_consuming_exercise cascade",
-      "truncate table parties cascade",
       "truncate table party_entries cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 
-  override def duplicateKeyError: String = "unique constraint"
+  override def resetAll(connection: Connection): Unit =
+    List(
+      "truncate table configuration_entries cascade",
+      "truncate table packages cascade",
+      "truncate table package_entries cascade",
+      "truncate table parameters cascade",
+      "truncate table participant_command_completions cascade",
+      "truncate table participant_command_submissions cascade",
+      "truncate table participant_events_divulgence cascade",
+      "truncate table participant_events_create cascade",
+      "truncate table participant_events_consuming_exercise cascade",
+      "truncate table participant_events_non_consuming_exercise cascade",
+      "truncate table party_entries cascade",
+    ).map(SQL(_)).foreach(_.execute()(connection))
 
   val SQL_INSERT_COMMAND: String =
     """merge into participant_command_submissions pcs
@@ -97,6 +111,8 @@ private[backend] object OracleStorageBackend
 
     override def columnEqualityBoolean(column: String, value: String): String =
       s"""case when ($column = $value) then 1 else 0 end"""
+
+    override def booleanOrAggregationFunction: String = "max"
   }
 
   override def queryStrategy: QueryStrategy = OracleQueryStrategy

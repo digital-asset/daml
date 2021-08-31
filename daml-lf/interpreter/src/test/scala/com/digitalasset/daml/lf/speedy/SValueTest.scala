@@ -28,7 +28,7 @@ class SValueTest extends AnyWordSpec with Matchers {
     "rejects excessive nesting" in {
       // Because Z has a nesting of 1, toNat(Value.MAXIMUM_NESTING) has a nesting of
       // Value.MAXIMUM_NESTING + 1
-      Try(toNat(Value.MAXIMUM_NESTING).toValue) shouldBe
+      Try(toNat(Value.MAXIMUM_NESTING).toUnnormalizedValue) shouldBe
         Failure(SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting))
     }
 

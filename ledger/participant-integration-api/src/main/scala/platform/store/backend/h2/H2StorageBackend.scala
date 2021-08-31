@@ -21,6 +21,7 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
+  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -37,7 +38,8 @@ private[backend] object H2StorageBackend
     with CommonStorageBackend[AppendOnlySchema.Batch]
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
-    with CompletionStorageBackendTemplate {
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
 
   override def reset(connection: Connection): Unit = {
     SQL("""set referential_integrity false;
@@ -50,14 +52,29 @@ private[backend] object H2StorageBackend
         |truncate table participant_events_create;
         |truncate table participant_events_consuming_exercise;
         |truncate table participant_events_non_consuming_exercise;
-        |truncate table parties;
         |truncate table party_entries;
         |set referential_integrity true;""".stripMargin)
       .execute()(connection)
     ()
   }
 
-  override def duplicateKeyError: String = "Unique index or primary key violation"
+  override def resetAll(connection: Connection): Unit = {
+    SQL("""set referential_integrity false;
+          |truncate table configuration_entries;
+          |truncate table packages;
+          |truncate table package_entries;
+          |truncate table parameters;
+          |truncate table participant_command_completions;
+          |truncate table participant_command_submissions;
+          |truncate table participant_events_divulgence;
+          |truncate table participant_events_create;
+          |truncate table participant_events_consuming_exercise;
+          |truncate table participant_events_non_consuming_exercise;
+          |truncate table party_entries;
+          |set referential_integrity true;""".stripMargin)
+      .execute()(connection)
+    ()
+  }
 
   val SQL_INSERT_COMMAND: String =
     """merge into participant_command_submissions pcs

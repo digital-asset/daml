@@ -12,14 +12,13 @@ import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
 import com.daml.ledger.api.v1.transaction_service._
-import com.daml.ledger.client.LedgerClient
-import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
 final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStub)(implicit
     esf: ExecutionSequencerFactory
 ) {
+  private val it = new withoutledgerid.TransactionClient(service)
 
   def getTransactionTrees(
       start: LedgerOffset,
@@ -28,10 +27,7 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[TransactionTree, NotUsed] =
-    TransactionSource.trees(
-      LedgerClient.stub(service, token).getTransactionTrees,
-      GetTransactionsRequest(ledgerId.unwrap, Some(start), end, Some(transactionFilter), verbose),
-    )
+    it.getTransactionTrees(start, end, transactionFilter, verbose, token, ledgerId)
 
   def getTransactions(
       start: LedgerOffset,
@@ -40,50 +36,37 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[Transaction, NotUsed] =
-    TransactionSource.flat(
-      LedgerClient.stub(service, token).getTransactions,
-      GetTransactionsRequest(ledgerId.unwrap, Some(start), end, Some(transactionFilter), verbose),
-    )
+    it.getTransactions(start, end, transactionFilter, verbose, token, ledgerId)
 
   def getTransactionById(
       transactionId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetTransactionResponse] =
-    LedgerClient
-      .stub(service, token)
-      .getTransactionById(GetTransactionByIdRequest(ledgerId.unwrap, transactionId, parties))
+    it.getTransactionById(transactionId, parties, token, ledgerId)
 
   def getTransactionByEventId(
       eventId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetTransactionResponse] =
-    LedgerClient
-      .stub(service, token)
-      .getTransactionByEventId(GetTransactionByEventIdRequest(ledgerId.unwrap, eventId, parties))
+    it.getTransactionByEventId(eventId, parties, token, ledgerId)
 
   def getFlatTransactionById(
       transactionId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
-    LedgerClient
-      .stub(service, token)
-      .getFlatTransactionById(GetTransactionByIdRequest(ledgerId.unwrap, transactionId, parties))
+    it.getFlatTransactionById(transactionId, parties, token, ledgerId)
 
   def getFlatTransactionByEventId(
       eventId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
-    LedgerClient
-      .stub(service, token)
-      .getFlatTransactionByEventId(
-        GetTransactionByEventIdRequest(ledgerId.unwrap, eventId, parties)
-      )
+    it.getFlatTransactionByEventId(eventId, parties, token, ledgerId)
 
   def getLedgerEnd(token: Option[String] = None): Future[GetLedgerEndResponse] =
-    LedgerClient.stub(service, token).getLedgerEnd(GetLedgerEndRequest(ledgerId.unwrap))
+    it.getLedgerEnd(token, ledgerId)
 
 }

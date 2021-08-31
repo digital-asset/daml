@@ -35,10 +35,18 @@ trait WriteParticipantPruningService {
     * step upon successful completion of each prune call. To reach eventual consistency upon failures, be sure
     * to return ParticipantPruned even if the specified offset has already been pruned to allow ledger api server
     * index pruning to proceed in case of an earlier failure.
+    *
+    * @param pruneUpToInclusive The offset up to which contracts should be pruned.
+    * @param submissionId The submission id.
+    * @param pruneAllDivulgedContracts If set, instruct the ledger to prune all immediately and retroactively divulged contracts
+    *                                  created before `pruneUpToInclusive` independent of whether they were archived before
+    *                                  `pruneUpToInclusive`.
+    * @return The pruning result.
     */
   def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult]
 
 }

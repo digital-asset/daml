@@ -5,7 +5,8 @@ package com.daml.http
 
 import akka.http.scaladsl.model.Uri
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
+import com.daml.dbutils
+import dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ports.LockedFreePort
@@ -34,11 +35,13 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
   // has to be lazy because postgresFixture is NOT initialized yet
   protected lazy val jdbcConfig_ =
     JdbcConfig(
-      driver = "org.postgresql.Driver",
-      url =
-        s"jdbc:postgresql://${postgresDatabase.hostName}:$dbProxyPort/${postgresDatabase.databaseName}?user=${postgresDatabase.userName}&password=${postgresDatabase.password}",
-      user = "test",
-      password = "",
+      dbutils.JdbcConfig(
+        driver = "org.postgresql.Driver",
+        url =
+          s"jdbc:postgresql://${postgresDatabase.hostName}:$dbProxyPort/${postgresDatabase.databaseName}?user=${postgresDatabase.userName}&password=${postgresDatabase.password}",
+        user = "test",
+        password = "",
+      ),
       dbStartupMode = DbStartupMode.CreateOnly,
     )
 

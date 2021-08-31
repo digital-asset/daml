@@ -162,6 +162,7 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
@@ -226,6 +227,7 @@ test_deps = [
     "//libs-scala/ports",
     "//libs-scala/postgresql-testing",
     "//libs-scala/resources",
+    "//libs-scala/timer-utils",
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:ch_qos_logback_logback_core",
     "@maven//:com_typesafe_config",
@@ -437,5 +439,15 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-contract-ids",
+    server_args = ["--contract-id-seeding=testing-weak"],
+    servers = {"memory": SERVERS["memory"]},
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:Accept",
     ],
 )

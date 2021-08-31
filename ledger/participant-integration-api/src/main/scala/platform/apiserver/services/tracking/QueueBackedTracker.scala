@@ -8,12 +8,12 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
+import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
 import com.daml.platform.server.api.ApiException
 import com.daml.util.Ctx
 import io.grpc.{Status => GrpcStatus}
@@ -25,36 +25,22 @@ import scala.util.{Failure, Success}
 /** Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
   */
-private[services] final class TrackerImpl(
-    queue: SourceQueueWithComplete[TrackerImpl.QueueInput],
+private[services] final class QueueBackedTracker(
+    queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput],
     done: Future[Done],
-)(implicit
-    loggingContext: LoggingContext
-) extends Tracker {
+)(implicit loggingContext: LoggingContext)
+    extends Tracker {
 
-  import TrackerImpl.logger
-
-  override def track(request: SubmitAndWaitRequest)(implicit
-      ec: ExecutionContext,
+  override def track(
+      submission: CommandSubmission
+  )(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     logger.trace("Tracking command")
-    submitNewRequest(request)
-  }
-
-  private def submitNewRequest(
-      request: SubmitAndWaitRequest
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     queue
-      .offer(
-        Ctx(
-          trackedPromise,
-          SubmitRequest(request.commands),
-        )
-      )
+      .offer(Ctx(trackedPromise, submission))
       .flatMap[Either[TrackedCompletionFailure, CompletionSuccess]] {
         case QueueOfferResult.Enqueued =>
           trackedPromise.future.map(
@@ -105,13 +91,13 @@ private[services] final class TrackerImpl(
   }
 }
 
-private[services] object TrackerImpl {
+private[services] object QueueBackedTracker {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply(
       tracker: Flow[
-        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest],
+        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission],
         Ctx[
           Promise[Either[CompletionFailure, CompletionSuccess]],
           Either[CompletionFailure, CompletionSuccess],
@@ -122,7 +108,7 @@ private[services] object TrackerImpl {
       capacityCounter: Counter,
       lengthCounter: Counter,
       delayTimer: Timer,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): TrackerImpl = {
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
     val ((queue, mat), done) = InstrumentedSource
       .queue[QueueInput](
         inputBufferSize,
@@ -170,8 +156,8 @@ private[services] object TrackerImpl {
       )(DirectExecutionContext)
     }(DirectExecutionContext)
 
-    new TrackerImpl(queue, done)
+    new QueueBackedTracker(queue, done)
   }
 
-  type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], SubmitRequest]
+  type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission]
 }

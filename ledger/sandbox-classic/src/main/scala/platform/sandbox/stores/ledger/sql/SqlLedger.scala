@@ -87,9 +87,9 @@ private[sandbox] object SqlLedger {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
-      validatePartyAllocation: Boolean = false,
-      enableAppendOnlySchema: Boolean = false,
-      enableCompression: Boolean = false,
+      validatePartyAllocation: Boolean,
+      enableAppendOnlySchema: Boolean,
+      enableCompression: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -98,7 +98,7 @@ private[sandbox] object SqlLedger {
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl).migrate(enableAppendOnlySchema = enableAppendOnlySchema)
+          new FlywayMigrations(jdbcUrl, enableAppendOnlySchema).migrate()
         )
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
@@ -426,7 +426,7 @@ private final class SqlLedger(
               completionInfo = Some(submitterInfo.toCompletionInfo),
               recordTime = recordTime,
               offsetStep = CurrentOffset(offset),
-              reason = reason.toStateV2RejectionReason,
+              reason = reason.toStateRejectionReason,
             ),
           _ => {
             val divulgedContracts = Nil
@@ -484,19 +484,33 @@ private final class SqlLedger(
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
     enqueue { offset =>
       ledgerDao
-        .storePartyEntry(
-          CurrentOffset(offset),
-          PartyLedgerEntry.AllocationAccepted(
-            Some(submissionId),
-            timeProvider.getCurrentTime,
-            PartyDetails(party, displayName, isLocal = true),
-          ),
-        )
-        .map(_ => ())(DEC)
-        .recover { case t =>
-          //recovering from the failure so the persistence stream doesn't die
-          logger.error(s"Failed to persist party $party with offset: ${offset.toApiString}", t)
-          ()
+        .getParties(Seq(party))
+        .flatMap {
+          case Nil =>
+            ledgerDao
+              .storePartyEntry(
+                CurrentOffset(offset),
+                PartyLedgerEntry.AllocationAccepted(
+                  Some(submissionId),
+                  timeProvider.getCurrentTime,
+                  PartyDetails(party, displayName, isLocal = true),
+                ),
+              )
+              .map(_ => ())(DEC)
+              .recover { case t =>
+                //recovering from the failure so the persistence stream doesn't die
+                logger.error(
+                  s"Failed to persist party $party with offset: ${offset.toApiString}",
+                  t,
+                )
+                ()
+              }(DEC)
+
+          case _ =>
+            logger.warn(
+              s"Ignoring duplicate party submission with ID $party for submissionId ${Some(submissionId)}"
+            )
+            Future.unit
         }(DEC)
     }
   }

@@ -4,7 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.stream.Materializer
-import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.daml.ledger.api.health.{Healthy, ReportsHealth}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -74,7 +74,7 @@ final class StandaloneIndexerServer(
           .fromFuture(indexerFactory.validateAndWaitOnly())
           .map[ReportsHealth] { _ =>
             logger.debug("Waiting for the indexer to validate the schema migrations.")
-            () => HealthStatus.healthy
+            () => Healthy
           }
       case IndexerStartupMode.MigrateOnEmptySchemaAndStart =>
         Resource
@@ -107,7 +107,8 @@ object StandaloneIndexerServer {
       allowExistingSchema: Boolean = false,
       additionalMigrationPaths: Seq[String] = Seq.empty,
   )(implicit rc: ResourceContext, loggingContext: LoggingContext): Future[Unit] = {
-    val flywayMigrations = new FlywayMigrations(jdbcUrl, additionalMigrationPaths)
-    flywayMigrations.migrate(allowExistingSchema, enableAppendOnlySchema)
+    val flywayMigrations =
+      new FlywayMigrations(jdbcUrl, enableAppendOnlySchema, additionalMigrationPaths)
+    flywayMigrations.migrate(allowExistingSchema)
   }
 }
