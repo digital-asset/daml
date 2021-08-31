@@ -5,7 +5,8 @@ package com.daml.http
 
 import java.nio.file.Paths
 
-import com.daml.http.dbbackend.{JdbcConfig, DBConfig}
+import com.daml.dbutils.DBConfig.JdbcConfigDefaults
+import dbbackend.JdbcConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scopt.{Read, RenderingMode}
@@ -14,7 +15,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 class OptionParser(getEnvVar: String => Option[String])(implicit
-    supportedJdbcDriverNames: DBConfig.SupportedJdbcDriverNames
+    jdbcConfigDefaults: JdbcConfigDefaults
 ) extends scopt.OptionParser[Config]("http-json-binary")
     with StrictLogging {
 
@@ -31,12 +32,7 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
   }
 
   private def parseJdbcConfig(s: String): Either[String, JdbcConfig] =
-    for {
-      m <- Try(implicitly[Read[Map[String, String]]].reads(s)).toEither.left.map(_ =>
-        s"Failed to parse $s into a comma-separated key-value map"
-      )
-      conf <- JdbcConfig.create(m)
-    } yield conf
+    Try(implicitly[Read[JdbcConfig]].reads(s)).toEither.left.map(_.getMessage)
 
   private def parseJdbcConfigEnvVar(
       envVar: String,

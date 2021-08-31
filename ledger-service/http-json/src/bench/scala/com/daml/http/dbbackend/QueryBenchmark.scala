@@ -42,7 +42,7 @@ class QueryBenchmark extends ContractDaoBenchmark {
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
-    implicit val driver: SupportedJdbcDriver = dao.jdbcDriver
+    implicit val driver: SupportedJdbcDriver.TC = dao.jdbcDriver
     val result = dao
       .transact(ContractDao.selectContracts(OneAnd(Party(party), Set.empty), tpid, fr"1 = 1"))
       .unsafeRunSync()
