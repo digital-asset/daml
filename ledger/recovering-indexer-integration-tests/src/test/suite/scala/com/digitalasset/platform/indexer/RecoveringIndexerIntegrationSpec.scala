@@ -213,6 +213,7 @@ class RecoveringIndexerIntegrationSpec
           jdbcUrl = jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
+          enableAppendOnlySchema = false,
         ),
         servicesExecutionContext = servicesExecutionContext,
         metrics = new Metrics(new MetricRegistry),

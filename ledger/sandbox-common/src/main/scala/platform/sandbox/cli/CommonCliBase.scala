@@ -333,12 +333,20 @@ class CommonCliBase(name: LedgerName) {
 
       // TODO append-only: cleanup
       opt[Unit]("enable-compression")
-        .hidden()
         .optional()
         .action((_, config) => config.copy(enableCompression = true))
         .text(
-          s"By default compression is off, this switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
+          s"Enables application-side compression of Daml-LF values stored in the database using the append-only schema." +
+            " By default, compression is disabled."
         )
+
+      checkConfig(c => {
+        if (c.enableCompression && !c.enableAppendOnlySchema)
+          failure(
+            "Compression (`--enable-compression`) can only be used together with the append-only schema (`--enable-append-only-schema`)."
+          )
+        else success
+      })
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
