@@ -275,7 +275,8 @@ object UpdateToDbDto {
             (Some(offset.toHexString), None, None)
           case DeduplicationDuration(duration) =>
             (None, Some(duration.getSeconds), Some(duration.getNano))
-        }.getOrElse((None, None, None))
+        }
+        .getOrElse((None, None, None))
 
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
