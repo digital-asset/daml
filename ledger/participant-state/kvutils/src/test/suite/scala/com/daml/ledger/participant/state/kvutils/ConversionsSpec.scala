@@ -128,7 +128,11 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.InternallyInconsistentTransaction.InconsistentKeys,
-              Code.ABORTED,
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.InternallyInconsistentTransaction.DuplicateKeys,
+              Code.INVALID_ARGUMENT,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
@@ -136,6 +140,10 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
               Code.ABORTED,
             ),
             (
@@ -188,28 +196,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               .code shouldBe expectedCode.value()
           }
         }
-      }
-
-      "convert internal duplicate keys" in {
-        val encodedEntry = Conversions
-          .encodeTransactionRejectionEntry(
-            submitterInfo,
-            Rejection.InternallyInconsistentTransaction.DuplicateKeys,
-          )
-          .build()
-        Conversions
-          .decodeTransactionRejectionEntry(encodedEntry) shouldBe None
-      }
-
-      "convert external external duplicate keys" in {
-        val encodedEntry = Conversions
-          .encodeTransactionRejectionEntry(
-            submitterInfo,
-            Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
-          )
-          .build()
-        Conversions
-          .decodeTransactionRejectionEntry(encodedEntry) shouldBe None
       }
 
       "convert v1 rejections" should {

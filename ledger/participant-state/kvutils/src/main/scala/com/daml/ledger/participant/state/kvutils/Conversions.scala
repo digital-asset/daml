@@ -513,11 +513,16 @@ private[state] object Conversions {
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_DUPLICATE_KEYS =>
-        None
+        Some(
+          buildStatus(
+            Code.INVALID_ARGUMENT,
+            InternallyInconsistentTransaction.DuplicateKeys.description,
+          )
+        )
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.INVALID_ARGUMENT,
             InternallyInconsistentTransaction.InconsistentKeys.description,
           )
         )
@@ -529,7 +534,12 @@ private[state] object Conversions {
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS =>
-        None
+        Some(
+          buildStatus(
+            Code.ABORTED,
+            ExternallyInconsistentTransaction.DuplicateKeys.description,
+          )
+        )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
