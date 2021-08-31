@@ -525,22 +525,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
             )"""
     }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
-      SQL"""
-          -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-    }(connection, loggingContext)
-
-    pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
-      SQL"""
-          -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-    }(connection, loggingContext)
-
     if (pruneAllDivulgedContracts) {
       val pruneAfterClause =
         participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
@@ -566,6 +550,22 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
          """
       }(connection, loggingContext)
     }
+
+    pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
+      SQL"""
+          -- Exercise events (consuming)
+          delete from participant_events_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
+      SQL"""
+          -- Exercise events (non-consuming)
+          delete from participant_events_non_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
   }
 
   private def participantAllDivulgedContractsPrunedUpToInclusive(
