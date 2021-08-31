@@ -261,6 +261,7 @@ object WebSocketService {
             } yield eventOffset > queryOffset
           matches.getOrElse(true)
         }
+
         def fn(
             q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), Int)]]
         )(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
@@ -285,26 +286,25 @@ object WebSocketService {
           }.toMap
           (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
+
+        val query = (gacr: domain.SearchForeverQuery, ix: Int) =>
+          for {
+            res <-
+              gacr.templateIds.toList
+                .traverse(x => resolveTemplateId(lc)(jwt)(x).map(_.toOption.flatten.toLeft(x)))
+                .map(
+                  _.toSet[
+                    Either[domain.TemplateId.RequiredPkg, domain.TemplateId.OptionalPkg]
+                  ]
+                    .partitionMap(identity)
+                )
+            (resolved, unresolved) = res
+            q = prepareFilters(resolved, gacr.query, lookupType): CompiledQueries
+          } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
         for {
           res <-
             request.queries.zipWithIndex
-              .foldMapM { case (gacr, ix) =>
-                for {
-                  res <-
-                    gacr.templateIds.toList
-                      .traverse(x =>
-                        resolveTemplateId(lc)(jwt)(x).map(_.toOption.flatten.toLeft(x))
-                      )
-                      .map(
-                        _.toSet[
-                          Either[domain.TemplateId.RequiredPkg, domain.TemplateId.OptionalPkg]
-                        ]
-                          .partitionMap(identity)
-                      )
-                  (resolved, unresolved) = res
-                  q = prepareFilters(resolved, gacr.query, lookupType): CompiledQueries
-                } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
-              }
+              .foldMapM(query.tupled)
           (resolved, unresolved, q) = res
         } yield StreamPredicate(
           resolved,
