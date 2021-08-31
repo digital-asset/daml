@@ -125,7 +125,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             someSubmitterInfo,
           )
           completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)
-          status.code shouldBe Code.INVALID_ARGUMENT.value
+          status.code shouldBe Code.ABORTED.value
           ()
         case _ => fail()
       }
