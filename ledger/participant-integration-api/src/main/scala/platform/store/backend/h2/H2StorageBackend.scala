@@ -127,6 +127,10 @@ private[backend] object H2StorageBackend
           .map(p => cSQL"array_contains(#$columnName, '#${p.toString}')")
           .mkComposite("(", " or ", ")")
 
+    override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
+      s"array_contains($arrayColumnName, $elementColumnName)"
+
+    override def isTrue(booleanColumnName: String): String = booleanColumnName
   }
 
   override def queryStrategy: QueryStrategy = H2QueryStrategy
