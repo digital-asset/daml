@@ -8,10 +8,7 @@ import java.time.{Duration, Instant}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
-  DisclosureEntry,
-  DivulgenceEntry,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{DisclosureEntry, DivulgenceEntry}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.lf.crypto
@@ -130,15 +127,15 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
-              Code.INVALID_ARGUMENT,
-            ),
-            (
-              Rejection.InvalidParticipantState(Err.InternalError("error")),
               Code.ABORTED,
             ),
             (
-              Rejection.RecordTimeOutOfRange(now, now),
+              Rejection.InvalidParticipantState(Err.InternalError("error")),
               Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(now, now),
+              Code.ABORTED,
             ),
             (
               Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
@@ -146,7 +143,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.CausalMonotonicityViolated,
-              Code.INVALID_ARGUMENT,
+              Code.ABORTED,
             ),
             (
               Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),

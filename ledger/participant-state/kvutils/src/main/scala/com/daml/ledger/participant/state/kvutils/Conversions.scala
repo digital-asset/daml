@@ -502,65 +502,65 @@ private[state] object Conversions {
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            s"Validation failure: ${rejection.getDetails}",
+            s"Disputed: ${rejection.getDetails}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_DUPLICATE_KEYS =>
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            InternallyInconsistentTransaction.DuplicateKeys.description,
+            s"Disputed: ${InternallyInconsistentTransaction.DuplicateKeys.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            InternallyInconsistentTransaction.InconsistentKeys.description,
+            s"Disputed: ${InternallyInconsistentTransaction.InconsistentKeys.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_CONTRACTS =>
         Some(
           buildStatus(
             Code.ABORTED,
-            ExternallyInconsistentTransaction.InconsistentContracts.description,
+            s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentContracts.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS =>
         Some(
           buildStatus(
             Code.ABORTED,
-            ExternallyInconsistentTransaction.DuplicateKeys.description,
+            s"Inconsistent: ${ExternallyInconsistentTransaction.DuplicateKeys.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
             Code.ABORTED,
-            ExternallyInconsistentTransaction.InconsistentKeys.description,
+            s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentKeys.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.MISSING_INPUT_STATE =>
         val rejection = entry.getMissingInputState
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Missing input state for key: ${rejection.getKey.toString}",
+            Code.ABORTED,
+            s"Inconsistent: Missing input state for key ${rejection.getKey.toString}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.RECORD_TIME_OUT_OF_RANGE =>
         val rejection = entry.getRecordTimeOutOfRange
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Record time out of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
+            Code.ABORTED,
+            s"Invalid ledger time: Record time is outside of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.CAUSAL_MONOTONICITY_VIOLATED =>
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
-            "Causal monotonicity violated",
+            Code.ABORTED,
+            "Invalid ledger time: Causal monotonicity violated",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER =>
@@ -568,7 +568,7 @@ private[state] object Conversions {
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            s"Submitting party ${rejection.getSubmitterParty} not known on ledger",
+            s"Party not known on ledger: Submitting party '${rejection.getSubmitterParty}' not known",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER =>
@@ -576,15 +576,16 @@ private[state] object Conversions {
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            s"Parties not known on ledger ${rejection.getPartiesList.asScala.mkString("[", ",", "]")}",
+            s"Party not known on ledger: Parties not known on ledger ${rejection.getPartiesList.asScala
+              .mkString("[", ",", "]")}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_PARTICIPANT_STATE =>
         val rejection = entry.getInvalidParticipantState
         Some(
           buildStatus(
-            Code.ABORTED,
-            rejection.getDetails,
+            Code.INVALID_ARGUMENT,
+            s"Disputed: ${rejection.getDetails}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>

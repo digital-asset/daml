@@ -350,7 +350,7 @@ object KeyValueConsumption {
             ),
             reasonTemplate = FinalReason(
               Status.of(
-                Code.INVALID_ARGUMENT.value,
+                Code.ABORTED.value,
                 reason,
                 Seq.empty,
               )

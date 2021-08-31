@@ -195,7 +195,7 @@ final class ContractKeysIT extends LedgerTestSuite {
       assertGrpcError(
         duplicateKeyFailure,
         Status.Code.ABORTED,
-        Some(Pattern.compile("DuplicateKey")),
+        Some(Pattern.compile("Inconsistent")),
       )
       assertGrpcError(
         bobLooksUpTextKeyFailure,

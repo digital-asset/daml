@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import java.util.regex.Pattern
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -31,7 +33,7 @@ class ClosedWorldIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "",
+        Some(Pattern.compile("Part(y|ies) not known on ledger")),
       )
     }
   })
