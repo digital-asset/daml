@@ -82,7 +82,7 @@ private[platform] object CompletionFromTransaction {
       offset = Some(LedgerOffset.of(LedgerOffset.Value.Absolute(offset.toApiString))),
     )
 
-  private def toApiCompletion(
+  private[store] def toApiCompletion(
       commandId: String,
       transactionId: String,
       applicationId: String,
@@ -92,6 +92,12 @@ private[platform] object CompletionFromTransaction {
       maybeDeduplicationTimeSeconds: Option[Long],
       maybeDeduplicationTimeNanos: Option[Int],
   ): Completion = {
+    val completionWithMandatoryFields = Completion(
+      commandId = commandId,
+      status = maybeStatus,
+      transactionId = transactionId,
+      applicationId = applicationId,
+    )
     val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
       maybeDeduplicationOffset = maybeDeduplicationOffset,
       maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
@@ -99,37 +105,20 @@ private[platform] object CompletionFromTransaction {
     )
     (maybeSubmissionId, maybeDeduplicationPeriod) match {
       case (Some(submissionId), Some(deduplicationPeriod)) =>
-        Completion(
-          commandId = commandId,
-          status = maybeStatus,
-          transactionId = transactionId,
-          applicationId = applicationId,
+        completionWithMandatoryFields.copy(
           submissionId = submissionId,
           deduplicationPeriod = deduplicationPeriod,
         )
-      case (Some(submissionId), _) =>
-        Completion(
-          commandId = commandId,
-          status = maybeStatus,
-          transactionId = transactionId,
-          applicationId = applicationId,
-          submissionId = submissionId,
+      case (Some(submissionId), None) =>
+        completionWithMandatoryFields.copy(
+          submissionId = submissionId
         )
       case (None, Some(deduplicationPeriod)) =>
-        Completion(
-          commandId = commandId,
-          status = maybeStatus,
-          transactionId = transactionId,
-          applicationId = applicationId,
-          deduplicationPeriod = deduplicationPeriod,
+        completionWithMandatoryFields.copy(
+          deduplicationPeriod = deduplicationPeriod
         )
       case _ =>
-        Completion(
-          commandId = commandId,
-          status = maybeStatus,
-          transactionId = transactionId,
-          applicationId = applicationId,
-        )
+        completionWithMandatoryFields
     }
   }
 
