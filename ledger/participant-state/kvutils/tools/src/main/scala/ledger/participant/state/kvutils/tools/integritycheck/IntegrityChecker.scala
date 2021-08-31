@@ -319,6 +319,7 @@ object IntegrityChecker {
       participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl(config),
       startupMode = IndexerStartupMode.MigrateAndStart,
+      enableAppendOnlySchema = false,
     )
 
   private[integritycheck] def jdbcUrl(config: Config): String =

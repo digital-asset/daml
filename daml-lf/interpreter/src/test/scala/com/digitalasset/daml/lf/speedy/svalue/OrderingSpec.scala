@@ -14,7 +14,7 @@ import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.iface
-import com.daml.lf.interpretation.Error.ContractIdFreshness
+import com.daml.lf.interpretation.Error.ContractIdComparability
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
@@ -173,9 +173,9 @@ class OrderingSpec
 
       forEvery(positiveTestCases) { globalCid =>
         Try(Ordering.compare(vCid10, SContractId(globalCid))) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdFreshness(globalCid)))
+          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
         Try(Ordering.compare(SContractId(globalCid), vCid10)) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdFreshness(globalCid)))
+          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
       }
 
     }

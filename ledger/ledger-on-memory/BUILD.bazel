@@ -259,3 +259,16 @@ conformance_test(
         "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
     ],
 )
+
+conformance_test(
+    name = "conformance-test-contract-ids",
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
+    ],
+)

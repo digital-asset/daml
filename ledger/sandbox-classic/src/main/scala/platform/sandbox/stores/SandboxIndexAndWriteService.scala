@@ -92,7 +92,14 @@ private[sandbox] object SandboxIndexAndWriteService {
       validatePartyAllocation = validatePartyAllocation,
       enableAppendOnlySchema = enableAppendOnlySchema,
       enableCompression = enableCompression,
-    ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
+    ).flatMap(ledger =>
+      owner(
+        ledger = MeteredLedger(ledger, metrics),
+        participantId = participantId,
+        timeProvider = timeProvider,
+        enablePruning = enableAppendOnlySchema,
+      )
+    )
 
   def inMemory(
       name: LedgerName,
@@ -117,19 +124,25 @@ private[sandbox] object SandboxIndexAndWriteService {
         templateStore,
         ledgerEntries,
       )
-    owner(MeteredLedger(ledger, metrics), participantId, timeProvider)
+    owner(
+      ledger = MeteredLedger(ledger, metrics),
+      participantId = participantId,
+      timeProvider = timeProvider,
+      enablePruning = false,
+    )
   }
 
   private def owner(
       ledger: Ledger,
       participantId: Ref.ParticipantId,
       timeProvider: TimeProvider,
+      enablePruning: Boolean,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[IndexAndWriteService] = {
     val indexSvc = new LedgerBackedIndexService(ledger, participantId)
-    val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
+    val writeSvc = new LedgerBackedWriteService(ledger, timeProvider, enablePruning)
 
     for {
       _ <- new HeartbeatScheduler(

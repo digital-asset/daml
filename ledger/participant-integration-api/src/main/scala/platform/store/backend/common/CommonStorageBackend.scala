@@ -491,6 +491,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           -- Retroactive divulgence events
           delete from participant_events_divulgence delete_events
           where delete_events.event_offset <= $pruneUpToInclusive
+            or delete_events.event_offset is null
           """
       }(connection, loggingContext)
     } else {

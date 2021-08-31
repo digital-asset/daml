@@ -28,11 +28,11 @@ object DbStartupOps {
       lc: LoggingContextOf[InstanceUUID],
       log: LogHandler,
   ): IO[Either[Throwable, DbVersionState]] = {
-    import dao.jdbcDriver, scalaz.Scalaz._
+    import dao.jdbcDriver, jdbcDriver.q.queries, scalaz.Scalaz._
     for {
       _ <- IO(logger.info("Checking for existing schema in the DB"))
-      currentSchemaVersion = jdbcDriver.queries.schemaVersion
-      getVersionResult <- dao.transact(jdbcDriver.queries.version()).attempt
+      currentSchemaVersion = queries.schemaVersion
+      getVersionResult <- dao.transact(queries.version()).attempt
     } yield getVersionResult
       .bimap(
         { err =>
@@ -51,7 +51,7 @@ object DbStartupOps {
   def initialize(implicit dao: ContractDao, lc: LoggingContextOf[InstanceUUID]): IO[Boolean] = {
     import dao.{logHandler, jdbcDriver}
     for {
-      _ <- IO(logger.info(s"Creating DB schema, version ${jdbcDriver.queries.schemaVersion}"))
+      _ <- IO(logger.info(s"Creating DB schema, version ${jdbcDriver.q.queries.schemaVersion}"))
       res <- dao.transact(ContractDao.initialize).attempt
       _ = res.fold(
         e => logger.error("Failed to initialize DB", e),

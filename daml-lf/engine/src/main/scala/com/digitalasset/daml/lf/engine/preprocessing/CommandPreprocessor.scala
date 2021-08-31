@@ -13,10 +13,17 @@ import scala.annotation.tailrec
 
 private[lf] final class CommandPreprocessor(
     interface: language.Interface,
-    requiredCidSuffix: Boolean,
+    // See Preprocessor scala doc for more details about the following flags.
+    forbidV0ContractId: Boolean,
+    requireV1ContractIdSuffix: Boolean,
 ) {
 
-  val valueTranslator = new ValueTranslator(interface, requiredCidSuffix)
+  val valueTranslator =
+    new ValueTranslator(
+      interface = interface,
+      forbidV0ContractId = forbidV0ContractId,
+      requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+    )
 
   import Preprocessor._
 
@@ -88,6 +95,7 @@ private[lf] final class CommandPreprocessor(
   }
 
   // returns the speedy translation of an LF command together with all the contract IDs contains inside.
+  @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafePreprocessCommand(
       cmd: command.Command
   ): speedy.Command = {

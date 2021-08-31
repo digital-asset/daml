@@ -188,7 +188,7 @@ CREATE INDEX participant_events_divulgence_template_id_idx ON participant_events
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
-CREATE INDEX participant_events_divulgence_tree_event_witnesses_idx ON participant_events_divulgence(JSON_ARRAY(tree_event_witnesses));
+-- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
 
 -- lookup divulgance events, in order of ingestion
 CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence(contract_id, event_sequential_id);
@@ -256,9 +256,7 @@ CREATE INDEX participant_events_create_template_id_idx ON participant_events_cre
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
--- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit
-CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create(JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create(JSON_ARRAY(tree_event_witnesses));
+-- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
 
 -- lookup by contract id
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(contract_id);
@@ -330,9 +328,7 @@ CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participan
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
--- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit
-CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(tree_event_witnesses));
+-- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
 
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
@@ -401,10 +397,7 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- There is no equivalent to GIN index for oracle, but we explicitly mark as a JSON column for indexing
 -- NOTE: index name truncated because the full name exceeds the 63 characters length limit
--- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit
-CREATE INDEX participant_events_non_consuming_exercise_flat_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_non_consuming_exercise_tree_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
-
+-- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
 
 CREATE VIEW participant_events AS
 SELECT cast(0 as SMALLINT)          AS event_kind,

@@ -46,10 +46,10 @@ class HttpServiceWithPostgresIntTest
   private def selectAllDbContracts
       : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
     import doobie.implicits._, doobie.postgres.implicits._
-    import dao.jdbcDriver._, queries.Implicits._
+    import dao.jdbcDriver.q.queries, queries.Implicits._
 
     val q =
-      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM ${dao.jdbcDriver.queries.contractTableName}"""
+      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM ${queries.contractTableName}"""
         .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
 
     dao.transact(q.to[List]).unsafeToFuture()

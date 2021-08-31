@@ -87,9 +87,9 @@ private[sandbox] object SqlLedger {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
-      validatePartyAllocation: Boolean = false,
-      enableAppendOnlySchema: Boolean = false,
-      enableCompression: Boolean = false,
+      validatePartyAllocation: Boolean,
+      enableAppendOnlySchema: Boolean,
+      enableCompression: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -426,7 +426,7 @@ private final class SqlLedger(
               completionInfo = Some(submitterInfo.toCompletionInfo),
               recordTime = recordTime,
               offsetStep = CurrentOffset(offset),
-              reason = reason.toStateV2RejectionReason,
+              reason = reason.toStateRejectionReason,
             ),
           _ => {
             val divulgedContracts = Nil

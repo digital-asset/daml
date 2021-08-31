@@ -49,9 +49,13 @@ private[lf] object Equality {
                       SContractId(cid2 @ ContractId.V1(discriminator2, suffix2)),
                     ) if discriminator1 == discriminator2 =>
                   if (suffix1.isEmpty)
-                    throw SError.SErrorDamlException(interpretation.Error.ContractIdFreshness(cid2))
+                    throw SError.SErrorDamlException(
+                      interpretation.Error.ContractIdComparability(cid2)
+                    )
                   else if (suffix2.isEmpty)
-                    throw SError.SErrorDamlException(interpretation.Error.ContractIdFreshness(cid1))
+                    throw SError.SErrorDamlException(
+                      interpretation.Error.ContractIdComparability(cid1)
+                    )
                   else
                     false
                 case _ =>

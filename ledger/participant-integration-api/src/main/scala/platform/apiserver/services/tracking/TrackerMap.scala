@@ -3,13 +3,14 @@
 
 package com.daml.platform.apiserver.services.tracking
 
+import java.time.Duration
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   TrackedCompletionFailure,
@@ -31,7 +32,7 @@ import scala.util.{Failure, Success}
   *                   Called when there is no tracker for the given key.
   */
 private[services] final class TrackerMap[Key](
-    retentionPeriod: FiniteDuration,
+    retentionPeriod: Duration,
     getKey: Commands => Key,
     newTracker: Key => Future[Tracker],
 )(implicit loggingContext: LoggingContext)
@@ -45,21 +46,23 @@ private[services] final class TrackerMap[Key](
   @volatile private var trackerBySubmitter =
     HashMap.empty[Key, TrackerMap.AsyncResource[TrackerWithLastSubmission]]
 
-  require(
-    retentionPeriod < Long.MaxValue.nanoseconds,
-    s"Retention period $retentionPeriod is too long. Must be below ${Long.MaxValue} nanoseconds.",
-  )
-
-  private val retentionNanos = retentionPeriod.toNanos
+  private val retentionNanos =
+    try {
+      retentionPeriod.toNanos
+    } catch {
+      case _: ArithmeticException =>
+        throw new IllegalArgumentException(
+          s"Retention period $retentionPeriod is invalid. Must be between 1 and ${Long.MaxValue} nanoseconds."
+        )
+    }
 
   override def track(
-      request: SubmitAndWaitRequest
+      submission: CommandSubmission
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-    val commands = request.getCommands
-    val key = getKey(commands)
+    val key = getKey(submission.commands)
     // double-checked locking
     trackerBySubmitter
       .getOrElse(
@@ -68,7 +71,7 @@ private[services] final class TrackerMap[Key](
           trackerBySubmitter.getOrElse(key, registerNewTracker(key))
         },
       )
-      .withResource(_.track(request))
+      .withResource(_.track(submission))
   }
 
   private def registerNewTracker(
@@ -118,7 +121,7 @@ private[services] final class TrackerMap[Key](
 
 private[services] object TrackerMap {
   final class SelfCleaning[Key](
-      retentionPeriod: FiniteDuration,
+      retentionPeriod: Duration,
       getKey: Commands => Key,
       newTracker: Key => Future[Tracker],
       cleanupInterval: FiniteDuration,
@@ -132,12 +135,12 @@ private[services] object TrackerMap {
       .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(() => delegate.cleanup())
 
     override def track(
-        request: SubmitAndWaitRequest
+        submission: CommandSubmission
     )(implicit
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
-      delegate.track(request)
+      delegate.track(submission)
 
     override def close(): Unit = {
       trackerCleanupJob.cancel()
@@ -205,13 +208,13 @@ private[services] object TrackerMap {
     def getLastSubmission: Long = lastSubmission
 
     override def track(
-        request: SubmitAndWaitRequest
+        submission: CommandSubmission
     )(implicit
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
       lastSubmission = System.nanoTime()
-      delegate.track(request)
+      delegate.track(submission)
     }
 
     override def close(): Unit = delegate.close()

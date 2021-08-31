@@ -3,7 +3,7 @@
 
 package com.daml.platform.configuration
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import java.time.Duration
 
 /** Reaching either [[inputBufferSize]] or [[maxCommandsInFlight]] will trigger
   * back-pressure by [[com.daml.ledger.client.services.commands.CommandClient]].
@@ -28,11 +28,11 @@ final case class CommandConfiguration(
     inputBufferSize: Int,
     maxParallelSubmissions: Int,
     maxCommandsInFlight: Int,
-    trackerRetentionPeriod: FiniteDuration,
+    trackerRetentionPeriod: Duration,
 )
 
 object CommandConfiguration {
-  val DefaultTrackerRetentionPeriod: FiniteDuration = 5.minutes
+  val DefaultTrackerRetentionPeriod: Duration = Duration.ofMinutes(5)
 
   lazy val default: CommandConfiguration =
     CommandConfiguration(

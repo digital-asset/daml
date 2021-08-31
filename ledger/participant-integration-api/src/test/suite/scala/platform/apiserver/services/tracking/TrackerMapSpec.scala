@@ -3,10 +3,11 @@
 
 package com.daml.platform.apiserver.services.tracking
 
+import java.time.Duration
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   TrackedCompletionFailure,
@@ -20,7 +21,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.compat._
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class TrackerMapSpec extends AsyncWordSpec with Matchers {
@@ -28,20 +29,31 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "the tracker map" should {
+    "reject a retention period that is too long" in {
+      val exception = the[IllegalArgumentException] thrownBy new TrackerMap[Unit](
+        retentionPeriod = Duration.ofSeconds(Long.MaxValue),
+        getKey = _ => (),
+        newTracker = _ => Future.failed(new IllegalStateException("This should never be called.")),
+      )
+      exception.getMessage should be(
+        s"Retention period PT2562047788015215H30M7S is invalid. Must be between 1 and ${Long.MaxValue} nanoseconds."
+      )
+    }
+
     "delegate submissions to the constructed trackers" in {
       val transactionIds = Seq("transaction A", "transaction B").iterator
       val tracker = new TrackerMap[String](
-        retentionPeriod = 1.minute,
+        retentionPeriod = Duration.ofMinutes(1),
         getKey = commands => commands.commandId,
         newTracker = _ => Future.successful(new FakeTracker(transactionIds)),
       )
 
       for {
         completion1 <- tracker.track(
-          SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "1", actAs = Seq("Alice"))))
+          CommandSubmission(Commands(commandId = "1", actAs = Seq("Alice")))
         )
         completion2 <- tracker.track(
-          SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "2", actAs = Seq("Bob"))))
+          CommandSubmission(Commands(commandId = "2", actAs = Seq("Bob")))
         )
       } yield {
         completion1 should matchPattern { case Right(CompletionSuccess("1", "transaction A", _)) =>
@@ -54,7 +66,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
     "only construct one tracker per key" in {
       val trackerCount = new AtomicInteger(0)
       val tracker = new TrackerMap[Set[String]](
-        retentionPeriod = 1.minute,
+        retentionPeriod = Duration.ofMinutes(1),
         getKey = commands => commands.actAs.toSet,
         newTracker = actAs => {
           trackerCount.incrementAndGet()
@@ -66,14 +78,10 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
 
       for {
         completion1 <- tracker.track(
-          SubmitAndWaitRequest.of(
-            commands = Some(Commands(commandId = "X", actAs = Seq("Alice", "Bob")))
-          )
+          CommandSubmission(Commands(commandId = "X", actAs = Seq("Alice", "Bob")))
         )
         completion2 <- tracker.track(
-          SubmitAndWaitRequest.of(
-            commands = Some(Commands(commandId = "Y", actAs = Seq("Bob", "Alice")))
-          )
+          CommandSubmission(Commands(commandId = "Y", actAs = Seq("Bob", "Alice")))
         )
       } yield {
         trackerCount.get() should be(1)
@@ -89,7 +97,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
       val expectedTrackerCount = 10
       val actualTrackerCount = new AtomicInteger(0)
       val tracker = new TrackerMap[String](
-        retentionPeriod = 1.minute,
+        retentionPeriod = Duration.ofMinutes(1),
         getKey = commands => commands.applicationId,
         newTracker = _ => {
           actualTrackerCount.incrementAndGet()
@@ -99,9 +107,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
 
       val requests = (0 until requestCount).map { i =>
         val key = (i % expectedTrackerCount).toString
-        SubmitAndWaitRequest.of(
-          commands = Some(Commands(commandId = i.toString, applicationId = key))
-        )
+        CommandSubmission(Commands(commandId = i.toString, applicationId = key))
       }
       Future.sequence(requests.map(tracker.track)).map { completions =>
         actualTrackerCount.get() should be(expectedTrackerCount)
@@ -112,7 +118,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
     "clean up old trackers" in {
       val trackerCounts = TrieMap.empty[Set[String], AtomicInteger]
       val tracker = new TrackerMap[Set[String]](
-        retentionPeriod = Duration.Zero,
+        retentionPeriod = Duration.ZERO,
         getKey = commands => commands.actAs.toSet,
         newTracker = actAs => {
           trackerCounts.getOrElseUpdate(actAs, new AtomicInteger(0)).incrementAndGet()
@@ -121,16 +127,10 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
       )
 
       for {
-        _ <- tracker.track(
-          SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "1", actAs = Seq("Alice"))))
-        )
-        _ <- tracker.track(
-          SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "2", actAs = Seq("Bob"))))
-        )
+        _ <- tracker.track(CommandSubmission(Commands(commandId = "1", actAs = Seq("Alice"))))
+        _ <- tracker.track(CommandSubmission(Commands(commandId = "2", actAs = Seq("Bob"))))
         _ = tracker.cleanup()
-        _ <- tracker.track(
-          SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "3", actAs = Seq("Bob"))))
-        )
+        _ <- tracker.track(CommandSubmission(Commands(commandId = "3", actAs = Seq("Bob"))))
       } yield {
         val finalTrackerCounts = trackerCounts.view.mapValues(_.get()).toMap
         finalTrackerCounts should be(Map(Set("Alice") -> 1, Set("Bob") -> 2))
@@ -140,7 +140,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
     "clean up failed trackers" in {
       val trackerCounts = TrieMap.empty[String, AtomicInteger]
       val tracker = new TrackerMap[String](
-        retentionPeriod = 1.minute,
+        retentionPeriod = Duration.ofMinutes(1),
         getKey = commands => commands.applicationId,
         newTracker = applicationId => {
           trackerCounts.getOrElseUpdate(applicationId, new AtomicInteger(0)).incrementAndGet()
@@ -152,21 +152,13 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
       )
 
       for {
-        _ <- tracker.track(
-          SubmitAndWaitRequest.of(
-            commands = Some(Commands(commandId = "1", applicationId = "test"))
-          )
-        )
+        _ <- tracker.track(CommandSubmission(Commands(commandId = "1", applicationId = "test")))
         failure1 <- tracker
-          .track(
-            SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "2", applicationId = "")))
-          )
+          .track(CommandSubmission(Commands(commandId = "2", applicationId = "")))
           .failed
         _ = tracker.cleanup()
         failure2 <- tracker
-          .track(
-            SubmitAndWaitRequest.of(commands = Some(Commands(commandId = "3", applicationId = "")))
-          )
+          .track(CommandSubmission(Commands(commandId = "3", applicationId = "")))
           .failed
       } yield {
         val finalTrackerCounts = trackerCounts.view.mapValues(_.get()).toMap
@@ -182,14 +174,14 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
       val openTrackerCount = new AtomicInteger(0)
       val closedTrackerCount = new AtomicInteger(0)
       val tracker = new TrackerMap[String](
-        retentionPeriod = 1.minute,
+        retentionPeriod = Duration.ofMinutes(1),
         getKey = commands => commands.applicationId,
         newTracker = _ =>
           Future.successful {
             openTrackerCount.incrementAndGet()
             new Tracker {
               override def track(
-                  request: SubmitAndWaitRequest
+                  submission: CommandSubmission
               )(implicit
                   executionContext: ExecutionContext,
                   loggingContext: LoggingContext,
@@ -197,7 +189,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                 Future.successful(
                   Right(
                     CompletionSuccess(
-                      commandId = request.getCommands.commandId,
+                      commandId = submission.commands.commandId,
                       transactionId = "",
                       originalStatus = Status.defaultInstance,
                     )
@@ -214,9 +206,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
 
       val requests = (0 until requestCount).map { i =>
         val key = (i % expectedTrackerCount).toString
-        SubmitAndWaitRequest.of(
-          commands = Some(Commands(commandId = i.toString, applicationId = key))
-        )
+        CommandSubmission(Commands(commandId = i.toString, applicationId = key))
       }
       for {
         _ <- Future.sequence(requests.map(tracker.track))
@@ -231,14 +221,14 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
       val openTracker = new AtomicBoolean(false)
       val closedTracker = new AtomicBoolean(false)
       val tracker = new TrackerMap[Unit](
-        retentionPeriod = 1.minute,
+        retentionPeriod = Duration.ofMinutes(1),
         getKey = _ => (),
         newTracker = _ =>
           Delayed.by(1.second) {
             openTracker.set(true)
             new Tracker {
               override def track(
-                  request: SubmitAndWaitRequest
+                  submission: CommandSubmission
               )(implicit
                   executionContext: ExecutionContext,
                   loggingContext: LoggingContext,
@@ -246,7 +236,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                 Future.successful(
                   Right(
                     CompletionSuccess(
-                      commandId = request.getCommands.commandId,
+                      commandId = submission.commands.commandId,
                       transactionId = "",
                       originalStatus = Status.defaultInstance,
                     )
@@ -261,11 +251,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
           },
       )
 
-      val completionF = tracker.track(
-        SubmitAndWaitRequest.of(
-          commands = Some(Commands(commandId = "command"))
-        )
-      )
+      val completionF = tracker.track(CommandSubmission(Commands(commandId = "command")))
       tracker.close()
       Delayed.Future.by(1.second)(completionF).map { completion =>
         openTracker.get() should be(true)
@@ -279,7 +265,7 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
 object TrackerMapSpec {
   final class FakeTracker(transactionIds: Iterator[String]) extends Tracker {
     override def track(
-        request: SubmitAndWaitRequest
+        submission: CommandSubmission
     )(implicit
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
@@ -287,7 +273,7 @@ object TrackerMapSpec {
       Future.successful(
         Right(
           CompletionSuccess(
-            commandId = request.getCommands.commandId,
+            commandId = submission.commands.commandId,
             transactionId = transactionIds.next(),
             originalStatus = Status.defaultInstance,
           )

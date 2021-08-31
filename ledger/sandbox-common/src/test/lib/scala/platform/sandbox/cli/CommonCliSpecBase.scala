@@ -3,10 +3,6 @@
 
 package com.daml.platform.sandbox.cli
 
-import java.io.File
-import java.net.InetSocketAddress
-import java.nio.file.{Files, Paths}
-
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.test.ModelTestDar
@@ -21,6 +17,9 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.io.File
+import java.net.{InetSocketAddress, URL}
+import java.nio.file.{Files, Paths}
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 
@@ -116,6 +115,57 @@ abstract class CommonCliSpecBase(
       checkOption(
         Array("--pem", pem),
         _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))),
+      )
+    }
+
+    "succeed when server's private key is encrypted and secret-url is provided" in {
+      checkOption(
+        Array(
+          "--pem",
+          "key.enc",
+          "--secrets-url",
+          "http://aaa",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              secretsUrl = Some(new URL("http://aaa")),
+              keyFile = Some(new File("key.enc")),
+              keyCertChainFile = None,
+              trustCertCollectionFile = None,
+            )
+          )
+        ),
+      )
+    }
+
+    "fail when server's private key is encrypted but secret-url is not provided" in {
+      checkOptionFail(
+        Array(
+          "--pem",
+          "key.enc",
+        )
+      )
+    }
+
+    "succeed when server's private key is in plaintext and secret-url is not provided" in {
+      checkOption(
+        Array(
+          "--pem",
+          "key.txt",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              secretsUrl = None,
+              keyFile = Some(new File("key.txt")),
+              keyCertChainFile = None,
+              trustCertCollectionFile = None,
+            )
+          )
+        ),
       )
     }
 
@@ -288,6 +338,11 @@ abstract class CommonCliSpecBase(
     val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
     val config = cli.parse(requiredArgs ++ args ++ Array(archive))
     config shouldEqual Some(expectedConfig)
+  }
+
+  protected def checkOptionFail(args: Array[String]): Assertion = {
+    val config = cli.parse(requiredArgs ++ args ++ Array(archive))
+    config shouldEqual None
   }
 }
 

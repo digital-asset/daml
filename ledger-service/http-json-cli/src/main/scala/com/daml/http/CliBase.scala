@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import com.daml.http.dbbackend.DBConfig
+import com.daml.dbutils.DBConfig
 
 trait CliBase {
 
@@ -12,13 +12,13 @@ trait CliBase {
       supportedJdbcDriverNames: Set[String],
       getEnvVar: String => Option[String] = sys.env.get,
   ): Option[Config] = {
-    implicit val jdn: DBConfig.SupportedJdbcDriverNames =
-      DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames)
+    implicit val jcd: DBConfig.JdbcConfigDefaults =
+      DBConfig.JdbcConfigDefaults(supportedJdbcDriverNames)
     configParser(getEnvVar).parse(args, Config.Empty)
   }
 
   protected[this] def configParser(getEnvVar: String => Option[String])(implicit
-      supportedJdbcDriverNames: DBConfig.SupportedJdbcDriverNames
+      jcd: DBConfig.JdbcConfigDefaults
   ): OptionParser
 
 }

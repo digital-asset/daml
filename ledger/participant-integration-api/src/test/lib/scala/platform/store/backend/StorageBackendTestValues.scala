@@ -184,7 +184,7 @@ private[backend] object StorageBackendTestValues {
   /** A single divulgence event
     */
   def dtoDivulgence(
-      offset: Offset,
+      offset: Option[Offset],
       eventSequentialId: Long,
       contractId: String,
       submitter: String = "signatory",
@@ -192,7 +192,7 @@ private[backend] object StorageBackendTestValues {
       commandId: String = UUID.randomUUID().toString,
   ): DbDto.EventDivulgence = {
     DbDto.EventDivulgence(
-      event_offset = Some(offset.toHexString),
+      event_offset = offset.map(_.toHexString),
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),

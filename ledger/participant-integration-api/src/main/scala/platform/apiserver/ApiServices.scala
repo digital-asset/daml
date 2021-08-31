@@ -42,6 +42,7 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   InitialLedgerConfiguration,
   PartyConfiguration,
+  SubmissionConfiguration,
 }
 import com.daml.platform.server.api.services.grpc.{
   GrpcCommandCompletionService,
@@ -86,6 +87,7 @@ private[daml] object ApiServices {
       initialLedgerConfiguration: Option[InitialLedgerConfiguration],
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
+      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -227,7 +229,8 @@ private[daml] object ApiServices {
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation
+            partyConfig.implicitPartyAllocation,
+            submissionConfig.enableDeduplication,
           ),
           metrics,
         )
@@ -236,23 +239,27 @@ private[daml] object ApiServices {
         // services internally. These connections do not use authorization, authorization wrappers are
         // only added here to all exposed services.
         val apiCommandService = ApiCommandService.create(
-          ApiCommandService.Configuration(
+          configuration = ApiCommandService.Configuration(
             ledgerId,
             commandConfig.inputBufferSize,
             commandConfig.maxCommandsInFlight,
             commandConfig.trackerRetentionPeriod,
           ),
           // Using local services skips the gRPC layer, improving performance.
-          ApiCommandService.LocalServices(
+          submissionFlow =
             CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
-            r => apiCompletionService.completionStreamSource(r),
-            () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
-            apiTransactionService.getTransactionById,
-            apiTransactionService.getFlatTransactionById,
+          completionServices = new ApiCommandService.CompletionServices(
+            getCompletionSource = apiCompletionService.completionStreamSource,
+            getCompletionEnd =
+              () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           ),
-          timeProvider,
-          ledgerConfigurationSubscription,
-          metrics,
+          transactionServices = new ApiCommandService.TransactionServices(
+            getTransactionById = apiTransactionService.getTransactionById,
+            getFlatTransactionById = apiTransactionService.getFlatTransactionById,
+          ),
+          timeProvider = timeProvider,
+          ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+          metrics = metrics,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(

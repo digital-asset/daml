@@ -3,12 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.io.File
-import java.nio.file.Path
-import java.time.Duration
-import java.util.UUID
-import java.util.concurrent.TimeUnit
-
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceOwner
@@ -18,11 +12,21 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  SubmissionConfiguration,
+}
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
+import java.io.File
+import java.net.URL
+import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
@@ -30,6 +34,7 @@ final case class Config[Extra](
     ledgerId: String,
     archiveFiles: Seq[Path],
     commandConfig: CommandConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
@@ -64,6 +69,7 @@ object Config {
       ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       commandConfig = CommandConfiguration.default,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -307,10 +313,38 @@ object Config {
 
         opt[String]("pem")
           .optional()
-          .text("TLS: The pem file to be used as the private key.")
+          .text(
+            "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
+          )
           .action((path, config) =>
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
+
+        opt[String]("secrets-url")
+          .optional()
+          .text(
+            "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+          )
+          .action((url, config) =>
+            config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url))))
+          )
+
+        checkConfig(c =>
+          c.tlsConfig.fold(success) { tlsConfig =>
+            if (
+              tlsConfig.keyFile.isDefined
+              && tlsConfig.keyFile.get.getName.endsWith(".enc")
+              && tlsConfig.secretsUrl.isEmpty
+            ) {
+              failure(
+                "You need to provide a secrets server URL if the server's private key is an encrypted file."
+              )
+            } else {
+              success
+            }
+          }
+        )
+
         opt[String]("crt")
           .optional()
           .text(
@@ -372,17 +406,24 @@ object Config {
         opt[Duration]("tracker-retention-period")
           .optional()
           .action((value, config) =>
-            config.copy(
-              commandConfig = config.commandConfig.copy(
-                trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS)
-              )
-            )
+            config.copy(commandConfig = config.commandConfig.copy(trackerRetentionPeriod = value))
           )
           .text(
             "The duration that the command service will keep an active command tracker for a given set of parties." +
               " A longer period cuts down on the tracker instantiation cost for a party that seldom acts." +
               " A shorter period causes a quick removal of unused trackers." +
               s" Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
+          )
+
+        opt[Unit]("disable-deduplication-unsafe")
+          .optional()
+          .hidden()
+          .action((_, config) =>
+            config
+              .copy(submissionConfig = config.submissionConfig.copy(enableDeduplication = false))
+          )
+          .text(
+            "Disable participant-side command deduplication."
           )
 
         opt[Int]("max-inbound-message-size")
@@ -521,9 +562,11 @@ object Config {
         // TODO append-only: remove after removing support for the current (mutating) schema
         opt[Unit]("index-append-only-schema")
           .optional()
-          .hidden()
           .text(
-            s"Use the append-only index database with parallel ingestion."
+            "Use the append-only index database with parallel ingestion." +
+              " The first time this flag is enabled, the index database will migrate to a new schema that allows for significantly higher ingestion performance." +
+              " This migration is irreversible, subsequent starts will have to enable this flag as well." +
+              " In the future, this flag will be removed and this application will automatically migrate to the new schema."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 

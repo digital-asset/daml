@@ -51,6 +51,7 @@ da_scala_test(
         "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/db-backend",
         "//ledger-service/http-json:http-json-ee",
         "//ledger-service/http-json:integration-tests-lib-ee",
         "//ledger-service/http-json-cli:ee",

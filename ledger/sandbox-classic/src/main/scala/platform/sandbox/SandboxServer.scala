@@ -175,6 +175,7 @@ final class SandboxServer(
         transactionNormalization = false,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
+        forbidV0ContractId = false,
       )
     }
     getEngine(engineConfig)
@@ -380,6 +381,7 @@ final class SandboxServer(
         partyConfig = PartyConfiguration.default.copy(
           implicitPartyAllocation = config.implicitPartyAllocation
         ),
+        submissionConfig = config.submissionConfig,
         optTimeServiceBackend = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,

@@ -466,7 +466,7 @@ object ApiSubmissionServiceSpec {
       seedService = SeedService.WeakRandom,
       commandExecutor = commandExecutor,
       configuration = ApiSubmissionService
-        .Configuration(implicitPartyAllocation),
+        .Configuration(implicitPartyAllocation, enableDeduplication = true),
       metrics = new Metrics(new MetricRegistry),
     )
   }
