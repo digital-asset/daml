@@ -31,15 +31,19 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   *                               this deduplication information, it MUST adhere to the deduplication
   *                               guarantee under a sensible interpretation of the corresponding
   *                               [[CompletionInfo.optDeduplicationPeriod]].
+  *
   * @param submissionId           An identifier for the submission that allows an application to
   *                               correlate completions to its submissions.
+  *
+  *                                Optional as entries created by the participant.state.v1 API do not have this filled.
+  *                                Only set for participant.state.v2 created entries
   */
 case class CompletionInfo(
     actAs: List[Ref.Party],
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
-    submissionId: Ref.SubmissionId,
+    submissionId: Option[Ref.SubmissionId],
 ) {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }

@@ -1450,7 +1450,7 @@ object UpdateToDbDtoSpec {
     applicationId = someApplicationId,
     commandId = someCommandId,
     optDeduplicationPeriod = None,
-    submissionId = someSubmissionId,
+    submissionId = Some(someSubmissionId),
   )
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),

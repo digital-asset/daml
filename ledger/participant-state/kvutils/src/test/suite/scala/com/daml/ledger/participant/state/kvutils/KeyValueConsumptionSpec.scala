@@ -141,7 +141,6 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
           recordTime shouldBe aRecordTime
           completionInfo shouldBe Conversions.parseCompletionInfo(
-            aLogEntryId,
             parseInstant(recordTime),
             someSubmitterInfo,
           )
@@ -301,10 +300,10 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         val inputEntry = buildOutOfTimeBoundsEntry(timeBounds, logEntryType)
         if (assertions.throwsInternalError) {
           assertThrows[Err.InternalError](
-            outOfTimeBoundsEntryToUpdate(aLogEntryId, recordTime, inputEntry)
+            outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
           )
         } else {
-          val actual = outOfTimeBoundsEntryToUpdate(aLogEntryId, recordTime, inputEntry)
+          val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
           assertions.verify(actual)
           ()
         }

@@ -7,30 +7,12 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
-import com.daml.ledger.participant.state.kvutils.Conversions.{
-  buildTimestamp,
-  commandDedupKey,
-  decodeBlindingInfo,
-  encodeBlindingInfo,
-  extractDivulgedContracts,
-  parseCompletionInfo,
-}
+import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlSubmitterInfo,
-  DamlTransactionBlindingInfo,
-  DamlTransactionRejectionEntry,
-  Disputed,
-  Duplicate,
-  Inconsistent,
-  PartyNotKnownOnLedger,
-  ResourcesExhausted,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
@@ -42,12 +24,12 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.ValueOuterClass
-import com.google.protobuf.ByteString
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
+import org.scalatest.wordspec.AnyWordSpec
+
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.jdk.CollectionConverters._
 
@@ -256,35 +238,30 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     }
 
     "decode completion info" should {
-      val entryId =
-        DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8("entryid")).build()
       val recordTime = Instant.now()
       def submitterInfo = {
         DamlSubmitterInfo.newBuilder().setApplicationId("id").setCommandId("commandId")
       }
 
-      "use entry id as submission id" in {
+      "use empty submission id" in {
         val completionInfo = parseCompletionInfo(
-          entryId,
           recordTime,
           submitterInfo.build(),
         )
-        completionInfo.submissionId shouldBe s"${Conversions.FillerSubmissionIdPrefix}entryid"
+        completionInfo.submissionId shouldBe None
       }
 
       "use defined submission id" in {
         val submissionId = "submissionId"
         val completionInfo = parseCompletionInfo(
-          entryId,
           recordTime,
           submitterInfo.setSubmissionId(submissionId).build(),
         )
-        completionInfo.submissionId shouldBe submissionId
+        completionInfo.submissionId.value shouldBe submissionId
       }
 
       "calculate duration for deduplication for backwards compatibility with deduplicate until" in {
         val completionInfo = parseCompletionInfo(
-          entryId,
           recordTime,
           submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.plusSeconds(30))).build(),
         )
@@ -294,7 +271,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
       "handle deduplication which is the past relative to record time" in {
         val completionInfo = parseCompletionInfo(
-          entryId,
           recordTime,
           submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.minusSeconds(30))).build(),
         )

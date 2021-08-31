@@ -194,13 +194,12 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
         transactionRejectionEntryToUpdate(
-          entryId,
           recordTime,
           entry.getTransactionRejectionEntry,
         ).toList
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
-        outOfTimeBoundsEntryToUpdate(entryId, recordTime, entry.getOutOfTimeBoundsEntry).toList
+        outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
 
       case DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY =>
         List.empty
@@ -222,7 +221,6 @@ object KeyValueConsumption {
     }
 
   private def transactionRejectionEntryToUpdate(
-      entryId: DamlLogEntryId,
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
   ): Option[Update] = Conversions
@@ -230,8 +228,7 @@ object KeyValueConsumption {
     .map(reason => {
       Update.CommandRejected(
         recordTime = recordTime,
-        completionInfo =
-          parseCompletionInfo(entryId, parseInstant(recordTime), rejEntry.getSubmitterInfo),
+        completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
         reasonTemplate = reason,
       )
     })
@@ -260,7 +257,7 @@ object KeyValueConsumption {
     Update.TransactionAccepted(
       optCompletionInfo =
         if (txEntry.hasSubmitterInfo)
-          Some(parseCompletionInfo(entryId, parseInstant(recordTime), txEntry.getSubmitterInfo))
+          Some(parseCompletionInfo(parseInstant(recordTime), txEntry.getSubmitterInfo))
         else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
@@ -317,7 +314,6 @@ object KeyValueConsumption {
   )
 
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
-      entryId: DamlLogEntryId,
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
   ): Option[Update] = {
@@ -349,7 +345,6 @@ object KeyValueConsumption {
           Update.CommandRejected(
             recordTime = recordTime,
             completionInfo = parseCompletionInfo(
-              entryId,
               Conversions.parseInstant(recordTime),
               transactionRejectionEntry.getSubmitterInfo,
             ),

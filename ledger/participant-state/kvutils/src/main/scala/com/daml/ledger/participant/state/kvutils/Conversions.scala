@@ -152,10 +152,7 @@ private[state] object Conversions {
     submitterInfoBuilder.build
   }
 
-  val FillerSubmissionIdPrefix = "submission-"
-
   def parseCompletionInfo(
-      entryId: DamlLogEntryId,
       recordTime: Instant,
       subInfo: DamlSubmitterInfo,
   ): CompletionInfo = {
@@ -191,10 +188,6 @@ private[state] object Conversions {
         .filter(_.nonEmpty)
         .map(
           Ref.SubmissionId.assertFromString
-        )
-        .getOrElse(
-          Ref.SubmissionId
-            .assertFromString(FillerSubmissionIdPrefix + entryId.getEntryId.toStringUtf8)
         ),
     )
 
