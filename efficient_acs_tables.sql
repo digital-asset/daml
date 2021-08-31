@@ -1,5 +1,8 @@
 BEGIN;
 
+-- The following code is meant to be applied to an IndexDB with the append-only schema.
+-- It prototypes the filter tables and queries to fetch data from it.
+
 DROP TABLE IF EXISTS participant_template_interning;
 DROP TABLE IF EXISTS participant_party_interning;
 DROP TABLE IF EXISTS participant_events_create_interned;
@@ -118,6 +121,8 @@ CREATE TABLE participant_events_create_interned AS
          LEFT OUTER JOIN participant_template_interning ON (template_id = template_external_id)
  ORDER BY event_sequential_id;  -- retain or re-establish temporal ordering
 
+CREATE UNIQUE INDEX participant_events_create_interned_event_sequential_id_idx ON participant_events_create_interned USING btree(event_sequential_id);
+
 
 EXPLAIN ANALYZE
 CREATE TABLE participant_events_create_filter AS
@@ -125,11 +130,12 @@ CREATE TABLE participant_events_create_filter AS
       FROM participant_events_create_interned create_evs, 
            parameters,
            unnest(flat_event_witnesses) as party_id
-     WHERE NOT EXISTS (
-              SELECT 1 FROM participant_events_consuming_exercise consuming_evs
-               WHERE create_evs.contract_id = consuming_evs.contract_id
-                 AND consuming_evs.event_offset <= parameters.ledger_end
-           )
+    -- TODO: in real migration drop the archived ones. Here we leave it for the experiments.
+    --  WHERE NOT EXISTS (
+    --           SELECT 1 FROM participant_events_consuming_exercise consuming_evs
+    --            WHERE create_evs.contract_id = consuming_evs.contract_id
+    --              AND consuming_evs.event_offset <= parameters.ledger_end
+    --        )
      ORDER BY event_sequential_id;  -- use temporal odering
     
 -- used for efficient pruning
