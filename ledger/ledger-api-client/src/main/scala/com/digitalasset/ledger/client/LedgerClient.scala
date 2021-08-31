@@ -4,10 +4,8 @@
 package com.daml.ledger.client
 
 import java.io.Closeable
-import java.util.concurrent.TimeUnit
-
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.auth.client.LedgerCallCredentials
+import com.daml.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
@@ -28,8 +26,8 @@ import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.transactions.TransactionClient
 import com.daml.ledger.client.services.version.VersionClient
 import io.grpc.netty.NettyChannelBuilder
+import io.grpc.Channel
 import io.grpc.stub.AbstractStub
-import io.grpc.{Channel, ManagedChannel}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -56,10 +54,15 @@ final class LedgerClient private (
     )
 
   val commandServiceClient: SynchronousCommandClient =
-    new SynchronousCommandClient(LedgerClient.stub(CommandServiceGrpc.stub(channel), config.token))
+    new SynchronousCommandClient(
+      LedgerClient.stub(CommandServiceGrpc.stub(channel), config.token)
+    )
 
   val packageClient: PackageClient =
-    new PackageClient(ledgerId, LedgerClient.stub(PackageServiceGrpc.stub(channel), config.token))
+    new PackageClient(
+      ledgerId,
+      LedgerClient.stub(PackageServiceGrpc.stub(channel), config.token),
+    )
 
   val packageManagementClient: PackageManagementClient =
     new PackageManagementClient(
@@ -78,20 +81,17 @@ final class LedgerClient private (
     )
 
   val versionClient: VersionClient =
-    new VersionClient(ledgerId, LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
+    new VersionClient(
+      ledgerId,
+      LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token),
+    )
 
-  override def close(): Unit =
-    channel match {
-      case channel: ManagedChannel =>
-        // This includes closing active connections.
-        channel.shutdownNow()
-        channel.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
-        ()
-      case _ => // do nothing
-    }
+  override def close(): Unit = GrpcChannel.close(channel)
 }
 
 object LedgerClient {
+  private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
+    token.fold(stub)(authenticatingStub(stub, _))
 
   def apply(
       channel: Channel,
@@ -99,12 +99,9 @@ object LedgerClient {
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] =
     for {
       ledgerId <- new LedgerIdentityClient(
-        stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
+        LedgerClient.stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
       ).satisfies(config.ledgerIdRequirement)
     } yield new LedgerClient(channel, config, ledgerId)
-
-  private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
-    token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))
 
   /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.

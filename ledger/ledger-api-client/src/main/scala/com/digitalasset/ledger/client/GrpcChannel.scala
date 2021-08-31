@@ -4,16 +4,25 @@
 package com.daml.ledger.client
 
 import java.net.{InetAddress, InetSocketAddress}
-
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.Port
-import io.grpc.ManagedChannel
+import io.grpc.{Channel, ManagedChannel}
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 
 object GrpcChannel {
+  def close(channel: Channel): Unit =
+    channel match {
+      case channel: ManagedChannel =>
+        // This includes closing active connections.
+        channel.shutdownNow()
+        channel.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+        ()
+      case _ => // do nothing
+    }
 
   def apply(
       builder: NettyChannelBuilder,

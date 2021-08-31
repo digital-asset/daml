@@ -5,7 +5,6 @@ package com.daml.ledger.client.services.testing.time
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink}
 import akka.stream.{ClosedShape, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.api.util.{TimeProvider, TimestampConversion}

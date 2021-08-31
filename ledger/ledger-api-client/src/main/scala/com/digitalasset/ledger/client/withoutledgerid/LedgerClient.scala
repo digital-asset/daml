@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.client
+package com.daml.ledger.client.withoutledgerid
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
@@ -13,88 +13,79 @@ import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServic
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
+import com.daml.ledger.client.{GrpcChannel, LedgerClient => ClassicLedgerClient}
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
-import com.daml.ledger.client.services.acs.ActiveContractSetClientWithoutLedgerId
+import com.daml.ledger.client.services.acs.withoutledgerid.ActiveContractSetClient
 import com.daml.ledger.client.services.admin.{PackageManagementClient, PartyManagementClient}
-import com.daml.ledger.client.services.commands.{
-  CommandClientWithoutLedgerId,
-  SynchronousCommandClient,
-}
-import com.daml.ledger.client.services.pkg.PackageClientWithoutLedgerId
-import com.daml.ledger.client.services.transactions.TransactionClientWithoutLedgerId
-import com.daml.ledger.client.services.version.VersionClientWithoutLedgerId
-import io.grpc.{Channel, ManagedChannel}
+import com.daml.ledger.client.services.commands.SynchronousCommandClient
+import com.daml.ledger.client.services.commands.withoutledgerid.CommandClient
+import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
+import com.daml.ledger.client.services.transactions.withoutledgerid.TransactionClient
+import com.daml.ledger.client.services.version.withoutledgerid.VersionClient
 import io.grpc.netty.NettyChannelBuilder
+import io.grpc.Channel
 
 import java.io.Closeable
-import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 
-class LedgerClientWithoutLedgerId private (
+class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
 )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
     extends Closeable {
 
   val activeContractSetClient =
-    new ActiveContractSetClientWithoutLedgerId(
-      LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token)
+    new ActiveContractSetClient(
+      ClassicLedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token)
     )
 
-  val commandClient: CommandClientWithoutLedgerId =
-    new CommandClientWithoutLedgerId(
-      LedgerClient.stub(CommandSubmissionServiceGrpc.stub(channel), config.token),
-      LedgerClient.stub(CommandCompletionServiceGrpc.stub(channel), config.token),
+  val commandClient: CommandClient =
+    new CommandClient(
+      ClassicLedgerClient.stub(CommandSubmissionServiceGrpc.stub(channel), config.token),
+      ClassicLedgerClient.stub(CommandCompletionServiceGrpc.stub(channel), config.token),
       config.applicationId,
       config.commandClient,
     )
 
   val commandServiceClient: SynchronousCommandClient =
-    new SynchronousCommandClient(LedgerClient.stub(CommandServiceGrpc.stub(channel), config.token))
+    new SynchronousCommandClient(
+      ClassicLedgerClient.stub(CommandServiceGrpc.stub(channel), config.token)
+    )
 
-  val packageClient: PackageClientWithoutLedgerId =
-    new PackageClientWithoutLedgerId(
-      LedgerClient.stub(PackageServiceGrpc.stub(channel), config.token)
+  val packageClient: PackageClient =
+    new PackageClient(
+      ClassicLedgerClient.stub(PackageServiceGrpc.stub(channel), config.token)
     )
 
   val packageManagementClient: PackageManagementClient =
     new PackageManagementClient(
-      LedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token)
+      ClassicLedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token)
     )
 
   val partyManagementClient: PartyManagementClient =
     new PartyManagementClient(
-      LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token)
+      ClassicLedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token)
     )
 
-  val transactionClient: TransactionClientWithoutLedgerId =
-    new TransactionClientWithoutLedgerId(
-      LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token)
+  val transactionClient: TransactionClient =
+    new TransactionClient(
+      ClassicLedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token)
     )
 
-  val versionClient: VersionClientWithoutLedgerId =
-    new VersionClientWithoutLedgerId(
-      LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token)
+  val versionClient: VersionClient =
+    new VersionClient(
+      ClassicLedgerClient.stub(VersionServiceGrpc.stub(channel), config.token)
     )
 
-  override def close(): Unit =
-    channel match {
-      case channel: ManagedChannel =>
-        // This includes closing active connections.
-        channel.shutdownNow()
-        channel.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
-        ()
-      case _ => // do nothing
-    }
+  override def close(): Unit = GrpcChannel.close(channel)
 }
 
-object LedgerClientWithoutLedgerId {
-
+object LedgerClient {
   def apply(
       channel: Channel,
       config: LedgerClientConfiguration,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory) =
-    new LedgerClientWithoutLedgerId(channel, config)
+    new LedgerClient(channel, config)
 
   /** Takes a [[NettyChannelBuilder]], possibly set up with some relevant extra options
     * that cannot be specified though the [[LedgerClientConfiguration]] (e.g. a set of
@@ -107,6 +98,6 @@ object LedgerClientWithoutLedgerId {
   def fromBuilder(
       builder: NettyChannelBuilder,
       configuration: LedgerClientConfiguration,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClientWithoutLedgerId =
-    LedgerClientWithoutLedgerId(GrpcChannel.withShutdownHook(builder, configuration), configuration)
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
+    LedgerClient(GrpcChannel.withShutdownHook(builder, configuration), configuration)
 }
