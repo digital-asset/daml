@@ -96,14 +96,12 @@ final case class TlsConfiguration(
     )
   )
 
-  private def keyCertChainInputStreamOrFail: InputStream =
-    keyCertChainFile
-      .map(new FileInputStream(_))
-      .getOrElse(
-        throw new IllegalStateException(
-          s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
-        )
-      )
+  private def keyCertChainInputStreamOrFail: InputStream = {
+    val msg =
+      s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
+    val keyFile = keyCertChainFile.getOrElse(throw new IllegalStateException(msg))
+    new FileInputStream(keyFile)
+  }
 
 }
 
