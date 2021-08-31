@@ -223,7 +223,7 @@ conformance_test(
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
         "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
-        "--secrets-url https://gist.githubusercontent.com/pbatko-da/c83dff8ee8b7eb074b91694bbc7e7e01/raw/e5e069a9676a074dde71cf9f19cf0c4172ec3532/server-pem-decryption-parameters.json",
+        "--secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
     ],
     test_tool_args = [
         "--verbose",

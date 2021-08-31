@@ -29,7 +29,7 @@ import akka.util.{ByteString, Timeout}
 import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.dbbackend.JdbcConfig
+import com.daml.dbutils.JdbcConfig
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}

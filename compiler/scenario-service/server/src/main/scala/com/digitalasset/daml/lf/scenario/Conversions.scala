@@ -174,10 +174,10 @@ final class Conversions(
                 builder.setContractIdInContractKey(
                   proto.ScenarioError.ContractIdInContractKey.newBuilder.setKey(convertValue(key))
                 )
-              case ContractIdFreshness(_) =>
+              case ContractIdComparability(_) =>
                 // We crash here because you cannot construct a cid yourself in scenarios
                 // or daml script.
-                builder.setCrash(s"Contract Id freshness Error")
+                builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueExceedsMaxNesting =>

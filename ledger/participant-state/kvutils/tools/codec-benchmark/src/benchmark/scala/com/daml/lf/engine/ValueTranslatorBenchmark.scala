@@ -19,8 +19,11 @@ class ValueTranslatorBenchmark extends BenchmarkWithLedgerExport {
   override def setup(): Unit = {
     super.setup()
     decodedValues = submissions.values.map(_.mapValue(assertDecode).mapValue(_.value)).toVector
-    translator =
-      new ValueTranslator(submissions.compiledPackages.interface, requiredCidSuffix = false)
+    translator = new ValueTranslator(
+      submissions.compiledPackages.interface,
+      forbidV0ContractId = false,
+      requireV1ContractIdSuffix = false,
+    )
   }
 
   @Benchmark

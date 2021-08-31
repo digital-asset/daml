@@ -57,7 +57,7 @@ private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     getTermination: LedgerClientJwt.GetTermination,
-)(implicit dblog: doobie.LogHandler, sjd: SupportedJdbcDriver) {
+)(implicit dblog: doobie.LogHandler, sjd: SupportedJdbcDriver.TC) {
 
   import ContractsFetch._
   import sjd.retrySqlStates
@@ -461,11 +461,11 @@ private[http] object ContractsFetch {
       ids: Set[K]
   )(implicit
       log: doobie.LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Map[K, SurrogateTpId]] = {
     import doobie.implicits._, cats.instances.vector._, cats.syntax.functor._,
     cats.syntax.traverse._
-    import sjd.queries.surrogateTemplateId
+    import sjd.q.queries.surrogateTemplateId
     ids.toVector
       .traverse(k => surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
       .map(_.toMap)
@@ -498,12 +498,12 @@ private[http] object ContractsFetch {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
       step: InsertDeleteStep[Any, PreInsertContract]
-  )(implicit log: doobie.LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] = {
+  )(implicit log: doobie.LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._
       import json.JsonProtocol._
-      import sjd._
+      import sjd.q.queries
       (queries.deleteContracts(step.deletes.keySet) *>
         queries.insertContracts(
           step.inserts map (dbc =>

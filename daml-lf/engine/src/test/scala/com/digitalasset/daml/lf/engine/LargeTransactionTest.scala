@@ -102,7 +102,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     println(s"$name: $quantity")
 
   private val engine: Engine =
-    new Engine(new EngineConfig(LanguageVersion.DevVersions, transactionNormalization = false))
+    new Engine(EngineConfig(LanguageVersion.DevVersions, transactionNormalization = false))
 
   List(5000, 50000, 500000)
     .foreach { txSize =>

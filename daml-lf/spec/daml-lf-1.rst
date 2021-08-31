@@ -470,11 +470,11 @@ V0 contract identifiers, a Daml-LF compliant engine must refuse to
 load any Daml-LF >= 1.11 archives.  On the contrary, when configured
 to produce V1 contract IDs, a Daml-LF compliant engine must accept to
 load any non-deprecated Daml-LF version. V1 Contract IDs allocation
-scheme is described in the `V1 Contract ID allocation
-scheme specification <./contract-id.rst>`_.
-
-Also note that package identifiers are typically `cryptographic hash
-<Package hash_>`_ of the content of the package itself.
+scheme is described in the `V1 Contract ID allocation scheme
+specification <./contract-id.rst>`_. In the following we will say that
+a V1 contract identifier is *non-suffixed* if it is built from exactly
+66 charters. Otherwise (meaning it has between 68 and 254 charters) we
+will say it is *suffixed*.
 
 Literals
 ~~~~~~~~
@@ -3554,6 +3554,15 @@ The following builtin functions defines an order on the so-called
 abstractions, functions, partially applied builtin functions, and
 updates.
 
+Note that as described in the `V1 Contract ID allocation scheme
+specification <./contract-id.rst>`_ the comparison of two V1 contract
+identifiers may fail at run time. For the purpose of this
+specification, we will say that two contract identifiers are *not
+comparable* if (i) both of them are V1 contract identifiers, (ii) one
+of them is ``non-suffixed``, and (iii) is a strict prefixed of the
+other one.
+
+ 
 * ``LESS_EQ : ∀ (α:*). α → α → 'Bool'``
 
   The builtin function ``LESS_EQ`` returns ``'True'`` if the first
@@ -3602,7 +3611,12 @@ updates.
       𝕆('LESS_EQ' @σ LitRoundingMode₁ LitRoundingMode₂) =
           Ok (LitRoundingMode₁ ≤ₗ LitRoundingMode₂)
 
-    —————————————————————————————————————————————————————————————————————— EvLessEqContractId
+       cid₁ and cid₂ are not comparable
+    —————————————————————————————————————————————————————————————————————— EvLessEqNonComparableContractId
+      𝕆('LESS_EQ' @σ cid₁ cid₂) = Err 'ContractIdComparability'
+
+       cid₁ and cid₂ are comparable
+    —————————————————————————————————————————————————————————————————————— EvLessEqComparableContractId
       𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqStructEmpty

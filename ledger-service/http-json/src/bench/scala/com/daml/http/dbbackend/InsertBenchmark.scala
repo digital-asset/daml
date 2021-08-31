@@ -43,15 +43,14 @@ class InsertBenchmark extends ContractDaoBenchmark {
 
   @TearDown(Level.Invocation)
   def dropContracts: Unit = {
-    val deleted = dao.transact(dao.jdbcDriver.queries.deleteContracts(contractCids)).unsafeRunSync()
+    val deleted =
+      dao.transact(queries.deleteContracts(contractCids)).unsafeRunSync()
     assert(deleted == numContracts)
   }
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
-    val driver: SupportedJdbcDriver = dao.jdbcDriver
-    import driver._
-    val inserted = dao.transact(driver.queries.insertContracts(contracts)).unsafeRunSync()
+    val inserted = dao.transact(queries.insertContracts(contracts)).unsafeRunSync()
     assert(inserted == numContracts)
   }
 }

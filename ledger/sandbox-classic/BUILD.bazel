@@ -162,6 +162,7 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",

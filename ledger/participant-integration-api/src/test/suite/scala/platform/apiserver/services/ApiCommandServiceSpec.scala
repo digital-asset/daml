@@ -3,7 +3,9 @@
 
 package com.daml.platform.apiserver.services
 
+import java.time.{Duration, Instant}
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
@@ -16,8 +18,8 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.ApiCommandServiceSpec._
 import com.daml.platform.apiserver.services.tracking.Tracker
 import com.google.rpc.status.{Status => StatusProto}
-import io.grpc.Status
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
+import io.grpc.{Deadline, Status}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -35,13 +37,7 @@ class ApiCommandServiceSpec
 
   "the command service" should {
     "submit a request, and wait for a response" in {
-      val commands = Commands(
-        ledgerId = "ledger ID",
-        commandId = "command ID",
-        commands = Seq(
-          Command.of(Command.Command.Create(CreateCommand()))
-        ),
-      )
+      val commands = someCommands()
       val submissionTracker = mock[Tracker]
       when(
         submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
@@ -51,13 +47,49 @@ class ApiCommandServiceSpec
         )
       )
 
-      openChannel(new ApiCommandService(UnimplementedTransactionServices, submissionTracker)).use {
-        stub =>
-          val request = SubmitAndWaitRequest.of(Some(commands))
-          stub.submitAndWaitForTransactionId(request).map { response =>
+      openChannel(
+        new ApiCommandService(UnimplementedTransactionServices, submissionTracker)
+      ).use { stub =>
+        val request = SubmitAndWaitRequest.of(Some(commands))
+        stub.submitAndWaitForTransactionId(request).map { response =>
+          response.transactionId should be("transaction ID")
+          verify(submissionTracker).track(
+            eqTo(CommandSubmission(commands))
+          )(any[ExecutionContext], any[LoggingContext])
+          succeed
+        }
+      }
+    }
+
+    "pass the provided deadline to the tracker as a timeout" in {
+      val now = Instant.parse("2021-09-01T12:00:00Z")
+      val deadlineTicker = new Deadline.Ticker {
+        override def nanoTime(): Long =
+          now.getEpochSecond * TimeUnit.SECONDS.toNanos(1) + now.getNano
+      }
+
+      val commands = someCommands()
+      val submissionTracker = mock[Tracker]
+      when(
+        submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
+      ).thenReturn(
+        Future.successful(
+          Right(CompletionResponse.CompletionSuccess("command ID", "transaction ID", OkStatus))
+        )
+      )
+
+      openChannel(
+        new ApiCommandService(UnimplementedTransactionServices, submissionTracker),
+        deadlineTicker,
+      ).use { stub =>
+        val request = SubmitAndWaitRequest.of(Some(commands))
+        stub
+          .withDeadline(Deadline.after(30, TimeUnit.SECONDS, deadlineTicker))
+          .submitAndWaitForTransactionId(request)
+          .map { response =>
             response.transactionId should be("transaction ID")
             verify(submissionTracker).track(
-              eqTo(CommandSubmission(commands))
+              eqTo(CommandSubmission(commands, timeout = Some(Duration.ofSeconds(30))))
             )(any[ExecutionContext], any[LoggingContext])
             succeed
           }
@@ -65,13 +97,7 @@ class ApiCommandServiceSpec
     }
 
     "time out if the tracker times out" in {
-      val commands = Commands(
-        ledgerId = "ledger ID",
-        commandId = "command ID",
-        commands = Seq(
-          Command.of(Command.Command.Create(CreateCommand()))
-        ),
-      )
+      val commands = someCommands()
       val submissionTracker = mock[Tracker]
       when(
         submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
@@ -116,14 +142,24 @@ object ApiCommandServiceSpec {
 
   private val OkStatus = StatusProto.of(Status.Code.OK.value, "", Seq.empty)
 
+  private def someCommands() = Commands(
+    ledgerId = "ledger ID",
+    commandId = "command ID",
+    commands = Seq(
+      Command.of(Command.Command.Create(CreateCommand()))
+    ),
+  )
+
   private def openChannel(
-      service: ApiCommandService
+      service: ApiCommandService,
+      deadlineTicker: Deadline.Ticker = Deadline.getSystemTicker,
   ): ResourceOwner[CommandServiceGrpc.CommandServiceStub] =
     for {
       name <- ResourceOwner.forValue(() => UUID.randomUUID().toString)
       _ <- ResourceOwner.forServer(
         InProcessServerBuilder
           .forName(name)
+          .deadlineTicker(deadlineTicker)
           .addService(() => CommandService.bindService(service, ExecutionContext.global)),
         shutdownTimeout = 10.seconds,
       )

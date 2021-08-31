@@ -33,7 +33,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest with 
       .map {
         case Ctx(
               context @ RetryInfo(_, nrOfRetries, _, status),
-              CommandSubmission(commands),
+              CommandSubmission(commands, _),
               _,
             ) =>
           // Return a completion based on the input status code only on the first submission.

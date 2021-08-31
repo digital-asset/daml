@@ -5,12 +5,13 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Bytes
+import org.scalacheck.Gen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
-  private val zeroOffset = Offset(Bytes.fromByteArray(Array.fill(16)(0: Byte)))
+  import OffsetBuilderSpec._
 
   "OffsetBuilder" should {
     "return all zeroes for the zeroth offset" in {
@@ -20,14 +21,14 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "always return an offset of the same length" in {
-      forAll { (highest: Long, middle: Int, lowest: Int) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
         offset.bytes.length should be(OffsetBuilder.end)
       }
     }
 
     "construct and extract" in {
-      forAll { (highest: Long, middle: Int, lowest: Int) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
 
         OffsetBuilder.highestIndex(offset) should be(highest)
@@ -38,25 +39,27 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "set the middle index" in {
-      forAll { (highest: Long, middle: Int, lowest: Int, newMiddle: Int) =>
-        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
-        val modifiedOffset = OffsetBuilder.setMiddleIndex(offset, newMiddle)
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], Gen.posNum[Int]) {
+        (highest, middle, lowest, newMiddle) =>
+          val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+          val modifiedOffset = OffsetBuilder.setMiddleIndex(offset, newMiddle)
 
-        OffsetBuilder.split(modifiedOffset) should be((highest, newMiddle, lowest))
+          OffsetBuilder.split(modifiedOffset) should be((highest, newMiddle, lowest))
       }
     }
 
     "only change individual indexes" in {
-      forAll { (highest: Long, middle: Int, lowest: Int, newLowest: Int) =>
-        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
-        val modifiedOffset = OffsetBuilder.setLowestIndex(offset, newLowest)
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], Gen.posNum[Int]) {
+        (highest, middle, lowest, newLowest) =>
+          val offset = OffsetBuilder.fromLong(highest, middle, lowest)
+          val modifiedOffset = OffsetBuilder.setLowestIndex(offset, newLowest)
 
-        OffsetBuilder.split(modifiedOffset) should be((highest, middle, newLowest))
+          OffsetBuilder.split(modifiedOffset) should be((highest, middle, newLowest))
       }
     }
 
     "zero out the middle and lowest index" in {
-      forAll { (highest: Long, middle: Int, lowest: Int) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
         val modifiedOffset = OffsetBuilder.onlyKeepHighestIndex(offset)
 
@@ -65,7 +68,7 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
     }
 
     "zero out the lowest index" in {
-      forAll { (highest: Long, middle: Int, lowest: Int) =>
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
         val offset = OffsetBuilder.fromLong(highest, middle, lowest)
         val modifiedOffset = OffsetBuilder.dropLowestIndex(offset)
 
@@ -92,4 +95,10 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
       lowest.takeRight(1) should be(Array[Byte](3))
     }
   }
+}
+
+object OffsetBuilderSpec {
+  private val zeroOffset = Offset(Bytes.fromByteArray(Array.fill(16)(0: Byte)))
+
+  private val genHighest = Gen.chooseNum(0L, VersionedOffsetBuilder.MaxHighest)
 }

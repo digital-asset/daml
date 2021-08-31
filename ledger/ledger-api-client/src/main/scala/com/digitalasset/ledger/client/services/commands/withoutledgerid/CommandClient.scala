@@ -183,19 +183,14 @@ private[daml] final class CommandClient(
       offset: Any,
     )
     CommandCompletionSource(
-      CompletionStreamRequest(
-        ledgerIdToUse.unwrap,
-        applicationId,
-        parties,
-        Some(offset),
-      ),
+      CompletionStreamRequest(ledgerIdToUse.unwrap, applicationId, parties, Some(offset)),
       LedgerClient.stub(commandCompletionService, token).completionStream,
     )
   }
 
   private def commandUpdaterFlow[Context](ledgerIdToUse: LedgerId) =
     Flow[Ctx[Context, CommandSubmission]]
-      .map(_.map { case submission @ CommandSubmission(commands) =>
+      .map(_.map { case submission @ CommandSubmission(commands, _) =>
         if (LedgerId(commands.ledgerId) != ledgerIdToUse)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerIdToUse)"

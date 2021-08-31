@@ -6,7 +6,7 @@ package svalue
 
 import com.daml.lf.crypto
 import com.daml.lf.data.Bytes
-import com.daml.lf.interpretation.Error.ContractIdFreshness
+import com.daml.lf.interpretation.Error.ContractIdComparability
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import org.scalatest.Inside
@@ -56,9 +56,9 @@ class EqualitySpec extends AnyWordSpec with Inside with Matchers with ScalaCheck
 
       forEvery(positiveTestCases) { globalCid =>
         Try(Equality.areEqual(vCid10, SContractId(globalCid))) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdFreshness(globalCid)))
+          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
         Try(Equality.areEqual(SContractId(globalCid), vCid10)) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdFreshness(globalCid)))
+          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
       }
 
     }
