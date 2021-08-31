@@ -108,12 +108,13 @@ private[backend] object StorageBackendTestValues {
       signatory: String = "signatory",
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
+      ledgerEffectiveTime: Option[Instant] = Some(someTime),
   ): DbDto.EventCreate = {
     val transactionId = transactionIdFromOffset(offset)
     DbDto.EventCreate(
       event_offset = Some(offset.toHexString),
       transaction_id = Some(transactionId),
-      ledger_effective_time = Some(someTime),
+      ledger_effective_time = ledgerEffectiveTime,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
