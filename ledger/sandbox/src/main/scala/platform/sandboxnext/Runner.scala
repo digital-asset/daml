@@ -83,6 +83,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       allowedLanguageVersions = languageVersions,
       profileDir = config.profileDir,
       stackTraceMode = config.stackTraces,
+      forbidV0ContractId = true,
     )
     new Engine(engineConfig)
   }

@@ -22,16 +22,19 @@ import scala.util.{Failure, Success, Try}
 // - Distributed ledger implementations (e.g. Canton) must reject non-suffixed CID
 final class ContractIdIT extends LedgerTestSuite {
 
-  private[this] val nonSuffixedCid = (0 to 32).map("%02x".format(_)).mkString
-  private[this] val suffixedCid = (0 to 48).map("%02x".format(_)).mkString
+  private[this] val v0Cid = "#V0 Contract ID"
+  private[this] val nonSuffixedV1Cid = (0 to 32).map("%02x".format(_)).mkString
+  private[this] val suffixedV1Cid = (0 to 48).map("%02x".format(_)).mkString
 
   private[this] def camlCase(s: String) =
     s.split("[ -]").iterator.map(_.capitalize).mkString("")
 
   List(
-    (nonSuffixedCid, "non-suffix", true),
-    (nonSuffixedCid, "non-suffix", false),
-    (suffixedCid, "suffix", true),
+    (v0Cid, "V0", true),
+    (v0Cid, "V0", false),
+    (nonSuffixedV1Cid, "non-suffixed V1", true),
+    (nonSuffixedV1Cid, "non-suffixed V1", false),
+    (suffixedV1Cid, "suffixed V1", true),
   ).foreach { case (testedCid, cidDescription, accepted) =>
     val result = if (accepted) "Accept" else "Reject"
 
@@ -43,7 +46,7 @@ final class ContractIdIT extends LedgerTestSuite {
     ) =
       super.test(
         result + camlCase(cidDescription) + "Cid" + camlCase(description),
-        result + "s " + cidDescription + "Contract Id in " + description,
+        result + "s " + cidDescription + " Contract Id in " + description,
         allocate(SingleParty),
       )(implicit ec => { case Participants(Participant(alpha, party)) =>
         update(ec)(alpha, party).map {

@@ -2259,7 +2259,7 @@ class EngineTest
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          requireV1ContractId = true,
+          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -2267,7 +2267,7 @@ class EngineTest
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.On,
-          requireV1ContractId = true,
+          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -2679,7 +2679,7 @@ class EngineTest
       new Engine(
         EngineConfig(
           allowedLanguageVersions = VersionRange(min, max),
-          requireV1ContractId = true,
+          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -2730,7 +2730,7 @@ object EngineTest {
     new Engine(
       EngineConfig(
         allowedLanguageVersions = language.LanguageVersion.DevVersions,
-        requireV1ContractId = true,
+        forbidV0ContractId = true,
         requireSuffixedGlobalContractId = requireCidSuffixes,
       )
     )

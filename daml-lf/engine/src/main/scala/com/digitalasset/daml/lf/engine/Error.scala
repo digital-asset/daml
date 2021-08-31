@@ -108,7 +108,7 @@ object Error {
     final case class IllegalContractId(cid: Value.ContractId, reason: IllegalContractId.Reason)
         extends Error {
       override def message: String =
-        s"""Illegal Contract ID "${cid.coid}, """" + reason.details
+        s"""Illegal Contract ID "${cid.coid}", """ + reason.details
     }
 
     object IllegalContractId {
