@@ -461,7 +461,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       .flatMap(_.value)
       .getOrElse(fail("Cannot extract expected newOwner"))
     instanceUUIDLogCtx(implicit lc =>
-      decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
+      decoder.decodeUnderlyingValues(actual, jwt).valueOr(e => fail(e.shows))
     ).map(active =>
       inside(active.payload.sum.record.map(_.fields)) {
         case Some(

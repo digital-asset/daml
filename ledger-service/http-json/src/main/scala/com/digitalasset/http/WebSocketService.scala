@@ -164,9 +164,9 @@ object WebSocketService {
         resumingAtOffset: Boolean,
         decoder: DomainJsonDecoder,
         jv: JsValue,
-    )(implicit
-        lc: LoggingContextOf[InstanceUUID],
         jwt: Jwt,
+    )(implicit
+        lc: LoggingContextOf[InstanceUUID]
     ): Future[Error \/ (_ <: Query[_])]
   }
 
@@ -217,10 +217,13 @@ object WebSocketService {
 
       type Positive = NonEmptyList[Int]
 
-      override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue)(
-          implicit
-          lc: LoggingContextOf[InstanceUUID],
+      override def parse(
+          resumingAtOffset: Boolean,
+          decoder: DomainJsonDecoder,
+          jv: JsValue,
           jwt: Jwt,
+      )(implicit
+          lc: LoggingContextOf[InstanceUUID]
       ) = {
         import JsonProtocol._
         Future.successful(
@@ -377,10 +380,13 @@ object WebSocketService {
 
       import JsonProtocol._
 
-      override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue)(
-          implicit
-          lc: LoggingContextOf[InstanceUUID],
+      override def parse(
+          resumingAtOffset: Boolean,
+          decoder: DomainJsonDecoder,
+          jv: JsValue,
           jwt: Jwt,
+      )(implicit
+          lc: LoggingContextOf[InstanceUUID]
       ) = {
         import scalaz.Scalaz._
         type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
@@ -394,7 +400,7 @@ object WebSocketService {
                 .liftErr[Error](InvalidUserInput)
             )
             bs <- rightT {
-              as.map(a => decodeWithFallback(decoder, a)).sequence
+              as.map(a => decodeWithFallback(decoder, a, jwt)).sequence
             }
           } yield Query(bs, alg)
         if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery())
@@ -404,12 +410,12 @@ object WebSocketService {
       private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
           a: domain.ContractKeyStreamRequest[Hint, JsValue],
-      )(implicit
-          lc: LoggingContextOf[InstanceUUID],
           jwt: Jwt,
+      )(implicit
+          lc: LoggingContextOf[InstanceUUID]
       ): Future[domain.ContractKeyStreamRequest[Hint, domain.LfValue]] =
         decoder
-          .decodeUnderlyingValuesToLf(a)
+          .decodeUnderlyingValuesToLf(a, jwt)
           .run
           .map(
             _.valueOr(_ => a.map(_ => com.daml.lf.value.Value.ValueUnit))
@@ -626,7 +632,6 @@ class WebSocketService(
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      _jwt: Jwt = jwt,
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
@@ -637,7 +642,7 @@ class WebSocketService(
           offPrefix <- either[Future, Error, Option[StartingOffset]](oeso.sequence)
           jv <- either[Future, Error, JsValue](ejv)
           a <- eitherT(
-            Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv): Future[
+            Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv, jwt): Future[
               Error \/ Q.Query[_]
             ]
           )
