@@ -37,6 +37,9 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  override implicit def patienceConfig: PatienceConfig =
+    super.patienceConfig.copy(timeout = 1.second)
+
   "the current ledger configuration" should {
     "look up the latest configuration from the index on startup" in {
       val currentConfiguration =
