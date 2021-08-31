@@ -120,13 +120,13 @@ final class LedgerServices(val ledgerId: String) {
     }
 
   def withCommandSubmissionClient(
-      response: Future[Empty],
+      getResponse: () => Future[Empty],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
       timeout: java.util.Optional[Duration] = java.util.Optional.empty[Duration],
   )(f: (CommandSubmissionClientImpl, CommandSubmissionServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      CommandSubmissionServiceImpl.createWithRef(response, authorizer)(executionContext)
+      CommandSubmissionServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandSubmissionClientImpl(ledgerId, channel, accessToken, timeout), serviceImpl)
     }
