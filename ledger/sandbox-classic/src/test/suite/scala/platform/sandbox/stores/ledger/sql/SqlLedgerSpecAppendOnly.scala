@@ -342,6 +342,7 @@ final class SqlLedgerSpecAppendOnly
         engine = new Engine(),
         validatePartyAllocation = validatePartyAllocation,
         enableAppendOnlySchema = true,
+        enableCompression = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture
