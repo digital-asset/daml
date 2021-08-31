@@ -410,33 +410,6 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-exceptions",
-    server_args = [
-        "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-exceptions-append-only",
-    server_args = [
-        "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
-        "--enable-append-only-schema",
-    ],
-    servers = ONLY_POSTGRES_SERVER,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
     name = "conformance-test-contract-ids",
     server_args = ["--contract-id-seeding=testing-weak"],
     servers = {"memory": SERVERS["memory"]},
