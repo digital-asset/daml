@@ -94,7 +94,7 @@ private[sandbox] object LedgerResource {
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = new Engine(),
           validatePartyAllocation = false,
-          enableAppendOnlySchema = true,
+          enableAppendOnlySchema = false,
           enableCompression = false,
         )
       } yield ledger
