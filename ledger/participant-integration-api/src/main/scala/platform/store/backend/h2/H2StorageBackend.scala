@@ -31,7 +31,6 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
-import com.daml.scalautil.Statement.discard
 import javax.sql.DataSource
 
 private[backend] object H2StorageBackend
@@ -235,9 +234,5 @@ private[backend] object H2StorageBackend
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
-  ): Unit = {
-    discard(pruneUpToInclusive)
-    discard(pruneAllDivulgedContracts)
-    discard(connection)
-  }
+  ): Unit = ()
 }

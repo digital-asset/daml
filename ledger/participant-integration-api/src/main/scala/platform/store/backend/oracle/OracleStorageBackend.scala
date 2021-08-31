@@ -31,7 +31,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import com.daml.scalautil.Statement.discard
 import javax.sql.DataSource
 
 private[backend] object OracleStorageBackend
@@ -251,9 +250,5 @@ private[backend] object OracleStorageBackend
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
-  ): Unit = {
-    discard(pruneUpToInclusive)
-    discard(pruneAllDivulgedContracts)
-    discard(connection)
-  }
+  ): Unit = ()
 }
