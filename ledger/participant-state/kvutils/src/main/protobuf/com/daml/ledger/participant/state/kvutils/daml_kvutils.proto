@@ -117,7 +117,7 @@ message DamlSubmitterInfo {
   string application_id = 3;
   reserved 4; // was maximum_record_time
   oneof deduplication_period {
-    google.protobuf.Timestamp deduplicate_until = 5; //DEPRECATED, readonly for backwards compatibility
+    google.protobuf.Timestamp deduplicate_until = 5 [deprecated = true]; // Read-only for backwards compatibility
     google.protobuf.Duration deduplication_duration = 6;
     string deduplication_offset = 7;
   }

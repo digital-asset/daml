@@ -225,13 +225,13 @@ object KeyValueConsumption {
       rejEntry: DamlTransactionRejectionEntry,
   ): Option[Update] = Conversions
     .decodeTransactionRejectionEntry(rejEntry)
-    .map(reason => {
+    .map { reason =>
       Update.CommandRejected(
         recordTime = recordTime,
         completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
         reasonTemplate = reason,
       )
-    })
+    }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def transactionEntryToUpdate(

@@ -10,11 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
-import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
-  LedgerTimeValidator,
-  ModelConformanceValidator,
-  TransactionConsistencyValidator,
-}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{LedgerTimeValidator, ModelConformanceValidator, TransactionConsistencyValidator}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
@@ -26,7 +22,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -302,6 +298,7 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
+  @nowarn("msg=deprecated")
   private def setDedupEntry(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,

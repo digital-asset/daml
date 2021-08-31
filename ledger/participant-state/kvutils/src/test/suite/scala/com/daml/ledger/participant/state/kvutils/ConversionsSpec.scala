@@ -30,9 +30,11 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.jdk.CollectionConverters._
 
+@nowarn("msg=deprecated")
 class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
@@ -269,7 +271,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           .DeduplicationDuration(Duration.ofSeconds(30))
       }
 
-      "handle deduplication which is the past relative to record time" in {
+      "handle deduplication which is the past relative to record time by using absolute values" in {
         val completionInfo = parseCompletionInfo(
           recordTime,
           submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.minusSeconds(30))).build(),

@@ -30,6 +30,7 @@ import com.google.protobuf.Empty
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -152,6 +153,7 @@ private[state] object Conversions {
     submitterInfoBuilder.build
   }
 
+  @nowarn("msg=deprecated")
   def parseCompletionInfo(
       recordTime: Instant,
       subInfo: DamlSubmitterInfo,

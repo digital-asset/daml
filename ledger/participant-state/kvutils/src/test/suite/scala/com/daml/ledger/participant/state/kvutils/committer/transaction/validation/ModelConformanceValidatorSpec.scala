@@ -174,9 +174,6 @@ class ModelConformanceValidatorSpec
         )
       inside(step) { case StepStop(logEntry) =>
         logEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.MISSING_INPUT_STATE
-        logEntry.getTransactionRejectionEntry.getMissingInputState.getKey.toString should startWith(
-          "contract_id: \"#inputContractId\""
-        )
       }
     }
 
