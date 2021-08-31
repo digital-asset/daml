@@ -57,6 +57,7 @@ class LedgerClientBinding(
       templateSelector: TemplateSelector,
       startOffset: LedgerOffset,
       endOffset: Option[LedgerOffset],
+      token: Option[String] = None,
   ): Source[DomainTransaction, NotUsed] = {
 
     logger.debug(
@@ -68,7 +69,12 @@ class LedgerClientBinding(
     )
 
     ledgerClient.transactionClient
-      .getTransactions(startOffset, endOffset, transactionFilter(party, templateSelector))
+      .getTransactions(
+        startOffset,
+        endOffset,
+        transactionFilter(party, templateSelector),
+        token = token,
+      )
       .via(
         Slf4JLogger(
           logger,
@@ -117,7 +123,8 @@ class LedgerClientBinding(
 
   def commands[C](party: Party)(implicit ec: ExecutionContext): Future[CommandsFlow[C]] = {
     for {
-      trackCommandsFlow <- ledgerClient.commandClient.trackCommands[C](List(party.unwrap))
+      trackCommandsFlow <- ledgerClient.commandClient
+        .trackCommands[C](List(party.unwrap), token = None)
     } yield Flow[Ctx[C, CompositeCommand]]
       .map(
         _.map(compositeCommand =>

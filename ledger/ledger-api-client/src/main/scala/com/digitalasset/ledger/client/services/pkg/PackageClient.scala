@@ -6,24 +6,20 @@ package com.daml.ledger.client.services.pkg
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service._
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
-import com.daml.ledger.client.LedgerClient
-import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
-class PackageClient(ledgerId: LedgerId, service: PackageServiceStub) {
+class PackageClient(val ledgerId: LedgerId, service: PackageServiceStub) {
+  private val it = new withoutledgerid.PackageClient(service)
 
   def listPackages(token: Option[String] = None): Future[ListPackagesResponse] =
-    LedgerClient.stub(service, token).listPackages(ListPackagesRequest(ledgerId.unwrap))
+    it.listPackages(token, ledgerId)
 
   def getPackage(packageId: String, token: Option[String] = None): Future[GetPackageResponse] =
-    LedgerClient.stub(service, token).getPackage(GetPackageRequest(ledgerId.unwrap, packageId))
+    it.getPackage(packageId, token, ledgerId)
 
   def getPackageStatus(
       packageId: String,
       token: Option[String] = None,
-  ): Future[GetPackageStatusResponse] =
-    LedgerClient
-      .stub(service, token)
-      .getPackageStatus(GetPackageStatusRequest(ledgerId.unwrap, packageId))
+  ): Future[GetPackageStatusResponse] = it.getPackageStatus(packageId, token, ledgerId)
 }
