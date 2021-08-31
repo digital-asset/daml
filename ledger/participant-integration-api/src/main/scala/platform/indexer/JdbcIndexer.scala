@@ -41,7 +41,7 @@ object JdbcIndexer {
       metrics: Metrics,
       updateFlowOwnerBuilder: ExecuteUpdate.FlowOwnerBuilder,
       serverRole: ServerRole,
-      flywayMigrations: FlywayMigrations,
+      flywayMigrations: ResourceContext => FlywayMigrations,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit materializer: Materializer, loggingContext: LoggingContext) {
 
@@ -61,7 +61,11 @@ object JdbcIndexer {
         metrics,
         ExecuteUpdate.owner,
         serverRole,
-        new FlywayMigrations(config.jdbcUrl, additionalMigrationPaths),
+        new FlywayMigrations(
+          config.jdbcUrl,
+          config.enableAppendOnlySchema,
+          additionalMigrationPaths,
+        )(_, implicitly),
         lfValueTranslationCache,
       )
 
@@ -70,15 +74,15 @@ object JdbcIndexer {
     def validateSchema()(implicit
         resourceContext: ResourceContext
     ): Future[ResourceOwner[Indexer]] =
-      flywayMigrations
-        .validate(config.enableAppendOnlySchema)
+      flywayMigrations(resourceContext)
+        .validate()
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     def migrateSchema(
         allowExistingSchema: Boolean
     )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =
-      flywayMigrations
-        .migrate(allowExistingSchema, config.enableAppendOnlySchema)
+      flywayMigrations(resourceContext)
+        .migrate(allowExistingSchema)
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     def resetSchema()(implicit
@@ -88,14 +92,14 @@ object JdbcIndexer {
     def validateAndWaitOnly()(implicit
         resourceContext: ResourceContext
     ): Future[Unit] =
-      flywayMigrations
-        .validateAndWaitOnly(config.enableAppendOnlySchema)
+      flywayMigrations(resourceContext)
+        .validateAndWaitOnly()
 
     def migrateOnEmptySchema()(implicit
         resourceContext: ResourceContext
     ): Future[ResourceOwner[Indexer]] =
-      flywayMigrations
-        .migrateOnEmptySchema(config.enableAppendOnlySchema)
+      flywayMigrations(resourceContext)
+        .migrateOnEmptySchema()
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     private[this] def initializedMutatingSchema(

@@ -59,10 +59,10 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
             s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
           )
         )
-      deduplicationDuration <- validateDeduplicationDuration(
-        commands.deduplicationTime,
+      deduplicationPeriod <- validateDeduplicationPeriod(
+        commands.deduplicationPeriod,
         maxDeduplicationTime,
-        "deduplication_time",
+        "deduplication_period",
       )
     } yield domain.Commands(
       ledgerId = ledgerId,
@@ -73,7 +73,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       actAs = submitters.actAs,
       readAs = submitters.readAs,
       submittedAt = currentUtcTime,
-      deduplicationDuration = deduplicationDuration,
+      deduplicationPeriod = deduplicationPeriod,
       commands = Commands(
         commands = ImmArray(validatedCommands),
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
@@ -203,14 +203,16 @@ object CommandsValidator {
   }
 
   def effectiveSubmitters(commands: ProtoCommands): Submitters[String] = {
-    val effectiveActAs =
-      if (commands.party.isEmpty)
-        commands.actAs.toSet
-      else
-        commands.actAs.toSet + commands.party
-    val effectiveReadAs = commands.readAs.toSet -- effectiveActAs
-    Submitters(effectiveActAs, effectiveReadAs)
+    val actAs = effectiveActAs(commands)
+    val readAs = commands.readAs.toSet -- actAs
+    Submitters(actAs, readAs)
   }
+
+  def effectiveActAs(commands: ProtoCommands): Set[String] =
+    if (commands.party.isEmpty)
+      commands.actAs.toSet
+    else
+      commands.actAs.toSet + commands.party
 
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
 

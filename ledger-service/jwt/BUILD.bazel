@@ -64,6 +64,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":jwt",
+        "//ledger/test-common",
         "@maven//:com_auth0_java_jwt",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

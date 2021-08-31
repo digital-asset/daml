@@ -69,6 +69,7 @@ compile_deps = [
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_grpc_grpc_context",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
     "@maven//:io_netty_netty_handler",
@@ -232,6 +233,9 @@ da_scala_test_suite(
     jvm_flags = [
         "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],
+    plugins = [
+        silencer_plugin,
+    ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -241,6 +245,7 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_playframework_anorm_anorm",
         "@maven//:org_playframework_anorm_anorm_tokenizer",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -306,6 +311,7 @@ da_scala_test_suite(
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_context",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",

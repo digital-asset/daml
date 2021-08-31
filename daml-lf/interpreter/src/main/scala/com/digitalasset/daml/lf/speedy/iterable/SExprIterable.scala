@@ -29,7 +29,7 @@ private[speedy] object SExprIterable {
     case SExpr.SEDamlException(_) => Iterator.empty
     case SExpr.SEImportValue(_, _) => Iterator.empty
     case SExpr.SETryCatch(body, handler) => Iterator(body, handler)
-    case SExpr.SEScopeExercise(body) => Iterator(body)
+    case SExpr.SEScopeExercise(_, body) => Iterator(body)
     case SExpr.SEBuiltin(_) => Iterator.empty
     case SExpr.SEBuiltinRecursiveDefinition(_) => Iterator.empty
     case SExpr.SELocA(_) => Iterator.empty

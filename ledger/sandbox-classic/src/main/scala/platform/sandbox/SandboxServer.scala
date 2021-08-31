@@ -107,8 +107,8 @@ object SandboxServer {
 
     newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
-      new FlywayMigrations(config.jdbcUrl.get)
-        .migrate(enableAppendOnlySchema = config.enableAppendOnlySchema)
+      new FlywayMigrations(config.jdbcUrl.get, config.enableAppendOnlySchema)
+        .migrate()
     }
   }
 
@@ -172,6 +172,7 @@ final class SandboxServer(
         }
       EngineConfig(
         allowedLanguageVersions = allowedLanguageVersions,
+        transactionNormalization = false,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
       )
@@ -379,6 +380,7 @@ final class SandboxServer(
         partyConfig = PartyConfiguration.default.copy(
           implicitPartyAllocation = config.implicitPartyAllocation
         ),
+        submissionConfig = config.submissionConfig,
         optTimeServiceBackend = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,

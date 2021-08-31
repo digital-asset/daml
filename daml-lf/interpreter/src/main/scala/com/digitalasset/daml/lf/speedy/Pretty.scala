@@ -96,7 +96,7 @@ private[lf] object Pretty {
         text("Update failed due to a unknown contract") & prettyContractId(cid)
       case NonComparableValues =>
         text("functions are not comparable")
-      case ContractIdFreshness(globalCid) =>
+      case ContractIdComparability(globalCid) =>
         text(s"The global contract ID $globalCid conflicts with a local contract ID")
       case ContractIdInContractKey(key) =>
         text(
@@ -518,7 +518,7 @@ private[lf] object Pretty {
           text("try-catch") + char('(') + prettySExpr(index)(body) + text(", ") +
             prettySExpr(index)(handler) + char(')')
 
-        case SEScopeExercise(body) =>
+        case SEScopeExercise(_, body) =>
           text("exercise") + char('(') + prettySExpr(index)(body) + text(")")
 
         case x: SEBuiltinRecursiveDefinition => str(x)

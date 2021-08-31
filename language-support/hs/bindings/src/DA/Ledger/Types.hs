@@ -55,7 +55,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     SubmissionId(..),
     LL.Duration(..),
     LL.Status(..),
-
+    DeduplicationPeriod(..)
     ) where
 
 import qualified Data.Aeson as A
@@ -77,7 +77,7 @@ data Commands = Commands
     , cid          :: CommandId
     , actAs        :: [Party]
     , readAs       :: [Party]
-    , dedupTime    :: Maybe LL.Duration
+    , dedupPeriod  :: Maybe DeduplicationPeriod
     , coms         :: [Command]
     , minLeTimeAbs :: Maybe Timestamp
     , minLeTimeRel :: Maybe LL.Duration
@@ -102,6 +102,11 @@ data Command
       , choiceArg  :: Value
       }
     deriving (Eq,Ord,Show)
+
+data DeduplicationPeriod
+    = DeduplicationTime LL.Duration
+    | DeduplicationOffset AbsOffset
+  deriving (Eq, Ord, Show)
 
 -- ledger_offset.proto
 

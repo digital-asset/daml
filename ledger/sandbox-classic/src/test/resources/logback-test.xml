@@ -17,6 +17,10 @@
         <appender-ref ref="SqlLedgerSpecAppender" />
     </logger>
 
+    <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="WARN">
+        <appender-ref ref="SqlLedgerSpecAppender" />
+    </logger>
+
     <!-- TODO append-only: remove duplicated definitions from this file -->
     <appender name="SqlLedgerSpecAppenderAppendOnly" class="com.daml.platform.testing.LogCollector">
         <test>com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpecAppendOnly</test>
@@ -27,6 +31,10 @@
     </logger>
 
     <logger name="com.daml.platform.store.appendonlydao.HikariConnection" level="INFO">
+        <appender-ref ref="SqlLedgerSpecAppenderAppendOnly" />
+    </logger>
+
+    <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="WARN">
         <appender-ref ref="SqlLedgerSpecAppenderAppendOnly" />
     </logger>
 </configuration>

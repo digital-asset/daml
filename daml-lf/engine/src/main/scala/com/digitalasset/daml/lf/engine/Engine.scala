@@ -57,7 +57,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
-      requiredCidSuffix = config.requireSuffixedGlobalCids,
+      forbidV0ContractId = config.requireV1ContractId,
+      requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
     )
 
   def info = new EngineInfo(config)
@@ -310,6 +311,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
+        transactionNormalization = config.transactionNormalization,
       )
       interpretLoop(machine, ledgerTime)
     }

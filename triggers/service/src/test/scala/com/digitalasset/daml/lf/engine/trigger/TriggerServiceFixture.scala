@@ -24,7 +24,7 @@ import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthS
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.clock.AdjustableClock
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.http.dbbackend.{ConnectionPool, JdbcConfig}
+import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth

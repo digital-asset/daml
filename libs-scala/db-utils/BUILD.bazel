@@ -23,7 +23,6 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scala_runtime_deps = [
         "@maven//:org_tpolecat_doobie_postgres",
@@ -39,7 +38,6 @@ da_scala_library(
     deps = [
         "//libs-scala/scala-utils",
         "@maven//:com_zaxxer_HikariCP",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

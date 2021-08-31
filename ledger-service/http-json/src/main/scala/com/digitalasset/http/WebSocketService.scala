@@ -272,7 +272,7 @@ object WebSocketService {
         def dbQueriesPlan(
             q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), Int)]]
         )(implicit
-            sjd: dbbackend.SupportedJdbcDriver
+            sjd: dbbackend.SupportedJdbcDriver.TC
         ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
             nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
@@ -461,7 +461,7 @@ object WebSocketService {
       def dbQueries(
           q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]]
       )(implicit
-          sjd: dbbackend.SupportedJdbcDriver
+          sjd: dbbackend.SupportedJdbcDriver.TC
       ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
         q.toSeq map { case (t, lfvKeys) =>
           val khd +: ktl = lfvKeys.toVector
@@ -525,9 +525,9 @@ object WebSocketService {
   }
 
   private[this] def keyEquality(k: Hash)(implicit
-      sjd: dbbackend.SupportedJdbcDriver
+      sjd: dbbackend.SupportedJdbcDriver.TC
   ): doobie.Fragment =
-    sjd.queries.keyEquality(k)
+    sjd.q.queries.keyEquality(k)
 
   private[WebSocketService] final class InitialEnrichedContractKeyWithStreamQuery private ()(
       implicit ec: ExecutionContext

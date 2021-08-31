@@ -29,15 +29,13 @@ def daml_haskell_deps():
         },
         stack_snapshot_json =
             "//:stackage_snapshot_windows.json" if is_windows else "//:stackage_snapshot.json",
-        flags = dicts.add(
-            {
-                "cryptonite": ["-integer-gmp"],
-                "hashable": ["-integer-gmp"],
-                "integer-logarithms": ["-integer-gmp"],
-                "text": ["integer-simple"],
-                "scientific": ["integer-simple"],
-            } if use_integer_simple else {},
-        ),
+        flags = {
+            "cryptonite": ["-integer-gmp"],
+            "hashable": ["-integer-gmp"],
+            "integer-logarithms": ["-integer-gmp"],
+            "scientific": ["integer-simple"],
+            "text": ["integer-simple"],
+        } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
@@ -59,8 +57,8 @@ def daml_haskell_deps():
             "lens",
             "lens-aeson",
             "memory",
-            "mtl",
             "monad-loops",
+            "mtl",
             "network",
             "optparse-applicative",
             "process",
@@ -75,15 +73,12 @@ def daml_haskell_deps():
             "tasty-hunit",
             "text",
             "typed-process",
-            "optparse-applicative",
             "unix-compat",
             "unordered-containers",
             "utf8-string",
             "uuid",
-        ] + (["unix"] if not is_windows else ["Win32"]),
-        stack = "@stack_windows//:stack.exe" if is_windows else None,
-        tools = [
         ],
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
     )
 
     if is_windows:

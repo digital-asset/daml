@@ -3,12 +3,11 @@
 
 package com.daml.ledger.client.services.commands
 
-import java.time.{Duration => JDuration}
+import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
 import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
-import com.daml.ledger.api.v1.command_submission_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CommandTracker
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
@@ -21,7 +20,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
 import scala.concurrent.Future
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
 /** Tracks commands and emits results upon their completion or timeout.
@@ -37,14 +36,19 @@ object CommandTrackerFlow {
   )
 
   def apply[Context, SubmissionMat](
-      commandSubmissionFlow: Flow[Ctx[(Context, String), SubmitRequest], Ctx[(Context, String), Try[
-        Empty
-      ]], SubmissionMat],
+      commandSubmissionFlow: Flow[
+        Ctx[(Context, String), CommandSubmission],
+        Ctx[(Context, String), Try[
+          Empty
+        ]],
+        SubmissionMat,
+      ],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      maxDeduplicationTime: () => Option[JDuration],
+      maximumCommandTimeout: Duration,
       backOffDuration: FiniteDuration = 1.second,
-  ): Flow[Ctx[Context, SubmitRequest], Ctx[
+      timeoutDetectionPeriod: FiniteDuration = 1.second,
+  ): Flow[Ctx[Context, CommandSubmission], Ctx[
     Context,
     Either[CompletionFailure, CompletionSuccess],
   ], Materialized[
@@ -52,7 +56,7 @@ object CommandTrackerFlow {
     Context,
   ]] = {
 
-    val trackerExternal = new CommandTracker[Context](maxDeduplicationTime)
+    val trackerExternal = new CommandTracker[Context](maximumCommandTimeout, timeoutDetectionPeriod)
 
     Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>
@@ -63,7 +67,10 @@ object CommandTrackerFlow {
         val wrapCompletion = builder.add(Flow[CompletionStreamElement].map(Right.apply))
 
         val merge = builder.add(
-          Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](2, false)
+          Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](
+            inputPorts = 2,
+            eagerComplete = false,
+          )
         )
 
         val startAt = builder.add(Source.single(startingOffset))
@@ -80,10 +87,10 @@ object CommandTrackerFlow {
                 1,
                 { case e =>
                   logger.warn(
-                    s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} .."
+                    s"Completion Stream failed with an error. Trying to recover in $backOffDuration..."
                   )
                   logger.debug(
-                    s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} ..",
+                    s"Completion Stream failed with an error. Trying to recover in $backOffDuration...",
                     e,
                   )
                   delayedEmptySource(backOffDuration)

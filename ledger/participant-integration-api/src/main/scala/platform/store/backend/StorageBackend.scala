@@ -63,7 +63,6 @@ trait StorageBackend[DB_BATCH]
     * The result is a database that looks the same as a freshly created database with Flyway migrations applied.
     */
   def resetAll(connection: Connection): Unit
-  def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
 
 trait IngestionStorageBackend[DB_BATCH] {
@@ -127,6 +126,9 @@ trait ParameterStorageBackend {
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
   def prunedUptoInclusive(connection: Connection): Option[Offset]
+  def updatePrunedAllDivulgedContractsUpToInclusive(
+      prunedUpToInclusive: Offset
+  )(connection: Connection): Unit
 
   /** Initializes the parameters table and verifies or updates ledger identity parameters.
     * This method is idempotent:
@@ -205,7 +207,9 @@ trait CompletionStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit
+  def pruneCompletions(
+      pruneUpToInclusive: Offset
+  )(connection: Connection, loggingContext: LoggingContext): Unit
 }
 
 trait ContractStorageBackend {
@@ -229,12 +233,14 @@ trait ContractStorageBackend {
   ): Vector[StorageBackend.RawContractStateEvent]
 }
 
-// TODO append-only: Event related query consolidation
 trait EventStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit
+  def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,

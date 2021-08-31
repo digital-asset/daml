@@ -83,14 +83,7 @@ object UpdateToDbDto {
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
             is_local = Some(u.participantId == participantId),
-          ),
-          DbDto.Party(
-            party = u.party,
-            display_name = Some(u.displayName),
-            explicit = true,
-            ledger_offset = Some(offset.toHexString),
-            is_local = u.participantId == participantId,
-          ),
+          )
         )
 
       case u: PartyAllocationRejected =>

@@ -10,7 +10,7 @@ import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
-import com.daml.http.dbbackend.{DBConfig, JdbcConfig}
+import com.daml.dbutils.{DBConfig, JdbcConfig}
 
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
@@ -166,23 +166,26 @@ private[trigger] object ServiceConfig {
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
+    implicit val jcd: DBConfig.JdbcConfigDefaults = DBConfig.JdbcConfigDefaults(
+      supportedJdbcDrivers = supportedJdbcDriverNames,
+      defaultDriver = Some("org.postgresql.Driver"),
+    )
+
     opt[Map[String, String]]("jdbc")
-      .action((x, c) =>
+      .action { (x, c) =>
         c.copy(jdbcConfig =
           Some(
             JdbcConfig
-              .create(x, defaultDriver = Some("org.postgresql.Driver"))(
-                DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames)
-              )
-              .fold(e => sys.error(e), identity)
+              .create(x)
+              .fold(e => throw new IllegalArgumentException(e), identity)
           )
         )
-      )
+      }
       .optional()
-      .text(JdbcConfig.help(DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames)))
+      .text(JdbcConfig.help())
       .text(
-        "JDBC configuration parameters. If omitted the service runs without a database. " + JdbcConfig
-          .help(DBConfig.SupportedJdbcDrivers(supportedJdbcDriverNames))
+        "JDBC configuration parameters. If omitted the service runs without a database. "
+          + JdbcConfig.help()
       )
 
     cmd("init-db")

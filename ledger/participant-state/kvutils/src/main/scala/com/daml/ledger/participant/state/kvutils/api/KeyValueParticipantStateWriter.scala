@@ -12,18 +12,11 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
-import com.daml.ledger.participant.state.v1.{
-  PruningResult,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
-import io.grpc.Status
 
 import scala.compat.java8.FutureConverters
 
@@ -116,13 +109,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
-    if (pruneAllDivulgedContracts) {
-      // Pruning of all divulged contracts is not yet implemented
-      // TODO Divulgence pruning: Remove `UNIMPLEMENTED` branch
-      //                          after all divulgence pruning is implemented.
-      CompletableFuture.completedFuture(PruningResult.NotPruned(Status.UNIMPLEMENTED))
-    } else {
-      // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
-      CompletableFuture.completedFuture(PruningResult.ParticipantPruned)
-    }
+    // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
+    CompletableFuture.completedFuture(PruningResult.ParticipantPruned)
 }

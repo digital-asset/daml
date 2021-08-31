@@ -110,6 +110,9 @@ class Applicative m => Action m where
 join : (Action m) => m (m a) -> m a
 join x = x >>= identity
 
+-- | This class exists to desugar pattern matches in do-notation.
+-- Polymorphic usage, or calling `fail` directly, is not recommended.
+-- Instead consider using `CanAbort`.
 class Action m => ActionFail m where
     -- | Fail with an error message.
     fail : Text -> m a

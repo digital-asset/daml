@@ -100,7 +100,11 @@ object Error {
   // as are not serializable.
   final case object NonComparableValues extends Error
 
-  final case class ContractIdFreshness(globalCid: ContractId.V1) extends Error
+  // Attempt to compare the global contract ID `globalCid` and a local
+  // contract ID with same discriminator. See the "Contract ID
+  // Comparability" section in the contract ID specification
+  // (//daml-lf/spec/contract-id.rst) for more details.
+  final case class ContractIdComparability(globalCid: ContractId.V1) extends Error
 
   final case class ContractIdInContractKey(key: Value[ContractId]) extends Error
 

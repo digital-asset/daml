@@ -227,7 +227,9 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @param pruneUpToInclusive offset up to which to prune archived history inclusively
     * @return
     */
-  def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+  def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit]
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {

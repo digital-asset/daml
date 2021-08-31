@@ -10,7 +10,7 @@ import anorm.SQL
 import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.appendonlydao.events.Party
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -22,6 +22,7 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
+  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -34,12 +35,17 @@ import com.daml.platform.store.backend.{
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
 
+import scala.util.Using
+
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
-    with CompletionStorageBackendTemplate {
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
+
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def insertBatch(
       connection: Connection,
@@ -81,7 +87,6 @@ private[backend] object PostgresStorageBackend
       |truncate table participant_events_create cascade;
       |truncate table participant_events_consuming_exercise cascade;
       |truncate table participant_events_non_consuming_exercise cascade;
-      |truncate table parties cascade;
       |truncate table party_entries cascade;
       |""".stripMargin)
       .execute()(connection)
@@ -99,14 +104,48 @@ private[backend] object PostgresStorageBackend
           |truncate table participant_events_create cascade;
           |truncate table participant_events_consuming_exercise cascade;
           |truncate table participant_events_non_consuming_exercise cascade;
-          |truncate table parties cascade;
           |truncate table party_entries cascade;
           |""".stripMargin)
       .execute()(connection)
     ()
   }
 
-  override val duplicateKeyError: String = "duplicate key"
+  def getPostgresVersion(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
+    val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
+    logger.debug(s"Found Postgres version $version")
+    parsePostgresVersion(version)
+  }
+
+  def parsePostgresVersion(version: String): Option[(Int, Int)] = {
+    val versionPattern = """(\d+)[.](\d+).*""".r
+    version match {
+      case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
+      case _ => None
+    }
+  }
+
+  private def checkCompatibility(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Unit = {
+    getPostgresVersion(connection) match {
+      case Some((major, minor)) =>
+        if (major < 10) {
+          logger.error(
+            "Deprecated Postgres version. " +
+              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
+              "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
+              "Please upgrade your Postgres database to version 10 or later to fix this issue."
+          )
+        }
+      case None =>
+        logger.warn(
+          s"Could not determine the version of the Postgres database. Please verify that this application is compatible with this Postgres version."
+        )
+    }
+    ()
+  }
 
   object PostgresQueryStrategy extends QueryStrategy {
 
@@ -183,6 +222,9 @@ private[backend] object PostgresStorageBackend
   )(implicit loggingContext: LoggingContext): DataSource = {
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
+
+    Using.resource(pgSimpleDataSource.getConnection())(checkCompatibility)
+
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
         .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),

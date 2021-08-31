@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.SubmissionIdGenerator
+import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.configuration.Configuration
@@ -80,7 +80,8 @@ private[apiserver] object ApiSubmissionService {
     )
 
   final case class Configuration(
-      implicitPartyAllocation: Boolean
+      implicitPartyAllocation: Boolean,
+      enableDeduplication: Boolean,
   )
 
 }
@@ -114,7 +115,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       val evaluatedCommand = ledgerConfigurationSubscription
         .latestConfiguration() match {
         case Some(ledgerConfiguration) =>
-          if (writeService.isApiDeduplicationEnabled) {
+          if (writeService.isApiDeduplicationEnabled && configuration.enableDeduplication) {
             deduplicateAndRecordOnLedger(
               seedService.nextSeed(),
               request.commands,
@@ -140,7 +141,10 @@ private[apiserver] final class ApiSubmissionService private[services] (
         commands.commandId,
         commands.actAs.toList,
         commands.submittedAt,
-        commands.deduplicateUntil,
+        DeduplicationPeriod.deduplicateUntil(
+          commands.submittedAt,
+          commands.deduplicationPeriod,
+        ),
       )
       .flatMap {
         case CommandDeduplicationNew =>

@@ -7,17 +7,16 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.package_service.GetPackageResponse
-import com.daml.ledger.api.{v1 => V1}
+import com.daml.ledger.api.v1
 import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.lf.archive.ArchivePayloadParser
 import com.daml.lf.data.{Ref => DamlLfRef}
 import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.navigator.model._
 import com.daml.navigator.model.converter.TypeNotFoundError
-import com.daml.navigator.store.Store.{StoreException, _}
+import com.daml.navigator.store.Store._
 import com.daml.util.Ctx
 import com.google.rpc.code
 import scalaz.Tag
@@ -35,7 +34,7 @@ object PlatformSubscriber {
   // Actor state
   case class StateRunning(commandTracker: TrackCommandsSource)
 
-  type TrackCommandsSource = SourceQueueWithComplete[Ctx[Command, SubmitRequest]]
+  type TrackCommandsSource = SourceQueueWithComplete[Ctx[Command, CommandSubmission]]
 
   def props(
       ledgerClient: LedgerClient,
@@ -199,12 +198,12 @@ class PlatformSubscriber(
   }
 
   private def startStreamingTransactions(): Future[Unit] = {
-    val ledgerBegin = V1.ledger_offset.LedgerOffset(
-      V1.ledger_offset.LedgerOffset.Value
-        .Boundary(V1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+    val ledgerBegin = v1.ledger_offset.LedgerOffset(
+      v1.ledger_offset.LedgerOffset.Value
+        .Boundary(v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
     )
-    val transactionFilter = V1.transaction_filter.TransactionFilter(
-      Map(Tag.unwrap(party.name) -> V1.transaction_filter.Filters(None))
+    val transactionFilter = v1.transaction_filter.TransactionFilter(
+      Map(Tag.unwrap(party.name) -> v1.transaction_filter.Filters(None))
     )
 
     // Create a source (transactions stream from ledger)
@@ -227,7 +226,7 @@ class PlatformSubscriber(
   }
 
   private def startTrackingCommands()
-      : Future[SourceQueueWithComplete[Ctx[Command, SubmitRequest]]] = {
+      : Future[SourceQueueWithComplete[Ctx[Command, CommandSubmission]]] = {
     for {
       commandTracker <- ledgerClient.commandClient
         .trackCommands[Command](List(Tag.unwrap(party.name)), token)
@@ -236,7 +235,7 @@ class PlatformSubscriber(
     // The command client itself can process (config.maxParallelSubmissions) commands in parallel.
     // In the highly unlikely case both buffers are full, the command submission will fail immediately.
     Source
-      .queue[Ctx[Command, SubmitRequest]](1000, OverflowStrategy.dropNew)
+      .queue[Ctx[Command, CommandSubmission]](1000, OverflowStrategy.dropNew)
       .via(commandTracker)
       .map(result => {
         val commandId = result.context.id
@@ -312,7 +311,7 @@ class PlatformSubscriber(
       .recoverWith(apiFailureF)
   }
 
-  private def decodePackage(res: GetPackageResponse) = {
+  private def decodePackage(res: v1.package_service.GetPackageResponse) = {
     val payload = ArchivePayloadParser.assertFromByteString(res.archivePayload)
     val (errors, out) =
       InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash), payload)
@@ -345,7 +344,7 @@ class PlatformSubscriber(
 
           // Send command to ledger
           commandTracker
-            .offer(Ctx(command, V1.command_submission_service.SubmitRequest(Some(commands))))
+            .offer(Ctx(command, CommandSubmission(commands)))
             .andThen {
               case Success(QOR.Dropped) =>
                 party.addCommandStatus(
