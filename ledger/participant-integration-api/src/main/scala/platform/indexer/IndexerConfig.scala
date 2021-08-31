@@ -23,7 +23,7 @@ case class IndexerConfig(
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
     // TODO append-only: remove after removing support for the current (mutating) schema
-    enableAppendOnlySchema: Boolean = false,
+    enableAppendOnlySchema: Boolean,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
