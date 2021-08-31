@@ -372,7 +372,7 @@ server_conformance_test(
         "default",
     ],
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
         "--enable-append-only-schema",
     ],
