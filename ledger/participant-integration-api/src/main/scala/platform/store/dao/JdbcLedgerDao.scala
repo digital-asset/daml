@@ -616,7 +616,13 @@ private class JdbcLedgerDao(
                 applicationId <- tx.applicationId
                 commandId <- tx.commandId
                 submissionId <- tx.submissionId
-              } yield state.CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId))
+              } yield state.CompletionInfo(
+                actAs,
+                applicationId,
+                commandId,
+                None,
+                Some(submissionId),
+              )
 
               prepareTransactionInsert(
                 completionInfo = completionInfo,
