@@ -38,7 +38,7 @@ import scala.util.Try
 final class CommandClient(
     commandSubmissionService: CommandSubmissionServiceStub,
     commandCompletionService: CommandCompletionServiceStub,
-    val ledgerId: LedgerId,
+    ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
     logger: Logger = LoggerFactory.getLogger(getClass),
