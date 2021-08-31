@@ -5,11 +5,13 @@ package com.daml.platform.store.backend
 
 import java.util.UUID
 
+import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.platform.index.index.StatusDetails
@@ -28,13 +30,7 @@ object UpdateToDbDto {
     {
       case u: CommandRejected =>
         Iterator(
-          DbDto.CommandCompletion(
-            completion_offset = offset.toHexString,
-            record_time = u.recordTime.toInstant,
-            application_id = u.completionInfo.applicationId,
-            submitters = u.completionInfo.actAs.toSet,
-            command_id = u.completionInfo.commandId,
-            transaction_id = None,
+          commandCompletion(offset, u.recordTime, transactionId = None, u.completionInfo).copy(
             rejection_status_code = Some(u.reasonTemplate.code),
             rejection_status_message = Some(u.reasonTemplate.message),
             rejection_status_details =
@@ -257,22 +253,46 @@ object UpdateToDbDto {
             )
         }
 
-        val completions = u.optCompletionInfo.iterator.map { completionInfo =>
-          DbDto.CommandCompletion(
-            completion_offset = offset.toHexString,
-            record_time = u.recordTime.toInstant,
-            application_id = completionInfo.applicationId,
-            submitters = completionInfo.actAs.toSet,
-            command_id = completionInfo.commandId,
-            transaction_id = Some(u.transactionId),
-            rejection_status_code = None,
-            rejection_status_message = None,
-            rejection_status_details = None,
+        val completions =
+          u.optCompletionInfo.iterator.map(
+            commandCompletion(offset, u.recordTime, Some(u.transactionId), _)
           )
-        }
 
         events ++ divulgences ++ completions
     }
   }
 
+  private def commandCompletion(
+      offset: Offset,
+      recordTime: Time.Timestamp,
+      transactionId: Option[Ref.TransactionId],
+      completionInfo: CompletionInfo,
+  ): DbDto.CommandCompletion = {
+    val (deduplicationOffset, deduplicationTimeSeconds, deduplicationTimeNanos) =
+      completionInfo.optDeduplicationPeriod
+        .map {
+          case DeduplicationOffset(offset) =>
+            (Some(offset.toHexString), None, None)
+          case DeduplicationDuration(duration) =>
+            (None, Some(duration.getSeconds), Some(duration.getNano))
+        }
+        .getOrElse((None, None, None))
+
+    DbDto.CommandCompletion(
+      completion_offset = offset.toHexString,
+      record_time = recordTime.toInstant,
+      application_id = completionInfo.applicationId,
+      submitters = completionInfo.actAs.toSet,
+      command_id = completionInfo.commandId,
+      transaction_id = transactionId,
+      rejection_status_code = None,
+      rejection_status_message = None,
+      rejection_status_details = None,
+      submission_id = Some(completionInfo.submissionId),
+      deduplication_offset = deduplicationOffset,
+      deduplication_time_seconds = deduplicationTimeSeconds,
+      deduplication_time_nanos = deduplicationTimeNanos,
+      deduplication_start = None,
+    )
+  }
 }

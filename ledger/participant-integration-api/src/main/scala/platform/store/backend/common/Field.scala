@@ -73,6 +73,11 @@ private[backend] case class IntOptional[FROM](extract: FROM => Option[Int])
 
 private[backend] case class Bigint[FROM](extract: FROM => Long) extends TrivialField[FROM, Long]
 
+private[backend] case class BigintOptional[FROM](extract: FROM => Option[Long])
+    extends Field[FROM, Option[Long], java.lang.Long] {
+  override def convert: Option[Long] => java.lang.Long = _.map(Long.box).orNull
+}
+
 private[backend] case class SmallintOptional[FROM](extract: FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
   override def convert: Option[Int] => Integer = _.map(Int.box).orNull
