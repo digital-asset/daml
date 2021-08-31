@@ -217,6 +217,7 @@ that can serve decryption details as a JSON document over HTTP GET.
 Example payload:
 
 .. code-block:: json
+
     {
       "algorithm": "AES/CBC/PKCS5Padding",
       "key": "0034567890abcdef1234567890abcdef",
