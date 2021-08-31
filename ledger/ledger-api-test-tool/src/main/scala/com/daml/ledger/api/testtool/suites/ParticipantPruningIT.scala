@@ -703,7 +703,10 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      _ <- beta.prune(offsetAfterDivulgence_1)
+      _ <- beta.prune(
+        pruneUpTo = offsetAfterDivulgence_1,
+        pruneAllDivulgedContracts = true,
+      )
       // Check that Bob can still fetch the contract after pruning the first transaction
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,

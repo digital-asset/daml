@@ -21,8 +21,12 @@ import io.grpc.Status
 
 import scala.compat.java8.FutureConverters
 
-private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
-    implicit loggingContext: LoggingContext
+private[stores] final class LedgerBackedWriteService(
+    ledger: Ledger,
+    timeProvider: TimeProvider,
+    enablePruning: Boolean,
+)(implicit
+    loggingContext: LoggingContext
 ) extends state.WriteService {
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
@@ -92,13 +96,22 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
     }
 
-  // WriteParticipantPruningService - not supported by sandbox-classic
+  /** Pruning of all divulged contracts is not supported on sandbox-classic. */
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[state.PruningResult] =
-    CompletableFuture.completedFuture(state.PruningResult.NotPruned(Status.UNIMPLEMENTED))
+    CompletableFuture.completedFuture {
+      // The API pruning service performs pruning in two steps:
+      // 1. pruning the ledger using a write service
+      // 2. pruning the index db
+      // For the sandbox-classic the ledger and the index db are the same thing, so returning
+      // `state.PruningResult.ParticipantPruned` results in proceeding to the step 2. effectively pruning the db,
+      // while returning `state.PruningResult.NotPruned(Status.UNIMPLEMENTED)` prevents pruning at all.
+      if (enablePruning && !pruneAllDivulgedContracts) state.PruningResult.ParticipantPruned
+      else state.PruningResult.NotPruned(Status.UNIMPLEMENTED)
+    }
 
   override def isApiDeduplicationEnabled: Boolean = true
 }

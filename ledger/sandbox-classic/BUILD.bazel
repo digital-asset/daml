@@ -368,6 +368,25 @@ server_conformance_test(
 )
 
 server_conformance_test(
+    name = "conformance-test-pruning-append-only",
+    lf_versions = [
+        "default",
+    ],
+    server_args = [
+        "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
+        "--enable-append-only-schema",
+    ],
+    servers = ONLY_POSTGRES_SERVER,
+    test_tool_args = [
+        "--open-world",
+        "--include=ParticipantPruningIT",
+        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
+    ],
+)
+
+server_conformance_test(
     name = "conformance-test-wall-clock",
     server_args = [
         "--wall-clock-time",
