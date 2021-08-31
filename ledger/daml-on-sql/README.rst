@@ -215,6 +215,7 @@ file with a ``.enc`` suffix.
 While doing so you also need to specify ``--secrets-url`` endpoint
 that can serve decryption details as a JSON document over HTTP GET.
 Example payload:
+
 .. code-block:: json
     {
       "algorithm": "AES/CBC/PKCS5Padding",
@@ -222,6 +223,7 @@ Example payload:
       "iv": "1134567890abcdef1234567890abcdef",
       "key_length" : 128
     }
+
 Example command: ``java -jar daml-on-sql-<version>.jar --pem server.pem.enc --crt server.crt --secrets-url http://localhost:8080``.
 By default, the Ledger API requires client authentication as well. You can set a
 custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``.
