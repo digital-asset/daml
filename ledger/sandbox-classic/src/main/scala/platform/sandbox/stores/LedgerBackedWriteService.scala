@@ -96,6 +96,7 @@ private[stores] final class LedgerBackedWriteService(
       FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
     }
 
+  /** Pruning of all divulged contracts is not supported on sandbox-classic. */
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
@@ -108,7 +109,7 @@ private[stores] final class LedgerBackedWriteService(
       // For the sandbox-classic the ledger and the index db are the same thing, so returning
       // `state.PruningResult.ParticipantPruned` results in proceeding to the step 2. effectively pruning the db,
       // while returning `state.PruningResult.NotPruned(Status.UNIMPLEMENTED)` prevents pruning at all.
-      if (enablePruning) state.PruningResult.ParticipantPruned
+      if (enablePruning && !pruneAllDivulgedContracts) state.PruningResult.ParticipantPruned
       else state.PruningResult.NotPruned(Status.UNIMPLEMENTED)
     }
 

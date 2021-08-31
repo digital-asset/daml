@@ -380,6 +380,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--include=ParticipantPruningIT",
+        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
     ],
 )
 
