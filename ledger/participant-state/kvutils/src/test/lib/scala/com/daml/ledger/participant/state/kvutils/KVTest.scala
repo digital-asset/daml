@@ -210,8 +210,6 @@ object KVTest {
               .get(Conversions.globalKeyToStateKey(globalKey.globalKey))
               .map(value => Conversions.decodeContractId(value.getContractKeyState.getContractId)),
         )
-        // TODO https://github.com/digital-asset/daml/issues/9974
-        //  Review how the error is displayed once LF errors are properly structured
         .fold(error => throw new RuntimeException(error.message), identity)
     }
 
