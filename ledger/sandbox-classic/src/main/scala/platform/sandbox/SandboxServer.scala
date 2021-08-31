@@ -248,8 +248,6 @@ final class SandboxServer(
             },
           )
           .left
-          // TODO https://github.com/digital-asset/daml/issues/9974
-          //  Review how the error is displayed once LF errors are properly structured
           .foreach(err => sys.error(err.message))
       }
     }
