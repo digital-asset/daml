@@ -143,4 +143,25 @@ CREATE INDEX participant_events_create_filter_event_sequential_id_idx ON partici
 -- used for efficient filtering of the ACS
 CREATE INDEX participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter USING btree(party_id, template_id, event_sequential_id);
 
+
+-- a table to keep track of the ACS fetches that are ongoing
+-- used to enable aggressive, but not too aggressive pruning of the filter table
+CREATE TABLE participant_streams_active_contracts (
+    -- request metadata
+    correlation_id uuid PRIMARY KEY,           -- correlation-id of the gRPC request
+    application_id text,                       -- application id of the gRPC request's claims
+    transaction_filter jsonb NOT NULL,         -- the filter used in the gRPC request
+    -- snapshot metadata
+    snapshot_event_sequential_id_incl bigint,  -- the non-strict upper bound of what events to include in the snapshot 
+    -- stream serving metadata
+    last_heartbeat_at timestamptz              -- the last time the stream fetching code marked this entry as alive by setting
+                                               -- its heartbeat to now()
+);
+
+CREATE INDEX participant_streams_active_contracts_snapshot_seq_id_idx ON participant_streams_active_contracts USING btree(snapshot_event_sequential_id_incl);
+CREATE INDEX participant_streams_active_contracts_last_heartbeat_at_idx ON participant_streams_active_contracts USING btree(last_heartbeat_at);
+
+INSERT INTO participant_streams_active_contracts
+  VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'test-app', '{}', 800, now());
+
 END;
