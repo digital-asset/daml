@@ -5,16 +5,17 @@ package com.daml.ledger.rxjava.grpc
 
 import java.util.Optional
 import java.util.concurrent.TimeUnit
-
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
-import io.grpc.Deadline
+
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.time.Duration
+import java.time.temporal.ChronoUnit
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
@@ -36,7 +37,7 @@ class CommandSubmissionClientImplTest
   it should "timeout after deadline exceeded" in {
     ledgerServices.withCommandSubmissionClient(
       Future.never,
-      deadline = Optional.of(Deadline.after(5, TimeUnit.SECONDS)),
+      timeout = Optional.of(Duration.of(1, ChronoUnit.SECONDS)),
     ) { (client, serviceImpl) =>
       val commands = genCommands(List.empty)
       expectDeadlineExceeded(
