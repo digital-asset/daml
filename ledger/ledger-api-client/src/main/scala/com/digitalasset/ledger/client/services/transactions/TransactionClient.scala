@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.transaction_service._
 
 import scala.concurrent.Future
 
-final class TransactionClient(val ledgerId: LedgerId, service: TransactionServiceStub)(implicit
+final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStub)(implicit
     esf: ExecutionSequencerFactory
 ) {
   private val it = new withoutledgerid.TransactionClient(service)
@@ -66,9 +66,7 @@ final class TransactionClient(val ledgerId: LedgerId, service: TransactionServic
   ): Future[GetFlatTransactionResponse] =
     it.getFlatTransactionByEventId(eventId, parties, token, ledgerId)
 
-  def getLedgerEnd(
-      token: Option[String] = None
-  ): Future[GetLedgerEndResponse] =
+  def getLedgerEnd(token: Option[String] = None): Future[GetLedgerEndResponse] =
     it.getLedgerEnd(token, ledgerId)
 
 }

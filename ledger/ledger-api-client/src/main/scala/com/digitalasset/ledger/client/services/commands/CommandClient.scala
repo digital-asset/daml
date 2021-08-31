@@ -67,15 +67,13 @@ final class CommandClient(
   def submitSingleCommand(
       submitRequest: SubmitRequest,
       token: Option[String] = None,
-  ): Future[Empty] = it.submitSingleCommand(submitRequest, token)
+  ): Future[Empty] =
+    it.submitSingleCommand(submitRequest, token)
 
   /** Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
     * stream to be established and torn down.
     */
-  def trackSingleCommand(
-      submitRequest: SubmitRequest,
-      token: Option[String] = None,
-  )(implicit
+  def trackSingleCommand(submitRequest: SubmitRequest, token: Option[String] = None)(implicit
       mat: Materializer
   ): Future[Either[CompletionFailure, CompletionSuccess]] =
     it.trackSingleCommand(submitRequest, token, ledgerId)
@@ -87,10 +85,7 @@ final class CommandClient(
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
-  def trackCommands[Context](
-      parties: Seq[String],
-      token: Option[String] = None,
-  )(implicit
+  def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] = it.trackCommands(parties, token, ledgerId)
 
@@ -100,10 +95,7 @@ final class CommandClient(
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
-  def trackCommandsUnbounded[Context](
-      parties: Seq[String],
-      token: Option[String] = None,
-  )(implicit
+  def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] = it.trackCommandsUnbounded(parties, token, ledgerId)
 
@@ -119,7 +111,6 @@ final class CommandClient(
   ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] =
     it.submissionFlow(token, ledgerId)
 
-  def getCompletionEnd(
-      token: Option[String] = None
-  ): Future[CompletionEndResponse] = it.getCompletionEnd(token, ledgerId)
+  def getCompletionEnd(token: Option[String] = None): Future[CompletionEndResponse] =
+    it.getCompletionEnd(token, ledgerId)
 }

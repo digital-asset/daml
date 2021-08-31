@@ -11,8 +11,7 @@ import scala.concurrent.Future
 final class VersionClient(ledgerId: LedgerId, service: VersionServiceStub) {
   private val it = new withoutledgerid.VersionClient(service)
 
-  def getApiVersion(
-      token: Option[String] = None
-  ): Future[String] = it.getApiVersion(ledgerId, token)
+  def getApiVersion(token: Option[String] = None): Future[String] =
+    it.getApiVersion(ledgerId, token)
 
 }
