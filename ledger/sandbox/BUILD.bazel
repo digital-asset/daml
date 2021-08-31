@@ -319,6 +319,6 @@ server_conformance_test(
     servers = {"memory": NEXT_SERVERS["memory"]},
     test_tool_args = [
         "--verbose",
-        "--include=ContractIdIT:Accept",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
     ],
 )

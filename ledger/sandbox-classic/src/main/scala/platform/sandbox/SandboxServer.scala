@@ -175,6 +175,7 @@ final class SandboxServer(
         transactionNormalization = false,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
+        forbidV0ContractId = false,
       )
     }
     getEngine(engineConfig)
