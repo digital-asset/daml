@@ -93,6 +93,9 @@ private[sandbox] object LedgerResource {
           metrics = new Metrics(metrics),
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = new Engine(),
+          validatePartyAllocation = false,
+          enableAppendOnlySchema = false,
+          enableCompression = false,
         )
       } yield ledger
     )
