@@ -29,6 +29,7 @@ object SizedCache {
       case Configuration(maximumSize) =>
         val builder = caffeine.Caffeine
           .newBuilder()
+          .softValues()
           .maximumSize(maximumSize)
         CaffeineCache[Key, Value](builder, metrics)
     }
