@@ -325,7 +325,7 @@ object KeyValueConsumption {
 
     val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
     wrappedLogEntry.getPayloadCase match {
-      case _ if deduplicated => // TODO does this still make sense?
+      case _ if deduplicated =>
         // We don't emit updates for deduplicated submissions.
         None
 
@@ -350,7 +350,7 @@ object KeyValueConsumption {
             ),
             reasonTemplate = FinalReason(
               Status.of(
-                Code.INVALID_ARGUMENT.value, // TODO does this make sense?
+                Code.INVALID_ARGUMENT.value,
                 reason,
                 Seq.empty,
               )

@@ -498,7 +498,9 @@ message DamlContractKeyState {
 
 // Errors
 
-// V1
+//
+// Used by participant.state.v1 API.
+//
 
 // The transaction relied on contracts or keys being active that were no longer active.
 message Inconsistent {

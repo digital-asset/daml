@@ -31,7 +31,7 @@ class ClosedWorldIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "Parties not known on ledger [unallocated]",
+        "",
       )
     }
   })
