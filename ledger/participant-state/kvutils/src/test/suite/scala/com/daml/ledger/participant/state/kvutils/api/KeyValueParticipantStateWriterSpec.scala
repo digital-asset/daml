@@ -172,7 +172,8 @@ object KeyValueParticipantStateWriterSpec {
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofDays(1)),
       submissionId = Ref.LedgerString.assertFromString("submission"),
-      ledgerConfiguration = null,
+      ledgerConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(

@@ -12,7 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.{LedgerId, LedgerTimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
@@ -699,7 +699,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(10)),
       submissionId = Ref.LedgerString.assertFromString("submissionId"),
-      ledgerConfiguration = null,
+      ledgerConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )
 
   private def inTheFuture(duration: FiniteDuration): Timestamp =
