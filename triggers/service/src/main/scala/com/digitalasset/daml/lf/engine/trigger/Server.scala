@@ -517,11 +517,12 @@ object Server {
 
     val authClientRoutes = authConfig match {
       case NoAuth => None
-      case AuthMiddleware(uri) =>
+      case AuthMiddleware(int, ext) =>
         val client =
           AuthClient(
             AuthClient.Config(
-              authMiddlewareUri = uri,
+              authMiddlewareInternalUri = int,
+              authMiddlewareExternalUri = ext,
               redirectToLogin = authRedirectToLogin,
               maxAuthCallbacks = maxAuthCallbacks,
               authCallbackTimeout = authCallbackTimeout,

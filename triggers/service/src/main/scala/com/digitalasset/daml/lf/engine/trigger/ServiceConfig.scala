@@ -23,7 +23,9 @@ private[trigger] final case class ServiceConfig(
     httpPort: Int,
     ledgerHost: String,
     ledgerPort: Int,
-    authUri: Option[Uri],
+    authInternalUri: Option[Uri],
+    authExternalUri: Option[Uri],
+    authBothUri: Option[Uri],
     authRedirectToLogin: AuthClient.RedirectToLogin,
     authCallbackUri: Option[Uri],
     maxInboundMessageSize: Int,
@@ -90,8 +92,18 @@ private[trigger] object ServiceConfig {
 
     opt[String]("auth")
       .optional()
-      .action((t, c) => c.copy(authUri = Some(Uri(t))))
-      .text("Auth middleware URI.")
+      .action((t, c) => c.copy(authBothUri = Some(Uri(t))))
+      .text("Sets both the internal and external auth URIs. Incompatible with --auth-internal and --auth-external.")
+
+    opt[String]("auth-internal")
+      .optional()
+      .action((t, c) => c.copy(authInternalUri = Some(Uri(t))))
+      .text("Sets the internal auth URIs (used by the trigger service to connect directly to the middleware). Incompatible with --auth.")
+
+    opt[String]("auth-external")
+      .optional()
+      .action((t, c) => c.copy(authExternalUri = Some(Uri(t))))
+      .text("Sets the external auth URI (the one returned to the browser). Incompatible with --auth.")
 
     opt[AuthClient.RedirectToLogin]("auth-redirect")
       .optional()
@@ -205,7 +217,9 @@ private[trigger] object ServiceConfig {
         httpPort = DefaultHttpPort,
         ledgerHost = null,
         ledgerPort = 0,
-        authUri = None,
+        authInternalUri = None,
+        authExternalUri = None,
+        authBothUri = None,
         authRedirectToLogin = AuthClient.RedirectToLogin.No,
         authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,

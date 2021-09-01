@@ -124,7 +124,10 @@ trait TestFixture
             .withAuthority(
               middlewareBinding.localAddress.getHostName,
               middlewareBinding.localAddress.getPort,
-            ),
+            )
+        middlewareClientConfig = Client.Config(
+          authMiddlewareInternalUri = authUri,
+          authMiddlewareExternalUri = authUri,
           redirectToLogin = redirectToLogin,
           maxAuthCallbacks = maxClientAuthCallbacks,
           authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
