@@ -86,9 +86,6 @@ da_scala_test_suite(
     plugins = [
         silencer_plugin,
     ],
-    resources = [
-        "src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker",
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",

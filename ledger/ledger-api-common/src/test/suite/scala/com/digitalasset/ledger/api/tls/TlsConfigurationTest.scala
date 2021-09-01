@@ -91,7 +91,8 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       e.getCause.getMessage shouldBe "Unable to convert TlsConfiguration(true,None,None,None,None,REQUIRE,false,List()) to SSL Context: cannot decrypt keyFile without secretsUrl."
     }
 
-    "attempt to decrypt private key using by fetching decryption params from an url" in {
+    // TODO DPP-578: Enable this test once flakiness related to Mockito plugin is sorted
+    "attempt to decrypt private key using by fetching decryption params from an url" ignore {
       // given
       val keyFilePath = Files.createTempFile("private-key", ".enc")
       Files.write(keyFilePath, "private-key-123".getBytes())
