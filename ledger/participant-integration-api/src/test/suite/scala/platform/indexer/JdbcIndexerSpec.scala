@@ -179,6 +179,7 @@ final class JdbcIndexerSpec
       jdbcUrl = postgresDatabase.url,
       startupMode = IndexerStartupMode.MigrateAndStart,
       asyncCommitMode = jdbcAsyncCommitMode,
+      enableAppendOnlySchema = false,
     )
     val metrics = new Metrics(new MetricRegistry)
     new indexer.JdbcIndexer.Factory(

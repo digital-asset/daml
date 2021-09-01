@@ -127,6 +127,10 @@ private[backend] object H2StorageBackend
           .map(p => cSQL"array_contains(#$columnName, '#${p.toString}')")
           .mkComposite("(", " or ", ")")
 
+    override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
+      s"array_contains($arrayColumnName, $elementColumnName)"
+
+    override def isTrue(booleanColumnName: String): String = booleanColumnName
   }
 
   override def queryStrategy: QueryStrategy = H2QueryStrategy
@@ -228,4 +232,11 @@ private[backend] object H2StorageBackend
     throw new UnsupportedOperationException("db level locks are not supported for H2")
 
   override def dbLockSupported: Boolean = false
+
+  // Migration from mutable schema is not supported for H2
+  override def validatePruningOffsetAgainstMigration(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      connection: Connection,
+  ): Unit = ()
 }

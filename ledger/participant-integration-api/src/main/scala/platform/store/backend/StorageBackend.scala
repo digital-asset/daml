@@ -241,6 +241,11 @@ trait EventStorageBackend {
       connection: Connection,
       loggingContext: LoggingContext,
   ): Unit
+  def validatePruningOffsetAgainstMigration(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      connection: Connection,
+  ): Unit
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,

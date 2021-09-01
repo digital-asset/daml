@@ -83,9 +83,7 @@ message NodeFetch {
     reserved 5; // was value_version
     com.daml.lf.value.ContractId contract_id_struct = 6;
     KeyWithMaintainers key_with_maintainers = 8;
-    // TODO https://github.com/digital-asset/daml/issues/7622
-    // Switch to a stable version
-    bool byKey = 9; // *since version 1.dev*
+    bool byKey = 9; // *since version 1.14*
 }
 
 message NodeExercise {
@@ -110,8 +108,6 @@ message NodeExercise {
     reserved 13; // was contract_key
     KeyWithMaintainers key_with_maintainers = 14; // optional
     repeated string observers = 15;  // *since version 11*
-    // TODO https://github.com/digital-asset/daml/issues/7622
-    // Switch to a stable version
     bool byKey = 18; // *since version 14*
 }
 

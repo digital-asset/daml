@@ -226,7 +226,7 @@ conformance_test(
         "--verbose",
         "--include=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences",
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
     ],
 )
 
@@ -269,6 +269,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--include=ContractIdIT:Accept",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
     ],
 )

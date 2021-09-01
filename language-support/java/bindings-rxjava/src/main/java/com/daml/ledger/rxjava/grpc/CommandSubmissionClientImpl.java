@@ -4,6 +4,7 @@
 package com.daml.ledger.rxjava.grpc;
 
 import static java.util.Arrays.asList;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
@@ -13,7 +14,6 @@ import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.google.protobuf.Empty;
 import io.grpc.Channel;
-import io.grpc.Deadline;
 import io.reactivex.Single;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,17 +25,17 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
   private final String ledgerId;
   private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
+  private final Optional<Duration> timeout;
 
   public CommandSubmissionClientImpl(
       @NonNull String ledgerId,
       @NonNull Channel channel,
       Optional<String> accessToken,
-      Optional<Deadline> deadline) {
+      Optional<Duration> timeout) {
     this.ledgerId = ledgerId;
+    this.timeout = timeout;
     this.serviceStub =
-        StubHelper.authenticating(
-            CommandSubmissionServiceGrpc.newFutureStub(channel).withDeadline(deadline.orElse(null)),
-            accessToken);
+        StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
   }
 
   public Single<com.google.protobuf.Empty> submit(
@@ -61,8 +61,12 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
             minLedgerTimeRel,
             deduplicationTime,
             commands);
+    CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
+        this.timeout
+            .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
+            .orElse(this.serviceStub);
     return Single.fromFuture(
-        StubHelper.authenticating(this.serviceStub, accessToken).submit(request));
+        StubHelper.authenticating(stubWithTimeout, accessToken).submit(request));
   }
 
   public Single<com.google.protobuf.Empty> submit(

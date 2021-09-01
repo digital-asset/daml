@@ -41,6 +41,7 @@ private[backend] object StorageBackendTestValues {
     ParameterStorageBackend.IdentityParams(someLedgerId, someParticipantId)
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
   val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
+  val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
 
   val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
     .setHash("00001")
@@ -68,7 +69,8 @@ private[backend] object StorageBackendTestValues {
 
   def dtoPartyEntry(
       offset: Offset,
-      party: String = someParty.toString,
+      party: String = someParty,
+      isLocal: Boolean = true,
   ): DbDto.PartyEntry = DbDto.PartyEntry(
     ledger_offset = offset.toHexString,
     recorded_at = someTime,
@@ -77,7 +79,7 @@ private[backend] object StorageBackendTestValues {
     display_name = Some(party),
     typ = JdbcLedgerDao.acceptType,
     rejection_reason = None,
-    is_local = Some(true),
+    is_local = Some(isLocal),
   )
 
   def dtoPackage(offset: Offset): DbDto.Package = DbDto.Package(
@@ -183,7 +185,7 @@ private[backend] object StorageBackendTestValues {
   /** A single divulgence event
     */
   def dtoDivulgence(
-      offset: Offset,
+      offset: Option[Offset],
       eventSequentialId: Long,
       contractId: String,
       submitter: String = "signatory",
@@ -191,7 +193,7 @@ private[backend] object StorageBackendTestValues {
       commandId: String = UUID.randomUUID().toString,
   ): DbDto.EventDivulgence = {
     DbDto.EventDivulgence(
-      event_offset = Some(offset.toHexString),
+      event_offset = offset.map(_.toHexString),
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
@@ -210,20 +212,28 @@ private[backend] object StorageBackendTestValues {
       submitter: String = "signatory",
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
-  ): DbDto.CommandCompletion = {
-    val transactionId = transactionIdFromOffset(offset)
+      submissionId: Option[String] = Some(UUID.randomUUID().toString),
+      deduplicationOffset: Option[String] = None,
+      deduplicationTimeSeconds: Option[Long] = None,
+      deduplicationTimeNanos: Option[Int] = None,
+      deduplicationStart: Option[Instant] = None,
+  ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
       record_time = someTime,
       application_id = applicationId,
       submitters = Set(submitter),
       command_id = commandId,
-      transaction_id = Some(transactionId),
+      transaction_id = Some(transactionIdFromOffset(offset)),
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,
+      submission_id = submissionId,
+      deduplication_offset = deduplicationOffset,
+      deduplication_time_seconds = deduplicationTimeSeconds,
+      deduplication_time_nanos = deduplicationTimeNanos,
+      deduplication_start = deduplicationStart,
     )
-  }
 
   def dtoTransactionId(dto: DbDto): Ref.TransactionId = {
     dto match {

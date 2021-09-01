@@ -9,7 +9,8 @@ import org.scalatest.flatspec.AsyncFlatSpec
 final class StorageBackendPostgresSpec
     extends AsyncFlatSpec
     with StorageBackendProviderPostgres
-    with StorageBackendSuite {
+    with StorageBackendSuite
+    with StorageBackendTestsMigrationPruning {
 
   behavior of "StorageBackend (Postgres)"
 

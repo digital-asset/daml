@@ -113,6 +113,11 @@ private[backend] object OracleStorageBackend
       s"""case when ($column = $value) then 1 else 0 end"""
 
     override def booleanOrAggregationFunction: String = "max"
+
+    override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
+      s"EXISTS (SELECT 1 FROM JSON_TABLE($arrayColumnName, '$$[*]' columns (value PATH '$$')) WHERE value = $elementColumnName)"
+
+    override def isTrue(booleanColumnName: String): String = s"$booleanColumnName = 1"
   }
 
   override def queryStrategy: QueryStrategy = OracleQueryStrategy
@@ -244,4 +249,11 @@ private[backend] object OracleStorageBackend
   override def lock(id: Int): DBLockStorageBackend.LockId = OracleLockId(id)
 
   override def dbLockSupported: Boolean = true
+
+  // Migration from mutable schema is not supported for Oracle
+  override def validatePruningOffsetAgainstMigration(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      connection: Connection,
+  ): Unit = ()
 }

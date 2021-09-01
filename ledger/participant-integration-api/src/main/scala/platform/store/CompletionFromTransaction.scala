@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.offset.Offset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.google.protobuf.duration.Duration
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 
@@ -26,14 +27,24 @@ private[platform] object CompletionFromTransaction {
       offset: Offset,
       commandId: String,
       transactionId: String,
+      applicationId: String,
+      maybeSubmissionId: Option[String] = None,
+      maybeDeduplicationOffset: Option[String] = None,
+      maybeDeduplicationTimeSeconds: Option[Long] = None,
+      maybeDeduplicationTimeNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
       completions = Seq(
-        Completion(
+        toApiCompletion(
           commandId = commandId,
-          status = Some(OkStatus),
           transactionId = transactionId,
+          applicationId = applicationId,
+          maybeStatus = Some(OkStatus),
+          maybeSubmissionId = maybeSubmissionId,
+          maybeDeduplicationOffset = maybeDeduplicationOffset,
+          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
         )
       ),
     )
@@ -43,14 +54,24 @@ private[platform] object CompletionFromTransaction {
       offset: Offset,
       commandId: String,
       status: StatusProto,
+      applicationId: String,
+      maybeSubmissionId: Option[String] = None,
+      maybeDeduplicationOffset: Option[String] = None,
+      maybeDeduplicationTimeSeconds: Option[Long] = None,
+      maybeDeduplicationTimeNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
       completions = Seq(
-        Completion(
+        toApiCompletion(
           commandId = commandId,
-          status = Some(status),
           transactionId = RejectionTransactionId,
+          applicationId = applicationId,
+          maybeStatus = Some(status),
+          maybeSubmissionId = maybeSubmissionId,
+          maybeDeduplicationOffset = maybeDeduplicationOffset,
+          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
         )
       ),
     )
@@ -60,4 +81,71 @@ private[platform] object CompletionFromTransaction {
       recordTime = Some(fromInstant(recordTime)),
       offset = Some(LedgerOffset.of(LedgerOffset.Value.Absolute(offset.toApiString))),
     )
+
+  private[store] def toApiCompletion(
+      commandId: String,
+      transactionId: String,
+      applicationId: String,
+      maybeStatus: Option[StatusProto],
+      maybeSubmissionId: Option[String],
+      maybeDeduplicationOffset: Option[String],
+      maybeDeduplicationTimeSeconds: Option[Long],
+      maybeDeduplicationTimeNanos: Option[Int],
+  ): Completion = {
+    val completionWithMandatoryFields = Completion(
+      commandId = commandId,
+      status = maybeStatus,
+      transactionId = transactionId,
+      applicationId = applicationId,
+    )
+    val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
+      maybeDeduplicationOffset = maybeDeduplicationOffset,
+      maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+      maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
+    )
+    (maybeSubmissionId, maybeDeduplicationPeriod) match {
+      case (Some(submissionId), Some(deduplicationPeriod)) =>
+        completionWithMandatoryFields.copy(
+          submissionId = submissionId,
+          deduplicationPeriod = deduplicationPeriod,
+        )
+      case (Some(submissionId), None) =>
+        completionWithMandatoryFields.copy(
+          submissionId = submissionId
+        )
+      case (None, Some(deduplicationPeriod)) =>
+        completionWithMandatoryFields.copy(
+          deduplicationPeriod = deduplicationPeriod
+        )
+      case _ =>
+        completionWithMandatoryFields
+    }
+  }
+
+  private def toApiDeduplicationPeriod(
+      maybeDeduplicationOffset: Option[String],
+      maybeDeduplicationTimeSeconds: Option[Long],
+      maybeDeduplicationTimeNanos: Option[Int],
+  ): Option[Completion.DeduplicationPeriod] =
+    // The only invariant that should hold, considering legacy data, is that either
+    // the deduplication time seconds and nanos are both populated, or neither is.
+    (maybeDeduplicationOffset, (maybeDeduplicationTimeSeconds, maybeDeduplicationTimeNanos)) match {
+      case (None, (None, None)) => None
+      case (Some(offset), _) =>
+        Some(Completion.DeduplicationPeriod.DeduplicationOffset(offset))
+      case (_, (Some(deduplicationTimeSeconds), Some(deduplicationTimeNanos))) =>
+        Some(
+          Completion.DeduplicationPeriod.DeduplicationTime(
+            new Duration(
+              seconds = deduplicationTimeSeconds,
+              nanos = deduplicationTimeNanos,
+            )
+          )
+        )
+      case _ =>
+        throw new IllegalArgumentException(
+          "One of deduplication time seconds and nanos has been provided " +
+            "but they must be either both provided or both absent"
+        )
+    }
 }

@@ -108,7 +108,7 @@ object Error {
     final case class IllegalContractId(cid: Value.ContractId, reason: IllegalContractId.Reason)
         extends Error {
       override def message: String =
-        s"""Illegal Contract ID "${cid.coid}, """" + reason.details
+        s"""Illegal Contract ID "${cid.coid}", """ + reason.details
     }
 
     object IllegalContractId {
@@ -151,13 +151,8 @@ object Error {
         with InternalError
 
     final case class DamlException(error: interpretation.Error) extends Error {
-      // TODO https://github.com/digital-asset/daml/issues/9974
-      //  For now we try to preserve the exact same message (for the ledger API)
-      //  Review once all the errors are properly structured
       override def message: String = error match {
         case interpretation.Error.ContractNotFound(cid) =>
-          // TODO https://github.com/digital-asset/daml/issues/9974
-          //   we should probably use ${cid.coid} instead of $cid
           s"Contract could not be found with id $cid"
         case interpretation.Error.ContractKeyNotFound(key) =>
           s"dependency error: couldn't find key: $key"

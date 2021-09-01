@@ -3,8 +3,14 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.io.File
+import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.TimeUnit
+
 import com.daml.caching
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
@@ -21,12 +27,6 @@ import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
-import java.io.File
-import java.net.URL
-import java.nio.file.Path
-import java.time.Duration
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
@@ -174,6 +174,7 @@ object Config {
               "indexer-max-input-buffer-size, " +
               "indexer-input-mapping-parallelism, " +
               "indexer-ingestion-parallelism, " +
+              "indexer-batching-parallelism, " +
               "indexer-submission-batch-size, " +
               "indexer-tailing-rate-limit-per-second, " +
               "indexer-batch-within-millis, " +
@@ -326,7 +327,7 @@ object Config {
             "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
           )
           .action((url, config) =>
-            config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url))))
+            config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.fromString(url))))
           )
 
         checkConfig(c =>
@@ -569,6 +570,41 @@ object Config {
               " In the future, this flag will be removed and this application will automatically migrate to the new schema."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
+
+        // TODO append-only: remove after removing support for the current (mutating) schema
+        checkConfig(c => {
+          if (
+            c.enableAppendOnlySchema && c.participants.exists(
+              _.indexerConfig.databaseConnectionPoolSize != ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize
+            )
+          ) {
+            failure(
+              "The following participant setting keys are not compatible with the --index-append-only-schema flag: " +
+                "indexer-connection-pool-size."
+            )
+          } else if (
+            !c.enableAppendOnlySchema && c.participants.exists(pc =>
+              pc.indexerConfig.maxInputBufferSize != ParticipantIndexerConfig.DefaultMaxInputBufferSize ||
+                pc.indexerConfig.inputMappingParallelism != ParticipantIndexerConfig.DefaultInputMappingParallelism ||
+                pc.indexerConfig.ingestionParallelism != ParticipantIndexerConfig.DefaultIngestionParallelism ||
+                pc.indexerConfig.submissionBatchSize != ParticipantIndexerConfig.DefaultSubmissionBatchSize ||
+                pc.indexerConfig.tailingRateLimitPerSecond != ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond ||
+                pc.indexerConfig.batchWithinMillis != ParticipantIndexerConfig.DefaultBatchWithinMillis
+            )
+          ) {
+            failure(
+              "The following participant setting keys can only be used together with the --index-append-only-schema flag: " +
+                "indexer-max-input-buffer-size, " +
+                "indexer-input-mapping-parallelism, " +
+                "indexer-ingestion-parallelism, " +
+                "indexer-batching-parallelism, " +
+                "indexer-submission-batch-size, " +
+                "indexer-tailing-rate-limit-per-second, " +
+                "indexer-batch-within-millis. "
+            )
+          } else
+            success
+        })
 
         opt[Unit]("mutable-contract-state-cache")
           .optional()

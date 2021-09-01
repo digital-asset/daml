@@ -59,17 +59,6 @@ class EngineTest
 
   import EngineTest._
 
-  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
-  private def participant = Ref.ParticipantId.assertFromString("participant")
-
-  private[this] def byKeyNodes[Nid, _](tx: VersionedTransaction[Nid, _]) =
-    tx.nodes.collect { case (nodeId, node: GenActionNode[_, _]) if node.byKey => nodeId }.toSet
-
-  private val party = Party.assertFromString("Party")
-  private val alice = Party.assertFromString("Alice")
-  private val bob = Party.assertFromString("Bob")
-  private val clara = Party.assertFromString("Clara")
-
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
@@ -139,13 +128,13 @@ class EngineTest
         toContractId("BasicTests:WithKey:1")
   )
 
-  val lookupContract = defaultContracts.get(_)
+  private[this] val lookupContract = defaultContracts.get(_)
 
-  def lookupPackage(pkgId: PackageId): Option[Package] = {
+  private[this] def lookupPackage(pkgId: PackageId): Option[Package] = {
     allPackages.get(pkgId)
   }
 
-  def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+  private[this] def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
     (key.globalKey.templateId, key.globalKey.key) match {
       case (
             BasicTests_WithKey,
@@ -156,9 +145,9 @@ class EngineTest
         None
     }
 
-  val suffixLenientEngine = newEngine()
-  val suffixStrictEngine = newEngine(requireCidSuffixes = true)
-  val preprocessor =
+  private[this] val suffixLenientEngine = newEngine()
+  private[this] val suffixStrictEngine = newEngine(requireCidSuffixes = true)
+  private[this] val preprocessor =
     new preprocessing.Preprocessor(
       ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
     )
@@ -2259,7 +2248,7 @@ class EngineTest
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          requireV1ContractId = true,
+          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -2267,7 +2256,7 @@ class EngineTest
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
           contractKeyUniqueness = ContractKeyUniquenessMode.On,
-          requireV1ContractId = true,
+          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -2679,7 +2668,7 @@ class EngineTest
       new Engine(
         EngineConfig(
           allowedLanguageVersions = VersionRange(min, max),
-          requireV1ContractId = true,
+          forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
       )
@@ -2726,11 +2715,21 @@ class EngineTest
 
 object EngineTest {
 
+  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
+  private def participant = Ref.ParticipantId.assertFromString("participant")
+  private def byKeyNodes[Nid, _](tx: VersionedTransaction[Nid, _]) =
+    tx.nodes.collect { case (nodeId, node: GenActionNode[_, _]) if node.byKey => nodeId }.toSet
+
+  private val party = Party.assertFromString("Party")
+  private val alice = Party.assertFromString("Alice")
+  private val bob = Party.assertFromString("Bob")
+  private val clara = Party.assertFromString("Clara")
+
   private def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
         allowedLanguageVersions = language.LanguageVersion.DevVersions,
-        requireV1ContractId = true,
+        forbidV0ContractId = true,
         requireSuffixedGlobalContractId = requireCidSuffixes,
       )
     )
@@ -2773,6 +2772,41 @@ object EngineTest {
   private def suffix(tx: Tx.Transaction) =
     data.assertRight(tx.suffixCid(_ => dummySuffix))
 
+  private[this] case class ReinterpretState(
+      contracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]],
+      keys: Map[GlobalKey, ContractId],
+      nodes: HashMap[NodeId, GenNode[NodeId, ContractId]] = HashMap.empty,
+      roots: BackStack[NodeId] = BackStack.empty,
+      dependsOnTime: Boolean = false,
+      nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
+  ) {
+    def commit(tr: GenTx[NodeId, ContractId], meta: Tx.Metadata) = {
+      val (newContracts, newKeys) = tr.fold((contracts, keys)) {
+        case ((contracts, keys), (_, exe: Node.NodeExercises[_, _])) =>
+          (contracts - exe.targetCoid, keys)
+        case ((contracts, keys), (_, create: Node.NodeCreate[ContractId])) =>
+          (
+            contracts.updated(
+              create.coid,
+              create.versionedCoinst,
+            ),
+            create.key.fold(keys)(k =>
+              keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
+            ),
+          )
+        case (acc, _) => acc
+      }
+      ReinterpretState(
+        newContracts,
+        newKeys,
+        nodes ++ tr.nodes,
+        roots :++ tr.roots,
+        dependsOnTime || meta.dependsOnTime,
+        nodeSeeds :++ meta.nodeSeeds,
+      )
+    }
+  }
+
   // Mimics Canton reinterpreation
   // requires a suffixed transaction.
   private def reinterpret(
@@ -2786,123 +2820,73 @@ object EngineTest {
       contracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] = Map.empty,
       keys: Map[GlobalKey, ContractId] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
-    type Acc =
-      (
-          HashMap[NodeId, GenNode[NodeId, ContractId]],
-          BackStack[NodeId],
-          Boolean,
-          BackStack[(NodeId, crypto.Hash)],
-          Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]],
-          Map[GlobalKey, ContractId],
-      )
+
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
-    val iterate =
-      nodes.foldLeft[Either[Error, Acc]](
-        Right((HashMap.empty, BackStack.empty, false, BackStack.empty, contracts, keys))
-      ) { case (acc, nodeId) =>
-        for {
-          previousStep <- acc
-          (nodes, roots, dependsOnTime, nodeSeeds, contracts0, keys0) = previousStep
-          cmd = tx.transaction.nodes(nodeId) match {
-            case create: Node.NodeCreate[ContractId] =>
-              CreateCommand(create.templateId, create.arg)
-            case fetch: Node.NodeFetch[ContractId] if fetch.byKey =>
-              val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
-              FetchByKeyCommand(fetch.templateId, key)
-            case fetch: Node.NodeFetch[ContractId] =>
-              FetchCommand(fetch.templateId, fetch.coid)
-            case lookup: Node.NodeLookupByKey[ContractId] =>
-              LookupByKeyCommand(lookup.templateId, lookup.key.key)
-            case exe: Node.NodeExercises[NodeId, ContractId] if exe.byKey =>
-              val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
-              ExerciseByKeyCommand(exe.templateId, key, exe.choiceId, exe.chosenValue)
-            case exe: Node.NodeExercises[NodeId, ContractId] =>
-              ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
-            case _: Node.NodeRollback[NodeId] =>
-              sys.error("unexpected rollback node")
-          }
-          currentStep <- engine
-            .reinterpret(
-              submitters,
-              cmd,
-              nodeSeedMap.get(nodeId),
-              txMeta.submissionTime,
-              ledgerEffectiveTime,
-            )
-            .consume(
-              contracts0.get,
-              lookupPackages,
-              k => keys0.get(k.globalKey),
-            )
-          (tr0, meta1) = currentStep
-          tr1 = suffix(tr0)
-          (contracts1, keys1) = tr1.transaction.fold((contracts0, keys0)) {
-            case (
-                  (contracts, keys),
-                  (
-                    _,
-                    Node.NodeExercises(
-                      targetCoid: ContractId,
-                      _,
-                      _,
-                      consuming @ true,
-                      _,
-                      _,
-                      _,
-                      _,
-                      _,
-                      _,
-                      _,
-                      _,
-                      _,
-                      _,
-                    ),
-                  ),
-                ) =>
-              (contracts - targetCoid, keys)
-            case ((contracts, keys), (_, create: Node.NodeCreate[ContractId])) =>
-              (
-                contracts.updated(
-                  create.coid,
-                  create.versionedCoinst,
-                ),
-                create.key.fold(keys)(k =>
-                  keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
-                ),
+    val finalState =
+      nodes.foldLeft[Either[Error, ReinterpretState]](Right(ReinterpretState(contracts, keys))) {
+        case (acc, nodeId) =>
+          for {
+            state <- acc
+            cmd = tx.transaction.nodes(nodeId) match {
+              case create: Node.NodeCreate[ContractId] =>
+                CreateCommand(create.templateId, create.arg)
+              case fetch: Node.NodeFetch[ContractId] if fetch.byKey =>
+                val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
+                FetchByKeyCommand(fetch.templateId, key)
+              case fetch: Node.NodeFetch[ContractId] =>
+                FetchCommand(fetch.templateId, fetch.coid)
+              case lookup: Node.NodeLookupByKey[ContractId] =>
+                LookupByKeyCommand(lookup.templateId, lookup.key.key)
+              case exe: Node.NodeExercises[NodeId, ContractId] if exe.byKey =>
+                val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
+                ExerciseByKeyCommand(exe.templateId, key, exe.choiceId, exe.chosenValue)
+              case exe: Node.NodeExercises[NodeId, ContractId] =>
+                ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
+              case _: Node.NodeRollback[NodeId] =>
+                sys.error("unexpected rollback node")
+            }
+            currentStep <- engine
+              .reinterpret(
+                submitters,
+                cmd,
+                nodeSeedMap.get(nodeId),
+                txMeta.submissionTime,
+                ledgerEffectiveTime,
               )
-            case (acc, _) => acc
-          }
-          n = nodes.size
-          nodeRenaming = (nid: NodeId) => NodeId(nid.index + n)
-          tr = tr1.transaction.mapNodeId(nodeRenaming)
-        } yield (
-          nodes ++ tr.nodes,
-          roots :++ tr.roots,
-          dependsOnTime || meta1.dependsOnTime,
-          nodeSeeds :++ meta1.nodeSeeds.map { case (nid, seed) => nodeRenaming(nid) -> seed },
-          contracts1,
-          keys1,
-        )
+              .consume(
+                state.contracts.get,
+                lookupPackages,
+                k => state.keys.get(k.globalKey),
+              )
+            (tr0, meta0) = currentStep
+            tr1 = suffix(tr0)
+            n = state.nodes.size
+            nodeRenaming = (nid: NodeId) => NodeId(nid.index + n)
+            tr = tr1.transaction.mapNodeId(nodeRenaming)
+            meta = meta0.copy(nodeSeeds = meta0.nodeSeeds.map { case (nid, seed) =>
+              nodeRenaming(nid) -> seed
+            })
+          } yield state.commit(tr, meta)
       }
 
-    iterate.map { case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
+    finalState.map(state =>
       (
         TxVersions.asVersionedTransaction(
           GenTx(
-            nodes,
-            roots.toImmArray,
+            state.nodes,
+            state.roots.toImmArray,
           )
         ),
         Tx.Metadata(
           submissionSeed = None,
           submissionTime = txMeta.submissionTime,
           usedPackages = Set.empty,
-          dependsOnTime = dependsOnTime,
-          nodeSeeds = nodeSeeds.toImmArray,
+          dependsOnTime = state.dependsOnTime,
+          nodeSeeds = state.nodeSeeds.toImmArray,
         ),
       )
-    }
+    )
   }
 
 }

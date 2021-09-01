@@ -83,6 +83,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       allowedLanguageVersions = languageVersions,
       profileDir = config.profileDir,
       stackTraceMode = config.stackTraces,
+      forbidV0ContractId = true,
     )
     new Engine(engineConfig)
   }
@@ -206,6 +207,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     else IndexerStartupMode.MigrateAndStart,
                   eventsPageSize = config.eventsPageSize,
                   allowExistingSchema = true,
+                  enableAppendOnlySchema = config.enableAppendOnlySchema,
+                  enableCompression = config.enableCompression,
                 ),
                 servicesExecutionContext = servicesExecutionContext,
                 metrics = metrics,
@@ -255,7 +258,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   // TODO append-only: augment the following defaults for enabling the features for sandbox next
                   seeding = config.seeding.get,
                   managementServiceTimeout = config.managementServiceTimeout,
-                  enableAppendOnlySchema = false,
+                  enableAppendOnlySchema = config.enableAppendOnlySchema,
                   maxContractStateCacheSize = 0L,
                   maxContractKeyStateCacheSize = 0L,
                   enableMutableContractStateCache = false,

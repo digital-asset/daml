@@ -85,7 +85,12 @@ final class Runner[T <: ReadWriteService, Extra](
     )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val sharedEngine = new Engine(EngineConfig(config.allowedLanguageVersions))
+    val sharedEngine = new Engine(
+      EngineConfig(
+        config.allowedLanguageVersions,
+        forbidV0ContractId = true,
+      )
+    )
 
     newLoggingContext { implicit loggingContext =>
       for {
