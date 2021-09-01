@@ -3,18 +3,17 @@
 
 package com.daml.ledger.api.tls
 
-import java.net.URL
+import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import javax.crypto.{Cipher, KeyGenerator, SecretKey}
 
-import com.daml.testing.SimpleHttpServer
 import org.apache.commons.codec.binary.Hex
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
-  DecryptionParameters.getClass.getSimpleName should {
+  "decryption parameters" should {
 
     // given
     val key: SecretKey = KeyGenerator.getInstance("AES").generateKey()
@@ -106,39 +105,16 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
       actual shouldBe expected
     }
 
-    "fetch JSON document from a file URL" in {
+    "fetch JSON document from a secrets URL" in {
       // given
-      val tmpFilePath = Files.createTempFile("decryption-params", ".json")
       val expected = "decryption-params123"
-      Files.write(tmpFilePath, expected.getBytes)
-      assume(new String(Files.readAllBytes(tmpFilePath)) == expected)
-      val url = tmpFilePath.toUri.toURL
-      assume(url.getProtocol == "file")
+      val secretsUrl: SecretsUrl = () => new ByteArrayInputStream(expected.getBytes)
 
       // when
-      val actual = DecryptionParameters.fetchPayload(SecretsUrl.FromPath(tmpFilePath))
+      val actual = DecryptionParameters.fetchPayload(secretsUrl)
 
       // then
       actual shouldBe expected
-    }
-
-    "fetch JSON document from a http URL" in {
-      // given
-      val expected = "payload123"
-      val server = SimpleHttpServer.start(expected)
-      try {
-        val url = new URL(SimpleHttpServer.responseUrl(server))
-        assume(url.getProtocol == "http")
-
-        // when
-        val actual = DecryptionParameters.fetchPayload(SecretsUrl.FromUrl(url))
-
-        // then
-        actual shouldBe expected
-
-      } finally {
-        SimpleHttpServer.stop(server)
-      }
     }
   }
 
