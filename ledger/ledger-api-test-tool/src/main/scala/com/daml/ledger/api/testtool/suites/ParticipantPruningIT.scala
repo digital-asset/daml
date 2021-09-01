@@ -8,6 +8,7 @@ import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -597,6 +598,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
       contract <- alpha.create(alice, Contract(alice))
 
+      _ <- synchronize(alpha, beta) // because of exercise on beta inside createDivulgence
+
       // Retroactively divulge Alice's contract to bob
       _ <- alpha.exercise(
         alice,
@@ -657,6 +660,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec: ExecutionContext) =
     for {
       divulgenceHelper <- alpha.create(alice, DivulgenceProposal(alice, bob))
+      _ <- synchronize(alpha, beta)
       divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseAccept)
     } yield divulgence
 
@@ -669,6 +673,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
       divulgence: binding.Primitive.ContractId[Divulgence],
   )(implicit ec: ExecutionContext) =
     for {
+      _ <- synchronize(alpha, beta)
+
       // Check that Bob can fetch the contract
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
@@ -682,6 +688,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
         alice,
         divulgence.exerciseDivulge(_, contract),
       )
+
+      _ <- synchronize(alpha, beta)
 
       // Check that Bob can fetch the contract
       _ <- beta.exerciseAndGetContract[Dummy](
@@ -762,6 +770,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       offset <- participant.currentEnd()
+
+      _ <- populateLedgerAndGetOffsets(participant, localParty)
+
       // Dummy needed to prune at this offset
       _ <- participant.create(localParty, Dummy(localParty))
 
