@@ -15,7 +15,7 @@ template A with
         with newParty: Party
         do create A with pa = newParty
 
-template () => D
+template D
   with
     pd: Party
   where
