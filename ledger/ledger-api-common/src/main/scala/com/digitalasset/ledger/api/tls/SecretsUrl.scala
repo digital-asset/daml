@@ -19,7 +19,7 @@ object SecretsUrl {
 
   def fromUrl(url: URL): SecretsUrl = new FromUrl(url)
 
-  private final class FromUrl(url: URL) extends SecretsUrl {
+  private final case class FromUrl(url: URL) extends SecretsUrl {
     override def openStream(): InputStream = url.openStream()
   }
 }
