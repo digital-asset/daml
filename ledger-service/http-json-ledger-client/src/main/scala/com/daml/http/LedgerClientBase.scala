@@ -6,7 +6,7 @@ package com.daml.http
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.scalautil.ExceptionOps._
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
 import scalaz._
 import Scalaz._
@@ -29,7 +29,7 @@ trait LedgerClientBase {
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  def channelBuilder(
+  protected def channelBuilder(
       ledgerHost: String,
       ledgerPort: Int,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
@@ -48,13 +48,13 @@ trait LedgerClientBase {
       ledgerHost,
       ledgerPort,
       nonRepudiationConfig,
-    ).flatMap(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
+    ).map(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
 
   def fromRetried(
-      channel: io.grpc.ManagedChannel,
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
+      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
       maxInitialConnectRetryAttempts: Int,
   )(implicit
       ec: ExecutionContext,
@@ -66,7 +66,7 @@ trait LedgerClientBase {
     )
     RetryStrategy
       .constant(maxInitialConnectRetryAttempts, 1.seconds) { (i, _) =>
-        val client = DamlLedgerClient(channel, clientConfig)
+        val client = buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
         client.onComplete {
           case Success(_) =>
             logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts succeeded!""")

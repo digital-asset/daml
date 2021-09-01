@@ -26,8 +26,8 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.client.services.pkg.PackageClient
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -41,7 +41,7 @@ import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.jwt.domain.Jwt
-import io.grpc.netty.NegotiationType
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object HttpService {
 
@@ -57,33 +57,6 @@ object HttpService {
 
   object Error {
     def fromLedgerClientError(e: LedgerClientBase.Error): Error = Error(e.message)
-  }
-
-  final case class LazyF[F[_], A, B](private val fn: A => F[B]) {
-    @volatile private var value: Option[F[B]] = None
-
-    @scala.inline
-    def get(arg: A): F[B] =
-      // Try to get the value first without synchronization
-      // We don't want to unnecessarily block threads.
-      if (value.isEmpty)
-        // Now if there is an argument, we will set the value.
-        // However, before doing that we ensure once again
-        // that no value is available, but this time synchronized.
-        // This guarantees that we create the value at most only once.
-        synchronized {
-          if (value.isEmpty) {
-            val res = fn(arg)
-            value = Some(res)
-            res
-          } else value.get
-        }
-      else value.get
-
-    @scala.inline
-    def get(): F[B] = if (value.isEmpty)
-      throw new Exception("No value provided for unfinished lazy function")
-    else value.get
   }
 
   final case class Error(message: String)
@@ -118,131 +91,74 @@ object HttpService {
 
     import akka.http.scaladsl.server.Directives._
     val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
-      channel <- EitherT.rightT(
-        LedgerClient.channelBuilder(ledgerHost, ledgerPort, nonRepudiation).map { builder =>
-          clientConfig.sslContext.fold(builder.usePlaintext())(
-            builder.sslContext(_).negotiationType(NegotiationType.TLS)
-          )
-          builder.maxInboundMetadataSize(clientConfig.maxInboundMetadataSize)
-          builder.maxInboundMessageSize(clientConfig.maxInboundMessageSize)
-          builder.build()
-        }
-      )
 
-      mkLazyLedgerClient = { (config: LedgerClientConfiguration) =>
-        LazyF[Future, Jwt, DamlLedgerClient] { case Jwt(token) =>
-          LedgerClient
-            .fromRetried(
-              channel,
-              ledgerHost,
-              ledgerPort,
-              config.copy(token = Some(token)),
-              MaxInitialLedgerConnectRetryAttempts,
-            )
-            .map(_.valueOr(err => throw new Exception(err.message)))
-        }
-      }
-
-      lazyLedgerClient = mkLazyLedgerClient(clientConfig)
-
-      lazyPkgManagementClient = mkLazyLedgerClient(
-        packageMaxInboundMessageSize.fold(clientConfig)(size =>
-          clientConfig.copy(maxInboundMessageSize = size)
+      client <- eitherT(
+        ledgerClient(
+          ledgerHost,
+          ledgerPort,
+          clientConfig,
+          startSettings.nonRepudiation,
         )
-      )
+      ): ET[DamlLedgerClient]
+
+      pkgManagementClient <- eitherT(
+        ledgerClient(
+          ledgerHost,
+          ledgerPort,
+          packageMaxInboundMessageSize.fold(clientConfig)(size =>
+            clientConfig.copy(maxInboundMessageSize = size)
+          ),
+          startSettings.nonRepudiation,
+        )
+      ): ET[DamlLedgerClient]
 
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
-      packageService = new PackageService(jwt =>
-        ids =>
-          lazyPkgManagementClient
-            .get(jwt)
-            .flatMap(pkgManagementClient =>
-              doLoad(pkgManagementClient.packageClient, ids, some(jwt.value))
-            )
+      packageService = new PackageService((jwt, ledgerId) =>
+        ids => doLoad(pkgManagementClient.packageClient, ids, jwt, ledgerId)
       )
 
       commandService = new CommandService(
-        (jwt, req) =>
-          lazyLedgerClient
-            .get(jwt)
-            .flatMap(LedgerClientJwt.submitAndWaitForTransaction(_)(jwt, req)),
-        (jwt, req) =>
-          lazyLedgerClient
-            .get(jwt)
-            .flatMap(LedgerClientJwt.submitAndWaitForTransactionTree(_)(jwt, req)),
+        (jwt, req) => LedgerClientJwt.submitAndWaitForTransaction(client)(jwt, req),
+        (jwt, req) => LedgerClientJwt.submitAndWaitForTransactionTree(client)(jwt, req),
       )
 
       contractsService = new ContractsService(
         packageService.resolveTemplateId,
         packageService.allTemplateIds,
-        (jwt, filter, verbose) =>
-          akka.stream.scaladsl.Source
-            .future(lazyLedgerClient.get(jwt))
-            .flatMapConcat(client =>
-              LedgerClientJwt.getActiveContracts(client)(jwt, filter, verbose)
-            ),
-        (jwt, filter, offset, terminates) =>
-          akka.stream.scaladsl.Source
-            .future(lazyLedgerClient.get(jwt))
-            .flatMapConcat(client =>
-              LedgerClientJwt.getCreatesAndArchivesSince(client)(jwt, filter, offset, terminates)
-            ),
-        jwt =>
-          lazyLedgerClient
-            .get(jwt)
-            .flatMap(LedgerClientJwt.getTermination(_) apply jwt),
+        (jwt, ledgerId, filter, verbose) =>
+          LedgerClientJwt.getActiveContracts(client)(jwt, ledgerId, filter, verbose),
+        (jwt, ledgerId, filter, offset, terminates) =>
+          LedgerClientJwt
+            .getCreatesAndArchivesSince(client)(jwt, ledgerId, filter, offset, terminates),
+        LedgerClientJwt.getTermination(client).apply,
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         contractDao,
       )
 
       partiesService = new PartiesService(
-        jwt =>
-          lazyLedgerClient
-            .get(jwt)
-            .flatMap(LedgerClientJwt.listKnownParties(_) apply jwt),
-        (jwt, partyIds) =>
-          lazyLedgerClient
-            .get(jwt)
-            .flatMap(LedgerClientJwt.getParties(_)(jwt, partyIds)),
+        LedgerClientJwt.listKnownParties(client).apply,
+        (jwt, partyIds) => LedgerClientJwt.getParties(client)(jwt, partyIds),
         (jwt, identifierHint, displayName) =>
-          lazyLedgerClient
-            .get(jwt)
-            .flatMap(LedgerClientJwt.allocateParty(_)(jwt, identifierHint, displayName)),
+          LedgerClientJwt.allocateParty(client)(jwt, identifierHint, displayName),
       )
 
       packageManagementService = new PackageManagementService(
-        jwt =>
-          lc =>
-            lazyPkgManagementClient
-              .get(jwt)
-              .flatMap(pkgManagementClient =>
-                LedgerClientJwt.listPackages(pkgManagementClient)(jwt)(lc)
-              ),
-        { case (jwt, packageId) =>
-          lc =>
-            lazyPkgManagementClient
-              .get(jwt)
-              .flatMap(pkgManagementClient =>
-                LedgerClientJwt.getPackage(pkgManagementClient)(jwt, packageId)(lc)
-              )
+        (jwt, ledgerId) =>
+          lc => LedgerClientJwt.listPackages(pkgManagementClient)(jwt, ledgerId)(lc),
+        { case (jwt, ledgerId, packageId) =>
+          lc => LedgerClientJwt.getPackage(pkgManagementClient)(jwt, ledgerId, packageId)(lc)
         },
-        { case (jwt, byteString) =>
-          lc =>
-            lazyPkgManagementClient
-              .get(jwt)
-              .flatMap { pkgManagementClient =>
-                val res =
-                  uploadDarAndReloadPackages(
-                    LedgerClientJwt.uploadDar(pkgManagementClient),
-                    jwt => implicit lc => packageService.reload(jwt),
-                  )
-                res(jwt, byteString)(lc)
-              }
+        { case (jwt, ledgerId, byteString) =>
+          implicit lc =>
+            LedgerClientJwt
+              .uploadDar(pkgManagementClient)(jwt, ledgerId, byteString)(lc)
+              .flatMap(_ => packageService.reload(jwt, ledgerId))
+              .map(_ => ())
         },
       )
 
-      ledgerHealthService = HealthGrpc.stub(channel)
+      ledgerHealthService = HealthGrpc.stub(client.channel)
 
       healthService = new HealthService(
         () => ledgerHealthService.check(HealthCheckRequest()),
@@ -306,11 +222,20 @@ object HttpService {
     bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
   }
 
-  private[http] def doLoad(packageClient: PackageClient, ids: Set[String], tokenM: Option[String])(
-      implicit ec: ExecutionContext
+  private[http] def doLoad(
+      packageClient: PackageClient,
+      ids: Set[String],
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      ec: ExecutionContext
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
     LedgerReader
-      .loadPackageStoreUpdates(packageClient, tokenM)(ids)
+      .loadPackageStoreUpdates(
+        packageClient,
+        some(jwt.value),
+        ledgerId,
+      )(ids)
       .map(_.leftMap(e => PackageService.ServerError(e)))
 
   def stop(
@@ -358,6 +283,28 @@ object HttpService {
     (encoder, decoder)
   }
 
+  private def ledgerClient(
+      ledgerHost: String,
+      ledgerPort: Int,
+      clientConfig: LedgerClientConfiguration,
+      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
+  )(implicit
+      ec: ExecutionContext,
+      aesf: ExecutionSequencerFactory,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Future[Error \/ DamlLedgerClient] =
+    LedgerClient
+      .fromRetried(
+        ledgerHost,
+        ledgerPort,
+        clientConfig,
+        nonRepudiationConfig,
+        MaxInitialLedgerConnectRetryAttempts,
+      )
+      .map(
+        _.leftMap(Error.fromLedgerClientError)
+      )
+
   private def createPortFile(
       file: Path,
       binding: akka.http.scaladsl.Http.ServerBinding,
@@ -366,9 +313,4 @@ object HttpService {
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)
   }
 
-  private def uploadDarAndReloadPackages(
-      f: LedgerClientJwt.UploadDarFile,
-      g: Jwt => LoggingContextOf[InstanceUUID] => Future[PackageService.Error \/ Unit],
-  )(implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
-    (x, y) => implicit lc => f(x, y)(lc).flatMap(_ => g(x)(lc).flatMap(toFuture(_): Future[Unit]))
 }

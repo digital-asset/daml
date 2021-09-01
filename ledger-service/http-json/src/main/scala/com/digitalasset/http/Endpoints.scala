@@ -25,12 +25,19 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
-import com.daml.http.domain.{JwtPayload, JwtPayloadG, JwtPayloadTag, JwtWritePayload, TemplateId}
+import com.daml.http.domain.{
+  JwtPayload,
+  JwtPayloadG,
+  JwtPayloadLedgerIdOnly,
+  JwtPayloadTag,
+  JwtWritePayload,
+  TemplateId,
+}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
-import com.daml.http.util.ProtobufByteStrings
+import com.daml.http.util.{ProtobufByteStrings, toLedgerId}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
@@ -49,6 +56,7 @@ import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -281,7 +289,7 @@ class Endpoints(
       for {
         cmd <-
           decoder
-            .decodeCreateCommand(reqBody, jwt)
+            .decodeCreateCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
@@ -303,7 +311,7 @@ class Endpoints(
       for {
         cmd <-
           decoder
-            .decodeExerciseCommand(reqBody, jwt)
+            .decodeExerciseCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
             domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]
           ]
@@ -336,7 +344,7 @@ class Endpoints(
       for {
         cmd <-
           decoder
-            .decodeCreateAndExerciseCommand(reqBody, jwt)
+            .decodeCreateAndExerciseCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
             domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]
           ]
@@ -369,7 +377,7 @@ class Endpoints(
         for {
           cl <-
             decoder
-              .decodeContractLocator(reqBody, jwt)
+              .decodeContractLocator(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
               .liftErr(InvalidUserInput): ET[domain.ContractLocator[LfValue]]
           _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
           _ = logger.debug(s"/v1/fetch cl: $cl")
@@ -446,7 +454,7 @@ class Endpoints(
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithoutCommand(partiesService.allParties)(req).map(domain.OkResponse(_))
+    proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req).map(domain.OkResponse(_))
 
   def parties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -473,7 +481,9 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[HttpResponse] = {
     val et: ET[admin.GetPackageResponse] =
-      proxyWithoutCommand(jwt => packageManagementService.getPackage(jwt, packageId))(req)
+      proxyWithoutCommand((jwt, ledgerId) =>
+        packageManagementService.getPackage(jwt, ledgerId, packageId)
+      )(req)
     val fa: Future[Error \/ admin.GetPackageResponse] = et.run
     fa.map {
       case -\/(e) =>
@@ -495,13 +505,17 @@ class Endpoints(
     for {
       parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
       _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
-      t2 <- either(inputSource(req)): ET[(Jwt, Source[ByteString, Any])]
+      t2 <- either(inputSource(req)): ET[(Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])]
+      (jwt, payload, source) = t2
       _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
-      (jwt, source) = t2
 
       _ <- eitherT(
         handleFutureFailure(
-          packageManagementService.uploadDarFile(jwt, source.mapMaterializedValue(_ => NotUsed))
+          packageManagementService.uploadDarFile(
+            jwt,
+            toLedgerId(payload.ledgerId),
+            source.mapMaterializedValue(_ => NotUsed),
+          )
         )
       ): ET[Unit]
 
@@ -636,14 +650,15 @@ class Endpoints(
       req: HttpRequest
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Error \/ (Jwt, Source[ByteString, Any]) =
-    findJwt(req).bimap(
-      { e =>
+  ): Error \/ (Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any]) =
+    findJwt(req)
+      .leftMap { e =>
         discard { req.entity.discardBytes(mat) }
         e
-      },
-      j => (j, req.entity.dataBytes),
-    )
+      }
+      .flatMap(j =>
+        withJwtPayload[Source[ByteString, Any], JwtPayloadLedgerIdOnly]((j, req.entity.dataBytes))
+      )
 
   private[this] def findJwt(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -686,7 +701,7 @@ class Endpoints(
       metrics: Metrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
-      .resolveContractReference(jwt, jwtPayload.parties, reference)
+      .resolveContractReference(jwt, jwtPayload.parties, reference, toLedgerId(jwtPayload.ledgerId))
       .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
         val a: Error \/ domain.ResolvedContractRef[LfValue] =
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
@@ -696,12 +711,16 @@ class Endpoints(
         }
       }
 
-  private def proxyWithoutCommand[A](fn: Jwt => Future[A])(req: HttpRequest)(implicit
+  private def proxyWithoutCommand[A](
+      fn: (Jwt, LedgerApiDomain.LedgerId) => Future[A]
+  )(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[A] =
     for {
-      t3 <- eitherT(input(req)): ET[(Jwt, _)]
-      a <- eitherT(handleFutureFailure(fn(t3._1))): ET[A]
+      t3 <- eitherT(inputAndJwtPayload[JwtPayloadLedgerIdOnly](req)): ET[
+        (Jwt, JwtPayloadLedgerIdOnly, _)
+      ]
+      a <- eitherT(handleFutureFailure(fn(t3._1, toLedgerId(t3._2.ledgerId)))): ET[A]
     } yield a
 
   private def proxyWithCommand[A: JsonReader, R](

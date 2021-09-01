@@ -27,7 +27,7 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[TransactionTree, NotUsed] =
-    it.getTransactionTrees(start, end, transactionFilter, verbose, token, ledgerId)
+    it.getTransactionTrees(start, end, transactionFilter, ledgerId, verbose, token)
 
   def getTransactions(
       start: LedgerOffset,
@@ -36,37 +36,37 @@ final class TransactionClient(ledgerId: LedgerId, service: TransactionServiceStu
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[Transaction, NotUsed] =
-    it.getTransactions(start, end, transactionFilter, verbose, token, ledgerId)
+    it.getTransactions(start, end, transactionFilter, ledgerId, verbose, token)
 
   def getTransactionById(
       transactionId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetTransactionResponse] =
-    it.getTransactionById(transactionId, parties, token, ledgerId)
+    it.getTransactionById(transactionId, parties, ledgerId, token)
 
   def getTransactionByEventId(
       eventId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetTransactionResponse] =
-    it.getTransactionByEventId(eventId, parties, token, ledgerId)
+    it.getTransactionByEventId(eventId, parties, ledgerId, token)
 
   def getFlatTransactionById(
       transactionId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
-    it.getFlatTransactionById(transactionId, parties, token, ledgerId)
+    it.getFlatTransactionById(transactionId, parties, ledgerId, token)
 
   def getFlatTransactionByEventId(
       eventId: String,
       parties: Seq[String],
       token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
-    it.getFlatTransactionByEventId(eventId, parties, token, ledgerId)
+    it.getFlatTransactionByEventId(eventId, parties, ledgerId, token)
 
   def getLedgerEnd(token: Option[String] = None): Future[GetLedgerEndResponse] =
-    it.getLedgerEnd(token, ledgerId)
+    it.getLedgerEnd(ledgerId, token)
 
 }

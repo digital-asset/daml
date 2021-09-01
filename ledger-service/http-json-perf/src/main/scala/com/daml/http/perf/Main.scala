@@ -141,9 +141,14 @@ object Main extends StrictLogging {
       ec: ExecutionContext,
       elg: EventLoopGroup,
   ): Future[ExitCode] =
-    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _) =>
+    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _, _) =>
       withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
-        withHttpService(ledgerId.unwrap, ledgerPort, jsonApiJdbcConfig, None) { (uri, _, _, _) =>
+        withHttpService(
+          ledgerId.unwrap,
+          ledgerPort,
+          jsonApiJdbcConfig,
+          None,
+        ) { (uri, _, _, _) =>
           runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
             .flatMap { case (exitCode, dir) =>
               toFuture(generateReport(dir))

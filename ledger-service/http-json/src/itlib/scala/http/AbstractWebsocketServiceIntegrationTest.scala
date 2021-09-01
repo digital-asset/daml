@@ -64,7 +64,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput),
   ).foreach { scenario =>
     s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
-      (uri, _, _) =>
+      (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
           validSubprotocol(jwt),
@@ -73,7 +73,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
 
     s"${scenario.id} request with invalid protocol token should be denied" in withHttpService {
-      (uri, _, _) =>
+      (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
           Option("foo"),
@@ -82,7 +82,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
 
     s"${scenario.id} request without protocol token should be denied" in withHttpService {
-      (uri, _, _) =>
+      (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
           None,
@@ -91,7 +91,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
 
     s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
-      (uri, _, _) =>
+      (uri, _, _, _) =>
         val input = scenario.input.mapConcat(x => List(x, x))
         val webSocketFlow =
           Http().webSocketClientFlow(
@@ -129,7 +129,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     ),
   ).foreach { scenario =>
     s"${scenario.id} report UnknownTemplateIds and error when cannot resolve any template ID" in withHttpService {
-      (uri, _, _) =>
+      (uri, _, _, _) =>
         val webSocketFlow =
           Http().webSocketClientFlow(
             WebSocketRequest(
@@ -158,7 +158,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "query endpoint should publish transactions when command create is completed" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
       for {
         _ <- initialIouCreate(uri)
 
@@ -176,7 +176,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch endpoint should publish transactions when command create is completed" in withHttpService {
-    (uri, encoder, _) =>
+    (uri, encoder, _, _) =>
       for {
         _ <- initialAccountCreate(uri, encoder)
 
@@ -191,7 +191,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       }
   }
 
-  "query endpoint should warn on unknown template IDs" in withHttpService { (uri, _, _) =>
+  "query endpoint should warn on unknown template IDs" in withHttpService { (uri, _, _, _) =>
     for {
       _ <- initialIouCreate(uri)
 
@@ -208,7 +208,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
   }
 
-  "fetch endpoint should warn on unknown template IDs" in withHttpService { (uri, encoder, _) =>
+  "fetch endpoint should warn on unknown template IDs" in withHttpService { (uri, encoder, _, _) =>
     for {
       _ <- initialAccountCreate(uri, encoder)
 
@@ -227,7 +227,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "query endpoint should send error msg when receiving malformed message" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
       val clientMsg = singleClientQueryStream(jwt, uri, "{}")
         .runWith(collectResultsAsTextMessageSkipOffsetTicks)
 
@@ -240,7 +240,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
       val clientMsg = singleClientFetchStream(jwt, uri, """[abcdefg!]""")
         .runWith(collectResultsAsTextMessageSkipOffsetTicks)
 
@@ -264,7 +264,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "query should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
       import spray.json._
 
       val initialCreate = initialIouCreate(uri)
@@ -365,7 +365,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, encoder, _) =>
+    (uri, encoder, _, _) =>
       import spray.json._
 
       val f1 =
@@ -473,7 +473,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
-    (uri, encoder, _) =>
+    (uri, encoder, _, _) =>
       val templateId = domain.TemplateId(None, "Account", "Account")
       def fetchRequest(contractIdAtOffset: Option[Option[domain.ContractId]] = None) = {
         import spray.json._, json.JsonProtocol._
@@ -575,7 +575,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       } yield resumes.foldLeft(1 shouldBe 1)((_, a) => a)
   }
 
-  "fetch multiple keys should work" in withHttpService { (uri, encoder, _) =>
+  "fetch multiple keys should work" in withHttpService { (uri, encoder, _, _) =>
     def create(account: String): Future[domain.ContractId] =
       for {
         r <- postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri)
@@ -633,7 +633,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, encoder, _) =>
+    (uri, encoder, _, _) =>
       import spray.json._
 
       val templateId = domain.TemplateId(None, "Account", "Account")
@@ -775,7 +775,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
       singleClientFetchStream(jwt, uri, "[]")
         .runWith(collectResultsAsTextMessageSkipOffsetTicks)
         .map { clientMsgs =>
@@ -790,7 +790,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "query on a bunch of random splits should yield consistent results" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
       val splitSample = SplitSeq.gen.map(_ map (BigDecimal(_))).sample.get
       val query =
         """[
@@ -883,7 +883,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "no duplicates should be returned when retrieving contracts for multiple parties" in withHttpService {
-    (uri, encoder, _) =>
+    (uri, encoder, _, _) =>
       val aliceAndBob = List("Alice", "Bob")
       val jwtForAliceAndBob = jwtForParties(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
       import spray.json._
@@ -943,7 +943,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       }
   }
 
-  "Per-query offsets should work as expected" in withHttpService { (uri, _, _) =>
+  "Per-query offsets should work as expected" in withHttpService { (uri, _, _, _) =>
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
     import spray.json._

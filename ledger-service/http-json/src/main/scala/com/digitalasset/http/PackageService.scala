@@ -19,9 +19,13 @@ import scalaz._
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 private class PackageService(
-    reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore,
+    reloadPackageStoreIfChanged: (
+        Jwt,
+        LedgerApiDomain.LedgerId,
+    ) => PackageService.ReloadPackageStore,
     timeoutInSeconds: Long = 60L,
 ) {
 
@@ -72,7 +76,7 @@ private class PackageService(
     def packagesShouldBeFetchedAgain: Boolean =
       lastUpdated.until(Instant.now(), temporal.ChronoUnit.SECONDS) >= timeoutInSeconds
 
-    def reload(jwt: Jwt)(implicit
+    def reload(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
         ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
     ): Future[Error \/ Unit] =
@@ -80,9 +84,7 @@ private class PackageService(
         .eitherT(
           Future(
             logger.debug("Trying to execute a package update")
-          ) *> reloadPackageStoreIfChanged(
-            jwt
-          )(_state.packageIds)
+          ) *> reloadPackageStoreIfChanged(jwt, ledgerId)(_state.packageIds)
         )
         .map {
           case Some(diff) =>
@@ -106,21 +108,21 @@ private class PackageService(
   private def state: State = cache.state
 
   @inline
-  def reload(jwt: Jwt)(implicit
+  def reload(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): Future[Error \/ Unit] = cache.reload(jwt)
+  ): Future[Error \/ Unit] = cache.reload(jwt, ledgerId)
 
   def packageStore: PackageStore = state.packageStore
 
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
   // `state.templateIdMap` will be cached in this case.
   def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId = {
-    implicit lc: LoggingContextOf[InstanceUUID] => (jwt: Jwt) => (x: TemplateId.OptionalPkg) =>
+    implicit lc: LoggingContextOf[InstanceUUID] => (jwt, ledgerId) => (x: TemplateId.OptionalPkg) =>
       {
         type ResultType = Option[TemplateId.RequiredPkg]
         def doSearch() = PackageService.resolveTemplateId(state.templateIdMap)(x)
-        def doReloadAndSearchAgain() = EitherT(reload(jwt)).map(_ => doSearch())
+        def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch())
         def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
         for {
           result <- EitherT.pure(doSearch()): ET[ResultType]
@@ -135,7 +137,9 @@ private class PackageService(
                   )
                   doReloadAndSearchAgain()
                 } else {
-                  logger.trace("no package id and we do have the package, -no timeout- no refresh")
+                  logger.trace(
+                    "no package id and we do have the package, -no timeout- no refresh"
+                  )
                   keep(result)
                 }
               // no package id and we don’t have the package, always refresh
@@ -200,7 +204,9 @@ object PackageService {
     Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
 
   type ResolveTemplateId =
-    LoggingContextOf[InstanceUUID] => Jwt => TemplateId.OptionalPkg => Future[
+    LoggingContextOf[
+      InstanceUUID
+    ] => (Jwt, LedgerApiDomain.LedgerId) => TemplateId.OptionalPkg => Future[
       PackageService.Error \/ Option[TemplateId.RequiredPkg]
     ]
 

@@ -100,4 +100,13 @@ object LedgerClient {
       configuration: LedgerClientConfiguration,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
     LedgerClient(GrpcChannel.withShutdownHook(builder, configuration), configuration)
+
+  /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
+    * flexible alternative.
+    */
+  def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+  ): LedgerClient =
+    fromBuilder(NettyChannelBuilder.forAddress(hostIp, port), configuration)
 }

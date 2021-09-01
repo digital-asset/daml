@@ -14,8 +14,8 @@ import scala.concurrent.Future
 private[daml] final class PackageClient(service: PackageServiceStub) {
 
   def listPackages(
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[ListPackagesResponse] =
     LedgerClient
       .stub(service, token)
@@ -23,8 +23,8 @@ private[daml] final class PackageClient(service: PackageServiceStub) {
 
   def getPackage(
       packageId: String,
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[GetPackageResponse] =
     LedgerClient
       .stub(service, token)
@@ -32,8 +32,8 @@ private[daml] final class PackageClient(service: PackageServiceStub) {
 
   def getPackageStatus(
       packageId: String,
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[GetPackageStatusResponse] =
     LedgerClient
       .stub(service, token)
