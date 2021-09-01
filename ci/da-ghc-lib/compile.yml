@@ -12,7 +12,7 @@ jobs:
   variables:
     ghc-lib-sha: '42e5c306dcfbc84b83336fdd531023e93bfcc5b2'
     base-sha: '9c787d4d24f2b515934c8503ee2bbd7cfac4da20'
-    patches: '74c3483e6df67616b04e0e554aa3781d8dfc25ba 833ca63be2ab14871874ccb6974921e8952802e9'
+    patches: '11ec737edc4b81160e1207c02f6c96642bab584a 833ca63be2ab14871874ccb6974921e8952802e9'
     flavor: 'ghc-8.8.1'
   steps:
   - checkout: self
