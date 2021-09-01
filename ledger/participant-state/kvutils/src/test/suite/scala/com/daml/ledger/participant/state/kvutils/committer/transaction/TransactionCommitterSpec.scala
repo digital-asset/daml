@@ -3,12 +3,15 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
+import java.time
+
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
+import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
@@ -20,13 +23,20 @@ import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.google.protobuf
 import org.mockito.MockitoSugar
+import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
-
-class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
+@nowarn("msg=deprecated")
+class TransactionCommitterSpec
+    extends AnyWordSpec
+    with Matchers
+    with MockitoSugar
+    with OptionValues {
   import TransactionCommitterSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -207,6 +217,91 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         }
       }
     }
+
+    "setting dedup context" should {
+      val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
+      val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60)
+
+      def buildContextAndTransaction(
+          submitterInfoAugmenter: DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder
+      ) = {
+
+        val context = createCommitContext(None)
+        context.set(Conversions.configurationStateKey, aDamlConfigurationStateValue)
+        val transactionEntrySummary = DamlTransactionEntrySummary(
+          aDamlTransactionEntry.toBuilder
+            .setSubmitterInfo(
+              submitterInfoAugmenter(
+                DamlSubmitterInfo
+                  .newBuilder()
+              )
+            )
+            .setSubmissionTime(submissionTime)
+            .build()
+        )
+        context -> transactionEntrySummary
+      }
+
+      def contextSetDeduplicateUntil(
+          context: CommitContext,
+          transactionEntrySummary: DamlTransactionEntrySummary,
+      ) = {
+        context
+          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
+          .value
+          .getCommandDedup
+          .getDeduplicatedUntil
+      }
+
+      "set deduplicate until based on submitter info deduplicate until" in {
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(_.setDeduplicateUntil(deduplicateUntil))
+        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
+        contextSetDeduplicateUntil(context, transactionEntrySummary) shouldBe deduplicateUntil
+      }
+
+      "set deduplicate until based on submitter info deduplicate duration" in {
+        val deduplicationDuration = time.Duration.ofSeconds(3)
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration))
+          )
+        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
+        contextSetDeduplicateUntil(context, transactionEntrySummary) shouldBe protobuf.Timestamp
+          .newBuilder()
+          .setSeconds(
+            submissionTime.getSeconds + deduplicationDuration.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
+          )
+          .build()
+      }
+
+      "set deduplicate until based on submitter info deduplication offset" in {
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            _.setDeduplicationOffset("offset")
+          )
+        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
+        contextSetDeduplicateUntil(context, transactionEntrySummary) shouldBe protobuf.Timestamp
+          .newBuilder()
+          .setSeconds(
+            submissionTime.getSeconds + theDefaultConfig.maxDeduplicationTime.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
+          )
+          .build()
+      }
+
+      "do not set deduplicate until when no submitter info deduplication is set" in {
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            identity
+          )
+        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
+        context
+          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
+          .value
+          .getCommandDedup
+          .hasDeduplicatedUntil shouldBe false
+      }
+    }
   }
 
   "buildLogEntry" should {
@@ -259,6 +354,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   "blind" should {
     "always set blindingInfo" in {
       val context = createCommitContext(recordTime = None)
+      context.set(Conversions.configurationStateKey, aDamlConfigurationStateValue)
 
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val cid = builder.newCid
@@ -361,6 +457,12 @@ object TransactionCommitterSpec {
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
   private val aKey = "key"
   private val aKeyMaintainer = "maintainer"
+  private val aDamlConfigurationStateValue = DamlStateValue.newBuilder
+    .setConfigurationEntry(
+      DamlConfigurationEntry.newBuilder
+        .setConfiguration(Configuration.encode(theDefaultConfig))
+    )
+    .build
   private val aRichTransactionTreeSummary = {
     val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
     val nodes: Seq[TransactionOuterClass.Node] = Seq(

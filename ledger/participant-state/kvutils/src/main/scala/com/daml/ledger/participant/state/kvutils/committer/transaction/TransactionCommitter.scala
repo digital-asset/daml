@@ -1,4 +1,5 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright
+// (Conversions.parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
@@ -303,31 +304,41 @@ private[kvutils] class TransactionCommitter(
   }
 
   @nowarn("msg=deprecated")
-  private def setDedupEntry(
+  private[transaction] def setDedupEntry(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
   )(implicit loggingContext: LoggingContext): Unit = {
     val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
-    val until = transactionEntry.submitterInfo.getDeduplicationPeriodCase match {
+    val commandDedupBuilder = DamlCommandDedupValue.newBuilder
+    transactionEntry.submitterInfo.getDeduplicationPeriodCase match {
       case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATE_UNTIL =>
-        transactionEntry.submitterInfo.getDeduplicateUntil
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_DURATION |
-          DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_OFFSET |
-          DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
-        Conversions.buildTimestamp(
-          transactionEntry.submissionTime
-            .add(config.maxDeduplicationTime)
-            .add(config.timeModel.minSkew)
+        commandDedupBuilder.setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
+        commandDedupBuilder.setDeduplicatedUntil(
+          Conversions.buildTimestamp(
+            transactionEntry.submissionTime
+              .add(
+                Conversions.parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
+              )
+              .add(config.timeModel.minSkew)
+          )
         )
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_OFFSET =>
+        commandDedupBuilder.setDeduplicatedUntil(
+          Conversions.buildTimestamp(
+            transactionEntry.submissionTime
+              .add(config.maxDeduplicationTime)
+              .add(config.timeModel.minSkew)
+          )
+        )
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
     }
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
       DamlStateValue.newBuilder
         .setCommandDedup(
-          DamlCommandDedupValue.newBuilder
-            .setDeduplicatedUntil(until)
-            .build
+          commandDedupBuilder.build
         )
         .build,
     )
