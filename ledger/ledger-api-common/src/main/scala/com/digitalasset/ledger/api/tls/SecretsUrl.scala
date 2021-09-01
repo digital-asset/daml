@@ -5,7 +5,7 @@ package com.daml.ledger.api.tls
 
 import java.io.InputStream
 import java.net.URL
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
 // This trait is not sealed so we can replace it with a fake in tests.
 trait SecretsUrl {
@@ -15,15 +15,11 @@ trait SecretsUrl {
 object SecretsUrl {
   def fromString(string: String): SecretsUrl = new FromUrl(new URL(string))
 
-  def fromUrl(url: URL): SecretsUrl = new FromUrl(url)
+  def fromPath(path: Path): SecretsUrl = new FromUrl(path.toUri.toURL)
 
-  def fromPath(path: Path): SecretsUrl = new FromPath(path)
+  def fromUrl(url: URL): SecretsUrl = new FromUrl(url)
 
   private final class FromUrl(url: URL) extends SecretsUrl {
     override def openStream(): InputStream = url.openStream()
-  }
-
-  private final class FromPath(path: Path) extends SecretsUrl {
-    override def openStream(): InputStream = Files.newInputStream(path)
   }
 }
