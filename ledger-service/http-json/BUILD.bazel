@@ -16,6 +16,11 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
 
+load(
+    "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
+    "jar_jar",
+)
+
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
@@ -180,6 +185,13 @@ da_scala_binary(
     ],
     visibility = ["//visibility:public"],
     deps = json_deps.get("ee"),
+)
+
+jar_jar(
+    name = "shaded_binary",
+    input_jar = ":http-json-binary_deploy.jar",
+    rules = "shade_rule",
+    visibility = ["//visibility:public"],
 )
 
 daml_compile(

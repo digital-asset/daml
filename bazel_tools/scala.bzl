@@ -64,6 +64,7 @@ version_specific = {
 }
 
 common_scalacopts = version_specific.get(scala_major_version, []) + [
+                  "-g:vars",
     # doesn't allow advance features of the language without explict import
     # (higherkinds, implicits)
     "-feature",
