@@ -3,14 +3,14 @@
 
 package com.daml.ledger.api.tls
 
+import java.net.URL
+import java.nio.file.Files
+import javax.crypto.{Cipher, KeyGenerator, SecretKey}
+
 import com.daml.testing.SimpleHttpServer
 import org.apache.commons.codec.binary.Hex
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
-import java.net.URL
-import java.nio.file.Files
-import javax.crypto.{Cipher, KeyGenerator, SecretKey}
 
 class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
@@ -114,8 +114,9 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
       assume(new String(Files.readAllBytes(tmpFilePath)) == expected)
       val url = tmpFilePath.toUri.toURL
       assume(url.getProtocol == "file")
+
       // when
-      val actual = DecryptionParameters.fetchPayload(url)
+      val actual = DecryptionParameters.fetchPayload(SecretsUrl.FromPath(tmpFilePath))
 
       // then
       actual shouldBe expected
@@ -130,7 +131,7 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
         assume(url.getProtocol == "http")
 
         // when
-        val actual = DecryptionParameters.fetchPayload(url)
+        val actual = DecryptionParameters.fetchPayload(SecretsUrl.FromUrl(url))
 
         // then
         actual shouldBe expected

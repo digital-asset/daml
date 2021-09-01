@@ -3,12 +3,12 @@
 
 package com.daml.ledger.api.tls
 
+import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
+import java.nio.file.Files
+
 import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 
-import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
-import java.net.URL
-import java.nio.file.Files
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
@@ -17,7 +17,7 @@ final case class TlsConfiguration(
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
     trustCertCollectionFile: Option[File], // System default if null
-    secretsUrl: Option[URL] = None,
+    secretsUrl: Option[SecretsUrl] = None,
     clientAuth: ClientAuth =
       ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
     enableCertRevocationChecking: Boolean = false,
@@ -90,7 +90,7 @@ final case class TlsConfiguration(
     new ByteArrayInputStream(bytes)
   }
 
-  def secretsUrlOrFail: URL = secretsUrl.getOrElse(
+  private def secretsUrlOrFail: SecretsUrl = secretsUrl.getOrElse(
     throw new IllegalStateException(
       s"Unable to convert ${this.toString} to SSL Context: cannot decrypt keyFile without secretsUrl."
     )

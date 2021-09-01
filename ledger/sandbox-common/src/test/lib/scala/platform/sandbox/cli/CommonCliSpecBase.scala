@@ -3,8 +3,12 @@
 
 package com.daml.platform.sandbox.cli
 
+import java.io.File
+import java.net.InetSocketAddress
+import java.nio.file.{Files, Paths}
+
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
@@ -17,9 +21,6 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.io.File
-import java.net.{InetSocketAddress, URL}
-import java.nio.file.{Files, Paths}
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 
@@ -130,7 +131,7 @@ abstract class CommonCliSpecBase(
           Some(
             TlsConfiguration(
               enabled = true,
-              secretsUrl = Some(new URL("http://aaa")),
+              secretsUrl = Some(SecretsUrl.FromString("http://aaa")),
               keyFile = Some(new File("key.enc")),
               keyCertChainFile = None,
               trustCertCollectionFile = None,

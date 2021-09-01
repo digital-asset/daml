@@ -4,10 +4,9 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.io.File
-import java.net.URL
 import java.time.Duration
 
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
@@ -76,7 +75,7 @@ final class ConfigSpec
     actual.get.tlsConfig shouldBe Some(
       TlsConfiguration(
         enabled = true,
-        secretsUrl = Some(new URL("http://aaa")),
+        secretsUrl = Some(SecretsUrl.FromString("http://aaa")),
         keyFile = Some(new File("key.enc")),
         keyCertChainFile = None,
         trustCertCollectionFile = None,

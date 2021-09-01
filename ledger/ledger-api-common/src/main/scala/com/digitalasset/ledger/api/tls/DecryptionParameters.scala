@@ -3,16 +3,16 @@
 
 package com.daml.ledger.api.tls
 
-import org.apache.commons.codec.binary.Hex
-import org.apache.commons.io.IOUtils
-import spray.json.{DefaultJsonProtocol, RootJsonFormat}
-
 import java.io.File
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
+
+import org.apache.commons.codec.binary.Hex
+import org.apache.commons.io.IOUtils
+import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+
 import scala.util.Using
 
 final class PrivateKeyDecryptionException(cause: Throwable) extends Exception(cause)
@@ -63,17 +63,15 @@ object DecryptionParameters {
 
   /** Creates an instance of [[DecryptionParameters]] by fetching necessary information from an URL
     */
-  def fromSecretsServer(url: URL): DecryptionParameters = {
-    val text = fetchPayload(url)
-    parsePayload(text)
+  def fromSecretsServer(url: SecretsUrl): DecryptionParameters = {
+    val body = fetchPayload(url)
+    parsePayload(body)
   }
 
-  private[tls] def fetchPayload(url: URL): String = {
-    val text = Using.resource(url.openStream()) { stream =>
+  private[tls] def fetchPayload(url: SecretsUrl): String =
+    Using.resource(url.openStream()) { stream =>
       IOUtils.toString(stream, StandardCharsets.UTF_8.name())
     }
-    text
-  }
 
   private[tls] def parsePayload(payload: String): DecryptionParameters = {
     import DecryptionParametersJsonProtocol._

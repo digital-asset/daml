@@ -3,11 +3,14 @@
 
 package com.daml.platform.sandbox.cli
 
+import java.io.File
+import java.time.Duration
+
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -21,9 +24,6 @@ import io.netty.handler.ssl.ClientAuth
 import scalaz.syntax.tag._
 import scopt.OptionParser
 
-import java.io.File
-import java.net.URL
-import java.time.Duration
 import scala.util.Try
 
 // [[SandboxConfig]] should not expose Options for mandatory fields as such validations should not
@@ -127,7 +127,9 @@ class CommonCliBase(name: LedgerName) {
         .text(
           "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
         )
-        .action((url, config) => config.withTlsConfig(c => c.copy(secretsUrl = Some(new URL(url)))))
+        .action((url, config) =>
+          config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.FromString(url))))
+        )
 
       checkConfig(c =>
         c.tlsConfig.fold(success) { tlsConfig =>
