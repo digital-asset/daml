@@ -75,15 +75,16 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       useTls: UseTls = UseTls.NoTls,
       wsConfig: Option[WebsocketConfig] = None,
       nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
+      ledgerIdOverwrite: Option[LedgerId] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A])(implicit
       asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[A] = {
-    val ledgerId = LedgerId(testName)
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+    val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId(testName))
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
