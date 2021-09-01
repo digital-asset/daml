@@ -148,17 +148,18 @@ object ContractDao {
       templateIds: NonEmpty[Set[domain.TemplateId.RequiredPkg]],
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[(domain.Offset, NonEmpty[Set[domain.TemplateId.RequiredPkg]])]] = {
     type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
     import scalaz.syntax.traverse._, scalaz.syntax.foldable1.{ToFoldableOps => _, _}
+    import sjd.q.queries.unsyncedOffsets
     for {
       tpids <- {
         import Queries.CompatImplicits.monadFromCatsMonad
         templateIds.toVector.toF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
       }: ConnectionIO[NonEmptyF[Vector, (SurrogateTpId, domain.TemplateId.RequiredPkg)]]
       surrogatesToDomains = tpids.toMap
-      unsyncedRaw <- sjd.queries.unsyncedOffsets(
+      unsyncedRaw <- unsyncedOffsets(
         domain.Offset unwrap expectedOffset,
         surrogatesToDomains.keySet,
       )
