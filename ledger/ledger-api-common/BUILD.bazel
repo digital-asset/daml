@@ -83,6 +83,10 @@ da_scala_library(
 da_scala_test_suite(
     name = "ledger-api-common-scala-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    jvm_flags = [
+        # NOTE: This is a work around for https://github.com/mockito/mockito/issues/1879
+        "-javaagent:$(rootpath @maven//:net_bytebuddy_byte_buddy_agent)",
+    ],
     plugins = [
         silencer_plugin,
     ],
@@ -141,6 +145,7 @@ da_scala_test_suite(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:net_bytebuddy_byte_buddy_agent",
         "@maven//:org_awaitility_awaitility",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",

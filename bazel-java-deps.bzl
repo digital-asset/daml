@@ -160,6 +160,10 @@ def install_java_deps():
             "org.junit.platform:junit-platform-engine:1.0.0",
             "org.junit.platform:junit-platform-runner:1.0.0",
             "org.mockito:mockito-core:3.6.28",
+            # NOTE: Keep byte-buddy versions in sync with Mockito versions.
+            # We name it explicitly because wa want to sue byte-buddy-agent to work around https://github.com/mockito/mockito/issues/1879
+            "net.bytebuddy:byte-buddy:1.10.8",
+            "net.bytebuddy:byte-buddy-agent:1.10.8",
             "org.mockito:mockito-inline:3.6.28",
             "org.mockito:mockito-scala_{}:1.16.3".format(scala_major_version),
             "org.pcollections:pcollections:2.1.3",
