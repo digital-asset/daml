@@ -70,6 +70,7 @@ private[backend] object StorageBackendTestValues {
   def dtoPartyEntry(
       offset: Offset,
       party: String = someParty,
+      isLocal: Boolean = true,
   ): DbDto.PartyEntry = DbDto.PartyEntry(
     ledger_offset = offset.toHexString,
     recorded_at = someTime,
@@ -78,7 +79,7 @@ private[backend] object StorageBackendTestValues {
     display_name = Some(party),
     typ = JdbcLedgerDao.acceptType,
     rejection_reason = None,
-    is_local = Some(true),
+    is_local = Some(isLocal),
   )
 
   def dtoPackage(offset: Offset): DbDto.Package = DbDto.Package(

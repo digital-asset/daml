@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
+import com.daml.platform.store.appendonlydao.events.ContractId
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -59,9 +60,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       before5 <- executeSql(backend.transactionTree(createTransactionId, filter))
       before6 <- executeSql(backend.rawEvents(0, 2L))
       // Prune
-      // TODO Divulgence pruning: Adapt the tests for all divulged contracts pruning and set the flag to `true`
       _ <- executeSql(
-        backend.pruneEvents(offset(2), pruneAllDivulgedContracts = false)(_, loggingContext)
+        backend.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(_, loggingContext)
       )
       _ <- executeSql(backend.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are not visible anymore
@@ -89,9 +89,11 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
   }
 
   it should "not prune an active contract" in {
-    val someParty = Ref.Party.assertFromString("party")
+    val partyName = "party"
+    val someParty = Ref.Party.assertFromString(partyName)
+    val partyEntry = dtoPartyEntry(offset(1), "party")
     val create = dtoCreate(
-      offset = offset(1),
+      offset = offset(2),
       eventSequentialId = 1L,
       contractId = "#1",
       signatory = someParty,
@@ -102,24 +104,23 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       // Ingest a create and archive event
-      _ <- executeSql(ingest(Vector(create), _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L)))
+      _ <- executeSql(ingest(Vector(partyEntry, create), _))
+      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L)))
       // Make sure the events are visible
       before1 <- executeSql(backend.transactionEvents(range, filter))
-      before2 <- executeSql(backend.activeContractEvents(range, filter, offset(1)))
+      before2 <- executeSql(backend.activeContractEvents(range, filter, offset(2)))
       before3 <- executeSql(backend.flatTransaction(createTransactionId, filter))
       before4 <- executeSql(backend.transactionTreeEvents(range, filter))
       before5 <- executeSql(backend.transactionTree(createTransactionId, filter))
       before6 <- executeSql(backend.rawEvents(0, 1L))
       // Prune
-      // TODO Divulgence pruning: Adapt the tests for all divulged contracts pruning and set the flag to `true`
       _ <- executeSql(
-        backend.pruneEvents(offset(1), pruneAllDivulgedContracts = false)(_, loggingContext)
+        backend.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(_, loggingContext)
       )
-      _ <- executeSql(backend.updatePrunedUptoInclusive(offset(1)))
+      _ <- executeSql(backend.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are still visible - active contracts should not be pruned
       after1 <- executeSql(backend.transactionEvents(range, filter))
-      after2 <- executeSql(backend.activeContractEvents(range, filter, offset(1)))
+      after2 <- executeSql(backend.activeContractEvents(range, filter, offset(2)))
       after3 <- executeSql(backend.flatTransaction(createTransactionId, filter))
       after4 <- executeSql(backend.transactionTreeEvents(range, filter))
       after5 <- executeSql(backend.transactionTree(createTransactionId, filter))
@@ -139,6 +140,174 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       after4 should not be empty
       after5 shouldBe empty // should not be empty
       after6 should not be empty
+    }
+  }
+
+  it should "prune all retroactively and immediately divulged contracts (if pruneAllDivulgedContracts is set)" in {
+    val partyName = "party"
+    val divulgee = Ref.Party.assertFromString(partyName)
+    val contract1_id = "#1"
+    val contract2_id = "#2"
+
+    val contract1_immediateDivulgence = dtoCreate(
+      offset = offset(1),
+      eventSequentialId = 1L,
+      contractId = contract1_id,
+      signatory = divulgee,
+    )
+    val partyEntry = dtoPartyEntry(offset(2), partyName)
+    val contract2_createWithLocalStakeholder = dtoCreate(
+      offset = offset(3),
+      eventSequentialId = 2L,
+      contractId = contract2_id,
+      signatory = divulgee,
+    )
+    val contract1_retroactiveDivulgence =
+      dtoDivulgence(
+        offset = Some(offset(3)),
+        eventSequentialId = 3L,
+        contractId = contract1_id,
+        divulgee = partyName,
+      )
+
+    for {
+      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      // Ingest
+      _ <- executeSql(
+        ingest(
+          Vector(
+            contract1_immediateDivulgence,
+            partyEntry,
+            contract1_retroactiveDivulgence,
+            contract2_createWithLocalStakeholder,
+          ),
+          _,
+        )
+      )
+      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(4), 4L)))
+      contract1_beforePruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract1_id),
+        )
+      )
+      contract2_beforePruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract2_id),
+        )
+      )
+      _ <- executeSql(
+        backend.pruneEvents(offset(3), pruneAllDivulgedContracts = true)(_, loggingContext)
+      )
+      contract1_afterPruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract1_id),
+        )
+      )
+      contract2_afterPruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract2_id),
+        )
+      )
+    } yield {
+      contract1_beforePruning should not be empty
+      contract2_beforePruning should not be empty
+
+      contract1_afterPruning shouldBe empty
+      // Immediate divulgence for contract2 occurred after the associated party became locally hosted
+      // so it is not pruned
+      contract2_afterPruning should not be empty
+    }
+  }
+
+  it should "only prune retroactively divulged contracts if there exists an associated consuming exercise (if pruneAllDivulgedContracts is not set)" in {
+    val signatory = "signatory"
+    val divulgee = Ref.Party.assertFromString("party")
+    val contract1_id = "#1"
+    val contract2_id = "#2"
+
+    val contract1_create = dtoCreate(
+      offset = offset(1),
+      eventSequentialId = 1L,
+      contractId = contract1_id,
+      signatory = signatory,
+    )
+    val contract1_divulgence = dtoDivulgence(
+      offset = Some(offset(2)),
+      eventSequentialId = 2L,
+      contractId = contract1_id,
+      divulgee = "party",
+    )
+    val contract1_consumingExercise = dtoExercise(
+      offset = offset(3),
+      eventSequentialId = 3L,
+      consuming = true,
+      contractId = contract1_id,
+    )
+    val contract2_divulgence = dtoDivulgence(
+      offset = Some(offset(4)),
+      eventSequentialId = 4L,
+      contractId = contract2_id,
+      divulgee = divulgee,
+    )
+
+    for {
+      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      // Ingest
+      _ <- executeSql(
+        ingest(
+          Vector(
+            contract1_create,
+            contract1_divulgence,
+            contract1_consumingExercise,
+            contract2_divulgence,
+          ),
+          _,
+        )
+      )
+      // Set the ledger end past the last ingested event so we can prune up to it inclusively
+      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(5), 5L)))
+      contract1_beforePruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract1_id),
+        )
+      )
+      contract2_beforePruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract2_id),
+        )
+      )
+      _ <- executeSql(
+        backend.pruneEvents(offset(4), pruneAllDivulgedContracts = false)(_, loggingContext)
+      )
+      contract1_afterPruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract1_id),
+        )
+      )
+      contract2_afterPruning <- executeSql(
+        backend.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString(contract2_id),
+        )
+      )
+    } yield {
+      // Contract 1 appears as active tu `divulgee` before pruning
+      contract1_beforePruning should not be empty
+      // Contract 2 appears as active tu `divulgee` before pruning
+      contract2_beforePruning should not be empty
+
+      // Contract 1 should not be visible anymore to `divulgee` after pruning
+      contract1_afterPruning shouldBe empty
+      // Contract 2 did not have a locally stored exercise event
+      // hence its divulgence is not pruned - appears active to `divulgee`
+      contract2_afterPruning should not be empty
     }
   }
 

@@ -188,6 +188,10 @@ private[backend] object PostgresStorageBackend
       cSQL"#$columnName::text[] && $partiesArray::text[]"
     }
 
+    override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
+      s"$elementColumnName = any($arrayColumnName)"
+
+    override def isTrue(booleanColumnName: String): String = booleanColumnName
   }
 
   override def queryStrategy: QueryStrategy = PostgresQueryStrategy
