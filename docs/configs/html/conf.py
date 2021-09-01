@@ -35,7 +35,8 @@ sys.path.insert(0, os.path.abspath('../static'))
 # ones.
 extensions = [
     'sphinx.ext.extlinks',
-    'sphinx_copybutton'
+    'sphinx_copybutton',
+    'sphinx.ext.mathjax'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
