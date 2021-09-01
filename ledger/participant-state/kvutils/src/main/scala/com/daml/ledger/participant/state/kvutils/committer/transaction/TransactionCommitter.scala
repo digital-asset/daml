@@ -306,18 +306,32 @@ private[kvutils] class TransactionCommitter(
   private def setDedupEntry(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
-  ): Unit =
+  )(implicit loggingContext: LoggingContext): Unit = {
+    val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
+    val until = transactionEntry.submitterInfo.getDeduplicationPeriodCase match {
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATE_UNTIL =>
+        transactionEntry.submitterInfo.getDeduplicateUntil
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_DURATION |
+          DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_OFFSET |
+          DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
+        Conversions.buildTimestamp(
+          transactionEntry.submissionTime
+            .add(config.maxDeduplicationTime)
+            .add(config.timeModel.minSkew)
+        )
+    }
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
       DamlStateValue.newBuilder
         .setCommandDedup(
           DamlCommandDedupValue.newBuilder
-            .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
+            .setDeduplicatedUntil(until)
             .build
         )
         .build,
     )
+  }
 
   private def updateContractStateAndFetchDivulgedContracts(
       transactionEntry: DamlTransactionEntrySummary,

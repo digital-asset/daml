@@ -322,8 +322,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         }
       }
 
-      //ignore as we don't support command deduplication currently at this level
-      "reject duplicate commands" ignore participantState.use { ps =>
+      "reject duplicate commands" in participantState.use { ps =>
         val firstCommandId = "X1"
         val secondCommandId = "X2"
         for {
