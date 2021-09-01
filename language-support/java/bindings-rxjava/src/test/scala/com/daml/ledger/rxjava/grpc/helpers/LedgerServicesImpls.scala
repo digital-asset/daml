@@ -65,7 +65,7 @@ object LedgerServicesImpls {
     val (tsServiceDef, tsService) =
       TransactionsServiceImpl.createWithRef(transactions, authorizer)(ec)
     val (csServiceDef, csService) =
-      CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse, authorizer)(ec)
+      CommandSubmissionServiceImpl.createWithRef(() => commandSubmissionResponse, authorizer)(ec)
     val (ccServiceDef, ccService) =
       CommandCompletionServiceImpl.createWithRef(completions, completionsEnd, authorizer)(ec)
     val (cServiceDef, cService) = CommandServiceImpl.createWithRef(

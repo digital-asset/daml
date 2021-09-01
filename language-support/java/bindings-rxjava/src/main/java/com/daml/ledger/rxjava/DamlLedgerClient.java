@@ -5,11 +5,11 @@ package com.daml.ledger.rxjava;
 
 import com.daml.grpc.adapter.SingleThreadExecutionSequencerPool;
 import com.daml.ledger.rxjava.grpc.*;
-import io.grpc.Deadline;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -45,7 +45,7 @@ public final class DamlLedgerClient implements LedgerClient {
     private final NettyChannelBuilder builder;
     private Optional<String> expectedLedgerId = Optional.empty();
     private Optional<String> accessToken = Optional.empty();
-    private Optional<Deadline> deadline = Optional.empty();
+    private Optional<Duration> timeout = Optional.empty();
 
     private Builder(@NonNull NettyChannelBuilder channelBuilder) {
       this.builder = channelBuilder;
@@ -68,14 +68,14 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
-    public Builder withDeadline(@NonNull Deadline deadline) {
-      this.deadline = Optional.of(deadline);
+    public Builder withTimeout(@NonNull Duration timeout) {
+      this.timeout = Optional.of(timeout);
       return this;
     }
 
     public DamlLedgerClient build() {
       return new DamlLedgerClient(
-          this.builder, this.expectedLedgerId, this.accessToken, this.deadline);
+          this.builder, this.expectedLedgerId, this.accessToken, this.timeout);
     }
   }
 
@@ -156,18 +156,18 @@ public final class DamlLedgerClient implements LedgerClient {
   private TimeClient timeClient;
   private String expectedLedgerId;
   private Optional<String> accessToken;
-  private final Optional<Deadline> deadline;
+  private final Optional<Duration> timeout;
   private final ManagedChannel channel;
 
   private DamlLedgerClient(
       @NonNull NettyChannelBuilder channelBuilder,
       @NonNull Optional<String> expectedLedgerId,
       @NonNull Optional<String> accessToken,
-      @NonNull Optional<Deadline> deadline) {
+      @NonNull Optional<Duration> timeout) {
     this.channel = channelBuilder.build();
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = accessToken;
-    this.deadline = deadline;
+    this.timeout = timeout;
   }
 
   /**
@@ -184,11 +184,11 @@ public final class DamlLedgerClient implements LedgerClient {
   public DamlLedgerClient(
       Optional<String> expectedLedgerId,
       @NonNull ManagedChannel channel,
-      Optional<Deadline> deadline) {
+      Optional<Duration> timeout) {
     this.channel = channel;
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = Optional.empty();
-    this.deadline = deadline;
+    this.timeout = timeout;
   }
 
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
@@ -213,7 +213,7 @@ public final class DamlLedgerClient implements LedgerClient {
     commandCompletionClient =
         new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     commandSubmissionClient =
-        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.deadline);
+        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.timeout);
     commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
     packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
     ledgerConfigurationClient =
