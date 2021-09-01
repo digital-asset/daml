@@ -1,5 +1,4 @@
 // Copyright
-// (Conversions.parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction

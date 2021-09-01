@@ -212,6 +212,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                     .setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
                 Code.INVALID_ARGUMENT,
               ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setDuplicateCommand(Duplicate.newBuilder()),
+                Code.ALREADY_EXISTS,
+              ),
             )
           ) { (rejectionBuilder, code) =>
             {
@@ -225,17 +231,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             }
           }
         }
-
-        "handle duplicate" in {
-          Conversions
-            .decodeTransactionRejectionEntry(
-              DamlTransactionRejectionEntry
-                .newBuilder()
-                .setDuplicateCommand(Duplicate.newBuilder())
-                .build()
-            ) shouldBe None
-        }
-
       }
     }
 
