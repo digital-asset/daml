@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 
 private[scenario] trait HasRandomCurrency {
   protected val rng = new scala.util.Random(123456789)
-  final val currencies = Range.apply(0, 1000).map(i => s"CUR_$i").toList
+  final val currencies = List.tabulate(1000)(i => s"CUR_$i")
 
   def randomCurrency(): String = {
     this.synchronized { rng.shuffle(currencies).head }
