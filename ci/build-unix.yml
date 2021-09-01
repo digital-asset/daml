@@ -24,6 +24,7 @@ steps:
   - bash: |
       ci/configure-bazel.sh
       env | sort
+      echo "GIT COMMITER TIME: $(git show -s --pretty=format:%cI HEAD)"
     displayName: 'Configure Bazel'
     env:
       IS_FORK: $(System.PullRequest.IsFork)

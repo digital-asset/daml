@@ -45,6 +45,7 @@ steps:
         git_current_branch: "'"$(git branch --show-current)"'",
         git_current_commit: "'"$(git rev-parse HEAD)"'",
         git_current_tree: "'"$(git rev-parse HEAD:./)"'",
+        git_current_committer_time: "'"$(git show -s --pretty=format:%cI HEAD)"'",
       }'
       jq <job-md.json .
       target_dir="$(Build.StagingDirectory)/$(pipeline_id)"
