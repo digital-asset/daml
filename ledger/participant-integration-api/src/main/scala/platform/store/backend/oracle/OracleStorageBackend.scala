@@ -224,7 +224,7 @@ private[backend] object OracleStorageBackend
       .as(get[Int](1).single)(connection) match {
       case 0 => true
       case 3 => throw new Exception("DBMS_LOCK.RELEASE Error 3: Parameter error as releasing lock")
-      case 4 => throw new Exception("DBMS_LOCK.RELEASE Error 4: Trying to release not-owned lock")
+      case 4 => false
       case 5 =>
         throw new Exception("DBMS_LOCK.RELEASE Error 5: Illegal lock handle as releasing lock")
       case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.RELEASE: $unknown")
