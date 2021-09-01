@@ -37,7 +37,6 @@ class OracleMultiUserQueryScenario
     sys.env.get(key).map(_.toInt).getOrElse(default)
   }
 
-  //hardcoded for now , needs to be made configurable on cli
   private val numRecords = getEnvValueAsInt("NUM_RECORDS", 100000)
   private val numQueries = getEnvValueAsInt("NUM_QUERIES", 10000)
   private val numWriters = getEnvValueAsInt("NUM_WRITERS", 10)
@@ -88,22 +87,6 @@ class OracleMultiUserQueryScenario
       }
   }
 
-  private val currencyQueryRequest =
-    http("SyncFetchByQuery")
-      .post("/v1/query")
-      .body(StringBody("""{
-          "templateIds": ["LargeAcs:KeyedIou"],
-          "query": {"currency": "${currency}"}
-      }"""))
-
-  // Scenario to fetch a subset of the ACS population
-  private def currQueryScn =
-    scenario(s"SyncFetchByQuery_${numRecords}-${numQueries}-${numReaders}")
-      .repeat(numQueries / numReaders) {
-        feed(Iterator.continually(Map("currency" -> randomCurrency())))
-          .exec(currencyQueryRequest)
-      }
-
   private val fetchByKeyRequest =
     http("SyncFetchByKey")
       .post("/v1/fetch")
@@ -114,6 +97,22 @@ class OracleMultiUserQueryScenario
             "_2": "${id}"
           }
       }"""))
+
+  private val currencyQueryRequest =
+    http("SyncFetchByQuery")
+      .post("/v1/query")
+      .body(StringBody("""{
+          "templateIds": ["LargeAcs:KeyedIou"],
+          "query": {"currency": "${currency}"}
+      }"""))
+
+  // Scenario to fetch a subset of the ACS population
+  private def currQueryScn(numIterations: Int, curr: () => String) =
+    scenario(s"SyncFetchByQuery_${numRecords}-${numQueries}-${numReaders}")
+      .repeat(numIterations) {
+        feed(Iterator.continually(Map("currency" -> curr())))
+          .exec(currencyQueryRequest)
+      }
 
   //fetch by key scenario
   private def fetchByKeyScn(numIterations: Int) = {
@@ -131,7 +130,7 @@ class OracleMultiUserQueryScenario
           .inject(atOnceUsers(numWriters))
           .andThen(
             //single fetch to populate the cache
-            fetchByKeyScn(numIterations = 1)
+            currQueryScn(numIterations = 1, () => randomCurrency())
               .inject(
                 nothingFor(2.seconds),
                 atOnceUsers(1),
@@ -142,7 +141,7 @@ class OracleMultiUserQueryScenario
           atOnceUsers(numReaders)
         )
       case FetchByQuery =>
-        currQueryScn.inject(
+        currQueryScn(numQueries / numReaders, randomCurrency).inject(
           nothingFor(2.seconds),
           atOnceUsers(numReaders),
         )
