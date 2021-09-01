@@ -327,7 +327,7 @@ object Config {
             "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
           )
           .action((url, config) =>
-            config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.FromString(url))))
+            config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.fromString(url))))
           )
 
         checkConfig(c =>

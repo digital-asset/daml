@@ -23,7 +23,7 @@ class SecretsUrlTest extends AnyWordSpec with Matchers {
       try {
         Files.write(filePath, contents.getBytes)
 
-        val secretsUrl = SecretsUrl.FromPath(filePath)
+        val secretsUrl = SecretsUrl.fromPath(filePath)
         val actualContents = readStreamFully(secretsUrl.openStream())
 
         actualContents should be(contents)
@@ -41,7 +41,7 @@ class SecretsUrlTest extends AnyWordSpec with Matchers {
         val url = new URL(SimpleHttpServer.responseUrl(server))
         url.getProtocol should be("http")
 
-        val secretsUrl = SecretsUrl.FromUrl(url)
+        val secretsUrl = SecretsUrl.fromUrl(url)
         val actualContents = readStreamFully(secretsUrl.openStream())
 
         actualContents should be(contents)

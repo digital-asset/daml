@@ -13,13 +13,17 @@ trait SecretsUrl {
 }
 
 object SecretsUrl {
-  def FromString(string: String): SecretsUrl = FromUrl(new URL(string))
+  def fromString(string: String): SecretsUrl = new FromUrl(new URL(string))
 
-  final case class FromUrl(url: URL) extends SecretsUrl {
+  def fromUrl(url: URL): SecretsUrl = new FromUrl(url)
+
+  def fromPath(path: Path): SecretsUrl = new FromPath(path)
+
+  private final class FromUrl(url: URL) extends SecretsUrl {
     override def openStream(): InputStream = url.openStream()
   }
 
-  final case class FromPath(path: Path) extends SecretsUrl {
+  private final class FromPath(path: Path) extends SecretsUrl {
     override def openStream(): InputStream = Files.newInputStream(path)
   }
 }

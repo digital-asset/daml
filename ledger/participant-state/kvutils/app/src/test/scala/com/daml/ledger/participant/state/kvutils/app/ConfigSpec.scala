@@ -75,7 +75,7 @@ final class ConfigSpec
     actual.get.tlsConfig shouldBe Some(
       TlsConfiguration(
         enabled = true,
-        secretsUrl = Some(SecretsUrl.FromString("http://aaa")),
+        secretsUrl = Some(SecretsUrl.fromString("http://aaa")),
         keyFile = Some(new File("key.enc")),
         keyCertChainFile = None,
         trustCertCollectionFile = None,
