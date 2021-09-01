@@ -68,7 +68,7 @@ private[events] class BufferedTransactionsReader(
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.flatTransactionsBuffered,
       totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.flatTransactionsTotal,
-      bufferSizeCounter = metrics.daml.services.index.flatTransactionsBufferSize,
+      bufferSizeCounter = metrics.daml.services.index.streamsBuffer.flatTransactionsBufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
   }
@@ -93,7 +93,7 @@ private[events] class BufferedTransactionsReader(
       totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
       bufferSizeCounter =
         // TODO in-memory fan-out: Specialize the metric per consumer
-        metrics.daml.services.index.transactionTreesBufferSize,
+        metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
 
