@@ -3,6 +3,7 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.grpc.GrpcStatuses
 import com.google.protobuf.Any
@@ -92,21 +93,13 @@ object CompletionResponse {
   private[daml] def toException(response: TrackedCompletionFailure): StatusException =
     response match {
       case QueueCompletionFailure(failure) =>
-        toException(failure)
+        val metadata = failure.metadata
+        val statusBuilder = extractStatus(failure)
+        buildException(metadata, statusBuilder)
       case QueueSubmitFailure(status) =>
-        val protoStatus =
-          rpc.Status
-            .newBuilder()
-            .setCode(status.getCode.value())
-            .setMessage(Option(status.getDescription).getOrElse("Failed to submit request"))
-        buildException(Map.empty[String, String], protoStatus)
+        val statusBuilder = GrpcStatus.toJavaBuilder(status)
+        buildException(Map.empty[String, String], statusBuilder)
     }
-
-  def toException(response: CompletionResponse.CompletionFailure): StatusException = {
-    val metadata = response.metadata
-    val status = extractStatus(response)
-    buildException(metadata, status)
-  }
 
   private def buildException(metadata: Map[String, String], status: rpc.Status.Builder) = {
     val errorInfo = rpc.ErrorInfo.newBuilder().putAllMetadata(metadata.asJava).build()
@@ -119,14 +112,14 @@ object CompletionResponse {
   }
 
   private def extractStatus(response: CompletionFailure) = response match {
-    case CompletionResponse.NotOkResponse(_, grpcStatus) =>
-      rpc.Status.newBuilder().setCode(grpcStatus.code).setMessage(grpcStatus.message)
+    case CompletionResponse.NotOkResponse(_, grpcStatus) => GrpcStatus.toJavaBuilder(grpcStatus)
     case CompletionResponse.TimeoutResponse(_) =>
-      rpc.Status.newBuilder().setCode(Code.ABORTED.value()).setMessage("Timeout")
+      GrpcStatus.toJavaBuilder(Code.ABORTED.value(), Some("Timeout"), Iterable.empty)
     case CompletionResponse.NoStatusInResponse(_) =>
-      rpc.Status
-        .newBuilder()
-        .setCode(Code.INTERNAL.value())
-        .setMessage("Missing status in completion response.")
+      GrpcStatus.toJavaBuilder(
+        Code.INTERNAL.value(),
+        Some("Missing status in completion response."),
+        Iterable.empty,
+      )
   }
 }

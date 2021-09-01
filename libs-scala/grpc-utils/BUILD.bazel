@@ -15,6 +15,7 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:io_grpc_grpc_api",
     ],
 )
