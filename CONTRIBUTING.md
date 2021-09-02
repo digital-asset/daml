@@ -69,6 +69,13 @@ If you want to verify the changelog entries as described by a range of Git revis
 
     ./unreleased.sh main..
 
+## Merging a PR
+
+All the commits from a PR are squashed into a single commit when merging into `main` branch.  
+When merging your PR please take care to edit the final commit message to ensure
+it is a coherent single message rather than an incidental concatenation of 
+messages from all the commits.
+
 ## Writing a good changelog entry
 
 Writing good changelog entries is **important**: as a developer, it gives visibility on your contribution; as a user, it makes clear what is new, what's changed, and how to deal with them, making the product more accessible and your work more meaningful.
