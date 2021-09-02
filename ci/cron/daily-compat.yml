@@ -216,7 +216,7 @@ jobs:
           }
 
           # dont want to wait forever to test connection , 15m is more than sufficient here.
-          declare -x testConnection
+          declare -xf testConnection
           timeout 15m bash -c 'until testConnection; do echo "Could not connect to Oracle, trying again..." ; sleep 1 ; done'
 
           # Actually run some tests
@@ -262,6 +262,19 @@ jobs:
               --jwt=${JWT} \
               --query-store-index=oracle
           done
+
+          READ_PERF_KEYS="\
+           fetchByKey \
+           fetchByQuery\
+          "
+          RES=""
+          for KEY in $READ_PERF_KEYS; do
+            # capture the avg, stddev, p90, p99, requests_per_second numbers from gatling summary csv
+            perf=$(cat ${OUT}/${KEY}/*/summary.csv | awk -F, '{print $11,$12,$6,$8,$13}' | tail -n 1)
+            RES="${RES}json_oracle/${KEY}: $perf)\n"
+          done
+
+          setvar oracle_perf_results "$RES"
 
           GZIP=-9 tar -zcf ${OUT}.tgz ${OUT}
 
@@ -429,6 +442,7 @@ jobs:
       speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
       perf_http_json: $[ dependencies.perf_http_json.result ]
       perf_http_json_oracle: $[ dependencies.perf_http_json_oracle.result ]
+      oracle_perf_results: $[ dependencies.perf_http_json_oracle.outputs['out.oracle_perf_results'] ]
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
@@ -457,6 +471,7 @@ jobs:
             MSG="Daily tests passed: $COMMIT_LINK"
             REPORT='```
         speedy_perf: $(speedy_perf)
+        $(oracle_perf_results)
         ```
         '
             tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"
