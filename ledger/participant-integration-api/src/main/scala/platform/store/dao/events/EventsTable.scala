@@ -26,7 +26,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
-import com.daml.platform.store.Conversions.{identifier, instant, offset}
+import com.daml.platform.store.Conversions.{identifier, instantFromTimestamp, offset}
 import com.daml.platform.store.DbType
 import com.google.protobuf.timestamp.Timestamp
 
@@ -55,7 +55,7 @@ private[events] object EventsTable {
       long("event_sequential_id") ~
       str("event_id") ~
       str("contract_id") ~
-      instant("ledger_effective_time") ~
+      instantFromTimestamp("ledger_effective_time") ~
       identifier("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~

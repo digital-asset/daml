@@ -23,6 +23,7 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -85,7 +86,7 @@ private[backend] object H2StorageBackend
       |when matched and pcs.deduplicate_until < {submittedAt} then
       |  update set deduplicate_until={deduplicateUntil}""".stripMargin
 
-  def upsertDeduplicationEntry(
+  override def upsertDeduplicationEntry(
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
@@ -93,7 +94,7 @@ private[backend] object H2StorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
         "deduplicateUntil" -> deduplicateUntil,
       )
       .executeUpdate()(connection)

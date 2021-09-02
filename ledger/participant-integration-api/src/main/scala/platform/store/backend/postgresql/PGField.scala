@@ -3,32 +3,7 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import java.time.{Instant, ZoneOffset}
-import java.time.format.DateTimeFormatter
-
 import com.daml.platform.store.backend.common.Field
-
-private[postgresql] trait PGTimestampBase[FROM, TO] extends Field[FROM, TO, String] {
-  override def selectFieldExpression(inputFieldName: String): String =
-    s"$inputFieldName::timestamp"
-
-  private val PGTimestampFormat =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")
-
-  protected def convertBase: Instant => String =
-    _.atZone(ZoneOffset.UTC).toLocalDateTime
-      .format(PGTimestampFormat)
-}
-
-private[postgresql] case class PGTimestamp[FROM](extract: FROM => Instant)
-    extends PGTimestampBase[FROM, Instant] {
-  override def convert: Instant => String = convertBase
-}
-
-private[postgresql] case class PGTimestampOptional[FROM](extract: FROM => Option[Instant])
-    extends PGTimestampBase[FROM, Option[Instant]] {
-  override def convert: Option[Instant] => String = _.map(convertBase).orNull
-}
 
 private[postgresql] trait PGStringArrayBase[FROM, TO] extends Field[FROM, TO, String] {
   override def selectFieldExpression(inputFieldName: String): String =
