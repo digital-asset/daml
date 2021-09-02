@@ -104,6 +104,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       metrics: Metrics,
+      engine: Engine,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
@@ -116,6 +117,7 @@ private[sandbox] object SandboxIndexAndWriteService {
         transactionCommitter,
         templateStore,
         ledgerEntries,
+        engine,
       )
     owner(MeteredLedger(ledger, metrics), participantId, timeProvider)
   }

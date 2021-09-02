@@ -172,7 +172,6 @@ final class SandboxServer(
         }
       EngineConfig(
         allowedLanguageVersions = allowedLanguageVersions,
-        transactionNormalization = false,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
       )
@@ -347,6 +346,7 @@ final class SandboxServer(
             transactionCommitter,
             packageStore,
             metrics,
+            engine,
           )
       }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())

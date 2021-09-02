@@ -41,6 +41,7 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, TransactionCommitter}
@@ -79,7 +80,10 @@ private[sandbox] final class InMemoryLedger(
     transactionCommitter: TransactionCommitter,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
+    engine: Engine,
 ) extends Ledger {
+
+  private val enricher = new ValueEnricher(engine)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -99,6 +103,16 @@ private[sandbox] final class InMemoryLedger(
   private val packageStoreRef = new AtomicReference[InMemoryPackageStore](packageStoreInit)
 
   override def currentHealth(): HealthStatus = Healthy
+
+  private[this] def consumeEnricherResult[V](res: Result[V]): V = {
+    LfEngineToApi.assertOrRuntimeEx(
+      "unexpected engine.Result when enriching value",
+      res match {
+        case ResultDone(x) => Right(x)
+        case x => Left(x.toString)
+      },
+    )
+  }
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -353,12 +367,14 @@ private[sandbox] final class InMemoryLedger(
                 transactionId,
                 transaction,
               )
+          val enrichedCommittedTransaction =
+            consumeEnricherResult(enricher.enrichTransaction(committedTransaction))
           val acsRes = acs.addTransaction(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,
             transactionMeta.workflowId,
             submitterInfo.actAs,
-            committedTransaction,
+            enrichedCommittedTransaction,
             disclosureForIndex,
             divulgence,
             List.empty,
@@ -381,7 +397,7 @@ private[sandbox] final class InMemoryLedger(
                   transactionMeta.workflowId,
                   transactionMeta.ledgerEffectiveTime.toInstant,
                   recordTime,
-                  committedTransaction,
+                  enrichedCommittedTransaction,
                   disclosureForIndex,
                 )
               entries.publish(InMemoryLedgerEntry(entry))
