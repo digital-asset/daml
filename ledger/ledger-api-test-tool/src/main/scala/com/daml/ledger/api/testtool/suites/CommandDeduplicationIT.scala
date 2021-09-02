@@ -312,10 +312,10 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     ledger
       .getTimeModel()
       .flatMap(timeModel => {
-        def restoreTimeModel = {
+        def restoreTimeModel(time: Instant) = {
           ledger
             .setTimeModel(
-              Instant.now().plusSeconds(30),
+              time.plusSeconds(30),
               timeModel.configurationGeneration + 1,
               timeModel.getTimeModel,
             )
@@ -324,12 +324,15 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
             }
         }
         for {
+          time <- ledger.time()
           _ <- ledger.setTimeModel(
-            Instant.now().plusSeconds(30),
+            time.plusSeconds(30),
             timeModel.configurationGeneration,
             timeModelUpdate(timeModel.getTimeModel),
           )
-          _ <- test.transformWith(testResult => restoreTimeModel.transform(_ => testResult))
+          newLedgerTime <- ledger.time()
+          _ <- test
+            .transformWith(testResult => restoreTimeModel(newLedgerTime).transform(_ => testResult))
         } yield {}
       })
   }
