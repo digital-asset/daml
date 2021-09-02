@@ -321,7 +321,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
   private def runWithUpdatedOrExistingTimeModel(
       ledger: ParticipantTestContext,
       timeModelUpdate: TimeModel => TimeModel,
-      existingTimeModelValidation: TimeModel => Unit = _ => (),
+      existingTimeModelValidation: TimeModel => Unit,
   )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     ledger
       .getTimeModel()
