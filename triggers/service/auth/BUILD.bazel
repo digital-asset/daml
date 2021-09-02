@@ -178,11 +178,15 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_http",
         "@maven//:com_typesafe_akka_akka_http_core",
         "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_http_testkit",
         "@maven//:com_typesafe_akka_akka_parsing",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
+    ],
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
     ],
     scalacopts = scalacopts,
     deps = [
@@ -202,5 +206,6 @@ da_scala_test(
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "@maven//:com_auth0_java_jwt",
+        "@maven//:com_typesafe_config",
     ],
 )
