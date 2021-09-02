@@ -39,6 +39,7 @@ import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 
+import scala.collection.compat._
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.compat.java8.FutureConverters._
@@ -190,8 +191,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         }
       }
 
-      // not yet supported fully
-      "reject a duplicate submission" ignore participantState.use { ps =>
+      "reject a duplicate submission" in participantState.use { ps =>
         val submissionIds = (newSubmissionId(), newSubmissionId())
 
         for {
@@ -322,7 +322,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         }
       }
 
-      "reject duplicate commands" in participantState.use { ps =>
+      "reject duplicate commands" ignore participantState.use { ps =>
         val firstCommandId = "X1"
         val secondCommandId = "X2"
         for {
