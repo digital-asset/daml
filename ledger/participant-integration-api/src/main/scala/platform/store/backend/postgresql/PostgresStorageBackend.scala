@@ -36,7 +36,7 @@ import com.daml.platform.store.backend.{
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
 
-import scala.util.Using
+import scala.util.{Try, Using}
 
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -257,7 +257,7 @@ private[backend] object PostgresStorageBackend
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
 
-    Using.resource(pgSimpleDataSource.getConnection())(checkCompatibility)
+    Try(Using.resource(pgSimpleDataSource.getConnection())(checkCompatibility))
 
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList

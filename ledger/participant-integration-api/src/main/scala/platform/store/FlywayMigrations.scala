@@ -31,6 +31,7 @@ private[platform] class FlywayMigrations(
       .configure()
       .locations((locations(enableAppendOnlySchema, dbType) ++ additionalMigrationPaths): _*)
       .dataSource(dataSource)
+      .connectRetries(10) // Flyway does exponential backoff waiting 1s 2s 4s 8s ...
 
   def validate(): Future[Unit] = run {
     val flyway = configurationBase
