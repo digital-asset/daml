@@ -61,6 +61,7 @@ object Tests {
   val optional: Vector[LedgerTestSuite] =
     Vector(
       new CommandDeduplicationOffsetIT,
+      new CommandSubmissionCompletionDeduplicationIT,
       new ContractIdIT,
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,
