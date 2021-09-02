@@ -263,6 +263,18 @@ jobs:
               --query-store-index=oracle
           done
 
+          READ_PERF_KEYS="\
+           fetchByKey \
+           fetchByQuery\
+          "
+          RES=""
+          for KEY in $READ_PERF_KEYS; do
+            perf=$(cat ${OUT}/${KEY}/*/summary.csv | cut -d, -f8 | tail -n 1)
+            RES="${RES}(${KEY} p99 = $perf) "
+          done
+
+          setvar oracle_perf_results "http_json_oracle_latency: $RES"
+
           GZIP=-9 tar -zcf ${OUT}.tgz ${OUT}
 
           gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json-oracle/${REPORT_ID}.tgz"
@@ -429,6 +441,7 @@ jobs:
       speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
       perf_http_json: $[ dependencies.perf_http_json.result ]
       perf_http_json_oracle: $[ dependencies.perf_http_json_oracle.result ]
+      oracle_perf_results: $[ dependencies.perf_http_json_oracle.outputs['out.oracle_perf_results'] ]
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
@@ -457,6 +470,7 @@ jobs:
             MSG="Daily tests passed: $COMMIT_LINK"
             REPORT='```
         speedy_perf: $(speedy_perf)
+        $(oracle_perf_results)
         ```
         '
             tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"
