@@ -290,7 +290,7 @@ object Main extends StrictLogging {
   private def generateReport(dir: Path): String \/ Unit = {
     import SimulationLogSyntax._
 
-    require(Files.isDirectory(dir))
+    require(Files.isDirectory(dir), s"input path $dir should be a directory")
 
     val jsDir = dir.resolve("js")
     val statsPath = jsDir.resolve("stats.json")
