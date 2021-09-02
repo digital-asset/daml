@@ -216,7 +216,7 @@ jobs:
           }
 
           # dont want to wait forever to test connection , 15m is more than sufficient here.
-          declare -x testConnection
+          declare -xf testConnection
           timeout 15m bash -c 'until testConnection; do echo "Could not connect to Oracle, trying again..." ; sleep 1 ; done'
 
           # Actually run some tests
@@ -270,7 +270,7 @@ jobs:
           RES=""
           for KEY in $READ_PERF_KEYS; do
             # capture the avg, stddev, p90, p99, requests_per_second numbers from gatling summary csv
-            perf=$(cat ${OUT}/${KEY}/*/summary.csv | awk -F"," '{print $11,$12,$6,$8,$13}' | tail -n 1)
+            perf=$(cat ${OUT}/${KEY}/*/summary.csv | awk -F, '{print $11,$12,$6,$8,$13}' | tail -n 1)
             RES="${RES}json_oracle/${KEY}: $perf)\n"
           done
 
