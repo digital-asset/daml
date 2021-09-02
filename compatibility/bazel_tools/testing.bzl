@@ -302,6 +302,21 @@ excluded_test_tool_tests = [
                 "end": "1.16.0-snapshot.20210727.7476.0.b5e9d861",
                 "exclusions": [
                     "DeeplyNestedValueIT",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0",
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
                 ],
             },
         ],
