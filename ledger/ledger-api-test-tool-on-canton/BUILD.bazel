@@ -86,7 +86,8 @@ conformance_test(
         ",RaceConditionIT:RWArchiveVsLookupByKey,RaceConditionIT:RWArchiveVsNonConsumingChoice,RaceConditionIT:RWArchiveVsFetch,RaceConditionIT:WWDoubleArchive" +
         ",ExceptionsIT,ExceptionRaceConditionIT" +  # need UCK mode - added below
         ",DeeplyNestedValueIT" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
-        ",CommandServiceIT:CSReturnStackTrace",  # FIXME: Ensure canton returns stack trace
+        ",CommandServiceIT:CSReturnStackTrace" +  # FIXME: Ensure canton returns stack trace
+        ",CommandDeduplicationIT:CDSimpleDeduplicationBasic,CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",  # FIXME tests depend on the time model and can't run with the existing default config in canton
     ],
 ) if not is_windows else None
 
