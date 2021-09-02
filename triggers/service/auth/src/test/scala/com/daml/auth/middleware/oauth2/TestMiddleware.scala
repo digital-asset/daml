@@ -605,7 +605,7 @@ class TestMiddlewareClientLoginCallbackUri
     }
   }
   "automatic callback URI" should {
-    "is fixed when absolute" in {
+    "be fixed when absolute" in {
       val routes = client.routesAuto(Uri("http://client.domain/cb"))
       val claims = Request.Claims(actAs = List(Party("Alice")))
       import akka.http.scaladsl.server.directives.RouteDirectives._
