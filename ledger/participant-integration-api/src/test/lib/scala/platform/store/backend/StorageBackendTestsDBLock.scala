@@ -45,17 +45,17 @@ private[backend] trait StorageBackendTestsDBLock extends Matchers with StorageBa
     backend.tryAcquire(backend.lock(1), LockMode.Shared)(c(5)) should not be empty
   }
 
-  it should "not allow shared locked by exclusive" in dbLockTestCase(2) { c =>
+  it should "not allow exclusive when locked by shared" in dbLockTestCase(2) { c =>
     backend.tryAcquire(backend.lock(1), LockMode.Shared)(c(1)) should not be empty
     backend.tryAcquire(backend.lock(1), LockMode.Exclusive)(c(2)) shouldBe empty
   }
 
-  it should "not allow exclusive locked by exclusive" in dbLockTestCase(2) { c =>
+  it should "not allow exclusive when locked by exclusive" in dbLockTestCase(2) { c =>
     backend.tryAcquire(backend.lock(1), LockMode.Exclusive)(c(1)) should not be empty
     backend.tryAcquire(backend.lock(1), LockMode.Exclusive)(c(2)) shouldBe empty
   }
 
-  it should "not allow exclusive locked by shared" in dbLockTestCase(2) { c =>
+  it should "not allow shared when locked by exclusive" in dbLockTestCase(2) { c =>
     backend.tryAcquire(backend.lock(1), LockMode.Exclusive)(c(1)) should not be empty
     backend.tryAcquire(backend.lock(1), LockMode.Shared)(c(2)) shouldBe empty
   }
