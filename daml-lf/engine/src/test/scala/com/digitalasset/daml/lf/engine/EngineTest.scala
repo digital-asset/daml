@@ -295,7 +295,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(res) { case Left(Error.Preprocessing(error)) =>
         error shouldBe a[Error.Preprocessing.TypeMismatch]
-        error.message should startWith("Missing record label n for record")
+        error.message should startWith("Missing record field 'n' for record")
       }
     }
 
