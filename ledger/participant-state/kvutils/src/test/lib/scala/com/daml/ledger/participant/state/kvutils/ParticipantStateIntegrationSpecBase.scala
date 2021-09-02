@@ -371,7 +371,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             status.code shouldBe Code.ALREADY_EXISTS.value
           }
           offset4 should be(toOffset(4))
-          matchTransaction(update3, secondCommandId)
+          matchTransaction(update4, secondCommandId)
         }
       }
 
