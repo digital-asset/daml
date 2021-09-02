@@ -16,10 +16,12 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
@@ -85,14 +87,21 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   )
 
   "outOfTimeBoundsEntryToUpdate" should {
-    "not generate an update for deduplicated entries" in {
+    "generate update only for rejected transaction" in {
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(update =>
+            inside(update) {
+              case Some(CommandRejected(_, _, FinalReason(status))) => {
+                status.code shouldBe Code.ALREADY_EXISTS.value
+                ()
+              }
+            }
+          ),
         ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
