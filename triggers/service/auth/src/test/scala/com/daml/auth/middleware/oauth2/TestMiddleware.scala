@@ -592,7 +592,7 @@ class TestMiddlewareClientLoginCallbackUri
     }
   }
   "callback URI from request" should {
-    "is used in login URI" in {
+    "be used in login URI" in {
       val routes = client.routesFromRequestAuthority(Uri.Path./("cb"))
       val claims = Request.Claims(actAs = List(Party("Alice")))
       import akka.http.scaladsl.server.directives.RouteDirectives._
