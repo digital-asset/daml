@@ -87,6 +87,7 @@ data Error
   | EDuplicateModule       !ModuleName
   | EDuplicateScenario     !ExprVarName
   | EEnumTypeWithParams
+  | EInterfaceTypeWithParams
   | EExpectedRecordType    !TypeConApp
   | EFieldMismatch         !TypeConApp ![(FieldName, Expr)]
   | EExpectedVariantType   !(Qualified TypeConName)
@@ -224,6 +225,7 @@ instance Pretty Error where
     EDuplicateModule mname -> "duplicate module: " <> pretty mname
     EDuplicateScenario name -> "duplicate scenario: " <> pretty name
     EEnumTypeWithParams -> "enum type with type parameters"
+    EInterfaceTypeWithParams -> "interface type with type parameters"
     EExpectedRecordType tapp ->
       vcat [ "expected record type:", "* found: ", nest 4 $ string (show tapp) ]
     EFieldMismatch tapp rexpr ->

@@ -272,6 +272,8 @@ private[validation] object Typing {
             env.checkVariantType(fields)
           case DataEnum(values) =>
             env.checkEnumType(tyConName, params, values)
+          case DataInterface =>
+            env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
         Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
@@ -367,6 +369,14 @@ private[validation] object Typing {
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
     }
 
+    def checkInterfaceType[X](
+        tyConName: => TypeConName,
+        params: ImmArray[X]
+    ): Unit = {
+      if (params.nonEmpty) throw EIllegalGenericInterfaceType(ctx, tyConName)
+      // TODO interfaces verify that there is an accompanying entry in defInterface
+    }
+
     def checkDValue(dfn: DValue): Unit = dfn match {
       case DValue(typ, _, body, isTest) =>
         checkType(typ, KStar)
@@ -415,7 +425,7 @@ private[validation] object Typing {
       }
 
     def checkTemplate(tplName: TypeConName, template: Template): Unit = {
-      val Template(param, precond, signatories, agreementText, choices, observers, mbKey) =
+      val Template(param, precond, signatories, agreementText, choices, observers, mbKey, _) = // TODO interfaces
         template
       val env = introExprVar(param, TTyCon(tplName))
       env.checkExpr(precond, TBool)
@@ -733,6 +743,8 @@ private[validation] object Typing {
                     enumExpectedPatterns(scrutTCon, cons),
                     introPatternEnum(scrutTCon, cons),
                   )
+                case DataInterface =>
+                  (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
               }
           }
         case TUnit =>

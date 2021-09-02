@@ -203,7 +203,7 @@ object Util {
 
   private[this] def toSignature(template: Template): TemplateSignature =
     template match {
-      case Template(param, _, _, _, choices, _, key) =>
+      case Template(param, _, _, _, choices, _, key, implements) =>
         TemplateSignature(
           param,
           (),
@@ -212,12 +212,13 @@ object Util {
           choices.transform((_, v) => toSignature(v)),
           (),
           key.map(toSignature),
+          implements
         )
     }
 
   private[this] def toSignature(module: Module): ModuleSignature =
     module match {
-      case Module(name, definitions, templates, exceptions, featureFlags) =>
+      case Module(name, definitions, templates, exceptions, interfaces, featureFlags) =>
         ModuleSignature(
           name = name,
           definitions = definitions.transform {
@@ -227,6 +228,7 @@ object Util {
           },
           templates = templates.transform((_, template) => toSignature(template)),
           exceptions = exceptions.transform((_, _) => DefExceptionSignature),
+          interfaces = interfaces,
           featureFlags = featureFlags,
         )
     }

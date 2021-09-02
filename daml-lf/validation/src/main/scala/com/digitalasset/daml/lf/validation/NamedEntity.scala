@@ -144,4 +144,16 @@ object NamedEntity {
     def pretty: String = s"variant constructor $modName:${dfn.name}:$name"
   }
 
+  final case class NInterfaceDef(
+      module: NModDef,
+      name: DottedName,
+      dfn: Ast.DDataType
+  ) extends NamedEntity {
+    def modName: ModuleName = module.name
+    val fullyResolvedName: DottedName =
+      module.fullyResolvedName ++ name.toUpperCase
+    override def toString: String = s"NInterfaceDef($modName:$name)"
+    def pretty: String = s"interface $modName:$name"
+  }
+
 }

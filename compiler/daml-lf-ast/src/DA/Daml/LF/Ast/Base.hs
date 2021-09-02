@@ -785,6 +785,8 @@ data DataCons
   | DataVariant ![(VariantConName, Type)]
   -- | An enum type given by the name of its constructors.
   | DataEnum ![VariantConName]
+  -- | An interface type, with accompanying interface definition in this module.
+  | DataInterface
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}

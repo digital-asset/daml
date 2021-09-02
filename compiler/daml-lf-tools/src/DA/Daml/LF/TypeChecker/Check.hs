@@ -536,6 +536,7 @@ typeOfCase scrut alts = do
                 DataEnum cons ->  (,,) (length cons) (\k -> CPEnum scrutTCon (cons !! k))
                     <$> typeOfAltsEnum scrutTCon cons alts
                 DataRecord{} -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
+                DataInterface -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
         TUnit -> (,,) 1 (const CPUnit) <$> typeOfAltsUnit alts
         TBool -> (,,) 2 (CPBool . toEnum) <$> typeOfAltsBool alts
         TList elemType -> (,,) 2 ([CPNil, CPCons wildcard wildcard] !!) <$> typeOfAltsList elemType alts
@@ -786,6 +787,9 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
       DataEnum names -> do
         unless (null params) $ throwWithContext EEnumTypeWithParams
         checkUnique EDuplicateConstructor names
+      DataInterface -> do
+        unless (null params) $ throwWithContext EInterfaceTypeWithParams
+        pure () -- TODO interfaces: Check that a DefInterface exists to go with this.
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do

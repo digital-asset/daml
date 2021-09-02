@@ -96,6 +96,8 @@ private[engine] final class Preprocessor(
                       variants.foldRight(typesToProcess0)(_._2 :: _)
                     case Ast.DataEnum(_) =>
                       typesToProcess0
+                    case Ast.DataInterface =>
+                      typesToProcess0
                   }
                   go(
                     typesToProcess,

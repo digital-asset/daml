@@ -858,6 +858,8 @@ encodeDefDataType DefDataType{..} = do
                     Left mangled -> (V.fromList mangled, V.empty)
                     Right mangledIds -> (V.empty, V.fromList mangledIds)
             pure $ P.DefDataTypeDataConsEnum P.DefDataType_EnumConstructors{..}
+        DataInterface -> do
+            pure $ P.DefDataTypeDataConsInterface P.Unit
     let defDataTypeSerializable = getIsSerializable dataSerializable
     defDataTypeLocation <- traverse encodeSourceLoc dataLocation
     pure P.DefDataType{..}

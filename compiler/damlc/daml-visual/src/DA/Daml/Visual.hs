@@ -263,6 +263,7 @@ typeConFields qName world = case LF.lookupDataType qName world of
     LF.DataRecord re -> concatMap (typeConFieldsNames world) re
     LF.DataVariant _ -> [""]
     LF.DataEnum _ -> [""]
+    LF.DataInterface -> [""]
   Left _ -> error "malformed template constructor"
 
 constructSubgraphsWithLables :: LF.World -> Map.Map ChoiceIdentifier ChoiceDetails -> TemplateChoices -> SubGraph

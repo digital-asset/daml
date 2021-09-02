@@ -123,7 +123,7 @@ private[validation] object ExprIterable {
 
   private[iterable] def iterator(x: Template): Iterator[Expr] =
     x match {
-      case Template(param @ _, precond, signatories, agreementText, choices, observers, key) =>
+      case Template(param @ _, precond, signatories, agreementText, choices, observers, key, _) =>
         Iterator(precond, signatories, agreementText) ++
           choices.values.iterator.flatMap(iterator(_)) ++
           Iterator(observers) ++

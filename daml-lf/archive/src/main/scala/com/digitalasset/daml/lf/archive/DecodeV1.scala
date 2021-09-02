@@ -202,6 +202,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
+      val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
       if (versionIsOlderThan(LV.Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
@@ -277,11 +278,20 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
-            exceptions += ((defName, decodeException(defName, defn)))
+            exceptions += (defName -> decodeException(defName, defn))
           }
       }
 
-      Module(moduleName, defs, templates, exceptions, decodeFeatureFlags(lfModule.getFlags))
+      if (versionIsOlderThan(LV.Features.interfaces)) {
+        assertEmpty(lfModule.getInterfacesList, "Module.interfaces")
+      } else {
+        lfModule.getInterfacesList.asScala.foreach { defn =>
+          val defName = getInternedDottedName(defn.getTyconInternedDname)
+          interfaces += (defName -> decodeDefInterface(defn))
+        }
+      }
+
+      Module(moduleName, defs, templates, exceptions, interfaces, decodeFeatureFlags(lfModule.getFlags))
     }
 
     // -----------------------------------------------------------------------
@@ -365,6 +375,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             assertSince(LV.Features.enum, "DefDataType.DataCons.Enum")
             assertEmpty(params, "params")
             DataEnum(decodeEnumCon(lfDataType.getEnum))
+          case PLF.DefDataType.DataConsCase.INTERFACE =>
+            assertSince(LV.Features.interfaces, "DefDataType.DataCons.Interface")
+            assertEmpty(params, "params")
+            DataInterface
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
             throw Error.Parsing("DefDataType.DATACONS_NOT_SET")
 
@@ -570,6 +584,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, paramName))
           else None,
+        implements =
+          lfTempl.getImplementsList.asScala.toList.map(decodeTypeConName(_))
       )
     }
 
@@ -617,6 +633,28 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfException: PLF.DefException,
     ): DefException =
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
+
+    private[lf] def decodeDefInterface (
+       lfInterface: PLF.DefInterface,
+    ): DefInterface = {
+      assertSince(LV.Features.interfaces, "DefInterface")
+      DefInterface(
+        decodeFields(ImmArray(lfInterface.getMethodsList.asScala)).toList,
+        lfInterface.getChoicesList.asScala.toList
+          .map(decodeInterfaceChoice(_))
+          .map(choice => (choice.name, choice))
+      )
+    }
+
+    private[lf] def decodeInterfaceChoice (
+        lfChoice: PLF.InterfaceChoice
+    ): InterfaceChoice =
+      InterfaceChoice(
+        name = getInternedName(lfChoice.getNameInternedString, "InterfaceChoice.name"),
+        consuming = lfChoice.getConsuming,
+        argType = decodeType(lfChoice.getArgType),
+        returnType = decodeType(lfChoice.getRetType)
+      )
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
       lfKind.getSumCase match {

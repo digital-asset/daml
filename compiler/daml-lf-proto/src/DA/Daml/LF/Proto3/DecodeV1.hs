@@ -276,6 +276,8 @@ decodeDataCons = \case
       | V.null cs -> mapM (fmap snd . lookupString) (V.toList cIds)
       | otherwise -> throwError $ ParseError "strings and interned string ids both set for enum constructor"
     DataEnum <$> mapM (decodeNameString VariantConName) unmangledOrErr
+  LF1.DefDataTypeDataConsInterface _ ->
+    pure DataInterface
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)

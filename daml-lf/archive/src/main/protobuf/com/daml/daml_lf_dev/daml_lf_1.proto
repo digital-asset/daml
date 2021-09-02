@@ -1438,13 +1438,16 @@ message DefTemplate {
   DefKey key = 10; // optional
 
   // Interfaces that this template implements.
-  repeated TypeConName implements = 12; // *Available in versions >= 1.dev*
+  repeated TypeConName implements = 13; // *Available in versions >= 1.dev*
 }
 
+// Daml interface definitions.
+// *Available in versions >= 1.dev*
 message DefInterface {
   Location location = 1;
   int32 tycon_interned_dname = 2;
-  repeated InterfaceChoice choices = 3;
+  repeated FieldWithType methods = 3;
+  repeated InterfaceChoice choices = 4;
 }
 
 // Exception definition
@@ -1487,6 +1490,7 @@ message DefDataType {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
     EnumConstructors enum = 7;
+    Unit interface = 9; // Interfaces are special, can't be represented as records or variants.
   }
 
   // If true, this data type preserves serializability in the sense that when

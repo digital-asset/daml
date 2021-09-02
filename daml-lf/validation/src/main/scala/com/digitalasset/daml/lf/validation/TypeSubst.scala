@@ -45,6 +45,8 @@ private[validation] object TypeSubst {
       DataVariant(variants.transform((_, x) => substitute(subst, x)))
     case dEnum: DataEnum =>
       dEnum
+    case DataInterface =>
+      DataInterface
   }
 
   def substitute(subst: Map[TypeVarName, Type], app: TypeConApp): TypeConApp = app match {

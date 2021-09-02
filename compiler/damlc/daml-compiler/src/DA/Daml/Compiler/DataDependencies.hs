@@ -558,6 +558,8 @@ generateSrcFromLf env = noLoc mod
                 [ mkConDecl (occNameFor conName) (PrefixCon [])
                 | conName <- cons
                 ]
+        LF.DataInterface -> -- TODO interfaces
+            error "not implemented: daml interfaces in data-dependencies"
       where
         occName = mkOccName varName (T.unpack dataTypeCon0)
         occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)
@@ -1075,6 +1077,7 @@ refsFromDataCons = \case
     LF.DataRecord fields -> foldMap (refsFromType . snd) fields
     LF.DataVariant cons -> foldMap (refsFromType . snd) cons
     LF.DataEnum _ -> mempty
+    LF.DataInterface -> mempty
 
 rootRefs :: Config -> LF.World -> DL.DList Ref
 rootRefs config world = fold
@@ -1102,7 +1105,7 @@ modRootRefs pkgId mod = fold
         | dval@LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
         , not (hasDFunSig dval)
         ]
-    ]
+    ] -- TODO interfaces Traverse interfaces for refs.
   where
     qualify :: a -> LF.Qualified a
     qualify = LF.Qualified (LF.PRImport pkgId) (LF.moduleName mod)

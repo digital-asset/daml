@@ -155,13 +155,15 @@ private[validation] object TypeIterable {
         variants.values
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
         Iterator.empty
+      case DDataType(serializable @ _, params @ _, DataInterface) =>
+        Iterator.empty
       case DValue(typ, noPartyLiterals @ _, body, isTest @ _) =>
         Iterator(typ) ++ iterator(body)
     }
 
   private[validation] def iterator(x: Template): Iterator[Type] =
     x match {
-      case Template(param @ _, precond, signatories, agreementText, choices, observers, key) =>
+      case Template(param @ _, precond, signatories, agreementText, choices, observers, key, _) => // TODO interfaces
         iterator(precond) ++
           iterator(signatories) ++
           iterator(agreementText) ++
@@ -212,5 +214,6 @@ private[validation] object TypeIterable {
       override def iterator: Iterator[Type] =
         module.definitions.values.iterator.flatMap(that.iterator(_)) ++
           module.templates.values.iterator.flatMap(that.iterator(_))
+          // TODO interfaces ... and exceptions?
     }
 }

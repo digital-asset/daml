@@ -369,6 +369,10 @@ final case class EIllegalHigherEnumType(context: Context, defn: TypeConName)
 final case class EIllegalEnumArgument(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String = s"illegal non Unit enum argument"
 }
+final case class EIllegalGenericInterfaceType(context: Context, defn: TypeConName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"illegal generic interface type"
+}
 sealed abstract class PartyLiteralRef extends Product with Serializable
 final case class PartyLiteral(party: Party) extends PartyLiteralRef
 final case class ValRefWithPartyLiterals(valueRef: ValueRef) extends PartyLiteralRef
