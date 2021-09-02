@@ -1,6 +1,9 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// Copyright
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Instant
@@ -26,7 +29,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -302,21 +305,46 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  private def setDedupEntry(
+  @nowarn("msg=deprecated")
+  private[transaction] def setDedupEntry(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
-  ): Unit =
+  )(implicit loggingContext: LoggingContext): Unit = {
+    val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
+    val commandDedupBuilder = DamlCommandDedupValue.newBuilder
+    transactionEntry.submitterInfo.getDeduplicationPeriodCase match {
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATE_UNTIL =>
+        commandDedupBuilder.setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
+        commandDedupBuilder.setDeduplicatedUntil(
+          Conversions.buildTimestamp(
+            transactionEntry.submissionTime
+              .add(
+                Conversions.parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
+              )
+              .add(config.timeModel.minSkew)
+          )
+        )
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_OFFSET =>
+        commandDedupBuilder.setDeduplicatedUntil(
+          Conversions.buildTimestamp(
+            transactionEntry.submissionTime
+              .add(config.maxDeduplicationTime)
+              .add(config.timeModel.minSkew)
+          )
+        )
+      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
+    }
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
       DamlStateValue.newBuilder
         .setCommandDedup(
-          DamlCommandDedupValue.newBuilder
-            .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
-            .build
+          commandDedupBuilder.build
         )
         .build,
     )
+  }
 
   private def updateContractStateAndFetchDivulgedContracts(
       transactionEntry: DamlTransactionEntrySummary,

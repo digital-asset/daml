@@ -18,7 +18,7 @@ import com.daml.ledger.configuration.{
   LedgerTimeModel,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{
+import com.daml.ledger.participant.state.v2.{
   PruningResult,
   ReadService,
   SubmissionResult,
@@ -33,6 +33,8 @@ import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 
 case class ReadWriteServiceBridge(
     participantId: Ref.ParticipantId,
@@ -46,6 +48,8 @@ case class ReadWriteServiceBridge(
   import ReadWriteServiceBridge._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
+
+  override def isApiDeduplicationEnabled: Boolean = true
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -112,7 +116,7 @@ case class ReadWriteServiceBridge(
       PruningResult.ParticipantPruned
     )
 
-  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(
       LedgerInitialConditions(
         ledgerId = ledgerId,
@@ -226,7 +230,7 @@ object ReadWriteServiceBridge {
 
       case s: Submission.Transaction =>
         Update.TransactionAccepted(
-          optSubmitterInfo = Some(s.submitterInfo),
+          optCompletionInfo = Some(s.submitterInfo.toCompletionInfo),
           transactionMeta = s.transactionMeta,
           transaction = s.transaction.asInstanceOf[CommittedTransaction],
           transactionId = Ref.TransactionId.assertFromString(index.toString),
@@ -243,22 +247,32 @@ object ReadWriteServiceBridge {
   )(implicit loggingContext: LoggingContext): CompletableFuture[SubmissionResult] =
     CompletableFuture.completedFuture(
       queueOfferResult match {
-        case QueueOfferResult.Enqueued =>
-          SubmissionResult.Acknowledged
-
+        case QueueOfferResult.Enqueued => SubmissionResult.Acknowledged
         case QueueOfferResult.Dropped =>
           logger.warn(
             "Buffer overflow: new submission is not added, signalized `Overloaded` for caller."
           )
-          SubmissionResult.Overloaded
-
+          SubmissionResult.SynchronousError(
+            Status(
+              Code.RESOURCE_EXHAUSTED.value
+            )
+          )
         case QueueOfferResult.Failure(throwable) =>
           logger.error("Error enqueueing new submission.", throwable)
-          SubmissionResult.InternalError(throwable.getMessage)
-
+          SubmissionResult.SynchronousError(
+            Status(
+              Code.INTERNAL.value,
+              throwable.getMessage,
+            )
+          )
         case QueueOfferResult.QueueClosed =>
           logger.error("Error enqueueing new submission: queue is closed.")
-          SubmissionResult.InternalError("Service is shutting down.")
+          SubmissionResult.SynchronousError(
+            Status(
+              Code.INTERNAL.value,
+              "Queue is closed",
+            )
+          )
       }
     )
 }

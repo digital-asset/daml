@@ -17,8 +17,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
-import com.daml.ledger.participant.state.v2.AdaptedV1ReadService
+import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
@@ -207,7 +206,7 @@ class RecoveringIndexerIntegrationSpec
         .map(ExecutionContext.fromExecutorService)
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
-        readService = new AdaptedV1ReadService(participantState),
+        readService = participantState,
         config = IndexerConfig(
           participantId = participantId,
           jdbcUrl = jdbcUrl,

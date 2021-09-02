@@ -25,12 +25,8 @@ import com.daml.ledger.participant.state.kvutils.api.{
   TimedLedgerWriter,
 }
 import com.daml.ledger.participant.state.kvutils.caching._
+import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v2.{
-  AdaptedV1ReadService,
-  AdaptedV1WriteService,
-  WritePackagesService,
-}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -173,15 +169,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               )
               readService = new TimedReadService(
-                new AdaptedV1ReadService(KeyValueParticipantStateReader(readerWriter, metrics)),
+                KeyValueParticipantStateReader(readerWriter, metrics),
                 metrics,
               )
               writeService = new TimedWriteService(
-                new AdaptedV1WriteService(
-                  new KeyValueParticipantStateWriter(
-                    new TimedLedgerWriter(readerWriter, metrics),
-                    metrics,
-                  )
+                new KeyValueParticipantStateWriter(
+                  new TimedLedgerWriter(readerWriter, metrics),
+                  metrics,
                 ),
                 metrics,
               )

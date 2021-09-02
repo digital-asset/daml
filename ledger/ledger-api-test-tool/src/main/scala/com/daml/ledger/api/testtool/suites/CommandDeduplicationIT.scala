@@ -7,19 +7,24 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
 import com.daml.ledger.test.model.Test._
 import com.daml.timer.Delayed
 import io.grpc.Status
+import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
     extends LedgerTestSuite {
+  private[this] val logger = LoggerFactory.getLogger(getClass.getName)
   private val deduplicationTime = 3.seconds * timeoutScaleFactor match {
     case duration: FiniteDuration => duration
     case _ =>
@@ -31,6 +36,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     "CDSimpleDeduplicationBasic",
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     lazy val requestA1 = ledger
       .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
@@ -48,57 +54,59 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
           ), //same semantics as `DeduplicationTime`
         _.commands.commandId := requestA1.commands.get.commandId,
       )
-    for {
-      // Submit command A (first deduplication window)
-      // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
-      // only one submission is therefore sent to the ledger.
-      ledgerEnd1 <- ledger.currentEnd()
-      _ <- ledger.submit(requestA1)
-      failure1 <- ledger
-        .submit(requestA1)
-        .mustFail("submitting the first request for the second time")
-      completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
-      // Wait until the end of first deduplication window
-      _ <- Delayed.by(deduplicationWindowWait)(())
+    runWithMinSkewForDeduplication(ledger) { timeModel =>
+      for {
+        // Submit command A (first deduplication window)
+        // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
+        // only one submission is therefore sent to the ledger.
+        ledgerEnd1 <- ledger.currentEnd()
+        _ <- ledger.submit(requestA1)
+        failure1 <- ledger
+          .submit(requestA1)
+          .mustFail("submitting the first request for the second time")
+        completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
+        // Wait until the end of first deduplication window
+        _ <- Delayed.by(deduplicationWindowWait.plus(timeModel.getMinSkew.asScala))(())
 
-      // Submit command A (second deduplication window)
-      // Note: the deduplication window is guaranteed to have passed on both
-      // the ledger API server and the ledger itself, since the test waited more than
-      // `deduplicationSeconds` after receiving the first command *completion*.
-      // The first submit() in this block should therefore lead to an accepted transaction.
-      ledgerEnd2 <- ledger.currentEnd()
-      _ <- ledger.submit(requestA2)
-      failure2 <- ledger
-        .submit(requestA2)
-        .mustFail("submitting the second request for the second time")
-      completions2 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd2)(party))
+        // Submit command A (second deduplication window)
+        // Note: the deduplication window is guaranteed to have passed on both
+        // the ledger API server and the ledger itself, since the test waited more than
+        // `deduplicationSeconds` after receiving the first command *completion*.
+        // The first submit() in this block should therefore lead to an accepted transaction.
+        ledgerEnd2 <- ledger.currentEnd()
+        _ <- ledger.submit(requestA2)
+        failure2 <- ledger
+          .submit(requestA2)
+          .mustFail("submitting the second request for the second time")
+        completions2 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd2)(party))
 
-      // Inspect created contracts
-      activeContracts <- ledger.activeContracts(party)
-    } yield {
-      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+        // Inspect created contracts
+        activeContracts <- ledger.activeContracts(party)
+      } yield {
+        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
 
-      assert(ledgerEnd1 != ledgerEnd2)
+        assert(ledgerEnd1 != ledgerEnd2)
 
-      val completionCommandId1 =
-        assertSingleton("Expected only one first completion", completions1.map(_.commandId))
-      val completionCommandId2 =
-        assertSingleton("Expected only one second completion", completions2.map(_.commandId))
+        val completionCommandId1 =
+          assertSingleton("Expected only one first completion", completions1.map(_.commandId))
+        val completionCommandId2 =
+          assertSingleton("Expected only one second completion", completions2.map(_.commandId))
 
-      assert(
-        completionCommandId1 == requestA1.commands.get.commandId,
-        "The command ID of the first completion does not match the command ID of the submission",
-      )
-      assert(
-        completionCommandId2 == requestA2.commands.get.commandId,
-        "The command ID of the second completion does not match the command ID of the submission",
-      )
+        assert(
+          completionCommandId1 == requestA1.commands.get.commandId,
+          "The command ID of the first completion does not match the command ID of the submission",
+        )
+        assert(
+          completionCommandId2 == requestA2.commands.get.commandId,
+          "The command ID of the second completion does not match the command ID of the submission",
+        )
 
-      assert(
-        activeContracts.size == 2,
-        s"There should be 2 active contracts, but received $activeContracts",
-      )
+        assert(
+          activeContracts.size == 2,
+          s"There should be 2 active contracts, but received $activeContracts",
+        )
+      }
     }
   })
 
@@ -170,39 +178,43 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     "CDSimpleDeduplicationCommandClient",
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val requestA = ledger
       .submitAndWaitRequest(party, Dummy(party).create.command)
       .update(
         _.commands.deduplicationTime := deduplicationTime.asProtobuf
       )
+    runWithMinSkewForDeduplication(ledger) { timeModel =>
+      for {
+        // Submit command A (first deduplication window)
+        _ <- ledger.submitAndWait(requestA)
+        failure1 <- ledger
+          .submitAndWait(requestA)
+          .mustFail("submitting a request for the second time, in the first deduplication window")
 
-    for {
-      // Submit command A (first deduplication window)
-      _ <- ledger.submitAndWait(requestA)
-      failure1 <- ledger
-        .submitAndWait(requestA)
-        .mustFail("submitting a request for the second time, in the first deduplication window")
+        // Wait until the end of first deduplication window
+        _ <- Delayed.by(deduplicationWindowWait.plus(timeModel.getMinSkew.asScala))(())
 
-      // Wait until the end of first deduplication window
-      _ <- Delayed.by(deduplicationWindowWait)(())
+        // Submit command A (second deduplication window)
+        _ <- ledger.submitAndWait(requestA)
+        failure2 <- ledger
+          .submitAndWait(requestA)
+          .mustFail(
+            "submitting a request for the second time, in the second deduplication window"
+          )
 
-      // Submit command A (second deduplication window)
-      _ <- ledger.submitAndWait(requestA)
-      failure2 <- ledger
-        .submitAndWait(requestA)
-        .mustFail("submitting a request for the second time, in the second deduplication window")
+        // Inspect created contracts
+        activeContracts <- ledger.activeContracts(party)
+      } yield {
+        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
 
-      // Inspect created contracts
-      activeContracts <- ledger.activeContracts(party)
-    } yield {
-      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
-
-      assert(
-        activeContracts.size == 2,
-        s"There should be 2 active contracts, but received $activeContracts",
-      )
+        assert(
+          activeContracts.size == 2,
+          s"There should be 2 active contracts, but received $activeContracts",
+        )
+      }
     }
   })
 
@@ -291,4 +303,72 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
       )
     }
   })
+
+  private def runWithMinSkewForDeduplication(
+      ledger: ParticipantTestContext
+  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext) = {
+    runWithUpdatedOrExistingTimeModel(
+      ledger,
+      _.update(_.minSkew := 1.second.asProtobuf),
+      existingTimeModel =>
+        assert(
+          existingTimeModel.getMinSkew.asScala <= 30.seconds,
+          s"Existing time model min skew of ${existingTimeModel.getMinSkew} exceeds our deduplication wait time",
+        ),
+    )(test)
+  }
+
+  private def runWithUpdatedOrExistingTimeModel(
+      ledger: ParticipantTestContext,
+      timeModelUpdate: TimeModel => TimeModel,
+      existingTimeModelValidation: TimeModel => Unit,
+  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+    ledger
+      .getTimeModel()
+      .flatMap(timeModel => {
+        def restoreTimeModel() = {
+          val ledgerTimeModelRestoreResult = for {
+            time <- ledger.time()
+            _ <- ledger
+              .setTimeModel(
+                time.plusSeconds(30),
+                timeModel.configurationGeneration + 1,
+                timeModel.getTimeModel,
+              )
+          } yield {}
+          ledgerTimeModelRestoreResult.recover { case NonFatal(exception) =>
+            logger.warn("Failed to restore time model for ledger", exception)
+            ()
+          }
+        }
+        for {
+          time <- ledger.time()
+          timeModelForTest <- ledger
+            .setTimeModel(
+              time.plusSeconds(30),
+              timeModel.configurationGeneration,
+              timeModelUpdate(timeModel.getTimeModel),
+            )
+            .transformWith {
+              case Failure(exception) =>
+                logger
+                  .warn(
+                    s"Failed to update time model, running with existing time model ${timeModel.getTimeModel}",
+                    exception,
+                  )
+                Future.successful(timeModel.getTimeModel)
+              case Success(_) =>
+                ledger
+                  .getTimeModel()
+                  .map(currentTimeModelResponse => {
+                    val model = currentTimeModelResponse.getTimeModel
+                    existingTimeModelValidation(model)
+                    model
+                  })
+            }
+          _ <- test(timeModelForTest)
+            .transformWith(testResult => restoreTimeModel().transform(_ => testResult))
+        } yield {}
+      })
+  }
 }

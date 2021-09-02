@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
 }
-import com.daml.ledger.participant.state.v2.{AdaptedV1ReadService, ReadService}
+import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -128,7 +128,6 @@ class IntegrityChecker[LogResult](
       replayingReadService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
-    val readService = new AdaptedV1ReadService(replayingReadService)
 
     // Start the indexer consuming the recorded state updates
     println(s"Starting to index ${replayingReadService.updateCount()} updates.".white)
@@ -136,11 +135,11 @@ class IntegrityChecker[LogResult](
       val feedHandleResourceOwner = for {
         indexer <- migrateAndStartIndexer(
           createIndexerConfig(config),
-          readService,
+          replayingReadService,
           metrics,
           LfValueTranslationCache.Cache.none,
         )
-        feedHandle <- indexer.subscription(readService)
+        feedHandle <- indexer.subscription(replayingReadService)
       } yield (feedHandle, System.nanoTime())
 
       // Wait for the indexer to finish consuming the state updates.

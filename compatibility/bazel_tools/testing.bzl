@@ -306,6 +306,19 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "1.16.0",
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

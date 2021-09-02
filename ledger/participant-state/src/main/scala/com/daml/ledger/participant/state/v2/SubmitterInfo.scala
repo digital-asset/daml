@@ -44,7 +44,7 @@ final case class SubmitterInfo(
     applicationId,
     commandId,
     Some(deduplicationPeriod),
-    submissionId,
+    Some(submissionId),
   )
 }
 

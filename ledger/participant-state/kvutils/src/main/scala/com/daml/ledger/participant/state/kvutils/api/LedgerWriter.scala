@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 
@@ -29,7 +29,7 @@ trait LedgerWriter extends ReportsHealth {
     * @param metadata         metadata associated to this particular commit
     * @param telemetryContext an implicit context for tracing
     * @return future for sending the submission; for possible results see
-    *         [[com.daml.ledger.participant.state.v1.SubmissionResult]]
+    *         [[com.daml.ledger.participant.state.v2.SubmissionResult]]
     */
   def commit(
       correlationId: String,

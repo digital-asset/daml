@@ -412,7 +412,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -497,7 +497,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -582,7 +582,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -750,7 +750,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -852,7 +852,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -978,7 +978,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -1081,7 +1081,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -1161,7 +1161,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_code = None,
           rejection_status_message = None,
           rejection_status_details = None,
-          submission_id = Some(completionInfo.submissionId),
+          submission_id = completionInfo.submissionId,
           deduplication_offset = None,
           deduplication_time_nanos = None,
           deduplication_time_seconds = None,
@@ -1256,7 +1256,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               expectedDeduplicationOffset,
               expectedDeduplicationTimeSeconds,
               expectedDeduplicationTimeNanos,
-            ) => {
+            ) =>
           val completionInfo = someCompletionInfo.copy(optDeduplicationPeriod = deduplicationPeriod)
           val update = state.Update.CommandRejected(
             someRecordTime,
@@ -1291,7 +1291,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               )
             ),
           )
-        }
       }
     }
 
@@ -1315,7 +1314,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               expectedDeduplicationOffset,
               expectedDeduplicationTimeSeconds,
               expectedDeduplicationTimeNanos,
-            ) => {
+            ) =>
           val completionInfo = someCompletionInfo.copy(optDeduplicationPeriod = deduplicationPeriod)
           val update = state.Update.TransactionAccepted(
             optCompletionInfo = Some(completionInfo),
@@ -1372,7 +1371,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               deduplication_start = None,
             ),
           )
-        }
       }
     }
   }
@@ -1450,7 +1448,7 @@ object UpdateToDbDtoSpec {
     applicationId = someApplicationId,
     commandId = someCommandId,
     optDeduplicationPeriod = None,
-    submissionId = someSubmissionId,
+    submissionId = Some(someSubmissionId),
   )
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),

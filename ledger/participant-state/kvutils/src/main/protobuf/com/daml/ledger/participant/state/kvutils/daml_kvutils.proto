@@ -10,10 +10,13 @@
 //
 
 syntax = "proto3";
+
 package com.daml.ledger.participant.state.kvutils;
+
 option java_package = "com.daml.ledger.participant.state.kvutils";
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "com/daml/daml_lf_dev/daml_lf.proto";
@@ -56,7 +59,7 @@ message Envelope {
 // Each entry can be converted into a participant state `Update` event
 // with [[KeyValueConsumption]], except for a time update entry.
 //
-// Please read comments in [[com.daml.ledger.participant.state.v1.package]]
+// Please read comments in [[com.daml.ledger.participant.state.v2.package]]
 // and  [[com.daml.ledger.participant.state.kvutils.package]] for background
 // information.
 message DamlLogEntry {
@@ -113,7 +116,12 @@ message DamlSubmitterInfo {
   string command_id = 2;
   string application_id = 3;
   reserved 4; // was maximum_record_time
-  google.protobuf.Timestamp deduplicate_until = 5;
+  oneof deduplication_period {
+    google.protobuf.Timestamp deduplicate_until = 5 [deprecated = true]; // Read-only for backwards compatibility
+    google.protobuf.Duration deduplication_duration = 6;
+    string deduplication_offset = 7;
+  }
+  string submission_id = 9;
 }
 
 // Daml transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
@@ -184,20 +192,41 @@ message DamlTransactionBlindingInfo {
 // A transaction rejection entry.
 message DamlTransactionRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
-
   reserved 5; // was reason.maximum_record_time_exceeded
 
   oneof reason {
+
+    // Rejections used by both participant.state v1 and v2 API.
+    InvalidLedgerTime invalid_ledger_time = 9;
+    SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
+
+    //
+    // Rejections used by participant.state.v1 API.
+    // Note that these are deprecated.
+    //
     Inconsistent inconsistent = 2;
     Disputed disputed = 3;
     ResourcesExhausted resources_exhausted = 4;
     Duplicate duplicate_command = 6;
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
-    SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
-    InvalidLedgerTime invalid_ledger_time = 9;
+
+    //
+    // Rejections used by participant.state.v2 API.
+    //
+    ValidationFailure validation_failure = 10;
+    DuplicateKeys internally_duplicate_keys = 11;
+    InconsistentKeys internally_inconsistent_keys = 12;
+    InconsistentContracts externally_inconsistent_contracts = 13;
+    DuplicateKeys externally_duplicate_keys = 14;
+    InconsistentKeys externally_inconsistent_keys = 15;
+    MissingInputState missing_input_state = 16;
+    RecordTimeOutOfRange record_time_out_of_range = 17;
+    CausalMonotonicityViolated causal_monotonicity_violated = 18;
+    SubmittingPartyNotKnownOnLedger submitting_party_not_known_on_ledger = 19;
+    PartiesNotKnownOnLedger parties_not_known_on_ledger = 20;
+    InvalidParticipantState invalid_participant_state = 21;
   }
 }
-
 // A public package upload.
 // Daml-LF packages will be deduplicated based on their hashes. Only unique
 // ones will be added to the key-value storage. Deduplication has no impact on the
@@ -469,6 +498,10 @@ message DamlContractKeyState {
 
 // Errors
 
+//
+// Used by participant.state.v1 API.
+//
+
 // The transaction relied on contracts or keys being active that were no longer active.
 message Inconsistent {
   string details = 1;
@@ -493,6 +526,9 @@ message MaximumRecordTimeExceeded {
 // The ledger time of the transaction submission violates some constraint.
 message InvalidLedgerTime {
   string details = 1;
+  google.protobuf.Timestamp ledger_time = 2;
+  google.protobuf.Timestamp lower_bound = 3;
+  google.protobuf.Timestamp upper_bound = 4;
 }
 
 // The committer has already seen a command/submission with the same deduplication
@@ -510,6 +546,8 @@ message PartyNotKnownOnLedger {
 // The submitting party cannot act via the participant to which the request has been sent.
 message SubmitterCannotActViaParticipant {
   string details = 1;
+  string submitter_party = 2;
+  string participant_id = 3;
 }
 
 // Submitted request content was not valid: a Daml package, a party name
@@ -539,4 +577,35 @@ message TimedOut {
 // The requested entity already exists.
 message AlreadyExists {
   string details = 1;
+}
+
+//
+// Rejections used by participant.state.v2 API.
+//
+message ValidationFailure {
+  string details = 1;
+}
+message DuplicateKeys {
+}
+message InconsistentKeys {
+}
+message InconsistentContracts {
+}
+message MissingInputState {
+  DamlStateKey key = 1;
+}
+message InvalidParticipantState {
+  string details = 1;
+}
+message RecordTimeOutOfRange {
+  google.protobuf.Timestamp minimum_record_time = 1;
+  google.protobuf.Timestamp maximum_record_time = 2;
+}
+message CausalMonotonicityViolated {
+}
+message SubmittingPartyNotKnownOnLedger {
+  string submitter_party = 1;
+}
+message PartiesNotKnownOnLedger {
+  repeated string parties = 1;
 }

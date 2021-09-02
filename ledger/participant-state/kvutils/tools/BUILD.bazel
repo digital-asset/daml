@@ -32,6 +32,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/kv-transaction-support",
         "//daml-lf/transaction",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -81,7 +82,6 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
-        "@maven//:io_grpc_grpc_api",
         "@maven//:org_mockito_mockito_core",
     ] + (["@maven//:com_google_protobuf_protobuf_java"] if scala_major_version == "2.13" else []),
 )
@@ -141,6 +141,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_scalatest_scalatest_compatible",

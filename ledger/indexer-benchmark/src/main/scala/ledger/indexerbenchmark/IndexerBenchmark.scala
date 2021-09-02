@@ -14,8 +14,7 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{ReadService, Update}
-import com.daml.ledger.participant.state.v2.AdaptedV1ReadService
+import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -68,7 +67,7 @@ class IndexerBenchmark() {
       val updates = Await.result(createUpdates(config), Duration(10, "minute"))
 
       println("Creating read service and indexer...")
-      val readService = new AdaptedV1ReadService(createReadService(updates))
+      val readService = createReadService(updates)
       val indexerFactory = new JdbcIndexer.Factory(
         ServerRole.Indexer,
         config.indexerConfig,
@@ -107,7 +106,7 @@ class IndexerBenchmark() {
         val updateRate: Double = updates / duration
         val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
           config.minUpdateRate match {
-            case Some(requiredMinUpdateRate) if (requiredMinUpdateRate > updateRate) =>
+            case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
               (
                 true,
                 s"[failure][UpdateRate] Minimum number of updates per second: required: $requiredMinUpdateRate, metered: $updateRate",
@@ -191,9 +190,11 @@ class IndexerBenchmark() {
     )
 
     new ReadService {
-      override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
+
+      override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
         Source.single(initialConditions)
       }
+
       override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
         assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
         Source.fromIterator(() => updates)

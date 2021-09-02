@@ -288,7 +288,7 @@ object UpdateToDbDto {
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,
-      submission_id = Some(completionInfo.submissionId),
+      submission_id = completionInfo.submissionId,
       deduplication_offset = deduplicationOffset,
       deduplication_time_seconds = deduplicationTimeSeconds,
       deduplication_time_nanos = deduplicationTimeNanos,

@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import java.util.regex.Pattern
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -28,7 +30,11 @@ class ClosedWorldIT extends LedgerTestSuite {
         .create(payer, Iou(payer, binding.Primitive.Party("unallocated"), onePound))
         .mustFail("referencing an unallocated party")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Party not known on ledger")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some(Pattern.compile("Part(y|ies) not known on ledger")),
+      )
     }
   })
 }

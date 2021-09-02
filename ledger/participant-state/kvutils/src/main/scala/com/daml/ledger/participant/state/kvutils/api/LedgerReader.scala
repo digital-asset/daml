@@ -14,7 +14,7 @@ import com.daml.ledger.offset.Offset
 /** Defines how a participant's state is read from the ledger.
   *
   * For a detailed description of the required semantics of state updates see
-  * [[com.daml.ledger.participant.state.v1.ReadService]].
+  * [[com.daml.ledger.participant.state.v2.ReadService]].
   * For a detailed description of the requirements on how offsets should be generated see
   * [[com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader]].
   */

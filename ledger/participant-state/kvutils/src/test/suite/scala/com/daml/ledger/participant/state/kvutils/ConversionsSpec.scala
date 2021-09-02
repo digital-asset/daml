@@ -3,36 +3,39 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.Conversions.{
-  commandDedupKey,
-  decodeBlindingInfo,
-  encodeBlindingInfo,
-  extractDivulgedContracts,
-}
+import java.time.{Duration, Instant}
+
+import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.configuration.LedgerTimeModel
+import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlSubmitterInfo,
-  DamlTransactionBlindingInfo,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.engine.Error
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.ValueOuterClass
+import io.grpc.Status.Code
+import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.jdk.CollectionConverters._
 
-class ConversionsSpec extends AnyWordSpec with Matchers {
+@nowarn("msg=deprecated")
+class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
       encodeBlindingInfo(
@@ -92,6 +95,185 @@ class ConversionsSpec extends AnyWordSpec with Matchers {
       val key1 = deduplicationKeyBytesFor(List("alice"))
       val key2 = deduplicationKeyBytesFor(List("alice", "bob"))
       key1 should not be key2
+    }
+
+    "encode/decode rejections" should {
+
+      val submitterInfo = DamlSubmitterInfo.newBuilder().build()
+      val now = Instant.now
+
+      "convert rejection to proto models and back to expected grpc code" in {
+        forAll(
+          Table(
+            ("rejection", "expected code"),
+            (
+              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.InternallyInconsistentTransaction.InconsistentKeys,
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.InternallyInconsistentTransaction.DuplicateKeys,
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
+              Code.ABORTED,
+            ),
+            (
+              Rejection.InvalidParticipantState(Err.InternalError("error")),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(now, now),
+              Code.ABORTED,
+            ),
+            (
+              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
+              Code.ABORTED,
+            ),
+            (
+              Rejection.CausalMonotonicityViolated,
+              Code.ABORTED,
+            ),
+            (
+              Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.PartiesNotKnownOnLedger(Seq.empty),
+              Code.INVALID_ARGUMENT,
+            ),
+            (
+              Rejection.SubmitterCannotActViaParticipant(
+                Ref.Party.assertFromString("party"),
+                Ref.ParticipantId.assertFromString("id"),
+              ),
+              Code.PERMISSION_DENIED,
+            ),
+          )
+        ) { (rejection, expectedCode) =>
+          {
+            val encodedEntry = Conversions
+              .encodeTransactionRejectionEntry(
+                submitterInfo,
+                rejection,
+              )
+              .build()
+            Conversions
+              .decodeTransactionRejectionEntry(encodedEntry)
+              .value
+              .code shouldBe expectedCode.value()
+          }
+        }
+      }
+
+      "convert v1 rejections" should {
+
+        "handle with expected status codes" in {
+          forAll(
+            Table(
+              ("rejection builder", "code"),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setInconsistent(Inconsistent.newBuilder()),
+                Code.ABORTED,
+              ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setDisputed(Disputed.newBuilder()),
+                Code.INVALID_ARGUMENT,
+              ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setResourcesExhausted(ResourcesExhausted.newBuilder()),
+                Code.ABORTED,
+              ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
+                Code.INVALID_ARGUMENT,
+              ),
+              (
+                (builder: DamlTransactionRejectionEntry.Builder) =>
+                  builder
+                    .setDuplicateCommand(Duplicate.newBuilder()),
+                Code.ALREADY_EXISTS,
+              ),
+            )
+          ) { (rejectionBuilder, code) =>
+            {
+              Conversions
+                .decodeTransactionRejectionEntry(
+                  rejectionBuilder(DamlTransactionRejectionEntry.newBuilder())
+                    .build()
+                )
+                .value
+                .code shouldBe code.value()
+            }
+          }
+        }
+      }
+    }
+
+    "decode completion info" should {
+      val recordTime = Instant.now()
+      def submitterInfo = {
+        DamlSubmitterInfo.newBuilder().setApplicationId("id").setCommandId("commandId")
+      }
+
+      "use empty submission id" in {
+        val completionInfo = parseCompletionInfo(
+          recordTime,
+          submitterInfo.build(),
+        )
+        completionInfo.submissionId shouldBe None
+      }
+
+      "use defined submission id" in {
+        val submissionId = "submissionId"
+        val completionInfo = parseCompletionInfo(
+          recordTime,
+          submitterInfo.setSubmissionId(submissionId).build(),
+        )
+        completionInfo.submissionId.value shouldBe submissionId
+      }
+
+      "calculate duration for deduplication for backwards compatibility with deduplicate until" in {
+        val completionInfo = parseCompletionInfo(
+          recordTime,
+          submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.plusSeconds(30))).build(),
+        )
+        completionInfo.optDeduplicationPeriod.value shouldBe DeduplicationPeriod
+          .DeduplicationDuration(Duration.ofSeconds(30))
+      }
+
+      "handle deduplication which is the past relative to record time by using absolute values" in {
+        val completionInfo = parseCompletionInfo(
+          recordTime,
+          submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.minusSeconds(30))).build(),
+        )
+        completionInfo.optDeduplicationPeriod.value shouldBe DeduplicationPeriod
+          .DeduplicationDuration(Duration.ofSeconds(30))
+      }
     }
   }
 
