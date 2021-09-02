@@ -302,8 +302,6 @@ excluded_test_tool_tests = [
                 "end": "1.16.0-snapshot.20210727.7476.0.b5e9d861",
                 "exclusions": [
                     "DeeplyNestedValueIT",
-                    "CommandDeduplicationIT:CDSimpleDeduplicationBasic",
-                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
                 ],
             },
         ],
