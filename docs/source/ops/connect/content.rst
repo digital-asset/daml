@@ -3,10 +3,10 @@
 
 .. _ops-connect-content_index:
 
-Log aggregation on Kubernetes
+Log Aggregation On Kubernetes
 =============================
 
-If configured so, every daml service can output its logs in JSON format.
+If configured so, every daml service can output its logs in JSON format on stdout.
 This makes it easy to analyze these with search engines like `ElasticSearch <https://www.elastic.co/elasticsearch/>`_ in combination with `Kibana <https://www.elastic.co/kibana/>`_.
 
 To collect all logs for analyzing them e.g. in your `ElasticSearch` instance, one easy way to achieve this is using `Filebeat <https://www.elastic.co/beats/filebeat>`_.
@@ -14,7 +14,7 @@ It regulary collects the logs of your containers and ingests them into `Elastics
 
 You can find external documentation on, how to setup `ElasticSearch` with `Filebeat` and `Kibana` for analyzing logs on your Kubernetes cluster `here <https://www.deepnetwork.com/blog/2020/01/27/ELK-stack-filebeat-k8s-deployment.html>`_.
 
-Daml Metrics options
+Daml Metrics Options
 ====================
 
 Most daml services support the option to export metrics for application insight.
