@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.time.Instant
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -19,8 +17,9 @@ import com.daml.timer.Delayed
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
@@ -55,8 +54,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
           ), //same semantics as `DeduplicationTime`
         _.commands.commandId := requestA1.commands.get.commandId,
       )
-    val minTimeModelSkewForTest = 1.second
-    runWithUpdatedTimeModel(ledger, _.update(_.minSkew := minTimeModelSkewForTest.asProtobuf)) {
+    runWithMinSkewForDeduplication(ledger) { timeModel =>
       for {
         // Submit command A (first deduplication window)
         // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -68,7 +66,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
           .mustFail("submitting the first request for the second time")
         completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
         // Wait until the end of first deduplication window
-        _ <- Delayed.by(deduplicationWindowWait.plus(minTimeModelSkewForTest))(())
+        _ <- Delayed.by(deduplicationWindowWait.plus(timeModel.getMinSkew.asScala))(())
 
         // Submit command A (second deduplication window)
         // Note: the deduplication window is guaranteed to have passed on both
@@ -187,8 +185,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
       .update(
         _.commands.deduplicationTime := deduplicationTime.asProtobuf
       )
-    val minTimeModelSkewForTest = 1.second
-    runWithUpdatedTimeModel(ledger, _.update(_.minSkew := minTimeModelSkewForTest.asProtobuf)) {
+    runWithMinSkewForDeduplication(ledger) { timeModel =>
       for {
         // Submit command A (first deduplication window)
         _ <- ledger.submitAndWait(requestA)
@@ -197,13 +194,15 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
           .mustFail("submitting a request for the second time, in the first deduplication window")
 
         // Wait until the end of first deduplication window
-        _ <- Delayed.by(deduplicationWindowWait)(())
+        _ <- Delayed.by(deduplicationWindowWait.plus(timeModel.getMinSkew.asScala))(())
 
         // Submit command A (second deduplication window)
         _ <- ledger.submitAndWait(requestA)
         failure2 <- ledger
           .submitAndWait(requestA)
-          .mustFail("submitting a request for the second time, in the second deduplication window")
+          .mustFail(
+            "submitting a request for the second time, in the second deduplication window"
+          )
 
         // Inspect created contracts
         activeContracts <- ledger.activeContracts(party)
@@ -305,34 +304,70 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     }
   })
 
-  private def runWithUpdatedTimeModel(
+  private def runWithMinSkewForDeduplication(
+      ledger: ParticipantTestContext
+  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext) = {
+    runWithUpdatedOrExistingTimeModel(
+      ledger,
+      _.update(_.minSkew := 1.second.asProtobuf),
+      existingTimeModel =>
+        assert(
+          existingTimeModel.getMinSkew.asScala <= 30.seconds,
+          s"Existing time model min skew of ${existingTimeModel.getMinSkew} exceeds our deduplication wait time",
+        ),
+    )(test)
+  }
+
+  private def runWithUpdatedOrExistingTimeModel(
       ledger: ParticipantTestContext,
       timeModelUpdate: TimeModel => TimeModel,
-  )(test: => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+      existingTimeModelValidation: TimeModel => Unit = _ => (),
+  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     ledger
       .getTimeModel()
       .flatMap(timeModel => {
-        def restoreTimeModel(time: Instant) = {
-          ledger
-            .setTimeModel(
-              time.plusSeconds(30),
-              timeModel.configurationGeneration + 1,
-              timeModel.getTimeModel,
-            )
-            .andThen { case Failure(exception) =>
-              logger.error("Failed to restore time model", exception)
-            }
+        def restoreTimeModel() = {
+          val ledgerTimeModelRestoreResult = for {
+            time <- ledger.time()
+            _ <- ledger
+              .setTimeModel(
+                time.plusSeconds(30),
+                timeModel.configurationGeneration + 1,
+                timeModel.getTimeModel,
+              )
+          } yield {}
+          ledgerTimeModelRestoreResult.recover { case NonFatal(exception) =>
+            logger.warn("Failed to restore time model for ledger", exception)
+            ()
+          }
         }
         for {
           time <- ledger.time()
-          _ <- ledger.setTimeModel(
-            time.plusSeconds(30),
-            timeModel.configurationGeneration,
-            timeModelUpdate(timeModel.getTimeModel),
-          )
-          newLedgerTime <- ledger.time()
-          _ <- test
-            .transformWith(testResult => restoreTimeModel(newLedgerTime).transform(_ => testResult))
+          timeModelForTest <- ledger
+            .setTimeModel(
+              time.plusSeconds(30),
+              timeModel.configurationGeneration,
+              timeModelUpdate(timeModel.getTimeModel),
+            )
+            .transformWith {
+              case Failure(exception) =>
+                logger
+                  .warn(
+                    s"Failed to update time model, running with existing time model ${timeModel.getTimeModel}",
+                    exception,
+                  )
+                Future.successful(timeModel.getTimeModel)
+              case Success(_) =>
+                ledger
+                  .getTimeModel()
+                  .map(currentTimeModelResponse => {
+                    val model = currentTimeModelResponse.getTimeModel
+                    existingTimeModelValidation(model)
+                    model
+                  })
+            }
+          _ <- test(timeModelForTest)
+            .transformWith(testResult => restoreTimeModel().transform(_ => testResult))
         } yield {}
       })
   }
