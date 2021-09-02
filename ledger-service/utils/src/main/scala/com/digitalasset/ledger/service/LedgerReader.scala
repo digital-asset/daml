@@ -11,7 +11,6 @@ import com.daml.lf.iface.{DefDataType, Interface}
 import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.{PackageClient => LoosePackageClient}
-//import com.daml.ledger.rxjava.PackageClient
 import scalaz.Scalaz._
 import scalaz._
 
