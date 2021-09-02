@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
@@ -16,6 +17,22 @@ da_scala_library(
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:io_grpc_grpc_api",
+    ],
+)
+
+da_scala_test_suite(
+    name = "grpc-utils-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+    ],
+    deps = [
+        ":grpc-utils",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
     ],
 )

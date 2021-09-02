@@ -118,8 +118,8 @@ object CompletionResponse {
 
   private def buildException(metadata: Map[String, String], status: rpc.Status.Builder) = {
     val newDetails = status.getDetailsList.asScala.map { any =>
-      if (any.is[rpc.ErrorInfo]) {
-        val previousErrorInfo: rpc.ErrorInfo = any.unpack[rpc.ErrorInfo]
+      if (any.is(classOf[rpc.ErrorInfo])) {
+        val previousErrorInfo: rpc.ErrorInfo = any.unpack(classOf[rpc.ErrorInfo])
         val newErrorInfo = previousErrorInfo.toBuilder.putAllMetadata(metadata.asJava).build()
         AnyProto.pack(newErrorInfo)
       } else any
