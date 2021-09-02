@@ -181,10 +181,9 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       _ <- ledger.submit(request)
       completions <- ledger.firstCompletions(party)
     } yield {
-      val actualCompletionApplicationId = Option(singleCompletion(completions).applicationId)
+      val actualCompletionApplicationId = singleCompletion(completions).applicationId
       assert(
-        Try(actualCompletionApplicationId.map(Ref.ApplicationId.assertFromString))
-          .getOrElse(None).contains(ledger.applicationId),
+        Ref.ApplicationId.fromString(actualCompletionApplicationId).contains(ledger.applicationId),
         "Wrong application ID in completion, " +
           s"expected: ${ledger.applicationId}, actual: $actualCompletionApplicationId",
       )
@@ -222,11 +221,9 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       _ <- ledger.submit(request)
       completions <- ledger.firstCompletions(party)
     } yield {
-      val actualCompletionSubmissionId = Option(singleCompletion(completions).submissionId)
+      val actualCompletionSubmissionId = singleCompletion(completions).submissionId
       assert(
-        Try(actualCompletionSubmissionId.map(Ref.SubmissionId.assertFromString))
-          .getOrElse(None)
-          .isDefined,
+        Ref.SubmissionId.fromString(actualCompletionSubmissionId).isRight,
         "Missing or invalid submission ID in completion",
       )
     }
