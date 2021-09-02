@@ -220,54 +220,24 @@ class TransactionCommitterSpec
 
     "setting dedup context" should {
       val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
-      val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60)
-
-      def buildContextAndTransaction(
-          submitterInfoAugmenter: DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder
-      ) = {
-
-        val context = createCommitContext(None)
-        context.set(Conversions.configurationStateKey, aDamlConfigurationStateValue)
-        val transactionEntrySummary = DamlTransactionEntrySummary(
-          aDamlTransactionEntry.toBuilder
-            .setSubmitterInfo(
-              submitterInfoAugmenter(
-                DamlSubmitterInfo
-                  .newBuilder()
-              )
-            )
-            .setSubmissionTime(submissionTime)
-            .build()
-        )
-        context -> transactionEntrySummary
-      }
-
-      def contextSetDeduplicateUntil(
-          context: CommitContext,
-          transactionEntrySummary: DamlTransactionEntrySummary,
-      ) = {
-        context
-          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
-          .value
-          .getCommandDedup
-          .getDeduplicatedUntil
-      }
+      val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60).build()
 
       "set deduplicate until based on submitter info deduplicate until" in {
         val (context, transactionEntrySummary) =
-          buildContextAndTransaction(_.setDeduplicateUntil(deduplicateUntil))
+          buildContextAndTransaction(submissionTime, _.setDeduplicateUntil(deduplicateUntil))
         transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextSetDeduplicateUntil(context, transactionEntrySummary) shouldBe deduplicateUntil
+        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe deduplicateUntil
       }
 
       "set deduplicate until based on submitter info deduplicate duration" in {
         val deduplicationDuration = time.Duration.ofSeconds(3)
         val (context, transactionEntrySummary) =
           buildContextAndTransaction(
-            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration))
+            submissionTime,
+            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
           )
         transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextSetDeduplicateUntil(context, transactionEntrySummary) shouldBe protobuf.Timestamp
+        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe protobuf.Timestamp
           .newBuilder()
           .setSeconds(
             submissionTime.getSeconds + deduplicationDuration.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
@@ -277,11 +247,9 @@ class TransactionCommitterSpec
 
       "set deduplicate until based on submitter info deduplication offset" in {
         val (context, transactionEntrySummary) =
-          buildContextAndTransaction(
-            _.setDeduplicationOffset("offset")
-          )
+          buildContextAndTransaction(submissionTime, _.setDeduplicationOffset("offset"))
         transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextSetDeduplicateUntil(context, transactionEntrySummary) shouldBe protobuf.Timestamp
+        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe protobuf.Timestamp
           .newBuilder()
           .setSeconds(
             submissionTime.getSeconds + theDefaultConfig.maxDeduplicationTime.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
@@ -291,9 +259,7 @@ class TransactionCommitterSpec
 
       "do not set deduplicate until when no submitter info deduplication is set" in {
         val (context, transactionEntrySummary) =
-          buildContextAndTransaction(
-            identity
-          )
+          buildContextAndTransaction(submissionTime, identity)
         transactionCommitter.setDedupEntry(context, transactionEntrySummary)
         context
           .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
@@ -600,4 +566,33 @@ object TransactionCommitterSpec {
 
   private def lookupByKeyNodeBuilder =
     TransactionOuterClass.NodeLookupByKey.newBuilder()
+
+  private def buildContextAndTransaction(
+      submissionTime: protobuf.Timestamp,
+      submitterInfoAugmenter: DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder,
+  ) = {
+    val context = createCommitContext(None)
+    context.set(Conversions.configurationStateKey, aDamlConfigurationStateValue)
+    val transactionEntrySummary = DamlTransactionEntrySummary(
+      aDamlTransactionEntry.toBuilder
+        .setSubmitterInfo(
+          submitterInfoAugmenter(
+            DamlSubmitterInfo
+              .newBuilder()
+          )
+        )
+        .setSubmissionTime(submissionTime)
+        .build()
+    )
+    context -> transactionEntrySummary
+  }
+
+  private def contextDeduplicateUntil(
+      context: CommitContext,
+      transactionEntrySummary: DamlTransactionEntrySummary,
+  ) = context
+    .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
+    .map(
+      _.getCommandDedup.getDeduplicatedUntil
+    )
 }
