@@ -95,7 +95,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected val metadata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  protected implicit val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
+  protected val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
 
   protected val jwtAdminNoParty: Jwt = {
     val decodedJwt = DecodedJwt(
@@ -1161,10 +1161,11 @@ abstract class AbstractHttpServiceIntegrationTest
 
     val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
 
-    val x: EitherT[Future, JsonError, Assertion] = for {
-      jsVal <- EitherT.either[Future, JsonError, JsValue](
+    type F[A] = EitherT[Future, JsonError, A]
+    val x: F[Assertion] = for {
+      jsVal <- EitherT.either(
         encoder.encodeCreateCommand(command0).liftErr(JsonError)
-      )
+      ): F[JsValue]
       command1 <- decoder.decodeCreateCommand(jsVal, jwt, ledgerId)
     } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
 

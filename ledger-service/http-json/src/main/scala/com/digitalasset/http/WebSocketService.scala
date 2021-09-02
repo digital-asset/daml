@@ -433,7 +433,7 @@ object WebSocketService {
     }
 
   private[this] sealed abstract class EnrichedContractKeyWithStreamQuery[Cid](implicit
-      val ec: ExecutionContext
+      ec: ExecutionContext
   ) extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] {
     type Positive = Unit
 
@@ -453,8 +453,8 @@ object WebSocketService {
       def getQ(
           resolvedWithKey: Set[
             (
-                com.daml.http.domain.TemplateId.RequiredPkg,
-                com.daml.http.query.ValuePredicate.LfV,
+                domain.TemplateId.RequiredPkg,
+                query.ValuePredicate.LfV,
             )
           ]
       ): Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =

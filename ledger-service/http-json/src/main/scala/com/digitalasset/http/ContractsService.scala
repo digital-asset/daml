@@ -166,7 +166,7 @@ class ContractsService(
       import ctx.{jwt, parties, templateIds => templateId, ledgerId}
       for {
         resolvedTemplateId <- resolveTemplateId(lc)(jwt, ledgerId)(templateId)
-          .map(_.toOption.flatten.get)
+          .flatMap(_.toOption.flatten.cata(Future.successful, Future.failed(...))
 
         predicate = domain.ActiveContract.matchesKey(contractKey) _
 
@@ -539,8 +539,7 @@ class ContractsService(
   ): Future[(Set[domain.TemplateId.RequiredPkg], Set[Tid])] = {
     import scalaz.syntax.traverse._
     import scalaz.std.iterable._
-    import scalaz.Scalaz.listInstance
-    import scalaz.Scalaz.futureInstance
+    import scalaz.std.list._, scalaz.std.scalaFuture._
 
     xs.toList
       .traverse { x =>

@@ -119,8 +119,8 @@ object HttpService {
       )
 
       commandService = new CommandService(
-        (jwt, req) => LedgerClientJwt.submitAndWaitForTransaction(client)(jwt, req),
-        (jwt, req) => LedgerClientJwt.submitAndWaitForTransactionTree(client)(jwt, req),
+        LedgerClientJwt.submitAndWaitForTransaction(client) _,
+        LedgerClientJwt.submitAndWaitForTransactionTree(client) _,
       )
 
       contractsService = new ContractsService(
