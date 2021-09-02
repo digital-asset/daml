@@ -3,13 +3,16 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.nio.file.Path
-
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
+import com.daml.ledger.api.testtool.suites.CommandCompletionDeduplicationInfoIT.{
+  CommandService,
+  CommandSubmissionService,
+}
 import com.daml.ledger.api.testtool.suites._
-import com.daml.lf.language.LanguageVersion
 import com.daml.ledger.test.TestDar
+import com.daml.lf.language.LanguageVersion
 
+import java.nio.file.Path
 import scala.collection.SortedSet
 import scala.concurrent.duration.FiniteDuration
 
@@ -60,7 +63,8 @@ object Tests {
 
   val optional: Vector[LedgerTestSuite] =
     Vector(
-      new CommandCompletionDeduplicationInfoIT,
+      new CommandCompletionDeduplicationInfoIT(CommandService),
+      new CommandCompletionDeduplicationInfoIT(CommandSubmissionService),
       new CommandDeduplicationOffsetIT,
       new ContractIdIT,
       new MultiPartySubmissionIT,
