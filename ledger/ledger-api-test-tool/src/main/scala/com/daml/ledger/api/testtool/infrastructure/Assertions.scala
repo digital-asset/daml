@@ -7,11 +7,14 @@ import java.util.regex.Pattern
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.timer.RetryStrategy
-import munit.{ComparisonFailException, Assertions => MUnit}
+import com.google.rpc.ErrorInfo
 import io.grpc.Status
+import io.grpc.protobuf.StatusProto
+import munit.{ComparisonFailException, Assertions => MUnit}
 
 import scala.annotation.tailrec
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
 object Assertions {
@@ -41,6 +44,20 @@ object Assertions {
     }
   }
 
+  /** non-regex overload for assertGrpcError which just does a substring check.
+    */
+  def assertGrpcError(
+      t: Throwable,
+      expectedCode: Status.Code,
+      exceptionMessageSubString: String,
+  ): Unit =
+    assertGrpcError(
+      t,
+      expectedCode,
+      if (exceptionMessageSubString.isEmpty) None
+      else Some(Pattern.compile(Pattern.quote(exceptionMessageSubString))),
+    )
+
   /** Match the given exception against a status code and a regex for the expected message.
     *      Succeeds if the exception is a GrpcException with the expected code and
     *      the regex matches some part of the message or there is no message and the pattern is
@@ -51,12 +68,12 @@ object Assertions {
     (t, optPattern) match {
       case (RetryStrategy.FailedRetryException(cause), _) =>
         assertGrpcError(cause, expectedCode, optPattern)
-      case (GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _), Some(pattern)) =>
-        if (pattern.matcher(msg).find()) {
-          ()
-        } else {
-          fail(s"Error message did not contain [$pattern], but was [$msg].")
-        }
+      case (
+            exception @ GrpcException(GrpcStatus(`expectedCode`, Some(message)), _),
+            Some(pattern),
+          ) =>
+        assertMatches(message, pattern)
+        assertDefiniteAnswer(exception)
       // None both represents pattern that we do not care about as well as
       // exceptions that have no message.
       case (GrpcException(GrpcStatus(`expectedCode`, _), _), None) => ()
@@ -66,19 +83,34 @@ object Assertions {
         fail("Exception is neither a StatusRuntimeException nor a StatusException", t)
     }
 
-  /** non-regex overload for assertGrpcError which just does a substring check.
-    */
-  def assertGrpcError(
-      t: Throwable,
-      expectedCode: Status.Code,
-      exceptionMessageSubString: String,
-  ): Unit = {
-    assertGrpcError(
-      t,
-      expectedCode,
-      if (exceptionMessageSubString.isEmpty) None
-      else Some(Pattern.compile(Pattern.quote(exceptionMessageSubString))),
-    )
+  private def assertMatches(message: String, pattern: Pattern): Unit = {
+    if (pattern.matcher(message).find()) {
+      ()
+    } else {
+      fail(s"Error message did not contain [$pattern], but was [$message].")
+    }
+  }
+
+  private def assertDefiniteAnswer(exception: Exception): Unit = {
+    val details = StatusProto.fromThrowable(exception).getDetailsList.asScala
+    val metadata = details
+      .find(_.is(classOf[ErrorInfo]))
+      .map { any =>
+        val errorInfo = any.unpack(classOf[ErrorInfo])
+        errorInfo.getMetadataMap
+      }
+      .getOrElse {
+        fail(
+          s"The error did not contain a definite answer. Details were: ${details.mkString("[", ", ", "]")}"
+        )
+      }
+    val value = metadata.get("definite_answer")
+    if (value == null) {
+      fail(s"The error did not contain a definite answer. Metadata was: [$metadata]")
+    }
+    if (!Set("true", "false").contains(value.toLowerCase)) {
+      fail(s"The error contained an invalid definite answer: [$value]")
+    }
   }
 
   /** Allows for assertions with more information in the error messages. */
