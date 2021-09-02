@@ -23,14 +23,14 @@ import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
-import scalaz.Scalaz.futureInstance
+import scalaz.std.scalaFuture._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
-import scalaz.Scalaz.listInstance
+import scalaz.std.list._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.domain.TemplateId.toLedgerApiValue

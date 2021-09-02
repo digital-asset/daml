@@ -20,7 +20,7 @@ import scalaz.EitherT.{either, eitherT}
 import spray.json.{JsValue, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.Scalaz.futureInstance
+import scalaz.std.scalaFuture._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 class DomainJsonDecoder(

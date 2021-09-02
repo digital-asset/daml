@@ -114,41 +114,32 @@ object HttpService {
 
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
-      packageService = new PackageService((jwt, ledgerId) =>
-        ids => doLoad(pkgManagementClient.packageClient, ids, jwt, ledgerId)
-      )
+      packageService = new PackageService(doLoad(pkgManagementClient.packageClient))
 
       commandService = new CommandService(
-        LedgerClientJwt.submitAndWaitForTransaction(client) _,
-        LedgerClientJwt.submitAndWaitForTransactionTree(client) _,
+        LedgerClientJwt.submitAndWaitForTransaction(client),
+        LedgerClientJwt.submitAndWaitForTransactionTree(client),
       )
 
       contractsService = new ContractsService(
         packageService.resolveTemplateId,
         packageService.allTemplateIds,
-        (jwt, ledgerId, filter, verbose) =>
-          LedgerClientJwt.getActiveContracts(client)(jwt, ledgerId, filter, verbose),
-        (jwt, ledgerId, filter, offset, terminates) =>
-          LedgerClientJwt
-            .getCreatesAndArchivesSince(client)(jwt, ledgerId, filter, offset, terminates),
-        LedgerClientJwt.getTermination(client).apply,
+        LedgerClientJwt.getActiveContracts(client),
+        LedgerClientJwt.getCreatesAndArchivesSince(client),
+        LedgerClientJwt.getTermination(client),
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         contractDao,
       )
 
       partiesService = new PartiesService(
-        LedgerClientJwt.listKnownParties(client).apply,
-        (jwt, partyIds) => LedgerClientJwt.getParties(client)(jwt, partyIds),
-        (jwt, identifierHint, displayName) =>
-          LedgerClientJwt.allocateParty(client)(jwt, identifierHint, displayName),
+        LedgerClientJwt.listKnownParties(client),
+        LedgerClientJwt.getParties(client),
+        LedgerClientJwt.allocateParty(client),
       )
 
       packageManagementService = new PackageManagementService(
-        (jwt, ledgerId) =>
-          lc => LedgerClientJwt.listPackages(pkgManagementClient)(jwt, ledgerId)(lc),
-        { case (jwt, ledgerId, packageId) =>
-          lc => LedgerClientJwt.getPackage(pkgManagementClient)(jwt, ledgerId, packageId)(lc)
-        },
+        LedgerClientJwt.listPackages(pkgManagementClient),
+        LedgerClientJwt.getPackage(pkgManagementClient),
         { case (jwt, ledgerId, byteString) =>
           implicit lc =>
             LedgerClientJwt
@@ -223,11 +214,8 @@ object HttpService {
   }
 
   private[http] def doLoad(
-      packageClient: PackageClient,
-      ids: Set[String],
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-  )(implicit
+      packageClient: PackageClient
+  )(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(ids: Set[String])(implicit
       ec: ExecutionContext
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
     LedgerReader

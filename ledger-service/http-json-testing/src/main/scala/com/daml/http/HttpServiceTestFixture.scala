@@ -223,9 +223,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
-    val packageService = new PackageService((jwt, ledgerId) =>
-      doLoad(client.packageClient, _, jwt, ledgerId)
-    )
+    val packageService = new PackageService(doLoad(client.packageClient))
     packageService
       .reload(Jwt("we use a dummy because there is no token in these tests."), ledgerId)
       .flatMap(x => FutureUtil.toFuture(x))

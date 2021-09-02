@@ -42,6 +42,7 @@ import spray.json.JsValue
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import scalaz.std.scalaFuture._
 
 class ContractsService(
     resolveTemplateId: PackageService.ResolveTemplateId,
@@ -165,18 +166,23 @@ class ContractsService(
     ): Future[Option[domain.ActiveContract[LfValue]]] = {
       import ctx.{jwt, parties, templateIds => templateId, ledgerId}
       for {
-        resolvedTemplateId <- resolveTemplateId(lc)(jwt, ledgerId)(templateId)
-          .flatMap(_.toOption.flatten.cata(Future.successful, Future.failed(...))
+        resolvedTemplateId <- OptionT(
+          resolveTemplateId(lc)(jwt, ledgerId)(templateId)
+            .map(
+              _.toOption.flatten
+            )
+        )
 
         predicate = domain.ActiveContract.matchesKey(contractKey) _
 
-        errorOrAc <- searchInMemoryOneTpId(jwt, ledgerId, parties, resolvedTemplateId, predicate)
-          .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
-
-        result <- lookupResult(errorOrAc)
+        result <- OptionT(
+          searchInMemoryOneTpId(jwt, ledgerId, parties, resolvedTemplateId, predicate)
+            .runWith(Sink.headOption)
+            .flatMap(lookupResult)
+        )
 
       } yield result
-    }
+    }.run
 
     override def findByContractId(
         ctx: SearchContext[Option, Option],
@@ -187,24 +193,29 @@ class ContractsService(
       import ctx.{jwt, parties, templateIds => templateId, ledgerId}
       for {
 
-        resolvedTemplateIds <- templateId.cata(
-          x => resolveTemplateId(lc)(jwt, ledgerId)(x).map(_.toOption.flatten.get).map(Set(_)),
-          Future.successful(allTemplateIds()),
-        ): Future[Set[domain.TemplateId.RequiredPkg]]
-
-        errorOrAc <- searchInMemory(
-          jwt,
-          ledgerId,
-          parties,
-          resolvedTemplateIds,
-          InMemoryQuery.Filter(isContractId(contractId)),
+        resolvedTemplateIds <- OptionT(
+          templateId.cata(
+            x =>
+              resolveTemplateId(lc)(jwt, ledgerId)(x)
+                .map(_.toOption.flatten.map(Set(_))),
+            Future.successful(allTemplateIds().some),
+          )
         )
-          .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
 
-        result <- lookupResult(errorOrAc)
+        result <- OptionT(
+          searchInMemory(
+            jwt,
+            ledgerId,
+            parties,
+            resolvedTemplateIds,
+            InMemoryQuery.Filter(isContractId(contractId)),
+          )
+            .runWith(Sink.headOption)
+            .flatMap(lookupResult)
+        )
 
       } yield result
-    }
+    }.run
 
     override def search(ctx: SearchContext[Set, Id], queryParams: Map[String, JsValue])(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID]

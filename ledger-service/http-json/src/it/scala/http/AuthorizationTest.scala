@@ -62,9 +62,7 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
       }
 
   private def packageService(client: DamlLedgerClient): PackageService =
-    new PackageService((jwt, ledgerId) =>
-      HttpService.doLoad(client.packageClient, _, jwt, ledgerId)
-    )
+    new PackageService(HttpService.doLoad(client.packageClient))
 
   behavior of "PackageService against an authenticated sandbox"
 
