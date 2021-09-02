@@ -582,7 +582,7 @@ class TestMiddlewareClientLoginCallbackUri
     "be absolute" in {
       an[AssertionError] should be thrownBy client.routes(Uri().withPath(Uri.Path./("cb")))
     }
-    "is used in login URI" in {
+    "be used in login URI" in {
       val routes = client.routes(Uri("http://client.domain/cb"))
       val claims = Request.Claims(actAs = List(Party("Alice")))
       routes.loginUri(claims = claims) shouldBe
