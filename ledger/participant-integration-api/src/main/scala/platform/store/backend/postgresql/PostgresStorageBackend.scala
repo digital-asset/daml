@@ -25,6 +25,7 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -73,7 +74,7 @@ private[backend] object PostgresStorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
         "deduplicateUntil" -> deduplicateUntil,
       )
       .executeUpdate()(connection)

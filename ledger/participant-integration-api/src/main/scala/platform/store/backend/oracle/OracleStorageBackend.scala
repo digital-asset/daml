@@ -16,6 +16,7 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -81,7 +82,7 @@ private[backend] object OracleStorageBackend
       | insert (pcs.deduplication_key, pcs.deduplicate_until)
       |  values ({deduplicationKey}, {deduplicateUntil})""".stripMargin
 
-  def upsertDeduplicationEntry(
+  override def upsertDeduplicationEntry(
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
@@ -89,7 +90,7 @@ private[backend] object OracleStorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
         "deduplicateUntil" -> deduplicateUntil,
       )
       .executeUpdate()(connection)

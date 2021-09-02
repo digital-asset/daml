@@ -7,6 +7,7 @@ import java.io.BufferedReader
 import java.sql.{PreparedStatement, Timestamp, Types}
 import java.time.Instant
 import java.util.Date
+import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors
 
 import anorm.Column.nonNull
@@ -319,8 +320,16 @@ private[platform] object Conversions {
 
   // Instant
 
-  def instant(name: String): RowParser[Instant] =
+  // TODO append-only: Delete after removing the mutating schema. The append-only schema only uses BIGINT for timestamps.
+  def instantFromTimestamp(name: String): RowParser[Instant] =
     SqlParser.get[Date](name).map(_.toInstant)
+
+  def instantFromMicros(name: String): RowParser[Instant] =
+    SqlParser.get[Long](name).map { micros =>
+      val seconds = TimeUnit.MICROSECONDS.toSeconds(micros)
+      val microsOfSecond = micros - TimeUnit.SECONDS.toMicros(seconds)
+      Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(microsOfSecond))
+    }
 
   // Hash
 

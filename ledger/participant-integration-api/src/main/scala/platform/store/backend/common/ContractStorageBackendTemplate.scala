@@ -13,7 +13,7 @@ import com.daml.platform.store.Conversions.{
   contractId,
   flatEventWitnessesColumn,
   identifier,
-  instant,
+  instantFromMicros,
   offset,
 }
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -99,7 +99,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
    FETCH NEXT 1 ROW ONLY"""
-          .as(instant("ledger_effective_time").?.singleOpt)(connection)
+          .as(instantFromMicros("ledger_effective_time").?.singleOpt)(connection)
       }
 
       val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
@@ -167,7 +167,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     (int("event_kind") ~
       contractId("contract_id") ~
       identifier("template_id").? ~
-      instant("ledger_effective_time").? ~
+      instantFromMicros("ledger_effective_time").? ~
       binaryStream("create_key_value").? ~
       int("create_key_value_compression").? ~
       binaryStream("create_argument").? ~
