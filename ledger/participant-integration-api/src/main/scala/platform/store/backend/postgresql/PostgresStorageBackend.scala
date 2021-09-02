@@ -36,7 +36,8 @@ import com.daml.platform.store.backend.{
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
 
-import scala.util.Using
+import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try, Using}
 
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -257,7 +258,7 @@ private[backend] object PostgresStorageBackend
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
 
-    Using.resource(pgSimpleDataSource.getConnection())(checkCompatibility)
+    Using.resource(tryAcquireConnection(pgSimpleDataSource))(checkCompatibility)
 
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
@@ -305,4 +306,27 @@ private[backend] object PostgresStorageBackend
   override def lock(id: Int): DBLockStorageBackend.LockId = PGLockId(id.toLong)
 
   override def dbLockSupported: Boolean = true
+
+  // TODO Cleanup: Refactor into or re-use an existing utility
+  private def tryAcquireConnection(dataSource: DataSource, numberOfAttempts: Int = 600)(implicit
+      loggingContext: LoggingContext
+  ): Connection = {
+    @tailrec
+    def retryAcquiring(attemptsLeft: Int): Connection =
+      Try(dataSource.getConnection()) match {
+        case Failure(exception) if attemptsLeft == 0 =>
+          logger.warn(s"Failed acquiring database connection after $numberOfAttempts", exception)
+          throw exception
+        case Failure(_) =>
+          logger.info(
+            s"Attempting to acquire database connection (remaining attempts $attemptsLeft/$numberOfAttempts)"
+          )
+          retryAcquiring(attemptsLeft - 1)
+        case Success(connection) =>
+          logger.info("Acquired database connection")
+          connection
+      }
+
+    retryAcquiring(numberOfAttempts)
+  }
 }
