@@ -10,4 +10,4 @@ Operating Daml Connect
 .. toctree::
    :maxdepth: 3
 
-   content
+   logs-and-metrics
