@@ -48,7 +48,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.acceptType,
             configuration = Configuration.encode(u.newConfiguration).toByteArray,
@@ -60,7 +60,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.rejectType,
             configuration = Configuration.encode(u.proposedConfiguration).toByteArray,
@@ -72,7 +72,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = u.submissionId,
             party = Some(u.party),
             display_name = Option(u.displayName),
@@ -86,7 +86,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = Some(u.submissionId),
             party = None,
             display_name = None,
@@ -104,7 +104,7 @@ object UpdateToDbDto {
             upload_id = uploadId,
             source_description = u.sourceDescription,
             package_size = archive.getPayload.size.toLong,
-            known_since = u.recordTime.toInstant,
+            known_since = u.recordTime.micros,
             ledger_offset = offset.toHexString,
             _package = archive.toByteArray,
           )
@@ -112,7 +112,7 @@ object UpdateToDbDto {
         val packageEntries = u.submissionId.iterator.map(submissionId =>
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = Some(submissionId),
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
@@ -124,7 +124,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = Some(u.submissionId),
             typ = JdbcLedgerDao.rejectType,
             rejection_reason = Some(u.rejectionReason),
@@ -156,7 +156,7 @@ object UpdateToDbDto {
               DbDto.EventCreate(
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
-                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
+                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
                 command_id = u.optCompletionInfo.map(_.commandId),
                 workflow_id = u.transactionMeta.workflowId,
                 application_id = u.optCompletionInfo.map(_.applicationId),
@@ -195,7 +195,7 @@ object UpdateToDbDto {
                 consuming = exercise.consuming,
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
-                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
+                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
                 command_id = u.optCompletionInfo.map(_.commandId),
                 workflow_id = u.transactionMeta.workflowId,
                 application_id = u.optCompletionInfo.map(_.applicationId),
@@ -280,7 +280,7 @@ object UpdateToDbDto {
 
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
-      record_time = recordTime.toInstant,
+      record_time = recordTime.micros,
       application_id = completionInfo.applicationId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,
