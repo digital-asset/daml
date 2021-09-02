@@ -13,28 +13,16 @@
         <appender-ref ref="SqlLedgerSpecAppender" />
     </logger>
 
-    <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
-        <appender-ref ref="SqlLedgerSpecAppender" />
-    </logger>
-
-    <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="WARN">
-        <appender-ref ref="SqlLedgerSpecAppender" />
-    </logger>
-
-    <!-- TODO append-only: remove duplicated definitions from this file -->
-    <appender name="SqlLedgerSpecAppenderAppendOnly" class="com.daml.platform.testing.LogCollector">
-        <test>com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpecAppendOnly</test>
+    <!-- TODO append-only: remove the following definitions from this file -->
+    <appender name="SqlLedgerOnMutableIndexSpecAppender" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerOnMutableIndexSpec</test>
     </appender>
 
     <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="INFO">
-        <appender-ref ref="SqlLedgerSpecAppenderAppendOnly" />
+        <appender-ref ref="SqlLedgerOnMutableIndexSpecAppender" />
     </logger>
 
-    <logger name="com.daml.platform.store.appendonlydao.HikariConnection" level="INFO">
-        <appender-ref ref="SqlLedgerSpecAppenderAppendOnly" />
-    </logger>
-
-    <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="WARN">
-        <appender-ref ref="SqlLedgerSpecAppenderAppendOnly" />
+    <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
+        <appender-ref ref="SqlLedgerOnMutableIndexSpecAppender" />
     </logger>
 </configuration>

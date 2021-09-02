@@ -34,13 +34,11 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.Ledger
-import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
+import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerOnMutableIndexSpec._
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import com.daml.timer.RetryStrategy
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.error_details.ErrorInfo
 import io.grpc.Status
 import org.scalatest.Inside
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
@@ -52,7 +50,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
-final class SqlLedgerSpec
+final class SqlLedgerOnMutableIndexSpec
     extends AsyncWordSpec
     with Matchers
     with Inside
@@ -80,7 +78,7 @@ final class SqlLedgerSpec
   }
 
   override protected def afterEach(): Unit = {
-    LogCollector.clear[SqlLedgerSpec]
+    LogCollector.clear[SqlLedgerOnMutableIndexSpec]
     for (ledger <- createdLedgers)
       Await.result(ledger.release(), 2.seconds)
     super.afterEach()
@@ -209,6 +207,23 @@ final class SqlLedgerSpec
       }
     }
 
+    /** Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
+      * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
+      *
+      * NOTE: This is needed for ensuring durability guarantees of Daml-on-SQL.
+      */
+    "does not use async commit when building JdbcLedgerDao" in {
+      for {
+        _ <- createSqlLedger()
+      } yield {
+        val hikariDataSourceLogs =
+          LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
+        hikariDataSourceLogs should contain(
+          Level.INFO -> "Creating Hikari connections with synchronous commit ON"
+        )
+      }
+    }
+
     "not allow insertion of subsequent parties with the same identifier: operations should succeed without effect" in {
       for {
         sqlLedger <- createSqlLedger()
@@ -321,17 +336,6 @@ final class SqlLedgerSpec
             status.message should be(
               "No ledger configuration available, cannot validate ledger time"
             )
-            status.details should be(
-              Seq(
-                AnyProto.pack(
-                  ErrorInfo.of(
-                    reason = "NO_LEDGER_CONFIGURATION",
-                    domain = "com.daml.on.sql",
-                    metadata = Map.empty,
-                  )
-                )
-              )
-            )
         }
       }
     }
@@ -390,21 +394,6 @@ final class SqlLedgerSpec
             status.code should be(Status.Code.ABORTED.value)
             status.message should be(
               s"Ledger time 2021-09-01T18:05:00Z outside of range [2021-09-01T17:59:50Z, 2021-09-01T18:00:30Z]"
-            )
-            status.details should be(
-              Seq(
-                AnyProto.pack(
-                  ErrorInfo.of(
-                    reason = "INVALID_LEDGER_TIME",
-                    domain = "com.daml.on.sql",
-                    metadata = Map(
-                      "ledgerTime" -> transactionLedgerEffectiveTime.toInstant.toString,
-                      "lowerBound" -> nowInstant.minus(minSkew).toString,
-                      "upperBound" -> nowInstant.plus(maxSkew).toString,
-                    ),
-                  )
-                )
-              )
             )
         }
       }
@@ -467,7 +456,7 @@ final class SqlLedgerSpec
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         engine = new Engine(),
         validatePartyAllocation = false,
-        enableAppendOnlySchema = true,
+        enableAppendOnlySchema = false,
         enableCompression = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
@@ -475,7 +464,7 @@ final class SqlLedgerSpec
   }
 }
 
-object SqlLedgerSpec {
+object SqlLedgerOnMutableIndexSpec {
   private val queueDepth = 128
 
   private val seedService = SeedService.WeakRandom
