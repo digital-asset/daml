@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
-import com.daml.ledger.api.testtool.suites.CommandCompletionDeduplicationInfoIT.{
+import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT.{
   CommandService,
   CommandSubmissionService,
 }
@@ -63,9 +63,9 @@ object Tests {
 
   val optional: Vector[LedgerTestSuite] =
     Vector(
-      new CommandCompletionDeduplicationInfoIT(CommandService),
-      new CommandCompletionDeduplicationInfoIT(CommandSubmissionService),
       new CommandDeduplicationOffsetIT,
+      new CompletionDeduplicationInfoIT(CommandService),
+      new CompletionDeduplicationInfoIT(CommandSubmissionService),
       new ContractIdIT,
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,

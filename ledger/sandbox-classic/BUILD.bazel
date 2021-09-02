@@ -437,3 +437,17 @@ server_conformance_test(
         "--include=ContractIdIT:Accept",
     ],
 )
+
+server_conformance_test(
+    name = "conformance-test-command-completion-dedup-info-append-only",
+    server_args = [
+        "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
+        "--enable-append-only-schema",
+    ],
+    servers = ONLY_POSTGRES_SERVER,
+    test_tool_args = [
+        "--open-world",
+        "--include=CommandServiceCompletionDeduplicationInfoIT,CommandSubmissionServiceCompletionDeduplicationInfoIT",
+    ],
+)

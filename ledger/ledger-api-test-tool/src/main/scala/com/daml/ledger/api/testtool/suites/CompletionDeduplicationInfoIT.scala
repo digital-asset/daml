@@ -8,7 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.suites.CommandCompletionDeduplicationInfoIT._
+import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT._
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
@@ -20,9 +20,9 @@ import com.google.protobuf.duration.Duration
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class CommandCompletionDeduplicationInfoIT(service: Service) extends LedgerTestSuite {
+final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSuite {
 
-  override private[testtool] def name = s"${super.name}:${service.getClass.getSimpleName}"
+  override private[testtool] def name = service.productPrefix + super.name
 
   test(
     "CCDIIncludeApplicationId",
@@ -209,10 +209,10 @@ final class CommandCompletionDeduplicationInfoIT(service: Service) extends Ledge
   })
 }
 
-private[testtool] object CommandCompletionDeduplicationInfoIT {
-  sealed trait Service
-  object CommandService extends Service
-  object CommandSubmissionService extends Service
+private[testtool] object CompletionDeduplicationInfoIT {
+  sealed trait Service extends Serializable with Product
+  case object CommandService extends Service
+  case object CommandSubmissionService extends Service
 
   private def submitSuccessfulAndFailingRequests(
       service: Service,

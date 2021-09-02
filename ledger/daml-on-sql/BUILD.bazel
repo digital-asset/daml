@@ -166,6 +166,19 @@ conformance_test(
     ],
 )
 
+conformance_test(
+    name = "conformance-test-command-completion-dedup-info",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=CommandServiceCompletionDeduplicationInfoIT,CommandSubmissionServiceCompletionDeduplicationInfoIT",
+    ],
+)
+
 genrule(
     name = "docs",
     srcs = [
