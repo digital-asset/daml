@@ -579,7 +579,7 @@ class TestMiddlewareClientLoginCallbackUri
     )
   )
   "fixed callback URI" should {
-    "must be absolute" in {
+    "be absolute" in {
       an[AssertionError] should be thrownBy client.routes(Uri().withPath(Uri.Path./("cb")))
     }
     "is used in login URI" in {
