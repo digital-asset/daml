@@ -614,7 +614,7 @@ class TestMiddlewareClientLoginCallbackUri
           s"http://auth.domain/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
       }
     }
-    "is from request when relative" in {
+    "be from request when relative" in {
       val routes = client.routesAuto(Uri().withPath(Uri.Path./("cb")))
       val claims = Request.Claims(actAs = List(Party("Alice")))
       import akka.http.scaladsl.server.directives.RouteDirectives._
