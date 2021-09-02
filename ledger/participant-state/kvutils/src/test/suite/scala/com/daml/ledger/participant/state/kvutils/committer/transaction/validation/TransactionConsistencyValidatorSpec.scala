@@ -25,7 +25,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   StepStop,
 }
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
@@ -40,6 +40,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
   import TransactionConsistencyValidatorSpec._
+  import TransactionBuilder.Implicits._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -272,24 +273,24 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
   }
 
   private def newCreateNodeWithFixedKey(contractId: String): Create =
-    create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
+    create(contractId, signatories = Set("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
 
   private def create(
-      contractId: String,
-      signatories: Seq[String] = Seq(aKeyMaintainer),
+      contractId: Value.ContractId,
+      signatories: Set[Ref.Party] = Set(aKeyMaintainer),
       argument: TransactionBuilder.Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
   ): TransactionBuilder.Create =
     txBuilder.create(
       id = contractId,
-      template = "dummyPackage:DummyModule:DummyTemplate",
+      templateId = "DummyModule:DummyTemplate",
       argument = argument,
       signatories = signatories,
-      observers = Seq.empty,
+      observers = Set.empty,
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
-  private def archive(create: Create, actingParties: Set[String]): Exercise =
+  private def archive(create: Create, actingParties: Set[Ref.Party]): Exercise =
     txBuilder.exercise(
       create,
       choice = "Archive",
@@ -299,7 +300,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result = Some(Value.ValueUnit),
     )
 
-  private def archive(contractId: String, actingParties: Set[String]): Exercise =
+  private def archive(contractId: Value.ContractId, actingParties: Set[Ref.Party]): Exercise =
     archive(create(contractId), actingParties)
 
   private def validate(

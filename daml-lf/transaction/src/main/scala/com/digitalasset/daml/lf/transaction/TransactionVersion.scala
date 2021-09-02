@@ -83,7 +83,7 @@ object TransactionVersion {
     }
   }
 
-  private[lf] val StableVersions: VersionRange[TransactionVersion] =
+  val StableVersions: VersionRange[TransactionVersion] =
     LanguageVersion.StableVersions.map(assignNodeVersion)
 
   private[lf] val EarlyAccessVersions: VersionRange[TransactionVersion] =
