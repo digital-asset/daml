@@ -490,7 +490,12 @@ private[state] object Conversions {
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        None // No rejection for duplicate commands.
+        Some(
+          buildStatus(
+            Code.ALREADY_EXISTS,
+            "Duplicate commands",
+          )
+        )
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartyNotKnownOnLedger
         Some(
