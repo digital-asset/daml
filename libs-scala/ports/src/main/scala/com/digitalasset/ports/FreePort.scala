@@ -50,7 +50,16 @@ object FreePort {
   }
 
   def dynamicPortRange(): (Int, Int) = {
-    linuxDynamicPortRange().get
+    sys.props("os.name") match {
+      case os if os.toLowerCase.contains("windows") =>
+        windowsDynamicPortRange().get
+      case os if os.toLowerCase.contains("mac") =>
+        macosDynamicPortRange().get
+      case os if os.toLowerCase.contains("linux") =>
+        linuxDynamicPortRange().get
+      case os =>
+        throw new RuntimeException(s"Unsupported operating system: $os")
+    }
   }
 
   def linuxDynamicPortRange(): Try[(Int, Int)] = Try {
@@ -64,6 +73,18 @@ object FreePort {
     } finally {
       procSource.close()
     }
+  }
+
+  def macosDynamicPortRange(): Try[(Int, Int)] = {
+    // TODO[AH] Implement dynamic port range detection on MacOS
+    //   https://stackoverflow.com/questions/46023485/what-is-the-range-of-ephemeral-ports-on-mac
+    throw new NotImplementedError("dynamic port range detection on MacOS")
+  }
+
+  def windowsDynamicPortRange(): Try[(Int, Int)] = {
+    // TODO[AH] Implement dynamic port range detection on Windows
+    //   https://docs.microsoft.com/en-us/troubleshoot/windows-server/networking/default-dynamic-port-range-tcpip-chang
+    throw new NotImplementedError("dynamic port range detection on Windows")
   }
 
 }
