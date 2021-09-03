@@ -3,6 +3,7 @@
 
 package com.daml.ports
 
+import java.io.IOException
 import java.net.{InetAddress, ServerSocket}
 
 import scala.io.Source
@@ -11,12 +12,22 @@ import scala.util.{Random, Try}
 object FreePort {
 
   def find(): Port = {
-    val socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
-    try {
-      Port(socket.getLocalPort)
-    } finally {
-      socket.close()
-    }
+    val maxAttempts = 100
+    val dynamicRange = dynamicPortRange()
+    val portGen = randomPortGen(dynamicRange)
+    val portCandidates = (1 to maxAttempts).map(_ => portGen())
+    portCandidates
+      .find { candidate =>
+        try {
+          val socket = new ServerSocket(candidate, 0, InetAddress.getLoopbackAddress)
+          socket.close()
+          true
+        } catch {
+          case _: IOException => false
+        }
+      }
+      .map(found => Port(found))
+      .get
   }
 
   def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
@@ -36,6 +47,10 @@ object FreePort {
       }
     }
     genPort
+  }
+
+  def dynamicPortRange(): (Int, Int) = {
+    linuxDynamicPortRange().get
   }
 
   def linuxDynamicPortRange(): Try[(Int, Int)] = Try {
