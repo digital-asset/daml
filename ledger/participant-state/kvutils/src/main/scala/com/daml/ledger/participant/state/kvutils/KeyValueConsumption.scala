@@ -343,9 +343,11 @@ object KeyValueConsumption {
             ),
           )
         )
+
       case _ if deduplicated =>
-        //drop all other duplicate submissions
+        // We only emit updates for duplicate transaction submissions.
         None
+
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidRecordTime =>
         val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
         val reason = (timeBounds.tooEarlyUntil, timeBounds.tooLateFrom) match {
