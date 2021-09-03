@@ -7,31 +7,31 @@
 
 ALTER TABLE configuration_entries
     ALTER COLUMN recorded_at
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM recorded_at) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM recorded_at) * 100000;
 
 ALTER TABLE packages
     ALTER COLUMN known_since
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM known_since) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM known_since) * 100000;
 
 ALTER TABLE package_entries
     ALTER COLUMN recorded_at
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM recorded_at) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM recorded_at) * 100000;
 
 ALTER TABLE party_entries
     ALTER COLUMN recorded_at
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM recorded_at) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM recorded_at) * 100000;
 
 ALTER TABLE participant_command_submissions
     ALTER COLUMN deduplicate_until
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM deduplicate_until) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM deduplicate_until) * 100000;
 
 ALTER TABLE participant_command_completions
     ALTER COLUMN record_time
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM record_time) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM record_time) * 100000;
 
 ALTER TABLE participant_command_completions
     ALTER COLUMN deduplication_start
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM deduplication_start) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM deduplication_start) * 100000;
 
 
 
@@ -39,15 +39,15 @@ DROP VIEW participant_events;
 
 ALTER TABLE participant_events_create
     ALTER COLUMN ledger_effective_time
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM ledger_effective_time) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM ledger_effective_time) * 100000;
 
 ALTER TABLE participant_events_consuming_exercise
     ALTER COLUMN ledger_effective_time
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM ledger_effective_time) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM ledger_effective_time) * 100000;
 
 ALTER TABLE participant_events_non_consuming_exercise
     ALTER COLUMN ledger_effective_time
-        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM ledger_effective_time) * 1000000;
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM ledger_effective_time) * 100000;
 
 CREATE VIEW participant_events
 AS
