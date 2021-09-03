@@ -449,7 +449,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit = {
     SQL_DELETE_EXPIRED_COMMANDS
-      .on("currentTime" -> currentTime)
+      .on("currentTime" -> Timestamp.instantToMicros(currentTime))
       .execute()(connection)
     ()
   }
