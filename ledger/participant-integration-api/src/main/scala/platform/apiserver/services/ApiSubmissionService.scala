@@ -3,13 +3,10 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.{Duration, Instant}
-import java.util.UUID
-
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
+import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -32,8 +29,12 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.ErrorCause
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
-import io.grpc.Status
+import com.google.rpc.Status
+import io.grpc.Status.Code
+import io.grpc.protobuf.StatusProto
 
+import java.time.{Duration, Instant}
+import java.util.UUID
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -104,7 +105,12 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val DuplicateCommand = Status.ALREADY_EXISTS.augmentDescription("Duplicate command")
+  private val DuplicateCommand = Status
+    .newBuilder()
+    .setCode(Code.ALREADY_EXISTS.value())
+    .setMessage("Duplicate command")
+    .addDetails(ErrorFactories.DefiniteAnswerInfo)
+    .build()
 
   override def submit(
       request: SubmitRequest
@@ -157,8 +163,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
             }
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
-          logger.debug(DuplicateCommand.getDescription)
-          Future.failed(DuplicateCommand.asRuntimeException)
+          logger.debug(DuplicateCommand.getMessage)
+          Future.failed(StatusProto.toStatusRuntimeException(DuplicateCommand))
       }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
@@ -294,11 +300,27 @@ private[apiserver] final class ApiSubmissionService private[services] (
                 ),
                 _,
               ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
-            Status.ABORTED.withDescription(cause.explain)
-          case _ => Status.INVALID_ARGUMENT.withDescription(cause.explain)
+            Status
+              .newBuilder()
+              .setCode(Code.ABORTED.value())
+              .setMessage(cause.explain)
+              .addDetails(ErrorFactories.DefiniteAnswerInfo)
+              .build()
+          case _ =>
+            Status
+              .newBuilder()
+              .setCode(Code.INVALID_ARGUMENT.value())
+              .setMessage(cause.explain)
+              .addDetails(ErrorFactories.DefiniteAnswerInfo)
+              .build()
         }
       case cause: ErrorCause.LedgerTime =>
-        Status.ABORTED.withDescription(cause.explain)
+        Status
+          .newBuilder()
+          .setCode(Code.ABORTED.value())
+          .setMessage(cause.explain)
+          .addDetails(ErrorFactories.IndefiniteAnswerInfo)
+          .build()
     }
 
   override def close(): Unit = ()

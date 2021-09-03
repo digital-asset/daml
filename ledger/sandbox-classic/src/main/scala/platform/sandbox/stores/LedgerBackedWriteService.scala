@@ -3,8 +3,6 @@
 
 package com.daml.platform.sandbox.stores
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
@@ -16,9 +14,12 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
-import io.grpc.Status
+import com.google.rpc.Status
+import io.grpc.Status.Code
 
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.compat.java8.FutureConverters
 
 private[stores] final class LedgerBackedWriteService(
@@ -110,7 +111,14 @@ private[stores] final class LedgerBackedWriteService(
       // `state.PruningResult.ParticipantPruned` results in proceeding to the step 2. effectively pruning the db,
       // while returning `state.PruningResult.NotPruned(Status.UNIMPLEMENTED)` prevents pruning at all.
       if (enablePruning && !pruneAllDivulgedContracts) state.PruningResult.ParticipantPruned
-      else state.PruningResult.NotPruned(Status.UNIMPLEMENTED)
+      else
+        state.PruningResult.NotPruned(
+          Status
+            .newBuilder()
+            .setCode(Code.UNIMPLEMENTED.value())
+            .addDetails(ErrorFactories.DefiniteAnswerInfo)
+            .build()
+        )
     }
 
   override def isApiDeduplicationEnabled: Boolean = true

@@ -14,8 +14,10 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
-import com.daml.platform.server.api.ApiException
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
+import com.google.rpc.Status
+import io.grpc.Status.Code
 import io.grpc.{Status => GrpcStatus}
 
 import scala.concurrent.duration._
@@ -132,7 +134,7 @@ private[services] object QueueBackedTracker {
       .run()
 
     done.onComplete { success =>
-      val (promiseCancellationDescription, error) = success match {
+      val (promiseCancellationDescription, _) = success match {
         case Success(_) => "Unknown" -> null // in this case, there should be no promises cancelled
         case Failure(t: Exception) =>
           logger.error("Error in tracker", t)
@@ -148,8 +150,13 @@ private[services] object QueueBackedTracker {
         _.get.values
           .foreach(
             _.failure(
-              new ApiException(
-                GrpcStatus.INTERNAL.withDescription(promiseCancellationDescription).withCause(error)
+              ErrorFactories.grpcError(
+                Status
+                  .newBuilder()
+                  .setCode(Code.INTERNAL.value())
+                  .setMessage(promiseCancellationDescription)
+                  .addDetails(ErrorFactories.DefiniteAnswerInfo) // FIXME
+                  .build()
               )
             )
           )

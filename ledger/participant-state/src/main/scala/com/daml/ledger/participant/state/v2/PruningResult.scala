@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
-import io.grpc.Status
+import com.google.rpc.Status
 
 sealed trait PruningResult extends Product with Serializable
 

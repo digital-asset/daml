@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.v2
 
 import java.time.Instant
 import java.util.concurrent.CompletionStage
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.HealthStatus
@@ -14,10 +13,12 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
+import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 
 import scala.jdk.CollectionConverters._
@@ -114,7 +115,14 @@ private[v2] object AdaptedV1WriteService {
 
   def adaptPruningResult(pruningResult: v1.PruningResult): PruningResult = pruningResult match {
     case v1.PruningResult.ParticipantPruned => PruningResult.ParticipantPruned
-    case v1.PruningResult.NotPruned(grpcStatus) => PruningResult.NotPruned(grpcStatus)
+    case v1.PruningResult.NotPruned(grpcStatus) =>
+      PruningResult.NotPruned(
+        StatusProto
+          .fromThrowable(grpcStatus.asException()) // FIXME
+          .toBuilder
+          .addDetails(ErrorFactories.DefiniteAnswerInfo)
+          .build()
+      )
   }
 
   def adaptSubmissionResult(submissionResult: v1.SubmissionResult): SubmissionResult =

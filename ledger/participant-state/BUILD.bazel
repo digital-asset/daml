@@ -29,6 +29,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
