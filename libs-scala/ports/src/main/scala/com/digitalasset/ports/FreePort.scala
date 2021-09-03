@@ -7,6 +7,7 @@ import java.io.IOException
 import java.net.{InetAddress, ServerSocket}
 
 import scala.io.Source
+import scala.sys.process.Process
 import scala.util.{Random, Try}
 
 object FreePort {
@@ -75,16 +76,29 @@ object FreePort {
     }
   }
 
-  def macosDynamicPortRange(): Try[(Int, Int)] = {
-    // TODO[AH] Implement dynamic port range detection on MacOS
-    //   https://stackoverflow.com/questions/46023485/what-is-the-range-of-ephemeral-ports-on-mac
-    throw new NotImplementedError("dynamic port range detection on MacOS")
+  def macosDynamicPortRange(): Try[(Int, Int)] = Try {
+    val out = Process("sysctl", Seq("net.inet.ip.portrange.first", "net.inet.ip.portrange.last")).!!
+    var min: Option[Int] = None
+    var max: Option[Int] = None
+    out.split("\n").map(_.trim.split("\\s+")).foreach {
+      case Array(name, value) if name.startsWith("net.inet.ip.portrange.first") =>
+        min = Some(value.toInt)
+      case Array(name, value) if name.startsWith("net.inet.ip.portrange.last") =>
+        max = Some(value.toInt)
+      case _ => ()
+    }
+    (min.get, max.get)
   }
 
-  def windowsDynamicPortRange(): Try[(Int, Int)] = {
-    // TODO[AH] Implement dynamic port range detection on Windows
-    //   https://docs.microsoft.com/en-us/troubleshoot/windows-server/networking/default-dynamic-port-range-tcpip-chang
-    throw new NotImplementedError("dynamic port range detection on Windows")
+  def windowsDynamicPortRange(): Try[(Int, Int)] = Try {
+    val out = Process("netsh int ipv4 show dynamicport tcp").!!
+    var min: Option[Int] = None
+    var num: Option[Int] = None
+    out.split("\n").map(_.trim.toLowerCase()).foreach {
+      case line if line.startsWith("start port") => min = Some(line.split("\\s+").last.toInt)
+      case line if line.startsWith("number of ports") => num = Some(line.split("\\s+").last.toInt)
+    }
+    (min.get, min.get + num.get)
   }
 
 }
