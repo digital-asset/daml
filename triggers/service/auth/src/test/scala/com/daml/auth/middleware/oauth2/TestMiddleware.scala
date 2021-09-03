@@ -25,6 +25,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
 import scala.collection.immutable
+import scala.collection.immutable.Seq
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
