@@ -6,7 +6,7 @@ package com.daml.ports
 import java.net.{InetAddress, ServerSocket}
 
 import scala.io.Source
-import scala.util.Try
+import scala.util.{Random, Try}
 
 object FreePort {
 
@@ -17,6 +17,25 @@ object FreePort {
     } finally {
       socket.close()
     }
+  }
+
+  def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
+    val (minPort, maxPort) = (1024, 65536)
+    val minExcl = Math.min(Math.max(minPort, dynamicRange._1), maxPort)  // 32768
+    val maxExcl = Math.min(Math.max(minExcl, dynamicRange._2), maxPort)  // 60999
+    val numLowerPorts = minExcl - minPort  // 32768 - 1024 = 31744
+    val numUpperPorts = maxPort - maxExcl  // 65536 - 60999 = 4537
+    val numAvailablePorts = numLowerPorts + numUpperPorts  // 31744 + 4537 = 36281
+    val gen = new Random()
+    def genPort(): Int = {
+      val n = gen.nextInt(numAvailablePorts)  // 0     31743  31744  36280
+      if (n < numLowerPorts) {                // T     T      F      F
+        n + minPort                           // 1024  32767
+      } else {                                //
+        n - numLowerPorts + maxExcl + 1       //              61000  65536
+      }
+    }
+    genPort
   }
 
   def linuxDynamicPortRange(): Try[(Int, Int)] = Try {
