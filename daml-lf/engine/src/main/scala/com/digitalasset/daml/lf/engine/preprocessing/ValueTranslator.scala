@@ -210,7 +210,7 @@ private[engine] final class ValueTranslator(
                       mbLbl.foreach(lbl_ =>
                         if (lbl_ != lbl)
                           typeError(
-                            s"Mismatching record field label $lbl_ (expecting $lbl) for record $tyCon"
+                            s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
                           )
                       )
                       val replacedTyp = AstUtil.substitute(typ, subst)
