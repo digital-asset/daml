@@ -82,7 +82,7 @@ object ParallelIndexerFactory {
 
         val completionFuture = DbDispatcher
           .owner(
-            // this is tha DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+            // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
             // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
             dataSource = storageBackend.createDataSource(
               jdbcUrl = jdbcUrl,

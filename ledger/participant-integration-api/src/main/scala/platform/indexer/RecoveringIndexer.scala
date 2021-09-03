@@ -36,16 +36,16 @@ private[indexer] final class RecoveringIndexer(
 
   /** Starts an indexer, and restarts it after the given delay whenever an error occurs.
     *
-    * @param subscribe A function that creates a new indexer and calls subscribe() on it.
+    * @param indexer A ResourceOwner for indexing
     * @return A future that completes with [[akka.Done]] when the indexer finishes processing all read service updates.
     */
-  def start(subscribe: Indexer): Resource[(ReportsHealth, Future[Unit])] = {
+  def start(indexer: Indexer): Resource[(ReportsHealth, Future[Unit])] = {
     val complete = Promise[Unit]()
 
     logger.info("Starting Indexer Server")
     val subscription = new AtomicReference[Resource[Future[Unit]]](null)
 
-    val firstSubscription = subscribe
+    val firstSubscription = indexer
       .acquire()
       .map(handle => {
         logger.info("Started Indexer Server")
@@ -83,7 +83,7 @@ private[indexer] final class RecoveringIndexer(
         _ <- {
           if (running) {
             logger.info("Restarting Indexer Server")
-            val newSubscription = subscribe.acquire()
+            val newSubscription = indexer.acquire()
             if (subscription.compareAndSet(oldSubscription, newSubscription)) {
               resubscribeOnFailure(newSubscription) {
                 updateHealthStatus(HealthStatus.healthy)
