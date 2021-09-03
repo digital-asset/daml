@@ -75,7 +75,7 @@ private[backend] object PostgresStorageBackend
       .on(
         "deduplicationKey" -> key,
         "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-        "deduplicateUntil" -> deduplicateUntil,
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 

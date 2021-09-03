@@ -95,7 +95,7 @@ private[backend] object H2StorageBackend
       .on(
         "deduplicationKey" -> key,
         "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-        "deduplicateUntil" -> deduplicateUntil,
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 

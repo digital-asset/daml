@@ -91,7 +91,7 @@ private[backend] object OracleStorageBackend
       .on(
         "deduplicationKey" -> key,
         "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-        "deduplicateUntil" -> deduplicateUntil,
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 
