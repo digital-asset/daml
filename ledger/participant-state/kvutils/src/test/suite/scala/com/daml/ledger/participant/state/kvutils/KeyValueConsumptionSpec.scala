@@ -87,7 +87,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   )
 
   "outOfTimeBoundsEntryToUpdate" should {
-    "generate update only for rejected transaction" in {
+    "generate update only for rejected and deduplicated transaction" in {
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
         (
@@ -96,12 +96,19 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           TRANSACTION_REJECTION_ENTRY,
           Assertions(update =>
             inside(update) {
-              case Some(CommandRejected(_, _, FinalReason(status))) => {
+              case Some(CommandRejected(_, _, FinalReason(status))) =>
                 status.code shouldBe Code.ALREADY_EXISTS.value
                 ()
-              }
             }
           ),
+        ),
+        (
+          TimeBounds(
+            deduplicateUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))
+          ),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(),
         ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
