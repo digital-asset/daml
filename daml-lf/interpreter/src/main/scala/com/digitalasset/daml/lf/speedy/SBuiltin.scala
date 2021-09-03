@@ -1081,6 +1081,10 @@ private[lf] object SBuiltin {
   // since the template's SRecord already includes the type constructor (templateId)
   // of its template, we shouldn't need to wrap or change the fetched template value
   // in any way.
+  //
+  // TODO interfaces: Maybe consider factoring out the common parts of
+  // SBUFetch, SBUFetchInterface, SBUChoiceInterface into a builtin that
+  // fetches and (actually) caches a contract.
   final case class SBUFetchInterface(
       ifaceId: TypeConName
   ) extends OnLedgerBuiltin(1) {
@@ -1098,7 +1102,9 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(
             SResultNeedContract(
               coid,
-              ifaceId, // TODO interfaces: Is this a problem?
+              ifaceId,
+                // TODO interfaces: Maybe drop the templateId argument from SResultNeedContract?
+                // It isn't actually used. Here we're passing the interface id since it's all we have.
               onLedger.committers,
               { case V.ContractInst(actualTmplId, V.VersionedValue(_, _), _) =>
                 // TODO interfaces: Fail here if the template doesn't implement the interface
@@ -1138,7 +1144,7 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(
             SResultNeedContract(
               coid,
-              ifaceId, // TODO interfaces: Is this a problem?
+              ifaceId, // TODO interfaces: Same as above, drop this argument.
               onLedger.committers,
               { case V.ContractInst(actualTmplId, V.VersionedValue(_, _), _) =>
                 // TODO interfaces: Fail here if the template doesn't implement the interface
