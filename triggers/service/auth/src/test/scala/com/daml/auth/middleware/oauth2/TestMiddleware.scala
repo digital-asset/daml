@@ -30,7 +30,11 @@ import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.{Failure, Success}
 
-class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
+class TestMiddleware
+    extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll
+    with Matchers {
   private def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
@@ -114,7 +118,7 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
           )
       for {
         aliceA <- r("Alice")()
-        empty <- r()()
+        nothing <- r()()
         aliceA_bobA <- r("Alice", "Bob")()
         aliceA_bobR <- r("Alice")("Bob")
         aliceR_bobA <- r("Bob")("Alice")
@@ -123,15 +127,15 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
         bobR <- r()("Bob")
         bobAR <- r("Bob")("Bob")
       } yield {
-        assert(aliceA.isEmpty)
-        assert(empty.isEmpty)
-        assert(aliceA_bobA.isDefined)
-        assert(aliceA_bobR.isEmpty)
-        assert(aliceR_bobA.isDefined)
-        assert(aliceR_bobR.isEmpty)
-        assert(bobA.isDefined)
-        assert(bobR.isEmpty)
-        assert(bobAR.isDefined)
+        aliceA shouldBe empty
+        nothing shouldBe empty
+        aliceA_bobA should not be empty
+        aliceA_bobR shouldBe empty
+        aliceR_bobA should not be empty
+        aliceR_bobR shouldBe empty
+        bobA should not be empty
+        bobR shouldBe empty
+        bobAR should not be empty
       }
     }
     "return unauthorized on insufficient app id claims" in {
