@@ -337,6 +337,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             )
             .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
+          // Below submission is a duplicate.
           result3 <- ps
             .submitTransaction(
               submitterInfo(alice, firstCommandId),
@@ -367,9 +368,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           offset2 should be(toOffset(2))
           matchTransaction(update2, firstCommandId)
 
+          offset3 should be(toOffset(3))
           inside(update3) { case CommandRejected(_, _, FinalReason(status)) =>
-            status.code shouldBe Code.ALREADY_EXISTS.value
+            status.code should be(Code.ALREADY_EXISTS.value)
           }
+
           offset4 should be(toOffset(4))
           matchTransaction(update4, secondCommandId)
         }
