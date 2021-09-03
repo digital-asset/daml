@@ -14,6 +14,9 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
