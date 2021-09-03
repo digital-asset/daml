@@ -62,7 +62,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.ConfigurationEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = update.recordTime.toInstant,
+          recorded_at = update.recordTime.micros,
           submission_id = update.submissionId,
           typ = JdbcLedgerDao.acceptType,
           configuration = Configuration.encode(update.newConfiguration).toByteArray,
@@ -87,7 +87,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.ConfigurationEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.toInstant,
+          recorded_at = someRecordTime.micros,
           submission_id = someSubmissionId,
           typ = JdbcLedgerDao.rejectType,
           configuration = Configuration.encode(someConfiguration).toByteArray,
@@ -112,7 +112,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.toInstant,
+          recorded_at = someRecordTime.micros,
           submission_id = Some(someSubmissionId),
           party = Some(someParty),
           display_name = Some(displayName),
@@ -139,7 +139,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.toInstant,
+          recorded_at = someRecordTime.micros,
           submission_id = None,
           party = Some(someParty),
           display_name = Some(displayName),
@@ -165,7 +165,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.toInstant,
+          recorded_at = someRecordTime.micros,
           submission_id = Some(someSubmissionId),
           party = None,
           display_name = None,
@@ -194,7 +194,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           upload_id = someSubmissionId,
           source_description = Some(sourceDescription),
           package_size = someArchive1.getPayload.size.toLong,
-          known_since = someRecordTime.toInstant,
+          known_since = someRecordTime.micros,
           ledger_offset = someOffset.toHexString,
           _package = someArchive1.toByteArray,
         ),
@@ -203,13 +203,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           upload_id = someSubmissionId,
           source_description = Some(sourceDescription),
           package_size = someArchive2.getPayload.size.toLong,
-          known_since = someRecordTime.toInstant,
+          known_since = someRecordTime.micros,
           ledger_offset = someOffset.toHexString,
           _package = someArchive2.toByteArray,
         ),
         DbDto.PackageEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.toInstant,
+          recorded_at = someRecordTime.micros,
           submission_id = Some(someSubmissionId),
           typ = JdbcLedgerDao.acceptType,
           rejection_reason = None,
@@ -231,7 +231,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PackageEntry(
           ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.toInstant,
+          recorded_at = someRecordTime.micros,
           submission_id = Some(someSubmissionId),
           typ = JdbcLedgerDao.rejectType,
           rejection_reason = Some(rejectionReason),
@@ -254,7 +254,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos should contain theSameElementsInOrderAs List(
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = someRecordTime.toInstant,
+          record_time = someRecordTime.micros,
           application_id = someApplicationId,
           submitters = Set(someParty),
           command_id = someCommandId,
@@ -308,7 +308,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.EventCreate(
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -331,7 +331,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -381,7 +381,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.EventCreate(
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -404,7 +404,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -465,7 +465,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = true,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -489,7 +489,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -550,7 +550,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = false,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -574,7 +574,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -661,7 +661,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = false,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -692,7 +692,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = false,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -718,7 +718,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = false,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -742,7 +742,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -805,7 +805,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = true,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -844,7 +844,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -906,7 +906,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.EventCreate(
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -931,7 +931,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = true,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -970,7 +970,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -1035,7 +1035,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = true,
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
@@ -1073,7 +1073,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -1153,7 +1153,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.toInstant,
+          record_time = update.recordTime.micros,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -1202,7 +1202,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.EventCreate(
           event_offset = Some(someOffset.toHexString),
           transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
           command_id = None,
           workflow_id = transactionMeta.workflowId,
           application_id = None,
@@ -1270,7 +1270,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           dtos should contain theSameElementsInOrderAs List(
             DbDto.CommandCompletion(
               completion_offset = someOffset.toHexString,
-              record_time = someRecordTime.toInstant,
+              record_time = someRecordTime.micros,
               application_id = someApplicationId,
               submitters = Set(someParty),
               command_id = someCommandId,
@@ -1333,7 +1333,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             DbDto.EventCreate(
               event_offset = Some(someOffset.toHexString),
               transaction_id = Some(update.transactionId),
-              ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+              ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
               command_id = Some(completionInfo.commandId),
               workflow_id = transactionMeta.workflowId,
               application_id = Some(completionInfo.applicationId),
@@ -1356,7 +1356,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             ),
             DbDto.CommandCompletion(
               completion_offset = someOffset.toHexString,
-              record_time = update.recordTime.toInstant,
+              record_time = update.recordTime.micros,
               application_id = completionInfo.applicationId,
               submitters = completionInfo.actAs.toSet,
               command_id = completionInfo.commandId,

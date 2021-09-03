@@ -20,7 +20,7 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
   import StorageBackendTestValues._
 
   it should "correctly read ledger effective time using maximumLedgerTime" in {
-    val let = Instant.now
+    val let = timestampFromInstant(Instant.now)
     val cid = com.daml.lf.value.Value.ContractId.V0.assertFromString("#1")
     val create = dtoCreate(
       offset = offset(1),
@@ -38,14 +38,14 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       let2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.maximumLedgerTime(Set(cid))))
       let3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.maximumLedgerTime(Set(cid))))
     } yield {
-      withClue("UTC") { let1 shouldBe Success(Some(let)) }
-      withClue("GMT-1") { let2 shouldBe Success(Some(let)) }
-      withClue("GMT+1") { let3 shouldBe Success(Some(let)) }
+      withClue("UTC") { let1 shouldBe Success(Some(let.toInstant)) }
+      withClue("GMT-1") { let2 shouldBe Success(Some(let.toInstant)) }
+      withClue("GMT+1") { let3 shouldBe Success(Some(let.toInstant)) }
     }
   }
 
   it should "correctly read ledger effective time using rawEvents" in {
-    val let = Instant.now
+    val let = timestampFromInstant(Instant.now)
     val cid = com.daml.lf.value.Value.ContractId.V0.assertFromString("#1")
     val create = dtoCreate(
       offset = offset(1),
@@ -63,9 +63,9 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       events2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.rawEvents(0L, 1L)))
       events3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.rawEvents(0L, 1L)))
     } yield {
-      withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let) }
-      withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let) }
-      withClue("GMT+1") { events3.head.ledgerEffectiveTime shouldBe Some(let) }
+      withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let.toInstant) }
+      withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let.toInstant) }
+      withClue("GMT+1") { events3.head.ledgerEffectiveTime shouldBe Some(let.toInstant) }
     }
   }
 
