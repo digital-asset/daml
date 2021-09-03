@@ -141,7 +141,7 @@ lookupValue = lookupDefinition moduleValues LEValue
 lookupTemplate :: Qualified TypeConName -> World -> Either LookupError Template
 lookupTemplate = lookupDefinition moduleTemplates LETemplate
 
-lookupInterface :: Qualified TypeConName -> World -> Either LookupError Interface
+lookupInterface :: Qualified TypeConName -> World -> Either LookupError DefInterface
 lookupInterface = lookupDefinition moduleInterface LEInterface
 
 lookupException :: Qualified TypeConName -> World -> Either LookupError DefException
@@ -161,7 +161,7 @@ lookupInterfaceChoice (ifaceRef, chName) world = do
     Nothing -> Left (LEChoice ifaceRef chName)
     Just choice -> Right choice
 
-lookupTemplateOrInterface :: Qualified TypeConName -> World -> Either LookupError (Either Template Interface)
+lookupTemplateOrInterface :: Qualified TypeConName -> World -> Either LookupError (Either Template DefInterface)
 lookupTemplateOrInterface name world
     = Right <$> lookupInterface name world
     <|> Left <$> lookupTemplate name world
