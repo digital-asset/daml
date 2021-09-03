@@ -95,10 +95,9 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
           Assertions(update =>
-            inside(update) {
-              case Some(CommandRejected(_, _, FinalReason(status))) =>
-                status.code shouldBe Code.ALREADY_EXISTS.value
-                ()
+            inside(update) { case Some(CommandRejected(_, _, FinalReason(status))) =>
+              status.code shouldBe Code.ALREADY_EXISTS.value
+              ()
             }
           ),
         ),
