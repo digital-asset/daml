@@ -182,26 +182,6 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       runAll(testCases)
     }
 
-    "generate a rejection entry for a transaction if its submission has been deduplicated" in {
-      val inputEntry = {
-        val builder = DamlOutOfTimeBoundsEntry.newBuilder
-        builder.setDuplicateUntil(buildTimestamp(aRecordTimeInstant.plusMillis(1)))
-        builder.setEntry(buildLogEntry(TRANSACTION_REJECTION_ENTRY))
-        builder.build
-      }
-      outOfTimeBoundsEntryToUpdate(aRecordTime, inputEntry) match {
-        case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
-          recordTime shouldBe aRecordTime
-          completionInfo shouldBe Conversions.parseCompletionInfo(
-            parseInstant(recordTime),
-            someSubmitterInfo,
-          )
-          status.code shouldBe Code.ALREADY_EXISTS.value
-          ()
-        case _ => fail()
-      }
-    }
-
     "generate a rejection entry for a configuration if record time is out of time bounds" in {
       def verifyConfigurationRejection(actual: Option[Update]): Unit = actual match {
         case Some(
