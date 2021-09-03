@@ -707,6 +707,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
+      // Populate "other" participant too to advance safe pruning timestamp
+      _ <- populateLedgerAndGetOffsets(alpha, alice)
+
       _ <- pruneAtCurrentOffset(beta, bob, pruneAllDivulgedContracts = true)
 
       _ <- beta
