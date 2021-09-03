@@ -23,7 +23,7 @@ object DataArbitrary {
         raw <- arbitrary[Seq[A]]
         min <- Gen.choose(0, 0 max (raw.size - 1))
         max <- Gen.choose(min, raw.size)
-      } yield if (min >= max) ImmArray(Seq()) else ImmArray(raw).strictSlice(min, max)
+      } yield if (min >= max) ImmArray.empty else raw.to(ImmArray).strictSlice(min, max)
     }
 
   implicit def `arb ImmArraySeq`[A: Arbitrary]: Arbitrary[ImmArray.ImmArraySeq[A]] =

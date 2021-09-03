@@ -557,7 +557,7 @@ class EngineTest
       val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map { case (label, party) =>
         Some[Name](label) -> ValueParty(party)
       }
-      CreateCommand(id(templateId), ValueRecord(Some(id(templateId)), ImmArray(templateArgs)))
+      CreateCommand(id(templateId), ValueRecord(Some(id(templateId)), templateArgs.to(ImmArray)))
     }
 
     val let = Time.Timestamp.now()

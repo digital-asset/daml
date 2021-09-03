@@ -85,7 +85,10 @@ private[lf] object NormalizeRollbacks {
           //pass 2
           pushNorms(initialState, norms.toList) { (finalState, roots) =>
             Land(
-              (GenTransaction(finalState.nodeMap, ImmArray(roots)), finalState.seedIds.toImmArray)
+              (
+                GenTransaction(finalState.nodeMap, roots.to(ImmArray)),
+                finalState.seedIds.toImmArray,
+              )
             )
           }
         }.bounce
@@ -179,7 +182,7 @@ private[lf] object NormalizeRollbacks {
           case Norm.Exe(exe, subs) =>
             s.pushSeedId(me) { s =>
               pushNorms(s, subs) { (s, children) =>
-                val node = exe.copy(children = ImmArray(children))
+                val node = exe.copy(children = children.to(ImmArray))
                 s.push(me, node)(k)
               }
             }
@@ -195,7 +198,7 @@ private[lf] object NormalizeRollbacks {
       x match {
         case Norm.Roll1(act) =>
           pushAct(s, act) { (s, child) =>
-            val node = NodeRollback(children = ImmArray(List(child)))
+            val node = NodeRollback(children = ImmArray(child))
             s.push(me, node)(k)
           }
         case Norm.Roll2(h, m, t) =>
@@ -203,7 +206,7 @@ private[lf] object NormalizeRollbacks {
             pushNorms(s, m.toList) { (s, mm) =>
               pushAct(s, t) { (s, tt) =>
                 val children = List(hh) ++ mm ++ List(tt)
-                val node = NodeRollback(children = ImmArray(children))
+                val node = NodeRollback(children = children.to(ImmArray))
                 s.push(me, node)(k)
               }
             }

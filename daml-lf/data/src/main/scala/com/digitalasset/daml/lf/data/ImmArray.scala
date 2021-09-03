@@ -4,7 +4,6 @@
 package com.daml.lf.data
 
 import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
-
 import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
@@ -358,23 +357,10 @@ final class ImmArray[+A] private (
 }
 
 object ImmArray extends ImmArrayInstances {
-  def empty[T]: ImmArray[T] =
-    ImmArray.fromArraySeq(ArraySeq.empty[AnyRef].asInstanceOf[ArraySeq[T]])
 
-  def apply[T](element0: T, elements: T*): ImmArray[T] = {
-    val builder = ImmArray.newBuilder[T]
-    builder += element0
-    builder ++= elements
-    builder.result()
-  }
+  private[this] val Empty = ImmArray.fromArraySeq(ArraySeq.empty[AnyRef])
 
-  def apply[T](elements: Iterable[T]): ImmArray[T] = elements match {
-    case ias: ArraySeq[T] => fromArraySeq(ias)
-    case _ =>
-      val builder = ImmArray.newBuilder[T]
-      builder ++= elements
-      builder.result()
-  }
+  def empty[T]: ImmArray[T] = Empty.asInstanceOf[ImmArray[T]]
 
   def unapplySeq[T](arr: ImmArray[T]): Option[IndexedSeq[T]] = Some(arr.toIndexedSeq)
 

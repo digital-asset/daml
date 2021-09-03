@@ -8,7 +8,6 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 import scala.util.Random
 
@@ -52,7 +51,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "explode in a same way a naive implementation" in {
       def naiveExplode(s: String) =
-        ImmArray(s.codePoints().iterator().asScala.map(codepointToString(_)).iterator.to(Iterable))
+        s.codePoints().iterator().asScala.map(codepointToString(_)).to(ImmArray)
 
       forAll(strings) { s =>
         naiveExplode(s) shouldBe Utf8.explode(s)

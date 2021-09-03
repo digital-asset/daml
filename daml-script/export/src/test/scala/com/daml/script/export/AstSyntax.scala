@@ -17,7 +17,7 @@ private[export] object AstSyntax {
     val tupleName = Ref.TypeConName.assertFromString(
       "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7:DA.Types:Tuple"
     )
-    TTyConApp(tupleName, ImmArray(tys))
+    TTyConApp(tupleName, tys.to(ImmArray))
   }
   val vFoo: Ref.Name = Ref.Name.assertFromString("foo")
   val vBar: Ref.Name = Ref.Name.assertFromString("bar")

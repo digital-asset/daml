@@ -105,7 +105,7 @@ private[sandbox] object ScenarioLoader {
           decorateWithIncrement(newProcessed, entries)
       }
     }
-    (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
+    (acs, decorateWithIncrement(BackStack.empty, ledgerEntries.to(ImmArray)), time.toInstant)
   }
 
   private[this] def buildScenarioLedger(

@@ -82,7 +82,7 @@ object LedgerValue {
   private def convertRecord(apiRecord: api.value.Record) = {
     for {
       tycon <- apiRecord.recordId traverse convertIdentifier map (_.flatten)
-      fields <- ImmArray(apiRecord.fields).traverse(_.convert)
+      fields <- apiRecord.fields.to(ImmArray).traverse(_.convert)
     } yield V.ValueRecord(tycon, fields)
   }
 
@@ -95,7 +95,7 @@ object LedgerValue {
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
         case api.value.Map.Entry(_, None) => -\/("value field of Map.Entry must be defined")
       }
-      map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
+      map <- SortedLookupList.fromImmArray(entries.to(ImmArray)).disjunction
     } yield V.ValueTextMap(map)
 
   private def convertGenMap(apiMap: api.value.GenMap): String \/ OfCid[V.ValueGenMap] =
@@ -110,7 +110,7 @@ object LedgerValue {
           )(_.convert)
         } yield k -> v
       }
-      .map(entries => V.ValueGenMap(ImmArray(entries)))
+      .map(entries => V.ValueGenMap(entries.to(ImmArray)))
 
   private def convertIdentifier(
       apiIdentifier: api.value.Identifier

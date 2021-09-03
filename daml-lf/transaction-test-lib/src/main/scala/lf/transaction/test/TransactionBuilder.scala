@@ -243,11 +243,11 @@ object TransactionBuilder {
   def record(fields: (String, String)*): Value =
     LfValue.ValueRecord(
       tycon = None,
-      fields = ImmArray(
-        fields.map { case (name, value) =>
+      fields = fields.view
+        .map { case (name, value) =>
           (Some(Ref.Name.assertFromString(name)), LfValue.ValueText(value))
         }
-      ),
+        .to(ImmArray),
     )
 
   def keyWithMaintainers(maintainers: Seq[String], key: Value): KeyWithMaintainers =

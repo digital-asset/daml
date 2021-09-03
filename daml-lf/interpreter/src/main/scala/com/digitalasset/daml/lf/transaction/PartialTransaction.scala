@@ -333,7 +333,7 @@ private[lf] case class PartialTransaction(
 
         nodes.keySet diff allChildNodeIds
       }
-      val tx = GenTransaction(nodes, ImmArray(rootNodes))
+      val tx = GenTransaction(nodes, rootNodes.to(ImmArray))
 
       tx.foreach { (nid, node) =>
         val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
@@ -413,7 +413,7 @@ private[lf] case class PartialTransaction(
     IncompleteTxImpl(
       GenTransaction(
         ptx.nodes,
-        ImmArray(ptx.context.children.toImmArray.toSeq.sortBy(_.index)),
+        ptx.context.children.toImmArray.toSeq.sortBy(_.index).toImmArray,
       ),
       ptx.locationInfo(),
     )
@@ -683,7 +683,7 @@ private[lf] case class PartialTransaction(
       stakeholders = ec.stakeholders,
       signatories = ec.signatories,
       choiceObservers = ec.choiceObservers,
-      children = ImmArray(Nil),
+      children = ImmArray.empty,
       exerciseResult = None,
       key = ec.contractKey,
       byKey = normByKey(version, ec.byKey),
