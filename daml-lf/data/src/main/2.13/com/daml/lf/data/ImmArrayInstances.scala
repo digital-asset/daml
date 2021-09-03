@@ -19,7 +19,7 @@ abstract class ImmArrayInstances extends scala.collection.IterableFactory[ImmArr
       case otherwise =>
         val builder = newBuilder[A]
         builder.sizeHint(otherwise)
-        otherwise.iterator.foreach(builder.addOne)
+        builder.addAll(otherwise)
         builder.result()
     }
   }

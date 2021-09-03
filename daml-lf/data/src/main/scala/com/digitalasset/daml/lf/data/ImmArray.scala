@@ -358,9 +358,9 @@ final class ImmArray[+A] private (
 
 object ImmArray extends ImmArrayInstances {
 
-  private[this] val Empty = ImmArray.fromArraySeq(ArraySeq.empty[AnyRef])
+  private[this] val Empty: ImmArray[Nothing] = ImmArray.fromArraySeq(ArraySeq.empty)
 
-  def empty[T]: ImmArray[T] = Empty.asInstanceOf[ImmArray[T]]
+  def empty[T]: ImmArray[T] = Empty
 
   def unapplySeq[T](arr: ImmArray[T]): Option[IndexedSeq[T]] = Some(arr.toIndexedSeq)
 
