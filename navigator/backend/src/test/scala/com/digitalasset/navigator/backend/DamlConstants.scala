@@ -76,7 +76,7 @@ case object DamlConstants {
   val emptyRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), emptyRecordGD)
   val emptyRecordTC = DamlLfTypeCon(DamlLfTypeConName(emptyRecordId), DamlLfImmArraySeq())
   val emptyRecordT = emptyRecordTC.instantiate(emptyRecordGC).asInstanceOf[DamlLfRecord]
-  val emptyRecordV = V.ValueRecord(Some(emptyRecordId), ImmArray.empty)
+  val emptyRecordV = V.ValueRecord(Some(emptyRecordId), ImmArray.Empty)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Daml-LF: simple record (data SimpleRecord a b = {fA: a, fB: b})

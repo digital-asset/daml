@@ -105,7 +105,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       case defTags ~ id ~ constructors =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray.empty, DataEnum(constructors.to(ImmArray))),
+          DDataType(defTags(serializableTag), ImmArray.Empty, DataEnum(constructors.to(ImmArray))),
         )
     }
 

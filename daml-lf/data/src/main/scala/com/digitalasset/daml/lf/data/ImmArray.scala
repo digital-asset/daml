@@ -143,7 +143,7 @@ final class ImmArray[+A] private (
 
     val newLen = until - from
     if (newLen <= 0) {
-      ImmArray.empty[A]
+      ImmArray.Empty
     } else {
       new ImmArray(start + from, newLen, array)
     }
@@ -358,9 +358,9 @@ final class ImmArray[+A] private (
 
 object ImmArray extends ImmArrayInstances {
 
-  private[this] val Empty: ImmArray[Nothing] = ImmArray.fromArraySeq(ArraySeq.empty)
+  val Empty: ImmArray[Nothing] = ImmArray.fromArraySeq(ArraySeq.empty)
 
-  def empty[T]: ImmArray[T] = Empty
+  def empty[T]: ImmArray[Nothing] = Empty
 
   def unapplySeq[T](arr: ImmArray[T]): Option[IndexedSeq[T]] = Some(arr.toIndexedSeq)
 
@@ -422,6 +422,7 @@ object ImmArray extends ImmArrayInstances {
   }
 
   object ImmArraySeq extends ImmArraySeqCompanion {
+    val Empty: ImmArraySeq[Nothing] = ImmArray.Empty.toSeq
     implicit val `immArraySeq Traverse instance`: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
       with Foldable.FromFoldr[ImmArraySeq] {
       override def map[A, B](fa: ImmArraySeq[A])(f: A => B) = fa.toImmArray.map(f).toSeq

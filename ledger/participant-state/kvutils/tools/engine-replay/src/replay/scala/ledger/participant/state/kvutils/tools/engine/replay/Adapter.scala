@@ -29,7 +29,7 @@ private[replay] final class Adapter(
   private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId, ContractId] =
     node match {
       case rollback: Node.NodeRollback[_] =>
-        rollback.copy(children = ImmArray.empty)
+        rollback.copy(children = ImmArray.Empty)
       case create: Node.NodeCreate[ContractId] =>
         create.copy(
           templateId = adapt(create.templateId),
@@ -40,7 +40,7 @@ private[replay] final class Adapter(
         exe.copy(
           templateId = adapt(exe.templateId),
           chosenValue = adapt(exe.chosenValue),
-          children = ImmArray.empty,
+          children = ImmArray.Empty,
           exerciseResult = exe.exerciseResult.map(adapt),
           key = exe.key.map(adapt),
         )

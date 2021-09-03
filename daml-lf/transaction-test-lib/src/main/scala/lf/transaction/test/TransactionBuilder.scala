@@ -159,7 +159,7 @@ final class TransactionBuilder(
       chosenValue = argument,
       stakeholders = contract.stakeholders,
       signatories = contract.signatories,
-      children = ImmArray.empty,
+      children = ImmArray.Empty,
       exerciseResult = result,
       key = contract.key,
       byKey = byKey,
@@ -200,7 +200,7 @@ final class TransactionBuilder(
 
   def rollback(): Rollback =
     Rollback(
-      children = ImmArray.empty
+      children = ImmArray.Empty
     )
 }
 
@@ -276,7 +276,7 @@ object TransactionBuilder {
     VersionedTransaction(
       TransactionVersion.minVersion, // A normalized empty tx is V10
       HashMap.empty,
-      ImmArray.empty,
+      ImmArray.Empty,
     )
   val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)
   val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)

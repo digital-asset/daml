@@ -165,14 +165,14 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "packs properly" in {
-      Utf8.pack(ImmArray.empty) shouldBe Right("")
+      Utf8.pack(ImmArray.Empty) shouldBe Right("")
       Utf8.pack(ImmArray(0x00061, 0x000b6, 0x02031, 0x1f602)) shouldBe Right("a¶‱😂")
     }
   }
 
   "unpack" should {
     "unpacks properly" in {
-      Utf8.pack(ImmArray.empty) shouldBe Right("")
+      Utf8.pack(ImmArray.Empty) shouldBe Right("")
       Utf8.unpack("a¶‱😂") shouldBe ImmArray(0x00061, 0x000b6, 0x02031, 0x1f602)
     }
   }

@@ -78,7 +78,7 @@ private[sandbox] object ScenarioLoader {
 
       def bumps(entryTxId: ScenarioLedger.TransactionId, nextTxId: ScenarioLedger.TransactionId) =
         if ((nextTxId.index - entryTxId.index) == 1)
-          ImmArray.empty
+          ImmArray.Empty
         else
           ImmArray(LedgerEntryOrBump.Bump((nextTxId.index - entryTxId.index - 1)))
 

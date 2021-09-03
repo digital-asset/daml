@@ -75,7 +75,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     builder.create(
       id = id,
       template = templateId.toString,
-      argument = Value.ValueRecord(None, ImmArray.empty),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
       signatories = Seq(),
       observers = Seq(),
       key = if (hasKey) Some(keyValue) else None,
@@ -90,7 +90,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     builder.exercise(
       contract = create(builder, id, hasKey),
       choice = "Choice",
-      argument = Value.ValueRecord(None, ImmArray.empty),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
       actingParties = Set(),
       consuming = consuming,
       result = Some(Value.ValueUnit),

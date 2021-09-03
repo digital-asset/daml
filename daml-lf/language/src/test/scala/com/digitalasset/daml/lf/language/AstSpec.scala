@@ -58,8 +58,8 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     def exception = DefException(
       message = eText
     )
-    val recordDef = DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty))
-    val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))
+    val recordDef = DDataType(true, ImmArray.Empty, DataRecord(ImmArray.Empty))
+    val variantDef = DDataType(true, ImmArray.Empty, DataVariant(ImmArray.Empty))
     val valDef = DValue(TUnit, false, EUnit, false)
 
     def defName(s: String) = DottedName.assertFromSegments(Iterable(s))

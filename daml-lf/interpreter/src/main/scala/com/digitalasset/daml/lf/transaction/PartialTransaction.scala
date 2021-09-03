@@ -683,7 +683,7 @@ private[lf] case class PartialTransaction(
       stakeholders = ec.stakeholders,
       signatories = ec.signatories,
       choiceObservers = ec.choiceObservers,
-      children = ImmArray.empty,
+      children = ImmArray.Empty,
       exerciseResult = None,
       key = ec.contractKey,
       byKey = normByKey(version, ec.byKey),

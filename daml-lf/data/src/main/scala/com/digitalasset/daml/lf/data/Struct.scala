@@ -90,7 +90,7 @@ object Struct {
   def assertFromNameSeq[X](names: Seq[Name]): Struct[Unit] =
     assertSuccess(fromNameSeq(names))
 
-  val Empty: Struct[Nothing] = new Struct(ImmArray.empty)
+  val Empty: Struct[Nothing] = new Struct(ImmArray.Empty)
 
   private[this] val rightEmpty = Right(Empty)
 

@@ -38,7 +38,7 @@ private[sandbox] object LedgerResource {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
-      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
+      entries: ImmArray[LedgerEntryOrBump] = ImmArray.Empty,
   )(implicit resourceContext: ResourceContext): Resource[Ledger] =
     new OwnedResource(
       ResourceOwner.forValue(() =>
@@ -83,7 +83,7 @@ private[sandbox] object LedgerResource {
           participantId = TestParticipantId,
           timeProvider = timeProvider,
           packages = packages,
-          initialLedgerEntries = ImmArray.empty,
+          initialLedgerEntries = ImmArray.Empty,
           queueDepth = 128,
           transactionCommitter = StandardTransactionCommitter,
           startMode = SqlStartMode.ResetAndStart,

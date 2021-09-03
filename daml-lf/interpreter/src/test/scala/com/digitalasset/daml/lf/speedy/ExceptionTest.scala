@@ -58,7 +58,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         .map(id =>
           data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
         )
-        .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.empty))
+        .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
     val arithmeticCon = data.Ref.Identifier.assertFromString(
       "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
     )
@@ -478,7 +478,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val tyCon =
         data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
       val anException =
-        IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.empty))
+        IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
 
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
       val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
@@ -685,7 +685,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     val anException = {
       val id = "NewM:AnException"
       val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
-      IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.empty))
+      IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
     }
 
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
