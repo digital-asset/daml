@@ -163,7 +163,16 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(x: Template): Iterator[Type] =
     x match {
-      case Template(param @ _, precond, signatories, agreementText, choices, observers, key, _) => // TODO interfaces
+      case Template(
+            param @ _,
+            precond,
+            signatories,
+            agreementText,
+            choices,
+            observers,
+            key,
+            _,
+          ) => // TODO interfaces
         iterator(precond) ++
           iterator(signatories) ++
           iterator(agreementText) ++
@@ -214,6 +223,6 @@ private[validation] object TypeIterable {
       override def iterator: Iterator[Type] =
         module.definitions.values.iterator.flatMap(that.iterator(_)) ++
           module.templates.values.iterator.flatMap(that.iterator(_))
-          // TODO interfaces ... and exceptions?
+      // TODO interfaces ... and exceptions?
     }
 }

@@ -147,7 +147,7 @@ object NamedEntity {
   final case class NInterfaceDef(
       module: NModDef,
       name: DottedName,
-      dfn: Ast.DDataType
+      dfn: Ast.DDataType,
   ) extends NamedEntity {
     def modName: ModuleName = module.name
     val fullyResolvedName: DottedName =

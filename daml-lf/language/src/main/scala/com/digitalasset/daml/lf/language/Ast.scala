@@ -620,37 +620,64 @@ object Ast {
   type TemplateKeySignature = GenTemplateKey[Unit]
   object TemplateKeySignature extends GenTemplateKeyCompanion[Unit]
 
-  case class DefInterface (
+  case class DefInterface(
       methods: Map[FieldName, Type],
       choices: Map[ChoiceName, InterfaceChoice],
-  )
-
-  object DefInterface {
-      def apply (
-        methods: Iterable[(FieldName, Type)],
-        choices: Iterable[(ChoiceName, InterfaceChoice)]
-      ) : DefInterface = {
-        val methodMap = toMapWithoutDuplicate(
-          methods,
-          (name: FieldName) =>
-            throw PackageError(s"collision on interface method name ${name.toString}"),
-        )
-        val choiceMap = toMapWithoutDuplicate(
-          choices,
-          (name: ChoiceName) =>
-            throw PackageError(s"collision on interface choice name ${name.toString}")
-        )
-        DefInterface(methodMap, choiceMap)
-      }
+  ) {
+    val param = Name.assertFromString("this")
+    def toTemplateSignature: TemplateSignature =
+      TemplateSignature(
+        param = param,
+        precond = (),
+        signatories = (),
+        agreementText = (),
+        choices = choices.map { case (n, v) => (n, v.toTemplateChoiceSignature) },
+        observers = (),
+        key = None,
+        implements = List(),
+      )
   }
 
-  case class InterfaceChoice (
+  object DefInterface {
+    def apply(
+        methods: Iterable[(FieldName, Type)],
+        choices: Iterable[(ChoiceName, InterfaceChoice)],
+    ): DefInterface = {
+      val methodMap = toMapWithoutDuplicate(
+        methods,
+        (name: FieldName) =>
+          throw PackageError(s"collision on interface method name ${name.toString}"),
+      )
+      val choiceMap = toMapWithoutDuplicate(
+        choices,
+        (name: ChoiceName) =>
+          throw PackageError(s"collision on interface choice name ${name.toString}"),
+      )
+      DefInterface(methodMap, choiceMap)
+    }
+  }
+
+  case class InterfaceChoice(
       name: ChoiceName,
       consuming: Boolean,
       argType: Type,
       returnType: Type,
       // TODO interfaces Should observers or controllers be part of the interface?
-  )
+  ) {
+    val selfBinder = Name.assertFromString("self")
+    val argBinder = (Name.assertFromString("arg"), argType)
+    def toTemplateChoiceSignature: TemplateChoiceSignature =
+      TemplateChoiceSignature(
+        name = name,
+        consuming = consuming,
+        controllers = (),
+        choiceObservers = None,
+        selfBinder = selfBinder,
+        argBinder = argBinder,
+        returnType = returnType,
+        update = (),
+      )
+  }
 
   case class GenTemplate[E] private[Ast] (
       param: ExprVarName, // Binder for template argument.
@@ -673,7 +700,7 @@ object Ast {
         choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         observers: E,
         key: Option[GenTemplateKey[E]],
-        implements: List[TypeConName]
+        implements: List[TypeConName],
     ): GenTemplate[E] = {
 
       val choiceMap = toMapWithoutDuplicate(
@@ -690,7 +717,7 @@ object Ast {
         choiceMap,
         observers,
         key,
-        implements
+        implements,
       )
     }
 
@@ -716,7 +743,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
-          List[TypeConName]
+          List[TypeConName],
       )
     ] = Some(
       (
@@ -727,7 +754,7 @@ object Ast {
         arg.choices,
         arg.observers,
         arg.key,
-        arg.implements
+        arg.implements,
       )
     )
   }
@@ -907,7 +934,9 @@ object Ast {
           Map[DottedName, DefInterface],
           FeatureFlags,
       )
-    ] = Some((arg.name, arg.definitions, arg.templates, arg.exceptions, arg.interfaces, arg.featureFlags))
+    ] = Some(
+      (arg.name, arg.definitions, arg.templates, arg.exceptions, arg.interfaces, arg.featureFlags)
+    )
   }
 
   type Module = GenModule[Expr]

@@ -291,7 +291,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         }
       }
 
-      Module(moduleName, defs, templates, exceptions, interfaces, decodeFeatureFlags(lfModule.getFlags))
+      Module(
+        moduleName,
+        defs,
+        templates,
+        exceptions,
+        interfaces,
+        decodeFeatureFlags(lfModule.getFlags),
+      )
     }
 
     // -----------------------------------------------------------------------
@@ -584,8 +591,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, paramName))
           else None,
-        implements =
-          lfTempl.getImplementsList.asScala.toList.map(decodeTypeConName(_))
+        implements = lfTempl.getImplementsList.asScala.toList.map(decodeTypeConName(_)),
       )
     }
 
@@ -634,26 +640,26 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): DefException =
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
-    private[lf] def decodeDefInterface (
-       lfInterface: PLF.DefInterface,
+    private[lf] def decodeDefInterface(
+        lfInterface: PLF.DefInterface
     ): DefInterface = {
       assertSince(LV.Features.interfaces, "DefInterface")
       DefInterface(
         decodeFields(ImmArray(lfInterface.getMethodsList.asScala)).toList,
         lfInterface.getChoicesList.asScala.toList
           .map(decodeInterfaceChoice(_))
-          .map(choice => (choice.name, choice))
+          .map(choice => (choice.name, choice)),
       )
     }
 
-    private[lf] def decodeInterfaceChoice (
+    private[lf] def decodeInterfaceChoice(
         lfChoice: PLF.InterfaceChoice
     ): InterfaceChoice =
       InterfaceChoice(
         name = getInternedName(lfChoice.getNameInternedString, "InterfaceChoice.name"),
         consuming = lfChoice.getConsuming,
         argType = decodeType(lfChoice.getArgType),
-        returnType = decodeType(lfChoice.getRetType)
+        returnType = decodeType(lfChoice.getRetType),
       )
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =

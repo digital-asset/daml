@@ -371,7 +371,7 @@ private[validation] object Typing {
 
     def checkInterfaceType[X](
         tyConName: => TypeConName,
-        params: ImmArray[X]
+        params: ImmArray[X],
     ): Unit = {
       if (params.nonEmpty) throw EIllegalGenericInterfaceType(ctx, tyConName)
       // TODO interfaces verify that there is an accompanying entry in defInterface
@@ -425,7 +425,16 @@ private[validation] object Typing {
       }
 
     def checkTemplate(tplName: TypeConName, template: Template): Unit = {
-      val Template(param, precond, signatories, agreementText, choices, observers, mbKey, _) = // TODO interfaces
+      val Template(
+        param,
+        precond,
+        signatories,
+        agreementText,
+        choices,
+        observers,
+        mbKey,
+        _,
+      ) = // TODO interfaces
         template
       val env = introExprVar(param, TTyCon(tplName))
       env.checkExpr(precond, TBool)
@@ -853,7 +862,7 @@ private[validation] object Typing {
     }
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
-      handleLookup(ctx, interface.lookupTemplate(tpl))
+      handleLookup(ctx, interface.lookupTemplateOrInterface(tpl))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }

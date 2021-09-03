@@ -141,7 +141,10 @@ object InterfaceReader {
           case dfn: Ast.DataEnum =>
             enum(fullName, tyVars, dfn)
           case Ast.DataInterface =>
-            invalidDataTypeDefinition(fullName, "daml interfaces not yet supported in interface reader") // TODO interfaces
+            invalidDataTypeDefinition(
+              fullName,
+              "daml interfaces not yet supported in interface reader",
+            ) // TODO interfaces
         }
 
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {

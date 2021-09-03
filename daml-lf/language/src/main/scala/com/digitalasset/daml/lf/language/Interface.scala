@@ -179,13 +179,33 @@ private[lf] class Interface(signatures: PartialFunction[PackageId, PackageSignat
   def lookupTemplate(name: TypeConName): Either[LookupError, TemplateSignature] =
     lookupTemplate(name, Reference.Template(name))
 
+  private[this] def lookupTemplateOrInterface(
+      name: TypeConName,
+      context: => Reference,
+  ): Either[LookupError, Either[TemplateSignature, DefInterface]] =
+    lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(mod =>
+      mod.templates
+        .get(name.qualifiedName.name)
+        .map(Left(_))
+        .orElse(mod.interfaces.get(name.qualifiedName.name).map(Right(_)))
+        .toRight(LookupError(Reference.Template(name), context))
+    )
+
+  def lookupTemplateOrInterface(
+      name: TypeConName
+  ): Either[LookupError, Either[TemplateSignature, DefInterface]] =
+    lookupTemplateOrInterface(name, Reference.Template(name))
+
   private[this] def lookupChoice(
       tmpName: TypeConName,
       chName: ChoiceName,
       context: => Reference,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupTemplate(tmpName, context).flatMap(
-      _.choices.get(chName).toRight(LookupError(Reference.Choice(tmpName, chName), context))
+    lookupTemplateOrInterface(tmpName, context).flatMap(tplOrIface =>
+      (tplOrIface match {
+        case Left(tpl) => tpl.choices.get(chName)
+        case Right(iface) => iface.choices.get(chName).map(_.toTemplateChoiceSignature)
+      }).toRight(LookupError(Reference.Choice(tmpName, chName), context))
     )
 
   def lookupChoice(

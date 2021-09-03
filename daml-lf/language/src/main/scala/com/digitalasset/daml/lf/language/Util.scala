@@ -212,7 +212,7 @@ object Util {
           choices.transform((_, v) => toSignature(v)),
           (),
           key.map(toSignature),
-          implements
+          implements,
         )
     }
 
