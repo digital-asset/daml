@@ -7,8 +7,8 @@ import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.grpc.GrpcStatuses
 import com.google.protobuf.{Any => AnyProto}
-import com.google.rpc
 import com.google.rpc.status.{Status => StatusProto}
+import com.google.rpc.{ErrorInfo, Status => StatusJavaProto}
 import io.grpc.Status.Code
 import io.grpc.{Status, StatusException, protobuf}
 
@@ -104,7 +104,7 @@ object CompletionResponse {
     case _ => Map.empty
   }
 
-  private def extractStatus(response: CompletionFailure) = response match {
+  private def extractStatus(response: CompletionFailure): StatusJavaProto.Builder = response match {
     case CompletionResponse.NotOkResponse(_, grpcStatus) => GrpcStatus.toJavaBuilder(grpcStatus)
     case CompletionResponse.TimeoutResponse(_) =>
       GrpcStatus.toJavaBuilder(Code.ABORTED.value(), Some("Timeout"), Iterable.empty)
@@ -116,13 +116,15 @@ object CompletionResponse {
       )
   }
 
-  private def buildException(metadata: Map[String, String], status: rpc.Status.Builder) = {
-    val newDetails = status.getDetailsList.asScala.map { any =>
-      if (any.is(classOf[rpc.ErrorInfo])) {
-        val previousErrorInfo: rpc.ErrorInfo = any.unpack(classOf[rpc.ErrorInfo])
+  private def buildException(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
+    val newDetails = status.getDetailsList.asScala.map { detail =>
+      if (detail.is(classOf[ErrorInfo])) {
+        val previousErrorInfo: ErrorInfo = detail.unpack(classOf[ErrorInfo])
         val newErrorInfo = previousErrorInfo.toBuilder.putAllMetadata(metadata.asJava).build()
         AnyProto.pack(newErrorInfo)
-      } else any
+      } else {
+        detail
+      }
     }
     protobuf.StatusProto.toStatusException(
       status

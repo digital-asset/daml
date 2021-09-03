@@ -27,7 +27,7 @@ object GrpcStatus {
     val description = Option(status.getDescription).getOrElse("")
     val statusJavaProto = io.grpc.protobuf.StatusProto.fromStatusAndTrailers(status, metadata)
     val details =
-      statusJavaProto.getDetailsList.asScala.map(any => AnyProto.fromJavaProto(any)).toSeq
+      statusJavaProto.getDetailsList.asScala.map(detail => AnyProto.fromJavaProto(detail)).toSeq
     StatusProto(code, description, details)
   }
 
