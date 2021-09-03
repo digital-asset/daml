@@ -97,6 +97,7 @@ object JdbcIndexer {
           } else {
             ResourceOwner.unit
           }
+      } yield for {
         initialLedgerEnd <- ResourceOwner.forFuture(() =>
           initializeLedger(ledgerDao)(resourceContext.executionContext)
         )
@@ -110,7 +111,8 @@ object JdbcIndexer {
           materializer.executionContext,
           loggingContext,
         )
-      } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow, readService)
+        indexer <- new JdbcIndexer(initialLedgerEnd, metrics, updateFlow, readService)
+      } yield indexer
 
     private[this] def initializedAppendOnlySchema(resetSchema: Boolean): ResourceOwner[Indexer] = {
       val storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl))
