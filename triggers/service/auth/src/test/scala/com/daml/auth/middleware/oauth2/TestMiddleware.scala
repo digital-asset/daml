@@ -96,12 +96,42 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
     }
     "return unauthorized on insufficient party claims" in {
       val claims = Request.Claims(actAs = List(Party("Bob")))
-      val token = makeToken(Request.Claims(actAs = List(Party("Alice"))))
-      val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
+      def r(actAs: String*)(readAs: String*) =
+        middlewareClient
+          .requestAuth(
+            claims,
+            Seq(
+              Cookie(
+                "daml-ledger-token",
+                makeToken(
+                  Request.Claims(
+                    actAs = actAs.map(Party(_)).toList,
+                    readAs = readAs.map(Party(_)).toList,
+                  )
+                ).toCookieValue,
+              )
+            ),
+          )
       for {
-        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
+        aliceA <- r("Alice")()
+        empty <- r()()
+        aliceA_bobA <- r("Alice", "Bob")()
+        aliceA_bobR <- r("Alice")("Bob")
+        aliceR_bobA <- r("Bob")("Alice")
+        aliceR_bobR <- r()("Alice", "Bob")
+        bobA <- r("Bob")()
+        bobR <- r()("Bob")
+        bobAR <- r("Bob")("Bob")
       } yield {
-        assert(result == None)
+        assert(aliceA.isEmpty)
+        assert(empty.isEmpty)
+        assert(aliceA_bobA.isDefined)
+        assert(aliceA_bobR.isEmpty)
+        assert(aliceR_bobA.isDefined)
+        assert(aliceR_bobR.isEmpty)
+        assert(bobA.isDefined)
+        assert(bobR.isEmpty)
+        assert(bobAR.isDefined)
       }
     }
     "return unauthorized on insufficient app id claims" in {
