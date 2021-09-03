@@ -38,6 +38,7 @@ all cases, the Ledger API exposes the same services:
   - Use the :ref:`active contracts service <active-contract-service>` to quickly bootstrap an application with the currently active contracts. It saves you the work to process the ledger from the beginning to obtain its current state.
 - Utility services
 
+  - Use the :ref:`party management service <party-service>` to allocate and find information about parties on the Daml ledger.
   - Use the :ref:`package service <package-service>` to query the Daml packages deployed to the ledger.
   - Use the :ref:`ledger identity service <ledger-identity-service>` to retrieve the Ledger ID of the ledger the application is connected to.
   - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like maximum deduplication time for commands.

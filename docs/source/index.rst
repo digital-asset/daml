@@ -70,6 +70,7 @@ Daml Documentation
    :caption: Operating Daml
 
    ops/index
+   ops/connect/index
 
 .. toctree::
    :titlesonly:
