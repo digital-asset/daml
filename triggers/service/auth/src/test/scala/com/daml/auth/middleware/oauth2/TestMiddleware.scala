@@ -25,12 +25,17 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
 import scala.collection.immutable
+import scala.collection.immutable.Seq
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.{Failure, Success}
 
-class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
+class TestMiddleware
+    extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll
+    with Matchers {
   private def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
@@ -96,12 +101,42 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
     }
     "return unauthorized on insufficient party claims" in {
       val claims = Request.Claims(actAs = List(Party("Bob")))
-      val token = makeToken(Request.Claims(actAs = List(Party("Alice"))))
-      val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
+      def r(actAs: String*)(readAs: String*) =
+        middlewareClient
+          .requestAuth(
+            claims,
+            Seq(
+              Cookie(
+                "daml-ledger-token",
+                makeToken(
+                  Request.Claims(
+                    actAs = actAs.map(Party(_)).toList,
+                    readAs = readAs.map(Party(_)).toList,
+                  )
+                ).toCookieValue,
+              )
+            ),
+          )
       for {
-        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
+        aliceA <- r("Alice")()
+        nothing <- r()()
+        aliceA_bobA <- r("Alice", "Bob")()
+        aliceA_bobR <- r("Alice")("Bob")
+        aliceR_bobA <- r("Bob")("Alice")
+        aliceR_bobR <- r()("Alice", "Bob")
+        bobA <- r("Bob")()
+        bobR <- r()("Bob")
+        bobAR <- r("Bob")("Bob")
       } yield {
-        assert(result == None)
+        aliceA shouldBe empty
+        nothing shouldBe empty
+        aliceA_bobA should not be empty
+        aliceA_bobR shouldBe empty
+        aliceR_bobA should not be empty
+        aliceR_bobR shouldBe empty
+        bobA should not be empty
+        bobR shouldBe empty
+        bobAR should not be empty
       }
     }
     "return unauthorized on insufficient app id claims" in {
