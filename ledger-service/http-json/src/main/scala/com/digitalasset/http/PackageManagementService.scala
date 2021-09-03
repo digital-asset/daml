@@ -11,6 +11,7 @@ import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
 import com.daml.logging.LoggingContextOf
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,18 +21,22 @@ class PackageManagementService(
     uploadDarFileFn: LedgerClientJwt.UploadDarFile,
 )(implicit ec: ExecutionContext, mat: Materializer) {
 
-  def listPackages(jwt: Jwt)(implicit
+  def listPackages(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Seq[String]] =
-    listKnownPackagesFn(jwt)(lc).map(_.packageIds)
+    listKnownPackagesFn(jwt, ledgerId)(lc).map(_.packageIds)
 
-  def getPackage(jwt: Jwt, packageId: String)(implicit
+  def getPackage(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId, packageId: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[admin.GetPackageResponse] =
-    getPackageFn(jwt, packageId)(lc).map(admin.GetPackageResponse.fromLedgerApi)
+    getPackageFn(jwt, ledgerId, packageId)(lc).map(admin.GetPackageResponse.fromLedgerApi)
 
-  def uploadDarFile(jwt: Jwt, source: Source[ByteString, NotUsed])(implicit
+  def uploadDarFile(
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      source: Source[ByteString, NotUsed],
+  )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Unit] =
-    uploadDarFileFn(jwt, ProtobufByteStrings.readFrom(source))(lc)
+    uploadDarFileFn(jwt, ledgerId, ProtobufByteStrings.readFrom(source))(lc)
 }

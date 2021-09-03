@@ -76,7 +76,7 @@ final class CommandClient(
   def trackSingleCommand(submitRequest: SubmitRequest, token: Option[String] = None)(implicit
       mat: Materializer
   ): Future[Either[CompletionFailure, CompletionSuccess]] =
-    it.trackSingleCommand(submitRequest, token, ledgerId)
+    it.trackSingleCommand(submitRequest, ledgerId, token)
 
   /** Tracks the results (including timeouts) of incoming commands.
     * Applies a maximum bound for in-flight commands which have been submitted, but not confirmed through command completions.
@@ -87,7 +87,7 @@ final class CommandClient(
     */
   def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
-  ): Future[TrackCommandFlow[Context]] = it.trackCommands(parties, token, ledgerId)
+  ): Future[TrackCommandFlow[Context]] = it.trackCommands(parties, ledgerId, token)
 
   /** Tracks the results (including timeouts) of incoming commands.
     *
@@ -97,20 +97,20 @@ final class CommandClient(
     */
   def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
       ec: ExecutionContext
-  ): Future[TrackCommandFlow[Context]] = it.trackCommandsUnbounded(parties, token, ledgerId)
+  ): Future[TrackCommandFlow[Context]] = it.trackCommandsUnbounded(parties, ledgerId, token)
 
   def completionSource(
       parties: Seq[String],
       offset: LedgerOffset,
       token: Option[String] = None,
   ): Source[CompletionStreamElement, NotUsed] =
-    it.completionSource(parties, offset, token, ledgerId)
+    it.completionSource(parties, offset, ledgerId, token)
 
   def submissionFlow[Context](
       token: Option[String] = None
   ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] =
-    it.submissionFlow(token, ledgerId)
+    it.submissionFlow(ledgerId, token)
 
   def getCompletionEnd(token: Option[String] = None): Future[CompletionEndResponse] =
-    it.getCompletionEnd(token, ledgerId)
+    it.getCompletionEnd(ledgerId, token)
 }
