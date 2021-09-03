@@ -24,7 +24,6 @@ trait StartSettings {
   val portFile: Option[Path]
   val tlsConfig: TlsConfiguration
   val wsConfig: Option[WebsocketConfig]
-  val accessTokenFile: Option[Path]
   val allowNonHttps: Boolean
   val staticContentConfig: Option[StaticContentConfig]
   val packageReloadInterval: FiniteDuration

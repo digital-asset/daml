@@ -76,6 +76,8 @@ object domain {
       oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
   }
 
+  final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)
+
   // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
   // read endpoints but once we get multi-party submissions, this can also be used for write endpoints.
   sealed abstract case class JwtPayload private (
@@ -96,7 +98,9 @@ object domain {
       (readAs ++ actAs) match {
         case Nil => None
         case p :: ps =>
-          Some(new JwtPayload(ledgerId, applicationId, readAs, actAs, oneAndSet(p, ps.toSet)) {})
+          Some(
+            new JwtPayload(ledgerId, applicationId, readAs, actAs, oneAndSet(p, ps.toSet)) {}
+          )
       }
     }
   }

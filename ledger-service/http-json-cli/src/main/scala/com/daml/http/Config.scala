@@ -37,7 +37,6 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     allowNonHttps: Boolean = false,
-    accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml

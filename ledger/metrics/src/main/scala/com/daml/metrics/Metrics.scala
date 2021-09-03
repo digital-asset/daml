@@ -370,6 +370,11 @@ final class Metrics(val registry: MetricRegistry) {
       val transactionLogUpdatesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
 
+      val transactionTreesBufferSize: Counter =
+        registry.counter(Prefix :+ "transaction_trees_buffer_size")
+      val flatTransactionsBufferSize: Counter =
+        registry.counter(Prefix :+ "flat_transactions_buffer_size")
+
       val contractStateEventsBufferSize: Counter =
         registry.counter(Prefix :+ "contract_state_events_buffer_size")
 
@@ -686,12 +691,12 @@ final class Metrics(val registry: MetricRegistry) {
 
           val toFlatTransactions: Timer = registry.timer(Prefix :+ "to_flat_transactions")
           val toTransactionTrees: Timer = registry.timer(Prefix :+ "to_transaction_trees")
-        }
 
-        val transactionTreesBufferSize: Counter =
-          registry.counter(Prefix :+ "transaction_trees_buffer_size")
-        val flatTransactionsBufferSize: Counter =
-          registry.counter(Prefix :+ "flat_transactions_buffer_size")
+          val transactionTreesBufferSize: Counter =
+            registry.counter(Prefix :+ "transaction_trees_buffer_size")
+          val flatTransactionsBufferSize: Counter =
+            registry.counter(Prefix :+ "flat_transactions_buffer_size")
+        }
 
         val getContractStateEventsChunkSize: Histogram =
           registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")

@@ -18,13 +18,14 @@ import com.daml.ledger.api.v1.command_service.{
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object LedgerClientJwt {
 
@@ -37,13 +38,24 @@ object LedgerClientJwt {
     (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionTreeResponse]
 
   type GetTermination =
-    Jwt => Future[Option[Terminates.AtAbsolute]]
+    (Jwt, LedgerApiDomain.LedgerId) => Future[Option[Terminates.AtAbsolute]]
 
   type GetActiveContracts =
-    (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, NotUsed]
+    (
+        Jwt,
+        LedgerApiDomain.LedgerId,
+        TransactionFilter,
+        Boolean,
+    ) => Source[GetActiveContractsResponse, NotUsed]
 
   type GetCreatesAndArchivesSince =
-    (Jwt, TransactionFilter, LedgerOffset, Terminates) => Source[Transaction, NotUsed]
+    (
+        Jwt,
+        LedgerApiDomain.LedgerId,
+        TransactionFilter,
+        LedgerOffset,
+        Terminates,
+    ) => Source[Transaction, NotUsed]
 
   type ListKnownParties =
     Jwt => Future[List[api.domain.PartyDetails]]
@@ -55,17 +67,25 @@ object LedgerClientJwt {
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
 
   type ListPackages =
-    Jwt => LoggingContextOf[InstanceUUID with RequestID] => Future[
+    (Jwt, LedgerApiDomain.LedgerId) => LoggingContextOf[InstanceUUID with RequestID] => Future[
       package_service.ListPackagesResponse
     ]
 
   type GetPackage =
-    (Jwt, String) => LoggingContextOf[InstanceUUID with RequestID] => Future[
+    (
+        Jwt,
+        LedgerApiDomain.LedgerId,
+        String,
+    ) => LoggingContextOf[InstanceUUID with RequestID] => Future[
       package_service.GetPackageResponse
     ]
 
   type UploadDarFile =
-    (Jwt, protobuf.ByteString) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
+    (
+        Jwt,
+        LedgerApiDomain.LedgerId,
+        protobuf.ByteString,
+    ) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
@@ -76,8 +96,8 @@ object LedgerClientJwt {
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
 
   def getTermination(client: DamlLedgerClient)(implicit ec: ExecutionContext): GetTermination =
-    jwt =>
-      client.transactionClient.getLedgerEnd(bearer(jwt)).map {
+    (jwt, ledgerId) =>
+      client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt)).map {
         _.offset flatMap {
           _.value match {
             case off @ LedgerOffset.Value.Absolute(_) => Some(Terminates.AtAbsolute(off))
@@ -87,9 +107,9 @@ object LedgerClientJwt {
       }
 
   def getActiveContracts(client: DamlLedgerClient): GetActiveContracts =
-    (jwt, filter, verbose) =>
+    (jwt, ledgerId, filter, verbose) =>
       client.activeContractSetClient
-        .getActiveContracts(filter, verbose, bearer(jwt))
+        .getActiveContracts(filter, ledgerId, verbose, bearer(jwt))
         .mapMaterializedValue(_ => NotUsed)
 
   sealed abstract class Terminates extends Product with Serializable {
@@ -112,13 +132,20 @@ object LedgerClientJwt {
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   def getCreatesAndArchivesSince(client: DamlLedgerClient): GetCreatesAndArchivesSince =
-    (jwt, filter, offset, terminates) => {
+    (jwt, ledgerId, filter, offset, terminates) => {
       val end = terminates.toOffset
       if (skipRequest(offset, end))
         Source.empty[Transaction]
       else
         client.transactionClient
-          .getTransactions(offset, terminates.toOffset, filter, verbose = true, token = bearer(jwt))
+          .getTransactions(
+            offset,
+            terminates.toOffset,
+            filter,
+            ledgerId,
+            verbose = true,
+            token = bearer(jwt),
+          )
     }
 
   private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean = {
@@ -145,21 +172,21 @@ object LedgerClientJwt {
       )
 
   def listPackages(client: DamlLedgerClient): ListPackages =
-    jwt =>
+    (jwt, ledgerId) =>
       implicit lc => {
         logger.trace("sending list packages request to ledger")
-        client.packageClient.listPackages(bearer(jwt))
+        client.packageClient.listPackages(ledgerId, bearer(jwt))
       }
 
   def getPackage(client: DamlLedgerClient): GetPackage =
-    (jwt, packageId) =>
+    (jwt, ledgerId, packageId) =>
       implicit lc => {
         logger.trace("sending get packages request to ledger")
-        client.packageClient.getPackage(packageId, token = bearer(jwt))
+        client.packageClient.getPackage(packageId, ledgerId, token = bearer(jwt))
       }
 
   def uploadDar(client: DamlLedgerClient): UploadDarFile =
-    (jwt, byteString) =>
+    (jwt, _, byteString) =>
       implicit lc => {
         logger.trace("sending upload dar request to ledger")
         client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))

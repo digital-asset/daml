@@ -31,5 +31,5 @@ final class ActiveContractSetClient(
       verbose: Boolean = false,
       token: Option[String] = None,
   ): Source[GetActiveContractsResponse, Future[String]] =
-    it.getActiveContracts(filter, verbose = verbose, token = token, ledgerId)
+    it.getActiveContracts(filter, ledgerId, verbose = verbose, token = token)
 }

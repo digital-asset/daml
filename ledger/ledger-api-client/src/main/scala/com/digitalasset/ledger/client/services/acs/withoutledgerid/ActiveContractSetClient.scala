@@ -59,9 +59,9 @@ private[daml] final class ActiveContractSetClient(service: ActiveContractsServic
     */
   def getActiveContracts(
       filter: TransactionFilter,
+      ledgerIdToUse: LedgerId,
       verbose: Boolean = false,
       token: Option[String] = None,
-      ledgerIdToUse: LedgerId,
   ): Source[GetActiveContractsResponse, Future[String]] =
     activeContractSource(request(filter, verbose, ledgerIdToUse), token).viaMat(extractOffset)(
       Keep.right

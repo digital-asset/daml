@@ -101,7 +101,7 @@ class BufferedTransactionsReaderSpec
           resolvedFromBufferCounter =
             metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
           totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
-          bufferSizeCounter = metrics.daml.services.index.transactionTreesBufferSize,
+          bufferSizeCounter = metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
           outputStreamBufferSize = 128,
         )
         .runWith(Sink.seq)

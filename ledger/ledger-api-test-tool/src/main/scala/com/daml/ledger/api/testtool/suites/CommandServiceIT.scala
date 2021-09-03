@@ -280,7 +280,11 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWait(badRequest)
         .mustFail("submitting a request with a bad parameter label")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, s"Missing record label")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some(Pattern.compile(s"Missing record (label|field)")),
+      )
     }
   })
 

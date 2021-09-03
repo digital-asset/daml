@@ -8,7 +8,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.dbutils
 import dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ports.LockedFreePort
 import com.daml.testing.postgresql.PostgresAroundAll
 import java.net.InetAddress
@@ -66,6 +66,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
       Some(jdbcConfig_),
       None,
       wsConfig = Some(Config.DefaultWsConfig),
+      ledgerIdOverwrite = Some(ledgerId(None)),
     )
   }
 }

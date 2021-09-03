@@ -41,7 +41,7 @@ object LedgerClient extends LedgerClientBase {
       key <- Try(factory.generatePrivate(keySpec))
     } yield key
 
-  protected def channelBuilder(
+  def channelBuilder(
       ledgerHost: String,
       ledgerPort: Int,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,

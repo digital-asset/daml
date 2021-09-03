@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{RecordField, Value, Variant}
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.nonrepudiation.NonRepudiationProxy
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
 import com.daml.nonrepudiation.testing.generateKeyAndCertificate
@@ -100,7 +100,7 @@ abstract class AbstractNonRepudiationTest
     ) _
 
   protected def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
-    withParticipant { case (participantPort, _: DamlLedgerClient) =>
+    withParticipant { case (participantPort, _: DamlLedgerClient, _) =>
       val participantChannelBuilder =
         NettyChannelBuilder
           .forAddress("localhost", participantPort.value)

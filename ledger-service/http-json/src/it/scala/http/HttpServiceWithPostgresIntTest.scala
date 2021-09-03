@@ -19,7 +19,7 @@ class HttpServiceWithPostgresIntTest
 
   override def wsConfig: Option[WebsocketConfig] = None
 
-  "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
+  "query persists all active contracts" in withHttpService { (uri, encoder, _, _) =>
     searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
