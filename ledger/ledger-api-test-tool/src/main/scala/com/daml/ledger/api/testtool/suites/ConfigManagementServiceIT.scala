@@ -71,6 +71,10 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           newTimeModel = oldTimeModel,
         )
         .mustFail("setting a time model with an expired MRT")
+
+      // Above operation finished on a timeout, but may still succeed asynchronously.
+      // Stabilize the ledger state before leaving the test case.
+      _ <- stabilize(ledger)
     } yield {
       assert(
         response1.configurationGeneration < response2.configurationGeneration,
@@ -240,4 +244,11 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         Failure(failure)
 
     }
+
+  // Stabilize the ledger by writing a new element and observing it in the indexDb.
+  // The allocateParty method fits the bill.
+  private def stabilize(ledger: ParticipantTestContext)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] =
+    ledger.allocateParty().map(_ => ())
 }
