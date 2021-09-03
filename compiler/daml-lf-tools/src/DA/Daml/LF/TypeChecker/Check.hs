@@ -586,10 +586,10 @@ checkCreate tpl arg = do
 typeOfExercise :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
 typeOfExercise tpl chName cid arg = do
-  choice <- inWorld (lookupChoice (tpl, chName))
+  choice <- inWorld (lookupTemplateOrInterfaceChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  checkExpr arg (chcArgType choice)
-  pure (TUpdate (chcReturnType choice))
+  checkExpr arg (either chcArgType ifcArgType choice)
+  pure (TUpdate (either chcReturnType ifcRetType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
@@ -605,7 +605,7 @@ typeOfExerciseByKey tplId chName key arg = do
 
 checkFetch :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkFetch tpl cid = do
-  _ :: Template <- inWorld (lookupTemplate tpl)
+  _ :: Either Template DefInterface <- inWorld (lookupTemplateOrInterface tpl)
   checkExpr cid (TContractId (TCon tpl))
 
 -- returns the contract id and contract type
@@ -789,7 +789,7 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
         checkUnique EDuplicateConstructor names
       DataInterface -> do
         unless (null params) $ throwWithContext EInterfaceTypeWithParams
-        pure () -- TODO interfaces: Check that a DefInterface exists to go with this.
+        -- TODO interfaces: Check that a DefInterface exists to go with this.
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do

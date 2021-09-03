@@ -18,6 +18,10 @@ module DA.Daml.LF.Ast.World(
     lookupTypeSyn,
     lookupDataType,
     lookupChoice,
+    lookupInterface,
+    lookupInterfaceChoice,
+    lookupTemplateOrInterface,
+    lookupTemplateOrInterfaceChoice,
     lookupValue,
     lookupModule
     ) where
@@ -95,6 +99,7 @@ data LookupError
   | LEDataType !(Qualified TypeConName)
   | LEValue !(Qualified ExprValName)
   | LETemplate !(Qualified TypeConName)
+  | LEInterface !(Qualified TypeConName)
   | LEException !(Qualified TypeConName)
   | LEChoice !(Qualified TypeConName) !ChoiceName
   deriving (Eq, Ord, Show)
@@ -136,6 +141,9 @@ lookupValue = lookupDefinition moduleValues LEValue
 lookupTemplate :: Qualified TypeConName -> World -> Either LookupError Template
 lookupTemplate = lookupDefinition moduleTemplates LETemplate
 
+lookupInterface :: Qualified TypeConName -> World -> Either LookupError Interface
+lookupInterface = lookupDefinition moduleInterface LEInterface
+
 lookupException :: Qualified TypeConName -> World -> Either LookupError DefException
 lookupException = lookupDefinition moduleExceptions LEException
 
@@ -145,6 +153,23 @@ lookupChoice (tplRef, chName) world = do
   case NM.lookup chName (tplChoices tpl) of
     Nothing -> Left (LEChoice tplRef chName)
     Just choice -> Right choice
+
+lookupInterfaceChoice :: (Qualified TypeConName, ChoiceName) -> World -> Either LookupError InterfaceChoice
+lookupInterfaceChoice (ifaceRef, chName) world = do
+  iface <- lookupInterface ifaceRef world
+  case NM.lookup chName (intChoices iface) of
+    Nothing -> Left (LEChoice ifaceRef chName)
+    Just choice -> Right choice
+
+lookupTemplateOrInterface :: Qualified TypeConName -> World -> Either LookupError (Either Template Interface)
+lookupTemplateOrInterface name world
+    = Right <$> lookupInterface name world
+    <|> Left <$> lookupTemplate name world
+
+lookupTemplateOrInterfaceChoice :: (Qualified TypeConName, ChoiceName) -> World -> Either LookupError (Either TemplateChoice InterfaceChoice)
+lookupTemplateOrInterfaceChoice name world
+    = Right <$> lookupInterfaceChoice name world
+    <|> Left <$> lookupChoice name world
 
 instance Pretty LookupError where
   pPrint = \case
