@@ -54,10 +54,18 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/participant-state-index/    @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/sandbox/                    @digital-asset/kv-participant @digital-asset/kv-committer
 
+# Owned by KV Participant except for IndexDB schema which is jointly owned with @meiersi-da
+/ledger/participant-integration-api/                    @digital-asset/kv-participant @meiersi-da 
+
+
 # KV Committer
 /ledger/ledger-on-memory/           @digital-asset/kv-committer
 /ledger/ledger-on-sql/              @digital-asset/kv-committer
 /ledger/participant-state/kvutils/  @digital-asset/kv-committer
+
+# Jointly owned persistence schema and wire format
+/ledger/participant-state/kvutils/src/main/protobuf  @meiersi-da @digital-asset/kv-committer
+
 
 /runtime-components/    @stefanobaghino-da @cocreature
 
