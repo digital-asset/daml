@@ -29,6 +29,10 @@ ALTER TABLE participant_command_completions
     ALTER COLUMN record_time
         SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM record_time) * 1000000;
 
+ALTER TABLE participant_command_completions
+    ALTER COLUMN deduplication_start
+        SET DATA TYPE BIGINT USING EXTRACT(EPOCH FROM deduplication_start) * 1000000;
+
 
 
 DROP VIEW participant_events;

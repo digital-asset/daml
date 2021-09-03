@@ -433,9 +433,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   private case class ParsedCommandData(deduplicateUntil: Instant)
 
   private val CommandDataParser: RowParser[ParsedCommandData] =
-    Macro.parser[ParsedCommandData](
-      "deduplicate_until"
-    )
+    instantFromMicros("deduplicate_until")
+      .map(ParsedCommandData)
 
   def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Instant =
     SQL_SELECT_COMMAND
