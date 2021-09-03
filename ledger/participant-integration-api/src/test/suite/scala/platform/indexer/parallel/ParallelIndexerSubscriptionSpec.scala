@@ -23,7 +23,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   private val someParty = DbDto.PartyEntry(
     ledger_offset = "",
-    recorded_at = null,
+    recorded_at = 0,
     submission_id = null,
     party = Some("party"),
     display_name = None,
