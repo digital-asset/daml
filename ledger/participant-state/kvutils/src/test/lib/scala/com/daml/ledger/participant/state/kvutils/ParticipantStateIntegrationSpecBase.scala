@@ -322,7 +322,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         }
       }
 
-      "reject duplicate commands" ignore participantState.use { ps =>
+      "reject duplicate commands" in participantState.use { ps =>
         val firstCommandId = "X1"
         val secondCommandId = "X2"
         for {
@@ -337,7 +337,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             )
             .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
-          // Below submission is a duplicate, should get dropped.
+          // Below submission is a duplicate.
           result3 <- ps
             .submitTransaction(
               submitterInfo(alice, firstCommandId),
@@ -346,6 +346,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               DefaultInterpretationCost,
             )
             .toScala
+          (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           result4 <- ps
             .submitTransaction(
               submitterInfo(alice, secondCommandId),
@@ -354,10 +355,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               DefaultInterpretationCost,
             )
             .toScala
-          (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
+          (offset4, update4) <- waitForNextUpdate(ps, Some(offset3))
           results = Seq(result1, result2, result3, result4)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          updates = Seq(update1, update2, update3)
+          updates = Seq(update1, update2, update3, update4)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
 
@@ -367,8 +368,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           offset2 should be(toOffset(2))
           matchTransaction(update2, firstCommandId)
 
-          offset3 should be(toOffset(4))
-          matchTransaction(update3, secondCommandId)
+          offset3 should be(toOffset(3))
+          inside(update3) { case CommandRejected(_, _, FinalReason(status)) =>
+            status.code should be(Code.ALREADY_EXISTS.value)
+          }
+
+          offset4 should be(toOffset(4))
+          matchTransaction(update4, secondCommandId)
         }
       }
 

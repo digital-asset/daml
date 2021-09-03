@@ -173,6 +173,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",
         "--exclude=ConfigManagementServiceIT",
     ],
 )
