@@ -318,6 +318,17 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandServiceIT:CSRefuseBadParameter",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
