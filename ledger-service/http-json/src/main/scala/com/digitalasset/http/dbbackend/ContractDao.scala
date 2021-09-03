@@ -19,7 +19,7 @@ import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{NonEmptyList, OneAnd}
+import scalaz.{NonEmptyList, OneAnd, Order}
 import scalaz.std.map._
 import scalaz.std.vector._
 import scalaz.syntax.tag._
@@ -151,7 +151,7 @@ object ContractDao {
       sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[(domain.Offset, NonEmpty[Set[domain.TemplateId.RequiredPkg]])]] = {
     type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
-    import scalaz.syntax.traverse._, scalaz.syntax.foldable1.{ToFoldableOps => _, _}
+    import scalaz.syntax.traverse._
     import sjd.q.queries.unsyncedOffsets
     for {
       tpids <- {
@@ -166,19 +166,30 @@ object ContractDao {
       unsynced = domain.Party.subst[Unsynced[*, domain.Offset], String](
         domain.Offset.tag.subst[Unsynced[String, *], String](unsyncedRaw)
       ): Unsynced[domain.Party, domain.Offset]
-      lagging = unsynced collect (Function unlift { case (surrogateTpId, partyOffs) =>
-        import scalaz.std.iterable._
-        partyOffs
-          .collect {
-            case (unsyncedParty, unsyncedOff)
-                if (if (parties(unsyncedParty)) unsyncedOff != expectedOffset
-                    else unsyncedOff <= expectedOffset) =>
-              unsyncedOff
-          }
-          .maximum
-          .map((surrogatesToDomains(surrogateTpId), _))
-      })
-    } yield lagging match {
+    } yield minimumViableOffsets(parties, surrogatesToDomains, expectedOffset, unsynced)
+  }
+
+  // postprocess the output of unsyncedOffsets
+  private[this] def minimumViableOffsets[ITpId, OTpId, Party, Off: Order](
+      queriedParty: Party => Boolean,
+      surrogatesToDomains: ITpId => OTpId,
+      expectedOffset: Off,
+      unsynced: Map[ITpId, Map[Party, Off]],
+  ): Option[(Off, NonEmpty[Set[OTpId]])] = {
+    import scalaz.syntax.foldable1.{ToFoldableOps => _, _}
+    val lagging = unsynced collect (Function unlift { case (surrogateTpId, partyOffs) =>
+      import scalaz.std.iterable._
+      partyOffs
+        .collect {
+          case (unsyncedParty, unsyncedOff)
+              if (if (queriedParty(unsyncedParty)) unsyncedOff != expectedOffset
+                  else unsyncedOff <= expectedOffset) =>
+            unsyncedOff
+        }
+        .maximum
+        .map((surrogatesToDomains(surrogateTpId), _))
+    })
+    lagging match {
       case NonEmpty(lagging) => Some((lagging.toF.maximum1, lagging.keySet))
       case _ => None
     }
