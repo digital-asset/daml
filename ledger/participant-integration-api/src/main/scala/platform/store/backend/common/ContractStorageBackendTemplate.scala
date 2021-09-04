@@ -6,7 +6,7 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{binaryStream, get, int, long, str}
+import anorm.SqlParser.{binaryStream, int, long, str}
 import anorm.{ResultSetParser, RowParser, SqlParser, ~}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{
@@ -137,7 +137,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       ~ flatEventWitnessesColumn("flat_event_witnesses")
       ~ binaryStream("create_argument").?
       ~ int("create_argument_compression").?
-      ~ int("event_kind") ~ get[Instant]("ledger_effective_time")(anorm.Column.columnToInstant).?)
+      ~ int("event_kind") ~ instantFromMicros("ledger_effective_time").?)
       .map(SqlParser.flatten)
       .map(StorageBackend.RawContractState.tupled)
 
