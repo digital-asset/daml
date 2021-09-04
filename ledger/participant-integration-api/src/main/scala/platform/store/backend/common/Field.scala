@@ -97,17 +97,6 @@ private[backend] object Timestamp {
     TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(i.getNano.toLong)
 }
 
-private[backend] case class Timestamp[FROM](extract: FROM => Instant)
-    extends Field[FROM, Instant, java.lang.Long] {
-  override def convert: Instant => java.lang.Long = Timestamp.instantToMicros
-}
-
-private[backend] case class TimestampOptional[FROM](extract: FROM => Option[Instant])
-    extends Field[FROM, Option[Instant], java.lang.Long] {
-  override def convert: Option[Instant] => java.lang.Long =
-    _.map[java.lang.Long](Timestamp.instantToMicros).orNull[java.lang.Long]
-}
-
 private[backend] case class StringArray[FROM](extract: FROM => Iterable[String])
     extends Field[FROM, Iterable[String], Array[String]] {
   override def convert: Iterable[String] => Array[String] = _.toArray
