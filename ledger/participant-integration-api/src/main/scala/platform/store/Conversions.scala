@@ -325,11 +325,13 @@ private[platform] object Conversions {
     SqlParser.get[Date](name).map(_.toInstant)
 
   def instantFromMicros(name: String): RowParser[Instant] =
-    SqlParser.get[Long](name).map { micros =>
-      val seconds = TimeUnit.MICROSECONDS.toSeconds(micros)
-      val microsOfSecond = micros - TimeUnit.SECONDS.toMicros(seconds)
-      Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(microsOfSecond))
-    }
+    SqlParser.get[Long](name).map(instantFromMicros)
+
+  def instantFromMicros(micros: Long): Instant = {
+    val seconds = TimeUnit.MICROSECONDS.toSeconds(micros)
+    val microsOfSecond = micros - TimeUnit.SECONDS.toMicros(seconds)
+    Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(microsOfSecond))
+  }
 
   // Hash
 

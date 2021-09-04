@@ -5,7 +5,6 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 import java.time.Instant
-import java.util.Date
 
 import anorm.SqlParser.{array, binaryStream, byteArray, flatten, int, long, str}
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, ~}
@@ -339,7 +338,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       packageId: String,
       sourceDescription: Option[String],
       size: Long,
-      knownSince: Date,
+      knownSince: Long,
   )
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
@@ -356,7 +355,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .map(d =>
         PackageId.assertFromString(d.packageId) -> PackageDetails(
           d.size,
-          d.knownSince.toInstant,
+          instantFromMicros(d.knownSince),
           d.sourceDescription,
         )
       )
