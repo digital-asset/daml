@@ -66,7 +66,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
       builder.create(
         id = id,
         template = "pkgid:M:T",
-        argument = Value.ValueRecord(None, ImmArray.empty),
+        argument = Value.ValueRecord(None, ImmArray.Empty),
         signatories = Seq(partyStr),
         observers = Seq(),
         key = None,
@@ -78,7 +78,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
         choice = "C",
         consuming = true,
         actingParties = Set(partyStr),
-        argument = Value.ValueRecord(None, ImmArray.empty),
+        argument = Value.ValueRecord(None, ImmArray.Empty),
       )
     }
 

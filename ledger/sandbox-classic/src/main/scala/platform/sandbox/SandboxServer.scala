@@ -253,7 +253,7 @@ final class SandboxServer(
       }
     }
     config.scenario match {
-      case None => (InMemoryActiveLedgerState.empty, ImmArray.empty, None)
+      case None => (InMemoryActiveLedgerState.empty, ImmArray.Empty, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
           ScenarioLoader.fromScenario(

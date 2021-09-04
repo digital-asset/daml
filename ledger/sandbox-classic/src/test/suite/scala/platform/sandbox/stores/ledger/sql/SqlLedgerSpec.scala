@@ -456,7 +456,7 @@ final class SqlLedgerSpec
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)
           .fold(sys.error, identity),
-        initialLedgerEntries = ImmArray.empty,
+        initialLedgerEntries = ImmArray.Empty,
         queueDepth = queueDepth,
         transactionCommitter = LegacyTransactionCommitter,
         startMode = SqlStartMode.MigrateAndStart,

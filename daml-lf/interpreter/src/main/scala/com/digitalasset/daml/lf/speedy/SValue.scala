@@ -90,11 +90,9 @@ object SValue {
       case SRecord(id, fields, svalues) =>
         V.ValueRecord(
           Some(id),
-          ImmArray(
-            fields.toSeq
-              .zip(svalues.asScala)
-              .map({ case (fld, sv) => (Some(fld), toValue(sv, nextMaxNesting)) })
-          ),
+          (fields.toSeq zip svalues.asScala)
+            .map { case (fld, sv) => (Some(fld), toValue(sv, nextMaxNesting)) }
+            .to(ImmArray),
         )
       case SVariant(id, variant, _, sv) =>
         V.ValueVariant(Some(id), variant, toValue(sv, nextMaxNesting))

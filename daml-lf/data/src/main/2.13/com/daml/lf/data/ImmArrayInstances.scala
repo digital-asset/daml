@@ -12,7 +12,18 @@ abstract class ImmArrayInstances extends scala.collection.IterableFactory[ImmArr
   implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
     ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
 
-  override def from[A](it: IterableOnce[A]): ImmArray[A] = (ImmArray.newBuilder[A] ++= it).result()
+  override def from[A](it: IterableOnce[A]): ImmArray[A] = {
+    it match {
+      case arraySeq: ImmArray.ImmArraySeq[A] =>
+        arraySeq.toImmArray
+      case otherwise =>
+        val builder = newBuilder[A]
+        builder.sizeHint(otherwise)
+        builder.addAll(otherwise)
+        builder.result()
+    }
+  }
+
   override def newBuilder[A]: Builder[A, ImmArray[A]] =
     ArraySeq
       .newBuilder[Any]

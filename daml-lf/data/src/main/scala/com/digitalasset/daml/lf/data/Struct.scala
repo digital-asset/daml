@@ -62,7 +62,7 @@ object Struct {
   def fromSeq[X](fields: collection.Seq[(Name, X)]): Either[Name, Struct[X]] =
     if (fields.isEmpty) rightEmpty
     else {
-      val struct = Struct(ImmArray(fields.sortBy(_._1: String)))
+      val struct = Struct(fields.sortBy(_._1: String).to(ImmArray))
       val names = struct.names
       var previous = names.next()
       names
@@ -90,7 +90,7 @@ object Struct {
   def assertFromNameSeq[X](names: Seq[Name]): Struct[Unit] =
     assertSuccess(fromNameSeq(names))
 
-  val Empty: Struct[Nothing] = new Struct(ImmArray.empty)
+  val Empty: Struct[Nothing] = new Struct(ImmArray.Empty)
 
   private[this] val rightEmpty = Right(Empty)
 

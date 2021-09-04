@@ -58,7 +58,7 @@ class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
     one shouldBe 1
     two shouldBe 2
     arr2 shouldBe ImmArray(2)
-    arr3 shouldBe ImmArray.empty[Int]
+    arr3 shouldBe ImmArray.Empty
     ImmArrayCons.unapply(arr3) shouldBe None
   }
 
@@ -135,7 +135,7 @@ class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
   behavior of "slice"
 
   it should "slice strictly" in {
-    ImmArray[Int](1).strictSlice(0, 0) shouldBe ImmArray.empty[Int]
+    ImmArray[Int](1).strictSlice(0, 0) shouldBe ImmArray.Empty
     ImmArray[Int](1, 2, 3, 4).strictSlice(1, 3) shouldBe ImmArray[Int](2, 3)
 
     an[IndexOutOfBoundsException] should be thrownBy ImmArray[Int](1).strictSlice(0, 2)
@@ -145,14 +145,14 @@ class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
   }
 
   it should "slice relaxedly" in {
-    ImmArray[Int](1).relaxedSlice(1, 2) shouldBe ImmArray.empty[Int]
-    ImmArray[Int](1).relaxedSlice(1, 1) shouldBe ImmArray.empty[Int]
+    ImmArray[Int](1).relaxedSlice(1, 2) shouldBe ImmArray.Empty
+    ImmArray[Int](1).relaxedSlice(1, 1) shouldBe ImmArray.Empty
     ImmArray[Int](1, 2, 3, 4).relaxedSlice(1, 3) shouldBe ImmArray[Int](2, 3)
 
     ImmArray[Int](1).relaxedSlice(0, 2) shouldBe ImmArray[Int](1)
-    ImmArray[Int](1).relaxedSlice(1, 1) shouldBe ImmArray.empty[Int]
+    ImmArray[Int](1).relaxedSlice(1, 1) shouldBe ImmArray.Empty
     ImmArray[Int](1).relaxedSlice(-1, 1) shouldBe ImmArray[Int](1)
-    ImmArray[Int](1).relaxedSlice(0, -1) shouldBe ImmArray.empty[Int]
+    ImmArray[Int](1).relaxedSlice(0, -1) shouldBe ImmArray.Empty
   }
 
   it should "implement equals and hashCode correctly" in {

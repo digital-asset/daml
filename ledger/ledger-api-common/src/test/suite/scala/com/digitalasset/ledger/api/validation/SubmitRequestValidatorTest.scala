@@ -753,9 +753,11 @@ class SubmitRequestValidatorTest
       }
 
       "convert valid maps" in {
-        val entries = ImmArray(1 until 5).map { x =>
-          Utf8.sha256(x.toString) -> x.toLong
-        }
+        val entries = (1 until 5)
+          .map { x =>
+            Utf8.sha256(x.toString) -> x.toLong
+          }
+          .to(ImmArray)
         val apiEntries = entries.map { case (k, v) =>
           ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
@@ -768,9 +770,11 @@ class SubmitRequestValidatorTest
       }
 
       "reject maps with repeated keys" in {
-        val entries = ImmArray(1 +: (1 until 5)).map { x =>
-          Utf8.sha256(x.toString) -> x.toLong
-        }
+        val entries = (1 +: (1 until 5))
+          .map { x =>
+            Utf8.sha256(x.toString) -> x.toLong
+          }
+          .to(ImmArray)
         val apiEntries = entries.map { case (k, v) =>
           ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }

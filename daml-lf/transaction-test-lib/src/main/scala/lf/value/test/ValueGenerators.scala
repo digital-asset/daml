@@ -138,7 +138,7 @@ object ValueGenerators {
           Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))
         )
       )
-    } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
+    } yield ValueRecord[ContractId](toOption(id), labelledValues.to(ImmArray))
 
   def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)
 
@@ -166,7 +166,7 @@ object ValueGenerators {
   private def valueGenMapGen(nesting: Int) =
     Gen
       .listOf(Gen.zip(Gen.lzy(valueGen(nesting)), Gen.lzy(valueGen(nesting))))
-      .map(list => ValueGenMap[ContractId](ImmArray(list)))
+      .map(list => ValueGenMap[ContractId](list.to(ImmArray)))
 
   def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)
 
@@ -362,7 +362,7 @@ object ValueGenerators {
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
-        .map(ImmArray(_))
+        .map(_.to(ImmArray))
     } yield NodeRollback(children)
   }
 
@@ -390,7 +390,7 @@ object ValueGenerators {
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
-        .map(ImmArray(_))
+        .map(_.to(ImmArray))
       exerciseResult <- if (version < minExceptions) valueGen.map(Some(_)) else Gen.option(valueGen)
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
@@ -495,7 +495,7 @@ object ValueGenerators {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
-    } yield GenTransaction(HashMap(nodes: _*), ImmArray(roots))
+    } yield GenTransaction(nodes.toMap, roots.to(ImmArray))
   }
 
   /*

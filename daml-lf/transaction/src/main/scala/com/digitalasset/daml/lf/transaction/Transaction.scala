@@ -174,9 +174,9 @@ final case class GenTransaction[Nid, +Cid](
               node2 match {
                 case nr2: Node.NodeRollback[Nid2] => //TODO: and here
                   val blankedNr1: Node.NodeRollback[Nothing] =
-                    nr1.copy(children = ImmArray.empty)
+                    nr1.copy(children = ImmArray.Empty)
                   val blankedNr2: Node.NodeRollback[Nothing] =
-                    nr2.copy(children = ImmArray.empty)
+                    nr2.copy(children = ImmArray.Empty)
                   compare(blankedNr1, blankedNr2) &&
                   nr1.children.length == nr2.children.length &&
                   go(nr1.children.zip(nr2.children) ++: rest)
@@ -197,9 +197,9 @@ final case class GenTransaction[Nid, +Cid](
               node2 match {
                 case ne2: Node.NodeExercises[Nid2, Cid2] =>
                   val blankedNe1: Node.NodeExercises[Nothing, Cid] =
-                    ne1.copy(children = ImmArray.empty)
+                    ne1.copy(children = ImmArray.Empty)
                   val blankedNe2: Node.NodeExercises[Nothing, Cid2] =
-                    ne2.copy(children = ImmArray.empty)
+                    ne2.copy(children = ImmArray.Empty)
                   compare(blankedNe1, blankedNe2) &&
                   ne1.children.length == ne2.children.length &&
                   go(ne1.children.zip(ne2.children) ++: rest)
@@ -230,7 +230,7 @@ final case class GenTransaction[Nid, +Cid](
         case _: Node.NodeFetch[Cid] => errs
         case nc: Node.NodeCreate[Cid] =>
           errs :++ f(nc.coinst.arg) :++ (nc.key match {
-            case None => ImmArray.empty
+            case None => ImmArray.Empty
             case Some(key) => f(key.key)
           })
         case ne: Node.NodeExercises[Nid, Cid] => errs :++ f(ne.chosenValue)
@@ -761,7 +761,7 @@ object GenTransaction extends value.CidContainer2[GenTransaction] {
 
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid]
 
-  private[this] val Empty = GenTransaction[Nothing, Nothing](HashMap.empty, ImmArray.empty)
+  private[this] val Empty = GenTransaction[Nothing, Nothing](HashMap.empty, ImmArray.Empty)
 
   private[lf] def empty[A, B, C]: GenTransaction[A, B] = Empty.asInstanceOf[GenTransaction[A, B]]
 

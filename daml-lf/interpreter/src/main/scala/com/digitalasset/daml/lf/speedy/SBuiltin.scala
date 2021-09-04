@@ -598,12 +598,12 @@ private[lf] object SBuiltin {
 
   final case object SBMapKeys extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(ImmArray(getSMap(args, 0).entries.keys) ++: FrontStack.empty)
+      SList(getSMap(args, 0).entries.keys.to(FrontStack))
   }
 
   final case object SBMapValues extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(ImmArray(getSMap(args, 0).entries.values) ++: FrontStack.empty)
+      SList(getSMap(args, 0).entries.values.to(FrontStack))
   }
 
   final case object SBMapSize extends SBuiltinPure(1) {
@@ -678,7 +678,7 @@ private[lf] object SBuiltin {
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(ImmArray(args.subList(0, n).asScala) ++: getSList(args, n))
+      SList(args.subList(0, n).asScala.to(ImmArray) ++: getSList(args, n))
   }
 
   /** $cons :: a -> List a -> List a */

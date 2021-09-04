@@ -295,7 +295,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       choice = "Archive",
       consuming = true,
       actingParties = actingParties,
-      argument = Value.ValueRecord(None, ImmArray.empty),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
       result = Some(Value.ValueUnit),
     )
 

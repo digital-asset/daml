@@ -5,7 +5,6 @@ package com.daml.lf
 package archive
 
 import java.util
-
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
@@ -31,14 +30,15 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       lfPackage: PLF.Package,
       onlySerializableDataDefs: Boolean,
   ): Either[Error, Package] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
-    val internedStrings: ImmArraySeq[String] = ImmArraySeq(
-      lfPackage.getInternedStringsList.asScala.toSeq: _*
-    )
+    val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
     if (internedStrings.nonEmpty)
       assertSince(LV.Features.internedPackageId, "interned strings table")
 
     val internedDottedNames =
-      decodeInternedDottedNames(lfPackage.getInternedDottedNamesList.asScala, internedStrings)
+      decodeInternedDottedNames(
+        lfPackage.getInternedDottedNamesList.asScala,
+        internedStrings,
+      )
 
     val dependencyTracker = new PackageDependencyTracker(packageId)
 
@@ -95,9 +95,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       packageId: PackageId,
       lfScenarioModule: ProtoScenarioModule,
   ): Either[Error, Module] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
-
     val internedStrings =
-      ImmArray(lfScenarioModule.getInternedStringsList.asScala).toSeq
+      lfScenarioModule.getInternedStringsList.asScala.to(ImmArraySeq)
     val internedDottedNames =
       decodeInternedDottedNames(
         lfScenarioModule.getInternedDottedNamesList.asScala,
@@ -133,7 +132,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     if (internedList.nonEmpty)
       assertSince(LV.Features.internedDottedNames, "interned dotted names table")
 
-    internedList
+    internedList.view
       .map(idn =>
         decodeSegments(
           idn.getSegmentsInternedStrList.asScala
@@ -355,12 +354,12 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       val params = lfDataType.getParamsList.asScala
       DDataType(
         lfDataType.getSerializable,
-        ImmArray(params).map(decodeTypeVarWithKind),
+        params.view.map(decodeTypeVarWithKind).to(ImmArray),
         lfDataType.getDataConsCase match {
           case PLF.DefDataType.DataConsCase.RECORD =>
-            DataRecord(decodeFields(ImmArray(lfDataType.getRecord.getFieldsList.asScala)))
+            DataRecord(decodeFields(lfDataType.getRecord.getFieldsList.asScala))
           case PLF.DefDataType.DataConsCase.VARIANT =>
-            DataVariant(decodeFields(ImmArray(lfDataType.getVariant.getFieldsList.asScala)))
+            DataVariant(decodeFields(lfDataType.getVariant.getFieldsList.asScala))
           case PLF.DefDataType.DataConsCase.ENUM =>
             assertSince(LV.Features.enum, "DefDataType.DataCons.Enum")
             assertEmpty(params, "params")
@@ -375,7 +374,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private[this] def decodeDefTypeSyn(lfTypeSyn: PLF.DefTypeSyn): DTypeSyn = {
       val params = lfTypeSyn.getParamsList.asScala
       DTypeSyn(
-        ImmArray(params).map(decodeTypeVarWithKind),
+        params.view.map(decodeTypeVarWithKind).to(ImmArray),
         decodeType(lfTypeSyn.getType),
       )
     }
@@ -404,13 +403,13 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         strings: util.List[String],
         stringIds: util.List[Integer],
         description: => String,
-    ): collection.Seq[Name] =
+    ): ImmArray[Name] =
       if (versionIsOlderThan(LV.Features.internedStrings)) {
         assertEmpty(stringIds, description + "_interned_string")
-        strings.asScala.map(toName)
+        strings.asScala.view.map(toName).to(ImmArray)
       } else {
         assertEmpty(strings, description)
-        stringIds.asScala.map(id => toName(internedStrings(id)))
+        stringIds.asScala.view.map(id => toName(internedStrings(id))).to(ImmArray)
       }
 
     private[this] def decodeFieldName(lfFieldWithType: PLF.FieldWithType): Name =
@@ -423,10 +422,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         "FieldWithType.field.field",
       )
 
-    private[this] def decodeFields(lfFields: ImmArray[PLF.FieldWithType]): ImmArray[(Name, Type)] =
-      lfFields.map(lfFieldWithType =>
-        decodeFieldName(lfFieldWithType) -> decodeType(lfFieldWithType.getType)
-      )
+    private[this] def decodeFields(
+        lfFields: collection.Seq[PLF.FieldWithType]
+    ): ImmArray[(Name, Type)] =
+      lfFields.view
+        .map(lfFieldWithType =>
+          decodeFieldName(lfFieldWithType) -> decodeType(lfFieldWithType.getType)
+        )
+        .to(ImmArray)
 
     private[this] def decodeFieldWithExpr(
         lfFieldWithExpr: PLF.FieldWithExpr,
@@ -444,12 +447,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private[this] def decodeEnumCon(
         enumCon: PLF.DefDataType.EnumConstructors
     ): ImmArray[EnumConName] =
-      ImmArray(
-        handleInternedNames(
-          enumCon.getConstructorsStrList,
-          enumCon.getConstructorsInternedStrList,
-          "EnumConstructors.constructors",
-        )
+      handleInternedNames(
+        enumCon.getConstructorsStrList,
+        enumCon.getConstructorsInternedStrList,
+        "EnumConstructors.constructors",
       )
 
     private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
@@ -515,16 +516,18 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val recCon = expr.getRecord
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
-            fields = ImmArray(recCon.getFieldsList.asScala).map(field =>
-              handleInternedName(
-                field.getFieldCase,
-                PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
-                field.getFieldStr,
-                PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
-                field.getFieldInternedStr,
-                "KeyExpr.field",
-              ) -> decodeKeyExpr(field.getExpr, tplVar)
-            ),
+            fields = recCon.getFieldsList.asScala.view
+              .map(field =>
+                handleInternedName(
+                  field.getFieldCase,
+                  PLF.KeyExpr.RecordField.FieldCase.FIELD_STR,
+                  field.getFieldStr,
+                  PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
+                  field.getFieldInternedStr,
+                  "KeyExpr.field",
+                ) -> decodeKeyExpr(field.getExpr, tplVar)
+              )
+              .to(ImmArray),
           )
 
         case PLF.KeyExpr.SumCase.PROJECTIONS =>
@@ -683,7 +686,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val tsyn = lfType.getSyn
           TSynApp(
             decodeTypeSynName(tsyn.getTysyn),
-            ImmArray(tsyn.getArgsList.asScala.map(uncheckedDecodeType)),
+            tsyn.getArgsList.asScala.view.map(uncheckedDecodeType).to(ImmArray),
           )
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
@@ -792,7 +795,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private[this] def decodeTypeConApp(lfTyConApp: PLF.Type.Con): TypeConApp =
       TypeConApp(
         decodeTypeConName(lfTyConApp.getTycon),
-        ImmArray(lfTyConApp.getArgsList.asScala.map(decodeType)),
+        lfTyConApp.getArgsList.asScala.view.map(decodeType).to(ImmArray),
       )
 
     private[lf] def decodeExpr(lfExpr: PLF.Expr, definition: String): Expr = {
@@ -829,7 +832,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val recCon = lfExpr.getRecCon
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
-            fields = ImmArray(recCon.getFieldsList.asScala).map(decodeFieldWithExpr(_, definition)),
+            fields =
+              recCon.getFieldsList.asScala.view.map(decodeFieldWithExpr(_, definition)).to(ImmArray),
           )
 
         case PLF.Expr.SumCase.REC_PROJ =>
@@ -896,7 +900,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Expr.SumCase.STRUCT_CON =>
           val structCon = lfExpr.getStructCon
           EStructCon(
-            ImmArray(structCon.getFieldsList.asScala).map(decodeFieldWithExpr(_, definition))
+            structCon.getFieldsList.asScala.view
+              .map(decodeFieldWithExpr(_, definition))
+              .to(ImmArray)
           )
 
         case PLF.Expr.SumCase.STRUCT_PROJ =>
@@ -983,7 +989,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val typ = decodeType(cons.getType)
           ECons(
             typ,
-            ImmArray(front.map(decodeExpr(_, definition))),
+            front.view.map(decodeExpr(_, definition)).to(ImmArray),
             decodeExpr(cons.getTail, definition),
           )
 
@@ -991,7 +997,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val case_ = lfExpr.getCase
           ECase(
             decodeExpr(case_.getScrut, definition),
-            ImmArray(case_.getAltsList.asScala).map(decodeCaseAlt(_, definition)),
+            case_.getAltsList.asScala.view.map(decodeCaseAlt(_, definition)).to(ImmArray),
           )
 
         case PLF.Expr.SumCase.UPDATE =>
@@ -1170,7 +1176,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Update.SumCase.BLOCK =>
           val block = lfUpdate.getBlock
           UpdateBlock(
-            bindings = ImmArray(block.getBindingsList.asScala.map(decodeBinding(_, definition))),
+            bindings =
+              block.getBindingsList.asScala.view.map(decodeBinding(_, definition)).to(ImmArray),
             body = decodeExpr(block.getBody, definition),
           )
 
@@ -1269,7 +1276,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Scenario.SumCase.BLOCK =>
           val block = lfScenario.getBlock
           ScenarioBlock(
-            bindings = ImmArray(block.getBindingsList.asScala).map(decodeBinding(_, definition)),
+            bindings =
+              block.getBindingsList.asScala.view.map(decodeBinding(_, definition)).to(ImmArray),
             body = decodeExpr(block.getBody, definition),
           )
 

@@ -311,7 +311,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       contractId: ContractId,
   ): ExerciseCommand = {
     val choice = "ToListContainer"
-    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    val emptyArgs = ValueRecord(None, ImmArray.Empty)
     ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 
@@ -320,7 +320,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       contractId: ContractId,
   ): ExerciseCommand = {
     val choice = "ToListOfIntContainers"
-    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    val emptyArgs = ValueRecord(None, ImmArray.Empty)
     ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 

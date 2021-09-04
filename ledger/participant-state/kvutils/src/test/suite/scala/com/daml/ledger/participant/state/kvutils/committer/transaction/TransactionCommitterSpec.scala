@@ -401,7 +401,7 @@ class TransactionCommitterSpec
       choice = "Archive",
       consuming = true,
       actingParties = actingParties,
-      argument = Value.ValueRecord(None, ImmArray.empty),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
       result = Some(Value.ValueUnit),
     )
 
@@ -495,7 +495,7 @@ object TransactionCommitterSpec {
       choice = "C",
       consuming = false,
       actingParties = Set("Actor"),
-      argument = ValueRecord(None, ImmArray.empty),
+      argument = ValueRecord(None, ImmArray.Empty),
       choiceObservers = Set("ChoiceObserver"),
     )
 

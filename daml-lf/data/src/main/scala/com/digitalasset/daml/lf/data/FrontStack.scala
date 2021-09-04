@@ -161,10 +161,10 @@ object FrontStack extends FrontStackInstances {
 
   // Slow; only use this in tests.
   def apply[T](a: T, b: T, c: T, elements: T*): FrontStack[T] =
-    a +: b +: c +: apply(ImmArray(elements))
+    a +: b +: c +: apply(elements.to(ImmArray))
 
   def apply[T](elements: Seq[T]): FrontStack[T] =
-    apply(ImmArray(elements))
+    apply(elements.to(ImmArray))
 
   def unapply[T](xs: FrontStack[T]): Boolean = xs.isEmpty
 

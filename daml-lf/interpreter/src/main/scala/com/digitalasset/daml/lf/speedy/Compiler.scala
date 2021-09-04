@@ -664,7 +664,7 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileERecCon(tApp: TypeConApp, fields: ImmArray[(FieldName, Expr)]): SExpr =
     if (fields.isEmpty)
-      SEValue(SRecord(tApp.tycon, ImmArray.empty, noArgs))
+      SEValue(SRecord(tApp.tycon, ImmArray.Empty, noArgs))
     else {
       SEApp(
         SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),

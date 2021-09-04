@@ -34,7 +34,7 @@ class StoreBackedCommandExecutorSpec
     submissionTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
     dependsOnTime = false,
-    nodeSeeds = ImmArray.empty,
+    nodeSeeds = ImmArray.Empty,
   )
 
   "execute" should {
@@ -66,7 +66,7 @@ class StoreBackedCommandExecutorSpec
         submittedAt = Instant.EPOCH,
         deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
         commands = LfCommands(
-          commands = ImmArray.empty,
+          commands = ImmArray.Empty,
           ledgerEffectiveTime = Time.Timestamp.Epoch,
           commandsReference = "",
         ),

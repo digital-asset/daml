@@ -54,7 +54,7 @@ final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
         builder.create(
           id = id,
           template = "pkgid:M:T",
-          argument = V.ValueRecord(None, ImmArray.empty),
+          argument = V.ValueRecord(None, ImmArray.Empty),
           signatories = Seq(partyStr),
           observers = Seq(),
           key = None,
@@ -70,7 +70,7 @@ final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
           choice = "C",
           consuming = true,
           actingParties = parties,
-          argument = V.ValueRecord(None, ImmArray.empty),
+          argument = V.ValueRecord(None, ImmArray.Empty),
         )
       }
 
