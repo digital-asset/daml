@@ -50,6 +50,7 @@ private[apiserver] final class ApiPackageService private (
         backend
           .getLfArchive(packageId)
           .flatMap(
+            // TODO self-service error codes: Refactor using the new API
             _.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
               archive => Future.successful(toGetPackageResponse(archive))
             )
@@ -88,6 +89,7 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             ValidationLogger.logFailureWithContext(
               request,
+              // TODO self-service error codes: Refactor using the new API
               Status.INVALID_ARGUMENT
                 .withDescription(error)
                 .asRuntimeException(),

@@ -97,7 +97,9 @@ final class ApiParticipantPruningService private (
     FutureConverters
       .toScala(writeBackend.prune(pruneUpTo, submissionId, pruneAllDivulgedContracts))
       .flatMap {
-        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case NotPruned(status) =>
+          // TODO self-service error-codes: Wrap in new error format
+          Future.failed(ErrorFactories.grpcError(status))
         case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
@@ -147,6 +149,7 @@ final class ApiParticipantPruningService private (
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
+            // TODO self-service error codes: Refactor to new errors API and change category to OUT_OF_RANGE
             ErrorFactories.invalidArgument(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )

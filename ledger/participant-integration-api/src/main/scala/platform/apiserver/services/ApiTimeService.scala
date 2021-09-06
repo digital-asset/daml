@@ -80,6 +80,7 @@ private[apiserver] final class ApiTimeService private (
           else
             Left(
               new StatusRuntimeException(
+                // TODO self-service error codes: Refactor using the new API and change error category to FAILED_PRECONDITION
                 Status.INVALID_ARGUMENT
                   .withDescription(
                     s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
@@ -99,6 +100,7 @@ private[apiserver] final class ApiTimeService private (
         else
           Left(
             new StatusRuntimeException(
+              // Correct or FAILED_PRECONDITION?
               Status.INVALID_ARGUMENT
                 .withDescription(
                   s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."

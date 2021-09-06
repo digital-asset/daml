@@ -91,6 +91,7 @@ private[apiserver] final class ApiCommandService private[services] (
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         Future.failed(
+          // TODO self-service error codes: Refactor using the new API
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
         )
       }.andThen(logger.logErrorsOnCall[Completion])

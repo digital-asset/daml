@@ -104,6 +104,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  // TODO self-service error codes: Refactor using the new API
   private val DuplicateCommand = Status.ALREADY_EXISTS.augmentDescription("Duplicate command")
 
   override def submit(
@@ -285,7 +286,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def toStatus(errorCause: ErrorCause) =
     errorCause match {
-      case cause @ ErrorCause.DamlLf(error) =>
+      case cause @ ErrorCause.DamlLf(error: LfError) =>
         error match {
           case LfError.Interpretation(
                 LfError.Interpretation.DamlException(
@@ -294,10 +295,14 @@ private[apiserver] final class ApiSubmissionService private[services] (
                 ),
                 _,
               ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
+            // TODO self-service error codes: Refactor using the new API and change error category to FAILED_PRECONDITION
             Status.ABORTED.withDescription(cause.explain)
-          case _ => Status.INVALID_ARGUMENT.withDescription(cause.explain)
+          case _ =>
+            // TODO self-service error codes: Refactor using the new API and specialize error category to FAILED_PRECONDITION/NOT_FOUND
+            Status.INVALID_ARGUMENT.withDescription(cause.explain)
         }
       case cause: ErrorCause.LedgerTime =>
+        // TODO self-service error codes: Refactor using the new API and change error category to DEADLINE_EXCEEDED
         Status.ABORTED.withDescription(cause.explain)
     }
 

@@ -203,6 +203,8 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
+        // TODO self-service error codes: Refactor using the new API and adapt to new error category
+        //                                possibly ALREADY_EXISTS or FAILED_PRECONDITION
         ErrorFactories.invalidArgument(reason)
     }
   }

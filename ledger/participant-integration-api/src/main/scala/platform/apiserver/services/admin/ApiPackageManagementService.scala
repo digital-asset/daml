@@ -190,6 +190,7 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
+        // TODO error-codes: Different status than actual: ALREADY_EXISTS or FAILED_PRECONDITION
         ErrorFactories.invalidArgument(reason)
     }
   }

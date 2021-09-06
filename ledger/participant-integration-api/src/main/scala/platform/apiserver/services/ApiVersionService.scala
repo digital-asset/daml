@@ -43,6 +43,7 @@ private[apiserver] final class ApiVersionService private (implicit
 
   private lazy val internalError: Future[Nothing] =
     Future.failed(
+      // TODO self-service error codes: Refactor using the new API
       Status.INTERNAL
         .withDescription("Cannot read Ledger API version")
         .asRuntimeException()

@@ -9,6 +9,7 @@ import io.grpc.{Status, StatusRuntimeException}
 
 import scalaz.syntax.tag._
 
+// TODO self-service error codes: This trait will be deprecated and replaced by the new API
 trait ErrorFactories {
 
   def ledgerIdMismatch(expected: LedgerId, received: LedgerId): StatusRuntimeException =
@@ -27,16 +28,20 @@ trait ErrorFactories {
   def invalidField(fieldName: String, message: String): StatusRuntimeException =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Invalid field $fieldName: $message"))
 
+  // TODO self-service error codes: Remove and replace with specialized errors at call-sites
   def outOfRange(description: String): StatusRuntimeException =
     grpcError(Status.OUT_OF_RANGE.withDescription(description))
 
+  // TODO self-service error codes: Remove and replace with specialized errors at call-sites
   def aborted(description: String): StatusRuntimeException =
     grpcError(Status.ABORTED.withDescription(description))
 
+  // TODO self-service error codes: Remove and replace with specialized errors at call-sites
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
   def permissionDenied(): StatusRuntimeException =
     grpcError(Status.PERMISSION_DENIED)
 
+  // TODO self-service error codes: Remove and replace with specialized errors at call-sites
   def unauthenticated(): StatusRuntimeException =
     grpcError(Status.UNAUTHENTICATED)
 

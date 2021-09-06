@@ -61,7 +61,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
         )
       deduplicationPeriod <- validateDeduplicationPeriod(
         commands.deduplicationPeriod,
-        maxDeduplicationTime,
+        maxDeduplicationTime, // Why can this reach this point as optional? It's always needed
         "deduplication_period",
       )
     } yield domain.Commands(

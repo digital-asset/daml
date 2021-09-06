@@ -59,6 +59,7 @@ private[apiserver] object ApiTransactionService {
   @throws[StatusRuntimeException]
   private def getOrElseThrowNotFound[A](a: Option[A]): A =
     a.getOrElse(
+      // TODO self-service error codes: Refactor using the new API
       throw Status.NOT_FOUND
         .withDescription("Transaction not found, or not visible.")
         .asRuntimeException()
@@ -139,6 +140,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse(
         Future.failed(
+          // TODO self-service error codes: Refactor using the new API and change error category to INVALID_ARGUMENT
           Status.NOT_FOUND
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException()
@@ -178,6 +180,7 @@ private[apiserver] final class ApiTransactionService private (
       .fold(
         err =>
           Future.failed[GetFlatTransactionResponse](
+            // TODO self-service error codes: Refactor using the new API and change error category to INVALID_ARGUMENT
             Status.NOT_FOUND.withDescription(s"invalid eventId: $err").asRuntimeException()
           ),
         eventId =>

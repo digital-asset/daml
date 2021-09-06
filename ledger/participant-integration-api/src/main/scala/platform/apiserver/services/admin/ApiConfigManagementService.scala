@@ -172,7 +172,9 @@ private[apiserver] final class ApiConfigManagementService private (
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
-        case Failure(err) => Left(ErrorFactories.invalidArgument(err.toString))
+        case Failure(err) =>
+          // INVALID_ARGUMENT - InvalidIndependentOfSystemState
+          Left(ErrorFactories.invalidArgument(err.toString))
         case Success(ok) => Right(ok)
       }
       // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
@@ -185,7 +187,11 @@ private[apiserver] final class ApiConfigManagementService private (
       }
       maximumRecordTime <- Time.Timestamp
         .fromInstant(mrtInstant)
-        .fold(err => Left(ErrorFactories.invalidArgument(err)), Right(_))
+        .fold(
+          err => // INVALID_ARGUMENT - InvalidIndependentOfSystemState
+            Left(ErrorFactories.invalidArgument(err)),
+          Right(_),
+        )
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
   }
 
@@ -248,6 +254,8 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
+        // TODO self-service error codes: Refactor using the new API and adapt to new error category
+        //                                possibly ALREADY_EXISTS or FAILED_PRECONDITION
         ErrorFactories.aborted(reason)
     }
   }

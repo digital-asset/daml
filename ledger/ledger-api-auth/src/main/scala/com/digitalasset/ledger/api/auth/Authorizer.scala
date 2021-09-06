@@ -164,6 +164,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       case _: ServerCallStreamObserver[_] =>
         observer.asInstanceOf[ServerCallStreamObserver[A]]
       case _ =>
+        // TODO self-service error codes: Wrap in new error interface
         throw new IllegalArgumentException(
           s"The wrapped stream MUST be a ${classOf[ServerCallStreamObserver[_]].getName}"
         )
@@ -179,6 +180,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       _.notExpired(now()),
       authorizationError => {
         logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
+        // TODO self-service error codes: Refactor using the new API
         permissionDenied()
       },
     )
@@ -187,6 +189,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .fold[Try[ClaimSet.Claims]](Failure(unauthenticated())) {
+        // TODO self-service error codes: Refactor using the new API
         case ClaimSet.Unauthenticated => Failure(unauthenticated())
         case claims: ClaimSet.Claims => Success(claims)
       }
@@ -216,6 +219,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
                 )
               case Left(authorizationError) =>
                 logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
+                // TODO self-service error codes: Refactor using the new API
                 observer.onError(permissionDenied())
             },
         )
@@ -238,6 +242,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
               case Right(_) => call(request)
               case Left(authorizationError) =>
                 logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
+                // TODO self-service error codes: Refactor using the new API
                 Future.failed(permissionDenied())
             },
         )

@@ -48,16 +48,21 @@ private[services] final class QueueBackedTracker(
           )
         case QueueOfferResult.Failure(t) =>
           failedQueueSubmission(
+            // TODO self-service error codes: Refactor using the new API and specialize error category if possible
+            //                                This error should be INTERNAL or UNAVAILABLE
+            //                                (e.g. in case the stream failure is transient and will be restarted)
             GrpcStatus.ABORTED
               .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
               .withCause(t)
           )
         case QueueOfferResult.Dropped =>
           failedQueueSubmission(
+            // TODO self-service error codes: Refactor using the new API and change category to ABORTED (retriable)
             GrpcStatus.RESOURCE_EXHAUSTED
               .withDescription("Ingress buffer is full")
           )
         case QueueOfferResult.QueueClosed =>
+          // TODO self-service error codes: Refactor using the new API and change category to UNAVAILABLE or DEADLINE_EXCEEDED
           failedQueueSubmission(GrpcStatus.ABORTED.withDescription("Queue closed"))
       }
       .recoverWith(transformQueueSubmissionExceptions)
@@ -71,11 +76,15 @@ private[services] final class QueueBackedTracker(
     case i: IllegalStateException
         if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
       failedQueueSubmission(
+        // TODO self-service error codes: Refactor using the new API and change category to ABORTED (retriable)
         GrpcStatus.RESOURCE_EXHAUSTED
           .withDescription("Ingress buffer is full")
       )
     case t =>
       failedQueueSubmission(
+        // TODO self-service error codes: Refactor using the new API and specialize error category if possible
+        //                                This error should be INTERNAL or UNAVAILABLE
+        //                                (e.g. in case the stream failure is transient and will be restarted)
         GrpcStatus.ABORTED
           .withDescription(s"Failure: ${t.getClass.getSimpleName}: ${t.getMessage}")
           .withCause(t)

@@ -13,7 +13,13 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.ErrorFactories.{
+  invalidArgument,
+  invalidField,
+  ledgerIdMismatch,
+  missingField,
+  missingLedgerConfig,
+}
 import com.google.protobuf.duration.{Duration => DurationProto}
 import io.grpc.StatusRuntimeException
 
@@ -25,12 +31,17 @@ trait FieldValidations {
       ledgerId: LedgerId
   )(received: LedgerId): Either[StatusRuntimeException, LedgerId] =
     if (ledgerId == received) Right(received)
-    else Left(ledgerIdMismatch(ledgerId, received))
+    else {
+      // TODO self-service error codes: Refactor using the new API
+      Left(ledgerIdMismatch(ledgerId, received))
+    }
 
   def requireNonEmptyString(s: String, fieldName: String): Either[StatusRuntimeException, String] =
+    // TODO self-service error codes: Refactor using the new API
     Either.cond(s.nonEmpty, s, missingField(fieldName))
 
   def requireIdentifier(s: String): Either[StatusRuntimeException, Ref.Name] =
+    // TODO self-service error codes: Refactor using the new API
     Ref.Name.fromString(s).left.map(invalidArgument)
 
   def requireName(
@@ -38,8 +49,10 @@ trait FieldValidations {
       fieldName: String,
   ): Either[StatusRuntimeException, Ref.Name] =
     if (s.isEmpty)
+      // TODO self-service error codes: Refactor using the new API
       Left(missingField(fieldName))
     else
+      // TODO self-service error codes: Refactor using the new API
       Ref.Name.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireNumber(s: String, fieldName: String): Either[StatusRuntimeException, Long] =
@@ -52,13 +65,17 @@ trait FieldValidations {
       s: String,
       fieldName: String,
   ): Either[StatusRuntimeException, Ref.PackageId] =
+    // TODO self-service error codes: Refactor using the new API
     if (s.isEmpty) Left(missingField(fieldName))
+    // TODO self-service error codes: Refactor using the new API
     else Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requirePackageId(s: String): Either[StatusRuntimeException, Ref.PackageId] =
+    // TODO self-service error codes: Refactor using the new API
     Ref.PackageId.fromString(s).left.map(invalidArgument)
 
   def requireParty(s: String): Either[StatusRuntimeException, Ref.Party] =
+    // TODO self-service error codes: Refactor using the new API
     Ref.Party.fromString(s).left.map(invalidArgument)
 
   def requireParties(parties: Set[String]): Either[StatusRuntimeException, Set[Party]] =
@@ -74,23 +91,29 @@ trait FieldValidations {
       s: String,
       fieldName: String,
   ): Either[StatusRuntimeException, Ref.LedgerString] =
+    // TODO self-service error codes: Refactor using the new API
     if (s.isEmpty) Left(missingField(fieldName))
+    // TODO self-service error codes: Refactor using the new API
     else Ref.LedgerString.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
+    // TODO self-service error codes: Refactor using the new API
     Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
   def requireContractId(
       s: String,
       fieldName: String,
   ): Either[StatusRuntimeException, ContractId] =
+    // TODO self-service error codes: Refactor using the new API
     if (s.isEmpty) Left(missingField(fieldName))
+    // TODO self-service error codes: Refactor using the new API
     else ContractId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireDottedName(
       s: String,
       fieldName: String,
   ): Either[StatusRuntimeException, Ref.DottedName] =
+    // TODO self-service error codes: Refactor using the new API
     Ref.DottedName.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireNonEmpty[M[_] <: Iterable[_], T](
@@ -98,9 +121,11 @@ trait FieldValidations {
       fieldName: String,
   ): Either[StatusRuntimeException, M[T]] =
     if (s.nonEmpty) Right(s)
+    // TODO self-service error codes: Refactor using the new API
     else Left(missingField(fieldName))
 
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
+    // TODO self-service error codes: Refactor using the new API
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
 
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
@@ -112,14 +137,17 @@ trait FieldValidations {
   ): Either[StatusRuntimeException, DeduplicationPeriod] = {
 
     maxDeduplicationTimeO.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
+      // TODO self-service error codes: Validate presence of maxDeduplicationTime0 upstream and pass value here
       Left(missingLedgerConfig())
     )(maxDeduplicationDuration => {
       def validateDuration(duration: Duration, exceedsMaxDurationMessage: String) = {
-        if (duration.isNegative)
+        if (duration.isNegative) {
+          // TODO self-service error codes: Refactor using the new API
           Left(invalidField(fieldName, "Duration must be positive"))
-        else if (duration.compareTo(maxDeduplicationDuration) > 0)
+        } else if (duration.compareTo(maxDeduplicationDuration) > 0) {
+          // TODO self-service error codes: Refactor using the new API
           Left(invalidField(fieldName, exceedsMaxDurationMessage))
-        else Right(duration)
+        } else Right(duration)
       }
 
       def protoDurationToDurationPeriod(duration: DurationProto) = {

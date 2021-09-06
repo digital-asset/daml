@@ -37,6 +37,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
     if (closed)
       Future.failed(
         new ApiException(
+          // TODO self-service error codes: Refactor using the new API
           Status.UNAVAILABLE
             .withDescription("Ledger Identity Service closed.")
         )

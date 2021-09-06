@@ -51,6 +51,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
             .recoverWith { case _: TimeoutException =>
+              // TODO self-service error codes: Refactor using the new API
               Future.failed(ErrorFactories.aborted("Request timed out"))
             }
             .flatten

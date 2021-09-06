@@ -89,6 +89,7 @@ object CompletionResponse {
     }
 
   private[daml] def toException(response: TrackedCompletionFailure): StatusException =
+    // TODO error-codes: Convert to RuntimeStatusException
     response match {
       case QueueCompletionFailure(failure) =>
         val metadata = extractMetadata(failure)
@@ -126,6 +127,7 @@ object CompletionResponse {
         detail
       }
     }
+    // TODO error-codes: Use .toStatusRuntimeException
     protobuf.StatusProto.toStatusException(
       status
         .clearDetails()
