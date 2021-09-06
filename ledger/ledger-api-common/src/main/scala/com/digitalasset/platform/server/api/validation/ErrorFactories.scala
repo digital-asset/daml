@@ -139,10 +139,9 @@ trait ErrorFactories {
         .build()
     )
 
-  def grpcError(status: Status): StatusRuntimeException = {
-    val temporaryException = StatusProto.toStatusException(status) // TODO: sort this out
-    new ApiException(temporaryException.getStatus, temporaryException.getTrailers)
-  }
+  def grpcError(status: Status): StatusRuntimeException = new ApiException(
+    StatusProto.toStatusRuntimeException(status)
+  )
 }
 
 object ErrorFactories extends ErrorFactories {

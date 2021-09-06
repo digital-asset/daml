@@ -3,11 +3,11 @@
 
 package com.daml.platform.server.api
 
-import io.grpc.{Metadata, Status, StatusRuntimeException}
+import io.grpc.StatusRuntimeException
 
 import scala.util.control.NoStackTrace
 
 /** The sole purpose of this class is to give StatusRuntimeException with NoStacktrace a nice name in logs. */
-class ApiException(status: Status, trailers: Metadata)
-    extends StatusRuntimeException(status, trailers)
+class ApiException(exception: StatusRuntimeException)
+    extends StatusRuntimeException(exception.getStatus, exception.getTrailers)
     with NoStackTrace
