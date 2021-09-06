@@ -175,6 +175,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
+        "--concurrent-test-runs=1",
         "--include=CommandServiceCompletionDeduplicationInfoIT,CommandSubmissionServiceCompletionDeduplicationInfoIT",
     ],
 )
