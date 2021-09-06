@@ -199,8 +199,9 @@ private[commands] class CommandTracker[Context](
       private def handleSubmitResponse(submitResponse: Ctx[(Context, String), Try[Empty]]) = {
         val Ctx((_, commandId), value, _) = submitResponse
         value match {
-          case Failure(GrpcException(status @ GrpcStatus(code, _), _)) if !nonTerminalCodes(code) =>
-            getOutputForTerminalStatusCode(commandId, GrpcStatus.toProto(status))
+          case Failure(GrpcException(status @ GrpcStatus(code, _), metadata))
+              if !nonTerminalCodes(code) =>
+            getOutputForTerminalStatusCode(commandId, GrpcStatus.toProto(status, metadata))
           case Failure(throwable) =>
             logger.warn(
               s"Service responded with error for submitting command with context ${submitResponse.context}. Status of command is unknown. watching for completion...",

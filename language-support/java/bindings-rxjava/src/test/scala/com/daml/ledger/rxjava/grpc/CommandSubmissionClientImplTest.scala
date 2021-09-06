@@ -133,7 +133,7 @@ class CommandSubmissionClientImplTest
     }
   }
 
-  def toAuthenticatedServer(fn: CommandSubmissionClient => Any): Any =
+  private def toAuthenticatedServer(fn: CommandSubmissionClient => Any): Any =
     ledgerServices.withCommandSubmissionClient(
       alwaysSucceed,
       mockedAuthService,
@@ -141,7 +141,10 @@ class CommandSubmissionClientImplTest
       fn(client)
     }
 
-  def submitDummyCommand(client: CommandSubmissionClient, accessToken: Option[String] = None) = {
+  private def submitDummyCommand(
+      client: CommandSubmissionClient,
+      accessToken: Option[String] = None,
+  ) = {
     val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
     val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
     val command = new CreateCommand(new Identifier("a", "a", "b"), record)
