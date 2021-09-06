@@ -1,0 +1,38 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @WARN Modules compiled with the DatatypeContexts language extension
+-- @ERROR Interfaces not supported
+{-# LANGUAGE DatatypeContexts #-}
+
+module Interface where
+
+interface Token where
+--  getAmount : Decimal
+  choice Split : (ContractId Token, ContractId Token)
+    with
+      splitAmount : Int
+
+  choice Transfer : ContractId Token
+    with
+      newOwner : Party
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    signatory issuer, owner
+    implements Token where
+      choice Split : (ContractId Token, ContractId Token)
+        with
+          splitAmount : Int
+        controller owner
+        do error "not implemented"
+      choice Transfer : ContractId Token
+        with
+          newOwner : Party
+        controller owner, newOwner
+        do error "not implemented"
