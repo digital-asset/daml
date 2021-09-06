@@ -34,6 +34,18 @@ class H2StorageBackendSpec extends AnyWordSpec with Matchers {
           "url;alpha=1;beta=2;gamma=3"
         ) shouldBe ("url;alpha=1;beta=2;gamma=3", None, None)
       }
+
+      "match upper-case user and password keys" in {
+        H2StorageBackend.extractUserPasswordAndRemoveFromUrl(
+          "url;USER=sally;PASSWORD=supersafe"
+        ) shouldBe ("url", Some("sally"), Some("supersafe"))
+      }
+
+      "match mixed-case user and password keys" in {
+        H2StorageBackend.extractUserPasswordAndRemoveFromUrl(
+          "url;User=sally;Password=supersafe"
+        ) shouldBe ("url", Some("sally"), Some("supersafe"))
+      }
     }
   }
 }

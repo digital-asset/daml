@@ -33,8 +33,6 @@ import com.daml.platform.store.backend.{
 }
 import javax.sql.DataSource
 
-import scala.util.matching.Regex
-
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
@@ -206,7 +204,7 @@ private[backend] object H2StorageBackend
       jdbcUrl: String
   ): (String, Option[String], Option[String]) = {
     def setKeyValueAndRemoveFromUrl(url: String, key: String): (String, Option[String]) = {
-      val regex = new Regex(s".*(;${key}=([^;]*)).*")
+      val regex = s".*(;(?i)${key}=([^;]*)).*".r
       url match {
         case regex(keyAndValue, value) =>
           (url.replace(keyAndValue, ""), Some(value))
