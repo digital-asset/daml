@@ -292,7 +292,10 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
     ],
-    test_tool_args = ["--verbose"],
+    test_tool_args = [
+        "--verbose",
+        "--exclude=CommandDeduplicationIT",
+    ],
 )
 
 # This deliberately uses the deploy.jar since that’s what we ship
