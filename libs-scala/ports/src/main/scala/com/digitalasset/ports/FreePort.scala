@@ -14,7 +14,7 @@ import scala.util.{Failure, Random, Try}
 
 object FreePort {
   private val maxAttempts = 100
-  private val dynamicRange = dynamicPortRange()
+  private[ports] val dynamicRange = dynamicPortRange()
 
   def find(): Port = {
     val portGen = randomPortGen(dynamicRange)

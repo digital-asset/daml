@@ -3,8 +3,6 @@
 
 package com.daml.ports
 
-import java.net.{InetAddress, ServerSocket}
-
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -14,6 +12,16 @@ class LockedFreePortSpec extends AnyWordSpec with Matchers {
       val lockedPort = LockedFreePort.find()
       try {
         lockedPort.port.value should (be >= 1024 and be < 65536)
+      } finally {
+        lockedPort.unlock()
+      }
+    }
+
+    "not collide with OS dynamic ports" in {
+      val lockedPort = LockedFreePort.find()
+      val (dynMin, dynMax) = FreePort.dynamicRange
+      try {
+        lockedPort.port.value should (be < dynMin or be > dynMax)
       } finally {
         lockedPort.unlock()
       }
@@ -44,24 +52,6 @@ class LockedFreePortSpec extends AnyWordSpec with Matchers {
       lockedPort.unlock()
       lockedPort.unlock()
       succeed
-    }
-
-    "not collide with OS dynamic ports" in {
-      // This test is inherently flaky in that it can produce false positives,
-      // i.e. can succeed even though the issue it is testing for persists.
-      // Increase this number if you find the test to yield too many false positives.
-      val num = 200
-      val locks: Seq[PortLock.Locked] = (1 to num).map(_ => LockedFreePort.find())
-      val lockedPorts: Set[Int] = locks.map(_.port.value).toSet
-      val sockets: Seq[ServerSocket] =
-        (1 to num).map(_ => new ServerSocket(0, 0, InetAddress.getLoopbackAddress))
-      val socketPorts: Set[Int] = sockets.map(_.getLocalPort).toSet
-      try {
-        lockedPorts.intersect(socketPorts) shouldBe empty
-      } finally {
-        locks.foreach(_.unlock())
-        sockets.foreach(_.close())
-      }
     }
   }
 }
