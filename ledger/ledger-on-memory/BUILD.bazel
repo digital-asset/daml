@@ -217,7 +217,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ConfigManagementServiceIT" +
+        "--exclude=ConfigManagementServiceIT," +
         "CommandDeduplicationIT",
     ],
 )
@@ -283,10 +283,11 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-command-deduplication",
-    server = ":daml-on-sql-ephemeral-postgresql",
+    server = ":app",
+    ports = [6865],
     server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
         "--verbose",
