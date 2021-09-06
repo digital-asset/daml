@@ -192,31 +192,29 @@ private[backend] object H2StorageBackend
     // user/password in the URLs, so we don't bother exposing user/password configs separately from the url just for h2
     // which is anyway not supported for production. (This also helps run canton h2 participants that set user and
     // password.)
-    val urlNoUser = setKeyValueAndRemoveFromUrl(jdbcUrl, "user", h2DataSource.setUser)
-    val urlNoUserNoPassword =
-      setKeyValueAndRemoveFromUrl(urlNoUser, "password", h2DataSource.setPassword)
+    val (urlNoUserNoPassword, user, password) = extractUserPasswordAndRemoveFromUrl(jdbcUrl)
+    user.foreach(h2DataSource.setUser)
+    password.foreach(h2DataSource.setPassword)
     h2DataSource.setUrl(urlNoUserNoPassword)
 
     InitHookDataSourceProxy(h2DataSource, connectionInitHook.toList)
   }
 
-  def setKeyValueAndRemoveFromUrl(url: String, key: String, setter: String => Unit): String = {
-    val separator = ";"
-    url.toLowerCase.indexOf(separator + key + "=") match {
-      case -1 => url // leave url intact if key is not found
-      case indexKeyValueBegin =>
-        val valueBegin = indexKeyValueBegin + 1 + key.length + 1 // separator, key, "="
-        val (value, shortenedUrl) = url.indexOf(separator, indexKeyValueBegin + 1) match {
-          case -1 => (url.substring(valueBegin), url.take(indexKeyValueBegin))
-          case indexKeyValueEnd =>
-            (
-              url.substring(valueBegin, indexKeyValueEnd),
-              url.take(indexKeyValueBegin) + url.takeRight(url.length - indexKeyValueEnd),
-            )
-        }
-        setter(value)
-        shortenedUrl
+  def extractUserPasswordAndRemoveFromUrl(
+      jdbcUrl: String
+  ): (String, Option[String], Option[String]) = {
+    def setKeyValueAndRemoveFromUrl(url: String, key: String): (String, Option[String]) = {
+      val regex = s".*(;(?i)${key}=([^;]*)).*".r
+      url match {
+        case regex(keyAndValue, value) =>
+          (url.replace(keyAndValue, ""), Some(value))
+        case _ => (url, None)
+      }
     }
+
+    val (urlNoUser, user) = setKeyValueAndRemoveFromUrl(jdbcUrl, "user")
+    val (urlNoUserNoPassword, password) = setKeyValueAndRemoveFromUrl(urlNoUser, "password")
+    (urlNoUserNoPassword, user, password)
   }
 
   override def tryAcquire(
