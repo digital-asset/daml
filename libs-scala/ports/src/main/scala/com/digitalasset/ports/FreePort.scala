@@ -16,6 +16,14 @@ object FreePort {
   private val maxAttempts = 100
   private[ports] val dynamicRange = dynamicPortRange()
 
+  /** Find a free port.
+    *
+    * This determines whether a port is free by attempting to bind it and immediately releasing it again.
+    * Note, this does not guarantee that the port is still free after this function returns, see [[LockedFreePort]].
+    *
+    * Draws ports from outside the dynamic port range (port 0)
+    * to avoid collisions with parts of the code base that directly bind to port 0.
+    */
   def find(): Port = {
     val portGen = randomPortGen(dynamicRange)
     val portCandidates = (1 to maxAttempts).map(_ => portGen())
