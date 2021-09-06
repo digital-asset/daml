@@ -1,6 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_darwin")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
@@ -10,6 +11,7 @@ load(
 da_scala_library(
     name = "ports",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -20,6 +22,7 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    deps = ["//bazel_tools/runfiles:scala_runfiles"],
 )
 
 da_scala_test(
