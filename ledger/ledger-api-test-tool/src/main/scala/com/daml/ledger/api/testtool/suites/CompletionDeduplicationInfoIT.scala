@@ -25,8 +25,7 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       _ <- submitSuccessfulAndFailingRequests(service, ledger, party)
-    } yield {
-    }
+    } yield {}
   })
 }
 
