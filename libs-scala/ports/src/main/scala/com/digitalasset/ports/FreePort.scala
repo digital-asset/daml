@@ -10,7 +10,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 
 import scala.io.Source
 import scala.sys.process.Process
-import scala.util.{Failure, Random, Try}
+import scala.util.{Failure, Try}
 
 object FreePort {
   private val maxAttempts = 100
