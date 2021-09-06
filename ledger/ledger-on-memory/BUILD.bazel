@@ -283,8 +283,8 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-command-deduplication",
-    server = ":app",
     ports = [6865],
+    server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
