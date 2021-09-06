@@ -56,9 +56,8 @@ object FreePort {
     val numLowerPorts = minExcl - minPort
     val numUpperPorts = maxPort - maxExcl
     val numAvailablePorts = numLowerPorts + numUpperPorts
-    val gen = new Random()
     def genPort(): Int = {
-      val n = gen.nextInt(numAvailablePorts)
+      val n = scala.util.Random.nextInt(numAvailablePorts)
       if (n < numLowerPorts) {
         n + minPort
       } else {
