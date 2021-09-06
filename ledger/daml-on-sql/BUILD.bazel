@@ -172,6 +172,7 @@ conformance_test(
     server_args = [
         "--ledgerid=conformance-test",
         "--port=6865",
+        "--enable-append-only-schema",
     ],
     test_tool_args = [
         "--verbose",
