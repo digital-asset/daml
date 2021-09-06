@@ -50,7 +50,7 @@ object FreePort {
       extends FindPortException("Failed to determine the dynamic port range", cause)
 
   /** Generate a random port number outside of the dynamic port range.
-   */
+    */
   private def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
     val (minPort, maxPort) = (1024, 65536)
     // Exclude the dynamic port range (cropped to within the valid port range).
