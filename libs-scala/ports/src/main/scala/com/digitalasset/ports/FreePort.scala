@@ -97,7 +97,7 @@ object FreePort {
     val out = Process("netsh int ipv4 show dynamicport tcp").!!
     var min: Option[Int] = None
     var num: Option[Int] = None
-    out.split("\n").map(_.trim.toLowerCase()).foreach {
+    out.split(System.lineSeparator()).map(_.trim.toLowerCase()).foreach {
       case line if line.startsWith("start port") => min = Some(line.split("\\s+").last.toInt)
       case line if line.startsWith("number of ports") => num = Some(line.split("\\s+").last.toInt)
     }
