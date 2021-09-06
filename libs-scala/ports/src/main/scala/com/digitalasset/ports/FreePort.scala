@@ -121,6 +121,7 @@ object FreePort {
     out.split(System.lineSeparator()).map(_.trim.toLowerCase()).foreach {
       case line if line.startsWith("start port") => min = Some(line.split("\\s+").last.toInt)
       case line if line.startsWith("number of ports") => num = Some(line.split("\\s+").last.toInt)
+      case _ => ()
     }
     (min.get, min.get + num.get)
   }
