@@ -78,41 +78,47 @@ object JdbcIndexer {
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean
     )(implicit resourceContext: ResourceContext): ResourceOwner[Indexer] =
-      for {
-        ledgerDao <- com.daml.platform.store.dao.JdbcLedgerDao.writeOwner(
-          serverRole,
-          config.jdbcUrl,
-          config.databaseConnectionPoolSize,
-          config.databaseConnectionTimeout,
-          config.eventsPageSize,
-          servicesExecutionContext,
-          metrics,
-          lfValueTranslationCache,
-          jdbcAsyncCommitMode = config.asyncCommitMode,
-          enricher = None,
+      ResourceOwner
+        .forFuture(() =>
+          mutableJdbcLedgerDao.use(ledgerDao =>
+            if (resetSchema) {
+              ledgerDao.reset()
+            } else {
+              Future.unit
+            }
+          )
         )
-        _ <-
-          if (resetSchema) {
-            ResourceOwner.forFuture(() => ledgerDao.reset())
-          } else {
-            ResourceOwner.unit
-          }
-      } yield for {
-        initialLedgerEnd <- ResourceOwner.forFuture(() =>
-          initializeLedger(ledgerDao)(resourceContext.executionContext)
+        .flatMap(_ =>
+          for {
+            ledgerDao <- mutableJdbcLedgerDao
+            initialLedgerEnd <- ResourceOwner
+              .forFuture(() => initializeLedger(ledgerDao)(resourceContext.executionContext))
+            dbType = DbType.jdbcType(config.jdbcUrl)
+            updateFlow <- updateFlowOwnerBuilder(
+              dbType,
+              ledgerDao,
+              metrics,
+              config.participantId,
+              config.updatePreparationParallelism,
+              materializer.executionContext,
+              loggingContext,
+            )
+          } yield new JdbcIndexer(initialLedgerEnd, metrics, updateFlow, readService)
         )
-        dbType = DbType.jdbcType(config.jdbcUrl)
-        updateFlow <- updateFlowOwnerBuilder(
-          dbType,
-          ledgerDao,
-          metrics,
-          config.participantId,
-          config.updatePreparationParallelism,
-          materializer.executionContext,
-          loggingContext,
-        )
-        indexer <- new JdbcIndexer(initialLedgerEnd, metrics, updateFlow, readService)
-      } yield indexer
+
+    private def mutableJdbcLedgerDao: ResourceOwner[LedgerDao] =
+      com.daml.platform.store.dao.JdbcLedgerDao.writeOwner(
+        serverRole,
+        config.jdbcUrl,
+        config.databaseConnectionPoolSize,
+        config.databaseConnectionTimeout,
+        config.eventsPageSize,
+        servicesExecutionContext,
+        metrics,
+        lfValueTranslationCache,
+        jdbcAsyncCommitMode = config.asyncCommitMode,
+        enricher = None,
+      )
 
     private[this] def initializedAppendOnlySchema(resetSchema: Boolean): ResourceOwner[Indexer] = {
       val storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl))
