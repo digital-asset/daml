@@ -41,10 +41,8 @@ object FreePort {
       .getOrElse(throw NoFreePortException)
   }
 
-  sealed abstract class FindPortException(message: String, cause: Throwable)
-      extends RuntimeException(message, cause) {
-    def this(message: String) = this(message, null)
-  }
+  sealed abstract class FindPortException(message: String, cause: Throwable = null)
+      extends RuntimeException(message, cause)
 
   final case object NoFreePortException extends FindPortException("No free port found")
 
