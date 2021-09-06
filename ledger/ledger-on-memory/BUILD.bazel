@@ -145,6 +145,9 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
     ],
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",
+    ],
 )
 
 conformance_test(
@@ -156,6 +159,9 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
         "--daml-lf-min-version-1.14-unsafe",
+    ],
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -211,7 +217,8 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ConfigManagementServiceIT" +
+        "CommandDeduplicationIT",
     ],
 )
 
@@ -271,5 +278,18 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-command-deduplication",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=KVCommandDeduplicationIT",
     ],
 )

@@ -298,6 +298,19 @@ da_scala_test_suite(
             ],
         ),
         conformance_test(
+            name = "conformance-test-kv-command-deduplication-{}".format(db["name"]),
+            ports = [6865],
+            server = ":conformance-test-{}-bin".format(db["name"]),
+            server_args = [
+                "--contract-id-seeding=testing-weak",
+                "--participant participant-id=conformance-test,port=6865",
+            ] + db.get("conformance_test_server_args", []),
+            tags = db.get("conformance_test_tags", []),
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--include=KVCommandDeduplicationIT",
+            ],
+        ),
+        conformance_test(
             name = "benchmark-performance-envelope-{}".format(db["name"]),
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
@@ -343,6 +356,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -360,6 +374,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -376,6 +391,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -390,6 +406,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -407,6 +424,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -424,6 +442,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 

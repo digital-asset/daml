@@ -285,7 +285,7 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT",
+        "--exclude=ClosedWorldIT,CommandDeduplicationIT",
     ],
 )
 
@@ -297,7 +297,7 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT",
+        "--exclude=ClosedWorldIT,CommandDeduplicationIT",
     ],
 )
 
@@ -333,5 +333,13 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-command-deduplication",
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--include=KVCommandDeduplicationIT",
     ],
 )

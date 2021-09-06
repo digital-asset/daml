@@ -109,6 +109,9 @@ conformance_test(
         "--port=6865",
         "--eager-package-loading",
     ],
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",
+    ],
 )
 
 # TODO append-only: cleanup
@@ -120,6 +123,9 @@ conformance_test(
         "--port=6865",
         "--eager-package-loading",
         "--enable-append-only-schema",
+    ],
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -163,6 +169,19 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ContractIdIT:Accept",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-command-deduplication",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=KVCommandDeduplicationIT",
     ],
 )
 
