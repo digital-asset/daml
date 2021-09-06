@@ -13,10 +13,10 @@ import scala.sys.process.Process
 import scala.util.{Random, Try}
 
 object FreePort {
+  private val maxAttempts = 100
+  private val dynamicRange = dynamicPortRange()
 
   def find(): Port = {
-    val maxAttempts = 100
-    val dynamicRange = dynamicPortRange()
     val portGen = randomPortGen(dynamicRange)
     val portCandidates = (1 to maxAttempts).map(_ => portGen())
     portCandidates
@@ -33,7 +33,7 @@ object FreePort {
       .get
   }
 
-  def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
+  private def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
     val (minPort, maxPort) = (1024, 65536)
     val minExcl = Math.min(Math.max(minPort, dynamicRange._1), maxPort)
     val maxExcl = Math.min(Math.max(minExcl, dynamicRange._2), maxPort)
@@ -52,7 +52,7 @@ object FreePort {
     genPort
   }
 
-  def dynamicPortRange(): (Int, Int) = {
+  private def dynamicPortRange(): (Int, Int) = {
     sys.props("os.name") match {
       case os if os.toLowerCase.contains("windows") =>
         windowsDynamicPortRange().get
@@ -65,7 +65,7 @@ object FreePort {
     }
   }
 
-  def linuxDynamicPortRange(): Try[(Int, Int)] = Try {
+  private def linuxDynamicPortRange(): Try[(Int, Int)] = Try {
     val procSource = Source.fromFile("/proc/sys/net/ipv4/ip_local_port_range")
     try {
       procSource
@@ -78,7 +78,7 @@ object FreePort {
     }
   }
 
-  def macosDynamicPortRange(): Try[(Int, Int)] = Try {
+  private def macosDynamicPortRange(): Try[(Int, Int)] = Try {
     val sysctl = rlocation("external/sysctl_nix/bin/sysctl")
     val out = Process(sysctl, Seq("net.inet.ip.portrange.first", "net.inet.ip.portrange.last")).!!
     var min: Option[Int] = None
@@ -93,7 +93,7 @@ object FreePort {
     (min.get, max.get)
   }
 
-  def windowsDynamicPortRange(): Try[(Int, Int)] = Try {
+  private def windowsDynamicPortRange(): Try[(Int, Int)] = Try {
     val out = Process("netsh int ipv4 show dynamicport tcp").!!
     var min: Option[Int] = None
     var num: Option[Int] = None
