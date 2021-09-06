@@ -36,20 +36,22 @@ private[indexer] final class RecoveringIndexer(
 
   /** Starts an indexer, and restarts it after the given delay whenever an error occurs.
     *
-    * @param subscribe A function that creates a new indexer and calls subscribe() on it.
+    * @param indexer A ResourceOwner for indexing
     * @return A future that completes with [[akka.Done]] when the indexer finishes processing all read service updates.
     */
-  def start(subscribe: () => Resource[IndexFeedHandle]): Resource[(ReportsHealth, Future[Unit])] = {
+  def start(indexer: Indexer): Resource[(ReportsHealth, Future[Unit])] = {
     val complete = Promise[Unit]()
 
     logger.info("Starting Indexer Server")
-    val subscription = new AtomicReference[Resource[IndexFeedHandle]](null)
+    val subscription = new AtomicReference[Resource[Future[Unit]]](null)
 
-    val firstSubscription = subscribe().map(handle => {
-      logger.info("Started Indexer Server")
-      updateHealthStatus(Healthy)
-      handle
-    })
+    val firstSubscription = indexer
+      .acquire()
+      .map(handle => {
+        logger.info("Started Indexer Server")
+        updateHealthStatus(Healthy)
+        handle
+      })
     subscription.set(firstSubscription)
     resubscribeOnFailure(firstSubscription) {}
 
@@ -75,13 +77,13 @@ private[indexer] final class RecoveringIndexer(
       }
     }
 
-    def resubscribe(oldSubscription: Resource[IndexFeedHandle]): Future[Unit] =
+    def resubscribe(oldSubscription: Resource[Future[Unit]]): Future[Unit] =
       for {
         running <- waitForRestart()
         _ <- {
           if (running) {
             logger.info("Restarting Indexer Server")
-            val newSubscription = subscribe()
+            val newSubscription = indexer.acquire()
             if (subscription.compareAndSet(oldSubscription, newSubscription)) {
               resubscribeOnFailure(newSubscription) {
                 updateHealthStatus(HealthStatus.healthy)
@@ -103,12 +105,12 @@ private[indexer] final class RecoveringIndexer(
       } yield ()
 
     def resubscribeOnFailure(
-        currentSubscription: Resource[IndexFeedHandle]
+        currentSubscription: Resource[Future[Unit]]
     )(actOnSuccess: => Unit): Unit =
       currentSubscription.asFuture.onComplete {
         case Success(handle) =>
           actOnSuccess
-          handle.completed().onComplete {
+          handle.onComplete {
             case Success(()) =>
               logger.info("Successfully finished processing state updates")
               complete.trySuccess(())

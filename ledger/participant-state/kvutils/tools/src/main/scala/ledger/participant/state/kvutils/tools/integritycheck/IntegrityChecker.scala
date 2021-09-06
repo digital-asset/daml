@@ -22,7 +22,13 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.{Indexer, IndexerConfig, IndexerStartupMode, JdbcIndexer}
+import com.daml.platform.indexer.{
+  Indexer,
+  IndexerConfig,
+  IndexerStartupMode,
+  JdbcIndexer,
+  StandaloneIndexerServer,
+}
 import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.duration.Duration
@@ -139,7 +145,7 @@ class IntegrityChecker[LogResult](
           metrics,
           LfValueTranslationCache.Cache.none,
         )
-        feedHandle <- indexer.subscription(replayingReadService)
+        feedHandle <- indexer
       } yield (feedHandle, System.nanoTime())
 
       // Wait for the indexer to finish consuming the state updates.
@@ -149,7 +155,7 @@ class IntegrityChecker[LogResult](
       // Any failure (e.g., during the decoding of the recorded state updates, or
       // during the indexing of a state update) will result in a failed Future.
       feedHandleResourceOwner.use { case (feedHandle, startTime) =>
-        Future.successful(startTime).zip(feedHandle.completed())
+        Future.successful(startTime).zip(feedHandle)
       }
     }.transform {
       case Success((startTime, _)) =>
@@ -258,7 +264,12 @@ class IntegrityChecker[LogResult](
         lfValueTranslationCache,
       )
       migrating <- ResourceOwner.forFuture(() =>
-        indexerFactory.migrateSchema(allowExistingSchema = false)
+        StandaloneIndexerServer
+          .migrateOnly(
+            jdbcUrl = config.jdbcUrl,
+            enableAppendOnlySchema = config.enableAppendOnlySchema,
+          )
+          .map(_ => indexerFactory.initialized())(materializer.executionContext)
       )
       migrated <- migrating
     } yield migrated

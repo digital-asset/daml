@@ -20,7 +20,7 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.JdbcIndexer
+import com.daml.platform.indexer.{JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
 
@@ -87,14 +87,22 @@ class IndexerBenchmark() {
 
         _ = println("Setting up the index database...")
         indexer <- Await
-          .result(indexerFactory.migrateSchema(allowExistingSchema = false), Duration(5, "minute"))
+          .result(
+            StandaloneIndexerServer
+              .migrateOnly(
+                jdbcUrl = config.indexerConfig.jdbcUrl,
+                enableAppendOnlySchema = config.indexerConfig.enableAppendOnlySchema,
+              )
+              .map(_ => indexerFactory.initialized())(indexerEC),
+            Duration(5, "minute"),
+          )
           .acquire()
 
         _ = println("Starting the indexing...")
         startTime = System.nanoTime()
-        handle <- indexer.subscription(readService).acquire()
+        handle <- indexer.acquire()
 
-        _ <- Resource.fromFuture(handle.completed())
+        _ <- Resource.fromFuture(handle)
         stopTime = System.nanoTime()
         _ = println("Indexing done.")
 
