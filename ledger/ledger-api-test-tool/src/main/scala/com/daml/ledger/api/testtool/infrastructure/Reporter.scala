@@ -10,7 +10,11 @@ import com.daml.buildinfo.BuildInfo
 import scala.util.Try
 
 trait Reporter[A] {
-  def report(results: Vector[LedgerTestSummary], identifierSuffix: String): A
+  def report(
+      results: Vector[LedgerTestSummary],
+      skippedTests: Vector[LedgerTestSummary],
+      identifierSuffix: String,
+  ): A
 }
 
 object Reporter {
@@ -69,6 +73,8 @@ object Reporter {
               s.println(green(s"Success (${duration.toMillis} ms)"))
             case Right(Result.Retired) =>
               s.println(yellow(s"Skipped (retired test)"))
+            case Right(Result.Excluded) =>
+              s.println(yellow(s"Skipped (excluded test)"))
             case Left(Result.TimedOut) => s.println(red(s"Timeout"))
             case Left(Result.Failed(cause)) =>
               val message =
@@ -103,7 +109,11 @@ object Reporter {
         }
       }
 
-    override def report(results: Vector[LedgerTestSummary], identifierSuffix: String): Unit = {
+    override def report(
+        results: Vector[LedgerTestSummary],
+        excludedTests: Vector[LedgerTestSummary],
+        identifierSuffix: String,
+    ): Unit = {
       s.println()
       s.println(blue("#" * 80))
       s.println(blue("#"))
@@ -122,6 +132,12 @@ object Reporter {
         s.println()
         s.println(green("### SUCCESSES"))
         printReport(successes)
+      }
+
+      if (excludedTests.nonEmpty) {
+        s.println()
+        s.println(yellow("### EXCLUDED TESTS"))
+        printReport(excludedTests)
       }
 
       if (failures.nonEmpty) {

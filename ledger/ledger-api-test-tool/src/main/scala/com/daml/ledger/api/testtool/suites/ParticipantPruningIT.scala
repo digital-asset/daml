@@ -628,9 +628,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield ()
   })
 
+  // This test can only be run in multi-participant setups, since the participant
+  // on which we assert pruning of the immediate divulgence
+  // must not have a locally-hosted stakeholder of the divulged contract.
   test(
-    "PRDisclosureAndRetroactiveDivulgence",
-    "Disclosure pruning succeeds",
+    "PRImmediateAndRetroactiveDivulgence",
+    "Immediate divulgence pruning succeeds",
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
