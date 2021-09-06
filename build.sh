@@ -13,6 +13,8 @@ export LC_ALL=en_US.UTF-8
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
+diskutil info /
+
 bazel clean --expunge
 rm -rf .bazel-cache
 
