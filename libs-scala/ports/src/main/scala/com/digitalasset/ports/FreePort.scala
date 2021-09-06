@@ -49,13 +49,19 @@ object FreePort {
   final case class DynamicPortRangeException(cause: Throwable)
       extends FindPortException("Failed to determine the dynamic port range", cause)
 
+  /** Generate a random port number outside of the dynamic port range.
+   */
   private def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
     val (minPort, maxPort) = (1024, 65536)
+    // Exclude the dynamic port range (cropped to within the valid port range).
+    // E.g. 32768 60999 on most Linux systems.
     val minExcl = Math.min(Math.max(minPort, dynamicRange._1), maxPort)
     val maxExcl = Math.min(Math.max(minExcl, dynamicRange._2), maxPort)
     val numLowerPorts = minExcl - minPort
     val numUpperPorts = maxPort - maxExcl
     val numAvailablePorts = numLowerPorts + numUpperPorts
+    // generate a random number within [0, numAvailablePorts)
+    // and map it to [minPort, minExcl) \cup (maxExcl, maxPort].
     def genPort(): Int = {
       val n = scala.util.Random.nextInt(numAvailablePorts)
       if (n < numLowerPorts) {
