@@ -10,7 +10,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 
 import scala.io.Source
 import scala.sys.process.Process
-import scala.util.{Random, Try}
+import scala.util.{Failure, Random, Try}
 
 object FreePort {
   private val maxAttempts = 100
@@ -30,8 +30,18 @@ object FreePort {
         }
       }
       .map(found => Port(found))
-      .get
+      .getOrElse(throw NoFreePortException)
   }
+
+  sealed abstract class FindPortException(message: String, cause: Throwable)
+      extends RuntimeException(message, cause) {
+    def this(message: String) = this(message, null)
+  }
+
+  final case object NoFreePortException extends FindPortException("No free port found")
+
+  final case class DynamicPortRangeException(cause: Throwable)
+      extends FindPortException("Failed to determine the dynamic port range", cause)
 
   private def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
     val (minPort, maxPort) = (1024, 65536)
@@ -53,15 +63,18 @@ object FreePort {
   }
 
   private def dynamicPortRange(): (Int, Int) = {
+    def wrapError[A](a: Try[A]): A = a.recoverWith { case e =>
+      Failure(DynamicPortRangeException(e))
+    }.get
     sys.props("os.name") match {
       case os if os.toLowerCase.contains("windows") =>
-        windowsDynamicPortRange().get
+        wrapError(windowsDynamicPortRange())
       case os if os.toLowerCase.contains("mac") =>
-        macosDynamicPortRange().get
+        wrapError(macosDynamicPortRange())
       case os if os.toLowerCase.contains("linux") =>
-        linuxDynamicPortRange().get
+        wrapError(linuxDynamicPortRange())
       case os =>
-        throw new RuntimeException(s"Unsupported operating system: $os")
+        throw DynamicPortRangeException(new RuntimeException(s"Unsupported operating system: $os"))
     }
   }
 
