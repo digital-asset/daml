@@ -30,7 +30,18 @@ private[testtool] object Allocation {
 
   final case class Parties(override val count: Int) extends PartyCount
 
-  final case class Participants private[infrastructure] (participants: Participant*)
+  final case class Participants private[infrastructure] (
+      allConfiguredParticipants: Seq[ParticipantTestContext],
+      participants: Participant*
+  )
+
+  object Participants {
+
+    def unapplySeq(participants: Participants): Option[Seq[Participant]] = {
+      Some(participants.participants)
+    }
+
+  }
 
   final case class Participant private[infrastructure] (
       ledger: ParticipantTestContext,

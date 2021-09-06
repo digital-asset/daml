@@ -10,8 +10,8 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.immutable
+import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] final class LedgerTestContext private[infrastructure] (
     participants: immutable.Seq[ParticipantTestContext]
@@ -47,7 +47,7 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
           .preallocateParties(partyCount.count, participantsUnderTest)
           .map(parties => Participant(participant, parties: _*))
       })
-      .map(Participants(_: _*))
+      .map(allocatedParticipants => Participants(participants, allocatedParticipants: _*))
   }
 
   private[this] def nextParticipant(): ParticipantTestContext =
