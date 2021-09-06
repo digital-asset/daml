@@ -11,13 +11,16 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT._
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
+import com.daml.platform.testing.WithTimeout
 import com.google.protobuf.duration.Duration
+import io.grpc.Status
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSuite {
@@ -25,16 +28,16 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   override private[testtool] def name = service.productPrefix + super.name
 
   test(
-    "CCDIIncludeApplicationId",
+    shortIdentifier = service.productPrefix + "CCDIIncludeApplicationId",
     "The application ID is present in completions",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- submitSuccessfulAndFailingRequests(service, ledger, party)
-      commandSubmissionCompletions <- ledger.firstCompletions(party)
+      successfulCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
     } yield {
-      assertCompletionsCount(commandSubmissionCompletions, 2)
-      commandSubmissionCompletions.foreach { completion =>
+      val completions = Seq(successfulCompletion).flatten
+      assertCompletionsCount(completions, expectedCount = 1)
+      completions.foreach { completion =>
         val expectedApplicationId = ledger.applicationId
         val actualApplicationId = completion.applicationId
         assert(
@@ -47,33 +50,29 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   })
 
   test(
-    "CCDIIncludeRequestedSubmissionId",
+    shortIdentifier = service.productPrefix + "CCDIIncludeRequestedSubmissionId",
     "The requested submission ID is present in the associated completion",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val requestedSubmissionIds =
-      for (_ <- 1 to 2)
-        yield Ref.SubmissionId.assertFromString(SubmissionIdGenerator.Random.generate())
-    val Seq(successfulRequestSubmissionId, failingRequestSubmissionId) = requestedSubmissionIds
+    val requestedSubmissionId =
+      Ref.SubmissionId.assertFromString(SubmissionIdGenerator.Random.generate())
     for {
-      _ <- submitSuccessfulAndFailingRequests(
+      successfulCompletion <- submitRequest(
         service,
         ledger,
         party,
-        updateSuccessfulCommandServiceRequest =
-          updateSubmitAndWaitRequest(_, optSubmissionId = Some(successfulRequestSubmissionId)),
-        updateFailingCommandServiceRequest =
-          updateSubmitAndWaitRequest(_, optSubmissionId = Some(failingRequestSubmissionId)),
-        updateSuccessfulCommandSubmissionServiceRequest =
-          updateSubmitRequest(_, optSubmissionId = Some(successfulRequestSubmissionId)),
-        updateFailingCommandSubmissionServiceRequest =
-          updateSubmitRequest(_, optSubmissionId = Some(failingRequestSubmissionId)),
+        simpleCreate(party),
+        updateCommandServiceRequest = _.update(_.commands.submissionId := requestedSubmissionId),
+        updateCommandSubmissionServiceRequest =
+          _.update(_.commands.submissionId := requestedSubmissionId),
       )
-      completions <- ledger.firstCompletions(party)
     } yield {
-      assertCompletionsCount(completions, 2)
+      val completions = Seq(successfulCompletion).flatten
+      val requestedSubmissionIds = Seq(requestedSubmissionId)
+      assertCompletionsCount(completions, expectedCount = 1)
       completions.zip(requestedSubmissionIds).foreach { case (completion, expectedSubmissionId) =>
         val actualSubmissionId = completion.submissionId
+        assert(completion.status.forall(_.code == Status.Code.OK.value()))
         assert(
           actualSubmissionId == expectedSubmissionId,
           "Wrong submission ID in completion, " +
@@ -84,16 +83,17 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   })
 
   test(
-    "CCDIIncludeASubmissionIdWhenNotRequested",
+    shortIdentifier = service.productPrefix + "CCDIIncludeASubmissionIdWhenNotRequested",
     "A completion includes a submission ID when one is missing in the request",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- submitSuccessfulAndFailingRequests(service, ledger, party)
-      completions <- ledger.firstCompletions(party)
+      successfulCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
     } yield {
-      assertCompletionsCount(completions, 2)
+      val completions = Seq(successfulCompletion).flatten
+      assertCompletionsCount(completions, expectedCount = 1)
       completions.foreach { completion =>
+        assert(completion.status.forall(_.code == Status.Code.OK.value()))
         assert(
           Ref.SubmissionId.fromString(completion.submissionId).isRight,
           "Missing or invalid submission ID in completion",
@@ -103,36 +103,31 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   })
 
   test(
-    "CCDIIncludeRequestedDeduplicationOffset",
+    shortIdentifier = service.productPrefix + "CCDIIncludeRequestedDeduplicationOffset",
     "The requested deduplication offset is present in the associated completion",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val submittedDeduplications =
-      for (i <- 1 to 2) yield DeduplicationPeriod.DeduplicationOffset(s"offset$i")
-    val Seq(successfulRequestDeduplication, failingRequestDeduplication) = submittedDeduplications
+    val requestedDeduplicationOffset = ledger.begin.getAbsolute
     for {
-      _ <- submitSuccessfulAndFailingRequests(
+      successfulCompletion <- submitRequest(
         service,
         ledger,
         party,
-        updateSuccessfulCommandServiceRequest = updateSubmitAndWaitRequest(
-          _,
-          optDeduplicationPeriod = Some(successfulRequestDeduplication),
-        ),
-        updateFailingCommandServiceRequest =
-          updateSubmitAndWaitRequest(_, optDeduplicationPeriod = Some(failingRequestDeduplication)),
-        updateSuccessfulCommandSubmissionServiceRequest =
-          updateSubmitRequest(_, optDeduplicationPeriod = Some(successfulRequestDeduplication)),
-        updateFailingCommandSubmissionServiceRequest =
-          updateSubmitRequest(_, optDeduplicationPeriod = Some(failingRequestDeduplication)),
+        simpleCreate(party),
+        updateCommandServiceRequest =
+          _.update(_.commands.deduplicationOffset := requestedDeduplicationOffset),
+        updateCommandSubmissionServiceRequest =
+          _.update(_.commands.deduplicationOffset := requestedDeduplicationOffset),
       )
-      completions <- ledger.firstCompletions(party)
     } yield {
-      assertCompletionsCount(completions, 2)
-      completions.zip(submittedDeduplications).foreach {
-        case (completion, requestedDeduplication) =>
-          val expectedDeduplicationOffset = completion.deduplicationPeriod.deduplicationOffset
-          val actualDeduplicationOffset = requestedDeduplication.deduplicationOffset
+      val completions = Seq(successfulCompletion).flatten
+      val requestedDeduplicationOffsets = Seq(requestedDeduplicationOffset)
+      assertCompletionsCount(completions, expectedCount = 1)
+      completions.zip(requestedDeduplicationOffsets).foreach {
+        case (completion, requestedDeduplicationOffset) =>
+          val expectedDeduplicationOffset = Some(requestedDeduplicationOffset)
+          val actualDeduplicationOffset = completion.deduplicationPeriod.deduplicationOffset
+          assert(completion.status.forall(_.code == Status.Code.OK.value()))
           assert(
             expectedDeduplicationOffset == actualDeduplicationOffset,
             "Wrong duplication offset in completion, " +
@@ -144,39 +139,31 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   })
 
   test(
-    "CCDIIncludeRequestedDeduplicationTime",
+    shortIdentifier = service.productPrefix + "CCDIIncludeRequestedDeduplicationTime",
     "The requested deduplication time is present in the associated completion",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val submittedDeduplications =
-      for (i <- 1 to 2)
-        yield DeduplicationPeriod.DeduplicationTime(
-          Duration(seconds = 100L + i.toLong, nanos = 10 + i)
-        )
-    val Seq(successfulRequestDeduplication, failingRequestDeduplication) = submittedDeduplications
+    val requestedDeduplicationTime = Duration(seconds = 100L, nanos = 10)
     for {
-      _ <- submitSuccessfulAndFailingRequests(
+      successfulCompletion <- submitRequest(
         service,
         ledger,
         party,
-        updateSuccessfulCommandServiceRequest = updateSubmitAndWaitRequest(
-          _,
-          optDeduplicationPeriod = Some(successfulRequestDeduplication),
-        ),
-        updateFailingCommandServiceRequest =
-          updateSubmitAndWaitRequest(_, optDeduplicationPeriod = Some(failingRequestDeduplication)),
-        updateSuccessfulCommandSubmissionServiceRequest =
-          updateSubmitRequest(_, optDeduplicationPeriod = Some(successfulRequestDeduplication)),
-        updateFailingCommandSubmissionServiceRequest =
-          updateSubmitRequest(_, optDeduplicationPeriod = Some(failingRequestDeduplication)),
+        simpleCreate(party),
+        updateCommandServiceRequest =
+          _.update(_.commands.deduplicationTime := requestedDeduplicationTime),
+        updateCommandSubmissionServiceRequest =
+          _.update(_.commands.deduplicationTime := requestedDeduplicationTime),
       )
-      commandSubmissionCompletions <- ledger.firstCompletions(party)
     } yield {
-      assertCompletionsCount(commandSubmissionCompletions, 2)
-      commandSubmissionCompletions.zip(submittedDeduplications).foreach {
+      val completions = Seq(successfulCompletion).flatten
+      val requestedDeduplicationTimes = Seq(requestedDeduplicationTime)
+      assertCompletionsCount(completions, expectedCount = 1)
+      completions.zip(requestedDeduplicationTimes).foreach {
         case (completion, requestedDeduplication) =>
-          val expectedDeduplicationTime = requestedDeduplication.deduplicationTime
+          val expectedDeduplicationTime = Some(requestedDeduplication)
           val actualDeduplicationTime = completion.deduplicationPeriod.deduplicationTime
+          assert(completion.status.forall(_.code == Status.Code.OK.value()))
           assert(
             actualDeduplicationTime == expectedDeduplicationTime,
             "Wrong duplication time in completion, " +
@@ -188,21 +175,25 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   })
 
   test(
-    "CCDIIncludeNoDeduplicationWhenNotRequested",
-    "A completion doesn't include a deduplication when one is missing in the request",
+    shortIdentifier = service.productPrefix + "CCDIIncludeNoDeduplicationWhenNotRequested",
+    "A completion includes the max deduplication time when one is missing in the request",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      _ <- submitSuccessfulAndFailingRequests(service, ledger, party)
+      config <- ledger.configuration()
+      successfulCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
       commandSubmissionCompletions <- ledger.firstCompletions(party)
     } yield {
-      assertCompletionsCount(commandSubmissionCompletions, 2)
+      val completions = Seq(successfulCompletion).flatten
+      assertCompletionsCount(completions, expectedCount = 1)
       commandSubmissionCompletions.foreach { completion =>
+        assert(completion.status.forall(_.code == Status.Code.OK.value()))
         val actualDeduplication = completion.deduplicationPeriod
+        assert(actualDeduplication.isDeduplicationTime)
         assert(
-          actualDeduplication.isEmpty,
+          actualDeduplication.deduplicationTime == config.maxDeduplicationTime,
           s"The deduplication $actualDeduplication " +
-            "is present in the completion even though it was not requested",
+            "is not the maximum deduplication time",
         )
       }
     }
@@ -214,80 +205,35 @@ private[testtool] object CompletionDeduplicationInfoIT {
   case object CommandService extends Service
   case object CommandSubmissionService extends Service
 
-  private def submitSuccessfulAndFailingRequests(
+  private def submitRequest(
       service: Service,
       ledger: ParticipantTestContext,
       party: Primitive.Party,
-      updateSuccessfulCommandServiceRequest: SubmitAndWaitRequest => SubmitAndWaitRequest =
-        identity,
-      updateFailingCommandServiceRequest: SubmitAndWaitRequest => SubmitAndWaitRequest = identity,
-      updateSuccessfulCommandSubmissionServiceRequest: SubmitRequest => SubmitRequest = identity,
-      updateFailingCommandSubmissionServiceRequest: SubmitRequest => SubmitRequest = identity,
-  )(implicit ec: ExecutionContext): Future[Unit] =
+      command: Command,
+      updateCommandServiceRequest: SubmitAndWaitRequest => SubmitAndWaitRequest = identity,
+      updateCommandSubmissionServiceRequest: SubmitRequest => SubmitRequest = identity,
+  )(implicit ec: ExecutionContext): Future[Option[Completion]] =
     service match {
       case CommandService =>
-        val successfulRequest = ledger.submitAndWaitRequest(party, successfulCommand(party))
-        val failingRequest = ledger.submitAndWaitRequest(party, failingCommand(party))
+        val successfulRequest = ledger.submitAndWaitRequest(party, command)
         for {
-          _ <- ledger.submitAndWait(updateSuccessfulCommandServiceRequest(successfulRequest))
-          _ <- ledger.submitAndWait(updateFailingCommandServiceRequest(failingRequest))
-        } yield ()
+          offset <- ledger.currentEnd()
+          _ <- ledger.submitAndWait(updateCommandServiceRequest(successfulRequest))
+          completion <- WithTimeout(5.seconds)(
+            ledger.findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
+          )
+        } yield completion
       case CommandSubmissionService =>
-        val successfulRequest = ledger.submitRequest(party, successfulCommand(party))
-        val failingRequest = ledger.submitRequest(party, failingCommand(party))
+        val successfulRequest = ledger.submitRequest(party, command)
         for {
-          _ <- ledger.submit(updateSuccessfulCommandSubmissionServiceRequest(successfulRequest))
-          _ <- ledger.submit(updateFailingCommandSubmissionServiceRequest(failingRequest))
-        } yield ()
+          offset <- ledger.currentEnd()
+          _ <- ledger.submit(updateCommandSubmissionServiceRequest(successfulRequest))
+          completion <- WithTimeout(5.seconds)(
+            ledger.findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
+          )
+        } yield completion
     }
 
-  private def updateSubmitRequest(
-      submitRequest: SubmitRequest,
-      optSubmissionId: Option[Ref.SubmissionId] = None,
-      optDeduplicationPeriod: Option[DeduplicationPeriod] = None,
-  ): SubmitRequest = {
-    val optRequestUpdatedWithSubmission =
-      optSubmissionId.map { submissionId =>
-        submitRequest.copy(commands =
-          submitRequest.commands.map(_.copy(submissionId = submissionId))
-        )
-      }
-
-    val optRequestUpdatedWithDeduplicationPeriod =
-      optDeduplicationPeriod.map { deduplicationPeriod =>
-        optRequestUpdatedWithSubmission
-          .getOrElse(submitRequest)
-          .copy(commands =
-            submitRequest.commands.map(_.copy(deduplicationPeriod = deduplicationPeriod))
-          )
-      }
-
-    optRequestUpdatedWithDeduplicationPeriod.getOrElse(submitRequest)
-  }
-
-  private def updateSubmitAndWaitRequest(
-      submitAndWaitRequest: SubmitAndWaitRequest,
-      optSubmissionId: Option[Ref.SubmissionId] = None,
-      optDeduplicationPeriod: Option[DeduplicationPeriod] = None,
-  ): SubmitAndWaitRequest = {
-    val optRequestUpdatedWithSubmission =
-      optSubmissionId.map { submissionId =>
-        submitAndWaitRequest.copy(commands =
-          submitAndWaitRequest.commands.map(_.copy(submissionId = submissionId))
-        )
-      }
-
-    val optRequestUpdatedWithDeduplicationPeriod =
-      optDeduplicationPeriod.map { deduplicationPeriod =>
-        optRequestUpdatedWithSubmission
-          .getOrElse(submitAndWaitRequest)
-          .copy(commands =
-            submitAndWaitRequest.commands.map(_.copy(deduplicationPeriod = deduplicationPeriod))
-          )
-      }
-
-    optRequestUpdatedWithDeduplicationPeriod.getOrElse(submitAndWaitRequest)
-  }
   private def assertCompletionsCount(
       completions: Seq[Completion],
       expectedCount: Int,
@@ -299,8 +245,5 @@ private[testtool] object CompletionDeduplicationInfoIT {
       completions,
     )
 
-  private def successfulCommand(party: Primitive.Party) = Dummy(party).create.command
-
-  private def failingCommand(party: Primitive.Party) =
-    Dummy(party).createAnd.exerciseFailingChoice(party).command
+  private def simpleCreate(party: Primitive.Party) = Dummy(party).create.command
 }
