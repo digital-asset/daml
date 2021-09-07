@@ -20,36 +20,31 @@ template MySimple
     agreement show p
     signatory p
 
-    controller p can
-      MyHello : Text
-        do pure "hello"
+    choice MyHello : Text
+      controller p
+      do pure "hello"
 
-    controller p can
-      MyThrow : Text
-        do throw MyError
+    choice MyThrow : Text
+      controller p
+      do throw MyError
 
-    controller p can
-      ProvokeBadOrd : Text
-        do
-          let x = Thing (\x -> x+1)
-          let zs = dedup [x,x]
-          pure "wont reach here"
+    choice ProvokeBadOrd : Text
+      controller p
+      do let x = Thing (\x -> x+1)
+         let zs = dedup [x,x]
+         pure "wont reach here"
 
-    controller p can
-      Contract14ThenThrow : Text
-        do
-          x <- create (Contract14 with p) -- will be rolled back
-          throw MyError
-          pure "wont reach here"
+    choice Contract14ThenThrow : Text
+      controller p
+      do x <- create (Contract14 with p) -- will be rolled back
+         throw MyError
+         pure "wont reach here"
 
-    controller p can
-      Contract13ThenThrow : Text
-        do
-          x <- create (Contract13 with p) -- will *not* be rolled back; version check will prevent it
-          throw MyError
-          pure "wont reach here"
-
-
+    choice Contract13ThenThrow : Text
+      controller p
+      do x <- create (Contract13 with p) -- will *not* be rolled back; version check will prevent it
+         throw MyError
+         pure "wont reach here"
 
 data Thing = Thing (Int -> Int)
 instance Eq Thing where
