@@ -41,6 +41,8 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 
 # Interfaces that are jointly owned
 /ledger-api/grpc-definitions/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-configuration/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-offset/              @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state/          @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state-metrics/  @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 
