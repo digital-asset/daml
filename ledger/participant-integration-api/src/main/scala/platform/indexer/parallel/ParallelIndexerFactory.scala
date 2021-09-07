@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
@@ -110,13 +111,13 @@ object ParallelIndexerFactory {
                 dbDispatcher = dbDispatcher,
                 materializer = mat,
               )
-            ).flatMap { handle =>
+            ).andThen {
               // the tricky bit:
               // the future in the completion handler will be this one
-              // but the future for signaling for the HaCoordinator, that the protected execution is initialized needs to complete precisely here
-              killSwitchPromise.success(handle.killSwitch)
-              handle.completed
-            }
+              // but the future for signaling for the HaCoordinator, that the protected execution is initialized, needs to complete precisely here
+              case Success(handle) => killSwitchPromise.success(handle.killSwitch)
+              case Failure(ex) => killSwitchPromise.failure(ex)
+            }.flatMap(_.completed)
           }
 
         killSwitchPromise.future
