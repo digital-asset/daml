@@ -10,7 +10,11 @@ import com.codahale.metrics.Counter
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
-import com.daml.ledger.api.v1.command_completion_service.{CompletionEndRequest, CompletionEndResponse, CompletionStreamRequest}
+import com.daml.ledger.api.v1.command_completion_service.{
+  CompletionEndRequest,
+  CompletionEndResponse,
+  CompletionStreamRequest,
+}
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
@@ -19,7 +23,10 @@ import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{CompletionFailure, CompletionSuccess}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.duration.Duration
