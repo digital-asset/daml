@@ -30,7 +30,7 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   override private[testtool] def name = serviceName + super.name
 
   test(
-    shortIdentifier = s"CCDIIncludeDedupInfo-$serviceName",
+    shortIdentifier = s"CCDIIncludeDedupInfo$serviceName",
     description = s"Deduplication information is preserved in completions ($serviceName)",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
