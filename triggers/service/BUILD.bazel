@@ -178,6 +178,7 @@ da_scala_library(
         "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
+        "//libs-scala/ports:ports-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",

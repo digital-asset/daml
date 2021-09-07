@@ -29,6 +29,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//ledger-api/testing-utils",
         "//libs-scala/ports",
+        "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
         "@maven//:commons_io_commons_io",
         "@maven//:org_scalatest_scalatest_compatible",
