@@ -54,28 +54,27 @@ someone tries to transfer more than they own, the choice should just do nothing.
   
       signatory owner
   
-      controller owner can
-  
-        -- | Transfer some amount to the receiver, or do nothing if this would make the
-        -- remaining amount in the account negative.
-        nonconsuming Account_Transfer : (ContractId Account, ContractId Account)
-          with
-            transferAmount: Decimal
-            receiverCid: ContractId Account
-          do
-            if amount >= transferAmount
-            then do
-              -- The account has sufficient funds.
-              receiver <- fetch receiverCid
-              newSelf <- create this with amount = amount - transferAmount
-              newReceiver <- create receiver with 
-                amount = receiver.amount + transferAmount
-              archive receiverCid
-              return (newSelf, newReceiver)
-            else do
-              -- The account does not have sufficient funds, and the transfer is
-              -- cancelled.
-              return (self, receiverCid)
+      -- | Transfer some amount to the receiver, or do nothing if this would make the
+      -- remaining amount in the account negative.
+      nonconsuming choice Account_Transfer : (ContractId Account, ContractId Account)
+        with
+          transferAmount: Decimal
+          receiverCid: ContractId Account
+        controller owner
+        do
+          if amount >= transferAmount
+          then do
+            -- The account has sufficient funds.
+            receiver <- fetch receiverCid
+            newSelf <- create this with amount = amount - transferAmount
+            newReceiver <- create receiver with
+              amount = receiver.amount + transferAmount
+            archive receiverCid
+            return (newSelf, newReceiver)
+          else do
+            -- The account does not have sufficient funds, and the transfer is
+            -- cancelled.
+            return (self, receiverCid)
 
 It is clear that making a transfer between two accounts, should always preserve
 the total amount of funds. However, running the verification tool produces the 

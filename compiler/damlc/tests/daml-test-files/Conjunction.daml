@@ -11,21 +11,19 @@ template Foo
     ps : [Party]
   where
     signatory p
+    observer q
 
-    controller p, q can
-      nonconsuming Call1 : Int
-        do
-          return 41
+    nonconsuming choice Call1 : Int
+      controller p,q
+      do return 41
 
-    controller [p, q] can
-      nonconsuming Call2 : Int
-        do
-          return 42
+    nonconsuming choice Call2 : Int
+      controller [p, q]
+      do return 42
 
-    controller ps can
-      Call3 : Int
-        do
-          return 43
+    choice Call3 : Int
+      controller ps
+      do return 43
 
 template Bar
   with
@@ -33,22 +31,22 @@ template Bar
     q : Party
   where
     signatory p
+    observer q
 
-    controller q can
-      nonconsuming DelegatedCall1 : Int
-        with cid : ContractId Foo
-        do
-          exercise cid Call1
+    nonconsuming choice DelegatedCall1 : Int
+      with cid : ContractId Foo
+      controller q
+      do exercise cid Call1
 
-      nonconsuming DelegatedCall2 : Int
-        with cid : ContractId Foo
-        do
-          exercise cid Call2
+    nonconsuming choice DelegatedCall2 : Int
+      with cid : ContractId Foo
+      controller q
+      do exercise cid Call2
 
-      DelegatedCall3 : Int
-        with cid : ContractId Foo
-        do
-          exercise cid Call3
+    choice DelegatedCall3 : Int
+      with cid : ContractId Foo
+      controller q
+      do exercise cid Call3
 
 main = scenario do
 

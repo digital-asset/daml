@@ -24,12 +24,12 @@ template DelegatedAccess
     spy : Party
   where
     signatory p
+    observer spy
 
-    controller spy can
-      ReadSecret : Secret
-        with secretCid : ContractId Secret
-        do
-          fetch secretCid -- use p's authority to fetch secretCid
+    choice ReadSecret : Secret
+      with secretCid : ContractId Secret
+      controller spy
+      do fetch secretCid -- use p's authority to fetch secretCid
 
 template DisclosureDelegation
   with
@@ -37,12 +37,12 @@ template DisclosureDelegation
     actor : Party
   where
     signatory p
+    observer actor
 
-    controller actor can
-      Disclose : Secret
-        with secretCid : ContractId Secret
-        do
-          fetch secretCid -- actor will divulge secretCid to p
+    choice Disclose : Secret
+      with secretCid : ContractId Secret
+      controller actor
+      do fetch secretCid -- actor will divulge secretCid to p
 
 -- @WARN range=84:3-85:20; Use of divulged contracts is deprecated
 -- @WARN range=88:3-89:46; Use of divulged contracts is deprecated
