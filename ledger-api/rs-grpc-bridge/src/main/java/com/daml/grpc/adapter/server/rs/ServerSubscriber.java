@@ -114,7 +114,7 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
     executionSequencer.sequence(
         () -> {
           if (!responseObserver.isCancelled()) {
-            responseObserver.onError(Status.fromThrowable(throwable).asRuntimeException());
+            responseObserver.onError(throwable);
             completionPromise.completeExceptionally(throwable);
           }
         });
