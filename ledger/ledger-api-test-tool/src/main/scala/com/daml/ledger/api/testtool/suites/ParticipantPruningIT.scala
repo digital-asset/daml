@@ -23,7 +23,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantPruningIT extends LedgerTestSuite {
 
-  private val batchesToPopulate = 74
+  private val batchesToPopulate =
+    74 // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
   private val lastItemToPruneIndex = batchesToPopulate
 
   test(
@@ -48,7 +49,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     for {
       cannotPruneNonHexOffset <- participant
         .prune("covfefe", attempts = 1, pruneAllDivulgedContracts = true)
-        .mustFail("pruning, specifiying a non-hexadecimal offset")
+        .mustFail("pruning, specifying a non-hexadecimal offset")
     } yield {
       assertGrpcError(
         cannotPruneNonHexOffset,
@@ -69,7 +70,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       actualEndExclusive <- participant.currentEnd()
       cannotPruneOffsetBeyondEnd <- participant
         .prune(actualEndExclusive, attempts = 1)
-        .mustFail("pruning, specifiying an offset after the ledger end")
+        .mustFail("pruning, specifying an offset after the ledger end")
     } yield {
       assertGrpcError(
         cannotPruneOffsetBeyondEnd,
@@ -441,6 +442,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
       offsetToPruneUpToInSecondRealPrune = offsets((lastItemToPruneIndex + 1) * 2 - 1)
       offsetOfFirstSurvivingTransactionInSecondPrune = offsets((lastItemToPruneIndex + 1) * 2)
 
+      // Add more events before second prune too to advance canton's safe pruning offset
+      offsetsFollowingSecondRealPrune <- populateLedgerAndGetOffsets(participant, submitter)
+
       _ <- participant.prune(offsetToPruneUpToInSecondRealPrune)
 
       transactionsAfterSecondPrune <- participant.transactionTrees(
@@ -467,7 +471,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         s"transaction trees not pruned at expected offset after redundant prune",
       )
       assert(
-        transactionsAfterSecondPrune.size == offsets.size - 2 * (lastItemToPruneIndex + 1),
+        transactionsAfterSecondPrune.size == offsets.size - 2 * (lastItemToPruneIndex + 1) + offsetsFollowingSecondRealPrune.size,
         s"transaction tree count after second pruning does not match expected count",
       )
       assert(
@@ -707,7 +711,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      // Populate "other" participant too to advance safe pruning timestamp
+      // Populate "other" participant too to advance canton's safe pruning offset
       _ <- populateLedgerAndGetOffsets(alpha, alice)
 
       _ <- pruneAtCurrentOffset(beta, bob, pruneAllDivulgedContracts = true)
