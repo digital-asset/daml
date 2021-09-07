@@ -31,7 +31,6 @@ import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import com.google.rpc.Status
 import io.grpc.Status.Code
-import io.grpc.protobuf.StatusProto
 
 import java.time.{Duration, Instant}
 import java.util.UUID
@@ -164,7 +163,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
           logger.debug(DuplicateCommand.getMessage)
-          Future.failed(StatusProto.toStatusRuntimeException(DuplicateCommand))
+          Future.failed(grpcError(DuplicateCommand))
       }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
