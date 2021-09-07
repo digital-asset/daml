@@ -94,7 +94,7 @@ reset_cache() {
     fi
 
     rm -f "${file}.sparseimage"
-    hdiutil create -size 200g -fs 'Case-sensitive APFS' -volname "$file" -type SPARSE "$file"
+    hdiutil create -size 200g -fs APFS -volname "$file" -type SPARSE "$file"
     mkdir -p $mount_point
     hdiutil attach "${file}.sparseimage" -mountpoint "$mount_point"
     echo "Done."
