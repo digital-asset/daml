@@ -46,7 +46,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionId",
+    "DuplicatePackageSubmissionId",
     "Duplicate submission ids are accepted when package uploaded twice",
     allocate(NoParties, NoParties),
   )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>

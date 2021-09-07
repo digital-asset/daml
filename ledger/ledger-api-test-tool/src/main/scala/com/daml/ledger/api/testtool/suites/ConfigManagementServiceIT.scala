@@ -187,7 +187,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionId",
+    "DuplicateConfigSubmissionId",
     "Duplicate submission ids are accepted when config changed twice",
     allocate(NoParties, NoParties),
     runConcurrently = false,
