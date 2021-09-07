@@ -265,13 +265,13 @@ jobs:
 
           READ_PERF_KEYS="\
            fetchByKey \
-           fetchByQuery\
+           fetchByQuery \
           "
           RES=""
           for KEY in $READ_PERF_KEYS; do
             # capture the avg, stddev, p90, p99, requests_per_second numbers from gatling summary csv
             perf=$(cat ${OUT}/${KEY}/*/summary.csv | awk -F, '{print $11,$12,$6,$8,$13}' | tail -n 1)
-            RES="${RES}json_oracle/${KEY}: $perf)\n"
+            RES="${RES}json_oracle/${KEY}: $perf\n"
           done
 
           setvar oracle_perf_results "$RES"
@@ -281,6 +281,7 @@ jobs:
           gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json-oracle/${REPORT_ID}.tgz"
 
         displayName: http-json-oracle perf
+        name: out
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
           DOCKER_LOGIN: $(DOCKER_LOGIN)
