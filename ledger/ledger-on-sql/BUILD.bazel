@@ -250,6 +250,7 @@ da_scala_test_suite(
         tags = db.get("conformance_test_tags", []),
         test_tool_args = db.get("conformance_test_tool_args", []) + [
             "--verbose",
+            "--exclude=CommandDeduplicationIT" # KV ledgers so we run the KVCommandDeduplicationIT
         ],
     )
     for db in supported_databases
