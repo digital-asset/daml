@@ -191,6 +191,9 @@ private[backend] object OracleStorageBackend
     InitHookDataSourceProxy(oracleDataSource, connectionInitHook.toList)
   }
 
+  override def checkDatabaseAvailable(connection: Connection): Unit =
+    assert(SQL"SELECT 1 FROM DUAL".as(get[Int](1).single)(connection) == 1)
+
   override def tryAcquire(
       lockId: DBLockStorageBackend.LockId,
       lockMode: DBLockStorageBackend.LockMode,
