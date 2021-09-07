@@ -19,7 +19,9 @@ private[platform] object CommandCompletionsTable {
   import SqlParser.{int, str}
 
   private val sharedColumns: RowParser[Offset ~ Instant ~ String ~ String] =
-    offset("completion_offset") ~ instant("record_time") ~ str("command_id") ~ str("application_id")
+    offset("completion_offset") ~ instantFromTimestamp("record_time") ~ str("command_id") ~ str(
+      "application_id"
+    )
 
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
     sharedColumns ~ str("transaction_id") map {

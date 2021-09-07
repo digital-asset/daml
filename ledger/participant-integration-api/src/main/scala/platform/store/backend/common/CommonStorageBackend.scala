@@ -5,9 +5,8 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 import java.time.Instant
-import java.util.Date
 
-import anorm.SqlParser.{array, binaryStream, byteArray, date, flatten, int, long, str}
+import anorm.SqlParser.{array, binaryStream, byteArray, flatten, int, long, str}
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
@@ -17,7 +16,7 @@ import com.daml.platform.store.Conversions.{
   contractId,
   eventId,
   identifier,
-  instant,
+  instantFromMicros,
   ledgerString,
   offset,
 }
@@ -339,7 +338,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       packageId: String,
       sourceDescription: Option[String],
       size: Long,
-      knownSince: Date,
+      knownSince: Long,
   )
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
@@ -356,7 +355,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .map(d =>
         PackageId.assertFromString(d.packageId) -> PackageDetails(
           d.size,
-          d.knownSince.toInstant,
+          instantFromMicros(d.knownSince),
           d.sourceDescription,
         )
       )
@@ -389,7 +388,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
     (offset("ledger_offset") ~
-      date("recorded_at") ~
+      instantFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
       str("typ") ~
       str("rejection_reason").?)
@@ -397,10 +396,10 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .map {
         case (offset, recordTime, Some(submissionId), `acceptType`, None) =>
           offset ->
-            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime.toInstant)
+            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)
         case (offset, recordTime, Some(submissionId), `rejectType`, Some(reason)) =>
           offset ->
-            PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime.toInstant, reason)
+            PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)
         case invalidRow =>
           sys.error(s"packageEntryParser: invalid party entry row: $invalidRow")
       }
@@ -433,9 +432,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   private case class ParsedCommandData(deduplicateUntil: Instant)
 
   private val CommandDataParser: RowParser[ParsedCommandData] =
-    Macro.parser[ParsedCommandData](
-      "deduplicate_until"
-    )
+    instantFromMicros("deduplicate_until")
+      .map(ParsedCommandData)
 
   def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Instant =
     SQL_SELECT_COMMAND
@@ -450,7 +448,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit = {
     SQL_DELETE_EXPIRED_COMMANDS
-      .on("currentTime" -> currentTime)
+      .on("currentTime" -> Timestamp.instantToMicros(currentTime))
       .execute()(connection)
     ()
   }
@@ -598,7 +596,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       eventId("event_id") ~
       contractId("contract_id") ~
       identifier("template_id").? ~
-      instant("ledger_effective_time").? ~
+      instantFromMicros("ledger_effective_time").? ~
       array[String]("create_signatories").? ~
       array[String]("create_observers").? ~
       str("create_agreement_text").? ~

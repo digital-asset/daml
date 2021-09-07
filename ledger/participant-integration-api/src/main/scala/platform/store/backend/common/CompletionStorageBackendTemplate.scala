@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.CompletionFromTransaction
-import com.daml.platform.store.Conversions.{instant, offset}
+import com.daml.platform.store.Conversions.{instantFromMicros, offset}
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.google.protobuf.any
 import com.google.rpc.status.{Status => StatusProto}
@@ -61,7 +61,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
 
   private val sharedColumns: RowParser[Offset ~ Instant ~ String ~ String ~ Option[String]] =
     offset("completion_offset") ~
-      instant("record_time") ~
+      instantFromMicros("record_time") ~
       str("command_id") ~
       str("application_id") ~
       str("submission_id").?
@@ -77,7 +77,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
   private val deduplicationTimeNanosColumn: RowParser[Option[Int]] =
     int("deduplication_time_nanos").?
   private val deduplicationStartColumn: RowParser[Option[Instant]] =
-    instant("deduplication_start").?
+    instantFromMicros("deduplication_start").?
 
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
     acceptedCommandSharedColumns ~

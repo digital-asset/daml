@@ -76,7 +76,7 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
     } else {
       SQL"select max(create_ledger_effective_time) as max_create_ledger_effective_time, count(*) as num_contracts from participant_contracts where participant_contracts.contract_id in ($ids)"
         .as(
-          (instant("max_create_ledger_effective_time").? ~ int("num_contracts")).single
+          (instantFromTimestamp("max_create_ledger_effective_time").? ~ int("num_contracts")).single
             .map {
               case result ~ numContracts if numContracts == ids.size => Success(result)
               case _ => Failure(ContractsTable.notFound(ids))
