@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT._
@@ -33,19 +32,18 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      successfulCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
+      optCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
     } yield {
-      val completions = Seq(successfulCompletion).flatten
-      assertCompletionsCount(completions, expectedCount = 1)
-      completions.foreach { completion =>
-        val expectedApplicationId = ledger.applicationId
-        val actualApplicationId = completion.applicationId
-        assert(
-          Ref.ApplicationId.fromString(actualApplicationId).contains(expectedApplicationId),
-          "Wrong application ID in completion, " +
-            s"expected: $expectedApplicationId, actual: $actualApplicationId",
-        )
-      }
+      val expectedApplicationId = ledger.applicationId
+      assertDefined(optCompletion)
+      val completion = optCompletion.get
+      assert(completion.status.forall(_.code == Status.Code.OK.value()))
+      val actualApplicationId = completion.applicationId
+      assert(
+        Ref.ApplicationId.fromString(actualApplicationId).contains(expectedApplicationId),
+        "Wrong application ID in completion, " +
+          s"expected: $expectedApplicationId, actual: $actualApplicationId",
+      )
     }
   })
 
@@ -57,7 +55,7 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
     val requestedSubmissionId =
       Ref.SubmissionId.assertFromString(SubmissionIdGenerator.Random.generate())
     for {
-      successfulCompletion <- submitRequest(
+      optCompletion <- submitRequest(
         service,
         ledger,
         party,
@@ -67,18 +65,14 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
           _.update(_.commands.submissionId := requestedSubmissionId),
       )
     } yield {
-      val completions = Seq(successfulCompletion).flatten
-      val requestedSubmissionIds = Seq(requestedSubmissionId)
-      assertCompletionsCount(completions, expectedCount = 1)
-      completions.zip(requestedSubmissionIds).foreach { case (completion, expectedSubmissionId) =>
-        val actualSubmissionId = completion.submissionId
-        assert(completion.status.forall(_.code == Status.Code.OK.value()))
-        assert(
-          actualSubmissionId == expectedSubmissionId,
-          "Wrong submission ID in completion, " +
-            s"expected: $expectedSubmissionId, actual: $actualSubmissionId",
-        )
-      }
+      val completion = assertDefined(optCompletion)
+      val actualSubmissionId = completion.submissionId
+      assert(completion.status.forall(_.code == Status.Code.OK.value()))
+      assert(
+        actualSubmissionId == requestedSubmissionId,
+        "Wrong submission ID in completion, " +
+          s"expected: $requestedSubmissionId, actual: $actualSubmissionId",
+      )
     }
   })
 
@@ -88,17 +82,14 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
-      successfulCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
+      optCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
     } yield {
-      val completions = Seq(successfulCompletion).flatten
-      assertCompletionsCount(completions, expectedCount = 1)
-      completions.foreach { completion =>
-        assert(completion.status.forall(_.code == Status.Code.OK.value()))
-        assert(
-          Ref.SubmissionId.fromString(completion.submissionId).isRight,
-          "Missing or invalid submission ID in completion",
-        )
-      }
+      val completion = assertDefined(optCompletion)
+      assert(completion.status.forall(_.code == Status.Code.OK.value()))
+      assert(
+        Ref.SubmissionId.fromString(completion.submissionId).isRight,
+        "Missing or invalid submission ID in completion",
+      )
     }
   })
 
@@ -109,7 +100,7 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val requestedDeduplicationTime = Duration(seconds = 100L, nanos = 10)
     for {
-      successfulCompletion <- submitRequest(
+      optCompletion <- submitRequest(
         service,
         ledger,
         party,
@@ -120,21 +111,16 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
           _.update(_.commands.deduplicationTime := requestedDeduplicationTime),
       )
     } yield {
-      val completions = Seq(successfulCompletion).flatten
-      val requestedDeduplicationTimes = Seq(requestedDeduplicationTime)
-      assertCompletionsCount(completions, expectedCount = 1)
-      completions.zip(requestedDeduplicationTimes).foreach {
-        case (completion, requestedDeduplication) =>
-          val expectedDeduplicationTime = Some(requestedDeduplication)
-          val actualDeduplicationTime = completion.deduplicationPeriod.deduplicationTime
-          assert(completion.status.forall(_.code == Status.Code.OK.value()))
-          assert(
-            actualDeduplicationTime == expectedDeduplicationTime,
-            "Wrong duplication time in completion, " +
-              s"expected: $expectedDeduplicationTime, " +
-              s"actual: $actualDeduplicationTime",
-          )
-      }
+      val completion = assertDefined(optCompletion)
+      val expectedDeduplicationTime = Some(requestedDeduplicationTime)
+      val actualDeduplicationTime = completion.deduplicationPeriod.deduplicationTime
+      assert(completion.status.forall(_.code == Status.Code.OK.value()))
+      assert(
+        actualDeduplicationTime == expectedDeduplicationTime,
+        "Wrong duplication time in completion, " +
+          s"expected: $expectedDeduplicationTime, " +
+          s"actual: $actualDeduplicationTime",
+      )
     }
   })
 
@@ -145,21 +131,17 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       config <- ledger.configuration()
-      successfulCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
-      commandSubmissionCompletions <- ledger.firstCompletions(party)
+      optCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
     } yield {
-      val completions = Seq(successfulCompletion).flatten
-      assertCompletionsCount(completions, expectedCount = 1)
-      commandSubmissionCompletions.foreach { completion =>
-        assert(completion.status.forall(_.code == Status.Code.OK.value()))
-        val actualDeduplication = completion.deduplicationPeriod
-        assert(actualDeduplication.isDeduplicationTime)
-        assert(
-          actualDeduplication.deduplicationTime == config.maxDeduplicationTime,
-          s"The deduplication $actualDeduplication " +
-            "is not the maximum deduplication time",
-        )
-      }
+      val completion = assertDefined(optCompletion)
+      assert(completion.status.forall(_.code == Status.Code.OK.value()))
+      val actualDeduplication = completion.deduplicationPeriod
+      assert(actualDeduplication.isDeduplicationTime)
+      assert(
+        actualDeduplication.deduplicationTime == config.maxDeduplicationTime,
+        s"The deduplication $actualDeduplication " +
+          "is not the maximum deduplication time",
+      )
     }
   })
 }
@@ -198,16 +180,10 @@ private[testtool] object CompletionDeduplicationInfoIT {
         } yield completion
     }
 
-  private def assertCompletionsCount(
-      completions: Seq[Completion],
-      expectedCount: Int,
-  ): Seq[Completion] =
-    assertLength(
-      context =
-        s"Completions count mismatch, expected: $expectedCount, actual: ${completions.size}",
-      expectedCount,
-      completions,
-    )
+  private def assertDefined(optCompletion: Option[Completion]): Completion = {
+    assert(optCompletion.isDefined, "No completion has been produced")
+    optCompletion.get
+  }
 
-  private def simpleCreate(party: Primitive.Party) = Dummy(party).create.command
+  private def simpleCreate(party: Primitive.Party): Command = Dummy(party).create.command
 }
