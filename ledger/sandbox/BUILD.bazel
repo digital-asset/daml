@@ -332,7 +332,7 @@ server_conformance_test(
     servers = {"postgresql": NEXT_SERVERS["postgresql"]},
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT",
+        "--exclude=ClosedWorldIT,CommandDeduplicationIT",
     ],
 )
 
