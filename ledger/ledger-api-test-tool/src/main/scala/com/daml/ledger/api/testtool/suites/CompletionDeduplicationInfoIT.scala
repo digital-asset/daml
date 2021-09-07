@@ -103,42 +103,6 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   })
 
   test(
-    shortIdentifier = service.productPrefix + "CCDIIncludeRequestedDeduplicationOffset",
-    "The requested deduplication offset is present in the associated completion",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val requestedDeduplicationOffset = ledger.begin.getAbsolute
-    for {
-      successfulCompletion <- submitRequest(
-        service,
-        ledger,
-        party,
-        simpleCreate(party),
-        updateCommandServiceRequest =
-          _.update(_.commands.deduplicationOffset := requestedDeduplicationOffset),
-        updateCommandSubmissionServiceRequest =
-          _.update(_.commands.deduplicationOffset := requestedDeduplicationOffset),
-      )
-    } yield {
-      val completions = Seq(successfulCompletion).flatten
-      val requestedDeduplicationOffsets = Seq(requestedDeduplicationOffset)
-      assertCompletionsCount(completions, expectedCount = 1)
-      completions.zip(requestedDeduplicationOffsets).foreach {
-        case (completion, requestedDeduplicationOffset) =>
-          val expectedDeduplicationOffset = Some(requestedDeduplicationOffset)
-          val actualDeduplicationOffset = completion.deduplicationPeriod.deduplicationOffset
-          assert(completion.status.forall(_.code == Status.Code.OK.value()))
-          assert(
-            expectedDeduplicationOffset == actualDeduplicationOffset,
-            "Wrong duplication offset in completion, " +
-              s"expected: $expectedDeduplicationOffset, " +
-              s"actual: $actualDeduplicationOffset",
-          )
-      }
-    }
-  })
-
-  test(
     shortIdentifier = service.productPrefix + "CCDIIncludeRequestedDeduplicationTime",
     "The requested deduplication time is present in the associated completion",
     allocate(SingleParty),
