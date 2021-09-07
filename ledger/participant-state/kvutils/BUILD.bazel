@@ -253,7 +253,8 @@ client_server_build(
         "--concurrent-test-runs=4",
         "--timeout-scale-factor=20",
         "localhost:%PORT%",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT" +  # it's a KV ledger so this cannot run
+        ",HealthServiceIT",  # does not make sense to run it for the export
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
     server = "//ledger/ledger-on-memory:app",
