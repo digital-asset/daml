@@ -880,6 +880,10 @@ encodeDefException DefException{..} = do
     defExceptionMessage <- encodeExpr exnMessage
     pure P.DefException{..}
 
+
+encodeTemplateImplements :: Qualified TypeConName -> Encode P.TypeConName
+encodeTemplateImplements = encodeQualTypeConName'
+
 encodeTemplate :: Template -> Encode P.DefTemplate
 encodeTemplate Template{..} = do
     defTemplateTycon <- encodeDottedName unTypeConName tplTypeCon
@@ -891,6 +895,7 @@ encodeTemplate Template{..} = do
     defTemplateChoices <- encodeNameMap encodeTemplateChoice tplChoices
     defTemplateLocation <- traverse encodeSourceLoc tplLocation
     defTemplateKey <- traverse encodeTemplateKey tplKey
+    defTemplateImplements <- encodeList encodeTemplateImplements [] -- TODO (drsk) interfaces
     pure P.DefTemplate{..}
 
 encodeTemplateKey :: TemplateKey -> Encode P.DefTemplate_DefKey
@@ -938,6 +943,9 @@ encodeScenarioModule version mod =
   where
     metadata = getPackageMetadata version (PackageName "scenario") Nothing
 
+-- encodeDefInterface :: DefInterface -> Encode P.DefInterface
+-- encodeDefInterface = undefined -- TODO (drsk) interfaces
+
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
     moduleName <- encodeDottedName unModuleName moduleName
@@ -947,6 +955,7 @@ encodeModule Module{..} = do
     moduleValues <- encodeNameMap encodeDefValue moduleValues
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates
     moduleExceptions <- encodeNameMap encodeDefException moduleExceptions
+    let moduleInterfaces = V.empty -- TODO (drsk) interfaces
     pure P.Module{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
