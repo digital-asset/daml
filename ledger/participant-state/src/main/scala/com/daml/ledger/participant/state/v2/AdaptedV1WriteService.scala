@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.v2
 
-import java.time.Instant
-import java.util.concurrent.CompletionStage
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.HealthStatus
@@ -13,7 +11,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
@@ -21,6 +18,8 @@ import com.google.rpc.status.Status
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 
+import java.time.Instant
+import java.util.concurrent.CompletionStage
 import scala.jdk.CollectionConverters._
 
 /** Adapts a [[com.daml.ledger.participant.state.v1.WriteService]] implementation to the
@@ -118,9 +117,8 @@ private[v2] object AdaptedV1WriteService {
     case v1.PruningResult.NotPruned(grpcStatus) =>
       PruningResult.NotPruned(
         StatusProto
-          .fromThrowable(grpcStatus.asException()) // FIXME
+          .fromStatusAndTrailers(grpcStatus, new Metadata())
           .toBuilder
-          .addDetails(ErrorFactories.DefiniteAnswerInfo)
           .build()
       )
   }

@@ -155,7 +155,6 @@ private[services] object QueueBackedTracker {
                   .newBuilder()
                   .setCode(Code.INTERNAL.value())
                   .setMessage(promiseCancellationDescription)
-                  .addDetails(ErrorFactories.DefiniteAnswerInfo) // FIXME
                   .build()
               )
             )

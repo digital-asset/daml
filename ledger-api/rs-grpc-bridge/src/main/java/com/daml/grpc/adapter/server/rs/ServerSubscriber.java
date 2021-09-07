@@ -6,15 +6,14 @@ package com.daml.grpc.adapter.server.rs;
 import com.daml.grpc.adapter.CallCounter;
 import com.daml.grpc.adapter.ExecutionSequencer;
 import io.grpc.stub.ServerCallStreamObserver;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 public class ServerSubscriber<Resp> implements Subscriber<Resp> {
 
