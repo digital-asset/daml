@@ -34,7 +34,7 @@ Still, Daml applications may be affected in the following ways:
 .. warning::
   Participants may know of contracts for which they don't know the current activeness status. This happens through :ref:`divulgence <da-model-divulgence>` where a party learns of the existence of a contract without being guaranteed to ever see its archival. Such contracts are pruned by the feature described on this page as not doing so could easily lead to an ever growing participant state.
   
-During command submission, parties can currently fetch divulged contracts. This is mutually incompatible with the pruning behaviour described above. Daml code that may end up running on pruned participants should therefore never rely on that behaviour. Otherwise, applications relying on divulgence for contract resolution MUST ensure re-divulgence of the used contracts in order to allow participant operators to reclaim storage space by pruning divulged contracts.
+During command submission, parties can fetch divulged contracts. This is incompatible with the pruning behaviour described above which allows participant operators to reclaim storage space by pruning divulged contracts. Daml code running on pruned participants should therefore never rely on existence of divulged contracts prior to or at the pruning offset. Instead, such applications MUST ensure re-divulgence of the used contracts.
 
 How the Daml Ledger API is affected
 -----------------------------------
@@ -75,13 +75,13 @@ Professional advice on database administration is strongly recommended that woul
 Determining a suitable pruning offset
 -------------------------------------
 
-The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end, as well as of transactions, and of Active Contracts snapshots respectively; such offsets can be passed unchanged to `prune` calls, as long as they are lexicographically lower than the current ledger end.
+The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end of the Transactions, and of Active Contracts snapshots respectively. Such offsets can be passed unchanged to `prune` calls, as long as they are lexicographically lower than the current ledger end.
 
-When pruning all divulged contracts, the participant operator can choose the pruning offset as following:
+When pruning all divulged contracts, the participant operator can choose the pruning offset as follows:
 
 - Just before the ledger end, if no application hosted on the participant makes use of divulgence OR
 
-- An offset old enough (e.g. older than a 14-day grace period) which ensures that pruning does not affect any recently-divulged contract needed by the applications hosted on the participant.
+- An offset old enough (e.g. older than an arbitrary multi-day grace period) that it ensures that pruning does not affect any recently-divulged contract needed by the applications hosted on the participant.
 
 Scheduled jobs, applications and/or operator tools can be built on top of the Daml Ledger API to implement pruning automatically, for example at regular intervals, or on-demand, for example according to a user-initiated process.
 
