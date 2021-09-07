@@ -18,8 +18,6 @@ import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.empty.Empty
-import com.google.rpc.Status
-import io.grpc.Status.Code
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
 
