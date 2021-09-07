@@ -253,13 +253,13 @@ client_server_build(
         "--concurrent-test-runs=4",
         "--timeout-scale-factor=20",
         "localhost:%PORT%",
+        "--exclude=CommandDeduplicationIT",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=export,port=0,port-file=%PORT_FILE%",
-        "--exclude=CommandDeduplicationIT",
     ],
     visibility = [":__subpackages__"],
 ) if not is_windows else None
