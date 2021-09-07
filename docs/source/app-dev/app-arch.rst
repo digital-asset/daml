@@ -83,7 +83,7 @@ libraries with TypeScript typings from the data types declared in the deployed D
 
   daml codegen js .daml/dist/<your-project-name.dar> -o ui/daml.js
 
-This command will generate a JavaScript library for each DALF in you DAR, containing metadata about
+This command will generate a JavaScript library for each DALF in your DAR, containing metadata about
 types and templates in the DALF and TypeScript typings them. In ``create-daml-app``, ``ui/package.json`` refers to these
 libraries via the ``"create-daml-app": "file:../daml.js/create-daml-app-0.1.0"`` entry in the
 ``dependencies`` field.
