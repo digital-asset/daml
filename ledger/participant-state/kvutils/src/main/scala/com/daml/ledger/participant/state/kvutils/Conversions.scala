@@ -441,6 +441,7 @@ private[state] object Conversions {
     builder
   }
 
+  @nowarn("msg=deprecated")
   def decodeTransactionRejectionEntry(
       entry: DamlTransactionRejectionEntry
   ): Option[FinalReason] = {

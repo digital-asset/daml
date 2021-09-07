@@ -197,18 +197,18 @@ message DamlTransactionRejectionEntry {
   oneof reason {
 
     // Rejections used by both participant.state v1 and v2 API.
-    InvalidLedgerTime invalid_ledger_time = 9;
+    Duplicate duplicate_command = 6;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
+    InvalidLedgerTime invalid_ledger_time = 9;
 
     //
     // Rejections used by participant.state.v1 API.
     // Note that these are deprecated.
     //
-    Inconsistent inconsistent = 2;
-    Disputed disputed = 3;
-    ResourcesExhausted resources_exhausted = 4;
-    Duplicate duplicate_command = 6;
-    PartyNotKnownOnLedger party_not_known_on_ledger = 7;
+    Inconsistent inconsistent = 2 [deprecated = true];
+    Disputed disputed = 3 [deprecated = true];
+    ResourcesExhausted resources_exhausted = 4 [deprecated = true];
+    PartyNotKnownOnLedger party_not_known_on_ledger = 7 [deprecated = true];
 
     //
     // Rejections used by participant.state.v2 API.
