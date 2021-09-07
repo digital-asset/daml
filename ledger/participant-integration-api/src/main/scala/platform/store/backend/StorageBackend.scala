@@ -28,6 +28,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
 import javax.sql.DataSource
 
+import scala.annotation.unused
 import scala.util.Try
 
 /** Encapsulates the interface which hides database technology specific implementations.
@@ -294,6 +295,12 @@ trait DataSourceStorageBackend {
         DataSourceStorageBackend.DataSourceConfig(),
       connectionInitHook: Option[Connection => Unit] = None,
   )(implicit loggingContext: LoggingContext): DataSource
+
+  def checkCompatibility(@unused connection: Connection)(implicit
+      @unused loggingContext: LoggingContext
+  ): Unit = ()
+
+  def checkDatabaseAvailable(connection: Connection): Unit
 }
 
 object DataSourceStorageBackend {

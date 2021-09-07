@@ -9,59 +9,37 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
-import com.daml.timer.RetryStrategy
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import javax.sql.DataSource
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
-private[platform] final class HikariDataSourceOwner(
-    dataSource: DataSource,
-    serverRole: ServerRole,
-    minimumIdle: Int,
-    maxPoolSize: Int,
-    connectionTimeout: FiniteDuration,
-    metrics: Option[MetricRegistry],
-    connectionPoolPrefix: String = "daml.index.db.connection",
-    maxInitialConnectRetryAttempts: Int = 600,
-)(implicit loggingContext: LoggingContext)
-    extends ResourceOwner[DataSource] {
+private[platform] object HikariDataSourceOwner {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  override def acquire()(implicit context: ResourceContext): Resource[HikariDataSource] = {
-    val config = new HikariConfig
-    config.setDataSource(dataSource)
-    config.setAutoCommit(false)
-    config.setMaximumPoolSize(maxPoolSize)
-    config.setMinimumIdle(minimumIdle)
-    config.setConnectionTimeout(connectionTimeout.toMillis)
-    config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
-    metrics.foreach(config.setMetricRegistry)
-
-    // Hikari dies if a database connection could not be opened almost immediately
-    // regardless of any connection timeout settings. We retry connections so that
-    // Postgres and Sandbox can be started in any order.
-    Resource(
-      RetryStrategy.constant(
-        attempts = maxInitialConnectRetryAttempts,
-        waitTime = 1.second,
-      ) { (i, _) =>
-        Future {
-          logger.info(
-            s"Attempting to connect to the database (attempt $i/$maxInitialConnectRetryAttempts)"
-          )
-          new HikariDataSource(config)
-        }
-      }
-    )(conn => Future { conn.close() })
-  }
+  def apply(
+      dataSource: DataSource,
+      serverRole: ServerRole,
+      minimumIdle: Int,
+      maxPoolSize: Int,
+      connectionTimeout: FiniteDuration,
+      metrics: Option[MetricRegistry],
+      connectionPoolPrefix: String = "daml.index.db.connection",
+  ): ResourceOwner[DataSource] =
+    ResourceOwner.forCloseable { () =>
+      val config = new HikariConfig
+      config.setDataSource(dataSource)
+      config.setAutoCommit(false)
+      config.setMaximumPoolSize(maxPoolSize)
+      config.setMinimumIdle(minimumIdle)
+      config.setConnectionTimeout(connectionTimeout.toMillis)
+      config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
+      metrics.foreach(config.setMetricRegistry)
+      new HikariDataSource(config)
+    }
 }
 
 object DataSourceConnectionProvider {

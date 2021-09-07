@@ -6,7 +6,7 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{array, binaryStream, byteArray, flatten, int, long, str}
+import anorm.SqlParser.{array, binaryStream, byteArray, flatten, get, int, long, str}
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
@@ -705,4 +705,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       stmnt.close()
     }
   }
+
+  override def checkDatabaseAvailable(connection: Connection): Unit =
+    assert(SQL"SELECT 1".as(get[Int](1).single)(connection) == 1)
 }
