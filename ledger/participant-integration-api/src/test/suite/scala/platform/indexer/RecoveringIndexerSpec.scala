@@ -367,11 +367,10 @@ object RecoveringIndexerSpec {
             }
           })
         })(handle => {
-          val complete = handle.stop()
-          complete.onComplete { _ =>
+          handle.stop().transform { complete =>
             openSubscriptions -= handle.completed()
+            complete
           }
-          complete
         }).map(_.completed())
       }
     }
