@@ -17,6 +17,7 @@ import com.daml.timer.Delayed
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -38,6 +39,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    @nowarn("msg=deprecated")
     lazy val requestA1 = ledger
       .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
       .update(
