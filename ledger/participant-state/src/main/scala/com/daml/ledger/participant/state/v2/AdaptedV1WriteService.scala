@@ -115,12 +115,7 @@ private[v2] object AdaptedV1WriteService {
   def adaptPruningResult(pruningResult: v1.PruningResult): PruningResult = pruningResult match {
     case v1.PruningResult.ParticipantPruned => PruningResult.ParticipantPruned
     case v1.PruningResult.NotPruned(grpcStatus) =>
-      PruningResult.NotPruned(
-        StatusProto
-          .fromStatusAndTrailers(grpcStatus, new Metadata())
-          .toBuilder
-          .build()
-      )
+      PruningResult.NotPruned(StatusProto.fromStatusAndTrailers(grpcStatus, new Metadata()))
   }
 
   def adaptSubmissionResult(submissionResult: v1.SubmissionResult): SubmissionResult =
