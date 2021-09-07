@@ -59,9 +59,7 @@ private[apiserver] object ApiTransactionService {
   @throws[StatusRuntimeException]
   private def getOrElseThrowNotFound[A](a: Option[A]): A =
     a.getOrElse(
-      throw Status.NOT_FOUND
-        .withDescription("Transaction not found, or not visible.")
-        .asRuntimeException()
+      throw ErrorFactories.notFound("Transaction not found, or not visible.")
     )
 }
 
@@ -139,9 +137,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse(
         Future.failed(
-          Status.NOT_FOUND
-            .withDescription(s"invalid eventId: ${request.eventId}")
-            .asRuntimeException()
+          ErrorFactories.notFound(s"invalid eventId: ${request.eventId}")
         )
       )
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
@@ -178,7 +174,7 @@ private[apiserver] final class ApiTransactionService private (
       .fold(
         err =>
           Future.failed[GetFlatTransactionResponse](
-            Status.NOT_FOUND.withDescription(s"invalid eventId: $err").asRuntimeException()
+            ErrorFactories.notFound(s"invalid eventId: $err")
           ),
         eventId =>
           lookUpFlatByTransactionId(

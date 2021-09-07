@@ -17,8 +17,8 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.PackageServiceValidation
-import io.grpc.{BindableService, ServerServiceDefinition, Status}
+import com.daml.platform.server.api.validation.{ErrorFactories, PackageServiceValidation}
+import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -50,9 +50,11 @@ private[apiserver] final class ApiPackageService private (
         backend
           .getLfArchive(packageId)
           .flatMap(
-            _.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
-              archive => Future.successful(toGetPackageResponse(archive))
-            )
+            _.fold(
+              Future.failed[GetPackageResponse](
+                ErrorFactories.notFound(s"Package not found: $packageId")
+              )
+            )(archive => Future.successful(toGetPackageResponse(archive)))
           )
           .andThen(logger.logErrorsOnCall[GetPackageResponse])
       }
@@ -88,9 +90,7 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             ValidationLogger.logFailureWithContext(
               request,
-              Status.INVALID_ARGUMENT
-                .withDescription(error)
-                .asRuntimeException(),
+              ErrorFactories.invalidArgument(error),
             )
           ),
         pId => block(pId),

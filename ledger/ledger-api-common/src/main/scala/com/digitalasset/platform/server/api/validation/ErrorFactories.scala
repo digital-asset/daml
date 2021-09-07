@@ -18,6 +18,16 @@ trait ErrorFactories {
 
   import ErrorFactories._
 
+  def notFound(message: String): StatusRuntimeException =
+    grpcError(
+      Status
+        .newBuilder()
+        .setCode(Code.NOT_FOUND.value())
+        .setMessage(message)
+        .addDetails(IndefiniteAnswerInfo)
+        .build()
+    )
+
   def ledgerIdMismatch(expected: LedgerId, received: LedgerId): StatusRuntimeException =
     grpcError(
       Status
@@ -26,7 +36,7 @@ trait ErrorFactories {
         .setMessage(
           s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
         )
-        .addDetails(DefiniteAnswerInfo)
+        .addDetails(IndefiniteAnswerInfo)
         .build()
     )
 
