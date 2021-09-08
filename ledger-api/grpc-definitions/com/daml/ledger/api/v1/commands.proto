@@ -51,10 +51,8 @@ message Commands {
   // Optional
   string party = 5;
 
-  reserved "ledger_effective_time";
-  reserved 6;
-  reserved "maximum_record_time";
-  reserved 7;
+  reserved 6; // was ledger_effective_time
+  reserved 7; // was maximum_record_time
 
   // Individual elements of this atomic command. Must be non-empty.
   // Required
