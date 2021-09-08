@@ -28,7 +28,7 @@ class NamesSpec extends AnyWordSpec with Matchers {
 
     "not be a prefix of or equal to any other name, so that each test can be included independently" in {
       allTestIdentifiers.zipWithIndex.foreach { case (testIdentifier, i) =>
-        all(allTestIdentifiers.patch(i, Nil, 1)) should not startWith testIdentifier
+        all(allTestIdentifiers.drop(i + 1)) should not startWith testIdentifier
       }
     }
   }
