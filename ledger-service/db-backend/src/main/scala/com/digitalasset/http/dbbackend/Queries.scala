@@ -29,7 +29,7 @@ import cats.syntax.functor._
 import com.daml.lf.crypto.Hash
 import doobie.free.connection
 
-sealed abstract class Queries(tablePrefix: String) {
+sealed abstract class Queries(tablePrefix: String) extends SurrogateTemplateIdCache {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
@@ -162,6 +162,21 @@ sealed abstract class Queries(tablePrefix: String) {
 
   final def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
       log: LogHandler
+  ): ConnectionIO[SurrogateTpId] = {
+    tpIdCachedValue(packageId, moduleName, entityName)
+      .map { tpId =>
+        Applicative[ConnectionIO].pure(tpId)
+      }
+      .getOrElse {
+        surrogateTemplateIdDb(packageId, moduleName, entityName).map { tpId =>
+          setTpIdCacheValue(packageId, moduleName, entityName, tpId)
+          tpId
+        }
+      }
+  }
+
+  private def surrogateTemplateIdDb(packageId: String, moduleName: String, entityName: String)(
+      implicit log: LogHandler
   ): ConnectionIO[SurrogateTpId] =
     sql"""SELECT tpid FROM $templateIdTableName
           WHERE (package_id = $packageId AND template_module_name = $moduleName

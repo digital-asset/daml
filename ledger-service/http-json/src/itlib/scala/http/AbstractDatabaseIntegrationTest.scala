@@ -6,6 +6,7 @@ package com.daml.http
 import cats.effect.IO
 import com.daml.dbutils.ConnectionPool.PoolSize
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
+import com.daml.http.domain.TemplateId
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
 import doobie.util.log.LogHandler
@@ -175,6 +176,27 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
       _ <- removeAndInit(daoWithoutPrefix)
       _ <- removeAndInit(dao)
     } yield succeed
+  }.unsafeToFuture()
+
+  "SurrogateTemplateIdCache should be used on template insertion and reads" in {
+    import dao.jdbcDriver.q.queries
+    def getOrElseInsertTemplate(tpid: TemplateId[String])(implicit
+        logHandler: LogHandler = dao.logHandler
+    ) = {
+      dao.transact(
+        queries
+          .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+      )
+    }
+    val tpId = TemplateId("pkg", "mod", "ent")
+    for {
+      storedStpId <- getOrElseInsertTemplate(tpId) //insert the template id into the cache
+      cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
+    } yield {
+      storedStpId shouldEqual cachedStpId
+      queries.tpIdCacheHits shouldBe 1
+      queries.tpIdCacheMiss shouldBe 1
+    }
   }.unsafeToFuture()
 
 }

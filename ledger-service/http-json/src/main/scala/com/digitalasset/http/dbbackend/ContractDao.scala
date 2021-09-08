@@ -3,10 +3,8 @@
 
 package com.daml.http.dbbackend
 
-import cats.Applicative
 import cats.effect._
 import cats.syntax.apply._
-import com.daml.caching.SizedCache
 import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
@@ -73,12 +71,6 @@ object ContractDao {
   private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
-  )
-
-  private val enableCache = sys.env.get("SURROGATE_TPID_CACHE").exists(x => x.toBoolean)
-
-  private val surrogateTemplateCache = SizedCache.from[domain.TemplateId[String], java.lang.Long](
-    SizedCache.Configuration(1000)
   )
 
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
@@ -271,33 +263,12 @@ object ContractDao {
   private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
-  ) = {
-    if (enableCache) {
-      surrogateTemplateCache
-        .getIfPresent(templateId)
-        .map { tpId =>
-          Applicative[fconn.ConnectionIO].pure(Queries.SurrogateTpId(tpId.toLong))
-        }
-        .getOrElse {
-          sjd.q.queries
-            .surrogateTemplateId(
-              templateId.packageId,
-              templateId.moduleName,
-              templateId.entityName,
-            )
-            .map { b =>
-              surrogateTemplateCache.put(templateId, Queries.SurrogateTpId.unwrap(b))
-              b
-            }
-        }
-    } else {
-      sjd.q.queries.surrogateTemplateId(
-        templateId.packageId,
-        templateId.moduleName,
-        templateId.entityName,
-      )
-    }
-  }
+  ) =
+    sjd.q.queries.surrogateTemplateId(
+      templateId.packageId,
+      templateId.moduleName,
+      templateId.entityName,
+    )
 
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
       a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]

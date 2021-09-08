@@ -63,7 +63,6 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/jwt",
             "//ledger-service/lf-value-json",
             "//ledger-service/utils",
-            "//ledger/caching",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
