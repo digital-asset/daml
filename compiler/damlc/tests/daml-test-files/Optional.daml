@@ -13,14 +13,13 @@ template Foo
   where
     signatory p
 
-    controller p can
-      nonconsuming ConsumeIfPositive : ()
-        with x : Int
-             cid : ContractId Foo
-        do
-          if x > 0
-            then archive cid
-            else pure ()
+    nonconsuming choice ConsumeIfPositive : ()
+      with x : Int
+           cid : ContractId Foo
+      controller p
+      do if x > 0
+           then archive cid
+           else pure ()
 
 testFromSome = scenario do
   "abc" === fromSome (Some "abc")

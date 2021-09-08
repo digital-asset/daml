@@ -84,10 +84,9 @@ template Template0
         tfield0' : Party
     where
         signatory tfield0
-        controller tfield0 can
-            Choice0 : ()
-              do
-                pure ()
+        choice Choice0 : ()
+          controller tfield0
+          do pure ()
 
 template Template1
     with
@@ -95,10 +94,9 @@ template Template1
         tfield1' : Party
     where
         signatory tfield1
-        controller tfield1 can
-            Choice1 : ()
-              do
-                pure ()
+        choice Choice1 : ()
+          controller tfield1
+          do pure ()
 
 template Template2
     with
@@ -106,10 +104,9 @@ template Template2
         tfield2' : Party
     where
         signatory tfield2
-        controller tfield2 can
-            Choice2 : ()
-              do
-                pure ()
+        choice Choice2 : ()
+          controller tfield2
+          do pure ()
 
 template Template3
     with
@@ -117,7 +114,6 @@ template Template3
         tfield3' : Party
     where
         signatory tfield3
-        controller tfield3 can
-            Choice3 : ()
-              do
-                pure ()
+        choice Choice3 : ()
+          controller tfield3
+          do pure ()

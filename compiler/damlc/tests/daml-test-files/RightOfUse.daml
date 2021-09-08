@@ -31,15 +31,15 @@ template RightOfUseOffer
     expirationDate: Time
   where
     signatory landlord
+    observer tenant
 
-    controller tenant can
-      Accept : ContractId RightOfUseAgreement
-        do
-          create RightOfUseAgreement with
-            landlord
-            tenant
-            address
-            expirationDate
+    choice Accept : ContractId RightOfUseAgreement
+      controller tenant
+      do create RightOfUseAgreement with
+           landlord
+           tenant
+           address
+           expirationDate
 
 example = scenario do
     -- Scrooge McDuck offers Betina Beakley room at McDuck Manor

@@ -326,13 +326,13 @@ requestTests run _runScenarios = testGroup "requests"
               , "add a b = a + b"
               , "template DoStuff with party : Party where"
               , "  signatory party"
-              , "  controller party can"
-              , "    ChooseNumber : Int"
-              , "      with number : Int"
-              , "        do pure (add 5 number)"
+              , "  choice ChooseNumber : Int"
+              , "    with number : Int"
+              , "    controller party"
+              , "    do pure (add 5 number)"
               ]
           Just fp <- pure $ uriToFilePath (main' ^. uri)
-          r <- getHover main' (Position 8 19)
+          r <- getHover main' (Position 8 14)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
@@ -342,7 +342,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , "* * *"
                     , "*Defined at " <> T.pack fp <> ":3:1*"
                     ]
-              , _range = Just $ Range (Position 8 17) (Position 8 20)
+              , _range = Just $ Range (Position 8 13) (Position 8 16)
               }
           closeDoc main'
 
@@ -381,10 +381,10 @@ requestTests run _runScenarios = testGroup "requests"
               , "    c : Party"
               , "  where"
               , "    signatory p"
-              , "    controller c can"
-              , "      SomeChoice : ()"
-              , "        do let b = bar"
-              , "           pure ()"
+              , "    choice SomeChoice : ()"
+              , "      controller p"
+              , "      do let b = bar"
+              , "         pure ()"
               ]
           -- thisIsAParam
           locs <- getDefinitions main' (Position 3 24)
@@ -396,7 +396,7 @@ requestTests run _runScenarios = testGroup "requests"
           locs <- getDefinitions main' (Position 1 10)
           liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
           -- use of `bar` in template
-          locs <- getDefinitions main' (Position 13 20)
+          locs <- getDefinitions main' (Position 13 18)
           liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
@@ -417,7 +417,7 @@ requestTests run _runScenarios = testGroup "requests"
           locs <- getDefinitions main' (Position 1 10)
           liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
           -- use of `bar` in template
-          locs <- getDefinitions main' (Position 14 20)
+          locs <- getDefinitions main' (Position 14 18)
           liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
@@ -586,9 +586,9 @@ executeCommandTests run _ = testGroup "execute command"
             , "    owner : Party"
             , "  where"
             , "    signatory owner"
-            , "    controller owner can"
-            , "      Delete : ()"
-            , "        do return ()"
+            , "    choice Delete : ()"
+            , "      controller owner"
+            , "      do return ()"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString <- LSP.request SWorkspaceExecuteCommand $ ExecuteCommandParams
@@ -752,9 +752,9 @@ symbolsTests run =
                       , "template T with p1 : Party where"
                       , "  signatory p1"
                       , "  choice A : ()"
-                      , "      with p : Party"
+                      , "    with p : Party"
                       , "    controller p"
-                      , "      do return ()"
+                      , "    do return ()"
                       ]
               syms <- getDocumentSymbols foo
               liftIO $

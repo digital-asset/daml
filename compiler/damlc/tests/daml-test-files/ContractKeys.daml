@@ -9,10 +9,11 @@ template AccountInvitation with
     account : Account
   where
     signatory account.bank
+    observer account.accountHolder
 
-    controller account.accountHolder can
-      Accept : ContractId Account
-        do create account
+    choice Accept : ContractId Account
+      controller account.accountHolder
+      do create account
 
 template Account with
     bank : Party
