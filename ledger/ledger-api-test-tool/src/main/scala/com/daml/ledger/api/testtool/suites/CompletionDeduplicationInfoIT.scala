@@ -13,16 +13,20 @@ import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.SubmissionId
 import com.daml.platform.testing.WithTimeout
 import io.grpc.Status
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSuite {
+final class CompletionDeduplicationInfoIT[ServiceRequest](service: Service[ServiceRequest])
+    extends LedgerTestSuite {
 
   private val serviceName: String = service.productPrefix
 
@@ -35,57 +39,94 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       config <- ledger.configuration()
-      optApplicationIdCompletion <- submitRequest(service, ledger, party, simpleCreate(party))
-      optSubmissionIdCompletion <- submitRequest(
-        service,
-        ledger,
-        party,
-        simpleCreate(party),
-        updateCommandServiceRequest = _.update(_.commands.submissionId := RandomSubmissionId),
-        updateCommandSubmissionServiceRequest = _.update(_.commands.submissionId := RandomSubmissionId),
-      )
+      requestWithoutSubmissionId = service.buildRequest(ledger, party)
+      optApplicationIdCompletion <- service.submitRequest(ledger, requestWithoutSubmissionId)
+      requestWithSubmissionId = service.buildRequest(ledger, party, Some(RandomSubmissionId))
+      optSubmissionIdCompletion <- service.submitRequest(ledger, requestWithSubmissionId)
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optApplicationIdCompletion)
       assertSubmissionIdIsGenerated(optApplicationIdCompletion)
-      assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(config, optApplicationIdCompletion)
+      assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(
+        config,
+        optApplicationIdCompletion,
+      )
       assertSubmissionIdIsPreserved(RandomSubmissionId, optSubmissionIdCompletion)
     }
   })
 }
 
 private[testtool] object CompletionDeduplicationInfoIT {
-  sealed trait Service extends Serializable with Product
-  case object CommandService extends Service
-  case object CommandSubmissionService extends Service
 
-  private def submitRequest(
-      service: Service,
-      ledger: ParticipantTestContext,
-      party: Primitive.Party,
-      command: Command,
-      updateCommandServiceRequest: SubmitAndWaitRequest => SubmitAndWaitRequest = identity,
-      updateCommandSubmissionServiceRequest: SubmitRequest => SubmitRequest = identity,
-  )(implicit ec: ExecutionContext): Future[Option[Completion]] =
-    service match {
-      case CommandService =>
-        val successfulRequest = ledger.submitAndWaitRequest(party, command)
-        for {
-          offset <- ledger.currentEnd()
-          _ <- ledger.submitAndWait(updateCommandServiceRequest(successfulRequest))
-          completion <- WithTimeout(5.seconds)(
-            ledger.findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
-          )
-        } yield completion
-      case CommandSubmissionService =>
-        val successfulRequest = ledger.submitRequest(party, command)
-        for {
-          offset <- ledger.currentEnd()
-          _ <- ledger.submit(updateCommandSubmissionServiceRequest(successfulRequest))
-          completion <- WithTimeout(5.seconds)(
-            ledger.findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
-          )
-        } yield completion
+  sealed trait Service[ProtoRequestType] extends Serializable with Product {
+    def buildRequest(
+        ledger: ParticipantTestContext,
+        party: Primitive.Party,
+        optSubmissionId: Option[Ref.SubmissionId] = None,
+    ): ProtoRequestType
+
+    def submitRequest(
+        ledger: ParticipantTestContext,
+        request: ProtoRequestType,
+    )(implicit ec: ExecutionContext): Future[Option[Completion]]
+  }
+
+  case object CommandService extends Service[SubmitAndWaitRequest] {
+    override def buildRequest(
+        ledger: ParticipantTestContext,
+        party: binding.Primitive.Party,
+        optSubmissionId: Option[SubmissionId],
+    ): SubmitAndWaitRequest = {
+      val request = ledger.submitAndWaitRequest(party, simpleCreate(party))
+      optSubmissionId
+        .map { submissionId =>
+          request.update(_.commands.submissionId := submissionId)
+        }
+        .getOrElse(request)
     }
+
+    override def submitRequest(
+        ledger: ParticipantTestContext,
+        request: SubmitAndWaitRequest,
+    )(implicit ec: ExecutionContext): Future[Option[Completion]] =
+      for {
+        offset <- ledger.currentEnd()
+        _ <- ledger.submitAndWait(request)
+        completion <- singleCompletionAfterOffset(ledger, offset)
+      } yield completion
+  }
+
+  case object CommandSubmissionService extends Service[SubmitRequest] {
+    override def buildRequest(
+        ledger: ParticipantTestContext,
+        party: binding.Primitive.Party,
+        optSubmissionId: Option[SubmissionId],
+    ): SubmitRequest = {
+      val request = ledger.submitRequest(party, simpleCreate(party))
+      optSubmissionId
+        .map { submissionId =>
+          request.update(_.commands.submissionId := submissionId)
+        }
+        .getOrElse(request)
+    }
+
+    override def submitRequest(
+        ledger: ParticipantTestContext,
+        request: SubmitRequest,
+    )(implicit ec: ExecutionContext): Future[Option[Completion]] =
+      for {
+        offset <- ledger.currentEnd()
+        _ <- ledger.submit(request)
+        completion <- singleCompletionAfterOffset(ledger, offset)
+      } yield completion
+  }
+
+  private def singleCompletionAfterOffset(
+      ledger: ParticipantTestContext,
+      offset: LedgerOffset,
+  ): Future[Option[Completion]] =
+    WithTimeout(5.seconds)(
+      ledger.findCompletion(ledger.completionStreamRequest(offset)())(_ => true)
+    )
 
   private def assertSubmissionIdIsPreserved(
       requestedSubmissionId: Ref.SubmissionId,
