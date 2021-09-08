@@ -15,6 +15,9 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Command Service is able to correlate submitted commands with completion data, identify timeouts, and return contextual
 // information with each tracking result. This supports the implementation of stateless clients.
+//
+// Note that submitted commands MAY produce a completion event as well. For example, the participant MAY choose to
+// produce a completion event for a rejection of a duplicate command.
 service CommandService {
 
   // Submits a single composite command and waits for its result.
