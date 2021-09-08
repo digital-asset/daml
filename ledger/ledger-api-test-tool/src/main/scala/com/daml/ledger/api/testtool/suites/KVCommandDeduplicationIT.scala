@@ -26,55 +26,54 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
   override def runGivenDeduplicationWait(
       context: ParticipantTestContext
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+    // deduplication duration is increased by minSkew in the committer so we set the skew to a low value for testing
     val minSkew = 1.second.asProtobuf
-    runWithUpdatedOrExistingTimeModel(
+    runWithUpdatedOrFallbackTimeModel(
       context,
       _.update(_.minSkew := minSkew),
       TimeModel.defaultInstance.update(_.minSkew := minSkew),
     )(timeModel => test(defaultDeduplicationWindowWait.plus(timeModel.getMinSkew.asScala)))
   }
 
-  private def runWithUpdatedOrExistingTimeModel(
+  private def runWithUpdatedOrFallbackTimeModel(
       ledger: ParticipantTestContext,
       timeModelUpdate: TimeModel => TimeModel,
-      timeModelIfUpdateFailed: => TimeModel,
-  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
-    ledger
-      .getTimeModel()
-      .flatMap(timeModel => {
-        def restoreTimeModel() = {
-          val ledgerTimeModelRestoreResult = for {
-            time <- ledger.time()
-            _ <- ledger
-              .setTimeModel(
-                time.plusSeconds(30),
-                timeModel.configurationGeneration + 1,
-                timeModel.getTimeModel,
-              )
-          } yield {}
-          ledgerTimeModelRestoreResult.recover { case NonFatal(exception) =>
-            logger.warn("Failed to restore time model for ledger", exception)
-            ()
-          }
-        }
-        for {
+      fallbackTimeModel: => TimeModel,
+  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = ledger
+    .getTimeModel()
+    .flatMap(timeModel => {
+      def restoreTimeModel() = {
+        val ledgerTimeModelRestoreResult = for {
           time <- ledger.time()
-          updatedModel = timeModelUpdate(timeModel.getTimeModel)
-          timeModelForTest <- ledger
+          _ <- ledger
             .setTimeModel(
-              time.plusSeconds(30),
-              timeModel.configurationGeneration,
-              updatedModel,
+              mrt = time.plusSeconds(30),
+              generation = timeModel.configurationGeneration + 1,
+              newTimeModel = timeModel.getTimeModel,
             )
-            .map(_ => updatedModel)
-            .recover { case NonFatal(e) =>
-              logger.warn("Failed to update time model, running with default", e)
-              timeModelIfUpdateFailed
-            }
-          _ <- test(timeModelForTest)
-            .transformWith(testResult => restoreTimeModel().transform(_ => testResult))
         } yield {}
-      })
-  }
+        ledgerTimeModelRestoreResult.recover { case NonFatal(exception) =>
+          logger.warn("Failed to restore time model for ledger", exception)
+          ()
+        }
+      }
+      for {
+        time <- ledger.time()
+        updatedModel = timeModelUpdate(timeModel.getTimeModel)
+        timeModelForTest <- ledger
+          .setTimeModel(
+            mrt = time.plusSeconds(30),
+            generation = timeModel.configurationGeneration,
+            newTimeModel = updatedModel,
+          )
+          .map(_ => updatedModel)
+          .recover { case NonFatal(e) =>
+            logger.warn("Failed to update time model, running with default", e)
+            fallbackTimeModel
+          }
+        _ <- test(timeModelForTest)
+          .transformWith(testResult => restoreTimeModel().transform(_ => testResult))
+      } yield {}
+    })
 
 }
