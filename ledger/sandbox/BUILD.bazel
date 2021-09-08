@@ -285,7 +285,8 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT,CommandDeduplicationIT",
+        "--exclude=ClosedWorldIT" +
+        ",CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -297,7 +298,8 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT,CommandDeduplicationIT",
+        "--exclude=ClosedWorldIT" +
+        ",CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -332,7 +334,8 @@ server_conformance_test(
     servers = {"postgresql": NEXT_SERVERS["postgresql"]},
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT,CommandDeduplicationIT",
+        "--exclude=ClosedWorldIT" +
+        ",CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 

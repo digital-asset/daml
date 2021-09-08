@@ -146,7 +146,7 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant,
     ],
 )
 
@@ -161,7 +161,7 @@ conformance_test(
         "--daml-lf-min-version-1.14-unsafe",
     ],
     test_tool_args = [
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant,
     ],
 )
 
@@ -179,7 +179,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
     ],
 )
@@ -218,7 +218,7 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=ConfigManagementServiceIT," +
-        "CommandDeduplicationIT",
+        "CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
