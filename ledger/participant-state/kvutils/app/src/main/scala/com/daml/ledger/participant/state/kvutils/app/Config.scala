@@ -52,6 +52,7 @@ final case class Config[Extra](
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableHa: Boolean, // TODO ha: remove after stable
+    maxDeduplicationDuration: Option[Duration],
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -87,6 +88,7 @@ object Config {
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
       enableHa = false,
+      maxDeduplicationDuration = None,
       extra = extra,
     )
 
@@ -425,6 +427,17 @@ object Config {
           )
           .text(
             "Disable participant-side command deduplication."
+          )
+
+        opt[Duration]("max-deduplication-duration")
+          .optional()
+          .hidden()
+          .action((maxDeduplicationDuration, config) =>
+            config
+              .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+          )
+          .text(
+            "Max duration for command deduplication."
           )
 
         opt[Int]("max-inbound-message-size")

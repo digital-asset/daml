@@ -93,15 +93,19 @@ trait ConfigProvider[ExtraConfig] {
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default
 
-  def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
+  def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration = {
+    val defaultInitialConfiguration = Configuration.reasonableInitialConfiguration
     InitialLedgerConfiguration(
-      configuration = Configuration.reasonableInitialConfiguration,
+      configuration = defaultInitialConfiguration.copy(maxDeduplicationTime =
+        config.maxDeduplicationDuration.getOrElse(defaultInitialConfiguration.maxDeduplicationTime)
+      ),
       // If a new index database is added to an already existing ledger,
       // a zero delay will likely produce a "configuration rejected" ledger entry,
       // because at startup the indexer hasn't ingested any configuration change yet.
       // Override this setting for distributed ledgers where you want to avoid these superfluous entries.
       delayBeforeSubmitting = Duration.ZERO,
     )
+  }
 
   def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 

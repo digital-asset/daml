@@ -342,6 +342,17 @@ class CommonCliBase(name: LedgerName) {
             " By default, compression is disabled."
         )
 
+      opt[Duration]("max-deduplication-duration")
+        .optional()
+        .hidden()
+        .action((maxDeduplicationDuration, config) =>
+          config
+            .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+        )
+        .text(
+          "Max duration for command deduplication."
+        )
+
       checkConfig(c => {
         if (c.enableCompression && !c.enableAppendOnlySchema)
           failure(
