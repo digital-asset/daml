@@ -52,10 +52,12 @@ final class NonRepudiationProxyConformance
       case _: CommandDeduplicationIT => false
       case _ => true
     }
+
   private val optionalTestsToRun = Tests.optional().filter {
     case _: KVCommandDeduplicationIT => true
     case _ => false
   }
+
   private val conformanceTestCases: Vector[LedgerTestCase] =
     (defaultTestsToRun ++ optionalTestsToRun)
       .flatMap(_.tests)
