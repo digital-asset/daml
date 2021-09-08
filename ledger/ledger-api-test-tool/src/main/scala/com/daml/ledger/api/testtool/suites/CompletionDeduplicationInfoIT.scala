@@ -17,7 +17,6 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
 import com.daml.platform.testing.WithTimeout
-import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
 import scala.concurrent.duration.DurationInt
@@ -45,21 +44,11 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
         updateCommandServiceRequest = _.update(_.commands.submissionId := aSubmissionId),
         updateCommandSubmissionServiceRequest = _.update(_.commands.submissionId := aSubmissionId),
       )
-      optCompletionDeduplicationTime <- submitRequest(
-        service,
-        ledger,
-        party,
-        simpleCreate(party),
-        updateCommandServiceRequest = _.update(_.commands.deduplicationTime := aDeduplicationTime),
-        updateCommandSubmissionServiceRequest =
-          _.update(_.commands.deduplicationTime := aDeduplicationTime),
-      )
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optApplicationIdCompletion)
       assertSubmissionIdIsGenerated(optApplicationIdCompletion)
       assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(config, optApplicationIdCompletion)
       assertSubmissionIdIsPreserved(aSubmissionId, optSubmissionIdCompletion)
-      assertDeduplicationTimeIsPreserved(aDeduplicationTime, optCompletionDeduplicationTime)
     }
   })
 }
@@ -97,22 +86,6 @@ private[testtool] object CompletionDeduplicationInfoIT {
           )
         } yield completion
     }
-
-  private def assertDeduplicationTimeIsPreserved(
-      requestedDeduplicationTime: Duration,
-      optCompletion: Option[Completion],
-  ): Unit = {
-    val completion = assertDefined(optCompletion)
-    val expectedDeduplicationTime = Some(requestedDeduplicationTime)
-    val actualDeduplicationTime = completion.deduplicationPeriod.deduplicationTime
-    assert(completion.status.forall(_.code == Status.Code.OK.value()))
-    assert(
-      actualDeduplicationTime == expectedDeduplicationTime,
-      "Wrong duplication time in completion, " +
-        s"expected: $expectedDeduplicationTime, " +
-        s"actual: $actualDeduplicationTime",
-    )
-  }
 
   private def assertSubmissionIdIsPreserved(
       requestedSubmissionId: Ref.SubmissionId,
@@ -177,6 +150,4 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
   private val aSubmissionId =
     Ref.SubmissionId.assertFromString(SubmissionIdGenerator.Random.generate())
-
-  private val aDeduplicationTime = Duration(seconds = 100L, nanos = 10)
 }
