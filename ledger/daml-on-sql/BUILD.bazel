@@ -167,7 +167,7 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-command-completion-dedup-info",
+    name = "conformance-test-append-only-command-completion-dedup-info",
     server = ":daml-on-sql-ephemeral-postgresql",
     server_args = [
         "--ledgerid=conformance-test",
