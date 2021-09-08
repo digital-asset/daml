@@ -439,7 +439,7 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-command-completion-dedup-info-append-only",
+    name = "conformance-test-append-only-command-completion-dedup-info",
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
