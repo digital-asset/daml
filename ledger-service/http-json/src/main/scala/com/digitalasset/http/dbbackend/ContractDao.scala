@@ -177,7 +177,7 @@ object ContractDao {
       unsynced: Map[ITpId, Map[Party, Off]],
   ): Option[(Off, NonEmpty[Set[OTpId]])] = {
     import scalaz.syntax.foldable1.{ToFoldableOps => _, _}
-    val lagging = unsynced collect (Function unlift { case (surrogateTpId, partyOffs) =>
+    val lagging = unsynced collect Function.unlift { case (surrogateTpId, partyOffs) =>
       import scalaz.std.iterable._
       partyOffs
         .collect {
@@ -187,8 +187,12 @@ object ContractDao {
             unsyncedOff
         }
         .maximum
+        // TODO SC ^ if a tpid is = to max off at all queried parties, even
+        // if that doesn't match the expected offset, it doesn't need to be updated,
+        // but the query needs to rerun. If all tpid/queried-party sets are = max off,
+        // fetch doesn't need to rerun, but query does
         .map((surrogatesToDomains(surrogateTpId), _))
-    })
+    }
     lagging match {
       case NonEmpty(lagging) => Some((lagging.toF.maximum1, lagging.keySet))
       case _ => None
