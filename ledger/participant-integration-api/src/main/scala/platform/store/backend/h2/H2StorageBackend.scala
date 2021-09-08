@@ -139,10 +139,11 @@ private[backend] object H2StorageBackend
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
-    ): CompositeSql = {
-      val partiesArray = parties.view.map(_.toString).toArray
-      cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
-    }
+    ): CompositeSql =
+      if (parties.isEmpty)
+        cSQL"array[]"
+      else
+        cSQL"array[${parties.head.toString}]"
 
     override def submittersArePartiesClause(
         submittersColumnName: String,

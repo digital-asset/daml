@@ -93,12 +93,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     config.jdbcUrl match {
       case Some(url) if url.startsWith("jdbc:postgresql:") =>
         ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
-      case Some(url) if url.startsWith("jdbc:h2:mem:") =>
-        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.MigrateAndStart)
       case Some(url) if url.startsWith("jdbc:h2:") =>
-        throw new InvalidDatabaseException(
-          "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead."
-        )
+        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.MigrateAndStart)
       case Some(url) if url.startsWith("jdbc:sqlite:") =>
         ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
       case Some(_) =>
