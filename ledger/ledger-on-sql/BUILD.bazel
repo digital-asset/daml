@@ -416,7 +416,7 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-append-only-h2-oracle-command-completion-dedup-info",
+    name = "conformance-test-append-only-h2-command-completion-dedup-info",
     ports = [6865],
     server = ":conformance-test-h2-memory-bin",
     server_args = [
