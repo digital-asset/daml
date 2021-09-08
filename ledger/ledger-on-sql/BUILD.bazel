@@ -250,6 +250,7 @@ da_scala_test_suite(
         tags = db.get("conformance_test_tags", []),
         test_tool_args = db.get("conformance_test_tool_args", []) + [
             "--verbose",
+            "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         ],
     )
     for db in supported_databases
@@ -356,7 +357,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -374,7 +375,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -391,7 +392,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -406,7 +407,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -424,7 +425,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -442,7 +443,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
