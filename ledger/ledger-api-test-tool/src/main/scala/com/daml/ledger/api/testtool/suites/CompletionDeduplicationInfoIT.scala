@@ -12,7 +12,6 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
@@ -37,20 +36,21 @@ final class CompletionDeduplicationInfoIT[ServiceRequest](service: Service[Servi
     description = s"Deduplication information is preserved in completions ($serviceName)",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val requestWithoutSubmissionId = service.buildRequest(ledger, party)
+    val requestWithSubmissionId = service.buildRequest(ledger, party, Some(RandomSubmissionId))
     for {
-      config <- ledger.configuration()
-      requestWithoutSubmissionId = service.buildRequest(ledger, party)
-      optApplicationIdCompletion <- service.submitRequest(ledger, requestWithoutSubmissionId)
-      requestWithSubmissionId = service.buildRequest(ledger, party, Some(RandomSubmissionId))
-      optSubmissionIdCompletion <- service.submitRequest(ledger, requestWithSubmissionId)
-    } yield {
-      assertApplicationIdIsPreserved(ledger.applicationId, optApplicationIdCompletion)
-      assertSubmissionIdIsGenerated(optApplicationIdCompletion)
-      assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(
-        config,
-        optApplicationIdCompletion,
+      optNoDeduplicationSubmittedCompletion <- service.submitRequest(
+        ledger,
+        requestWithoutSubmissionId,
       )
-      assertSubmissionIdIsPreserved(RandomSubmissionId, optSubmissionIdCompletion)
+      optSubmissionIdSubmittedCompletion <- service.submitRequest(ledger, requestWithSubmissionId)
+    } yield {
+      assertApplicationIdIsPreserved(ledger.applicationId, optNoDeduplicationSubmittedCompletion)
+      assertSubmissionIdIsGenerated(optNoDeduplicationSubmittedCompletion)
+      assertDeduplicationPeriodIsReported(
+        optNoDeduplicationSubmittedCompletion,
+      )
+      assertSubmissionIdIsPreserved(optSubmissionIdSubmittedCompletion, RandomSubmissionId)
     }
   })
 }
@@ -129,8 +129,8 @@ private[testtool] object CompletionDeduplicationInfoIT {
     )
 
   private def assertSubmissionIdIsPreserved(
-      requestedSubmissionId: Ref.SubmissionId,
       optCompletion: Option[Completion],
+      requestedSubmissionId: Ref.SubmissionId,
   ): Unit = {
     val submissionIdCompletion = assertDefined(optCompletion)
     val actualSubmissionId = submissionIdCompletion.submissionId
@@ -142,19 +142,13 @@ private[testtool] object CompletionDeduplicationInfoIT {
     )
   }
 
-  private def assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(
-      config: LedgerConfiguration,
+  private def assertDeduplicationPeriodIsReported(
       optCompletion: Option[Completion],
   ): Unit = {
     val completion = assertDefined(optCompletion)
     assert(completion.status.forall(_.code == Status.Code.OK.value()))
     val actualDeduplication = completion.deduplicationPeriod
-    assert(actualDeduplication.isDeduplicationTime)
-    assert(
-      actualDeduplication.deduplicationTime == config.maxDeduplicationTime,
-      s"The deduplication $actualDeduplication " +
-        "is not the maximum deduplication time",
-    )
+    assert(actualDeduplication.isDefined, "The deduplication period was not reported")
   }
 
   private def assertSubmissionIdIsGenerated(optCompletion: Option[Completion]): Unit = {
