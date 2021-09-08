@@ -92,7 +92,7 @@ class TransactionNormalizerSpec
 
   def nodeSansChildren[N, C](node: GenNode[N, C]): GenNode[N, C] = {
     node match {
-      case exe: NodeExercises[_, _] => exe.copy(children = ImmArray.empty)
+      case exe: NodeExercises[_, _] => exe.copy(children = ImmArray.Empty)
       case _ => node
     }
   }

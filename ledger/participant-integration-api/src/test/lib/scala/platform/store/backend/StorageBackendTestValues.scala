@@ -11,6 +11,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
@@ -27,7 +28,8 @@ private[backend] object StorageBackendTestValues {
   def transactionIdFromOffset(x: Offset): Ref.LedgerString =
     Ref.LedgerString.assertFromString(x.toHexString)
 
-  val someTime: Instant = Instant.now()
+  def timestampFromInstant(i: Instant): Timestamp = Timestamp.assertFromInstant(i)
+  val someTime: Timestamp = timestampFromInstant(Instant.now())
 
   val someConfiguration: Configuration =
     Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
@@ -60,7 +62,7 @@ private[backend] object StorageBackendTestValues {
   ): DbDto.ConfigurationEntry =
     DbDto.ConfigurationEntry(
       ledger_offset = offset.toHexString,
-      recorded_at = someTime,
+      recorded_at = someTime.micros,
       submission_id = "submission_id",
       typ = JdbcLedgerDao.acceptType,
       configuration = Configuration.encode(configuration).toByteArray,
@@ -73,7 +75,7 @@ private[backend] object StorageBackendTestValues {
       isLocal: Boolean = true,
   ): DbDto.PartyEntry = DbDto.PartyEntry(
     ledger_offset = offset.toHexString,
-    recorded_at = someTime,
+    recorded_at = someTime.micros,
     submission_id = Some("submission_id"),
     party = Some(party),
     display_name = Some(party),
@@ -87,14 +89,14 @@ private[backend] object StorageBackendTestValues {
     upload_id = "upload_id",
     source_description = Some("source_description"),
     package_size = someArchive.getPayload.size.toLong,
-    known_since = someTime,
+    known_since = someTime.micros,
     ledger_offset = offset.toHexString,
     _package = someArchive.toByteArray,
   )
 
   def dtoPackageEntry(offset: Offset): DbDto.PackageEntry = DbDto.PackageEntry(
     ledger_offset = offset.toHexString,
-    recorded_at = someTime,
+    recorded_at = someTime.micros,
     submission_id = Some("submission_id"),
     typ = JdbcLedgerDao.acceptType,
     rejection_reason = None,
@@ -110,12 +112,13 @@ private[backend] object StorageBackendTestValues {
       signatory: String = "signatory",
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
+      ledgerEffectiveTime: Option[Timestamp] = Some(someTime),
   ): DbDto.EventCreate = {
     val transactionId = transactionIdFromOffset(offset)
     DbDto.EventCreate(
       event_offset = Some(offset.toHexString),
       transaction_id = Some(transactionId),
-      ledger_effective_time = Some(someTime),
+      ledger_effective_time = ledgerEffectiveTime.map(_.micros),
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
@@ -158,7 +161,7 @@ private[backend] object StorageBackendTestValues {
       consuming = consuming,
       event_offset = Some(offset.toHexString),
       transaction_id = Some(transactionId),
-      ledger_effective_time = Some(someTime),
+      ledger_effective_time = Some(someTime.micros),
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
@@ -216,11 +219,11 @@ private[backend] object StorageBackendTestValues {
       deduplicationOffset: Option[String] = None,
       deduplicationTimeSeconds: Option[Long] = None,
       deduplicationTimeNanos: Option[Int] = None,
-      deduplicationStart: Option[Instant] = None,
+      deduplicationStart: Option[Timestamp] = None,
   ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
-      record_time = someTime,
+      record_time = someTime.micros,
       application_id = applicationId,
       submitters = Set(submitter),
       command_id = commandId,
@@ -232,7 +235,7 @@ private[backend] object StorageBackendTestValues {
       deduplication_offset = deduplicationOffset,
       deduplication_time_seconds = deduplicationTimeSeconds,
       deduplication_time_nanos = deduplicationTimeNanos,
-      deduplication_start = deduplicationStart,
+      deduplication_start = deduplicationStart.map(_.micros),
     )
 
   def dtoTransactionId(dto: DbDto): Ref.TransactionId = {

@@ -52,6 +52,7 @@ import spray.json.{JsNull, JsValue}
 import scalaz.Liskov.<~<
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
@@ -66,6 +67,7 @@ private class ContractsFetch(
 
   def fetchAndPersist(
       jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
       parties: OneAnd[Set, domain.Party],
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(implicit
@@ -78,13 +80,13 @@ private class ContractsFetch(
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
     // right now -- Stephen / Leo
-    connectionIOFuture(getTermination(jwt)) flatMap {
+    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
       _.cata(
         absEnd =>
           // traverse once, use the max _returned_ bookmark,
           // re-traverse any that != the max returned bookmark (overriding lastOffset)
           // fetch cannot go "too far" the second time
-          templateIds.traverse(fetchAndPersist(jwt, parties, false, absEnd, _)).flatMap {
+          templateIds.traverse(fetchAndPersist(jwt, ledgerId, parties, false, absEnd, _)).flatMap {
             actualAbsEnds =>
               val newAbsEndTarget = {
                 import scalaz.std.list._, scalaz.syntax.foldable._,
@@ -112,6 +114,7 @@ private class ContractsFetch(
                       // and it cannot go "too far" reading only the tx stream
                       fetchAndPersist(
                         jwt,
+                        ledgerId,
                         parties,
                         true,
                         feedbackTerminator,
@@ -129,6 +132,7 @@ private class ContractsFetch(
 
   private[this] def fetchAndPersist(
       jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
       parties: OneAnd[Set, domain.Party],
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
@@ -143,14 +147,15 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      (contractsIo_(jwt, parties, disableAcs, absEnd, templateId) <* fconn.commit).exceptSql {
-        case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
-          logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
-          fconn.rollback flatMap (_ => loop(maxAttempts - 1))
-        case e @ _ =>
-          logger.error(s"contractsIo3 exception: ${e.description}, state: ${e.getSQLState}")
-          fconn.raiseError(e)
-      }
+      (contractsIo_(jwt, ledgerId, parties, disableAcs, absEnd, templateId) <* fconn.commit)
+        .exceptSql {
+          case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
+            logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
+            fconn.rollback flatMap (_ => loop(maxAttempts - 1))
+          case e @ _ =>
+            logger.error(s"contractsIo3 exception: ${e.description}, state: ${e.getSQLState}")
+            fconn.raiseError(e)
+        }
     }
 
     loop(5)
@@ -158,6 +163,7 @@ private class ContractsFetch(
 
   private def contractsIo_(
       jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
       parties: OneAnd[Set, domain.Party],
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
@@ -169,7 +175,15 @@ private class ContractsFetch(
   ): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
       offsets <- ContractDao.lastOffset(parties, templateId)
-      offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, disableAcs, absEnd)
+      offset1 <- contractsFromOffsetIo(
+        jwt,
+        ledgerId,
+        parties,
+        templateId,
+        offsets,
+        disableAcs,
+        absEnd,
+      )
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
     } yield offset1
 
@@ -209,6 +223,7 @@ private class ContractsFetch(
 
   private def contractsFromOffsetIo(
       jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       offsets: Map[domain.Party, domain.Offset],
@@ -231,6 +246,7 @@ private class ContractsFetch(
 
         val txnK = getCreatesAndArchivesSince(
           jwt,
+          ledgerId,
           transactionFilter(parties, List(templateId)),
           _: lav1.ledger_offset.LedgerOffset,
           absEnd,
@@ -242,6 +258,7 @@ private class ContractsFetch(
             val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
             stepsAndOffset.in <~ getActiveContracts(
               jwt,
+              ledgerId,
               transactionFilter(parties, List(templateId)),
               true,
             )

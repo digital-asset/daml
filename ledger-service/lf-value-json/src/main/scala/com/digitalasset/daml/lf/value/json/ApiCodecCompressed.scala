@@ -185,7 +185,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
             })
             .sortBy(_._1)
           checkDups(decEntries)
-          V.ValueGenMap(ImmArray(Tag.unsubst[V[Cid], OK, defs.type](decEntries)))
+          V.ValueGenMap(Tag.unsubst[V[Cid], OK, defs.type](decEntries).to(ImmArray))
         }
 
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))

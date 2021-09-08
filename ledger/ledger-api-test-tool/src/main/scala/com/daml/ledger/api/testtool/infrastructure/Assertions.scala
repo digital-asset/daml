@@ -68,11 +68,16 @@ object Assertions {
 
   /** non-regex overload for assertGrpcError which just does a substring check.
     */
-  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit = {
+  def assertGrpcError(
+      t: Throwable,
+      expectedCode: Status.Code,
+      exceptionMessageSubString: String,
+  ): Unit = {
     assertGrpcError(
       t,
       expectedCode,
-      if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))),
+      if (exceptionMessageSubString.isEmpty) None
+      else Some(Pattern.compile(Pattern.quote(exceptionMessageSubString))),
     )
   }
 

@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.health.{Healthy, Unhealthy}
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.SubmissionResult.Acknowledged
+import com.daml.ledger.participant.state.v2.SubmissionResult.Acknowledged
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers

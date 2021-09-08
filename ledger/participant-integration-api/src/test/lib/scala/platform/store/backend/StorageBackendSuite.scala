@@ -12,6 +12,8 @@ trait StorageBackendSuite
     with StorageBackendTestsIngestion
     with StorageBackendTestsCompletions
     with StorageBackendTestsReset
-    with StorageBackendTestsPruning {
+    with StorageBackendTestsPruning
+    with StorageBackendTestsDBLock
+    with StorageBackendTestsTimestamps {
   this: AsyncFlatSpec =>
 }

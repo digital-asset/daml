@@ -6,14 +6,14 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{binaryStream, get, int, long, str}
+import anorm.SqlParser.{binaryStream, int, long, str}
 import anorm.{ResultSetParser, RowParser, SqlParser, ~}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{
   contractId,
   flatEventWitnessesColumn,
   identifier,
-  instant,
+  instantFromMicros,
   offset,
 }
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -99,7 +99,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
    FETCH NEXT 1 ROW ONLY"""
-          .as(instant("ledger_effective_time").?.singleOpt)(connection)
+          .as(instantFromMicros("ledger_effective_time").?.singleOpt)(connection)
       }
 
       val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
@@ -137,7 +137,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       ~ flatEventWitnessesColumn("flat_event_witnesses")
       ~ binaryStream("create_argument").?
       ~ int("create_argument_compression").?
-      ~ int("event_kind") ~ get[Instant]("ledger_effective_time")(anorm.Column.columnToInstant).?)
+      ~ int("event_kind") ~ instantFromMicros("ledger_effective_time").?)
       .map(SqlParser.flatten)
       .map(StorageBackend.RawContractState.tupled)
 
@@ -167,7 +167,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     (int("event_kind") ~
       contractId("contract_id") ~
       identifier("template_id").? ~
-      instant("ledger_effective_time").? ~
+      instantFromMicros("ledger_effective_time").? ~
       binaryStream("create_key_value").? ~
       int("create_key_value_compression").? ~
       binaryStream("create_argument").? ~

@@ -47,21 +47,22 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
     super.afterAll()
   }
 
-  "should serve static content from configured directory" in withHttpService { (uri: Uri, _, _) =>
-    Http()
-      .singleRequest(
-        HttpRequest(
-          method = HttpMethods.GET,
-          uri = uri.withPath(Uri.Path(s"/$staticContent/${dummyFile.getName}")),
+  "should serve static content from configured directory" in withHttpService {
+    (uri: Uri, _, _, _) =>
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.GET,
+            uri = uri.withPath(Uri.Path(s"/$staticContent/${dummyFile.getName}")),
+          )
         )
-      )
-      .flatMap { resp =>
-        discard { resp.status shouldBe StatusCodes.OK }
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = false)
-        bodyF.flatMap { body =>
-          body shouldBe expectedDummyContent
-        }
-      }: Future[Assertion]
+        .flatMap { resp =>
+          discard { resp.status shouldBe StatusCodes.OK }
+          val bodyF: Future[String] = getResponseDataBytes(resp, debug = false)
+          bodyF.flatMap { body =>
+            body shouldBe expectedDummyContent
+          }
+        }: Future[Assertion]
   }
 
   "Forwarded" - {

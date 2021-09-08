@@ -226,7 +226,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val (typ, args) =
         typ0 match {
           case TApps(typ1, args1) => typ1 -> args1
-          case _ => typ0 -> ImmArray.empty
+          case _ => typ0 -> ImmArray.Empty
         }
       val builder = PLF.Type.newBuilder()
       // Be warned: Both the use of the unapply pattern TForalls and the pattern

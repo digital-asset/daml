@@ -199,7 +199,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
             clientMachine.warningLog,
             ledgerClient.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
-            ImmArray.empty,
+            ImmArray.Empty,
             e,
           )
         )

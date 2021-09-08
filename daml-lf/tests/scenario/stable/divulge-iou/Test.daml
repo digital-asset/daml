@@ -41,11 +41,14 @@ template Iou
    amount: Amount
  where
    signatory payer
-   controller owner can
-     Call: ContractId GetCash
-       do create GetCash with payer; owner; amount
-     Transfer: ContractId Iou with newOwner: Party
-       do create Iou with payer; owner = newOwner; amount
+   observer owner
+   choice Call: ContractId GetCash
+     controller owner
+     do create GetCash with payer; owner; amount
+
+   choice Transfer: ContractId Iou with newOwner: Party
+     controller owner
+     do create Iou with payer; owner = newOwner; amount
 
 template DivulgeIouByExercise
  with
@@ -53,9 +56,9 @@ template DivulgeIouByExercise
    divulgee: Party
  where
    signatory divulgee
-   controller payer can
-     nonconsuming Divulge: ()
-       with ref : ContractId Iou
-       do
-         iou <- fetch ref
-         pure ()
+   observer payer
+   nonconsuming choice Divulge: ()
+     with ref : ContractId Iou
+     controller payer
+     do iou <- fetch ref
+        pure ()

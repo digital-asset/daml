@@ -12,13 +12,6 @@ load(
     "da_scala_test_suite",
 )
 
-tsvc_main_scalacopts = [
-    "-P:wartremover:traverser:org.wartremover.warts.%s" % wart
-    for wart in [
-        "NonUnitStatements",
-    ]
-]
-
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
 
 da_scala_library(
@@ -53,7 +46,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_slf4j",
         "@maven//:org_tpolecat_doobie_postgres",
     ],
-    scalacopts = tsvc_main_scalacopts,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -186,6 +178,7 @@ da_scala_library(
         "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
+        "//libs-scala/ports:ports-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",

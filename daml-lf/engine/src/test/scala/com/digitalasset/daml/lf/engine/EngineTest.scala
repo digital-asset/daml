@@ -295,7 +295,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(res) { case Left(Error.Preprocessing(error)) =>
         error shouldBe a[Error.Preprocessing.TypeMismatch]
-        error.message should startWith("Missing record label n for record")
+        error.message should startWith("Missing record field 'n' for record")
       }
     }
 
@@ -438,7 +438,7 @@ class EngineTest
         )
       val noneValue =
         ValueRecord(Some(id), ImmArray(Some[Name]("recField") -> ValueOptional(None)))
-      val typ = TTyConApp(id, ImmArray.empty)
+      val typ = TTyConApp(id, ImmArray.Empty)
 
       translator
         .translateValue(typ, someValue)
@@ -462,7 +462,7 @@ class EngineTest
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
       val res = translator
         .translateValue(
-          TTyConApp(id, ImmArray.empty),
+          TTyConApp(id, ImmArray.Empty),
           wrongRecord,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -557,7 +557,7 @@ class EngineTest
       val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map { case (label, party) =>
         Some[Name](label) -> ValueParty(party)
       }
-      CreateCommand(id(templateId), ValueRecord(Some(id(templateId)), ImmArray(templateArgs)))
+      CreateCommand(id(templateId), ValueRecord(Some(id(templateId)), templateArgs.to(ImmArray)))
     }
 
     val let = Time.Timestamp.now()
@@ -669,7 +669,7 @@ class EngineTest
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("BasicTests:Simple:1")
     val command =
-      ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))
+      ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.Empty))
     val submitters = Set(party)
     val readAs = (Set.empty: Set[Party])
 
@@ -1025,9 +1025,9 @@ class EngineTest
       val cmds = ImmArray(
         speedy.Command.CreateAndExercise(
           templateId = templateId,
-          SRecord(templateId, ImmArray.empty, ArrayList(SParty(alice))),
+          SRecord(templateId, ImmArray.Empty, ArrayList(SParty(alice))),
           "FetchAfterLookup",
-          SRecord(templateId, ImmArray.empty, ArrayList(SInt64(43))),
+          SRecord(templateId, ImmArray.Empty, ArrayList(SInt64(43))),
         )
       )
 
@@ -1076,7 +1076,7 @@ class EngineTest
         templateId,
         ValueRecord(Some(templateId), ImmArray(Some[Name]("p") -> ValueParty(party))),
         "Hello",
-        ValueRecord(Some(hello), ImmArray.empty),
+        ValueRecord(Some(hello), ImmArray.Empty),
       )
 
     val submitters = Set(party)
@@ -1184,7 +1184,7 @@ class EngineTest
       }
       preprocessor
         .translateValue(
-          TTyConApp(TypeConName(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.empty),
+          TTyConApp(TypeConName(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.Empty),
           nested,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1217,7 +1217,7 @@ class EngineTest
         basicTestsSignatures.lookupDataType(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"))
       val res = preprocessor
         .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.Empty),
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1239,7 +1239,7 @@ class EngineTest
         )
       val res = preprocessor
         .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1262,7 +1262,7 @@ class EngineTest
         )
       val res = preprocessor
         .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1282,7 +1282,7 @@ class EngineTest
         )
       val res = preprocessor
         .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1304,7 +1304,7 @@ class EngineTest
         )
       val res = preprocessor
         .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1324,7 +1324,7 @@ class EngineTest
         )
       val res = preprocessor
         .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
+          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
           rec,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1840,7 +1840,7 @@ class EngineTest
           templateId = templateId,
           createArgument = ValueRecord(None, ImmArray(None -> ValueParty(party))),
           choiceId = choiceName,
-          choiceArgument = ValueRecord(None, ImmArray.empty),
+          choiceArgument = ValueRecord(None, ImmArray.Empty),
         )
       val submitters = Set(party)
       val readAs = (Set.empty: Set[Party])
@@ -2001,7 +2001,7 @@ class EngineTest
     val correctCommand =
       ExerciseCommand(withKeyId, cid, "SumToK", ValueRecord(None, ImmArray((None, ValueInt64(42)))))
     val incorrectCommand =
-      ExerciseCommand(simpleId, cid, "Hello", ValueRecord(None, ImmArray.empty))
+      ExerciseCommand(simpleId, cid, "Hello", ValueRecord(None, ImmArray.Empty))
     val incorrectFetch =
       ExerciseCommand(
         fetcherId,
@@ -2147,7 +2147,7 @@ class EngineTest
       val exerciseArg =
         ValueRecord(
           Some(Identifier(basicTestsPkgId, "BasicTests:DontExecuteCreate")),
-          ImmArray.empty,
+          ImmArray.Empty,
         )
 
       val submitters = Set(alice)
@@ -2309,7 +2309,7 @@ class EngineTest
           )
           .consume(lookupContract, lookupPackage, lookupKey)
       }
-      val emptyRecord = ValueRecord(None, ImmArray.empty)
+      val emptyRecord = ValueRecord(None, ImmArray.Empty)
       // The cid returned by a fetchByKey at the beginning
       val keyResultCid = ValueRecord(None, ImmArray((None, ValueContractId(cid1))))
       // The cid not returned by a fetchByKey at the beginning

@@ -16,6 +16,7 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -81,7 +82,7 @@ private[backend] object OracleStorageBackend
       | insert (pcs.deduplication_key, pcs.deduplicate_until)
       |  values ({deduplicationKey}, {deduplicateUntil})""".stripMargin
 
-  def upsertDeduplicationEntry(
+  override def upsertDeduplicationEntry(
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
@@ -89,8 +90,8 @@ private[backend] object OracleStorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
-        "deduplicateUntil" -> deduplicateUntil,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 
@@ -190,6 +191,9 @@ private[backend] object OracleStorageBackend
     InitHookDataSourceProxy(oracleDataSource, connectionInitHook.toList)
   }
 
+  override def checkDatabaseAvailable(connection: Connection): Unit =
+    assert(SQL"SELECT 1 FROM DUAL".as(get[Int](1).single)(connection) == 1)
+
   override def tryAcquire(
       lockId: DBLockStorageBackend.LockId,
       lockMode: DBLockStorageBackend.LockMode,
@@ -224,7 +228,7 @@ private[backend] object OracleStorageBackend
       .as(get[Int](1).single)(connection) match {
       case 0 => true
       case 3 => throw new Exception("DBMS_LOCK.RELEASE Error 3: Parameter error as releasing lock")
-      case 4 => throw new Exception("DBMS_LOCK.RELEASE Error 4: Trying to release not-owned lock")
+      case 4 => false
       case 5 =>
         throw new Exception("DBMS_LOCK.RELEASE Error 5: Illegal lock handle as releasing lock")
       case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.RELEASE: $unknown")

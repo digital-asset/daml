@@ -14,6 +14,9 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.annotation.nowarn
+
+@nowarn("msg=deprecated")
 class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with MockitoSugar {
   "detectConflictsAndRecover" should {
     "return output keys as invalidated and unchanged input in case of no conflicts" in {

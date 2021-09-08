@@ -86,8 +86,8 @@ private[daml] final class CommandClient(
     */
   def trackSingleCommand(
       submitRequest: SubmitRequest,
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   )(implicit
       mat: Materializer
   ): Future[Either[CompletionFailure, CompletionSuccess]] = {
@@ -95,7 +95,7 @@ private[daml] final class CommandClient(
     val commands = submitRequest.getCommands
     val effectiveActAs = CommandsValidator.effectiveSubmitters(commands).actAs
     for {
-      tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, token, ledgerIdToUse)
+      tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, ledgerIdToUse, token)
       result <- Source
         .single(Ctx.unit(CommandSubmission(commands)))
         .via(tracker)
@@ -114,13 +114,13 @@ private[daml] final class CommandClient(
     */
   def trackCommands[Context](
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   )(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] = {
     for {
-      tracker <- trackCommandsUnbounded[Context](parties, token, ledgerIdToUse)
+      tracker <- trackCommandsUnbounded[Context](parties, ledgerIdToUse, token)
     } yield {
       // The counters are ignored on the client
       MaxInFlight(config.maxCommandsInFlight, new Counter, new Counter)
@@ -136,13 +136,13 @@ private[daml] final class CommandClient(
     */
   def trackCommandsUnbounded[Context](
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   )(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] =
     for {
-      ledgerEnd <- getCompletionEnd(token, ledgerIdToUse)
+      ledgerEnd <- getCompletionEnd(ledgerIdToUse, token)
     } yield {
       partyFilter(parties.toSet)
         .via(commandUpdaterFlow[Context](ledgerIdToUse))
@@ -153,7 +153,7 @@ private[daml] final class CommandClient(
               config.maxParallelSubmissions,
             ),
             createCommandCompletionSource =
-              offset => completionSource(parties, offset, token, ledgerIdToUse),
+              offset => completionSource(parties, offset, ledgerIdToUse, token),
             startingOffset = ledgerEnd.getOffset,
             maximumCommandTimeout = config.defaultDeduplicationTime,
           )
@@ -174,8 +174,8 @@ private[daml] final class CommandClient(
   def completionSource(
       parties: Seq[String],
       offset: LedgerOffset,
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Source[CompletionStreamElement, NotUsed] = {
     logger.debug(
       "Connecting to completion service with parties '{}' from offset: '{}'",
@@ -214,8 +214,8 @@ private[daml] final class CommandClient(
       })
 
   def submissionFlow[Context](
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, CommandSubmission]]
       .via(commandUpdaterFlow(ledgerIdToUse))
@@ -223,8 +223,8 @@ private[daml] final class CommandClient(
   }
 
   def getCompletionEnd(
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[CompletionEndResponse] =
     LedgerClient
       .stub(commandCompletionService, token)

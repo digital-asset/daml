@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.backend
 
-import java.time.Instant
-
 import com.daml.scalautil.NeverEqualsOverride
 
 sealed trait DbDto
@@ -31,7 +29,7 @@ object DbDto {
   final case class EventCreate(
       event_offset: Option[String],
       transaction_id: Option[String],
-      ledger_effective_time: Option[Instant],
+      ledger_effective_time: Option[Long],
       command_id: Option[String],
       workflow_id: Option[String],
       application_id: Option[String],
@@ -57,7 +55,7 @@ object DbDto {
       consuming: Boolean,
       event_offset: Option[String],
       transaction_id: Option[String],
-      ledger_effective_time: Option[Instant],
+      ledger_effective_time: Option[Long],
       command_id: Option[String],
       workflow_id: Option[String],
       application_id: Option[String],
@@ -82,7 +80,7 @@ object DbDto {
 
   final case class ConfigurationEntry(
       ledger_offset: String,
-      recorded_at: Instant,
+      recorded_at: Long,
       submission_id: String,
       typ: String,
       configuration: Array[Byte],
@@ -91,7 +89,7 @@ object DbDto {
 
   final case class PackageEntry(
       ledger_offset: String,
-      recorded_at: Instant,
+      recorded_at: Long,
       submission_id: Option[String],
       typ: String,
       rejection_reason: Option[String],
@@ -102,14 +100,14 @@ object DbDto {
       upload_id: String,
       source_description: Option[String],
       package_size: Long,
-      known_since: Instant,
+      known_since: Long,
       ledger_offset: String,
       _package: Array[Byte],
   ) extends DbDto
 
   final case class PartyEntry(
       ledger_offset: String,
-      recorded_at: Instant,
+      recorded_at: Long,
       submission_id: Option[String],
       party: Option[String],
       display_name: Option[String],
@@ -120,7 +118,7 @@ object DbDto {
 
   final case class CommandCompletion(
       completion_offset: String,
-      record_time: Instant,
+      record_time: Long,
       application_id: String,
       submitters: Set[String],
       command_id: String,
@@ -132,7 +130,7 @@ object DbDto {
       deduplication_offset: Option[String],
       deduplication_time_seconds: Option[Long],
       deduplication_time_nanos: Option[Int],
-      deduplication_start: Option[Instant],
+      deduplication_start: Option[Long],
   ) extends DbDto
 
   final case class CommandDeduplication(deduplication_key: String) extends DbDto

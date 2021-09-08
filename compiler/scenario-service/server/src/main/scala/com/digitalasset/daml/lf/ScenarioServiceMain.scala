@@ -153,7 +153,7 @@ class ScenarioService(implicit
                       success.traceLog,
                       success.warningLog,
                       None,
-                      ImmArray.empty,
+                      ImmArray.Empty,
                     )
                       .convertScenarioResult(success.resultValue)
                   )

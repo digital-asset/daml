@@ -172,7 +172,6 @@ final class SandboxServer(
         }
       EngineConfig(
         allowedLanguageVersions = allowedLanguageVersions,
-        transactionNormalization = false,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
         forbidV0ContractId = false,
@@ -253,7 +252,7 @@ final class SandboxServer(
       }
     }
     config.scenario match {
-      case None => (InMemoryActiveLedgerState.empty, ImmArray.empty, None)
+      case None => (InMemoryActiveLedgerState.empty, ImmArray.Empty, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
           ScenarioLoader.fromScenario(
@@ -346,6 +345,7 @@ final class SandboxServer(
             transactionCommitter,
             packageStore,
             metrics,
+            engine,
           )
       }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())

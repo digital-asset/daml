@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionAggregatorWriteOperations,
   SubmissionInfo,
 }
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator.reading.{LedgerStateReader, StateReader}
 import com.daml.ledger.validator.{
   CombinedLedgerStateWriteOperations,

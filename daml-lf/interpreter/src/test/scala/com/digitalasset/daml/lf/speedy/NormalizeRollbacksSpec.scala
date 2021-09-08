@@ -265,14 +265,14 @@ object NormalizeRollbackSpec {
           case Create(n) => add(dummyCreateNode(n))
           case Exercise(shapes) =>
             val children = shapes.map(toNid)
-            add(dummyExerciseNode(ImmArray(children)))
+            add(dummyExerciseNode(children.to(ImmArray)))
           case Rollback(shapes) =>
             val children = shapes.map(toNid)
-            add(NodeRollback[Nid](children = ImmArray(children)))
+            add(NodeRollback[Nid](children = children.to(ImmArray)))
         }
       }
       val roots: List[Nid] = top.xs.map(toNid)
-      GenTransaction(nodes, ImmArray(roots))
+      GenTransaction(nodes, roots.to(ImmArray))
     }
 
     def ofTransaction(tx: TX): Top = {

@@ -126,12 +126,18 @@ private[appendonlydao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    groupContiguous(events)(by = _.transactionId)
+    val flatTransactionsStream = groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+
+    InstrumentedSource
+      .bufferedSource(
+        flatTransactionsStream,
+        metrics.daml.index.flatTransactionsBufferSize,
+        outputStreamBufferSize,
+      )
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
@@ -221,12 +227,18 @@ private[appendonlydao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    groupContiguous(events)(by = _.transactionId)
+    val transactionTreesStream = groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+
+    InstrumentedSource
+      .bufferedSource(
+        transactionTreesStream,
+        metrics.daml.index.transactionTreesBufferSize,
+        outputStreamBufferSize,
+      )
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>

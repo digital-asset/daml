@@ -25,6 +25,7 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -35,8 +36,6 @@ import com.daml.platform.store.backend.{
 }
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
-
-import scala.util.Using
 
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -73,8 +72,8 @@ private[backend] object PostgresStorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
-        "deduplicateUntil" -> deduplicateUntil,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 
@@ -108,43 +107,6 @@ private[backend] object PostgresStorageBackend
           |truncate table party_entries cascade;
           |""".stripMargin)
       .execute()(connection)
-    ()
-  }
-
-  def getPostgresVersion(
-      connection: Connection
-  )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
-    val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
-    logger.debug(s"Found Postgres version $version")
-    parsePostgresVersion(version)
-  }
-
-  def parsePostgresVersion(version: String): Option[(Int, Int)] = {
-    val versionPattern = """(\d+)[.](\d+).*""".r
-    version match {
-      case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
-      case _ => None
-    }
-  }
-
-  private def checkCompatibility(
-      connection: Connection
-  )(implicit loggingContext: LoggingContext): Unit = {
-    getPostgresVersion(connection) match {
-      case Some((major, minor)) =>
-        if (major < 10) {
-          logger.error(
-            "Deprecated Postgres version. " +
-              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
-              "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
-              "Please upgrade your Postgres database to version 10 or later to fix this issue."
-          )
-        }
-      case None =>
-        logger.warn(
-          s"Could not determine the version of the Postgres database. Please verify that this application is compatible with this Postgres version."
-        )
-    }
     ()
   }
 
@@ -257,14 +219,49 @@ private[backend] object PostgresStorageBackend
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
 
-    Using.resource(pgSimpleDataSource.getConnection())(checkCompatibility)
-
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
         .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
       connectionInitHook.toList,
     ).flatten
     InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions)
+  }
+
+  override def checkCompatibility(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Unit = {
+    getPostgresVersion(connection) match {
+      case Some((major, minor)) =>
+        if (major < 10) {
+          logger.error(
+            "Deprecated Postgres version. " +
+              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
+              "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
+              "Please upgrade your Postgres database to version 10 or later to fix this issue."
+          )
+        }
+      case None =>
+        logger.warn(
+          s"Could not determine the version of the Postgres database. Please verify that this application is compatible with this Postgres version."
+        )
+    }
+    ()
+  }
+
+  private[backend] def getPostgresVersion(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
+    val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
+    logger.debug(s"Found Postgres version $version")
+    parsePostgresVersion(version)
+  }
+
+  private[backend] def parsePostgresVersion(version: String): Option[(Int, Int)] = {
+    val versionPattern = """(\d+)[.](\d+).*""".r
+    version match {
+      case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
+      case _ => None
+    }
   }
 
   override def tryAcquire(

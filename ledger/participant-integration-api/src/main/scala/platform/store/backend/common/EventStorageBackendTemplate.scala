@@ -11,7 +11,7 @@ import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{identifier, instant, offset}
+import com.daml.platform.store.Conversions.{identifier, instantFromMicros, offset}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{EventsTable, Identifier, Raw}
 import com.daml.platform.store.backend.EventStorageBackend
@@ -57,7 +57,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       long("event_sequential_id") ~
       str("event_id") ~
       str("contract_id") ~
-      instant("ledger_effective_time") ~
+      instantFromMicros("ledger_effective_time") ~
       identifier("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~

@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
-import com.daml.ledger.participant.state.v1.ReadService
+import com.daml.ledger.participant.state.v2.ReadService
 
 /** A ReadService that streams back previously recorded state updates */
 trait ReplayingReadService extends ReadService {

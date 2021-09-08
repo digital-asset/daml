@@ -306,6 +306,72 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "start": first_granular_test_tool,
+        "end": "1.5.0-snapshot.20200907.5151.0.eb68e680",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplication",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "start": "1.5.0-snapshot.20200907.5151.0.eb68e680",
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
+    {
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandServiceIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandServiceIT:CSRefuseBadParameter",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

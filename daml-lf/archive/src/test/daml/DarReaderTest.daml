@@ -21,11 +21,13 @@ template CallablePayout
     receiver: Party
   where
     signatory giver
-    controller receiver can
-      Call2 : ContractId PayOut
-        do create PayOut with receiver; giver
-      Transfer : ContractId CallablePayout
-        with newReceiver: Party
-        do create this with receiver = newReceiver
+    observer receiver
+    choice Call2 : ContractId PayOut
+      controller receiver
+      do create PayOut with receiver; giver
+    choice Transfer : ContractId CallablePayout
+      with newReceiver: Party
+      controller receiver
+      do create this with receiver = newReceiver
 
 reverseCopy = reverse

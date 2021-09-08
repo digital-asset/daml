@@ -23,7 +23,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     val create = builder.create(
       id = cid,
       template = "pkgid:M:T",
-      argument = ValueRecord(None, ImmArray.empty),
+      argument = ValueRecord(None, ImmArray.Empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
       key = None,
@@ -50,7 +50,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
         "C",
         true,
         Set("Actor"),
-        ValueRecord(None, ImmArray.empty),
+        ValueRecord(None, ImmArray.Empty),
         choiceObservers = Set("ChoiceObserver"),
       )
       val nodeId = builder.add(exercise)

@@ -6,13 +6,14 @@ package com.daml.platform.store
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.FlywayMigrations._
-import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.backend.VerifiedDataSource
+import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
 import scala.annotation.tailrec
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] class FlywayMigrations(
     jdbcUrl: String,
@@ -22,18 +23,24 @@ private[platform] class FlywayMigrations(
 )(implicit resourceContext: ResourceContext, loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
   private val dbType = DbType.jdbcType(jdbcUrl)
-  private val dataSource = StorageBackend.of(dbType).createDataSource(jdbcUrl)
+  implicit private val ec: ExecutionContext = resourceContext.executionContext
 
-  private def run[T](t: => T): Future[T] = Future(t)(resourceContext.executionContext)
+  private def run[T](t: FluentConfiguration => T): Future[T] = {
+    VerifiedDataSource(jdbcUrl).flatMap(dataSource =>
+      Future(
+        t(configurationBase(dataSource))
+      )
+    )
+  }
 
-  def configurationBase: FluentConfiguration =
+  private def configurationBase(dataSource: DataSource): FluentConfiguration =
     Flyway
       .configure()
       .locations((locations(enableAppendOnlySchema, dbType) ++ additionalMigrationPaths): _*)
       .dataSource(dataSource)
 
-  def validate(): Future[Unit] = run {
-    val flyway = configurationBase
+  def validate(): Future[Unit] = run { configBase =>
+    val flyway = configBase
       .ignoreFutureMigrations(false)
       .load()
     logger.info("Running Flyway validation...")
@@ -41,8 +48,8 @@ private[platform] class FlywayMigrations(
     logger.info("Flyway schema validation finished successfully.")
   }
 
-  def migrate(allowExistingSchema: Boolean = false): Future[Unit] = run {
-    val flyway = configurationBase
+  def migrate(allowExistingSchema: Boolean = false): Future[Unit] = run { configBase =>
+    val flyway = configBase
       .baselineOnMigrate(allowExistingSchema)
       .baselineVersion(MigrationVersion.fromVersion("0"))
       .ignoreFutureMigrations(false)
@@ -52,16 +59,16 @@ private[platform] class FlywayMigrations(
     logger.info(s"Flyway schema migration finished successfully, applying $stepsTaken steps.")
   }
 
-  def reset(): Future[Unit] = run {
-    val flyway = configurationBase
+  def reset(): Future[Unit] = run { configBase =>
+    val flyway = configBase
       .load()
     logger.info("Running Flyway clean...")
     flyway.clean()
     logger.info("Flyway schema clean finished successfully.")
   }
 
-  def validateAndWaitOnly(): Future[Unit] = run {
-    val flyway = configurationBase
+  def validateAndWaitOnly(): Future[Unit] = run { configBase =>
+    val flyway = configBase
       .ignoreFutureMigrations(false)
       .load()
 
@@ -98,8 +105,8 @@ private[platform] class FlywayMigrations(
     }
   }
 
-  def migrateOnEmptySchema(): Future[Unit] = run {
-    val flyway = configurationBase
+  def migrateOnEmptySchema(): Future[Unit] = run { configBase =>
+    val flyway = configBase
       .ignoreFutureMigrations(false)
       .load()
     logger.info(

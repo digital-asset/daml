@@ -441,8 +441,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val records0 =
         List[Value](
-          ValueRecord(Some(Record0TypeCon), ImmArray.empty),
-          ValueRecord(Some(Record0TypeConBis), ImmArray.empty),
+          ValueRecord(Some(Record0TypeCon), ImmArray.Empty),
+          ValueRecord(Some(Record0TypeConBis), ImmArray.Empty),
         )
 
       val records2 =

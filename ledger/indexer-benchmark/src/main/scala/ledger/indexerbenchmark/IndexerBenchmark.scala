@@ -14,14 +14,13 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{ReadService, Update}
-import com.daml.ledger.participant.state.v2.AdaptedV1ReadService
+import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.JdbcIndexer
+import com.daml.platform.indexer.{JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
 
@@ -68,7 +67,7 @@ class IndexerBenchmark() {
       val updates = Await.result(createUpdates(config), Duration(10, "minute"))
 
       println("Creating read service and indexer...")
-      val readService = new AdaptedV1ReadService(createReadService(updates))
+      val readService = createReadService(updates)
       val indexerFactory = new JdbcIndexer.Factory(
         ServerRole.Indexer,
         config.indexerConfig,
@@ -88,14 +87,22 @@ class IndexerBenchmark() {
 
         _ = println("Setting up the index database...")
         indexer <- Await
-          .result(indexerFactory.migrateSchema(allowExistingSchema = false), Duration(5, "minute"))
+          .result(
+            StandaloneIndexerServer
+              .migrateOnly(
+                jdbcUrl = config.indexerConfig.jdbcUrl,
+                enableAppendOnlySchema = config.indexerConfig.enableAppendOnlySchema,
+              )
+              .map(_ => indexerFactory.initialized())(indexerEC),
+            Duration(5, "minute"),
+          )
           .acquire()
 
         _ = println("Starting the indexing...")
         startTime = System.nanoTime()
-        handle <- indexer.subscription(readService).acquire()
+        handle <- indexer.acquire()
 
-        _ <- Resource.fromFuture(handle.completed())
+        _ <- Resource.fromFuture(handle)
         stopTime = System.nanoTime()
         _ = println("Indexing done.")
 
@@ -107,7 +114,7 @@ class IndexerBenchmark() {
         val updateRate: Double = updates / duration
         val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
           config.minUpdateRate match {
-            case Some(requiredMinUpdateRate) if (requiredMinUpdateRate > updateRate) =>
+            case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
               (
                 true,
                 s"[failure][UpdateRate] Minimum number of updates per second: required: $requiredMinUpdateRate, metered: $updateRate",
@@ -191,9 +198,11 @@ class IndexerBenchmark() {
     )
 
     new ReadService {
-      override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
+
+      override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
         Source.single(initialConditions)
       }
+
       override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
         assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
         Source.fromIterator(() => updates)

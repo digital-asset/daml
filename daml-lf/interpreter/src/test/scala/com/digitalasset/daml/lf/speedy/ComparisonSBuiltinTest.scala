@@ -436,7 +436,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         )
 
       def list(t: Type)(es: Expr*) =
-        if (es.isEmpty) ENil(t) else ECons(t, ImmArray(es), ENil(t))
+        if (es.isEmpty) ENil(t) else ECons(t, es.to(ImmArray), ENil(t))
 
       def textMap(T: Type)(entries: (String, Expr)*) =
         entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) { case ((key, value), acc) =>

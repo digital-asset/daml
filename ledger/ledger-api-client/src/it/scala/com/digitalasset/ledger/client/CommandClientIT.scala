@@ -425,7 +425,7 @@ final class CommandClientIT
 
       "not accept commands with unknown args, return INVALID_ARGUMENT" in {
         val expectedMessageSubstring =
-          "Missing record label"
+          "Missing record field"
         val command =
           submitRequest(
             "Param_with_wrong_name",

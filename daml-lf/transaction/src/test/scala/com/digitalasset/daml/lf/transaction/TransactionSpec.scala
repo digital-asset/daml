@@ -69,7 +69,7 @@ class TransactionSpec
     }
 
     "detects orphans" in {
-      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode("cid1")), ImmArray.empty)
+      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode("cid1")), ImmArray.Empty)
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), OrphanedNode))
     }
   }
@@ -105,7 +105,7 @@ class TransactionSpec
         HashMap(
           NodeId(0) -> dummyCreateNode("cid0"),
           NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2), NodeId(4))),
-          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.empty),
+          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.Empty),
           NodeId(3) -> dummyCreateNode("cid3"),
           NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
           NodeId(5) -> dummyCreateNode("cid5"),
@@ -133,14 +133,14 @@ class TransactionSpec
         HashMap(
           NodeId(0) -> dummyCreateNode("cid0"),
           NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2), NodeId(4))),
-          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.empty),
+          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.Empty),
           NodeId(3) -> dummyCreateNode("cid3"),
           NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
           NodeId(5) -> dummyCreateNode("cid5"),
           // these are not reachable
           NodeId(10) -> dummyCreateNode("cid10"),
           NodeId(11) -> dummyExerciseNode("cid11", ImmArray(NodeId(12), NodeId(14))),
-          NodeId(12) -> dummyExerciseNode("cid12", ImmArray.empty),
+          NodeId(12) -> dummyExerciseNode("cid12", ImmArray.Empty),
           NodeId(13) -> dummyCreateNode("cid13"),
           NodeId(14) -> dummyRollbackNode(ImmArray(NodeId(15))),
           NodeId(15) -> dummyCreateNode("cid15"),
@@ -189,10 +189,10 @@ class TransactionSpec
         entry <- danglingRefGenNode
         node = entry match {
           case (_, nr: Node.NodeRollback[_]) =>
-            nr.copy(children = ImmArray.empty)
+            nr.copy(children = ImmArray.Empty)
           case (_, n: Node.LeafOnlyActionNode[V.ContractId]) => n
           case (_, ne: Node.NodeExercises[_, V.ContractId]) =>
-            ne.copy(children = ImmArray.empty)
+            ne.copy(children = ImmArray.Empty)
         }
       } yield node
 
@@ -335,7 +335,7 @@ class TransactionSpec
       builder.add(fetch("FetchByKey", true), exeId)
       builder.add(lookup("SuccessfulLookup", true), exeId)
       builder.add(lookup("UnsuccessfulLookup", true), exeId)
-      val rollbackId = builder.add(Node.NodeRollback(ImmArray.empty))
+      val rollbackId = builder.add(Node.NodeRollback(ImmArray.Empty))
       builder.add(create("RolledBackCreate"))
       builder.add(exe("RolledBackNonConsumingExerciseById", false, false), rollbackId)
       builder.add(exe("RolledBackConsumingExerciseById", true, false), rollbackId)

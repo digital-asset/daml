@@ -3,12 +3,11 @@
 
 package com.daml.http
 
-import akka.actor.{ActorSystem, Cancellable}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
-import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{
@@ -19,32 +18,30 @@ import com.daml.http.json.{
 }
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
-import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.client.services.pkg.PackageClient
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 import com.daml.ports.{Port, PortFiles}
-import com.daml.scalautil.Statement.discard
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
 
 import java.nio.file.Path
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object HttpService {
 
@@ -64,6 +61,7 @@ object HttpService {
 
   final case class Error(message: String)
 
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def start(
       startSettings: StartSettings,
       contractDao: Option[ContractDao] = None,
@@ -83,19 +81,17 @@ object HttpService {
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
 
-    val tokenHolder = accessTokenFile.map(new TokenHolder(_))
-
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(DummyApplicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = tlsConfig.client,
-      token = tokenHolder.flatMap(_.token),
       maxInboundMessageSize = maxInboundMessageSize,
     )
 
     import akka.http.scaladsl.server.Directives._
     val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
+
       client <- eitherT(
         ledgerClient(
           ledgerHost,
@@ -116,19 +112,9 @@ object HttpService {
         )
       ): ET[DamlLedgerClient]
 
-      ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
-
-      _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
-      packageService = new PackageService(
-        loadPackageStoreUpdates(pkgManagementClient.packageClient, tokenHolder)
-      )
-
-      // load all packages right away
-      _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
-
-      _ = schedulePackageReload(packageService, packageReloadInterval)
+      packageService = new PackageService(doLoad(pkgManagementClient.packageClient))
 
       commandService = new CommandService(
         LedgerClientJwt.submitAndWaitForTransaction(client),
@@ -154,10 +140,13 @@ object HttpService {
       packageManagementService = new PackageManagementService(
         LedgerClientJwt.listPackages(pkgManagementClient),
         LedgerClientJwt.getPackage(pkgManagementClient),
-        uploadDarAndReloadPackages(
-          LedgerClientJwt.uploadDar(pkgManagementClient),
-          implicit lc => packageService.reload,
-        ),
+        { case (jwt, ledgerId, byteString) =>
+          implicit lc =>
+            LedgerClientJwt
+              .uploadDar(pkgManagementClient)(jwt, ledgerId, byteString)(lc)
+              .flatMap(_ => packageService.reload(jwt, ledgerId))
+              .map(_ => ())
+        },
       )
 
       ledgerHealthService = HealthGrpc.stub(client.channel)
@@ -224,44 +213,18 @@ object HttpService {
     bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
   }
 
-  private[http] def refreshToken(
-      holderM: Option[TokenHolder]
-  )(implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
-    Future(
-      holderM
-        .traverse { holder =>
-          holder.refresh()
-          holder.token
-            .toRightDisjunction(PackageService.ServerError("Unable to load token"))
-        }
-    )
-
-  private[http] def doLoad(packageClient: PackageClient, ids: Set[String], tokenM: Option[String])(
-      implicit ec: ExecutionContext
+  private[http] def doLoad(
+      packageClient: PackageClient
+  )(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(ids: Set[String])(implicit
+      ec: ExecutionContext
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
     LedgerReader
-      .loadPackageStoreUpdates(packageClient, tokenM)(ids)
+      .loadPackageStoreUpdates(
+        packageClient,
+        some(jwt.value),
+        ledgerId,
+      )(ids)
       .map(_.leftMap(e => PackageService.ServerError(e)))
-
-  private[http] def loadPackageStoreUpdates(
-      packageClient: PackageClient,
-      holderM: Option[TokenHolder],
-  )(implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
-    (ids: Set[String]) => refreshToken(holderM).flatMap(_.traverseM(doLoad(packageClient, ids, _)))
-
-  // We can reuse the token we use for packages since both
-  // require only public claims
-  private[http] def getLedgerEnd(client: DamlLedgerClient, holderM: Option[TokenHolder])(implicit
-      ec: ExecutionContext
-  ): () => Future[Unit] =
-    () => {
-      for {
-        token <- refreshToken(holderM).flatMap(x =>
-          toFuture(x: PackageService.Error \/ Option[String])
-        )
-        _ <- client.transactionClient.getLedgerEnd(token)
-      } yield ()
-    }
 
   def stop(
       f: Future[Error \/ (ServerBinding, Option[ContractDao])]
@@ -282,7 +245,7 @@ object HttpService {
 
   private[http] def buildJsonCodecs(
       packageService: PackageService
-  ): (DomainJsonEncoder, DomainJsonDecoder) = {
+  )(implicit ec: ExecutionContext): (DomainJsonEncoder, DomainJsonDecoder) = {
 
     val lfTypeLookup = LedgerReader.damlLfTypeLookup(() => packageService.packageStore) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
@@ -306,37 +269,6 @@ object HttpService {
     )
 
     (encoder, decoder)
-  }
-
-  private def schedulePackageReload(
-      packageService: PackageService,
-      pollInterval: FiniteDuration,
-  )(implicit
-      asys: ActorSystem,
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
-  ): Cancellable = {
-    val maxWait = pollInterval * 10
-
-    // scheduleWithFixedDelay will wait for the previous task to complete before triggering the next one
-    // that is exactly why the task calls Await.result on the Future
-    asys.scheduler.scheduleWithFixedDelay(pollInterval, pollInterval)(() => {
-
-      val f: Future[PackageService.Error \/ Unit] = packageService.reload
-
-      f.onComplete {
-        case scala.util.Failure(e) => logger.error("Package reload failed", e)
-        case scala.util.Success(-\/(e)) => logger.error("Package reload failed: " + e.shows)
-        case scala.util.Success(\/-(_)) =>
-      }
-
-      try {
-        discard { Await.result(f, maxWait) }
-      } catch {
-        case e: scala.concurrent.TimeoutException =>
-          logger.error(s"Package reload timed out after: $maxWait", e)
-      }
-    })
   }
 
   private def ledgerClient(
@@ -369,9 +301,4 @@ object HttpService {
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)
   }
 
-  private def uploadDarAndReloadPackages(
-      f: LedgerClientJwt.UploadDarFile,
-      g: LoggingContextOf[InstanceUUID] => Future[PackageService.Error \/ Unit],
-  )(implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
-    (x, y) => implicit lc => f(x, y)(lc).flatMap(_ => g(lc).flatMap(toFuture(_): Future[Unit]))
 }

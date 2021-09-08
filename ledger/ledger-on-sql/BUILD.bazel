@@ -280,7 +280,7 @@ da_scala_test_suite(
                 "--verbose",
                 "--include=ParticipantPruningIT",
                 # Disable tests targeting only append-only schema functionality
-                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
+                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
             ],
         ),
         conformance_test(
@@ -442,7 +442,7 @@ conformance_test(
         "--verbose",
         "--include=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -462,7 +462,7 @@ conformance_test(
         "--verbose",
         "--include=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -482,7 +482,7 @@ conformance_test(
         "--verbose",
         "--include=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -499,7 +499,7 @@ conformance_test(
         "--verbose",
         "--include=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 

@@ -388,7 +388,13 @@ private class JdbcLedgerDao(
                 applicationId <- tx.applicationId
                 commandId <- tx.commandId
                 submissionId <- tx.submissionId
-              } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
+              } yield state.CompletionInfo(
+                actAs,
+                applicationId,
+                commandId,
+                None,
+                Some(submissionId),
+              )
 
               sequentialIndexer.store(
                 connection,
@@ -428,8 +434,8 @@ private class JdbcLedgerDao(
                 Some(
                   state.Update.CommandRejected(
                     recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                    completionInfo =
-                      state.CompletionInfo(actAs, applicationId, commandId, None, submissionId),
+                    completionInfo = state
+                      .CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId)),
                     reasonTemplate = reason.toParticipantStateRejectionReason,
                   )
                 ),

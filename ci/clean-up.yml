@@ -38,7 +38,7 @@ steps:
     ## END temp debug
 
     df -h .
-    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
+    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 80000 ]; then
         echo "Disk full, cleaning up..."
         $HOME/reset_caches.sh
         echo "Done."

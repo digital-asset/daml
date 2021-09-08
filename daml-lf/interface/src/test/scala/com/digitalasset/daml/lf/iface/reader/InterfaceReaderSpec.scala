@@ -60,7 +60,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
   "variant should extract a variant, nested records are not be resolved" in {
     val variantDataType = Ast.DDataType(
       serializable = true,
-      ImmArray.empty,
+      ImmArray.Empty,
       Ast.DataVariant(
         ImmArray(
           typeConstructorField(
@@ -81,7 +81,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       Ref.QualifiedName(moduleName, dnfs("NameClashRecordVariant")) ->
         iface.InterfaceType.Normal(
           DefDataType(
-            ImmArray.empty.toSeq,
+            ImmArraySeq.Empty,
             Variant(
               ImmArraySeq[(Ref.Name, TypeCon)](
                 (
@@ -104,7 +104,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
   "record should extract a nested record" in {
     val dataType = Ast.DDataType(
       serializable = true,
-      ImmArray.empty,
+      ImmArray.Empty,
       Ast.DataRecord(
         ImmArray(
           primField("wait", Ast.BTInt64),
@@ -120,7 +120,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       Ref.QualifiedName(moduleName, dnfs("Record")) ->
         iface.InterfaceType.Normal(
           DefDataType(
-            ImmArray.empty.toSeq,
+            ImmArraySeq.Empty,
             Record(
               ImmArraySeq[(Ref.Name, TypePrim)](
                 ("wait", TypePrim(PrimTypeInt64, ImmArraySeq())),
@@ -138,7 +138,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
   "map should extract a TextMap" in {
     val dataType = Ast.DDataType(
       serializable = true,
-      ImmArray.empty,
+      ImmArray.Empty,
       Ast.DataRecord(
         ImmArray(
           primField("map", Ast.BTTextMap, Ast.TBuiltin(Ast.BTInt64))
@@ -151,7 +151,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       Ref.QualifiedName(moduleName, dnfs("MapRecord")) ->
         iface.InterfaceType.Normal(
           DefDataType(
-            ImmArray.empty.toSeq,
+            ImmArraySeq.Empty,
             Record(
               ImmArraySeq[(Ref.Name, TypePrim)](
                 (

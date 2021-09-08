@@ -11,7 +11,7 @@ import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext

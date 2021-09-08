@@ -143,10 +143,10 @@ object BackStack {
   def apply[A](xs: ImmArray[A]): BackStack[A] = empty :++ xs
 
   def apply[T](element: T, elements: T*): BackStack[T] =
-    apply(ImmArray(element +: elements))
+    empty :+ element :++ elements.to(ImmArray)
 
   def apply[T](elements: Seq[T]): BackStack[T] =
-    apply(ImmArray(elements))
+    apply(elements.to(ImmArray))
 
   def unapply[T](xs: BackStack[T]): Boolean = xs.isEmpty
 
