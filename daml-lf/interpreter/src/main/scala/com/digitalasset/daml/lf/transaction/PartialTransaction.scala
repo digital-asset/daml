@@ -398,15 +398,6 @@ private[lf] case class PartialTransaction(
 
   // construct an IncompleteTransaction from the partial-transaction
   def finishIncomplete: transaction.IncompleteTransaction = {
-    @tailrec
-    def unwindToExercise( //TODO: remove as never called
-        contextInfo: PartialTransaction.ContextInfo
-    ): Option[PartialTransaction.ExercisesContextInfo] = contextInfo match {
-      case ctx: PartialTransaction.ExercisesContextInfo => Some(ctx)
-      case ctx: PartialTransaction.TryContextInfo =>
-        unwindToExercise(ctx.parent.info)
-      case _: PartialTransaction.RootContextInfo => None
-    }
 
     val ptx = unwind()
 

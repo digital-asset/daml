@@ -49,6 +49,7 @@ private[sandbox] object LedgerResource {
           transactionCommitter = StandardTransactionCommitter,
           packageStoreInit = packages,
           ledgerEntries = entries,
+          engine = new Engine(),
         )
       )
     )

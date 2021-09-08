@@ -89,7 +89,7 @@ private[platform] object DbDispatcher {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
-      hikariDataSource <- new HikariDataSourceOwner(
+      hikariDataSource <- HikariDataSourceOwner(
         dataSource,
         serverRole,
         connectionPoolSize,

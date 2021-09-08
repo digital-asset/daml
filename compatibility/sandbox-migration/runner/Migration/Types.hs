@@ -18,6 +18,7 @@ module Migration.Types
 
 import qualified Data.Aeson as A
 import qualified Data.Text as T
+import qualified Data.Int as I
 import qualified Data.SemVer as SemVer
 import GHC.Generics (Generic)
 
@@ -91,6 +92,7 @@ instance A.FromJSON Event where
 data Transaction = Transaction
   { transactionId :: T.Text
   , events :: [Event]
+  , letMicros :: !I.Int64    -- :: Ledger effective time, in microseconds since unix epoch
   } deriving (Generic, Eq, Show)
 
 instance A.FromJSON Transaction

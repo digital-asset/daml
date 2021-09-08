@@ -6,8 +6,8 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.CommandDeduplicationBase
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /** Command deduplication tests for participant side deduplication
   * Should be disabled for ledgers that have committer side deduplication enabled (KV)
@@ -16,8 +16,10 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
 
   override def runGivenDeduplicationWait(
-      participants: Seq[ParticipantTestContext]
+      context: ParticipantTestContext
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     test(defaultDeduplicationWindowWait)
   }
+
+  override def testNamingPrefix: String = "ParticipantCommandDeduplication"
 }

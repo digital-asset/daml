@@ -22,6 +22,8 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
     extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
 
+  override def testNamingPrefix: String = "KVCommandDeduplication"
+
   override def runGivenDeduplicationWait(
       participants: Seq[ParticipantTestContext]
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {

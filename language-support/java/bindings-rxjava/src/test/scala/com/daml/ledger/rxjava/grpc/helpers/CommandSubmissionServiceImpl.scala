@@ -19,7 +19,7 @@ final class CommandSubmissionServiceImpl(getResponse: () => Future[Empty])
     extends CommandSubmissionService
     with FakeAutoCloseable {
 
-  private var submittedRequest: Option[SubmitRequest] = None
+  @volatile private var submittedRequest: Option[SubmitRequest] = None
 
   override def submit(request: SubmitRequest): Future[Empty] = {
     this.submittedRequest = Some(request)

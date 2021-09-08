@@ -13,6 +13,8 @@ import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
+import scala.annotation.nowarn
+
 class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
   private val metrics = damlMetrics.daml.kvutils.conflictdetection
@@ -123,6 +125,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
       }
       .getOrElse("Unspecified conflict")
 
+  @nowarn("msg=deprecated")
   private def transactionRejectionEntryFrom(
       logEntry: DamlLogEntry,
       reason: String,

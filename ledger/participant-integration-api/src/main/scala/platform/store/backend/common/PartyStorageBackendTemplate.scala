@@ -6,11 +6,11 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 
 import anorm.{RowParser, SQL, ~}
-import anorm.SqlParser.{bool, date, flatten, str}
+import anorm.SqlParser.{bool, flatten, str}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{ledgerString, offset, party}
+import com.daml.platform.store.Conversions.{ledgerString, instantFromMicros, offset, party}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PartyStorageBackend
@@ -32,7 +32,7 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     (offset("ledger_offset") ~
-      date("recorded_at") ~
+      instantFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
       party("party").? ~
       str("display_name").? ~
@@ -54,7 +54,7 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
           offset ->
             PartyLedgerEntry.AllocationAccepted(
               submissionIdOpt,
-              recordTime.toInstant,
+              recordTime,
               PartyDetails(party, displayNameOpt, isLocal),
             )
         case (
@@ -69,7 +69,7 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
             ) =>
           offset -> PartyLedgerEntry.AllocationRejected(
             submissionId,
-            recordTime.toInstant,
+            recordTime,
             reason,
           )
         case invalidRow =>

@@ -12,18 +12,18 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.parallel.ParallelIndexerFactory.Batch
+import com.daml.platform.indexer.parallel.ParallelIndexerSubscription.Batch
 import com.daml.platform.store.backend.{DbDto, ParameterStorageBackend}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
+class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   private implicit val lc: LoggingContext = LoggingContext.ForTesting
 
   private val someParty = DbDto.PartyEntry(
     ledger_offset = "",
-    recorded_at = null,
+    recorded_at = 0,
     submission_id = null,
     party = Some("party"),
     display_name = None,
@@ -113,7 +113,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   behavior of "inputMapper"
 
   it should "provide required Batch in happy path case" in {
-    val actual = ParallelIndexerFactory.inputMapper(
+    val actual = ParallelIndexerSubscription.inputMapper(
       metrics = metrics,
       toDbDto = _ => _ => Iterator(someParty, someParty),
     )(lc)(
@@ -164,7 +164,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   behavior of "seqMapperZero"
 
   it should "provide required Batch in happy path case" in {
-    ParallelIndexerFactory.seqMapperZero(123) shouldBe Batch(
+    ParallelIndexerSubscription.seqMapperZero(123) shouldBe Batch(
       lastOffset = null,
       lastSeqEventId = 123,
       lastRecordTime = 0,
@@ -178,8 +178,8 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   behavior of "seqMapper"
 
   it should "assign sequence ids correctly in happy path case" in {
-    val result = ParallelIndexerFactory.seqMapper(metrics)(
-      ParallelIndexerFactory.seqMapperZero(15),
+    val result = ParallelIndexerSubscription.seqMapper(metrics)(
+      ParallelIndexerSubscription.seqMapperZero(15),
       Batch(
         lastOffset = offset("02"),
         lastSeqEventId = 0,
@@ -206,8 +206,8 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   }
 
   it should "preserve sequence id if nothing to assign" in {
-    val result = ParallelIndexerFactory.seqMapper(metrics)(
-      ParallelIndexerFactory.seqMapperZero(15),
+    val result = ParallelIndexerSubscription.seqMapper(metrics)(
+      ParallelIndexerSubscription.seqMapperZero(15),
       Batch(
         lastOffset = offset("02"),
         lastSeqEventId = 0,
@@ -229,7 +229,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   behavior of "batcher"
 
   it should "batch correctly in happy path case" in {
-    val result = ParallelIndexerFactory.batcher(
+    val result = ParallelIndexerSubscription.batcher(
       batchF = _ => "bumm",
       metrics = metrics,
     )(
@@ -263,7 +263,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   behavior of "tailer"
 
   it should "propagate last ledger-end correctly in happy path case" in {
-    ParallelIndexerFactory.tailer("zero")(
+    ParallelIndexerSubscription.tailer("zero")(
       Batch(
         lastOffset = offset("02"),
         lastSeqEventId = 1000,
@@ -296,7 +296,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
   behavior of "ledgerEndFromBatch"
 
   it should "populate correct ledger-end from batch in happy path case" in {
-    ParallelIndexerFactory.ledgerEndFrom(
+    ParallelIndexerSubscription.ledgerEndFrom(
       Batch(
         lastOffset = offset("05"),
         lastSeqEventId = 2000,

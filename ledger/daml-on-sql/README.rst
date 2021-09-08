@@ -135,7 +135,7 @@ or orchestration system taking care of evaluating its health of the core
 components and ensuring its availability. The Ledger API exposes the standard
 gRPC health checkpoint that can be used to evaluate the health status of the
 Ledger API component. More information on the endpoint can be found at the
-`documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
+`documentation for gRPC <https://github.com/grpc/grpc/blob/v1.35.0/doc/health-checking.md>`__.
 
 When overloaded, the ledger will attempt to refuse additional requests, instead
 responding with a ``RESOURCE_EXHAUSTED`` error. This error represents

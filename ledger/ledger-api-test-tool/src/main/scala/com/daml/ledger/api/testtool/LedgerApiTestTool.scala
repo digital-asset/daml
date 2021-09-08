@@ -8,6 +8,7 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.Executors
 
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
+import com.daml.ledger.api.testtool.infrastructure.Result.Excluded
 import com.daml.ledger.api.testtool.infrastructure._
 import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -156,8 +157,8 @@ object LedgerApiTestTool {
       if (config.included.isEmpty) defaultCases
       else allCases.filter(matches(config.included))
 
-    val testsToRun: Vector[LedgerTestCase] =
-      includedTests.filterNot(matches(config.excluded))
+    val (excludedTests, testsToRun) =
+      includedTests.partition(matches(config.excluded))
 
     implicit val resourceManagementExecutionContext: ExecutionContext =
       ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
@@ -176,10 +177,19 @@ object LedgerApiTestTool {
 
     runner.flatMap(_.runTests).onComplete {
       case Success(summaries) =>
+        val excludedTestSummaries =
+          excludedTests.map { ledgerTestCase =>
+            LedgerTestSummary(
+              suite = ledgerTestCase.suite.name,
+              name = ledgerTestCase.name,
+              description = ledgerTestCase.description,
+              result = Right(Excluded),
+            )
+          }
         new ColorizedPrintStreamReporter(
           System.out,
           config.verbose,
-        ).report(summaries, identifierSuffix)
+        ).report(summaries, excludedTestSummaries, identifierSuffix)
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(exception: Errors.FrameworkException) =>
         logger.error(exception.getMessage)

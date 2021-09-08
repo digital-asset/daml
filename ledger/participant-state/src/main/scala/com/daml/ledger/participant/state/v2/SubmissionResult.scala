@@ -3,8 +3,9 @@
 
 package com.daml.ledger.participant.state.v2
 
+import com.daml.grpc.GrpcStatus
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.{StatusRuntimeException, protobuf}
 
 sealed abstract class SubmissionResult extends Product with Serializable {
   def description: String
@@ -23,13 +24,11 @@ object SubmissionResult {
     *
     * See the documentation in `error.proto` for how to report common submission errors.
     */
-  final case class SynchronousError(grpcError: com.google.rpc.status.Status)
-      extends SubmissionResult {
-    override val description: String = s"Submission failed with error ${grpcError.message}"
+  final case class SynchronousError(status: com.google.rpc.status.Status) extends SubmissionResult {
+    override val description: String = s"Submission failed with error ${status.message}"
 
-    def status: Status = Status.fromCodeValue(grpcError.code).withDescription(grpcError.message)
-
-    def exception: StatusRuntimeException = status.asRuntimeException
+    def exception: StatusRuntimeException =
+      protobuf.StatusProto.toStatusRuntimeException(GrpcStatus.toJavaProto(status))
   }
 
   object SynchronousError {
@@ -37,8 +36,8 @@ object SubmissionResult {
       error =>
         LoggingValue.Nested.fromEntries(
           "status" -> LoggingValue.Nested.fromEntries(
-            "code" -> error.grpcError.code,
-            "message" -> error.grpcError.message,
+            "code" -> error.status.code,
+            "message" -> error.status.message,
           )
         )
   }
