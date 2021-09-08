@@ -57,7 +57,7 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optApplicationIdCompletion)
       assertSubmissionIdIsGenerated(optApplicationIdCompletion)
-      assertDefaultDeduplicationTimeIsReported(config, optApplicationIdCompletion)
+      assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(config, optApplicationIdCompletion)
       assertSubmissionIdIsPreserved(aSubmissionId, optSubmissionIdCompletion)
       assertDeduplicationTimeIsPreserved(aDeduplicationTime, optCompletionDeduplicationTime)
     }
@@ -128,7 +128,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
     )
   }
 
-  private def assertDefaultDeduplicationTimeIsReported(
+  private def assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(
       config: LedgerConfiguration,
       optCompletion: Option[Completion],
   ): Unit = {
