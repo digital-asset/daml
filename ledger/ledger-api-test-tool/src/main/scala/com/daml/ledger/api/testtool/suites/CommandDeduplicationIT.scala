@@ -20,4 +20,6 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     test(defaultDeduplicationWindowWait)
   }
+
+  override def testNamingPrefix: String = "ParticipantCommandDeduplication"
 }

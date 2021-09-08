@@ -33,8 +33,10 @@ private[testtool] abstract class CommandDeduplicationBase(
       implicit ec: ExecutionContext
   ): Future[Unit]
 
+  def testNamingPrefix: String
+
   test(
-    "CDSimpleDeduplicationBasic",
+    s"${testNamingPrefix}SimpleDeduplicationBasic",
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
     runConcurrently = false,
@@ -112,7 +114,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   })
 
   test(
-    "CDStopOnSubmissionFailure",
+    s"${testNamingPrefix}StopOnSubmissionFailure",
     "Stop deduplicating commands on submission failure",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
@@ -135,7 +137,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   })
 
   test(
-    "CDStopOnCompletionFailure",
+    s"${testNamingPrefix}StopOnCompletionFailure",
     "Stop deduplicating commands on completion failure",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
@@ -176,7 +178,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   })
 
   test(
-    "CDSimpleDeduplicationCommandClient",
+    s"${testNamingPrefix}SimpleDeduplicationCommandClient",
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),
     runConcurrently = false,
@@ -220,7 +222,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   })
 
   test(
-    "CDDeduplicateSubmitterBasic",
+    s"${testNamingPrefix}DeduplicateSubmitterBasic",
     "Commands with identical submitter and command identifier should be deduplicated by the submission client",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
@@ -264,7 +266,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   })
 
   test(
-    "CDDeduplicateSubmitterCommandClient",
+    s"${testNamingPrefix}DeduplicateSubmitterCommandClient",
     "Commands with identical submitter and command identifier should be deduplicated by the command client",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>

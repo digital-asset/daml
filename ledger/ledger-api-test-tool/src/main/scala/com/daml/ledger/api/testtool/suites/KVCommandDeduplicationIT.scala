@@ -75,4 +75,6 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
       } yield {}
     })
 
+  override def testNamingPrefix: String = "KVCommandDeduplication"
+
 }
