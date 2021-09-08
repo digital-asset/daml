@@ -54,25 +54,26 @@ template RangeOfInts
     size: Int
   where
     signatory party
-    controller party can
-      ToList: [Int]
-        do return (range start (\x -> x + step) size)
-      ToListContainer: ContractId ListContainer
-        do create ListContainer with party = party, list = (range start (\x -> x + step) size)
-      ToListOfIntContainers: [ContractId IntContainer]
-        do
-          let xs: [Int] = (range start (\x -> x + step) size)
-          mapA (\x -> create IntContainer with party = party, value = x) xs
+    choice ToList: [Int]
+      controller party
+      do return (range start (\x -> x + step) size)
+    choice ToListContainer: ContractId ListContainer
+      controller party
+      do create ListContainer with party = party, list = (range start (\x -> x + step) size)
+    choice ToListOfIntContainers: [ContractId IntContainer]
+      controller party
+      do let xs: [Int] = (range start (\x -> x + step) size)
+         mapA (\x -> create IntContainer with party = party, value = x) xs
 
 template ListUtil
   with
     party: Party
   where
     signatory party
-    controller party can
-      Size: ContractId IntContainer
-        with list: [Int]
-        do create IntContainer with party = party, value = (length list)
+    choice Size: ContractId IntContainer
+      with list: [Int]
+      controller party
+      do create IntContainer with party = party, value = (length list)
         
 rangeOfIntsToListTest = scenario do
     p <- getParty "Dummy"

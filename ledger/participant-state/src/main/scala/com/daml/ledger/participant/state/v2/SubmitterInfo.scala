@@ -8,7 +8,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
-/** Collects context information the submission.
+/** Collects context information for a submission.
   *
   * Note that this is used for party-originating changes only. They are usually issued via the
   * Ledger API.
@@ -25,7 +25,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   *                            [[ReadService.stateUpdates]].
   * @param submissionId        An identifier for the submission that allows an application to
   *                            correlate completions to its submissions.
-  * @param ledgerConfiguration The ledger configuration used during interpretation
+  * @param ledgerConfiguration The ledger configuration used during interpretation.
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],

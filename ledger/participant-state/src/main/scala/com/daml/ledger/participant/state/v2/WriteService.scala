@@ -24,9 +24,8 @@ import com.daml.telemetry.TelemetryContext
   * plans to make this functionality uniformly available: see the roadmap for
   * progress information https://github.com/digital-asset/daml/issues/121.
   *
-  * As of now there are five methods for changing the state of a Daml ledger:
+  * The following methods are currently available for changing the state of a Daml ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
-  * - recording the rejection of a command submission using [[WriteService!.rejectSubmission]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
