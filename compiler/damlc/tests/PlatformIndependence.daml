@@ -31,11 +31,10 @@ template Asset
   where
     ensure name /= ""
     signatory issuer
-    controller owner can
-      Give : AssetId
-        with
-          newOwner : Party
-        do
-          incompletePattternMatch Baz
-          create this with
-            owner = newOwner
+    choice Give : AssetId
+      with
+        newOwner : Party
+      controller owner
+      do incompletePattternMatch Baz
+         create this with
+          owner = newOwner

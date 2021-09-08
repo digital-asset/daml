@@ -12,13 +12,13 @@ template Asset
   where
     ensure name /= ""
     signatory issuer
-    controller owner can
-      Give : AssetId
-        with
-          newOwner : Party
-        do
-          create this with
-            owner = newOwner
+    observer owner
+    choice Give : AssetId
+      with
+        newOwner : Party
+      controller owner
+      do create this with
+           owner = newOwner
 
 setup : Script AssetId
 setup = script do

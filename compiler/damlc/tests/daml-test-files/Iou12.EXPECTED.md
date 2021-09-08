@@ -30,8 +30,7 @@
 > 
 > * **Choice Split**
 >   
->   splits into two `Iou`s with
->   smaller amounts
+>   splits into two `Iou`s with smaller amounts
 >   
 >   | Field                                                                                  | Type                                                                                   | Description |
 >   | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :---------- |

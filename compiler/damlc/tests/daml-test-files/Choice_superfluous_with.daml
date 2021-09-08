@@ -7,7 +7,7 @@ template W with
     owner : Party
   where
     signatory owner
-    controller owner can
-      F : () with -- a `with` but an empty field list! Used to fail as per DEL-6341.
-        do
-          pure ()
+    choice F : ()
+      with -- a `with` but an empty field list! Used to fail as per DEL-6341.
+      controller owner
+      do pure ()

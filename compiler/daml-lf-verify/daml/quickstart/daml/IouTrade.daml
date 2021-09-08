@@ -22,28 +22,29 @@ template IouTrade
   where
     signatory buyer
 
-    controller seller can
-      IouTrade_Accept : (IouCid, IouCid)
-        with
-          quoteIouCid : IouCid
-        do
-          baseIou <- fetch baseIouCid
-          baseIssuer === baseIou.issuer
-          baseCurrency === baseIou.currency
-          baseAmount === baseIou.amount
-          buyer === baseIou.owner
-          quoteIou <- fetch quoteIouCid
-          quoteIssuer === quoteIou.issuer
-          quoteCurrency === quoteIou.currency
-          quoteAmount === quoteIou.amount
-          seller === quoteIou.owner
-          quoteIouTransferCid <- exercise quoteIouCid Iou_Transfer with
-            newOwner = buyer
-          transferredQuoteIouCid <- exercise quoteIouTransferCid IouTransfer_Accept
-          baseIouTransferCid <- exercise baseIouCid Iou_Transfer with
-            newOwner = seller
-          transferredBaseIouCid <- exercise baseIouTransferCid IouTransfer_Accept
-          return (transferredQuoteIouCid, transferredBaseIouCid)
+    choice IouTrade_Accept : (IouCid, IouCid)
+      with
+        quoteIouCid : IouCid
+      controller seller
+      do
+        baseIou <- fetch baseIouCid
+        baseIssuer === baseIou.issuer
+        baseCurrency === baseIou.currency
+        baseAmount === baseIou.amount
+        buyer === baseIou.owner
+        quoteIou <- fetch quoteIouCid
+        quoteIssuer === quoteIou.issuer
+        quoteCurrency === quoteIou.currency
+        quoteAmount === quoteIou.amount
+        seller === quoteIou.owner
+        quoteIouTransferCid <- exercise quoteIouCid Iou_Transfer with
+          newOwner = buyer
+        transferredQuoteIouCid <- exercise quoteIouTransferCid IouTransfer_Accept
+        baseIouTransferCid <- exercise baseIouCid Iou_Transfer with
+          newOwner = seller
+        transferredBaseIouCid <- exercise baseIouTransferCid IouTransfer_Accept
+        return (transferredQuoteIouCid, transferredBaseIouCid)
 
-      TradeProposal_Reject : ()
-        do return ()
+    choice TradeProposal_Reject : ()
+      controller seller
+      do return ()
