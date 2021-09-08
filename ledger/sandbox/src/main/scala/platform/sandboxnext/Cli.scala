@@ -36,6 +36,15 @@ private[sandboxnext] object Cli extends SandboxCli {
         s"Deprecated: Use the Daml Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data."
       )
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
+
+    parser
+      .opt[Int]("database-connection-pool-size")
+      .optional()
+      .text(
+        s"The number of connections in the database connection pool. Defaults to ${SandboxConfig.DefaultDatabaseConnectionPoolSize}."
+      )
+      .action((poolSize, config) => config.copy(databaseConnectionPoolSize = poolSize))
+
     parser
   }
 
