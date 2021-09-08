@@ -58,9 +58,10 @@ message PruneRequest {
   // such that they do not rely on divulged contracts; i.e., no warnings from
   // using divulged contracts as inputs to transactions are emitted.
   //
-  // Participant node operators SHOULD set this flag to avoid leaking
-  // storage due to accumulating unarchived divulged contracts PROVIDED no
-  // application using this participant node relies on divulgence.
+  // Participant node operators SHOULD set the `prune_all_divulged_contracts` flag to avoid leaking
+  // storage due to accumulating unarchived divulged contracts PROVIDED that:
+  //   1. no application using this participant node relies on divulgence OR
+  //   2. divulged contracts on which applications rely have been re-divulged after the `prune_up_to` offset.
   bool prune_all_divulged_contracts = 3;
 }
 
