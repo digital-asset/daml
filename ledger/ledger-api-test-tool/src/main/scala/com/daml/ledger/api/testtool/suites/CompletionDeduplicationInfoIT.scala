@@ -47,9 +47,7 @@ final class CompletionDeduplicationInfoIT[ServiceRequest](service: Service[Servi
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optNoDeduplicationSubmittedCompletion)
       assertSubmissionIdIsGenerated(optNoDeduplicationSubmittedCompletion)
-      assertDeduplicationPeriodIsReported(
-        optNoDeduplicationSubmittedCompletion,
-      )
+      assertDeduplicationPeriodIsReported(optNoDeduplicationSubmittedCompletion)
       assertSubmissionIdIsPreserved(optSubmissionIdSubmittedCompletion, RandomSubmissionId)
     }
   })
@@ -143,12 +141,11 @@ private[testtool] object CompletionDeduplicationInfoIT {
   }
 
   private def assertDeduplicationPeriodIsReported(
-      optCompletion: Option[Completion],
+      optCompletion: Option[Completion]
   ): Unit = {
     val completion = assertDefined(optCompletion)
     assert(completion.status.forall(_.code == Status.Code.OK.value()))
-    val actualDeduplication = completion.deduplicationPeriod
-    assert(actualDeduplication.isDefined, "The deduplication period was not reported")
+    assert(completion.deduplicationPeriod.isDefined, "The deduplication period was not reported")
   }
 
   private def assertSubmissionIdIsGenerated(optCompletion: Option[Completion]): Unit = {
