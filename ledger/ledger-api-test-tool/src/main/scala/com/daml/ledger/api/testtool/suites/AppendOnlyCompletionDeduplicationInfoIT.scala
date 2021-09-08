@@ -7,7 +7,7 @@ import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT._
+import com.daml.ledger.api.testtool.suites.AppendOnlyCompletionDeduplicationInfoIT._
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Command
@@ -24,12 +24,12 @@ import io.grpc.Status
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-final class CompletionDeduplicationInfoIT[ServiceRequest](service: Service[ServiceRequest])
+final class AppendOnlyCompletionDeduplicationInfoIT[ServiceRequest](service: Service[ServiceRequest])
     extends LedgerTestSuite {
 
   private val serviceName: String = service.productPrefix
 
-  override private[testtool] def name = serviceName + super.name
+  override private[testtool] def name = super.name + serviceName
 
   test(
     shortIdentifier = s"CCDIIncludeDedupInfo$serviceName",
@@ -55,7 +55,7 @@ final class CompletionDeduplicationInfoIT[ServiceRequest](service: Service[Servi
   })
 }
 
-private[testtool] object CompletionDeduplicationInfoIT {
+private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
 
   private[testtool] sealed trait Service[ProtoRequestType] extends Serializable with Product {
     def buildRequest(

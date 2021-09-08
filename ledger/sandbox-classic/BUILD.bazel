@@ -448,6 +448,8 @@ server_conformance_test(
     servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
-        "--include=CommandServiceCompletionDeduplicationInfoIT,CommandSubmissionServiceCompletionDeduplicationInfoIT",
+        "--include=" +
+        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
