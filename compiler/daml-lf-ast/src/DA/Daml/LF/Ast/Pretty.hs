@@ -551,6 +551,8 @@ instance Pretty DefDataType where
       (keyword_ "variant" <-> lhsDoc) $$ nest 2 (vcat (map pPrintVariantCon variants))
     DataEnum enums ->
       (keyword_ "enum" <-> lhsDoc) $$ nest 2 (vcat (map pPrintEnumCon enums))
+    DataInterface ->
+      keyword_ "interface"
     where
       lhsDoc =
         serializableDoc <-> pPrint tcon <-> hsep (map (pPrintAndKind lvl precParam) params) <-> "="
@@ -588,7 +590,7 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
 
 pPrintTemplate ::
   PrettyLevel -> ModuleName -> Template -> Doc ann
-pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey) =
+pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey _implements) = -- TODO interfaces
   withSourceLoc lvl mbLoc $
     keyword_ "template" <-> pPrint tpl <-> pPrint param
     <-> keyword_ "where"
@@ -613,7 +615,7 @@ pPrintFeatureFlags flags
   | otherwise = "@allowpartyliterals"
 
 instance Pretty Module where
-  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions) =
+  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions _interfaces) = -- TODO interfaces
     vcat $
       pPrintFeatureFlags flags
       : (keyword_ "module" <-> pPrint modName <-> keyword_ "where")

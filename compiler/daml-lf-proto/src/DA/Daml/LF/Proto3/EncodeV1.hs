@@ -858,6 +858,8 @@ encodeDefDataType DefDataType{..} = do
                     Left mangled -> (V.fromList mangled, V.empty)
                     Right mangledIds -> (V.empty, V.fromList mangledIds)
             pure $ P.DefDataTypeDataConsEnum P.DefDataType_EnumConstructors{..}
+        -- TODO https://github.com/digital-asset/daml/issues/10810
+        DataInterface -> error "interfaces are not implemented"
     let defDataTypeSerializable = getIsSerializable dataSerializable
     defDataTypeLocation <- traverse encodeSourceLoc dataLocation
     pure P.DefDataType{..}
