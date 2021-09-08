@@ -57,7 +57,7 @@ final class CompletionDeduplicationInfoIT[ServiceRequest](service: Service[Servi
 
 private[testtool] object CompletionDeduplicationInfoIT {
 
-  sealed trait Service[ProtoRequestType] extends Serializable with Product {
+  private[testtool] sealed trait Service[ProtoRequestType] extends Serializable with Product {
     def buildRequest(
         ledger: ParticipantTestContext,
         party: Primitive.Party,
