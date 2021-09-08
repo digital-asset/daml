@@ -138,8 +138,8 @@ There are several things that can fail during this time window: the application 
 If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
 Daml ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal with this problem.
 
-For each command application provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
-The ledger will then guarantee that commands for the same submitting party and command ID will be ignored within the deduplication time window.
+For each command the application provides a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
+The ledger will then guarantee that commands for the same application ID, submitting party and command ID will be ignored within the deduplication time window.
 
 To use command deduplication, you should:
 
