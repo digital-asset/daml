@@ -32,13 +32,13 @@ private[testtool] object Allocation {
 
   final case class Participants private[infrastructure] (
       allConfiguredParticipants: Seq[ParticipantTestContext],
-      participants: Participant*
+      allocatedParticipants: Participant*
   )
 
   object Participants {
 
     def unapplySeq(participants: Participants): Option[Seq[Participant]] = {
-      Some(participants.participants)
+      Some(participants.allocatedParticipants)
     }
 
   }

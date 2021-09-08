@@ -16,7 +16,7 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
     extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
 
   override def runGivenDeduplicationWait(
-      context: ParticipantTestContext
+      participants: Seq[ParticipantTestContext]
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     test(defaultDeduplicationWindowWait)
   }

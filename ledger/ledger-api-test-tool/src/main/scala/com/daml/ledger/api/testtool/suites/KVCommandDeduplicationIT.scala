@@ -61,7 +61,7 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
         for {
           time <- anyParticipant.time()
           updatedModel = timeModelUpdate(timeModel.getTimeModel)
-          (timeModelForTest, participantThatDidTheUpdate) <- tryUpdateOnAllParticipants(
+          (timeModelForTest, participantThatDidTheUpdate) <- tryTimeModelUpdateOnAllParticipants(
             participants,
             _.setTimeModel(
               time.plusSeconds(30),
@@ -80,17 +80,20 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
 
   /** Try to run the [[update]] sequentially on all the participants.
     * The function returns the first success or the last failure of the update operation.
-    * Useful for updating the configuration when we don't know which participant can update the config, as only one has the permissions to do so.
+    * Useful for updating the configuration when we don't know which participant can update the config,
+    *  as only the first one that submitted the initial configuration has the permissions to do so.
     */
-  private def tryUpdateOnAllParticipants(
+  private def tryTimeModelUpdateOnAllParticipants(
       participants: Seq[ParticipantTestContext],
-      update: ParticipantTestContext => Future[TimeModel],
+      timeModelUpdate: ParticipantTestContext => Future[TimeModel],
   )(implicit ec: ExecutionContext): Future[(TimeModel, ParticipantTestContext)] = {
     participants.foldLeft(
-      Future.failed[(TimeModel, ParticipantTestContext)](new IllegalStateException("No success"))
+      Future.failed[(TimeModel, ParticipantTestContext)](
+        new IllegalStateException("No participant")
+      )
     ) { (result, participant) =>
       result.recoverWith { case NonFatal(_) =>
-        update(participant).map(_ -> participant)
+        timeModelUpdate(participant).map(_ -> participant)
       }
     }
   }

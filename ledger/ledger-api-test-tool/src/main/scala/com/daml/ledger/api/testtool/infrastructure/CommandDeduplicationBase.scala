@@ -29,8 +29,10 @@ private[testtool] abstract class CommandDeduplicationBase(
   }
   val defaultDeduplicationWindowWait: FiniteDuration = deduplicationTime + ledgerTimeInterval * 2
 
-  def runGivenDeduplicationWait(context: ParticipantTestContext)(test: Duration => Future[Unit])(
-      implicit ec: ExecutionContext
+  def runGivenDeduplicationWait(
+      participants: Seq[ParticipantTestContext]
+  )(test: Duration => Future[Unit])(implicit
+      ec: ExecutionContext
   ): Future[Unit]
 
   def testNamingPrefix: String
@@ -40,7 +42,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
     runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+  )(implicit ec => { case participants @ Participants(Participant(ledger, party)) =>
     lazy val requestA1 = ledger
       .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
       .update(
@@ -57,7 +59,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           ), //same semantics as `DeduplicationTime`
         _.commands.commandId := requestA1.commands.get.commandId,
       )
-    runGivenDeduplicationWait(ledger) { deduplicationWait =>
+    runGivenDeduplicationWait(participants.allConfiguredParticipants) { deduplicationWait =>
       for {
         // Submit command A (first deduplication window)
         // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -182,13 +184,13 @@ private[testtool] abstract class CommandDeduplicationBase(
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),
     runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+  )(implicit ec => { case participants @ Participants(Participant(ledger, party)) =>
     val requestA = ledger
       .submitAndWaitRequest(party, Dummy(party).create.command)
       .update(
         _.commands.deduplicationTime := deduplicationTime.asProtobuf
       )
-    runGivenDeduplicationWait(ledger) { deduplicationWait =>
+    runGivenDeduplicationWait(participants.allConfiguredParticipants) { deduplicationWait =>
       for {
         // Submit command A (first deduplication window)
         _ <- ledger.submitAndWait(requestA)
