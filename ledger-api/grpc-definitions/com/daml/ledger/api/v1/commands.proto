@@ -64,17 +64,11 @@ message Commands {
       // DEPRECATED
       google.protobuf.Duration deduplication_time = 9;
 
-      // Specifies the start of the deduplication period by a completion stream offset.
-      //
-      // Must be a valid LedgerString (as described in ``value.proto``).
-      // This field is *experimental*, hence, it is generally not supported and may be removed without notice.
-      string deduplication_offset = 15 [deprecated = true];
-
       // Specifies the length of the deduplication period.
       // It is interpreted relative to the local clock at some point during the submission's processing.
       //
       // Must be non-negative.
-      google.protobuf.Duration deduplication_duration = 16;
+      google.protobuf.Duration deduplication_duration = 15;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.
