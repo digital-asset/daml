@@ -58,9 +58,13 @@ object Tests {
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
-  val optional: Vector[LedgerTestSuite] =
+  def optional(
+      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
+      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
+  ): Vector[LedgerTestSuite] =
     Vector(
       new CommandDeduplicationOffsetIT,
+      new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ContractIdIT,
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,
