@@ -28,41 +28,40 @@ template Cash
 
     ensure amount > 0.0
 
-    controller owner can
-      Transfer : CashTransferRequestId
-        with newOwner : Party
-        do
-          assertUnlocked this
-          create CashTransferRequest with receiver = newOwner; ..
+    choice Transfer : CashTransferRequestId
+      with newOwner : Party
+      controller owner
+      do assertUnlocked this
+         create CashTransferRequest with receiver = newOwner; ..
 
-      TransferToLocker : CashId
-        do
-          assert $ locker /= owner
-          create this with owner = locker; lockMaturity = None
+    choice TransferToLocker : CashId
+      controller owner
+      do assert $ locker /= owner
+         create this with owner = locker; lockMaturity = None
 
-      Split : (CashId, CashId)
-        with splitAmount : Decimal
-        do
-          f <- create this with amount = splitAmount
-          s <- create this with amount = amount - splitAmount
-          return (f, s)
+    choice Split : (CashId, CashId)
+      with splitAmount : Decimal
+      controller owner
+      do f <- create this with amount = splitAmount
+         s <- create this with amount = amount - splitAmount
+         return (f, s)
 
-      Merge : CashId
-        with otherCid : CashId
-        do
-          assertUnlocked this
-          c <- fetch otherCid
-          assertUnlocked c
-          assert $ this == c with amount
-          exercise otherCid Archive
-          create this with amount = amount + c.amount
+    choice Merge : CashId
+      with otherCid : CashId
+      controller owner
+      do assertUnlocked this
+         c <- fetch otherCid
+         assertUnlocked c
+         assert $ this == c with amount
+         exercise otherCid Archive
+         create this with amount = amount + c.amount
 
-      Lock : CashId
-        with lid : ContractId LockPoA
-             _lockMaturity : Time
-        do
-          assertUnlocked this
-          exercise lid IssueLocked with cash = this; lockMaturity = _lockMaturity
+    choice Lock : CashId
+      with lid : ContractId LockPoA
+           _lockMaturity : Time
+      controller owner
+      do assertUnlocked this
+         exercise lid IssueLocked with cash = this; lockMaturity = _lockMaturity
 
 template LockPoA
   with
@@ -71,14 +70,14 @@ template LockPoA
     owner : Party
   where
     signatory locker
+    observer issuer, owner
 
-    controller issuer, owner can
-      IssueLocked : CashId
-        with
-          cash : Cash
-          lockMaturity : Time
-        do
-          create cash with locker; lockMaturity = Some lockMaturity
+    choice IssueLocked : CashId
+      with
+        cash : Cash
+        lockMaturity : Time
+      controller issuer, owner
+      do create cash with locker; lockMaturity = Some lockMaturity
 
 
 type CashTransferRequestId = ContractId CashTransferRequest
@@ -94,21 +93,20 @@ template CashTransferRequest
     lockMaturity : Optional Time
   where
     signatory issuer, owner, locker
+    observer receiver
 
-    controller receiver can
-      Accept : CashId
-        do
-          create Cash with owner = receiver, locker = receiver, lockMaturity = None, ..
+    choice Accept : CashId
+      controller receiver
+      do create Cash with owner = receiver, locker = receiver, lockMaturity = None, ..
 
-      Reject : CashId
-        do
-          create Cash with lockMaturity = None, ..
+    choice Reject : CashId
+      controller receiver
+      do create Cash with lockMaturity = None, ..
 
-    controller owner can
-      Withdraw : CashId
-        do
-          whenSome lockMaturity assertAfter
-          create Cash with lockMaturity = None, ..
+    choice Withdraw : CashId
+      controller receiver
+      do whenSome lockMaturity assertAfter
+         create Cash with lockMaturity = None, ..
 
 
 cashSplitMay : Party -> CashId -> Decimal -> Update (CashId, Optional CashId)

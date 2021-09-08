@@ -578,9 +578,10 @@ template T_BadActorCheck
     p2 : Party
   where
     signatory p1
-    controller p2 can
-      C_BadActorCheck : ()
-        do pure ()
+    observer p2
+    choice C_BadActorCheck : ()
+      controller p2
+      do pure ()
 
 badActorCheck = scenario do
   p1 <- getParty "Alice"

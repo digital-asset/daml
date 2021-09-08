@@ -51,11 +51,11 @@ template TheContractBuilder3
     c : Party
   where
     signatory s
-    controller c can
-      TheChoice : ContractId TheContract3
-        with s2 : Party
-        do
-          create TheContract3 with s = s2
+    observer c
+    choice TheChoice : ContractId TheContract3
+      with s2 : Party
+      controller c
+      do create TheContract3 with s = s2
 
 -- @ERROR failed since none of the stakeholders 'Alice-t3' is in the authorizing set 'Bob-t3'
 t3_FetchMissingAuthorization = scenario do

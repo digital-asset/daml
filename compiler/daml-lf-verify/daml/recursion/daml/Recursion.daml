@@ -19,113 +19,125 @@ template Iou
 
     observer observers
 
-    controller owner can
+    -- Test recursion A
 
-      -- Test recursion A
+    nonconsuming choice TestRecA : IouCid
+      controller owner
+      do
+        archive self
+        _ <- create this with amount = amount
+        exercise self TestRecA
 
-      nonconsuming TestRecA : IouCid
-        do
+    -- Test recursion B
+
+    nonconsuming choice TestRecB : IouCid
+      with
+        var: Int
+      controller owner
+      do
+        if var > 0
+        then do
+          exercise self TestRecB with var = (var - 1)
+        else do
           archive self
-          _ <- create this with amount = amount
-          exercise self TestRecA
+          create this with amount = amount
 
-      -- Test recursion B
+    -- Test recursion C
 
-      nonconsuming TestRecB : IouCid
-        with 
-          var: Int
-        do
-          if var > 0
-          then do
-            exercise self TestRecB with var = (var - 1)
-          else do
-            archive self
-            create this with amount = amount
+    nonconsuming choice Iou_Divide : (IouCid, IouCid)
+      with
+        receiverCid: IouCid
+      controller owner
+      do
+        receiverIou <- fetch receiverCid
+        if amount <= receiverIou.amount
+        then return (self, receiverCid)
+        else do
+          newSelf <- create this with amount = amount - 1.0
+          newReceiver <- create receiverIou with amount = receiverIou.amount + 1.0
+          archive self
+          archive receiverCid
+          exercise newSelf Iou_Divide with receiverCid = newReceiver
 
-      -- Test recursion C
+    -- Test mutual recursion A
 
-      nonconsuming Iou_Divide : (IouCid, IouCid)
-        with
-          receiverCid: IouCid
-        do
-          receiverIou <- fetch receiverCid
-          if amount <= receiverIou.amount
-          then return (self, receiverCid)
-          else do
-            newSelf <- create this with amount = amount - 1.0
-            newReceiver <- create receiverIou with amount = receiverIou.amount + 1.0
-            archive self
-            archive receiverCid
-            exercise newSelf Iou_Divide with receiverCid = newReceiver
+    nonconsuming choice TestMutA1 : IouCid
+      controller owner
+      do
+        _ <- create this with amount = 1.0
+        exercise self TestMutA2
 
-      -- Test mutual recursion A
-
-      nonconsuming TestMutA1 : IouCid
-        do
-          _ <- create this with amount = 1.0
-          exercise self TestMutA2
-
-      nonconsuming TestMutA2 : IouCid
-        do
-          _ <- create this with amount = -1.0
-          res <- exercise self TestMutA1
-          _ <- create this with amount = 1.0
-          return res
+    nonconsuming choice TestMutA2 : IouCid
+      controller owner
+      do
+        _ <- create this with amount = -1.0
+        res <- exercise self TestMutA1
+        _ <- create this with amount = 1.0
+        return res
           
-      -- Test mutual recursion B
+    -- Test mutual recursion B
 
-      nonconsuming TestMutB1 : IouCid
-        do
-          _ <- create this with amount = 1.0
-          exercise self TestMutB2
-          create this with amount = 5.0
+    nonconsuming choice TestMutB1 : IouCid
+      controller owner
+      do
+        _ <- create this with amount = 1.0
+        exercise self TestMutB2
+        create this with amount = 5.0
 
-      nonconsuming TestMutB2 : IouCid
-        do
-          _ <- create this with amount = 2.0
-          exercise self TestMutB3
-      
-      nonconsuming TestMutB3 : IouCid
-        do
-          _ <- create this with amount = 3.0
-          exercise self TestMutB4
+    nonconsuming choice TestMutB2 : IouCid
+      controller owner
+      do
+        _ <- create this with amount = 2.0
+        exercise self TestMutB3
 
-      nonconsuming TestMutB4 : IouCid
-        do
-          _ <- create this with amount = 4.0
-          exercise self TestMutB1
+    nonconsuming choice TestMutB3 : IouCid
+      controller owner
+      do
+        _ <- create this with amount = 3.0
+        exercise self TestMutB4
 
-      -- Test mutual recursion C
+    nonconsuming choice TestMutB4 : IouCid
+      controller owner
+      do
+        _ <- create this with amount = 4.0
+        exercise self TestMutB1
 
-      nonconsuming Iou_Divide_Mut : (IouCid, IouCid)
-        with
-          receiverCid: IouCid
-        do
-          receiverIou <- fetch receiverCid
-          if amount <= receiverIou.amount
-          then return (self, receiverCid)
-          else do
-            exercise self Iou_Divide_Sub with receiverCid = receiverCid
+    -- Test mutual recursion C
 
-      Iou_AddOne : IouCid
-        do
-          create this with amount = amount + 1.0
+    nonconsuming choice Iou_Divide_Mut : (IouCid, IouCid)
+      with
+        receiverCid: IouCid
+      controller owner
+      do
+        receiverIou <- fetch receiverCid
+        if amount <= receiverIou.amount
+        then return (self, receiverCid)
+        else do
+          exercise self Iou_Divide_Sub with receiverCid = receiverCid
 
-      Iou_SubOne : IouCid
-        do
-          create this with amount = amount - 1.0
+    choice Iou_AddOne : IouCid
+      controller owner
+      do
+        create this with amount = amount + 1.0
 
-      nonconsuming Iou_Divide_Sub : (IouCid, IouCid)
-        with
-          receiverCid: IouCid
-        do
-          newSelf <- exercise self Iou_SubOne
-          exercise newSelf Iou_Divide_Add with receiverCid = receiverCid
+    choice Iou_SubOne : IouCid
+      controller owner
+      do
+        create this with amount = amount - 1.0
 
-      nonconsuming Iou_Divide_Add : (IouCid, IouCid)
-        with
-          receiverCid: IouCid
-        do
-          receiverIou <- fetch receiverCid
-          newReceiver <- exercise receiverCid Iou_AddOne
-          exercise self Iou_Divide_Mut with receiverCid = newReceiver
+    nonconsuming choice Iou_Divide_Sub : (IouCid, IouCid)
+      with
+        receiverCid: IouCid
+      controller owner
+      do
+        newSelf <- exercise self Iou_SubOne
+        exercise newSelf Iou_Divide_Add with receiverCid = receiverCid
+
+    nonconsuming choice Iou_Divide_Add : (IouCid, IouCid)
+      with
+        receiverCid: IouCid
+      controller owner
+      do
+        receiverIou <- fetch receiverCid
+        newReceiver <- exercise receiverCid Iou_AddOne
+        exercise self Iou_Divide_Mut with receiverCid = newReceiver

@@ -19,10 +19,10 @@ template T
     p : P.Party
   where
     signatory p
-    controller p can
-      Test : P.Int
-        with argument : ()
-        do return 1
+    choice Test : P.Int
+      with argument : ()
+      controller p
+      do return 1
 
 foo a b f = do
   x <- a

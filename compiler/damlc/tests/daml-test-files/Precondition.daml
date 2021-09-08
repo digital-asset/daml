@@ -12,12 +12,12 @@ template Confirmation with
     pending : [Party]
   where
     signatory confirmed
+    observer head pending
     ensure not (null pending)
 
-    controller head pending can
-      Skip : ContractId Confirmation
-        do
-          create this with pending = tail pending
+    choice Skip : ContractId Confirmation
+      controller head pending
+      do create this with pending = tail pending
 
 test = scenario do
   alice <- getParty "Alice"

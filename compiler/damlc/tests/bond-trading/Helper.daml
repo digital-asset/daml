@@ -30,45 +30,43 @@ template Helper
   where
     signatory party
 
-    controller party can
+    nonconsuming choice HandleCash : HandleCashResult
+      with
+        cashCids : [CashId]
+        dvpCids : [DvpId]
+      controller party
+      do time <- getTime
 
-      nonconsuming HandleCash : HandleCashResult
-        with
-          cashCids : [CashId]
-          dvpCids : [DvpId]
-        do
-          time <- getTime
+         let allocateDvp (dvpCid : DvpId) (prev : HandleCashResult) = do
+             dvp <- fetch dvpCid
+             assertMsg "party isn't buyer" $ dvp.c.buyer == party
+             assertMsg "settlment time is in the future" $ dvp.c.settleTime <= time
+             cashCid <- optional (fail "insufficient cash") pure prev.restCid
+             r <- cashSplitMay party cashCid dvp.c.cashAmount
+             allocated <- exercise dvpCid Allocate with cashCid = fst r
+             return HandleCashResult with restCid = snd r; dvpAllocatedCids = (fst allocated) :: prev.dvpAllocatedCids
 
-          let allocateDvp (dvpCid : DvpId) (prev : HandleCashResult) = do
-              dvp <- fetch dvpCid
-              assertMsg "party isn't buyer" $ dvp.c.buyer == party
-              assertMsg "settlment time is in the future" $ dvp.c.settleTime <= time
-              cashCid <- optional (fail "insufficient cash") pure prev.restCid
-              r <- cashSplitMay party cashCid dvp.c.cashAmount
-              allocated <- exercise dvpCid Allocate with cashCid = fst r
-              return HandleCashResult with restCid = snd r; dvpAllocatedCids = (fst allocated) :: prev.dvpAllocatedCids
+         cashCid <- foldl1A (\cid otherCid -> exercise cid Cash.Merge with otherCid) cashCids
+         foldrA allocateDvp (HandleCashResult with restCid = Some cashCid; dvpAllocatedCids = []) dvpCids
 
-          cashCid <- foldl1A (\cid otherCid -> exercise cid Cash.Merge with otherCid) cashCids
-          foldrA allocateDvp (HandleCashResult with restCid = Some cashCid; dvpAllocatedCids = []) dvpCids
+    nonconsuming choice HandleBond : HandleBondResult
+      with
+        bondCids : [BondId]
+        dvpAllocatedCids : [DvpAllocatedId]
+      controller party
+      do time <- getTime
 
-      nonconsuming HandleBond : HandleBondResult
-        with
-          bondCids : [BondId]
-          dvpAllocatedCids : [DvpAllocatedId]
-        do
-          time <- getTime
+         let settleDvp (dvpAllocatedCid: DvpAllocatedId) (prev: HandleBondResult) = do
+             dvpAllocated <- fetch dvpAllocatedCid
+             assertMsg "settlement time is in the future" $ dvpAllocated.c.settleTime <= time
+             assertMsg "party isn't seller" $ dvpAllocated.c.seller == party
+             bondCid <- optional (fail "insufficient bonds") pure prev.restCid
+             r <- bondSplitMay party bondCid dvpAllocated.c.bondAmount
+             settleResult <- exercise dvpAllocatedCid Settle with bondCid = fst r
+             return HandleBondResult with restCid = snd r; settleResults = settleResult :: prev.settleResults
 
-          let settleDvp (dvpAllocatedCid: DvpAllocatedId) (prev: HandleBondResult) = do
-              dvpAllocated <- fetch dvpAllocatedCid
-              assertMsg "settlement time is in the future" $ dvpAllocated.c.settleTime <= time
-              assertMsg "party isn't seller" $ dvpAllocated.c.seller == party
-              bondCid <- optional (fail "insufficient bonds") pure prev.restCid
-              r <- bondSplitMay party bondCid dvpAllocated.c.bondAmount
-              settleResult <- exercise dvpAllocatedCid Settle with bondCid = fst r
-              return HandleBondResult with restCid = snd r; settleResults = settleResult :: prev.settleResults
-
-          bondCid <- foldl1A (\cid otherCid -> exercise cid Bond.Merge with otherCid) bondCids
-          foldrA settleDvp (HandleBondResult with restCid = Some bondCid; settleResults = []) dvpAllocatedCids
+         bondCid <- foldl1A (\cid otherCid -> exercise cid Bond.Merge with otherCid) bondCids
+         foldrA settleDvp (HandleBondResult with restCid = Some bondCid; settleResults = []) dvpAllocatedCids
 
 main = scenario do
   acmeBank <- getParty "Acme Bank"
