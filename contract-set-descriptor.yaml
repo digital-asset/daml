@@ -1,0 +1,32 @@
+# We expect the ledger-api-bench-tool to upload a .dar containing definitions for
+# FooN for 1 <= N <= 3 templates of the following form:
+#
+#   template FooN with
+#       payload: Text
+#       sig: Party
+#       obs: [Party]
+#     where
+#       signatories sig
+#       observers obs
+
+# Sets of contracts are described with the parameters for randomly sampling an instance:
+contract_set_descriptor:
+  num_instances: 2000000
+  instance_distribution:
+    # Templates are picked with uniform probability
+    - template: Foo1
+      # emulated using random characters with codepoints 0 - 127 in a text field
+      payload_size_bytes: 500
+      # probability of an observer being added. The names are chosen based on the probability.
+      # So, party 'Obs_1' is always added to a contract intance
+      # party 'Obs_0_001' is added to a contract instance with probability 1/1000
+      #
+      # We expect the tool to allocate these parties at the start of the generation.
+      observer_probabilities: [1.0, 0.1, 0.01, 0.001]
+      # Archivals are done in the same transaction using createAndExercise on the Archive choice
+      archive_probability: 0
+    - template: Foo2
+      payload_size_bytes: 500
+      observer_probabilities: [1, 0.1, 0.01, 0.001]
+      archive_probability: 0.9
+
