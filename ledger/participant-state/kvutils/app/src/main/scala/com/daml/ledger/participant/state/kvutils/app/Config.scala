@@ -437,7 +437,7 @@ object Config {
               .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
           )
           .text(
-            "Max duration for command deduplication."
+            "Maximum command deduplication duration."
           )
 
         opt[Int]("max-inbound-message-size")

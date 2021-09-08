@@ -350,7 +350,7 @@ class CommonCliBase(name: LedgerName) {
             .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
         )
         .text(
-          "Max duration for command deduplication."
+          "Maximum command deduplication duration."
         )
 
       checkConfig(c => {

@@ -94,10 +94,11 @@ trait ConfigProvider[ExtraConfig] {
     PartyConfiguration.default
 
   def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration = {
-    val defaultInitialConfiguration = Configuration.reasonableInitialConfiguration
     InitialLedgerConfiguration(
-      configuration = defaultInitialConfiguration.copy(maxDeduplicationTime =
-        config.maxDeduplicationDuration.getOrElse(defaultInitialConfiguration.maxDeduplicationTime)
+      configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationTime =
+        config.maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        )
       ),
       // If a new index database is added to an already existing ledger,
       // a zero delay will likely produce a "configuration rejected" ledger entry,
