@@ -41,14 +41,14 @@ final class CompletionDeduplicationInfoIT(service: Service) extends LedgerTestSu
         ledger,
         party,
         simpleCreate(party),
-        updateCommandServiceRequest = _.update(_.commands.submissionId := aSubmissionId),
-        updateCommandSubmissionServiceRequest = _.update(_.commands.submissionId := aSubmissionId),
+        updateCommandServiceRequest = _.update(_.commands.submissionId := RandomSubmissionId),
+        updateCommandSubmissionServiceRequest = _.update(_.commands.submissionId := RandomSubmissionId),
       )
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optApplicationIdCompletion)
       assertSubmissionIdIsGenerated(optApplicationIdCompletion)
       assertDefaultDeduplicationTimeIsReportedIfNoDeduplicationSpecified(config, optApplicationIdCompletion)
-      assertSubmissionIdIsPreserved(aSubmissionId, optSubmissionIdCompletion)
+      assertSubmissionIdIsPreserved(RandomSubmissionId, optSubmissionIdCompletion)
     }
   })
 }
@@ -148,6 +148,6 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
   private def simpleCreate(party: Primitive.Party): Command = Dummy(party).create.command
 
-  private val aSubmissionId =
+  private val RandomSubmissionId =
     Ref.SubmissionId.assertFromString(SubmissionIdGenerator.Random.generate())
 }
