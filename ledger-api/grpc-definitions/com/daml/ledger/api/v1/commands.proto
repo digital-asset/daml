@@ -34,10 +34,9 @@ message Commands {
   // Required
   string application_id = 3;
 
-  // Uniquely identifies the command.
-  // The triple (application_id, party + act_as, command_id) constitutes the change ID for the intended ledger change,
-  // where party + act_as is interpreted as a set of party names.
-  // The change ID can be used for matching the intended ledger changes with their respective completions.
+  // Uniquely identified the command. This identifier should be unique for each new command within an
+  // application domain, i.e., the triple (application_id, party, command_id) must be unique.
+  // It can be used for matching the requests with their respective completions.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string command_id = 4;
@@ -58,13 +57,8 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
-  // Specifies the deduplication period for the change ID.
-  // If omitted, the participant chooses a deduplication period at its discretion.
   oneof deduplication_period {
-      // Specifies the length of the deduplication period.
       // Same semantics apply as for `deduplication_duration`.
-      //
-      // Must be non-negative.
       google.protobuf.Duration deduplication_time = 9 [deprecated = true];
 
       // Specifies the start of the deduplication period by a completion stream offset.
