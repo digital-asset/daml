@@ -75,6 +75,8 @@ message Commands {
 
       // Specifies the length of the deduplication period.
       // It is interpreted relative to the local clock at some point during the submission's processing.
+      // If omitted, the participant will assume the configured maximum deduplication time (see
+      // ``ledger_configuration_service.proto``).
       //
       // Must be non-negative.
       google.protobuf.Duration deduplication_duration = 16;
