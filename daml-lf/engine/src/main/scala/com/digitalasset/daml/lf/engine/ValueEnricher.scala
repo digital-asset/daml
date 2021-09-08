@@ -9,7 +9,7 @@ import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.Node.{GenNode, KeyWithMaintainers}
 import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 
 // Provide methods to add missing information in values (and value containers):
 // - type constructor in records, variants, and enums
@@ -19,11 +19,26 @@ final class ValueEnricher(engine: Engine) {
   def enrichValue(typ: Ast.Type, value: Value[ContractId]): Result[Value[ContractId]] =
     engine.preprocessor.translateValue(typ, value).map(_.toUnnormalizedValue)
 
+  def enrichVersionedValue(
+      typ: Ast.Type,
+      versionedValue: VersionedValue[ContractId],
+  ): Result[VersionedValue[ContractId]] =
+    for {
+      value <- enrichValue(typ, versionedValue.value)
+    } yield versionedValue.copy(value = value)
+
   def enrichContract(
       contract: Value.ContractInst[Value[ContractId]]
   ): Result[Value.ContractInst[Value[ContractId]]] =
     for {
       arg <- enrichContract(contract.template, contract.arg)
+    } yield contract.copy(arg = arg)
+
+  def enrichVersionedContract(
+      contract: Value.ContractInst[VersionedValue[ContractId]]
+  ): Result[Value.ContractInst[VersionedValue[ContractId]]] =
+    for {
+      arg <- enrichVersionedValue(Ast.TTyCon(contract.template), contract.arg)
     } yield contract.copy(arg = arg)
 
   def enrichContract(tyCon: Identifier, value: Value[ContractId]): Result[Value[ContractId]] =
@@ -67,6 +82,13 @@ final class ValueEnricher(engine: Engine) {
     handleLookup(interface.lookupTemplateKey(tyCon))
       .flatMap(key => enrichValue(key.typ, value))
 
+  def enrichVersionedContractKey(
+      tyCon: Identifier,
+      value: VersionedValue[ContractId],
+  ): Result[VersionedValue[ContractId]] =
+    handleLookup(interface.lookupTemplateKey(tyCon))
+      .flatMap(key => enrichVersionedValue(key.typ, value))
+
   private val ResultNone = ResultDone(None)
 
   def enrichContractKey(
@@ -82,6 +104,23 @@ final class ValueEnricher(engine: Engine) {
     key match {
       case Some(k) =>
         enrichContractKey(tyCon, k).map(Some(_))
+      case None =>
+        ResultNone
+    }
+
+  def enrichVersionedContractKey(
+      tyCon: Identifier,
+      key: KeyWithMaintainers[VersionedValue[ContractId]],
+  ): Result[KeyWithMaintainers[VersionedValue[ContractId]]] =
+    enrichVersionedContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
+
+  def enrichVersionedContractKey(
+      tyCon: Identifier,
+      key: Option[KeyWithMaintainers[VersionedValue[ContractId]]],
+  ): Result[Option[KeyWithMaintainers[VersionedValue[ContractId]]]] =
+    key match {
+      case Some(k) =>
+        enrichVersionedContractKey(tyCon, k).map(Some(_))
       case None =>
         ResultNone
     }
