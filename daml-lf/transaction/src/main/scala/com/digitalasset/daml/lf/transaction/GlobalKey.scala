@@ -6,14 +6,13 @@ package transaction
 
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
   * a key. The 'hash' is guaranteed to be stable over time.
   */
 final class GlobalKey private (
     val templateId: Ref.TypeConName,
-    val key: Value[ContractId],
+    val key: Value,
     val hash: crypto.Hash,
 ) extends {
   override def equals(obj: Any): Boolean = obj match {
@@ -28,16 +27,16 @@ final class GlobalKey private (
 
 object GlobalKey {
 
-  def apply(templateId: Ref.TypeConName, key: Value[Nothing]): GlobalKey =
+  def apply(templateId: Ref.TypeConName, key: Value): GlobalKey =
     new GlobalKey(templateId, key, crypto.Hash.safeHashContractKey(templateId, key))
 
   // Will fail if key contains contract ids
-  def build(templateId: Ref.TypeConName, key: Value[ContractId]): Either[String, GlobalKey] =
+  def build(templateId: Ref.TypeConName, key: Value): Either[String, GlobalKey] =
     crypto.Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
   @throws[IllegalArgumentException]
-  def assertBuild(templateId: Ref.TypeConName, key: Value[ContractId]): GlobalKey =
+  def assertBuild(templateId: Ref.TypeConName, key: Value): GlobalKey =
     data.assertRight(build(templateId, key))
 }
 

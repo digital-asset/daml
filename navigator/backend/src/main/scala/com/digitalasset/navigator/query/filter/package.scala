@@ -118,7 +118,7 @@ package object filter {
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
       argument match {
         case V.ValueContractId(value) =>
-          cursor.ensureLast("ContractId")(checkContained(value, expectedValue))
+          cursor.ensureLast("ContractId")(checkContained(value.coid, expectedValue))
         case V.ValueInt64(value) =>
           cursor.ensureLast("Int64")(checkContained(value.toString, expectedValue))
         case V.ValueNumeric(value) =>

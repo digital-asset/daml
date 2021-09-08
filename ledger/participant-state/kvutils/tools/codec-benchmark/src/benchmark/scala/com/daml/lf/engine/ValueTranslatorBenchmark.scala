@@ -7,13 +7,12 @@ import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, TypedValue, assertDecod
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 import org.openjdk.jmh.annotations.{Benchmark, Setup}
 
 class ValueTranslatorBenchmark extends BenchmarkWithLedgerExport {
 
   private var translator: ValueTranslator = _
-  private var decodedValues: Vector[TypedValue[Value[ContractId]]] = _
+  private var decodedValues: Vector[TypedValue[Value]] = _
 
   @Setup
   override def setup(): Unit = {

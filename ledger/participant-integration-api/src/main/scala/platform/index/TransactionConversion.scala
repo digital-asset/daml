@@ -9,7 +9,6 @@ import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{CommittedTransaction, NodeId, Transaction => Tx}
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -32,11 +31,10 @@ import scala.annotation.tailrec
 
 private[platform] object TransactionConversion {
 
-  private type ContractId = lf.value.Value.ContractId
   private type Transaction = CommittedTransaction
   private type Node = Tx.Node
-  private type Create = NodeCreate[ContractId]
-  private type Exercise = NodeExercises[NodeId, ContractId]
+  private type Create = NodeCreate
+  private type Exercise = NodeExercises[NodeId]
 
   private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] = {
     def handle(acc: Vector[A], nodeId: NodeId, node: Node): Vector[A] =

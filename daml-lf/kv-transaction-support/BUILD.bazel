@@ -11,9 +11,6 @@ load(
 da_scala_library(
     name = "kv-transaction-support",
     srcs = glob(["src/main/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-kv-transaction-support:__VERSION__"],
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],

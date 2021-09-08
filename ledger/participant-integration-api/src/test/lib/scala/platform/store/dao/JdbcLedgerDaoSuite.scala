@@ -136,9 +136,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     ),
   )
   protected final val someChoiceResult =
-    LfValue.ValueContractId[ContractId](ContractId.V0.assertFromString("#1"))
+    LfValue.ValueContractId(ContractId.V0.assertFromString("#1"))
 
-  protected final def someContractKey(party: Party, value: String): LfValue.ValueRecord[Nothing] =
+  protected final def someContractKey(party: Party, value: String): LfValue.ValueRecord =
     LfValue.ValueRecord(
       None,
       ImmArray(
@@ -189,18 +189,18 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),
       templateId: Identifier = someTemplateId,
-      contractArgument: LfValue[ContractId] = someContractArgument,
-  ): NodeCreate[ContractId] =
+      contractArgument: LfValue = someContractArgument,
+  ): NodeCreate =
     createNode(absCid, signatories, signatories, None, templateId, contractArgument)
 
   protected final def createNode(
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers[LfValue[ContractId]]] = None,
+      key: Option[KeyWithMaintainers[LfValue]] = None,
       templateId: Identifier = someTemplateId,
-      contractArgument: LfValue[ContractId] = someContractArgument,
-  ): NodeCreate[ContractId] =
+      contractArgument: LfValue = someContractArgument,
+  ): NodeCreate =
     NodeCreate(
       coid = absCid,
       templateId = templateId,
@@ -214,8 +214,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def exerciseNode(
       targetCid: ContractId,
-      key: Option[KeyWithMaintainers[LfValue[ContractId]]] = None,
-  ): NodeExercises[NodeId, ContractId] =
+      key: Option[KeyWithMaintainers[LfValue]] = None,
+  ): NodeExercises[NodeId] =
     NodeExercises(
       targetCoid = targetCid,
       templateId = someTemplateId,
@@ -236,7 +236,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def fetchNode(
       contractId: ContractId,
       party: Party = alice,
-  ): NodeFetch[ContractId] =
+  ): NodeFetch =
     NodeFetch(
       coid = contractId,
       templateId = someTemplateId,
@@ -251,7 +251,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   // Ids of all contracts created in a transaction - both transient and non-transient
   protected def created(tx: LedgerEntry.Transaction): Set[ContractId] =
     tx.transaction.fold(Set.empty[ContractId]) {
-      case (set, (_, create: NodeCreate[ContractId])) =>
+      case (set, (_, create: NodeCreate)) =>
         set + create.coid
       case (set, _) =>
         set
@@ -260,9 +260,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   // All non-transient contracts created in a transaction
   protected def nonTransient(tx: LedgerEntry.Transaction): Set[ContractId] =
     tx.transaction.fold(Set.empty[ContractId]) {
-      case (set, (_, create: NodeCreate[ContractId])) =>
+      case (set, (_, create: NodeCreate)) =>
         set + create.coid
-      case (set, (_, exercise: Node.NodeExercises[NodeId, ContractId])) if exercise.consuming =>
+      case (set, (_, exercise: Node.NodeExercises[NodeId])) if exercise.consuming =>
         set - exercise.targetCoid
       case (set, _) =>
         set
@@ -275,7 +275,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     singleCreate(create(_, Set(alice, bob)), List(alice, bob))
 
   protected final def singleCreate(
-      create: ContractId => NodeCreate[ContractId],
+      create: ContractId => NodeCreate,
       actAs: List[Party] = List(alice),
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
@@ -338,8 +338,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submittingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers[LfValue[ContractId]]],
-      contractArgument: LfValue[ContractId] = someContractArgument,
+      key: Option[KeyWithMaintainers[LfValue]],
+      contractArgument: LfValue = someContractArgument,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
       singleCreate(
@@ -419,7 +419,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected def singleExercise(
       targetCid: ContractId,
-      key: Option[KeyWithMaintainers[LfValue[ContractId]]] = None,
+      key: Option[KeyWithMaintainers[LfValue]] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val nid = txBuilder.add(exerciseNode(targetCid, key))
@@ -510,7 +510,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   }
 
   protected def fullyTransient(
-      create: ContractId => NodeCreate[ContractId] = create(_)
+      create: ContractId => NodeCreate = create(_)
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val cid = txBuilder.newCid
@@ -628,7 +628,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     */
   protected def multipleCreates(
       operator: String,
-      signatoriesAndTemplates: Seq[(Party, Identifier, LfValue[ContractId])],
+      signatoriesAndTemplates: Seq[(Party, Identifier, LfValue)],
   ): (Offset, LedgerEntry.Transaction) = {
     require(signatoriesAndTemplates.nonEmpty, "multipleCreates cannot create empty transactions")
     val txBuilder = newBuilder()
@@ -914,7 +914,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 object JdbcLedgerDaoSuite {
 
   private type DivulgedContracts =
-    Map[(ContractId, ContractInst[VersionedValue[ContractId]]), Set[Party]]
+    Map[(ContractId, ContractInst[VersionedValue]), Set[Party]]
 
   implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
 

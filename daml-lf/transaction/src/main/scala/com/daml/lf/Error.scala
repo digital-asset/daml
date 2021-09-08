@@ -19,8 +19,7 @@ sealed abstract class Error extends Serializable with Product {
 object Error {
 
   /** Unhandled exceptions */
-  final case class UnhandledException(exceptionType: Ast.Type, value: Value[ContractId])
-      extends Error
+  final case class UnhandledException(exceptionType: Ast.Type, value: Value) extends Error
 
   /** User initiated error, via e.g. 'abort' or 'assert' */
   final case class UserError(message: String) extends Error
@@ -34,7 +33,7 @@ object Error {
   final case class TemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
-      arg: Value[ContractId],
+      arg: Value,
   ) extends Error
 
   /** A fetch or an exercise on a transaction-local contract that has already
@@ -71,14 +70,14 @@ object Error {
   /** A create with a contract key failed because the list of maintainers was empty */
   final case class CreateEmptyContractKeyMaintainers(
       templateId: TypeConName,
-      arg: Value[ContractId],
-      key: Value[Nothing],
+      arg: Value,
+      key: Value,
   ) extends Error
 
   /** A fetch or lookup of a contract key without maintainers */
   final case class FetchEmptyContractKeyMaintainers(
       templateId: TypeConName,
-      key: Value[Nothing],
+      key: Value,
   ) extends Error
 
   /** We tried to fetch / exercise a contract of the wrong type --
@@ -106,7 +105,7 @@ object Error {
   // (//daml-lf/spec/contract-id.rst) for more details.
   final case class ContractIdComparability(globalCid: ContractId.V1) extends Error
 
-  final case class ContractIdInContractKey(key: Value[ContractId]) extends Error
+  final case class ContractIdInContractKey(key: Value) extends Error
 
   final case object ValueExceedsMaxNesting extends Error
 

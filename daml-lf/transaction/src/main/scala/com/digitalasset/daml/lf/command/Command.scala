@@ -25,8 +25,7 @@ sealed abstract class ApiCommand extends Command
   *  @param templateId identifier of the template that the contract is instantiating
   *  @param argument value passed to the template
   */
-final case class CreateCommand(templateId: Identifier, argument: Value[Value.ContractId])
-    extends ApiCommand
+final case class CreateCommand(templateId: Identifier, argument: Value) extends ApiCommand
 
 /** Command for exercising a choice on an existing contract
   *
@@ -39,7 +38,7 @@ final case class ExerciseCommand(
     templateId: Identifier,
     contractId: Value.ContractId,
     choiceId: ChoiceName,
-    argument: Value[Value.ContractId],
+    argument: Value,
 ) extends ApiCommand
 
 /** Command for exercising a choice on an existing contract specified by its key
@@ -51,9 +50,9 @@ final case class ExerciseCommand(
   */
 final case class ExerciseByKeyCommand(
     templateId: Identifier,
-    contractKey: Value[Value.ContractId],
+    contractKey: Value,
     choiceId: ChoiceName,
-    argument: Value[Value.ContractId],
+    argument: Value,
 ) extends ApiCommand
 
 /** Command for creating a contract and exercising a choice
@@ -66,9 +65,9 @@ final case class ExerciseByKeyCommand(
   */
 final case class CreateAndExerciseCommand(
     templateId: Identifier,
-    createArgument: Value[Value.ContractId],
+    createArgument: Value,
     choiceId: ChoiceName,
-    choiceArgument: Value[Value.ContractId],
+    choiceArgument: Value,
 ) extends ApiCommand
 
 final case class FetchCommand(
@@ -78,12 +77,12 @@ final case class FetchCommand(
 
 final case class FetchByKeyCommand(
     templateId: Identifier,
-    key: Value[Value.ContractId],
+    key: Value,
 ) extends Command
 
 final case class LookupByKeyCommand(
     templateId: Identifier,
-    contractKey: Value[Value.ContractId],
+    contractKey: Value,
 ) extends Command
 
 /** Commands input adapted from ledger-api

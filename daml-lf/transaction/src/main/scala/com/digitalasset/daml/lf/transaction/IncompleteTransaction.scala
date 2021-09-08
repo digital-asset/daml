@@ -5,14 +5,12 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.Ref.Location
-import com.daml.lf.value.Value
 
 trait IncompleteTransaction {
 
   type Nid = NodeId
-  type Cid = Value.ContractId
-  type TX = GenTransaction[Nid, Cid]
-  type ExerciseNode = Node.NodeExercises[Nid, Cid]
+  type TX = GenTransaction[Nid]
+  type ExerciseNode = Node.NodeExercises[Nid]
 
   def transaction: TX
 

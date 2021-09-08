@@ -87,7 +87,7 @@ class TransactionSpec
 
       def collectCids(tx: Transaction): Set[V.ContractId] = {
         val cids = Set.newBuilder[V.ContractId]
-        tx.foreach2(_ => (), cids += _)
+        tx.foreachCid(cids += _)
         cids.result()
       }
 
@@ -171,26 +171,26 @@ class TransactionSpec
    */
 
   "isReplayedBy" - {
-    def genTrans(node: GenNode[NodeId, V.ContractId]) = {
+    def genTrans(node: GenNode[NodeId]) = {
       val nid = NodeId(1)
       val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
-        n1: GenNode[NodeId, V.ContractId],
-        n2: GenNode[NodeId, V.ContractId],
+        n1: GenNode[NodeId],
+        n2: GenNode[NodeId],
     ) = Validation.isReplayedBy(genTrans(n1), genTrans(n2))
 
     // the whole-transaction-relevant parts are handled by equalForest testing
-    val genEmptyNode: Gen[GenNode[Nothing, V.ContractId]] =
+    val genEmptyNode: Gen[GenNode[Nothing]] =
       for {
         entry <- danglingRefGenNode
         node = entry match {
           case (_, nr: Node.NodeRollback[_]) =>
             nr.copy(children = ImmArray.Empty)
-          case (_, n: Node.LeafOnlyActionNode[V.ContractId]) => n
-          case (_, ne: Node.NodeExercises[_, V.ContractId]) =>
+          case (_, n: Node.LeafOnlyActionNode) => n
+          case (_, ne: Node.NodeExercises[_]) =>
             ne.copy(children = ImmArray.Empty)
         }
       } yield node
@@ -212,7 +212,7 @@ class TransactionSpec
         val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
         n match {
           case _: NodeRollback[_] => ()
-          case n: Node.GenActionNode[_, _] =>
+          case n: Node.GenActionNode[_] =>
             val m = n.updateVersion(diffVersion(version))
             isReplayedBy(n, m) shouldBe Symbol("left")
         }
@@ -259,7 +259,7 @@ class TransactionSpec
 
       tx1 shouldNot be(tx)
       tx2 shouldBe tx1
-      tx1 shouldBe Right(tx.map2(identity, mapping2))
+      tx1 shouldBe Right(tx.mapCid(mapping2))
 
     }
     "suffixing v0 contract id should be a no op" in {
@@ -573,7 +573,7 @@ class TransactionSpec
   }
   def exercise(
       builder: TransactionBuilder,
-      create: Node.NodeCreate[V.ContractId],
+      create: Node.NodeCreate,
       parties: Set[Ref.Party],
       consuming: Boolean,
   ) =
@@ -648,9 +648,9 @@ object TransactionSpec {
 
   import TransactionBuilder.Implicits._
 
-  type Transaction = GenTransaction[NodeId, V.ContractId]
+  type Transaction = GenTransaction[NodeId]
   def mkTransaction(
-      nodes: HashMap[NodeId, GenNode[NodeId, V.ContractId]],
+      nodes: HashMap[NodeId, GenNode[NodeId]],
       roots: ImmArray[NodeId],
   ): Transaction = GenTransaction(nodes, roots)
 
@@ -665,7 +665,7 @@ object TransactionSpec {
       cid: V.ContractId,
       children: ImmArray[NodeId],
       hasExerciseResult: Boolean = true,
-  ): NodeExercises[NodeId, V.ContractId] =
+  ): NodeExercises[NodeId] =
     NodeExercises(
       targetCoid = cid,
       templateId = "DummyModule:dummyName",
@@ -683,7 +683,7 @@ object TransactionSpec {
       version = TransactionVersion.minVersion,
     )
 
-  def dummyCreateNode(cid: V.ContractId): NodeCreate[V.ContractId] =
+  def dummyCreateNode(cid: V.ContractId): NodeCreate =
     NodeCreate(
       coid = cid,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),

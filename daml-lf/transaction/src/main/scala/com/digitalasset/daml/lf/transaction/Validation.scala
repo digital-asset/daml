@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-private final class Validation[Nid, Cid]() {
+private final class Validation[Nid]() {
 
   /** Whether `replayed` is the result of reinterpreting this transaction.
     *
@@ -20,9 +20,9 @@ private final class Validation[Nid, Cid]() {
     */
 
   private def isReplayedBy(
-      recorded: VersionedTransaction[Nid, Cid],
-      replayed: VersionedTransaction[Nid, Cid],
-  ): Either[ReplayMismatch[Nid, Cid], Unit] = {
+      recorded: VersionedTransaction[Nid],
+      replayed: VersionedTransaction[Nid],
+  ): Either[ReplayMismatch[Nid], Unit] = {
     if (recorded == replayed) {
       Right(())
     } else {
@@ -32,16 +32,16 @@ private final class Validation[Nid, Cid]() {
 }
 
 object Validation {
-  def isReplayedBy[Nid, Cid](
-      recorded: VersionedTransaction[Nid, Cid],
-      replayed: VersionedTransaction[Nid, Cid],
-  ): Either[ReplayMismatch[Nid, Cid], Unit] =
+  def isReplayedBy[Nid](
+      recorded: VersionedTransaction[Nid],
+      replayed: VersionedTransaction[Nid],
+  ): Either[ReplayMismatch[Nid], Unit] =
     new Validation().isReplayedBy(recorded, replayed)
 }
 
-final case class ReplayMismatch[Nid, Cid](
-    recordedTransaction: VersionedTransaction[Nid, Cid],
-    replayedTransaction: VersionedTransaction[Nid, Cid],
+final case class ReplayMismatch[Nid](
+    recordedTransaction: VersionedTransaction[Nid],
+    replayedTransaction: VersionedTransaction[Nid],
 ) extends Product
     with Serializable {
   def message: String =

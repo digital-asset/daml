@@ -82,24 +82,24 @@ class TransactionNormalizerSpec
     }
   }
 
-  def isCreateOrExercise[N, C](node: GenNode[N, C]): Boolean = {
+  def isCreateOrExercise[N](node: GenNode[N]): Boolean = {
     node match {
-      case _: NodeExercises[_, _] => true
-      case _: NodeCreate[_] => true
+      case _: NodeExercises[_] => true
+      case _: NodeCreate => true
       case _ => false
     }
   }
 
-  def nodeSansChildren[N, C](node: GenNode[N, C]): GenNode[N, C] = {
+  def nodeSansChildren[N](node: GenNode[N]): GenNode[N] = {
     node match {
-      case exe: NodeExercises[_, _] => exe.copy(children = ImmArray.Empty)
+      case exe: NodeExercises[_] => exe.copy(children = ImmArray.Empty)
       case _ => node
     }
   }
 
-  def nodeChildren[N, C](node: GenNode[N, C]): List[N] = {
+  def nodeChildren[N](node: GenNode[N]): List[N] = {
     node match {
-      case exe: NodeExercises[_, _] => exe.children.toList
+      case exe: NodeExercises[_] => exe.children.toList
       case _ => List()
     }
   }

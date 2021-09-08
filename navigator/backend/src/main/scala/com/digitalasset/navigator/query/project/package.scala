@@ -131,7 +131,7 @@ object project {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
       argument match {
-        case V.ValueContractId(value) => cursor.ensureLast("contractid")(StringValue(value))
+        case V.ValueContractId(value) => cursor.ensureLast("contractid")(StringValue(value.coid))
         case V.ValueInt64(value) => cursor.ensureLast("int64")(NumberValue(value))
         case V.ValueNumeric(value) =>
           cursor.ensureLast("numeric")(StringValue(value.toUnscaledString))

@@ -13,10 +13,9 @@ import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 private[migration] final class V38__Update_value_versions extends BaseJavaMigration {
 
   import com.daml.lf
-  import lf.value.Value.ContractId
   import translation.ValueSerializer
 
-  private[this] type Value = lf.value.Value.VersionedValue[ContractId]
+  private[this] type Value = lf.value.Value.VersionedValue
 
   private[this] val BATCH_SIZE = 1000
 

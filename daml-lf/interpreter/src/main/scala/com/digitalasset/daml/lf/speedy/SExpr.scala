@@ -388,7 +388,7 @@ object SExpr {
     }
   }
 
-  final case class SEImportValue(typ: Ast.Type, value: V[V.ContractId]) extends SExpr {
+  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.importValue(typ, value)
     }

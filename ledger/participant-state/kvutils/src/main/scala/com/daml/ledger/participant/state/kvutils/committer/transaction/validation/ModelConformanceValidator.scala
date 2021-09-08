@@ -143,7 +143,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       commitContext: CommitContext
   )(
       contractId: Value.ContractId
-  ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] =
+  ): Option[Value.ContractInst[Value.VersionedValue]] =
     commitContext
       .read(contractIdToStateKey(contractId))
       .map(_.getContractState)

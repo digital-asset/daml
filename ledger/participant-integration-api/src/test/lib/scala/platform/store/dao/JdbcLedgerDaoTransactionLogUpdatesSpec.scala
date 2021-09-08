@@ -13,7 +13,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.daml.lf.value.Value
-import com.daml.platform.store.appendonlydao.events.{ContractId, NodeId}
+import com.daml.platform.store.appendonlydao.events.NodeId
 import com.daml.platform.store.entries.LedgerEntry
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import org.scalatest._
@@ -85,7 +85,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
       ) = result.splitAt(6)
 
       val contractKey =
-        t2.transaction.nodes.head._2.asInstanceOf[NodeCreate[ContractId]].key.get.key
+        t2.transaction.nodes.head._2.asInstanceOf[NodeCreate].key.get.key
       val exercisedContractKey = Map(offset2 -> contractKey, offset3 -> contractKey)
 
       val eventSequentialIdGen = new AtomicLong(from._2 + 1L)
@@ -106,7 +106,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
       actual: TransactionLogUpdate.Transaction,
       expected: LedgerEntry.Transaction,
       expectedOffset: Offset,
-      exercisedContractKey: Map[Offset, Value[ContractId]],
+      exercisedContractKey: Map[Offset, Value],
       eventSequentialIdRef: AtomicLong,
   ): Unit = {
     actual.transactionId shouldBe expected.transactionId
@@ -120,7 +120,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
 
     expected.transaction.nodes.toVector.sortBy(_._1.index).foreach { case (nodeId, value) =>
       value match {
-        case nodeCreate: NodeCreate[ContractId] =>
+        case nodeCreate: NodeCreate =>
           val expectedEventId = EventId(expected.transactionId, nodeId)
           val Some(actualCreated: TransactionLogUpdate.CreatedEvent) =
             actualEventsById.get(expectedEventId)
@@ -138,7 +138,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualCreated.createAgreementText.value shouldBe nodeCreate.agreementText
           actualCreated.nodeIndex shouldBe nodeId.index
           actualCreated.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
-        case nodeExercises: NodeExercises[NodeId, ContractId] =>
+        case nodeExercises: NodeExercises[NodeId] =>
           val expectedEventId = EventId(expected.transactionId, nodeId)
           val Some(actualExercised: TransactionLogUpdate.ExercisedEvent) =
             actualEventsById.get(expectedEventId)

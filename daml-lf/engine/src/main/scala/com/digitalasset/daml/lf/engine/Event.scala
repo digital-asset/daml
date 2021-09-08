@@ -8,24 +8,14 @@ import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 
 // --------------------------
 // Emitted events for the API
 // --------------------------
 
-sealed trait Event[+Nid, +Cid]
-    extends value.CidContainer[Event[Nid, Cid]]
-    with Product
-    with Serializable {
+sealed trait Event[+Nid] extends Product with Serializable {
   def witnesses: Set[Party]
-
-  final override protected def self: this.type = this
-
-  final def mapNodeId[Nid2](f: Nid => Nid2): Event[Nid2, Cid] =
-    Event.map2(f, identity[Cid])(this)
-
-  final def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit =
-    Event.foreach2(fNid, fCid)(this)
 }
 
 /** Event for created contracts, follows ledger api event protocol
@@ -38,16 +28,16 @@ sealed trait Event[+Nid, +Cid]
   *  @param observers as defined by the template or implicitly as choice controllers
   *  @param witnesses additional witnesses induced by parent exercises
   */
-final case class CreateEvent[Cid](
-    contractId: Cid,
+final case class CreateEvent(
+    contractId: ContractId,
     templateId: Identifier,
-    contractKey: Option[KeyWithMaintainers[Value[Cid]]],
-    argument: Value[Cid],
+    contractKey: Option[KeyWithMaintainers[Value]],
+    argument: Value,
     agreementText: String,
     signatories: Set[Party],
     observers: Set[Party],
     witnesses: Set[Party],
-) extends Event[Nothing, Cid] {
+) extends Event[Nothing] {
 
   /** Note that the stakeholders of each event node will always be a subset of the event witnesses. We perform this
     * narrowing since usually when consuming these events we only care about the parties that were included in the
@@ -72,121 +62,33 @@ final case class CreateEvent[Cid](
   *  @param witnesses additional witnesses induced by parent exercises
   *  @param exerciseResult result of exercise of the choice. Optional since this feature was introduced in transaction version 6.
   */
-final case class ExerciseEvent[Nid, Cid](
-    contractId: Cid,
+final case class ExerciseEvent[Nid](
+    contractId: ContractId,
     templateId: Identifier,
     choice: ChoiceName,
-    choiceArgument: Value[Cid],
+    choiceArgument: Value,
     actingParties: Set[Party],
     isConsuming: Boolean,
     children: ImmArray[Nid],
     stakeholders: Set[Party],
     witnesses: Set[Party],
-    exerciseResult: Option[Value[Cid]],
-) extends Event[Nid, Cid]
+    exerciseResult: Option[Value],
+) extends Event[Nid]
 
-object Event extends value.CidContainer2[Event] {
-
-  override private[lf] def map2[Nid, Cid, Nid2, Cid2](
-      f1: Nid => Nid2,
-      f2: Cid => Cid2,
-  ): Event[Nid, Cid] => Event[Nid2, Cid2] = {
-    case CreateEvent(
-          contractId,
-          templateId,
-          contractKey,
-          argument,
-          agreementText,
-          signatories,
-          observers,
-          witnesses,
-        ) =>
-      CreateEvent(
-        contractId = f2(contractId),
-        templateId = templateId,
-        contractKey = contractKey.map(KeyWithMaintainers.map1(Value.map1(f2))),
-        argument = Value.map1(f2)(argument),
-        agreementText = agreementText,
-        signatories = signatories,
-        observers = observers,
-        witnesses = witnesses,
-      )
-
-    case ExerciseEvent(
-          contractId,
-          templateId,
-          choice,
-          choiceArgument,
-          actingParties,
-          isConsuming,
-          children,
-          stakeholders,
-          witnesses,
-          exerciseResult,
-        ) =>
-      ExerciseEvent(
-        contractId = f2(contractId),
-        templateId = templateId,
-        choice = choice,
-        choiceArgument = Value.map1(f2)(choiceArgument),
-        actingParties = actingParties,
-        isConsuming = isConsuming,
-        children = children.map(f1),
-        stakeholders = stakeholders,
-        witnesses = witnesses,
-        exerciseResult = exerciseResult.map(Value.map1(f2)),
-      )
-  }
-
-  override private[lf] def foreach2[A, B](
-      f1: A => Unit,
-      f2: B => Unit,
-  ): Event[A, B] => Unit = {
-    case CreateEvent(
-          contractId,
-          templateId @ _,
-          contractKey,
-          argument,
-          agreementText @ _,
-          signatories @ _,
-          observers @ _,
-          witnesses @ _,
-        ) =>
-      f2(contractId)
-      contractKey.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
-      Value.foreach1(f2)(argument)
-
-    case ExerciseEvent(
-          contractId,
-          templateId @ _,
-          choice @ _,
-          choiceArgument,
-          actingParties @ _,
-          isConsuming @ _,
-          children,
-          stakeholders @ _,
-          witnesses @ _,
-          exerciseResult,
-        ) =>
-      f2(contractId)
-      Value.map1(f2)(choiceArgument)
-      children.foreach(f1)
-      exerciseResult.foreach(Value.foreach1(f2))
-  }
-
-  case class Events[Nid, Cid](roots: ImmArray[Nid], events: Map[Nid, Event[Nid, Cid]]) {
+object Event {
+  case class Events[Nid](roots: ImmArray[Nid], events: Map[Nid, Event[Nid]]) {
     // filters from the leaves upwards: if any any exercise node returns false all its children will be purged, too
-    def filter(f: Event[Nid, Cid] => Boolean): Events[Nid, Cid] = {
-      val liveEvts = scala.collection.mutable.Map[Nid, Event[Nid, Cid]]()
+    def filter(f: Event[Nid] => Boolean): Events[Nid] = {
+      val liveEvts = scala.collection.mutable.Map[Nid, Event[Nid]]()
       def go(evtids: ImmArray[Nid]): Unit = {
         evtids.foreach((evtid: Nid) => {
           val evt = events(evtid)
           evt match {
-            case ce: CreateEvent[Cid] =>
+            case ce: CreateEvent =>
               if (f(ce)) {
                 liveEvts += (evtid -> ce)
               }
-            case ee: ExerciseEvent[Nid, Cid] =>
+            case ee: ExerciseEvent[Nid] =>
               if (f(ee)) {
                 go(ee.children)
                 liveEvts += (evtid -> ee.copy(children = ee.children.filter(liveEvts.contains)))
@@ -198,34 +100,5 @@ object Event extends value.CidContainer2[Event] {
 
       Events(roots.filter(liveEvts.contains), Map() ++ liveEvts)
     }
-
-    /** The function must be injective */
-    def mapNodeId[Nid2](f: Nid => Nid2): Events[Nid2, Cid] =
-      Events(roots.map(f), events.map { case (nid, evt) => (f(nid), evt.mapNodeId(f)) })
   }
-
-  object Events extends value.CidContainer2[Events] {
-    override private[lf] def map2[Nid, Cid, Nid2, Cid2](
-        f1: Nid => Nid2,
-        f2: Cid => Cid2,
-    ): Events[Nid, Cid] => Events[Nid2, Cid2] = { case Events(roots, events) =>
-      Events(
-        roots.map(f1),
-        events.map { case (id, event) =>
-          f1(id) -> Event.map2(f1, f2)(event)
-        },
-      )
-    }
-
-    override private[lf] def foreach2[A, B](
-        f1: A => Unit,
-        f2: B => Unit,
-    ): Events[A, B] => Unit = { case Events(roots, events) =>
-      roots.foreach(f1)
-      events.foreach { case (id, event) =>
-        f1(id) -> Event.foreach2(f1, f2)(event)
-      }
-    }
-  }
-
 }

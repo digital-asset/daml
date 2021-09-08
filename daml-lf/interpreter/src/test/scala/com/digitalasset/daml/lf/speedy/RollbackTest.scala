@@ -262,7 +262,7 @@ object ExceptionTest {
   private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
     def trees(nid: NodeId): List[Tree] = {
       tx.nodes(nid) match {
-        case create: NodeCreate[_] =>
+        case create: NodeCreate =>
           create.arg match {
             case ValueRecord(_, ImmArray(_, (None, ValueInt64(n)))) =>
               List(C(n))
@@ -271,7 +271,7 @@ object ExceptionTest {
           }
         case _: LeafNode =>
           Nil
-        case node: NodeExercises[_, _] =>
+        case node: NodeExercises[_] =>
           List(X(node.children.toList.flatMap(nid => trees(nid))))
         case node: NodeRollback[_] =>
           List(R(node.children.toList.flatMap(nid => trees(nid))))

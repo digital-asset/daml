@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.{NodeId, TransactionVersion, VersionedTransaction}
-import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -46,7 +45,7 @@ final class ExecuteUpdateSpec
   private val offset = Offset(Bytes.assertFromString("01"))
   private val txId = Ref.TransactionId.fromInt(1)
   private val txMock = transaction.CommittedTransaction(
-    VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.Empty)
+    VersionedTransaction[NodeId](TransactionVersion.VDev, Map.empty, ImmArray.Empty)
   )
   private val someMetrics = new Metrics(new MetricRegistry)
   private val someParticipantId = Ref.ParticipantId.assertFromString("some-participant")

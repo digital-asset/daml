@@ -45,7 +45,7 @@ final case class TxEntry(
 final case class BenchmarkState(
     name: String,
     transaction: TxEntry,
-    contracts: Map[ContractId, Tx.ContractInst[ContractId]],
+    contracts: Map[ContractId, Tx.ContractInst],
     contractKeys: Map[GlobalKey, ContractId],
 ) {
 
@@ -178,14 +178,14 @@ private[replay] object Replay {
       val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
       if (transactions.isEmpty) sys.error("no transaction find")
 
-      val createsNodes: Seq[Node.NodeCreate[ContractId]] =
+      val createsNodes: Seq[Node.NodeCreate] =
         transactions.flatMap(entry =>
-          entry.tx.nodes.values.collect { case create: Node.NodeCreate[ContractId] =>
+          entry.tx.nodes.values.collect { case create: Node.NodeCreate =>
             create
           }
         )
 
-      val allContracts: Map[ContractId, Value.ContractInst[Tx.Value[ContractId]]] =
+      val allContracts: Map[ContractId, Value.ContractInst[Tx.Value]] =
         createsNodes.map(node => node.coid -> node.versionedCoinst).toMap
 
       val allContractsWithKey = createsNodes.flatMap { node =>
@@ -196,7 +196,7 @@ private[replay] object Replay {
 
       val benchmarks = transactions.flatMap { entry =>
         entry.tx.roots.map(entry.tx.nodes) match {
-          case ImmArray(exe: Node.NodeExercises[_, ContractId]) =>
+          case ImmArray(exe: Node.NodeExercises[_]) =>
             val inputContracts = entry.tx.inputContracts
             List(
               BenchmarkState(

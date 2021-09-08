@@ -51,12 +51,12 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   //--[types]--
 
-  private type Val = V[V.ContractId]
+  private type Val = V
   private type KWM = KeyWithMaintainers[Val]
   private type OKWM = Option[KWM]
-  private type Exe = NodeExercises[NodeId, V.ContractId]
-  private type Node = GenNode[NodeId, V.ContractId]
-  private type VTX = VersionedTransaction[NodeId, V.ContractId]
+  private type Exe = NodeExercises[NodeId]
+  private type Node = GenNode[NodeId]
+  private type VTX = VersionedTransaction[NodeId]
 
   //--[samples]--
 
@@ -253,29 +253,29 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   //--[Create node tweaks]--
 
-  private val tweakCreateCoid = Tweak.single[Node] { case nc: Node.NodeCreate[_] =>
+  private val tweakCreateCoid = Tweak.single[Node] { case nc: Node.NodeCreate =>
     nc.copy(coid = changeContractId(nc.coid))
   }
-  private val tweakCreateTemplateId = Tweak.single[Node] { case nc: Node.NodeCreate[_] =>
+  private val tweakCreateTemplateId = Tweak.single[Node] { case nc: Node.NodeCreate =>
     nc.copy(templateId = changeTemplateId(nc.templateId))
   }
-  private val tweakCreateArg = Tweak.single[Node] { case nc: Node.NodeCreate[_] =>
+  private val tweakCreateArg = Tweak.single[Node] { case nc: Node.NodeCreate =>
     nc.copy(arg = changeValue(nc.arg))
   }
-  private val tweakCreateAgreementText = Tweak.single[Node] { case nc: Node.NodeCreate[_] =>
+  private val tweakCreateAgreementText = Tweak.single[Node] { case nc: Node.NodeCreate =>
     nc.copy(agreementText = changeText(nc.agreementText))
   }
-  private val tweakCreateSignatories = Tweak[Node] { case nc: Node.NodeCreate[_] =>
+  private val tweakCreateSignatories = Tweak[Node] { case nc: Node.NodeCreate =>
     tweakPartySet.run(nc.signatories).map { x => nc.copy(signatories = x) }
   }
-  private val tweakCreateStakeholders = Tweak[Node] { case nc: Node.NodeCreate[_] =>
+  private val tweakCreateStakeholders = Tweak[Node] { case nc: Node.NodeCreate =>
     tweakPartySet.run(nc.stakeholders).map { x => nc.copy(stakeholders = x) }
   }
   private def tweakCreateKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
-    case nc: Node.NodeCreate[_] =>
+    case nc: Node.NodeCreate =>
       tweakOptKeyMaintainers.run(nc.key).map { x => nc.copy(key = x) }
   }
-  private val tweakCreateVersion = Tweak.single[Node] { case nc: Node.NodeCreate[_] =>
+  private val tweakCreateVersion = Tweak.single[Node] { case nc: Node.NodeCreate =>
     nc.copy(version = changeVersion(nc.version))
   }
 
@@ -293,30 +293,30 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   //--[Fetch node tweaks]--
 
-  private val tweakFetchCoid = Tweak.single[Node] { case nf: Node.NodeFetch[_] =>
+  private val tweakFetchCoid = Tweak.single[Node] { case nf: Node.NodeFetch =>
     nf.copy(coid = changeContractId(nf.coid))
   }
-  private val tweakFetchTemplateId = Tweak.single[Node] { case nf: Node.NodeFetch[_] =>
+  private val tweakFetchTemplateId = Tweak.single[Node] { case nf: Node.NodeFetch =>
     nf.copy(templateId = changeTemplateId(nf.templateId))
   }
-  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] { case nf: Node.NodeFetch[_] =>
+  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] { case nf: Node.NodeFetch =>
     tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
   }
-  private val tweakFetchSignatories = Tweak[Node] { case nf: Node.NodeFetch[_] =>
+  private val tweakFetchSignatories = Tweak[Node] { case nf: Node.NodeFetch =>
     tweakPartySet.run(nf.signatories).map { x => nf.copy(signatories = x) }
   }
-  private val tweakFetchStakeholders = Tweak[Node] { case nf: Node.NodeFetch[_] =>
+  private val tweakFetchStakeholders = Tweak[Node] { case nf: Node.NodeFetch =>
     tweakPartySet.run(nf.stakeholders).map { x => nf.copy(stakeholders = x) }
   }
   private def tweakFetchKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
-    case nf: Node.NodeFetch[_] =>
+    case nf: Node.NodeFetch =>
       tweakOptKeyMaintainers.run(nf.key).map { x => nf.copy(key = x) }
   }
   private def tweakFetchByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
-    case nf: Node.NodeFetch[_] if whenVersion(nf.version) =>
+    case nf: Node.NodeFetch if whenVersion(nf.version) =>
       nf.copy(byKey = changeBoolean(nf.byKey))
   }
-  private val tweakFetchVersion = Tweak.single[Node] { case nf: Node.NodeFetch[_] =>
+  private val tweakFetchVersion = Tweak.single[Node] { case nf: Node.NodeFetch =>
     nf.copy(version = changeVersion(nf.version))
   }
 
@@ -334,16 +334,16 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   //--[LookupByKey node tweaks]--
 
-  private val tweakLookupTemplateId = Tweak.single[Node] { case nl: Node.NodeLookupByKey[_] =>
+  private val tweakLookupTemplateId = Tweak.single[Node] { case nl: Node.NodeLookupByKey =>
     nl.copy(templateId = changeTemplateId(nl.templateId))
   }
-  private val tweakLookupKey = Tweak[Node] { case nl: Node.NodeLookupByKey[_] =>
+  private val tweakLookupKey = Tweak[Node] { case nl: Node.NodeLookupByKey =>
     tweakKeyMaintainers.run(nl.key).map { x => nl.copy(key = x) }
   }
-  private val tweakLookupResult = Tweak[Node] { case nl: Node.NodeLookupByKey[_] =>
+  private val tweakLookupResult = Tweak[Node] { case nl: Node.NodeLookupByKey =>
     tweakOptContractId.run(nl.result).map { x => nl.copy(result = x) }
   }
-  private val tweakLookupVersion = Tweak.single[Node] { case nl: Node.NodeLookupByKey[_] =>
+  private val tweakLookupVersion = Tweak.single[Node] { case nl: Node.NodeLookupByKey =>
     nl.copy(version = changeVersion(nl.version))
   }
 
@@ -357,34 +357,34 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   //--[Exercise node tweaks]--
 
-  private val tweakExerciseTargetCoid = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseTargetCoid = Tweak.single[Node] { case ne: Node.NodeExercises[_] =>
     ne.copy(targetCoid = changeContractId(ne.targetCoid))
   }
-  private val tweakExerciseTemplateId = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseTemplateId = Tweak.single[Node] { case ne: Node.NodeExercises[_] =>
     ne.copy(templateId = changeTemplateId(ne.templateId))
   }
-  private val tweakExerciseChoiceId = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseChoiceId = Tweak.single[Node] { case ne: Node.NodeExercises[_] =>
     ne.copy(choiceId = changeChoiceId(ne.choiceId))
   }
-  private val tweakExerciseConsuming = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseConsuming = Tweak.single[Node] { case ne: Node.NodeExercises[_] =>
     ne.copy(consuming = changeBoolean(ne.consuming))
   }
-  private val tweakExerciseActingParties = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseActingParties = Tweak[Node] { case ne: Node.NodeExercises[_] =>
     tweakPartySet.run(ne.actingParties).map { x => ne.copy(actingParties = x) }
   }
-  private val tweakExerciseChosenValue = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseChosenValue = Tweak.single[Node] { case ne: Node.NodeExercises[_] =>
     ne.copy(chosenValue = changeValue(ne.chosenValue))
   }
-  private val tweakExerciseStakeholders = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseStakeholders = Tweak[Node] { case ne: Node.NodeExercises[_] =>
     tweakPartySet.run(ne.stakeholders).map { x => ne.copy(stakeholders = x) }
   }
-  private val tweakExerciseSignatories = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseSignatories = Tweak[Node] { case ne: Node.NodeExercises[_] =>
     tweakPartySet.run(ne.signatories).map { x => ne.copy(signatories = x) }
   }
-  private val tweakExerciseChoiceObservers = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseChoiceObservers = Tweak[Node] { case ne: Node.NodeExercises[_] =>
     tweakPartySet.run(ne.choiceObservers).map { x => ne.copy(choiceObservers = x) }
   }
-  private val tweakExerciseExerciseResult = Tweak[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseExerciseResult = Tweak[Node] { case ne: Node.NodeExercises[_] =>
     ne.exerciseResult match {
       case None => List(ne.copy(exerciseResult = Some(samValue1)))
       case Some(v) =>
@@ -396,14 +396,14 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   }
 
   private def tweakExerciseKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
-    case ne: Node.NodeExercises[_, _] =>
+    case ne: Node.NodeExercises[_] =>
       tweakOptKeyMaintainers.run(ne.key).map { x => ne.copy(key = x) }
   }
   private def tweakExerciseByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
-    case ne: Node.NodeExercises[_, _] if whenVersion(ne.version) =>
+    case ne: Node.NodeExercises[_] if whenVersion(ne.version) =>
       ne.copy(byKey = changeBoolean(ne.byKey))
   }
-  private val tweakExerciseVersion = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
+  private val tweakExerciseVersion = Tweak.single[Node] { case ne: Node.NodeExercises[_] =>
     ne.copy(version = changeVersion(ne.version))
   }
 

@@ -22,7 +22,7 @@ trait ContractStore {
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
+  ): Future[Option[ContractInst[Value.VersionedValue]]]
 
   def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext

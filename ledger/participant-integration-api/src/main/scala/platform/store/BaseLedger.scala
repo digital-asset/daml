@@ -116,7 +116,7 @@ private[platform] abstract class BaseLedger(
       forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue]]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
   override def lookupFlatTransactionById(
