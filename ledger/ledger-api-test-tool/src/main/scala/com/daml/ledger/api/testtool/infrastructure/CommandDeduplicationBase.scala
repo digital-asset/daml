@@ -13,6 +13,7 @@ import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, Tex
 import com.daml.timer.Delayed
 import io.grpc.Status
 
+import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
