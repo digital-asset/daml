@@ -67,7 +67,8 @@ message Commands {
       // Specifies the start of the deduplication period by a completion stream offset.
       //
       // Must be a valid LedgerString (as described in ``value.proto``).
-      string deduplication_offset = 15;
+      // This field is *experimental*, hence, it is generally not supported and may be removed without notice.
+      string deduplication_offset = 15 [deprecated = true];
 
       // Specifies the length of the deduplication period.
       // It is interpreted relative to the local clock at some point during the submission's processing.
