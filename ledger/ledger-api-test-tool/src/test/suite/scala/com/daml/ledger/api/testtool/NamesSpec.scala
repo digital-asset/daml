@@ -43,7 +43,7 @@ class NamesSpec extends AnyWordSpec with Matchers {
 }
 
 object NamesSpec {
-  private val allTestSuites = Tests.default() ++ Tests.optional ++ Tests.retired
+  private val allTestSuites = Tests.default() ++ Tests.optional() ++ Tests.retired
   private val allTestSuiteNames = allTestSuites.map(_.name).sorted
 
   private val allTests = allTestSuites.flatMap(_.tests)

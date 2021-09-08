@@ -12,7 +12,7 @@ import scala.util.Try
   *
   * @param generation            The configuration generation. Monotonically increasing.
   * @param timeModel             The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands.
-  * @param maxDeduplicationTime The maximum time window during which commands can be deduplicated.
+  * @param maxDeduplicationTime  The maximum time window during which commands can be deduplicated.
   */
 final case class Configuration(
     generation: Long,

@@ -16,8 +16,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   *                               application.
   * @param optDeduplicationPeriod The deduplication period that the [[WriteService]] actually uses
   *                               for the command submission. It may differ from the suggested
-  *                               deduplication period given to [[WriteService.submitTransaction]]
-  *                               or [[WriteService.rejectSubmission]].
+  *                               deduplication period given to [[WriteService.submitTransaction]].
   *
   *                               For example, the suggested deduplication period may have been
   *                               converted into a different kind or extended. The particular choice

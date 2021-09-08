@@ -93,7 +93,11 @@ object LedgerApiTestTool {
       timeoutScaleFactor = config.timeoutScaleFactor,
       ledgerClockGranularity = config.ledgerClockGranularity,
     )
-    val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ Tests.optional
+    val optionalTests: Vector[LedgerTestSuite] = Tests.optional(
+      timeoutScaleFactor = config.timeoutScaleFactor,
+      ledgerClockGranularity = config.ledgerClockGranularity,
+    )
+    val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ optionalTests
     val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired
     val allTestCaseNames: Set[String] = allTests.flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
@@ -147,7 +151,7 @@ object LedgerApiTestTool {
       })
 
     val defaultCases = defaultTests.flatMap(_.tests)
-    val allCases = defaultCases ++ Tests.optional.flatMap(_.tests) ++ Tests.retired.flatMap(_.tests)
+    val allCases = defaultCases ++ optionalTests.flatMap(_.tests) ++ Tests.retired.flatMap(_.tests)
 
     val includedTests =
       if (config.included.isEmpty) defaultCases
