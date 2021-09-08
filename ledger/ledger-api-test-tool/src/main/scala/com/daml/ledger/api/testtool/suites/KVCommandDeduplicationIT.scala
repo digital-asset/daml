@@ -15,9 +15,8 @@ import scala.util.control.NonFatal
 
 /** Command deduplication tests for KV ledgers
   * KV ledgers have both participant side deduplication and committer side deduplication.
-  * The committer side deduplication extends over a greater time interval compared to the participant side deduplication (by `minSkew` more exactly)
-  *  so we have to account for that wait period as well
-  * If updating the time model fails then the tests will run assuming a `minSkew` of 1 second
+  * The committer side deduplication period adds `minSkew` to the participant-side one, so we have to account for that as well.
+  * If updating the time model fails then the tests will assume a `minSkew` of 1 second.
   */
 final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
     extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
