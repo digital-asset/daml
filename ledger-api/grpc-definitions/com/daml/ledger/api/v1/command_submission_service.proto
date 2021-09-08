@@ -18,8 +18,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 //
 // Commands may fail in 2 distinct manners:
 //
-// 1. Failure communicated in the gRPC error of the submission.
-// 2. Failure communicated in a Completion.
+// 1. Failure communicated synchronously in the gRPC error of the submission.
+// 2. Failure communicated asynchronously in a Completion, see ``completion.proto``.
 //
 // Only successfully submitted commands may produce a completion event.
 //
