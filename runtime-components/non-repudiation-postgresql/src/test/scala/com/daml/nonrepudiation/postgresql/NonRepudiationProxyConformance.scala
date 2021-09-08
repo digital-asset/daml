@@ -56,7 +56,7 @@ final class NonRepudiationProxyConformance
     case _: KVCommandDeduplicationIT => true
     case _ => false
   }
-  val ConformanceTestCases: Vector[LedgerTestCase] =
+  private val conformanceTestCases: Vector[LedgerTestCase] =
     (defaultTestsToRun ++ optionalTestsToRun)
       .flatMap(_.tests)
 
@@ -103,7 +103,7 @@ final class NonRepudiationProxyConformance
 
     proxy.use { _ =>
       val runner = new LedgerTestCasesRunner(
-        testCases = ConformanceTestCases,
+        testCases = conformanceTestCases,
         participants = Vector(proxyChannel),
         commandInterceptors = Seq(
           SigningInterceptor.signCommands(key, certificate)
