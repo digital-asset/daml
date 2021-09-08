@@ -41,9 +41,11 @@ final class CompletionDeduplicationInfoIT[ServiceRequest](service: Service[Servi
     for {
       optNoDeduplicationSubmittedCompletion <- service.submitRequest(
         ledger,
+        party,
         requestWithoutSubmissionId,
       )
-      optSubmissionIdSubmittedCompletion <- service.submitRequest(ledger, requestWithSubmissionId)
+      optSubmissionIdSubmittedCompletion <- service
+        .submitRequest(ledger, party, requestWithSubmissionId)
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optNoDeduplicationSubmittedCompletion)
       assertSubmissionIdIsGenerated(optNoDeduplicationSubmittedCompletion)
@@ -64,6 +66,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
     def submitRequest(
         ledger: ParticipantTestContext,
+        party: Primitive.Party,
         request: ProtoRequestType,
     )(implicit ec: ExecutionContext): Future[Option[Completion]]
   }
@@ -84,12 +87,13 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
     override def submitRequest(
         ledger: ParticipantTestContext,
+        party: binding.Primitive.Party,
         request: SubmitAndWaitRequest,
     )(implicit ec: ExecutionContext): Future[Option[Completion]] =
       for {
         offset <- ledger.currentEnd()
         _ <- ledger.submitAndWait(request)
-        completion <- singleCompletionAfterOffset(ledger, offset)
+        completion <- singleCompletionAfterOffset(ledger, party, offset)
       } yield completion
   }
 
@@ -109,21 +113,23 @@ private[testtool] object CompletionDeduplicationInfoIT {
 
     override def submitRequest(
         ledger: ParticipantTestContext,
+        party: binding.Primitive.Party,
         request: SubmitRequest,
     )(implicit ec: ExecutionContext): Future[Option[Completion]] =
       for {
         offset <- ledger.currentEnd()
         _ <- ledger.submit(request)
-        completion <- singleCompletionAfterOffset(ledger, offset)
+        completion <- singleCompletionAfterOffset(ledger, party, offset)
       } yield completion
   }
 
   private def singleCompletionAfterOffset(
       ledger: ParticipantTestContext,
+      party: binding.Primitive.Party,
       offset: LedgerOffset,
   ): Future[Option[Completion]] =
     WithTimeout(5.seconds)(
-      ledger.findCompletion(ledger.completionStreamRequest(offset)())(_ => true)
+      ledger.findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
     )
 
   private def assertSubmissionIdIsPreserved(
