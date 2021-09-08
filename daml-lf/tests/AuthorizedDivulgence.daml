@@ -43,9 +43,9 @@ template Iou with
     signatory obligor
     observer owner
 
-    controller owner can
-      Sell : ContractId Iou
+    choice Sell : ContractId Iou
         with newOwner : Party
+        controller owner
         do create this with owner = newOwner
 
 template Swap1 with
@@ -55,13 +55,14 @@ template Swap1 with
     signatory p1
     observer p2
 
-    controller p1 can
-      GoSwap1 : ContractId Swap2
+    choice GoSwap1 : ContractId Swap2
         with cid1 : ContractId Iou
+        controller p1
         do create Swap2 with p1; p2; cid1
 
-      GoSwap1WithFetch : ContractId Swap2
+    choice GoSwap1WithFetch : ContractId Swap2
         with cid1 : ContractId Iou
+        controller p1
         do
           fetch cid1
           create Swap2 with p1; p2; cid1
@@ -74,9 +75,9 @@ template Swap2 with
     signatory p1
     observer p2
 
-    controller p2 can
-      GoSwap2 : ()
+    choice GoSwap2 : ()
         with cid2 : ContractId Iou
+        controller p2
         do
           exercise cid1 Sell with newOwner = p2
           exercise cid2 Sell with newOwner = p1
@@ -115,10 +116,11 @@ template C
     p2: Party
   where
     signatory p1
+    observer p2
 
-    controller p2 can
-      Delegate : ContractId D do
-        create $ D p1 p2
+    choice Delegate : ContractId D
+      controller p2
+      do create $ D p1 p2
 
 
 template D
@@ -127,8 +129,9 @@ template D
     p2: Party
   where
     signatory p1, p2
-    controller p1 can
-      GoD : ContractId E do
+    choice GoD : ContractId E
+      controller p1
+      do
         -- We create a contract right before exercising. p2 can't know about it and will only learn of
         -- it when he exercises the choice in the validation.
         cid <- create $ E p1 p2
@@ -141,10 +144,11 @@ template E
     p2: Party
   where
     signatory p1
+    observer p2
 
-    controller p2 can
-      nonconsuming DoSomething : () do
-        pure ()
+    nonconsuming choice DoSomething : ()
+      controller p2
+      do pure ()
 
 -- We test that target contract id's of choices are divulged to parties. This will only pass if the
 -- DontDivulgeContractIdsInCreateArguments flag is turned on.

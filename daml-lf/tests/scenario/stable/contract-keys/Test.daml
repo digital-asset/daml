@@ -17,15 +17,13 @@ template TextKey
     key (p, k): (Party, Text)
     maintainer key._1
 
-    controller p can
-      TextKeyChoice : ()
-        do
-          return ()
+    choice TextKeyChoice : ()
+      controller p
+      do return ()
 
-    controller p can
-      nonconsuming TextKeyNonconsumingChoice : ()
-        do
-          return ()
+    nonconsuming choice TextKeyNonconsumingChoice : ()
+      controller p
+      do return ()
 
 template CreateAndLookup
   with
@@ -34,31 +32,30 @@ template CreateAndLookup
   where
     signatory p
 
-    controller p can
-      nonconsuming Good : ()
-        do
-          cid <- create TextKey with
-            p = p
-            k = k
-            disclosedTo = []
-          mbCid <- lookupByKey @TextKey (p, k)
-          assertMsg ("Some cid == mbCid") (Some cid == mbCid)
-          (fCid, c) <- fetchByKey @TextKey (p, k)
-          assertMsg ("fCid == cid") (fCid == cid)
-          assertMsg ("contract fetched by key has correct values") (c.p == p && c.k == k && c.disclosedTo == [])
+    nonconsuming choice Good : ()
+      controller p
+      do cid <- create TextKey with
+           p = p
+           k = k
+           disclosedTo = []
+         mbCid <- lookupByKey @TextKey (p, k)
+         assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+         (fCid, c) <- fetchByKey @TextKey (p, k)
+         assertMsg ("fCid == cid") (fCid == cid)
+         assertMsg ("contract fetched by key has correct values") (c.p == p && c.k == k && c.disclosedTo == [])
 
-    controller p can
-      nonconsuming Dupe : ()
-        do
-          _ <- create TextKey with
-            p = p
-            k = k
-            disclosedTo = []
-          _ <- create TextKey with
-            p = p
-            k = k
-            disclosedTo = []
-          return ()
+    nonconsuming choice Dupe : ()
+      controller p
+      do
+        _ <- create TextKey with
+          p = p
+          k = k
+          disclosedTo = []
+        _ <- create TextKey with
+          p = p
+          k = k
+          disclosedTo = []
+        return ()
 
 template MaintainerNotSignatory
   with
