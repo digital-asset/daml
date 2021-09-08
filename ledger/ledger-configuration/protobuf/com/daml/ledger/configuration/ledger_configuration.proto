@@ -32,7 +32,7 @@ message LedgerConfiguration {
   // ledger effective time and maximum record time of transactions.
   LedgerTimeModel time_model = 3;
 
-  // The maximum value for the ``deduplication_time`` parameter of command submissions
+  // The maximum value for the ``deduplication_duration`` parameter of command submissions
   // (as described in ``commands.proto``). This defines the maximum time window during which
   // commands can be deduplicated.
   google.protobuf.Duration max_deduplication_time = 4;
