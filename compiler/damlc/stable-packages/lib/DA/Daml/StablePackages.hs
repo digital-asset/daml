@@ -57,15 +57,8 @@ stablePackageByModuleName = MS.fromListWithKey
     , m <- NM.toList (packageModules p) ]
 
 ghcTypes :: Package
-ghcTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = NM.fromList [dataOrdering]
-  , moduleValues = NM.empty
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
+ghcTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = NM.fromList [dataOrdering]
   }
   where
     modName = mkModName ["GHC", "Types"]
@@ -79,15 +72,9 @@ ghcTypes = package version1_6 $ NM.singleton Module
       }
 
 ghcPrim :: Package
-ghcPrim = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = NM.fromList [dataVoid]
+ghcPrim = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = NM.fromList [dataVoid]
   , moduleValues = NM.fromList [valVoid]
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["GHC", "Prim"]
@@ -114,15 +101,9 @@ package ver mods
     | otherwise = Package ver mods Nothing
 
 daTypes :: Package
-daTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleTemplates = NM.empty
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Types"]
@@ -160,15 +141,9 @@ daTypes = package version1_6 $ NM.singleton Module
     tupleWorkers = map tupleWorker [2..20]
 
 ghcTuple :: Package
-ghcTuple = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleTemplates = NM.empty
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+ghcTuple = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["GHC", "Tuple"]
@@ -184,15 +159,8 @@ ghcTuple = package version1_6 $ NM.singleton Module
       ]
 
 daInternalTemplate :: Package
-daInternalTemplate = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
-  , moduleValues = NM.fromList []
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
+daInternalTemplate = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   }
   where
     modName = mkModName ["DA", "Internal", "Template"]
@@ -202,15 +170,8 @@ daInternalTemplate = package version1_6 $ NM.singleton Module
       ]
 
 daInternalAny :: Package
-daInternalAny = package version1_7 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
-  , moduleValues = NM.empty
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
+daInternalAny = package version1_7 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   }
   where
     modName = mkModName ["DA", "Internal", "Any"]
@@ -226,15 +187,9 @@ daInternalAny = package version1_7 $ NM.singleton Module
       ]
 
 daTimeTypes :: Package
-daTimeTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daTimeTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Time", "Types"]
@@ -250,15 +205,9 @@ daTimeTypes = package version1_6 $ NM.singleton Module
     usField = mkField "microseconds"
 
 daNonEmptyTypes :: Package
-daNonEmptyTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daNonEmptyTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "NonEmpty", "Types"]
@@ -278,15 +227,8 @@ daNonEmptyTypes = package version1_6 $ NM.singleton Module
       ]
 
 daDateTypes :: Package
-daDateTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
-  , moduleValues = NM.empty
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
+daDateTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   }
   where
     modName = mkModName ["DA", "Date", "Types"]
@@ -319,15 +261,9 @@ daDateTypes = package version1_6 $ NM.singleton Module
       ]
 
 daSemigroupTypes :: Package
-daSemigroupTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daSemigroupTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Semigroup", "Types"]
@@ -346,15 +282,9 @@ daSemigroupTypes = package version1_6 $ NM.singleton Module
       ]
 
 daMonoidTypes :: Package
-daMonoidTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daMonoidTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Monoid", "Types"]
@@ -388,15 +318,9 @@ daMonoidTypes = package version1_6 $ NM.singleton Module
       ]
 
 daValidationTypes :: PackageId -> Package
-daValidationTypes nonEmptyPkgId = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daValidationTypes nonEmptyPkgId = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     nonEmptyModName = mkModName ["DA", "NonEmpty", "Types"]
@@ -420,15 +344,9 @@ daValidationTypes nonEmptyPkgId = package version1_6 $ NM.singleton Module
       ]
 
 daLogicTypes :: Package
-daLogicTypes = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daLogicTypes = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Logic", "Types"]
@@ -456,15 +374,9 @@ daLogicTypes = package version1_6 $ NM.singleton Module
       ]
 
 daInternalDown :: Package
-daInternalDown = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
+daInternalDown = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   , moduleValues = values
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Internal", "Down"]
@@ -482,15 +394,9 @@ daInternalDown = package version1_6 $ NM.singleton Module
 daSetTypes :: Package
 daSetTypes = Package
     { packageLfVersion = version1_11
-    , packageModules = NM.singleton Module
-        { moduleName = modName
-        , moduleSource = Nothing
-        , moduleFeatureFlags = daml12FeatureFlags
-        , moduleSynonyms = NM.empty
-        , moduleDataTypes = types
+    , packageModules = NM.singleton (emptyModule modName)
+        { moduleDataTypes = types
         , moduleValues = values
-        , moduleTemplates = NM.empty
-        , moduleExceptions = NM.empty
         }
     , packageMetadata = Just PackageMetadata
         { packageName = PackageName "daml-stdlib-DA-Set-Types"
@@ -512,15 +418,8 @@ daSetTypes = Package
       ]
 
 daInternalErased :: Package
-daInternalErased = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
-  , moduleValues = NM.empty
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
+daInternalErased = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   }
   where
     modName = mkModName ["DA", "Internal", "Erased"]
@@ -530,15 +429,8 @@ daInternalErased = package version1_6 $ NM.singleton Module
       ]
 
 daInternalPromotedText :: Package
-daInternalPromotedText = package version1_6 $ NM.singleton Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleSynonyms = NM.empty
-  , moduleDataTypes = types
-  , moduleValues = NM.empty
-  , moduleTemplates = NM.empty
-  , moduleExceptions = NM.empty
+daInternalPromotedText = package version1_6 $ NM.singleton (emptyModule modName)
+  { moduleDataTypes = types
   }
   where
     modName = mkModName ["DA", "Internal", "PromotedText"]
@@ -562,14 +454,9 @@ daExceptionPreconditionFailed = builtinExceptionPackage "PreconditionFailed"
 builtinExceptionPackage :: T.Text -> Package
 builtinExceptionPackage name = Package
     { packageLfVersion = featureMinVersion featureExceptions
-    , packageModules = NM.singleton Module
-        { moduleName = modName
-        , moduleSource = Nothing
-        , moduleFeatureFlags = daml12FeatureFlags
-        , moduleSynonyms = NM.empty
-        , moduleDataTypes = types
+    , packageModules = NM.singleton (emptyModule modName)
+        { moduleDataTypes = types
         , moduleValues = values
-        , moduleTemplates = NM.empty
         , moduleExceptions = exceptions
         }
     , packageMetadata = Just PackageMetadata
@@ -617,3 +504,16 @@ mkVariantWorkerDef modName tyCon constr tyVars argTy =
       mkETyLams tyVars $ mkETmLams [(mkVar "x", argTy)] $ EVariantCon tyConApp constr (EVar $ mkVar "x")
   where tyConApp = TypeConApp (Qualified PRSelf modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
+
+emptyModule :: ModuleName -> Module
+emptyModule name = Module
+  { moduleName = name
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = NM.empty
+  , moduleValues = NM.empty
+  , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
+  , moduleInterfaces = NM.empty
+  }

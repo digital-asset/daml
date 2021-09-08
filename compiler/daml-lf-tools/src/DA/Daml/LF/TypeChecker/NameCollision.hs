@@ -188,6 +188,9 @@ checkDataType moduleName DefDataType{..} =
             forM_ constrs $ \vconName -> do
                 checkName (NEnumCon moduleName dataTypeCon vconName)
 
+        -- TODO https://github.com/digital-asset/daml/issues/10810
+        DataInterface -> error "interfaces are not implemented"
+
 checkTemplate :: ModuleName -> Template -> NCMonad ()
 checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
