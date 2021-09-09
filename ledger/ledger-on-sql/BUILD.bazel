@@ -262,11 +262,11 @@ da_scala_test_suite(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
                 "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+                "--additional=KVCommandDeduplicationIT",
                 "--additional=ParticipantPruningIT",
                 # Disable tests targeting only append-only schema functionality
                 "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
                 "--additional=MultiPartySubmissionIT",
-                "--additional=KVCommandDeduplicationIT",
             ],
         ),
         conformance_test(
