@@ -26,14 +26,19 @@ import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.functor._
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
+import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Metrics
 import doobie.free.connection
 
-sealed abstract class Queries(tablePrefix: String) extends SurrogateTemplateIdCache {
+sealed abstract class Queries(tablePrefix: String)(implicit metrics: Metrics) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
   val schemaVersion = 2
+
+  private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics)
 
   protected[this] def dropIfExists(drop: Droppable): Fragment
 
@@ -161,21 +166,23 @@ sealed abstract class Queries(tablePrefix: String) extends SurrogateTemplateIdCa
   protected[http] def version()(implicit log: LogHandler): ConnectionIO[Option[Int]]
 
   final def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
-      log: LogHandler
+      log: LogHandler,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[SurrogateTpId] = {
-    tpIdCachedValue(packageId, moduleName, entityName)
+    surrogateTpIdCache
+      .getCacheValue(packageId, moduleName, entityName)
       .map { tpId =>
         Applicative[ConnectionIO].pure(tpId)
       }
       .getOrElse {
-        surrogateTemplateIdDb(packageId, moduleName, entityName).map { tpId =>
-          setTpIdCacheValue(packageId, moduleName, entityName, tpId)
+        surrogateTemplateIdFromDb(packageId, moduleName, entityName).map { tpId =>
+          surrogateTpIdCache.setCacheValue(packageId, moduleName, entityName, tpId)
           tpId
         }
       }
   }
 
-  private def surrogateTemplateIdDb(packageId: String, moduleName: String, entityName: String)(
+  private def surrogateTemplateIdFromDb(packageId: String, moduleName: String, entityName: String)(
       implicit log: LogHandler
   ): ConnectionIO[SurrogateTpId] =
     sql"""SELECT tpid FROM $templateIdTableName
@@ -607,7 +614,8 @@ object Queries {
 }
 
 private final class PostgresQueries(tablePrefix: String)(implicit
-    ipol: Queries.SqlInterpolation.StringArray
+    ipol: Queries.SqlInterpolation.StringArray,
+    metrics: Metrics,
 ) extends Queries(tablePrefix) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
@@ -738,7 +746,8 @@ import OracleQueries.DisableContractPayloadIndexing
 private final class OracleQueries(
     tablePrefix: String,
     disableContractPayloadIndexing: DisableContractPayloadIndexing,
-) extends Queries(tablePrefix) {
+)(implicit metrics: Metrics)
+    extends Queries(tablePrefix) {
   import Queries._, InitDdl._
   import Implicits._
 

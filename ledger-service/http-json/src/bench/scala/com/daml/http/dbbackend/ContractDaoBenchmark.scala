@@ -4,11 +4,14 @@
 package com.daml.http.dbbackend
 
 import cats.instances.list._
+import com.codahale.metrics.MetricRegistry
 import doobie.util.log.LogHandler
 import com.daml.dbutils
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
+import com.daml.http.util.Logging.instanceUUIDLogCtx
+import com.daml.metrics.Metrics
 import com.daml.testing.oracle, oracle.{OracleAround, User}
 import org.openjdk.jmh.annotations._
 import scala.concurrent.ExecutionContext
@@ -26,6 +29,7 @@ abstract class ContractDaoBenchmark extends OracleAround {
 
   protected implicit val ec: ExecutionContext = ExecutionContext.global
   protected implicit val logger: LogHandler = Slf4jLogHandler(getClass)
+  protected implicit val metrics: Metrics = new Metrics(new MetricRegistry())
 
   @Param(Array("1000"))
   var batchSize: Int = _
@@ -68,12 +72,14 @@ abstract class ContractDaoBenchmark extends OracleAround {
   )
 
   protected def insertTemplate(tpid: TemplateId.RequiredPkg): SurrogateTpId = {
-    dao
-      .transact(
-        queries
-          .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
-      )
-      .unsafeRunSync()
+    instanceUUIDLogCtx(implicit lc =>
+      dao
+        .transact(
+          queries
+            .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+        )
+        .unsafeRunSync()
+    )
   }
 
   protected def insertBatch(

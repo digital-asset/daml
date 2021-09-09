@@ -4,11 +4,13 @@
 package com.daml.http
 
 import cats.effect.IO
+import com.codahale.metrics.MetricRegistry
 import com.daml.dbutils.ConnectionPool.PoolSize
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.domain.TemplateId
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Metrics
 import doobie.util.log.LogHandler
 import org.scalatest.freespec.AsyncFreeSpecLike
 import org.scalatest.{Assertion, AsyncTestSuite, BeforeAndAfterAll, Inside}
@@ -21,6 +23,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
   this: AsyncTestSuite with Matchers with Inside =>
 
   protected def jdbcConfig: JdbcConfig
+  protected implicit val metrics: Metrics = new Metrics(new MetricRegistry())
 
   // has to be lazy because jdbcConfig is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(
@@ -182,20 +185,20 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     import dao.jdbcDriver.q.queries
     def getOrElseInsertTemplate(tpid: TemplateId[String])(implicit
         logHandler: LogHandler = dao.logHandler
-    ) = {
+    ) = instanceUUIDLogCtx(implicit lc =>
       dao.transact(
         queries
           .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
       )
-    }
+    )
     val tpId = TemplateId("pkg", "mod", "ent")
     for {
       storedStpId <- getOrElseInsertTemplate(tpId) //insert the template id into the cache
       cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
     } yield {
       storedStpId shouldEqual cachedStpId
-      queries.tpIdCacheHits shouldBe 1
-      queries.tpIdCacheMiss shouldBe 1
+      queries.surrogateTpIdCache.getHitCount shouldBe 1
+      queries.surrogateTpIdCache.getMissCount shouldBe 1
     }
   }.unsafeToFuture()
 

@@ -390,6 +390,8 @@ class ContractsService(
             parties: OneAnd[Set, domain.Party],
             templateId: domain.TemplateId.RequiredPkg,
             queryParams: Map[String, JsValue],
+        )(implicit
+            lc: LoggingContextOf[InstanceUUID]
         ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
           val predicate = valuePredicate(templateId, queryParams)
           ContractDao.selectContracts(parties, templateId, predicate.toSqlWhereClause)

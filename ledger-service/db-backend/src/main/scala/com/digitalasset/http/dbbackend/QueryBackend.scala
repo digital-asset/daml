@@ -3,6 +3,7 @@
 
 package com.daml.http.dbbackend
 
+import com.daml.metrics.Metrics
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 
@@ -19,7 +20,10 @@ private[http] sealed abstract class QueryBackend {
   // with `Queries` as that type's responsibility.
   type Conf
 
-  def queries(tablePrefix: String, conf: Conf)(implicit sqli: SqlInterpol): Queries
+  def queries(tablePrefix: String, conf: Conf)(implicit
+      sqli: SqlInterpol,
+      metrics: Metrics,
+  ): Queries
 
   def parseConf(kvs: RawConf): Either[String, Conf]
 }
@@ -34,7 +38,10 @@ private[dbbackend] object PostgresQueryBackend extends QueryBackend {
   type SqlInterpol = Queries.SqlInterpolation.StringArray
   type Conf = Unit
 
-  override def queries(tablePrefix: String, conf: Conf)(implicit sqli: SqlInterpol) =
+  override def queries(tablePrefix: String, conf: Conf)(implicit
+      sqli: SqlInterpol,
+      metrics: Metrics,
+  ) =
     new PostgresQueries(tablePrefix)
 
   override def parseConf(kvs: RawConf) = Right(())
@@ -44,7 +51,10 @@ private[dbbackend] object OracleQueryBackend extends QueryBackend {
   type SqlInterpol = Queries.SqlInterpolation.Unused
   type Conf = DisableContractPayloadIndexing
 
-  override def queries(tablePrefix: String, conf: Conf)(implicit sqli: SqlInterpol) =
+  override def queries(tablePrefix: String, conf: Conf)(implicit
+      sqli: SqlInterpol,
+      metrics: Metrics,
+  ) =
     new OracleQueries(tablePrefix, conf)
 
   override def parseConf(kvs: RawConf): Either[String, Conf] =
