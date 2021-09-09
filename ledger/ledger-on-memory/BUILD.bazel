@@ -220,25 +220,6 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-multi-participant-command-deduplication",
-    ports = [
-        6865,
-        6866,
-    ],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--participant=participant-id=example1,port=6865",
-        "--participant=participant-id=example2,port=6866",
-    ],
-    test_tool_args = [
-        "--include=KVCommandDeduplicationIT",
-    ],
-)
-
-conformance_test(
     name = "conformance-test-split-participant",
     ports = [
         6865,
