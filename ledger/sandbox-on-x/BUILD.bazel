@@ -143,7 +143,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--additional=KVCommandDeduplicationIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
         "--exclude=RaceConditionIT",
