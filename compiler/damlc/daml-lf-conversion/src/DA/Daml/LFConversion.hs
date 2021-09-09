@@ -408,6 +408,42 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
+convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
+convertInterfaces env tyThings
+  | envLfVersion env `supports` featureInterfaces = interfaceClasses
+  | otherwise = pure []
+  where
+    interfaceCons = S.fromList [ getOccText t | ATyCon t <- tyThings, hasDamlInterfaceCtx t ]
+    interfaceClasses = sequence
+        [ DInterface <$> convertInterface interface cls
+        | ATyCon t <- tyThings
+        , Just cls <- [tyConClass_maybe t]
+        , Just interface <- [T.stripPrefix "Is" (getOccText t)]
+        , interface `S.member` interfaceCons
+        ]
+    convertInterface :: T.Text -> Class -> ConvertM DefInterface
+    convertInterface name cls = do
+      choices <- sequence
+        [ convertChoice arg res
+        |
+          TypeCon (NameIn DA_Internal_Template_Functions "HasExercise") [_, arg, res] <- classSCTheta cls]
+      pure DefInterface
+        { intLocation = Nothing
+        , intName = mkTypeCon [name]
+        , intChoices = NM.fromList choices
+        }
+    convertChoice :: TyCoRep.Type -> TyCoRep.Type -> ConvertM InterfaceChoice
+    convertChoice arg res = do
+        arg@(TCon (Qualified { qualObject = TypeConName[choice]})) <- convertType env arg
+        res <- convertType env res
+        pure InterfaceChoice
+          { ifcLocation = Nothing
+          , ifcName = ChoiceName choice
+          , ifcConsuming = True
+          , ifcArgType = arg
+          , ifcRetType = res
+          }
+
 convertModule
     :: LF.Version
     -> MS.Map UnitId DalfPackage
@@ -422,7 +458,8 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions))
+    interfaces <- convertInterfaces env (eltsUFM (cm_types x))
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces))
     where
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
@@ -485,6 +522,19 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_Desugar n <- t
     , n `elementOfUniqSet` consumingTypes
     -> pure []
+
+    | hasDamlInterfaceCtx t && envLfVersion env `supports` featureInterfaces
+    -> pure
+      [ DDataType DefDataType
+         { dataLocation = Nothing
+         , dataTypeCon = mkTypeCon [getOccText t]
+         , dataSerializable = IsSerializable False
+         -- TODO https://github.com/digital-asset/daml/issues/10810
+         -- validate that the type has no parameters.
+         , dataParams = []
+         , dataCons = DataInterface
+         }
+      ]
 
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t

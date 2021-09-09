@@ -1,0 +1,34 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @WARN Modules compiled with the DatatypeContexts language extension
+-- @ERROR interfaces are not implemented
+{-# LANGUAGE DatatypeContexts #-}
+
+module InterfaceDesugared where
+
+data Split = Split { splitAmount : Decimal }
+
+data Transfer = Transfer { newOwner : Party }
+
+class
+  ( HasExercise t Split (ContractId Token, ContractId Token)
+  , HasExercise t Transfer (ContractId Token)
+  ) => IsToken t where
+-- TODO https://github.com/digital-asset/daml/issues/10810
+-- enable once we support pure functions
+--  getAmount : t -> Decimal
+
+data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
+
+instance HasExercise Token Split (ContractId Token, ContractId Token) where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasExercise Token Transfer (ContractId Token) where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance IsToken Token where
+-- TODO https://github.com/digital-asset/daml/issues/10810
+-- enable once we support pure functions
+--  getAmount = primitivInterface @"getAmount"
