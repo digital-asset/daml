@@ -66,8 +66,20 @@ private[kvutils] class TransactionCommitter(
   override protected def init(
       commitContext: CommitContext,
       submission: DamlSubmission,
-  )(implicit loggingContext: LoggingContext): DamlTransactionEntrySummary =
-    DamlTransactionEntrySummary(submission.getTransactionEntry)
+  )(implicit loggingContext: LoggingContext): DamlTransactionEntrySummary = {
+    val currentConfig = getCurrentConfiguration(defaultConfig, commitContext)
+    val entry = submission.getTransactionEntry
+    val entryBuilder = entry.toBuilder
+    // Overwrite the deduplication period to use max deduplication duration
+    // This guarantees that the deduplication period used is constant
+    // By having a constant deduplication period we guarantee the same behavior for forwards looking and backwards looking deduplication
+    // The deduplication is overwritten in the submitter info so that it's propagated to the completion
+    entryBuilder.getSubmitterInfoBuilder
+      .setDeduplicationDuration(
+        buildDuration(currentConfig._2.maxDeduplicationTime)
+      )
+    DamlTransactionEntrySummary(entryBuilder.build())
+  }
 
   private val rejections = new Rejections(metrics)
   private val ledgerTimeValidator = new LedgerTimeValidator(defaultConfig)
@@ -310,13 +322,14 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
   )(implicit loggingContext: LoggingContext): Unit = {
     val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
-    // Set deduplicate until to submission_time + max_deduplication_duration + min_skew
-    // This guarantees that the deduplication period used is constant
-    // By having a constant deduplication period we guarantee the same behavior for forwards looking and backwards looking deduplication
+    // deduplicate duration must be set. Deduplication duration was previously overwritten with max deduplication duration
+    if (!transactionEntry.submitterInfo.hasDeduplicationDuration) {
+      throw Err.InvalidSubmission("Deduplication duration is not set.")
+    }
     val commandDedupBuilder = DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(
       Conversions.buildTimestamp(
         transactionEntry.submissionTime
-          .add(config.maxDeduplicationTime)
+          .add(parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration))
           .add(config.timeModel.minSkew)
       )
     )
