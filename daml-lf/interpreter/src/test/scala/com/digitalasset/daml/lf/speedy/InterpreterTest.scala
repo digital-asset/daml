@@ -198,6 +198,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                   ),
                   templates = Map.empty,
                   exceptions = Map.empty,
+                  interfaces = List.empty,
                   featureFlags = FeatureFlags.default,
                 )
               ),
@@ -217,6 +218,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                 definitions = Map.empty,
                 templates = Map.empty,
                 exceptions = Map.empty,
+                interfaces = List.empty,
                 featureFlags = FeatureFlags.default,
               )
             ),
