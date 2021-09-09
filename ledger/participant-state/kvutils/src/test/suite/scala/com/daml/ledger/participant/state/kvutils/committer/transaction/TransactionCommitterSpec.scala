@@ -27,10 +27,12 @@ import com.google.protobuf
 import org.mockito.MockitoSugar
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
+
 @nowarn("msg=deprecated")
 class TransactionCommitterSpec
     extends AnyWordSpec
@@ -222,50 +224,32 @@ class TransactionCommitterSpec
       val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
       val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60).build()
 
-      "set deduplicate until based on submitter info deduplicate until" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(submissionTime, _.setDeduplicateUntil(deduplicateUntil))
-        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe deduplicateUntil
-      }
-
-      "set deduplicate until based on submitter info deduplicate duration" in {
+      "set deduplicate until to max in all cases" in {
         val deduplicationDuration = time.Duration.ofSeconds(3)
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(
-            submissionTime,
+        forAll(
+          Table[DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder](
+            "deduplication setter",
+            _.clearDeduplicationPeriod(),
+            _.setDeduplicationOffset("offset"),
             _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+            _.setDeduplicateUntil(deduplicateUntil),
           )
-        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe protobuf.Timestamp
-          .newBuilder()
-          .setSeconds(
-            submissionTime.getSeconds + deduplicationDuration.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
-          )
-          .build()
-      }
-
-      "set deduplicate until based on submitter info deduplication offset" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(submissionTime, _.setDeduplicationOffset("offset"))
-        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe protobuf.Timestamp
-          .newBuilder()
-          .setSeconds(
-            submissionTime.getSeconds + theDefaultConfig.maxDeduplicationTime.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
-          )
-          .build()
-      }
-
-      "do not set deduplicate until when no submitter info deduplication is set" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(submissionTime, identity)
-        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        context
-          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
-          .value
-          .getCommandDedup
-          .hasDeduplicatedUntil shouldBe false
+        ) { deduplicationSetter =>
+          {
+            val (context, transactionEntrySummary) =
+              buildContextAndTransaction(submissionTime, deduplicationSetter)
+            transactionCommitter.setDedupEntry(context, transactionEntrySummary)
+            contextDeduplicateUntil(
+              context,
+              transactionEntrySummary,
+            ).value shouldBe protobuf.Timestamp
+              .newBuilder()
+              .setSeconds(
+                submissionTime.getSeconds + theDefaultConfig.maxDeduplicationTime.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
+              )
+              .build()
+          }
+        }
       }
     }
   }

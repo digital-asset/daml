@@ -29,7 +29,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -305,36 +305,21 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  @nowarn("msg=deprecated")
   private[transaction] def setDedupEntry(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
   )(implicit loggingContext: LoggingContext): Unit = {
     val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
-    val commandDedupBuilder = DamlCommandDedupValue.newBuilder
-    transactionEntry.submitterInfo.getDeduplicationPeriodCase match {
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATE_UNTIL =>
-        commandDedupBuilder.setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
-        commandDedupBuilder.setDeduplicatedUntil(
-          Conversions.buildTimestamp(
-            transactionEntry.submissionTime
-              .add(
-                Conversions.parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
-              )
-              .add(config.timeModel.minSkew)
-          )
-        )
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_OFFSET =>
-        commandDedupBuilder.setDeduplicatedUntil(
-          Conversions.buildTimestamp(
-            transactionEntry.submissionTime
-              .add(config.maxDeduplicationTime)
-              .add(config.timeModel.minSkew)
-          )
-        )
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
-    }
+    // Set deduplicate until to submission_time + max_deduplication_duration + min_skew
+    // This guarantees that the deduplication period used is constant
+    // By having a constant deduplication period we guarantee the same behavior for forwards looking and backwards looking deduplication
+    val commandDedupBuilder = DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(
+      Conversions.buildTimestamp(
+        transactionEntry.submissionTime
+          .add(config.maxDeduplicationTime)
+          .add(config.timeModel.minSkew)
+      )
+    )
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
