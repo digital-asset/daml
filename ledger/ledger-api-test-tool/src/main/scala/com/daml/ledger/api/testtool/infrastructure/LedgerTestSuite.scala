@@ -10,8 +10,6 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] abstract class LedgerTestSuite {
-  val name: String = getClass.getSimpleName
-
   private val testCaseBuffer: ListBuffer[LedgerTestCase] = ListBuffer()
 
   final lazy val tests: Vector[LedgerTestCase] = testCaseBuffer.toVector
@@ -38,4 +36,6 @@ private[testtool] abstract class LedgerTestSuite {
       )
     )
   }
+
+  private[testtool] def name: String = getClass.getSimpleName
 }
