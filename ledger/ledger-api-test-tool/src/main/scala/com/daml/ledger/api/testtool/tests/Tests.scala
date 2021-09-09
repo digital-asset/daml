@@ -69,7 +69,7 @@ object Tests {
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,
       new MultiPartySubmissionIT,
-      new RecordTimeIT,
+      new MonotonicRecordTimeIT,
     )
 
   val retired: Vector[LedgerTestSuite] =

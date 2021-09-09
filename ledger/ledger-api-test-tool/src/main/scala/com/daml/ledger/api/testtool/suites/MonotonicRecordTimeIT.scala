@@ -12,20 +12,21 @@ import scalapb.TimestampConverters
 
 import scala.concurrent.Future
 
-final class RecordTimeIT extends LedgerTestSuite {
+final class MonotonicRecordTimeIT extends LedgerTestSuite {
+  import MonotonicRecordTimeIT._
+
   test(
     "RTMonotonicallyIncreasing",
     "Record Time increases monotonically",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val submissions = 100
     for {
-      _ <- Future.traverse(1 to submissions) { _ =>
+      _ <- Future.traverse(1 to Submissions) { _ =>
         ledger.create(party, Dummy(party))
       }
-      checkpoints <- ledger.checkpoints(submissions, ledger.begin)(party)
+      checkpoints <- ledger.checkpoints(Submissions, ledger.begin)(party)
     } yield {
-      assertLength(s"At least $submissions checkpoints available", submissions, checkpoints)
+      assertLength(s"At least $Submissions checkpoints available", Submissions, checkpoints)
 
       val recordTimes = checkpoints
         .collect { case Checkpoint(Some(recordTime), Some(offset)) => recordTime -> offset }
@@ -48,4 +49,8 @@ final class RecordTimeIT extends LedgerTestSuite {
       )
     }
   })
+}
+
+private object MonotonicRecordTimeIT {
+  val Submissions = 100
 }
