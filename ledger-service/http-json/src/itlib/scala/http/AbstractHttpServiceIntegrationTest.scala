@@ -50,6 +50,7 @@ import scalaz.syntax.apply._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.ports.Port
 
 object AbstractHttpServiceIntegrationTestFuns {
   private[http] val dar1 = requiredResource("docs/quickstart-model.dar")
@@ -151,10 +152,25 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   ): Future[A] =
     withHttpServiceAndClient((a, b, c, _, ledgerId) => f(a, b, c, ledgerId))
 
+  protected def withHttpServiceOnly[A](ledgerPort: Port)(
+      f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]
+  ): Future[A] =
+    HttpServiceTestFixture.withHttpService[A](
+      testId,
+      ledgerPort,
+      jdbcConfig,
+      staticContentConfig,
+      useTls = useTls,
+      wsConfig = wsConfig,
+    )((uri, encoder, decoder, _) => f(uri, encoder, decoder))
+
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId) { case (_, client, ledgerId) =>
       testFn(client, ledgerId)
     }
+
+  protected def withLedger2[A](testFn: (Port, DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)(testFn)
 
   protected val headersWithAuth = authorizationHeader(jwt)
 
@@ -1616,6 +1632,27 @@ abstract class AbstractHttpServiceIntegrationTest
           }
         }
     }: Future[Assertion]
+  }
+
+  "package list is updated when a query request is made" in withLedger2[Assertion] {
+    (ledgerPort: Port, _, _) =>
+      for {
+        _ <- withHttpServiceOnly(ledgerPort) { (uri, encoder, _) =>
+          searchDataSet.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
+            rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+          }
+        }
+        _ <- withHttpServiceOnly(ledgerPort) { (uri, _, _) =>
+          getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
+            .flatMap { case (status, output) =>
+              status shouldBe StatusCodes.OK
+              assertStatus(output, StatusCodes.OK)
+              inside(getResult(output)) { case JsArray(result) =>
+                result should have length 4
+              }
+            }: Future[Assertion]
+        }
+      } yield succeed
   }
 
   "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
