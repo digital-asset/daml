@@ -212,7 +212,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--include=ParticipantPruningIT",
+        "--additional=ParticipantPruningIT",
         # The following tests don't actually care about multi-participant but they do need append-only.
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
