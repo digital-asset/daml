@@ -341,6 +341,9 @@ server_conformance_test(
 
 server_conformance_test(
     name = "next-conformance-test-command-deduplication",
+    server_args = [
+        "--max-deduplication-duration=PT10S",
+    ],
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--include=KVCommandDeduplicationIT",
