@@ -147,7 +147,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--additional=MultiPartySubmissionIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--additional=KVCommandDeduplicationIT",
         "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
     ],
@@ -165,7 +165,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--additional=MultiPartySubmissionIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--additional=KVCommandDeduplicationIT",
     ],
 )
@@ -249,7 +249,7 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--additional=KVCommandDeduplicationIT",
     ],
 )
