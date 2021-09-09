@@ -43,6 +43,7 @@ compile_deps = [
     "//ledger-api/rs-grpc-akka",
     "//ledger-api/rs-grpc-bridge",
     "//ledger/caching",
+    "//ledger/error",
     "//ledger/ledger-api-akka",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-client",
@@ -122,6 +123,7 @@ da_scala_library(
     deps = compile_deps,
 )
 
+# TODO Tudor: where is this used ???
 da_scala_library(
     name = "ledger-api-server",
     srcs = glob(["src/main/scala/**/*.scala"]),
@@ -418,4 +420,17 @@ filegroup(
     name = "sources",
     srcs = glob(["src/main/scala/**/*.scala"]),
     visibility = ["//visibility:public"],
+)
+
+da_scala_binary(
+    name = "error-codes-generator",
+    main_class = "com.daml.platform.apiserver.error.generator.GenerateDocs",
+    srcs = glob(["src/main/scala/**/GenerateDocs.scala"]),
+    scala_deps = [],
+    tags = ["maven_coordinates=com.daml:error:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ledger/error:error",
+        "//ledger/participant-integration-api:participant-integration-api",
+    ],
 )

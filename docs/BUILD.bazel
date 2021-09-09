@@ -442,6 +442,14 @@ EOF
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "generate-error-codes",
+    srcs = [],
+    outs = ["error-codes.rst"],
+    cmd = "$(location //ledger/participant-integration-api:error-codes-generator) > \"$@\"",
+    tools = ["//ledger/participant-integration-api:error-codes-generator"],
+)
+
 dar_to_java(
     name = "quickstart-model",
     src = "quickstart-model.dar",

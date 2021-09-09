@@ -5,6 +5,8 @@ import java.lang.reflect.Modifier
 import com.daml.error.ErrorCode
 import com.daml.error.{Explanation, Resolution}
 import org.reflections.Reflections
+import io.circe.syntax._
+import io.circe.generic.auto._
 
 import scala.reflect.runtime.{universe => ru}
 
@@ -20,7 +22,10 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
   private val explanationTypeName = classOf[Explanation].getTypeName
   private val resolutionTypeName = classOf[Resolution].getTypeName
 
-  def getDocItems: Seq[DocItem] = {
+  // TODO Move JSON encoding to generator target
+  def getDocItemsAsJson: String = getDocItems.asJson.spaces4
+
+  private[error] def getDocItems: Seq[DocItem] = {
     val errorCodes = getErrorCodeInstances
 
     errorCodes.view.map(_.id).groupBy(identity).collect {

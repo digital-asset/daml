@@ -8,10 +8,17 @@ load(
     "da_scala_test_suite",
 )
 
-da_scala_library( # Pass package as arg
+da_scala_library(
     name = "error",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scala_deps = [],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_generic",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
     tags = ["maven_coordinates=com.daml:error:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
