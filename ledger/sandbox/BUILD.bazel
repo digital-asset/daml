@@ -285,8 +285,9 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT" +
-        ",CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--add=KVCommandDeduplicationIT",
     ],
 )
 
@@ -298,8 +299,9 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT" +
-        ",CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--add=KVCommandDeduplicationIT",
     ],
 )
 
@@ -334,29 +336,9 @@ server_conformance_test(
     servers = {"postgresql": NEXT_SERVERS["postgresql"]},
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT" +
-        ",CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-    ],
-)
-
-server_conformance_test(
-    name = "next-conformance-test-append-only-command-completion-dedup-info",
-    server_args = [
-        "--enable-append-only-schema",
-    ],
-    servers = {"postgresql": NEXT_SERVERS["postgresql"]},
-    test_tool_args = [
-        "--open-world",
-        "--include=" +
-        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
-        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-    ],
-)
-
-server_conformance_test(
-    name = "next-conformance-test-command-deduplication",
-    servers = NEXT_SERVERS,
-    test_tool_args = [
-        "--include=KVCommandDeduplicationIT",
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )

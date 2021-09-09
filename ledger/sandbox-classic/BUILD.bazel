@@ -364,6 +364,11 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--add=ParticipantPruningIT",
+        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
@@ -380,9 +385,6 @@ server_conformance_test(
     servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
-        "--include=ParticipantPruningIT",
-        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -411,6 +413,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
@@ -435,21 +439,5 @@ server_conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ContractIdIT:Accept",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-append-only-command-completion-dedup-info",
-    server_args = [
-        "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
-        "--enable-append-only-schema",
-    ],
-    servers = ONLY_POSTGRES_SERVER,
-    test_tool_args = [
-        "--open-world",
-        "--include=" +
-        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
-        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )

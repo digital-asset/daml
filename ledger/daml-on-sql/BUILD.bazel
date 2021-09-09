@@ -109,6 +109,11 @@ conformance_test(
         "--port=6865",
         "--eager-package-loading",
     ],
+    test_tool_args = [
+        "--verbose",
+        "--add=MultiPartySubmissionIT",
+        "--add=ContractIdIT:Accept",
+    ],
 )
 
 # TODO append-only: cleanup
@@ -121,64 +126,11 @@ conformance_test(
         "--eager-package-loading",
         "--enable-append-only-schema",
     ],
-)
-
-conformance_test(
-    name = "conformance-test-multi-party-submissions",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-        "--eager-package-loading",
-    ],
     test_tool_args = [
         "--verbose",
-        "--include=MultiPartySubmissionIT",
-    ],
-)
-
-# TODO append-only: cleanup
-conformance_test(
-    name = "conformance-test-multi-party-submissions-append-only",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-        "--eager-package-loading",
-        "--enable-append-only-schema",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-contract-ids",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ContractIdIT:Accept",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-command-completion-dedup-info",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-        "--enable-append-only-schema",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=" +
-        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
-        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--add=MultiPartySubmissionIT",
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
