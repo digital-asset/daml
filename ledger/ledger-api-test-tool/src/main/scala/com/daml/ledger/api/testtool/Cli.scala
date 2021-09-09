@@ -164,12 +164,12 @@ object Cli {
         """A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`."""
       )
 
-    opt[Seq[String]]("add")
-      .action((add, c) => c.copy(added = c.added ++ add))
+    opt[Seq[String]]("additional")
+      .action((additional, c) => c.copy(additional = c.additional ++ additional))
       .hidden()
       .unbounded()
       .text(
-        """A comma-separated list of additional prefixes. If specified, also tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--add=a,b` is the same as `--add=a --add=b`."""
+        """A comma-separated list of additional prefixes. If specified, also tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--additional=a,b` is the same as `--additional=a --additional=b`."""
       )
 
     opt[Seq[String]]("perf-tests")

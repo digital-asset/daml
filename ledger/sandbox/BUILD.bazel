@@ -287,7 +287,7 @@ server_conformance_test(
         "--open-world",
         "--exclude=ClosedWorldIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--add=KVCommandDeduplicationIT",
+        "--additional=KVCommandDeduplicationIT",
     ],
 )
 
@@ -301,7 +301,7 @@ server_conformance_test(
         "--open-world",
         "--exclude=ClosedWorldIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--add=KVCommandDeduplicationIT",
+        "--additional=KVCommandDeduplicationIT",
     ],
 )
 
@@ -338,7 +338,7 @@ server_conformance_test(
         "--open-world",
         "--exclude=ClosedWorldIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )

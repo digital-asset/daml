@@ -364,11 +364,11 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
-        "--add=ParticipantPruningIT",
+        "--additional=ParticipantPruningIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
@@ -413,8 +413,8 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 

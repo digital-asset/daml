@@ -262,11 +262,11 @@ da_scala_test_suite(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
                 "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-                "--add=ParticipantPruningIT",
+                "--additional=ParticipantPruningIT",
                 # Disable tests targeting only append-only schema functionality
                 "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-                "--add=MultiPartySubmissionIT",
-                "--add=KVCommandDeduplicationIT",
+                "--additional=MultiPartySubmissionIT",
+                "--additional=KVCommandDeduplicationIT",
             ],
         ),
         conformance_test(
@@ -316,13 +316,13 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
-        "--add=KVCommandDeduplicationIT",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--add=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
     ],
 )
 
@@ -341,13 +341,13 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
-        "--add=KVCommandDeduplicationIT",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--add=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
     ],
 )
 
@@ -365,13 +365,13 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
-        "--add=KVCommandDeduplicationIT",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--add=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
     ],
 )
 
@@ -387,11 +387,11 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant/
-        "--add=KVCommandDeduplicationIT",
-        "--add=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
     ],
 )
 
@@ -410,13 +410,13 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--add=KVCommandDeduplicationIT",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--add=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
     ],
 )
 
@@ -435,13 +435,13 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--add=KVCommandDeduplicationIT",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--add=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
     ],
 )
 

@@ -146,10 +146,10 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
-        "--add=KVCommandDeduplicationIT",
-        "--add=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
+        "--additional=KVCommandDeduplicationIT",
+        "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
     ],
 )
 
@@ -164,9 +164,9 @@ conformance_test(
         "--daml-lf-min-version-1.14-unsafe",
     ],
     test_tool_args = [
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
-        "--add=KVCommandDeduplicationIT",
+        "--additional=KVCommandDeduplicationIT",
     ],
 )
 
@@ -186,10 +186,10 @@ conformance_test(
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
-        "--add=ParticipantPruningIT",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=KVCommandDeduplicationIT",
+        "--additional=KVCommandDeduplicationIT",
     ],
 )
 
@@ -211,8 +211,8 @@ conformance_test(
         "--verbose",
         "--include=ParticipantPruningIT",
         # The following tests don't actually care about multi-participant but they do need append-only.
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--add=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
@@ -250,7 +250,7 @@ conformance_test(
         "--verbose",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant.
-        "--add=KVCommandDeduplicationIT",
+        "--additional=KVCommandDeduplicationIT",
     ],
 )
 

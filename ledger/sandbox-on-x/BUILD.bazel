@@ -149,10 +149,10 @@ conformance_test(
         "--exclude=RaceConditionIT",
         "--exclude=ExceptionRaceConditionIT",
         "--exclude=ExceptionsIT",
-        "--add=ParticipantPruningIT",
+        "--additional=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--add=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
     ],
 )
 
