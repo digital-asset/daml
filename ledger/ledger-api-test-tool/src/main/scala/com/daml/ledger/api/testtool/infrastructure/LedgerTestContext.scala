@@ -10,16 +10,16 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.immutable
+import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] final class LedgerTestContext private[infrastructure] (
-    participants: immutable.Seq[ParticipantTestContext]
+    val configuredParticipants: immutable.Seq[ParticipantTestContext]
 )(implicit ec: ExecutionContext) {
 
-  require(participants.nonEmpty, "At least one participant must be provided.")
+  require(configuredParticipants.nonEmpty, "At least one participant must be provided.")
 
-  private[this] val participantsRing = Iterator.continually(participants).flatten
+  private[this] val participantsRing = Iterator.continually(configuredParticipants).flatten
 
   /** This allocates participants and a specified number of parties for each participant.
     *
@@ -47,7 +47,7 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
           .preallocateParties(partyCount.count, participantsUnderTest)
           .map(parties => Participant(participant, parties: _*))
       })
-      .map(Participants(_: _*))
+      .map(allocatedParticipants => Participants(allocatedParticipants: _*))
   }
 
   private[this] def nextParticipant(): ParticipantTestContext =

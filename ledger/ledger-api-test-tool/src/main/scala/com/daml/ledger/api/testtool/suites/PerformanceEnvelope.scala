@@ -336,12 +336,12 @@ object PerformanceEnvelope {
       s"Verify that ledger passes the ${envelope.name} throughput envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { case participants =>
-      waitForParties(participants.participants)
+      waitForParties(participants.allocatedParticipants)
 
       def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
         sendPings(
-          from = participants.participants.head,
-          to = participants.participants(1),
+          from = participants.allocatedParticipants.head,
+          to = participants.allocatedParticipants(1),
           workflowIds = (1 to num).map(x => s"$description-$x").toList,
           payload = description,
         )
@@ -384,11 +384,11 @@ object PerformanceEnvelope {
       s"Verify that ledger passes the ${envelope.name} latency envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { case participants =>
-      waitForParties(participants.participants)
+      waitForParties(participants.allocatedParticipants)
 
       sendPings(
-        from = participants.participants.head,
-        to = participants.participants(1),
+        from = participants.allocatedParticipants.head,
+        to = participants.allocatedParticipants(1),
         workflowIds = (1 to (numPings + numWarmupPings)).map(x => s"latency-$x").toList,
         payload = "latency",
       ).map { case (_, latencies) =>
@@ -429,11 +429,11 @@ object PerformanceEnvelope {
       s"Verify that ledger passes the ${envelope.name} transaction size envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { case participants =>
-      waitForParties(participants.participants)
+      waitForParties(participants.allocatedParticipants)
 
       sendPings(
-        from = participants.participants.head,
-        to = participants.participants(1),
+        from = participants.allocatedParticipants.head,
+        to = participants.allocatedParticipants(1),
         workflowIds = List("transaction-size"),
         payload = Random.alphanumeric.take(envelope.kilobytes * 1024).mkString(""),
       ).map(_ => ())
