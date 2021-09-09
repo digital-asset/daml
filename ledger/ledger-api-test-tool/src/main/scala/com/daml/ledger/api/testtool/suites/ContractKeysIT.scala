@@ -77,6 +77,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         lookupByKeyFailure,
         Status.Code.ABORTED,
         Some(Pattern.compile("Inconsistent")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -118,12 +119,14 @@ final class ContractKeysIT extends LedgerTestSuite {
         fetchFailure,
         Status.Code.ABORTED,
         "Contract could not be found",
+        checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
       assertGrpcError(
         lookupByKeyFailure,
         Status.Code.ABORTED,
         Some(Pattern.compile("Inconsistent")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -196,22 +199,31 @@ final class ContractKeysIT extends LedgerTestSuite {
         duplicateKeyFailure,
         Status.Code.ABORTED,
         Some(Pattern.compile("Inconsistent")),
+        checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         bobLooksUpTextKeyFailure,
         Status.Code.INVALID_ARGUMENT,
         "requires authorizers",
+        checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         bobLooksUpBogusTextKeyFailure,
         Status.Code.INVALID_ARGUMENT,
         "requires authorizers",
+        checkDefiniteAnswerMetadata = true,
       )
-      assertGrpcError(aliceFailedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+      assertGrpcError(
+        aliceFailedFetch,
+        Status.Code.INVALID_ARGUMENT,
+        "couldn't find key",
+        checkDefiniteAnswerMetadata = true,
+      )
       assertGrpcError(
         maintainerNotSignatoryFailed,
         Status.Code.INVALID_ARGUMENT,
         "are not a subset of the signatories",
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -269,7 +281,12 @@ final class ContractKeysIT extends LedgerTestSuite {
       _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(_, key2))
 
     } yield {
-      assertGrpcError(failedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+      assertGrpcError(
+        failedFetch,
+        Status.Code.INVALID_ARGUMENT,
+        "couldn't find key",
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -345,11 +362,13 @@ final class ContractKeysIT extends LedgerTestSuite {
         failureBeforeCreation,
         Status.Code.INVALID_ARGUMENT,
         "dependency error: couldn't find key",
+        checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         failureAfterConsuming,
         Status.Code.INVALID_ARGUMENT,
         "dependency error: couldn't find key",
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -381,8 +400,18 @@ final class ContractKeysIT extends LedgerTestSuite {
           ops.exerciseLocalFetch(party2),
         )
       } yield {
-        assertGrpcError(failedLookup, Status.Code.INVALID_ARGUMENT, "not visible")
-        assertGrpcError(failedFetch, Status.Code.INVALID_ARGUMENT, "not visible")
+        assertGrpcError(
+          failedLookup,
+          Status.Code.INVALID_ARGUMENT,
+          "not visible",
+          checkDefiniteAnswerMetadata = true,
+        )
+        assertGrpcError(
+          failedFetch,
+          Status.Code.INVALID_ARGUMENT,
+          "not visible",
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 

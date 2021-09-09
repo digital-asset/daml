@@ -3,11 +3,10 @@
 
 package com.daml.lf.engine.trigger
 
-import java.util.UUID
-
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, PostStop, PreRestart}
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -18,14 +17,15 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.lf.CompiledPackages
+import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerStatus}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import io.grpc.Status.Code
 import scalaz.syntax.tag._
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-import TriggerRunner.{QueryingACS, Running, TriggerStatus}
-import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 
 object TriggerRunnerImpl {
 
@@ -85,8 +85,8 @@ object TriggerRunnerImpl {
             replyTo ! QueryingACS
             Behaviors.same
           case QueryACSFailed(cause: io.grpc.StatusRuntimeException)
-              if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
-            throw new UnauthenticatedException(s"Querying ACS failed: ${cause.toString}")
+              if cause.getStatus.getCode == Code.UNAUTHENTICATED =>
+            throw UnauthenticatedException(s"Querying ACS failed: ${cause.toString}")
           case QueryACSFailed(cause) =>
             // Report the failure to the server.
             config.server ! Server.TriggerInitializationFailure(triggerInstance, cause.toString)
@@ -146,8 +146,8 @@ object TriggerRunnerImpl {
               replyTo ! Running
               Behaviors.same
             case Failed(cause: io.grpc.StatusRuntimeException)
-                if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
-              throw new UnauthenticatedException(s"Querying ACS failed: ${cause.toString}")
+                if cause.getStatus.getCode == Code.UNAUTHENTICATED =>
+              throw UnauthenticatedException(s"Querying ACS failed: ${cause.toString}")
             case Failed(cause) =>
               // Report the failure to the server.
               config.server ! Server.TriggerRuntimeFailure(triggerInstance, cause.toString)

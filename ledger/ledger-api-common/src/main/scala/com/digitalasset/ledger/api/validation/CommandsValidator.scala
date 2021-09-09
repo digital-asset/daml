@@ -55,7 +55,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
         .fromInstant(ledgerEffectiveTime)
         .left
         .map(_ =>
-          invalidArgument(
+          invalidArgument(definiteAnswer = Some(false))(
             s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
           )
         )
@@ -95,7 +95,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
       case (None, Some(minRel)) => Right(currentTime.plus(DurationConversion.fromProto(minRel)))
       case (Some(_), Some(_)) =>
         Left(
-          invalidArgument(
+          invalidArgument(definiteAnswer = Some(false))(
             "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"
           )
         )
@@ -178,7 +178,7 @@ final class CommandsValidator(ledgerId: LedgerId, submissionIdGenerator: Submiss
           choiceArgument = validatedChoiceArgument,
         )
       case ProtoEmpty =>
-        Left(missingField("command"))
+        Left(missingField("command", definiteAnswer = Some(false)))
     }
 
   private def extractOrGenerateSubmissionId(commands: ProtoCommands) =
@@ -220,7 +220,11 @@ object CommandsValidator {
       commands: ProtoCommands
   ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
     def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
-      Either.cond(effectiveActAs.nonEmpty, (), missingField("party or act_as"))
+      Either.cond(
+        effectiveActAs.nonEmpty,
+        (),
+        missingField("party or act_as", definiteAnswer = Some(false)),
+      )
 
     val submitters = effectiveSubmitters(commands)
     for {

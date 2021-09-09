@@ -58,7 +58,12 @@ final class SemanticTests extends LedgerTestSuite {
           .exercise(owner, iou.exerciseTransfer(_, leftWithNothing))
           .mustFail("consuming a contract twice")
       } yield {
-        assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
+        assertGrpcError(
+          failure,
+          Status.Code.ABORTED,
+          "Contract could not be found",
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
@@ -123,6 +128,7 @@ final class SemanticTests extends LedgerTestSuite {
           failure,
           Status.Code.INVALID_ARGUMENT,
           "Update failed due to fetch of an inactive contract",
+          checkDefiniteAnswerMetadata = true,
         )
       }
   })
@@ -141,7 +147,12 @@ final class SemanticTests extends LedgerTestSuite {
           .exercise(owner2, shared.exerciseSharedContract_Consume2)
           .mustFail("consuming a contract twice")
       } yield {
-        assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
+        assertGrpcError(
+          failure,
+          Status.Code.ABORTED,
+          "Contract could not be found",
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
@@ -229,7 +240,12 @@ final class SemanticTests extends LedgerTestSuite {
         .create(houseOwner, PaintAgree(painter, houseOwner))
         .mustFail("creating a contract on behalf of two parties")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        "requires authorizers",
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -246,7 +262,12 @@ final class SemanticTests extends LedgerTestSuite {
           .exercise(painter, offer.exercisePaintOffer_Accept(_, iou))
           .mustFail("exercising a choice without consent")
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+        assertGrpcError(
+          failure,
+          Status.Code.INVALID_ARGUMENT,
+          "requires authorizers",
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
@@ -307,21 +328,29 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("fetching the new IOU with the wrong party")
 
       } yield {
-        assertGrpcError(iouFetchFailure, Status.Code.ABORTED, "Contract could not be found")
+        assertGrpcError(
+          iouFetchFailure,
+          Status.Code.ABORTED,
+          "Contract could not be found",
+          checkDefiniteAnswerMetadata = true,
+        )
         assertGrpcError(
           paintOfferFetchFailure,
           Status.Code.ABORTED,
           "Contract could not be found",
+          checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
           paintAgreeFetchFailure,
           Status.Code.ABORTED,
           "Contract could not be found",
+          checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
           secondIouFetchFailure,
           Status.Code.INVALID_ARGUMENT,
           "requires one of the stakeholders",
+          checkDefiniteAnswerMetadata = true,
         )
       }
   })
@@ -383,7 +412,12 @@ final class SemanticTests extends LedgerTestSuite {
             beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
           }
         } yield {
-          assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
+          assertGrpcError(
+            failure,
+            Status.Code.ABORTED,
+            "Contract could not be found",
+            checkDefiniteAnswerMetadata = true,
+          )
         }
     }
   )

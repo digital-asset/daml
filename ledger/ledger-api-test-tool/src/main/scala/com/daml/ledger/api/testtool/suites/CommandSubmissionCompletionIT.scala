@@ -109,6 +109,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
             "(unknown|Couldn't find requested) choice " + badChoice
           )
         ),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -128,6 +129,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       failure,
       Status.Code.NOT_FOUND,
       s"Ledger ID '$invalidLedgerId' not found.",
+      checkDefiniteAnswerMetadata = true,
     )
   })
 
@@ -140,7 +142,12 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     for {
       failure <- ledger.submit(emptyRequest).mustFail("submitting an empty command")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        "Missing field: commands",
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 

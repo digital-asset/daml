@@ -4,54 +4,204 @@
 package com.daml.platform.server.api.validation
 
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.platform.server.api.ApiException
-import io.grpc.{Status, StatusRuntimeException}
-
+import com.google.protobuf.{Any => AnyProto}
+import com.google.rpc.{ErrorInfo, Status}
+import io.grpc.Status.Code
+import io.grpc.StatusRuntimeException
+import io.grpc.protobuf.StatusProto
 import scalaz.syntax.tag._
 
 trait ErrorFactories {
 
-  def ledgerIdMismatch(expected: LedgerId, received: LedgerId): StatusRuntimeException =
+  import ErrorFactories._
+
+  lazy val DuplicateCommandException: StatusRuntimeException =
     grpcError(
-      Status.NOT_FOUND.withDescription(
-        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
-      )
+      Status
+        .newBuilder()
+        .setCode(Code.ALREADY_EXISTS.value())
+        .setMessage("Duplicate command")
+        .addDetails(definiteAnswers(true))
+        .build()
     )
 
-  def missingField(fieldName: String): StatusRuntimeException =
-    grpcError(Status.INVALID_ARGUMENT.withDescription(s"Missing field: $fieldName"))
+  def notFound(message: String): StatusRuntimeException =
+    grpcError(
+      Status
+        .newBuilder()
+        .setCode(Code.NOT_FOUND.value())
+        .setMessage(message)
+        .build()
+    )
 
-  def invalidArgument(errorMsg: String): StatusRuntimeException =
-    grpcError(Status.INVALID_ARGUMENT.withDescription(s"Invalid argument: $errorMsg"))
+  /** @param expected Expected ledger id.
+    * @param received Received ledger id.
+    * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
+    * @return An exception with the [[Code.NOT_FOUND]] status code.
+    */
+  def ledgerIdMismatch(
+      expected: LedgerId,
+      received: LedgerId,
+      definiteAnswer: Option[Boolean],
+  ): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.NOT_FOUND.value())
+      .setMessage(
+        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
+      )
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 
-  def invalidField(fieldName: String, message: String): StatusRuntimeException =
-    grpcError(Status.INVALID_ARGUMENT.withDescription(s"Invalid field $fieldName: $message"))
+  /** @param fieldName A missing field's name.
+    * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
+    * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
+    */
+  def missingField(fieldName: String, definiteAnswer: Option[Boolean]): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Missing field: $fieldName")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
+
+  /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
+    * @param message A status' message.
+    * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
+    */
+  def invalidArgument(definiteAnswer: Option[Boolean])(message: String): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Invalid argument: $message")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
+
+  /** @param fieldName An invalid field's name.
+    * @param message A status' message.
+    * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
+    * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
+    */
+  def invalidField(
+      fieldName: String,
+      message: String,
+      definiteAnswer: Option[Boolean],
+  ): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Invalid field $fieldName: $message")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 
   def outOfRange(description: String): StatusRuntimeException =
-    grpcError(Status.OUT_OF_RANGE.withDescription(description))
+    grpcError(
+      Status
+        .newBuilder()
+        .setCode(Code.OUT_OF_RANGE.value())
+        .setMessage(description)
+        .build()
+    )
 
-  def aborted(description: String): StatusRuntimeException =
-    grpcError(Status.ABORTED.withDescription(description))
+  /** @param message A status' message.
+    * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
+    * @return An exception with the [[Code.ABORTED]] status code.
+    */
+  def aborted(message: String, definiteAnswer: Option[Boolean]): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.ABORTED.value())
+      .setMessage(message)
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
   def permissionDenied(): StatusRuntimeException =
-    grpcError(Status.PERMISSION_DENIED)
+    grpcError(
+      Status
+        .newBuilder()
+        .setCode(Code.PERMISSION_DENIED.value())
+        .build()
+    )
 
   def unauthenticated(): StatusRuntimeException =
-    grpcError(Status.UNAUTHENTICATED)
+    grpcError(
+      Status
+        .newBuilder()
+        .setCode(Code.UNAUTHENTICATED.value())
+        .build()
+    )
 
-  def missingLedgerConfig(): StatusRuntimeException =
-    grpcError(Status.UNAVAILABLE.withDescription("The ledger configuration is not available."))
+  /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
+    * @return An exception with the [[Code.UNAVAILABLE]] status code.
+    */
+  def missingLedgerConfig(definiteAnswer: Option[Boolean]): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.UNAVAILABLE.value())
+      .setMessage("The ledger configuration is not available.")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 
   def missingLedgerConfigUponRequest(): StatusRuntimeException =
-    grpcError(Status.NOT_FOUND.withDescription("The ledger configuration is not available."))
+    grpcError(
+      Status
+        .newBuilder()
+        .setCode(Code.NOT_FOUND.value())
+        .setMessage("The ledger configuration is not available.")
+        .build()
+    )
 
   def participantPrunedDataAccessed(message: String): StatusRuntimeException =
-    grpcError(Status.NOT_FOUND.withDescription(message))
+    grpcError(
+      Status
+        .newBuilder()
+        .setCode(Code.NOT_FOUND.value())
+        .setMessage(message)
+        .build()
+    )
 
-  def grpcError(status: Status): StatusRuntimeException =
-    new ApiException(status)
+  /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
+    * @return An exception with the [[Code.UNAVAILABLE]] status code.
+    */
+  def serviceNotRunning(definiteAnswer: Option[Boolean]): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.UNAVAILABLE.value())
+      .setMessage("Service has been shut down.")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 
+  def grpcError(status: Status): StatusRuntimeException = new ApiException(
+    StatusProto.toStatusRuntimeException(status)
+  )
 }
 
-object ErrorFactories extends ErrorFactories
+object ErrorFactories extends ErrorFactories {
+  private[daml] lazy val definiteAnswers = Map(
+    true -> AnyProto.pack[ErrorInfo](
+      ErrorInfo.newBuilder().putMetadata(GrpcStatuses.DefiniteAnswerKey, "true").build()
+    ),
+    false -> AnyProto.pack[ErrorInfo](
+      ErrorInfo.newBuilder().putMetadata(GrpcStatuses.DefiniteAnswerKey, "false").build()
+    ),
+  )
+
+  private def addDefiniteAnswerDetails(
+      definiteAnswer: Option[Boolean],
+      statusBuilder: Status.Builder,
+  ): Unit = {
+    definiteAnswer.foreach { definiteAnswer =>
+      statusBuilder.addDetails(definiteAnswers(definiteAnswer))
+    }
+  }
+}

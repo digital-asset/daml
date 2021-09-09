@@ -122,6 +122,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
           )
         ),
+        checkDefiniteAnswerMetadata = false,
       )
     }
   })
@@ -168,6 +169,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
           )
         ),
+        checkDefiniteAnswerMetadata = false,
       )
     }
   })
@@ -221,6 +223,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             s"Command completions? request from [0-9a-fA-F]* to [0-9a-fA-F]* overlaps with pruned offset ${offsetToPruneUpTo.getAbsolute}"
           )
         ),
+        checkDefiniteAnswerMetadata = false,
       )
 
     }

@@ -34,6 +34,7 @@ class ClosedWorldIT extends LedgerTestSuite {
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("Part(y|ies) not known on ledger")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })

@@ -30,7 +30,7 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
       appId <- Ref.LedgerString
         .fromString(nonEmptyAppId)
         .left
-        .map(invalidField("application_id", _))
+        .map(invalidField("application_id", _, None))
       nonEmptyParties <- requireNonEmpty(request.parties, "parties")
       knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
       convertedOffset <- LedgerOffsetValidator.validateOptional(request.offset, "offset")

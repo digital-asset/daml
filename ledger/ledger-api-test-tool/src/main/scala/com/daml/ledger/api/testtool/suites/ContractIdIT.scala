@@ -56,6 +56,7 @@ final class ContractIdIT extends LedgerTestSuite {
               err,
               Status.Code.INVALID_ARGUMENT,
               s"""Illegal Contract ID "$testedCid"""",
+              checkDefiniteAnswerMetadata = true,
             )
             ()
           case otherwise =>

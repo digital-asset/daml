@@ -75,6 +75,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         failure,
         Status.Code.INVALID_ARGUMENT,
         None,
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -122,6 +123,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         failure,
         Status.Code.INVALID_ARGUMENT,
         None,
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -173,6 +175,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -203,6 +206,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         failure,
         Status.Code.ABORTED,
         Some(Pattern.compile("Contract could not be found")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -254,6 +258,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -284,6 +289,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("dependency error: couldn't find key")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -337,6 +343,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("requires authorizers (.*) for lookup by key, but it only has")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -372,6 +379,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
             "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"LookupOtherByKey value matches\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
           )
         ),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
