@@ -1,0 +1,51 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library( # Pass package as arg
+    name = "error",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [],
+    tags = ["maven_coordinates=com.daml:error:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-scala/contextualized-logging",
+        "@maven//:org_reflections_reflections",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "error-test-package",
+    srcs = glob(["src/test/scala/com/daml/error/utils/**/*.scala"]),
+    scala_deps = [],
+    tags = ["maven_coordinates=com.daml:error-test-package:__VERSION__"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":error",
+        "//libs-scala/contextualized-logging",
+    ],
+)
+
+da_scala_test_suite(
+    name = "error-test-suite",
+    srcs = glob(["src/test/scala/**/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+    ],
+    deps = [
+        ":error",
+        ":error-test-package",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
