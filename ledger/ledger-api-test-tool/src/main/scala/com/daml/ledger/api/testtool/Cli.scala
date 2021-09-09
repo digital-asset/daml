@@ -164,6 +164,14 @@ object Cli {
         """A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`."""
       )
 
+    opt[Seq[String]]("add")
+      .action((add, c) => c.copy(added = c.added ++ add))
+      .hidden()
+      .unbounded()
+      .text(
+        """A comma-separated list of additional prefixes. If specified, also tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--add=a,b` is the same as `--add=a --add=b`."""
+      )
+
     opt[Seq[String]]("perf-tests")
       .validate(_.find(!Tests.PerformanceTestsKeys(_)).fold(success)(invalidPerformanceTestName))
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
