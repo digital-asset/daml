@@ -273,8 +273,9 @@ template BranchingControllers
     ctrlFalse : Party
   where
   signatory giver
-  observer ctrl
   let ctrl = if whichCtrl then ctrlTrue else ctrlFalse
+  observer ctrl
+
   choice Delete : ()
     controller ctrl
     do return ()
