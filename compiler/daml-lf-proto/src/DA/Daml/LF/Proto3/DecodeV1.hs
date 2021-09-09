@@ -226,7 +226,8 @@ decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptio
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
     <*> decodeNM DuplicateException decodeDefException exceptions
-    -- <*> decodeNM decodeDefInterface interfaces -- TODO (drsk) interfaces
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    <*> pure NM.empty
 
 -- decodeDefInterface :: LF1.DefInterface -> Decode DefInterface
 -- decodeDefInterface = undefined -- TODO (drsk) interfaces
@@ -304,7 +305,8 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mayDecode "defTemplateAgreement" defTemplateAgreement decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
---    <*> pure [] -- TODO (drsk) interfaces
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    <*> pure []
 
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do

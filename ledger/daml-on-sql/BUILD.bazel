@@ -166,6 +166,22 @@ conformance_test(
     ],
 )
 
+conformance_test(
+    name = "conformance-test-append-only-command-completion-dedup-info",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--enable-append-only-schema",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=" +
+        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+    ],
+)
+
 genrule(
     name = "docs",
     srcs = [

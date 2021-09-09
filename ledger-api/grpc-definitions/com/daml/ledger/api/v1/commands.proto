@@ -58,11 +58,8 @@ message Commands {
   repeated Command commands = 8;
 
   oneof deduplication_period {
-
-      // Same semantics as deduplication_duration
-      //
-      // DEPRECATED
-      google.protobuf.Duration deduplication_time = 9;
+      // Same semantics apply as for `deduplication_duration`.
+      google.protobuf.Duration deduplication_time = 9 [deprecated = true];
 
       // Specifies the length of the deduplication period.
       // It is interpreted relative to the local clock at some point during the submission's processing.

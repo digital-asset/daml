@@ -22,59 +22,80 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
     extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
 
+  override def testNamingPrefix: String = "KVCommandDeduplication"
+
   override def runGivenDeduplicationWait(
-      context: ParticipantTestContext
+      participants: Seq[ParticipantTestContext]
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is increased by minSkew in the committer so we set the skew to a low value for testing
     val minSkew = 1.second.asProtobuf
-    runWithUpdatedOrFallbackTimeModel(
-      context,
+    runWithUpdatedTimeModel(
+      participants,
       _.update(_.minSkew := minSkew),
-      TimeModel.defaultInstance.update(_.minSkew := minSkew),
     )(timeModel => test(defaultDeduplicationWindowWait.plus(timeModel.getMinSkew.asScala)))
   }
 
-  private def runWithUpdatedOrFallbackTimeModel(
-      ledger: ParticipantTestContext,
+  private def runWithUpdatedTimeModel(
+      participants: Seq[ParticipantTestContext],
       timeModelUpdate: TimeModel => TimeModel,
-      fallbackTimeModel: => TimeModel,
-  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = ledger
-    .getTimeModel()
-    .flatMap(timeModel => {
-      def restoreTimeModel() = {
-        val ledgerTimeModelRestoreResult = for {
-          time <- ledger.time()
-          _ <- ledger
-            .setTimeModel(
-              mrt = time.plusSeconds(30),
-              generation = timeModel.configurationGeneration + 1,
-              newTimeModel = timeModel.getTimeModel,
+  )(test: TimeModel => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+    val anyParticipant = participants.head
+    anyParticipant
+      .getTimeModel()
+      .flatMap(timeModel => {
+        def restoreTimeModel(participant: ParticipantTestContext) = {
+          val ledgerTimeModelRestoreResult = for {
+            time <- participant.time()
+            _ <- participant
+              .setTimeModel(
+                time.plusSeconds(30),
+                timeModel.configurationGeneration + 1,
+                timeModel.getTimeModel,
+              )
+          } yield {}
+          ledgerTimeModelRestoreResult.recover { case NonFatal(exception) =>
+            logger.warn("Failed to restore time model for ledger", exception)
+            ()
+          }
+        }
+        for {
+          time <- anyParticipant.time()
+          updatedModel = timeModelUpdate(timeModel.getTimeModel)
+          (timeModelForTest, participantThatDidTheUpdate) <- tryTimeModelUpdateOnAllParticipants(
+            participants,
+            _.setTimeModel(
+              time.plusSeconds(30),
+              timeModel.configurationGeneration,
+              updatedModel,
+            )
+              .map(_ => updatedModel),
+          )
+          _ <- test(timeModelForTest)
+            .transformWith(testResult =>
+              restoreTimeModel(participantThatDidTheUpdate).transform(_ => testResult)
             )
         } yield {}
-        ledgerTimeModelRestoreResult.recover { case NonFatal(exception) =>
-          logger.warn("Failed to restore time model for ledger", exception)
-          ()
-        }
-      }
-      for {
-        time <- ledger.time()
-        updatedModel = timeModelUpdate(timeModel.getTimeModel)
-        timeModelForTest <- ledger
-          .setTimeModel(
-            mrt = time.plusSeconds(30),
-            generation = timeModel.configurationGeneration,
-            newTimeModel = updatedModel,
-          )
-          .map(_ => updatedModel)
-          .recover { case NonFatal(e) =>
-            logger.warn("Failed to update time model, running with default", e)
-            fallbackTimeModel
-          }
-        _ <- test(timeModelForTest)
-          .transformWith(testResult => restoreTimeModel().transform(_ => testResult))
-      } yield {}
-    })
+      })
+  }
 
-  override def testNamingPrefix: String = "KVCommandDeduplication"
+  /** Try to run the [[update]] sequentially on all the participants.
+    * The function returns the first success or the last failure of the update operation.
+    * Useful for updating the configuration when we don't know which participant can update the config,
+    *  as only the first one that submitted the initial configuration has the permissions to do so.
+    */
+  private def tryTimeModelUpdateOnAllParticipants(
+      participants: Seq[ParticipantTestContext],
+      timeModelUpdate: ParticipantTestContext => Future[TimeModel],
+  )(implicit ec: ExecutionContext): Future[(TimeModel, ParticipantTestContext)] = {
+    participants.foldLeft(
+      Future.failed[(TimeModel, ParticipantTestContext)](
+        new IllegalStateException("No participant")
+      )
+    ) { (result, participant) =>
+      result.recoverWith { case NonFatal(_) =>
+        timeModelUpdate(participant).map(_ -> participant)
+      }
+    }
+  }
 
 }

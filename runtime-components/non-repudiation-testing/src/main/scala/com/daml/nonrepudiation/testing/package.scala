@@ -15,6 +15,7 @@ import com.google.protobuf.duration.Duration
 import sun.security.tools.keytool.CertAndKeyGen
 import sun.security.x509.X500Name
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 
 package object testing {
@@ -35,6 +36,7 @@ package object testing {
   private val ApplicationId = UUID.randomUUID.toString
   private val Party = UUID.randomUUID.toString
 
+  @nowarn("msg=deprecated")
   def generateCommand(
       payload: String = "hello, world",
       commandId: String = UUID.randomUUID.toString,

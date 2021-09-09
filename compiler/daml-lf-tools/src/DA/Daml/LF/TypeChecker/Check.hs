@@ -536,6 +536,8 @@ typeOfCase scrut alts = do
                 DataEnum cons ->  (,,) (length cons) (\k -> CPEnum scrutTCon (cons !! k))
                     <$> typeOfAltsEnum scrutTCon cons alts
                 DataRecord{} -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
+                -- TODO https://github.com/digital-asset/daml/issues/10810
+                DataInterface -> error "interfaces are not implemented"
         TUnit -> (,,) 1 (const CPUnit) <$> typeOfAltsUnit alts
         TBool -> (,,) 2 (CPBool . toEnum) <$> typeOfAltsBool alts
         TList elemType -> (,,) 2 ([CPNil, CPCons wildcard wildcard] !!) <$> typeOfAltsList elemType alts
@@ -786,6 +788,8 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
       DataEnum names -> do
         unless (null params) $ throwWithContext EEnumTypeWithParams
         checkUnique EDuplicateConstructor names
+      -- TODO https://github.com/digital-asset/daml/issues/10810
+      DataInterface -> error "interfaces are not implemented"
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
@@ -809,7 +813,8 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBin
     checkExpr upd (TUpdate retType)
 
 checkTemplate :: MonadGamma m => Module -> Template -> m ()
-checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey) = do
+checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey _implements) = do
+  -- TODO https://github.com/digital-asset/daml/issues/10810 check implements
   let tcon = Qualified PRSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
   unless (null tparams) $ throwWithContext (EExpectedTemplatableType tpl)
@@ -853,7 +858,8 @@ checkDefException m DefException{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions _interfaces) = do
+  -- TODO https://github.com/digital-asset/daml/issues/10810 check interfaces
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
