@@ -265,7 +265,7 @@ data Definition
 moduleFromDefinitions :: ModuleName -> Maybe FilePath -> FeatureFlags -> [Definition] -> Module
 moduleFromDefinitions name path flags defs = do
   let (syns, dats, vals, tpls, exps) = partitionDefinitions defs
-  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls) (NM.fromList exps)
+  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls) (NM.fromList exps) NM.empty -- TODO interfaces
 
 partitionDefinitions :: [Definition] -> ([DefTypeSyn], [DefDataType], [DefValue], [Template], [DefException])
 partitionDefinitions = foldr f ([], [], [], [], [])

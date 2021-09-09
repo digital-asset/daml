@@ -25,6 +25,10 @@ import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
+
+import scala.annotation.nowarn
+
+@nowarn("msg=deprecated")
 class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils

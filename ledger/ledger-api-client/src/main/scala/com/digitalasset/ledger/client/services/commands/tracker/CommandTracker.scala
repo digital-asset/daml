@@ -27,6 +27,7 @@ import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 
+import scala.annotation.nowarn
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
 import scala.concurrent.duration.FiniteDuration
@@ -214,6 +215,7 @@ private[commands] class CommandTracker[Context](
         }
       }
 
+      @nowarn("msg=deprecated")
       private def registerSubmission(submission: Ctx[Context, CommandSubmission]): Unit = {
         val commands = submission.value.commands
         val commandId = commands.commandId

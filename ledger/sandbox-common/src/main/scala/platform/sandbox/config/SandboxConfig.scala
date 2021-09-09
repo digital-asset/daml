@@ -64,6 +64,7 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
+    maxDeduplicationDuration: Option[Duration],
 ) {
 
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
@@ -71,7 +72,12 @@ final case class SandboxConfig(
 
   lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
     InitialLedgerConfiguration(
-      Configuration.reasonableInitialConfiguration.copy(timeModel = timeModel),
+      Configuration.reasonableInitialConfiguration.copy(
+        timeModel = timeModel,
+        maxDeduplicationTime = maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        ),
+      ),
       delayBeforeSubmittingLedgerConfiguration,
     )
 }
@@ -137,6 +143,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableAppendOnlySchema = false,
       enableCompression = false,
+      maxDeduplicationDuration = None,
     )
 
   sealed abstract class EngineMode extends Product with Serializable
