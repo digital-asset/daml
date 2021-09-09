@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.util.regex.Pattern
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -13,6 +11,7 @@ import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 
+import java.util.regex.Pattern
 import scala.concurrent.duration.DurationInt
 
 final class CommandSubmissionCompletionIT extends LedgerTestSuite {
@@ -163,5 +162,4 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       // Nothing to do, if the two completions are found the test is passed
     }
   })
-
 }

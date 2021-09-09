@@ -151,6 +151,24 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-append-only-command-completion-dedup-info",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--participant=participant-id=example,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=" +
+        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+    ],
+)
+
+conformance_test(
     name = "conformance-test-min-1.14",
     lf_versions = ["1.14"],
     ports = [6865],

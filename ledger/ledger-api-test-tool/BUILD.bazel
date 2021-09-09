@@ -87,6 +87,7 @@ da_scala_binary(
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
                 "//libs-scala/build-info",
                 "//libs-scala/grpc-utils",
                 "//libs-scala/resources",
@@ -139,6 +140,7 @@ da_scala_binary(
             deps = [
                 "//daml-lf/language",
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
                 ":ledger-api-test-tool-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-test-suites" % lf_version,
             ],
