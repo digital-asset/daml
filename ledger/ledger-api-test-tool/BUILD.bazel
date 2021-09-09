@@ -237,16 +237,17 @@ conformance_test(
         "--exclude=CommandDeduplicationIT",
         "--additional=IdentityIT",
         "--additional=IdentityIT:IdNotEmpty",
-        # Explicitly include retired tests here to make sure existing CI pipelines are not broken
-        # Retired tests will be eventually removed
+        # Explicitly include retired tests here to make sure existing CI pipelines are not broken.
+        # Retired tests will be eventually removed.
         "--additional=LotsOfPartiesIT",
         "--additional=TransactionScaleIT",
-        # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken
+        # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken.
         # This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
-        # exclusively for backwards-compatibility
-        # Deprecated CLI options will be eventually removed
+        # exclusively for backwards-compatibility.
+        # Deprecated CLI options will be eventually removed.
         "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
         "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+        "--all-tests",
     ],
 )
 
