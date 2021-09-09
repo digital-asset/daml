@@ -13,10 +13,12 @@ import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, Tex
 import com.daml.timer.Delayed
 import io.grpc.Status
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+@nowarn("msg=deprecated")
 private[testtool] abstract class CommandDeduplicationBase(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
