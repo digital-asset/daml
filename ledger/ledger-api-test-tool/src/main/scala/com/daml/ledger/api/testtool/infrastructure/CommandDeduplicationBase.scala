@@ -31,89 +31,93 @@ private[testtool] abstract class CommandDeduplicationBase(
   }
   val defaultDeduplicationWindowWait: FiniteDuration = deduplicationTime + ledgerTimeInterval * 2
 
-  def runGivenDeduplicationWait(context: ParticipantTestContext)(test: Duration => Future[Unit])(
-      implicit ec: ExecutionContext
+  def runGivenDeduplicationWait(
+      participants: Seq[ParticipantTestContext]
+  )(test: Duration => Future[Unit])(implicit
+      ec: ExecutionContext
   ): Future[Unit]
 
   def testNamingPrefix: String
 
-  test(
+  testGivenAllParticipants(
     s"${testNamingPrefix}SimpleDeduplicationBasic",
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
     runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    lazy val requestA1 = ledger
-      .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
-      .update(
-        _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationTime(
-          deduplicationTime.asProtobuf
-        )
-      )
-    lazy val requestA2 = ledger
-      .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
-      .update(
-        _.commands.deduplicationPeriod := DeduplicationPeriod
-          .DeduplicationDuration(
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      lazy val requestA1 = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
+        .update(
+          _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationTime(
             deduplicationTime.asProtobuf
-          ), //same semantics as `DeduplicationTime`
-        _.commands.commandId := requestA1.commands.get.commandId,
-      )
-    runGivenDeduplicationWait(ledger) { deduplicationWait =>
-      for {
-        // Submit command A (first deduplication window)
-        // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
-        // only one submission is therefore sent to the ledger.
-        ledgerEnd1 <- ledger.currentEnd()
-        _ <- ledger.submit(requestA1)
-        failure1 <- ledger
-          .submit(requestA1)
-          .mustFail("submitting the first request for the second time")
-        completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
-        // Wait until the end of first deduplication window
-        _ <- Delayed.by(deduplicationWait)(())
-
-        // Submit command A (second deduplication window)
-        // Note: the deduplication window is guaranteed to have passed on both
-        // the ledger API server and the ledger itself, since the test waited more than
-        // `deduplicationSeconds` after receiving the first command *completion*.
-        // The first submit() in this block should therefore lead to an accepted transaction.
-        ledgerEnd2 <- ledger.currentEnd()
-        _ <- ledger.submit(requestA2)
-        failure2 <- ledger
-          .submit(requestA2)
-          .mustFail("submitting the second request for the second time")
-        completions2 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd2)(party))
-
-        // Inspect created contracts
-        activeContracts <- ledger.activeContracts(party)
-      } yield {
-        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
-
-        assert(ledgerEnd1 != ledgerEnd2)
-
-        val completionCommandId1 =
-          assertSingleton("Expected only one first completion", completions1.map(_.commandId))
-        val completionCommandId2 =
-          assertSingleton("Expected only one second completion", completions2.map(_.commandId))
-
-        assert(
-          completionCommandId1 == requestA1.commands.get.commandId,
-          "The command ID of the first completion does not match the command ID of the submission",
+          )
         )
-        assert(
-          completionCommandId2 == requestA2.commands.get.commandId,
-          "The command ID of the second completion does not match the command ID of the submission",
+      lazy val requestA2 = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
+        .update(
+          _.commands.deduplicationPeriod := DeduplicationPeriod
+            .DeduplicationDuration(
+              deduplicationTime.asProtobuf
+            ), //same semantics as `DeduplicationTime`
+          _.commands.commandId := requestA1.commands.get.commandId,
         )
+      runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+        for {
+          // Submit command A (first deduplication window)
+          // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
+          // only one submission is therefore sent to the ledger.
+          ledgerEnd1 <- ledger.currentEnd()
+          _ <- ledger.submit(requestA1)
+          failure1 <- ledger
+            .submit(requestA1)
+            .mustFail("submitting the first request for the second time")
+          completions1 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd1)(party))
+          // Wait until the end of first deduplication window
+          _ <- Delayed.by(deduplicationWait)(())
 
-        assert(
-          activeContracts.size == 2,
-          s"There should be 2 active contracts, but received $activeContracts",
-        )
+          // Submit command A (second deduplication window)
+          // Note: the deduplication window is guaranteed to have passed on both
+          // the ledger API server and the ledger itself, since the test waited more than
+          // `deduplicationSeconds` after receiving the first command *completion*.
+          // The first submit() in this block should therefore lead to an accepted transaction.
+          ledgerEnd2 <- ledger.currentEnd()
+          _ <- ledger.submit(requestA2)
+          failure2 <- ledger
+            .submit(requestA2)
+            .mustFail("submitting the second request for the second time")
+          completions2 <- ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd2)(party))
+
+          // Inspect created contracts
+          activeContracts <- ledger.activeContracts(party)
+        } yield {
+          assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+          assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+
+          assert(ledgerEnd1 != ledgerEnd2)
+
+          val completionCommandId1 =
+            assertSingleton("Expected only one first completion", completions1.map(_.commandId))
+          val completionCommandId2 =
+            assertSingleton("Expected only one second completion", completions2.map(_.commandId))
+
+          assert(
+            completionCommandId1 == requestA1.commands.get.commandId,
+            "The command ID of the first completion does not match the command ID of the submission",
+          )
+          assert(
+            completionCommandId2 == requestA2.commands.get.commandId,
+            "The command ID of the second completion does not match the command ID of the submission",
+          )
+
+          assert(
+            activeContracts.size == 2,
+            s"There should be 2 active contracts, but received $activeContracts",
+          )
+        }
       }
     }
-  })
+  )
 
   test(
     s"${testNamingPrefix}StopOnSubmissionFailure",
@@ -179,49 +183,51 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   })
 
-  test(
+  testGivenAllParticipants(
     s"${testNamingPrefix}SimpleDeduplicationCommandClient",
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),
     runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val requestA = ledger
-      .submitAndWaitRequest(party, Dummy(party).create.command)
-      .update(
-        _.commands.deduplicationTime := deduplicationTime.asProtobuf
-      )
-    runGivenDeduplicationWait(ledger) { deduplicationWait =>
-      for {
-        // Submit command A (first deduplication window)
-        _ <- ledger.submitAndWait(requestA)
-        failure1 <- ledger
-          .submitAndWait(requestA)
-          .mustFail("submitting a request for the second time, in the first deduplication window")
-
-        // Wait until the end of first deduplication window
-        _ <- Delayed.by(deduplicationWait)(())
-
-        // Submit command A (second deduplication window)
-        _ <- ledger.submitAndWait(requestA)
-        failure2 <- ledger
-          .submitAndWait(requestA)
-          .mustFail(
-            "submitting a request for the second time, in the second deduplication window"
-          )
-
-        // Inspect created contracts
-        activeContracts <- ledger.activeContracts(party)
-      } yield {
-        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
-
-        assert(
-          activeContracts.size == 2,
-          s"There should be 2 active contracts, but received $activeContracts",
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      val requestA = ledger
+        .submitAndWaitRequest(party, Dummy(party).create.command)
+        .update(
+          _.commands.deduplicationTime := deduplicationTime.asProtobuf
         )
+      runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+        for {
+          // Submit command A (first deduplication window)
+          _ <- ledger.submitAndWait(requestA)
+          failure1 <- ledger
+            .submitAndWait(requestA)
+            .mustFail("submitting a request for the second time, in the first deduplication window")
+
+          // Wait until the end of first deduplication window
+          _ <- Delayed.by(deduplicationWait)(())
+
+          // Submit command A (second deduplication window)
+          _ <- ledger.submitAndWait(requestA)
+          failure2 <- ledger
+            .submitAndWait(requestA)
+            .mustFail(
+              "submitting a request for the second time, in the second deduplication window"
+            )
+
+          // Inspect created contracts
+          activeContracts <- ledger.activeContracts(party)
+        } yield {
+          assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+          assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+
+          assert(
+            activeContracts.size == 2,
+            s"There should be 2 active contracts, but received $activeContracts",
+          )
+        }
       }
     }
-  })
+  )
 
   test(
     s"${testNamingPrefix}DeduplicateSubmitterBasic",
