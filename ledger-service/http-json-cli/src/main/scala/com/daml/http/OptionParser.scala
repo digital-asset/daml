@@ -96,6 +96,14 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
         s" Defaults to the `max-inbound-message-size` setting."
     )
 
+  opt[Long]("max-template-id-cache-entries")
+    .action((x, c) => c.copy(surrogateTpIdCacheMaxEntries = Some(x)))
+    .optional()
+    .text(
+      s"Optional max cache size in entries for storing surrogate template id mappings." +
+        s" Defaults to ${Config.Empty.surrogateTpIdCacheMaxEntries}"
+    )
+
   opt[Int]("max-inbound-message-size")
     .action((x, c) => c.copy(maxInboundMessageSize = x))
     .optional()

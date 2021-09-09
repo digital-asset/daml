@@ -20,7 +20,7 @@ private[http] sealed abstract class QueryBackend {
   // with `Queries` as that type's responsibility.
   type Conf
 
-  def queries(tablePrefix: String, conf: Conf)(implicit
+  def queries(tablePrefix: String, conf: Conf, tpIdCacheMaxEntries: Long)(implicit
       sqli: SqlInterpol,
       metrics: Metrics,
   ): Queries
@@ -38,11 +38,11 @@ private[dbbackend] object PostgresQueryBackend extends QueryBackend {
   type SqlInterpol = Queries.SqlInterpolation.StringArray
   type Conf = Unit
 
-  override def queries(tablePrefix: String, conf: Conf)(implicit
+  override def queries(tablePrefix: String, conf: Conf, tpIdCacheMaxEntries: Long)(implicit
       sqli: SqlInterpol,
       metrics: Metrics,
   ) =
-    new PostgresQueries(tablePrefix)
+    new PostgresQueries(tablePrefix, tpIdCacheMaxEntries)
 
   override def parseConf(kvs: RawConf) = Right(())
 }
@@ -51,11 +51,11 @@ private[dbbackend] object OracleQueryBackend extends QueryBackend {
   type SqlInterpol = Queries.SqlInterpolation.Unused
   type Conf = DisableContractPayloadIndexing
 
-  override def queries(tablePrefix: String, conf: Conf)(implicit
+  override def queries(tablePrefix: String, conf: Conf, tpIdCacheMaxEntries: Long)(implicit
       sqli: SqlInterpol,
       metrics: Metrics,
   ) =
-    new OracleQueries(tablePrefix, conf)
+    new OracleQueries(tablePrefix, conf, tpIdCacheMaxEntries)
 
   override def parseConf(kvs: RawConf): Either[String, Conf] =
     kvs

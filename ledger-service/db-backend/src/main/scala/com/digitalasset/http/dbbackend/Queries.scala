@@ -32,13 +32,15 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import doobie.free.connection
 
-sealed abstract class Queries(tablePrefix: String)(implicit metrics: Metrics) {
+sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
+    metrics: Metrics
+) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
   val schemaVersion = 2
 
-  private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics)
+  private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 
   protected[this] def dropIfExists(drop: Droppable): Fragment
 
@@ -613,10 +615,10 @@ object Queries {
   }
 }
 
-private final class PostgresQueries(tablePrefix: String)(implicit
+private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
     ipol: Queries.SqlInterpolation.StringArray,
     metrics: Metrics,
-) extends Queries(tablePrefix) {
+) extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
 
@@ -746,8 +748,9 @@ import OracleQueries.DisableContractPayloadIndexing
 private final class OracleQueries(
     tablePrefix: String,
     disableContractPayloadIndexing: DisableContractPayloadIndexing,
+    tpIdCacheMaxEntries: Long,
 )(implicit metrics: Metrics)
-    extends Queries(tablePrefix) {
+    extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, InitDdl._
   import Implicits._
 

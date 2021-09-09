@@ -11,15 +11,15 @@ import com.daml.metrics.Metrics
 
 object SurrogateTemplateIdCache {
   private val logger = ContextualizedLogger.get(getClass)
-  private val maxSize = 1000L
+  final val MAX_ENTRIES = 10L
 }
 
-class SurrogateTemplateIdCache(metrics: Metrics) {
-  import SurrogateTemplateIdCache.{logger, maxSize}
+class SurrogateTemplateIdCache(metrics: Metrics, maxEntries: Long) {
+  import SurrogateTemplateIdCache.logger
 
   private val underlying = {
     SizedCache.from[String, java.lang.Long](
-      SizedCache.Configuration(maxSize),
+      SizedCache.Configuration(maxEntries),
       metrics.daml.HttpJsonApi.surrogateTemplateIdCache,
     )
   }

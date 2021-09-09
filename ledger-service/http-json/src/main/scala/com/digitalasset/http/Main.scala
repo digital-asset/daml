@@ -84,6 +84,7 @@ object Main {
         s", nonRepudiationCertificateFile=${config.nonRepudiation.certificateFile: Option[Path]}" +
         s", nonRepudiationPrivateKeyFile=${config.nonRepudiation.privateKeyFile: Option[Path]}" +
         s", nonRepudiationPrivateKeyAlgorithm=${config.nonRepudiation.privateKeyAlgorithm: Option[String]}" +
+        s", surrogateTpIdCacheMaxEntries=${config.surrogateTpIdCacheMaxEntries: Option[Long]}" +
         ")"
     )
 
@@ -106,7 +107,8 @@ object Main {
     }
 
     val contractDao = metricsResource.asFuture.map { implicit metrics =>
-      val contractDao = config.jdbcConfig.map(c => ContractDao(c))
+      val contractDao =
+        config.jdbcConfig.map(c => ContractDao(c, config.surrogateTpIdCacheMaxEntries))
       (contractDao, config.jdbcConfig) match {
         case (Some(dao), Some(c)) =>
           import cats.effect.IO

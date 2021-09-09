@@ -70,7 +70,7 @@ class ContractDao private (
 }
 
 object ContractDao {
-  import ConnectionPool.PoolSize
+  import ConnectionPool.PoolSize, SurrogateTemplateIdCache.MAX_ENTRIES
   private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
@@ -79,7 +79,11 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(cfg: JdbcConfig, poolSize: PoolSize = PoolSize.Production)(implicit
+  def apply(
+      cfg: JdbcConfig,
+      tpIdCacheMaxEntries: Option[Long] = None,
+      poolSize: PoolSize = PoolSize.Production,
+  )(implicit
       ec: ExecutionContext,
       metrics: Metrics,
   ): ContractDao = {
@@ -90,7 +94,7 @@ object ContractDao {
         .toRight(
           s"JDBC driver ${cfg.baseConfig.driver} is not one of ${supportedJdbcDrivers.keySet}"
         )
-      sjdc <- configureJdbc(cfg, sjda)
+      sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MAX_ENTRIES))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       //pool for connections awaiting database access
@@ -106,10 +110,18 @@ object ContractDao {
   // will require moving selection and setup of a driver into a hook that the
   // cmdline parser can use while constructing JdbcConfig.  That's a good idea
   // anyway, and is significantly easier with the `Conf` separation
-  private[this] def configureJdbc(cfg: JdbcConfig, driver: SupportedJdbcDriver.Available)(implicit
+  private[this] def configureJdbc(
+      cfg: JdbcConfig,
+      driver: SupportedJdbcDriver.Available,
+      tpIdCacheMaxEntries: Long,
+  )(implicit
       metrics: Metrics
   ) =
-    driver.configure(tablePrefix = cfg.tablePrefix, extraConf = cfg.backendSpecificConf)
+    driver.configure(
+      tablePrefix = cfg.tablePrefix,
+      extraConf = cfg.backendSpecificConf,
+      tpIdCacheMaxEntries,
+    )
 
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
     sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase

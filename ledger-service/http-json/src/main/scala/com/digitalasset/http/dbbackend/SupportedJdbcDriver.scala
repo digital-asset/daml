@@ -15,7 +15,8 @@ final class SupportedJdbcDriver[+Q] private (
     private[http] val q: Q,
 ) {
   import SupportedJdbcDriver.{Staged, Configured}
-  def configure(tablePrefix: String, extraConf: Map[String, String])(implicit
+  def configure(tablePrefix: String, extraConf: Map[String, String], tpIdCacheMaxEntries: Long)(
+      implicit
       Q: Q <~< Staged,
       metrics: Metrics,
   ): Either[String, SupportedJdbcDriver.TC] = {
@@ -25,7 +26,7 @@ final class SupportedJdbcDriver[+Q] private (
       new SupportedJdbcDriver(
         label,
         retrySqlStates,
-        new Configured(backend.queries(tablePrefix, conf)),
+        new Configured(backend.queries(tablePrefix, conf, tpIdCacheMaxEntries)),
       )
     }
   }
