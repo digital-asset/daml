@@ -33,6 +33,7 @@ da_scala_binary(
         "@maven//:com_github_scopt_scopt",
     ],
     deps = [
+        "//:sdk-version-scala-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -53,18 +54,17 @@ client_server_build(
     ],
     client = ":lf16-export-client",
     client_args = [
-        "--ledgerid",
-        "lf16-export-ledger",
+        "--ledgerid=lf16-export-ledger",
+        "--target-port=%PORT%",
     ],
     client_files = ["lf16.build"],
     data = ["lf16.build"],
     output_env = "EXPORT_OUT",
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "--port",
-        "0",
-        "--ledgerid",
-        "lf16-export-ledger",
+        "--ledgerid=lf16-export-ledger",
+        "--port=0",
+        "--port-file=%PORT_FILE%",
     ],
     server_files = ["lf16.build"],
 )
@@ -79,6 +79,7 @@ DAMLC=$$(canonicalize_rlocation $(rootpath //compiler/damlc))
 unzip $$(canonicalize_rlocation $(rootpath :lf16-export.zip)) -d $$tmpdir
 cp -L $$(canonicalize_rlocation $(rootpath //daml-script/daml:daml-script-1.7.dar)) $$tmpdir/
 sed -i.bak 's/daml-script/daml-script-1.7.dar/' $$tmpdir/daml.yaml
+cat $$tmpdir/daml.yaml
 DAML_PROJECT=$$tmpdir $$DAMLC build
 """,
     data = [

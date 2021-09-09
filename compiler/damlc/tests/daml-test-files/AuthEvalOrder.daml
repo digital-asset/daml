@@ -34,11 +34,11 @@ template TheContractBuilder
     p2 : Party
   where
     signatory p1
-    controller p2 can
-      TheChoice : ContractId TheContract
-        with party : Party
-        do
-          create TheContract with party
+    observer p2
+    choice TheChoice : ContractId TheContract
+      with party : Party
+      controller p2
+      do create TheContract with party
 
 -- t3/t4 are a pair of similar tests, except t4 is badly authorized.
 -- It is the 2nd submit which is of interest here, where mach exercises the `builder` contract created in the first submit, to contract signed by Ivy. This is possible in t3 because `builder` is signed by Ivy, but it is not well authorized in t4.

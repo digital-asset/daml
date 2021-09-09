@@ -216,7 +216,7 @@ decodeScenarioModule minorText protoPkg = do
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
-decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptions) =
+decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptions _interfaces) =
   Module
     <$> decodeDottedName ModuleName name
     <*> pure Nothing
@@ -226,6 +226,11 @@ decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptio
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
     <*> decodeNM DuplicateException decodeDefException exceptions
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    <*> pure NM.empty
+
+-- decodeDefInterface :: LF1.DefInterface -> Decode DefInterface
+-- decodeDefInterface = undefined -- TODO (drsk) interfaces
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -300,7 +305,8 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mayDecode "defTemplateAgreement" defTemplateAgreement decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
-
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    <*> pure []
 
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do

@@ -44,7 +44,7 @@ class CompilerTest extends AnyWordSpec with Matchers {
         .fill(10 * 1000)(
           Command.Create(
             recordCon,
-            SValue.SRecord(recordCon, ImmArray.empty, new util.ArrayList()),
+            SValue.SRecord(recordCon, ImmArray.Empty, new util.ArrayList()),
           )
         )
         .toImmArray

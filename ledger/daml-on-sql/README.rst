@@ -135,7 +135,7 @@ or orchestration system taking care of evaluating its health of the core
 components and ensuring its availability. The Ledger API exposes the standard
 gRPC health checkpoint that can be used to evaluate the health status of the
 Ledger API component. More information on the endpoint can be found at the
-`documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
+`documentation for gRPC <https://github.com/grpc/grpc/blob/v1.35.0/doc/health-checking.md>`__.
 
 When overloaded, the ledger will attempt to refuse additional requests, instead
 responding with a ``RESOURCE_EXHAUSTED`` error. This error represents
@@ -210,6 +210,22 @@ and responses are sent.
 
 To enable TLS, you need to specify the private key for your server and the
 certificate chain via ``java -jar daml-on-sql-<version>.jar --pem server.pem --crt server.crt``.
+You can also supply private key as an encrypted (using a symmetric AES like algorithm)
+file with an ``.enc`` suffix.
+While doing so you also need to specify secrets server via ``--secrets-url`` flag
+which should serve decryption details as a JSON document like so:
+
+.. code-block:: json
+
+    {
+      "algorithm": "AES/CBC/PKCS5Padding",
+      "key": "0034567890abcdef1234567890abcdef",
+      "iv": "1134567890abcdef1234567890abcdef",
+      "key_length" : 128
+    }
+
+Sample command to start a server with private key encrypted: ``java -jar daml-on-sql-<version>.jar --pem server.pem.enc --crt server.crt --secrets-url http://localhost:8080``.
+
 By default, the Ledger API requires client authentication as well. You can set a
 custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``.
 You can change the client authentication mode via ``--client-auth none`` which
@@ -543,31 +559,31 @@ deduplication and interpretation.
 A timer. Time to validate submitted commands before they are fed to the Daml
 interpreter.
 
-``daml.commands.<party_name>.input_buffer_capacity``
+``daml.commands.input_buffer_capacity``
 -----------------------------------------------------
 
 A counter. The capacity of the queue accepting submissions on
-the CommandService for a given party.
+the CommandService.
 
-``daml.commands.<party_name>.input_buffer_length``
+``daml.commands.input_buffer_length``
 ------------------------------------------------------
 
 A counter. The number of currently pending submissions on
-the CommandService for a given party.
+the CommandService.
 
-``daml.commands.<party_name>.input_buffer_delay``
+``daml.commands.input_buffer_delay``
 -------------------------------------------------
 
 A timer. Measures the queuing delay for pending submissions
 on the CommandService.
 
-``daml.commands.<party_name>.max_in_flight_capacity``
+``daml.commands.max_in_flight_capacity``
 -----------------------------------------------------
 
 A counter. The capacity of the queue tracking completions on
 the CommandService for a given party.
 
-``daml.commands.<party_name>.max_in_flight_length``
+``daml.commands.max_in_flight_length``
 -------------------------------------------------------
 
 A counter. The number of currently pending completions on

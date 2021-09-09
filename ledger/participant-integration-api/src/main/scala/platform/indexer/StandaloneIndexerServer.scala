@@ -4,7 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.stream.Materializer
-import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.daml.ledger.api.health.{Healthy, ReportsHealth}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -27,6 +27,12 @@ final class StandaloneIndexerServer(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def acquire()(implicit context: ResourceContext): Resource[ReportsHealth] = {
+    val flywayMigrations =
+      new FlywayMigrations(
+        config.jdbcUrl,
+        config.enableAppendOnlySchema,
+        additionalMigrationPaths,
+      )
     val indexerFactory = new JdbcIndexer.Factory(
       ServerRole.Indexer,
       config,
@@ -34,66 +40,60 @@ final class StandaloneIndexerServer(
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
-      additionalMigrationPaths,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,
       materializer.executionContext,
       config.restartDelay,
     )
+
+    def startIndexer(
+        migration: Future[Unit],
+        initializedDebugLogMessage: String = "Waiting for the indexer to initialize the database.",
+        resetSchema: Boolean = false,
+    ): Resource[ReportsHealth] =
+      Resource
+        .fromFuture(migration)
+        .flatMap(_ => indexerFactory.initialized(resetSchema).acquire())
+        .flatMap(indexer.start)
+        .map { case (healthReporter, _) =>
+          logger.debug(initializedDebugLogMessage)
+          healthReporter
+        }
+
     config.startupMode match {
       case IndexerStartupMode.MigrateAndStart =>
-        Resource
-          .fromFuture(
-            indexerFactory
-              .migrateSchema(config.allowExistingSchema)
-          )
-          .flatMap(startIndexer(indexer, _))
-          .map { healthReporter =>
-            logger.debug("Waiting for the indexer to initialize the database.")
-            healthReporter
-          }
+        startIndexer(
+          migration = flywayMigrations.migrate(config.allowExistingSchema)
+        )
+
       case IndexerStartupMode.ResetAndStart =>
-        Resource
-          .fromFuture(indexerFactory.resetSchema())
-          .flatMap(startIndexer(indexer, _))
-          .map { healthReporter =>
-            logger.debug("Waiting for the indexer to initialize the database.")
-            healthReporter
-          }
+        startIndexer(
+          migration = Future.unit,
+          resetSchema = true,
+        )
+
       case IndexerStartupMode.ValidateAndStart =>
-        Resource
-          .fromFuture(indexerFactory.validateSchema())
-          .flatMap(startIndexer(indexer, _))
-          .map { healthReporter =>
-            logger.debug("Waiting for the indexer to initialize the database.")
-            healthReporter
-          }
+        startIndexer(
+          migration = flywayMigrations.validate()
+        )
+
       case IndexerStartupMode.ValidateAndWaitOnly =>
         Resource
-          .fromFuture(indexerFactory.validateAndWaitOnly())
+          .fromFuture(flywayMigrations.validateAndWaitOnly())
           .map[ReportsHealth] { _ =>
             logger.debug("Waiting for the indexer to validate the schema migrations.")
-            () => HealthStatus.healthy
+            () => Healthy
           }
+
       case IndexerStartupMode.MigrateOnEmptySchemaAndStart =>
-        Resource
-          .fromFuture(indexerFactory.migrateOnEmptySchema())
-          .flatMap(startIndexer(indexer, _))
-          .map { healthReporter =>
-            logger.debug("Waiting for the indexer to initialize the empty or up-to-date database.")
-            healthReporter
-          }
+        startIndexer(
+          migration = flywayMigrations.migrateOnEmptySchema(),
+          initializedDebugLogMessage =
+            "Waiting for the indexer to initialize the empty or up-to-date database.",
+        )
     }
   }
-
-  private def startIndexer(
-      indexer: RecoveringIndexer,
-      initializedIndexerFactory: ResourceOwner[Indexer],
-  )(implicit context: ResourceContext): Resource[ReportsHealth] =
-    indexer
-      .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())
-      .map { case (indexerHealthReporter, _) => indexerHealthReporter }
 }
 
 object StandaloneIndexerServer {
@@ -107,7 +107,8 @@ object StandaloneIndexerServer {
       allowExistingSchema: Boolean = false,
       additionalMigrationPaths: Seq[String] = Seq.empty,
   )(implicit rc: ResourceContext, loggingContext: LoggingContext): Future[Unit] = {
-    val flywayMigrations = new FlywayMigrations(jdbcUrl, additionalMigrationPaths)
-    flywayMigrations.migrate(allowExistingSchema, enableAppendOnlySchema)
+    val flywayMigrations =
+      new FlywayMigrations(jdbcUrl, enableAppendOnlySchema, additionalMigrationPaths)
+    flywayMigrations.migrate(allowExistingSchema)
   }
 }

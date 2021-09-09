@@ -46,7 +46,7 @@ final class ExecuteUpdateSpec
   private val offset = Offset(Bytes.assertFromString("01"))
   private val txId = Ref.TransactionId.fromInt(1)
   private val txMock = transaction.CommittedTransaction(
-    VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.empty)
+    VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.Empty)
   )
   private val someMetrics = new Metrics(new MetricRegistry)
   private val someParticipantId = Ref.ParticipantId.assertFromString("some-participant")

@@ -9,6 +9,10 @@ import scala.annotation.tailrec
 
 object LockedFreePort {
 
+  /** Find a free port and lock it with a file lock.
+    *
+    * Note, this is a cooperative locking scheme.
+    */
   @tailrec
   def find(tries: Int = 10): PortLock.Locked = {
     val port = ports.FreePort.find()

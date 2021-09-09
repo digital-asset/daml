@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
-import java.nio.file.Files
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -60,7 +59,6 @@ import spray.json._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import scala.util.control.NonFatal
 import com.daml.metrics.{Metrics, MetricsReporter}
 import com.codahale.metrics.MetricRegistry
 
@@ -98,17 +96,10 @@ trait JsonApiFixture
   private val jsonApiMaterializer: Materializer = Materializer(system)
   private val jsonApiExecutionSequencerFactory: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool(poolName = "json-api", actorCount = 1)
-  private val jsonAccessTokenFile = Files.createTempFile("http-jsn", "auth")
-
   override protected def afterAll(): Unit = {
     jsonApiExecutionSequencerFactory.close()
     materializer.shutdown()
     Await.result(jsonApiActorSystem.terminate(), 30.seconds)
-    try {
-      Files.delete(jsonAccessTokenFile)
-    } catch {
-      case NonFatal(_) =>
-    }
     super.afterAll()
   }
 
@@ -147,7 +138,6 @@ trait JsonApiFixture
               identity(_)
             )
             Resource[ServerBinding] {
-              Files.write(jsonAccessTokenFile, getToken(List(), List(), false).getBytes())
               val config = new StartSettings.Default {
                 override val ledgerHost = "localhost"
                 override val ledgerPort = server.port.value
@@ -156,7 +146,6 @@ trait JsonApiFixture
                 override val portFile = None
                 override val tlsConfig = TlsConfiguration(enabled = false, None, None, None)
                 override val wsConfig = None
-                override val accessTokenFile = Some(jsonAccessTokenFile)
                 override val allowNonHttps = true
                 override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
                 override val logLevel = None
@@ -468,7 +457,7 @@ final class JsonApiIt
           inputValue = Some(
             JsArray(
               JsArray(JsString(party0), JsString(party1)),
-              ApiCodecCompressed.apiValueToJsValue(cids.toValue.mapContractId(_.coid)),
+              ApiCodecCompressed.apiValueToJsValue(cids.toUnnormalizedValue.mapContractId(_.coid)),
             )
           ),
         )
@@ -486,14 +475,18 @@ final class JsonApiIt
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),
           inputValue = Some(JsString(party1)),
         )
-          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
+          .map(v =>
+            ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue.mapContractId(_.coid))
+          )
         clientsBoth <- getMultiPartyClients(List(party1, party2))
         cidBoth <- run(
           clientsBoth,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreate"),
           inputValue = Some(JsArray(JsString(party1), JsString(party2))),
         )
-          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
+          .map(v =>
+            ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue.mapContractId(_.coid))
+          )
         clients2 <- getMultiPartyClients(List(party2), List(party1))
         r <- run(
           clients2,

@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import java.time.Instant
-
 import com.daml.platform.store.backend.DbDto
 import com.daml.platform.store.backend.common.AppendOnlySchema.FieldStrategy
 import com.daml.platform.store.backend.common.{AppendOnlySchema, Field, Schema, Table}
@@ -21,14 +19,6 @@ private[postgresql] object PGSchema {
     ): Field[FROM, Option[Iterable[String]], _] =
       PGStringArrayOptional(extractor)
 
-    override def timestamp[FROM, _](extractor: FROM => Instant): Field[FROM, Instant, _] =
-      PGTimestamp(extractor)
-
-    override def timestampOptional[FROM, _](
-        extractor: FROM => Option[Instant]
-    ): Field[FROM, Option[Instant], _] =
-      PGTimestampOptional(extractor)
-
     override def smallintOptional[FROM, _](
         extractor: FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
@@ -42,9 +32,9 @@ private[postgresql] object PGSchema {
     override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
       PGTable.transposedDelete(tableName)(field)
 
-    override def idempotentInsert(tableName: String, keyFieldIndex: Int)(
-        fields: (String, Field[DbDto.Package, _, _])*
-    ): Table[DbDto.Package] =
+    override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+        fields: (String, Field[FROM, _, _])*
+    ): Table[FROM] =
       PGTable.idempotentTransposedInsert(tableName, keyFieldIndex)(fields: _*)
   }
 

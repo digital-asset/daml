@@ -25,12 +25,8 @@ import com.daml.ledger.participant.state.kvutils.api.{
   TimedLedgerWriter,
 }
 import com.daml.ledger.participant.state.kvutils.caching._
+import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v2.{
-  AdaptedV1ReadService,
-  AdaptedV1WriteService,
-  WritePackagesService,
-}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -41,7 +37,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.configuration.{PartyConfiguration, SubmissionConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -83,6 +79,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       allowedLanguageVersions = languageVersions,
       profileDir = config.profileDir,
       stackTraceMode = config.stackTraces,
+      forbidV0ContractId = true,
     )
     new Engine(engineConfig)
   }
@@ -172,15 +169,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               )
               readService = new TimedReadService(
-                new AdaptedV1ReadService(KeyValueParticipantStateReader(readerWriter, metrics)),
+                KeyValueParticipantStateReader(readerWriter, metrics),
                 metrics,
               )
               writeService = new TimedWriteService(
-                new AdaptedV1WriteService(
-                  new KeyValueParticipantStateWriter(
-                    new TimedLedgerWriter(readerWriter, metrics),
-                    metrics,
-                  )
+                new KeyValueParticipantStateWriter(
+                  new TimedLedgerWriter(readerWriter, metrics),
+                  metrics,
                 ),
                 metrics,
               )
@@ -206,6 +201,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     else IndexerStartupMode.MigrateAndStart,
                   eventsPageSize = config.eventsPageSize,
                   allowExistingSchema = true,
+                  enableAppendOnlySchema = config.enableAppendOnlySchema,
+                  enableCompression = config.enableCompression,
                 ),
                 servicesExecutionContext = servicesExecutionContext,
                 metrics = metrics,
@@ -255,7 +252,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   // TODO append-only: augment the following defaults for enabling the features for sandbox next
                   seeding = config.seeding.get,
                   managementServiceTimeout = config.managementServiceTimeout,
-                  enableAppendOnlySchema = false,
+                  enableAppendOnlySchema = config.enableAppendOnlySchema,
                   maxContractStateCacheSize = 0L,
                   maxContractKeyStateCacheSize = 0L,
                   enableMutableContractStateCache = false,
@@ -267,6 +264,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 partyConfig = PartyConfiguration.default.copy(
                   implicitPartyAllocation = config.implicitPartyAllocation
                 ),
+                submissionConfig = SubmissionConfiguration.default,
                 optWriteService = Some(writeService),
                 authService = authService,
                 healthChecks = healthChecks,

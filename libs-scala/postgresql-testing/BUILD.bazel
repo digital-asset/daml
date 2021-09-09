@@ -15,7 +15,7 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
     ],
     versioned_scala_deps = {
         "2.12": [
@@ -29,7 +29,9 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//ledger-api/testing-utils",
         "//libs-scala/ports",
+        "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
         "@maven//:commons_io_commons_io",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

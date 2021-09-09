@@ -12,9 +12,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   LedgerConfiguration,
 }
-import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.{
-  LedgerConfigurationServiceStub
-}
+import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationServiceStub
 import com.daml.ledger.client.LedgerClient
 import scalaz.syntax.tag._
 

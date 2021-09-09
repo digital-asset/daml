@@ -1,7 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_environment//:configuration.bzl", "ghc_version")
+load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
     "client_server_build",
@@ -23,6 +23,7 @@ da_scala_binary(
         "@maven//:com_github_scopt_scopt",
     ],
     deps = [
+        "//:sdk-version-scala-lib",
         "//daml-lf/data",
         "//daml-script/export",
         "//daml-script/runner:script-runner-lib",
@@ -42,13 +43,16 @@ client_server_build(
         "example-export/daml.yaml",
     ],
     client = ":example-export-client",
+    client_args = [
+        "--target-port=%PORT%",
+    ],
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "--port",
-        "0",
+        "--port=0",
+        "--port-file=%PORT_FILE%",
     ],
     server_files = ["//daml-script/test:script-test.dar"],
 )
@@ -84,12 +88,13 @@ $(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $
 }}
 # Normalize the expected file by removing the copyright header and any documentation import markers.
 # Normalize the data-dependencies by replacing the SDK version, package-id hashes with a placeholder, and Windows path separators by Unix separators.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}}/HASH/;s/daml-\\(script\\|stdlib\\)-0\\.0\\.0/daml-\\1-{ghc_version}/' $$EXPECTED_YAML) <($(POSIX_SED) 's/[0-9a-f]\\{{64\\}}/HASH/;s,\\\\,/,g;$$a\\' $$ACTUAL_YAML) || {{
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}}/HASH/;s/daml-\\(script\\|stdlib\\)-0\\.0\\.0/daml-\\1-{ghc_version}/;s/sdk-version: 0\\.0\\.0/sdk-version: {sdk_version}/' $$EXPECTED_YAML) <($(POSIX_SED) 's/[0-9a-f]\\{{64\\}}/HASH/;s,\\\\,/,g;$$a\\' $$ACTUAL_YAML) || {{
   echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
   exit 1
 }}
 """.format(
         ghc_version = ghc_version,
+        sdk_version = sdk_version,
     ),
     data = [
         ":example-export/Export.daml",

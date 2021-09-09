@@ -27,11 +27,12 @@ object Tests {
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
+      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
+      new DeeplyNestedValueIT,
       new DivulgenceIT,
       new HealthServiceIT,
       new IdentityIT,
@@ -41,16 +42,31 @@ object Tests {
       new PartyManagementServiceIT,
       new RaceConditionIT,
       new SemanticTests,
-      new TransactionServiceIT,
+      new TransactionServiceArgumentsIT,
+      new TransactionServiceAuthorizationIT,
+      new TransactionServiceCorrectnessIT,
+      new TransactionServiceExerciseIT,
+      new TransactionServiceOutputsIT,
+      new TransactionServiceQueryIT,
+      new TransactionServiceStakeholdersIT,
+      new TransactionServiceStreamsIT,
+      new TransactionServiceValidationIT,
+      new TransactionServiceVisibilityIT,
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
-      new DeeplyNestedValueIT,
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
-  val optional: Vector[LedgerTestSuite] =
+  def optional(
+      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
+      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
+  ): Vector[LedgerTestSuite] =
     Vector(
+      new CommandDeduplicationOffsetIT,
+      new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
+      new ContractIdIT,
+      new MultiPartySubmissionIT,
       new ParticipantPruningIT,
       new MultiPartySubmissionIT,
       new RecordTimeIT,

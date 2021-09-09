@@ -13,7 +13,7 @@ class SortedLookupListSpec extends AnyWordSpec with Matchers with ScalaCheckProp
 
     val negativeTestCases = Table(
       "list",
-      ImmArray.empty[(String, Int)],
+      ImmArray.Empty,
       ImmArray("1" -> 1),
       ImmArray("1" -> 1, "2" -> 2, "3" -> 3),
       ImmArray("2" -> 2, "3" -> 3, "1" -> 1),

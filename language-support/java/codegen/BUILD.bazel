@@ -83,7 +83,10 @@ da_scala_test(
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
     versioned_scala_deps = {
@@ -101,6 +104,7 @@ da_scala_test(
         "//language-support/java/bindings:bindings-java",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_squareup_javapoet",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -404,7 +408,10 @@ da_scala_test(
     resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
     resources = ["src/ledger-tests/resources/logback-test.xml"],
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["exclusive"],
@@ -433,6 +440,7 @@ da_scala_test(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

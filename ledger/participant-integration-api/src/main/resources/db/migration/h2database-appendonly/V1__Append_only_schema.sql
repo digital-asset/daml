@@ -8,11 +8,11 @@ CREATE ALIAS array_intersection FOR "com.daml.platform.store.backend.h2.H2Functi
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE parameters (
   ledger_id VARCHAR NOT NULL,
-  participant_id VARCHAR,
+  participant_id VARCHAR NOT NULL,
   ledger_end VARCHAR,
   ledger_end_sequential_id BIGINT,
-  external_ledger_end VARCHAR,
-  participant_pruned_up_to_inclusive VARCHAR
+  participant_pruned_up_to_inclusive VARCHAR,
+  participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -20,7 +20,7 @@ CREATE TABLE parameters (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE configuration_entries (
     ledger_offset VARCHAR PRIMARY KEY NOT NULL,
-    recorded_at TIMESTAMP NOT NULL,
+    recorded_at BIGINT NOT NULL,
     submission_id VARCHAR NOT NULL,
     typ VARCHAR NOT NULL,
     configuration BYTEA NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE packages (
     upload_id VARCHAR NOT NULL,
     source_description VARCHAR,
     package_size BIGINT NOT NULL,
-    known_since TIMESTAMP NOT NULL,
+    known_since BIGINT NOT NULL,
     ledger_offset VARCHAR NOT NULL,
     package BYTEA NOT NULL
 );
@@ -55,7 +55,7 @@ CREATE INDEX idx_packages_ledger_offset ON packages (ledger_offset);
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE package_entries (
     ledger_offset VARCHAR PRIMARY KEY NOT NULL,
-    recorded_at TIMESTAMP NOT NULL,
+    recorded_at BIGINT NOT NULL,
     submission_id VARCHAR,
     typ VARCHAR NOT NULL,
     rejection_reason VARCHAR,
@@ -70,24 +70,11 @@ CREATE TABLE package_entries (
 CREATE INDEX idx_package_entries ON package_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
--- Parties table
----------------------------------------------------------------------------------------------------
-CREATE TABLE parties (
-    party VARCHAR PRIMARY KEY NOT NULL,
-    display_name VARCHAR,
-    explicit BOOLEAN NOT NULL,
-    ledger_offset VARCHAR,
-    is_local BOOLEAN NOT NULL
-);
-
-CREATE INDEX idx_parties_ledger_offset ON parties (ledger_offset);
-
----------------------------------------------------------------------------------------------------
 -- Party entries table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE party_entries (
     ledger_offset VARCHAR PRIMARY KEY NOT NULL,
-    recorded_at TIMESTAMP NOT NULL,
+    recorded_at BIGINT NOT NULL,
     submission_id VARCHAR,
     party VARCHAR,
     display_name VARCHAR,
@@ -103,13 +90,14 @@ CREATE TABLE party_entries (
 );
 
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
+CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Submissions table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_command_submissions (
     deduplication_key VARCHAR PRIMARY KEY NOT NULL,
-    deduplicate_until TIMESTAMP NOT NULL
+    deduplicate_until BIGINT NOT NULL
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -117,13 +105,31 @@ CREATE TABLE participant_command_submissions (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_command_completions (
     completion_offset VARCHAR NOT NULL,
-    record_time TIMESTAMP NOT NULL,
+    record_time BIGINT NOT NULL,
     application_id VARCHAR NOT NULL,
     submitters ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
+    -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
-    status_code INTEGER,
-    status_message VARCHAR
+    -- The submission ID will be provided by the participant or driver if the application didn't provide one.
+    -- Nullable to support historical data.
+    submission_id VARCHAR,
+    -- The three alternatives below are mutually exclusive, i.e. the deduplication
+    -- interval could have specified by the application as one of:
+    -- 1. an initial offset
+    -- 2. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
+    -- 3. an initial timestamp
+    deduplication_offset VARCHAR,
+    deduplication_time_seconds BIGINT,
+    deduplication_time_nanos INT,
+    deduplication_start BIGINT,
+    -- The three columns below are `NULL` if the completion is for an accepted transaction.
+    -- The `rejection_status_details` column contains a Protocol-Buffers-serialized message of type
+    -- `daml.platform.index.StatusDetails`, containing the code, message, and further details
+    -- (decided by the ledger driver), and may be `NULL` even if the other two columns are set.
+    rejection_status_code INTEGER,
+    rejection_status_message VARCHAR,
+    rejection_status_details BYTEA
 );
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);
@@ -182,7 +188,7 @@ CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events
 CREATE TABLE participant_events_create (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
-    ledger_effective_time timestamp NOT NULL, -- transaction metadata
+    ledger_effective_time bigint NOT NULL,    -- transaction metadata
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
@@ -253,7 +259,7 @@ CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events
 CREATE TABLE participant_events_consuming_exercise (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
-    ledger_effective_time timestamp NOT NULL, -- transaction metadata
+    ledger_effective_time bigint NOT NULL,    -- transaction metadata
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
@@ -324,7 +330,7 @@ CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participan
 CREATE TABLE participant_events_non_consuming_exercise (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
-    ledger_effective_time timestamp NOT NULL, -- transaction metadata
+    ledger_effective_time bigint NOT NULL,    -- transaction metadata
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
@@ -406,7 +412,7 @@ SELECT
     event_sequential_id,
     NULL::VARCHAR as event_offset,
     NULL::VARCHAR as transaction_id,
-    NULL::timestamp without time zone as ledger_effective_time,
+    NULL::bigint as ledger_effective_time,
     command_id,
     workflow_id,
     application_id,

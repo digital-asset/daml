@@ -65,7 +65,10 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     deps = [
         ":app",
@@ -79,5 +82,6 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

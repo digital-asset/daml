@@ -4,11 +4,11 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.stream.Materializer
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
@@ -47,7 +47,7 @@ class BatchingLedgerWriterSpec
         LoggingContext.newLoggingContext { implicit ctx =>
           new BatchingLedgerWriter(queue, writer)
         }
-      batchingWriter.currentHealth() shouldBe HealthStatus.unhealthy
+      batchingWriter.currentHealth() shouldBe Unhealthy
       Future.successful(succeed)
     }
 
@@ -87,7 +87,7 @@ class BatchingLedgerWriterSpec
           any[TelemetryContext]
         )
         all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
-        batchingWriter.currentHealth() should be(HealthStatus.healthy)
+        batchingWriter.currentHealth() should be(Healthy)
       }
     }
 
@@ -131,7 +131,7 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
     )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(Ref.ParticipantId.assertFromString("test-participant"))
-    when(writer.currentHealth()).thenReturn(HealthStatus.healthy)
+    when(writer.currentHealth()).thenReturn(Healthy)
     writer
   }
 

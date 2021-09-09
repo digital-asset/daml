@@ -8,7 +8,10 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     tags = ["maven_coordinates=com.daml:flyway-testing:__VERSION__"],
     versioned_scala_deps = {
@@ -17,5 +20,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

@@ -10,60 +10,142 @@ import com.daml.ledger.api.v1.command_completion_service.{Checkpoint, Completion
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.store.Conversions.RejectionReasonOps
-import com.daml.platform.store.entries.LedgerEntry
-import com.google.rpc.status.Status
+import com.google.protobuf.duration.Duration
+import com.google.rpc.status.{Status => StatusProto}
+import io.grpc.Status
 
 // Turn a stream of transactions into a stream of completions for a given application and set of parties
 // TODO Restrict the scope of this to com.daml.platform.store.dao when
 // TODO - the in-memory sandbox is gone
 private[platform] object CompletionFromTransaction {
+  private val OkStatus = StatusProto.of(Status.Code.OK.value(), "", Seq.empty)
+  private val RejectionTransactionId = ""
 
-  def toApiCheckpoint(recordTime: Instant, offset: Offset): Some[Checkpoint] =
-    Some(
-      Checkpoint(
-        recordTime = Some(fromInstant(recordTime)),
-        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toApiString))),
-      )
+  def acceptedCompletion(
+      recordTime: Instant,
+      offset: Offset,
+      commandId: String,
+      transactionId: String,
+      applicationId: String,
+      maybeSubmissionId: Option[String] = None,
+      maybeDeduplicationOffset: Option[String] = None,
+      maybeDeduplicationTimeSeconds: Option[Long] = None,
+      maybeDeduplicationTimeNanos: Option[Int] = None,
+  ): CompletionStreamResponse =
+    CompletionStreamResponse.of(
+      checkpoint = Some(toApiCheckpoint(recordTime, offset)),
+      completions = Seq(
+        toApiCompletion(
+          commandId = commandId,
+          transactionId = transactionId,
+          applicationId = applicationId,
+          maybeStatus = Some(OkStatus),
+          maybeSubmissionId = maybeSubmissionId,
+          maybeDeduplicationOffset = maybeDeduplicationOffset,
+          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
+        )
+      ),
     )
 
-  // Filter completions for transactions for which we have the full submitter information: appId, submitter, cmdId
-  // This doesn't make a difference for the sandbox (because it represents the ledger backend + api server in single package).
-  // But for an api server that is part of a distributed ledger network, we might see
-  // transactions that originated from some other api server. These transactions don't contain the submitter information,
-  // and therefore we don't emit CommandAccepted completions for those
-  def apply(
-      appId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
-  ): PartialFunction[(Offset, LedgerEntry), (Offset, CompletionStreamResponse)] = {
-    case (
-          offset,
-          LedgerEntry.Transaction(
-            Some(commandId),
-            transactionId,
-            Some(`appId`),
-            _,
-            actAs,
-            _,
-            _,
-            recordTime,
-            _,
-            _,
-          ),
-        ) if actAs.exists(parties) =>
-      offset -> CompletionStreamResponse(
-        checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(Completion(commandId, Some(Status()), transactionId)),
-      )
+  def rejectedCompletion(
+      recordTime: Instant,
+      offset: Offset,
+      commandId: String,
+      status: StatusProto,
+      applicationId: String,
+      maybeSubmissionId: Option[String] = None,
+      maybeDeduplicationOffset: Option[String] = None,
+      maybeDeduplicationTimeSeconds: Option[Long] = None,
+      maybeDeduplicationTimeNanos: Option[Int] = None,
+  ): CompletionStreamResponse =
+    CompletionStreamResponse.of(
+      checkpoint = Some(toApiCheckpoint(recordTime, offset)),
+      completions = Seq(
+        toApiCompletion(
+          commandId = commandId,
+          transactionId = RejectionTransactionId,
+          applicationId = applicationId,
+          maybeStatus = Some(status),
+          maybeSubmissionId = maybeSubmissionId,
+          maybeDeduplicationOffset = maybeDeduplicationOffset,
+          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
+        )
+      ),
+    )
 
-    case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, _, actAs, reason))
-        if actAs.exists(parties) =>
-      val status = reason.toParticipantStateRejectionReason.status
-      offset -> CompletionStreamResponse(
-        checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(Completion(commandId, Some(status))),
-      )
+  private def toApiCheckpoint(recordTime: Instant, offset: Offset): Checkpoint =
+    Checkpoint.of(
+      recordTime = Some(fromInstant(recordTime)),
+      offset = Some(LedgerOffset.of(LedgerOffset.Value.Absolute(offset.toApiString))),
+    )
+
+  private[store] def toApiCompletion(
+      commandId: String,
+      transactionId: String,
+      applicationId: String,
+      maybeStatus: Option[StatusProto],
+      maybeSubmissionId: Option[String],
+      maybeDeduplicationOffset: Option[String],
+      maybeDeduplicationTimeSeconds: Option[Long],
+      maybeDeduplicationTimeNanos: Option[Int],
+  ): Completion = {
+    val completionWithMandatoryFields = Completion(
+      commandId = commandId,
+      status = maybeStatus,
+      transactionId = transactionId,
+      applicationId = applicationId,
+    )
+    val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
+      maybeDeduplicationOffset = maybeDeduplicationOffset,
+      maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
+      maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
+    )
+    (maybeSubmissionId, maybeDeduplicationPeriod) match {
+      case (Some(submissionId), Some(deduplicationPeriod)) =>
+        completionWithMandatoryFields.copy(
+          submissionId = submissionId,
+          deduplicationPeriod = deduplicationPeriod,
+        )
+      case (Some(submissionId), None) =>
+        completionWithMandatoryFields.copy(
+          submissionId = submissionId
+        )
+      case (None, Some(deduplicationPeriod)) =>
+        completionWithMandatoryFields.copy(
+          deduplicationPeriod = deduplicationPeriod
+        )
+      case _ =>
+        completionWithMandatoryFields
+    }
   }
+
+  private def toApiDeduplicationPeriod(
+      maybeDeduplicationOffset: Option[String],
+      maybeDeduplicationTimeSeconds: Option[Long],
+      maybeDeduplicationTimeNanos: Option[Int],
+  ): Option[Completion.DeduplicationPeriod] =
+    // The only invariant that should hold, considering legacy data, is that either
+    // the deduplication time seconds and nanos are both populated, or neither is.
+    (maybeDeduplicationOffset, (maybeDeduplicationTimeSeconds, maybeDeduplicationTimeNanos)) match {
+      case (None, (None, None)) => None
+      case (Some(offset), _) =>
+        Some(Completion.DeduplicationPeriod.DeduplicationOffset(offset))
+      case (_, (Some(deduplicationTimeSeconds), Some(deduplicationTimeNanos))) =>
+        Some(
+          Completion.DeduplicationPeriod.DeduplicationTime(
+            new Duration(
+              seconds = deduplicationTimeSeconds,
+              nanos = deduplicationTimeNanos,
+            )
+          )
+        )
+      case _ =>
+        throw new IllegalArgumentException(
+          "One of deduplication time seconds and nanos has been provided " +
+            "but they must be either both provided or both absent"
+        )
+    }
 }

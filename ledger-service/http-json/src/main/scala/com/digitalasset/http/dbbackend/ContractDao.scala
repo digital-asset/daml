@@ -5,9 +5,11 @@ package com.daml.http.dbbackend
 
 import cats.effect._
 import cats.syntax.apply._
+import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.lf.crypto.Hash
 import com.daml.scalautil.nonempty.+-:
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
@@ -31,7 +33,7 @@ class ContractDao private (
     xa: ConnectionPool.T,
     dbAccessPool: ExecutorService,
 )(implicit
-    val jdbcDriver: SupportedJdbcDriver
+    val jdbcDriver: SupportedJdbcDriver.TC
 ) extends Closeable {
 
   private val logger = LoggerFactory.getLogger(classOf[ContractDao])
@@ -66,7 +68,7 @@ class ContractDao private (
 
 object ContractDao {
   import ConnectionPool.PoolSize
-  private[this] val supportedJdbcDrivers = Map[String, String => SupportedJdbcDriver](
+  private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
   )
@@ -78,27 +80,40 @@ object ContractDao {
       ec: ExecutionContext
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
-    implicit val sjd: SupportedJdbcDriver = supportedJdbcDrivers.getOrElse(
-      cfg.driver,
-      throw new IllegalArgumentException(
-        s"JDBC driver ${cfg.driver} is not one of ${supportedJdbcDrivers.keySet}"
-      ),
-    )(cfg.tablePrefix)
-    //pool for connections awaiting database access
-    val es = Executors.newWorkStealingPool(poolSize)
-    val (ds, conn) = ConnectionPool.connect(cfg, poolSize)(ExecutionContext.fromExecutor(es), cs)
-    new ContractDao(ds, conn, es)
+    val setup = for {
+      sjda <- supportedJdbcDrivers
+        .get(cfg.baseConfig.driver)
+        .toRight(
+          s"JDBC driver ${cfg.baseConfig.driver} is not one of ${supportedJdbcDrivers.keySet}"
+        )
+      sjdc <- configureJdbc(cfg, sjda)
+    } yield {
+      implicit val sjd: SupportedJdbcDriver.TC = sjdc
+      //pool for connections awaiting database access
+      val es = Executors.newWorkStealingPool(poolSize)
+      val (ds, conn) =
+        ConnectionPool.connect(cfg.baseConfig, poolSize)(ExecutionContext.fromExecutor(es), cs)
+      new ContractDao(ds, conn, es)
+    }
+    setup.fold(msg => throw new IllegalArgumentException(msg), identity)
   }
 
-  def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] =
-    sjd.queries.dropAllTablesIfExist *> sjd.queries.initDatabase
+  // XXX SC Ideally we would do this _while parsing the command line_, but that
+  // will require moving selection and setup of a driver into a hook that the
+  // cmdline parser can use while constructing JdbcConfig.  That's a good idea
+  // anyway, and is significantly easier with the `Conf` separation
+  private[this] def configureJdbc(cfg: JdbcConfig, driver: SupportedJdbcDriver.Available) =
+    driver.configure(tablePrefix = cfg.tablePrefix, extraConf = cfg.backendSpecificConf)
+
+  def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
+    sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase
 
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
       implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Map[domain.Party, domain.Offset]] = {
-    import sjd._
+    import sjd.q.queries
     for {
       tpId <- surrogateTemplateId(templateId)
       offset <- queries
@@ -114,9 +129,9 @@ object ContractDao {
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
-  )(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] = {
+  )(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] = {
     import cats.implicits._
-    import sjd._
+    import sjd.q.queries
     import scalaz.OneAnd._
     import scalaz.std.set._
     import scalaz.syntax.foldable._
@@ -145,9 +160,9 @@ object ContractDao {
       predicate: doobie.Fragment,
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
-    import sjd._
+    import sjd.q.queries
     for {
       tpId <- surrogateTemplateId(templateId)
 
@@ -164,9 +179,9 @@ object ContractDao {
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
-    import sjd.{queries => _, _}, cats.syntax.traverse._, cats.instances.vector._
+    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
@@ -177,7 +192,7 @@ object ContractDao {
         trackMatchIndices match {
           case MatchedQueryMarker.ByNelInt =>
             for {
-              dbContracts <- sjd.queries
+              dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
                   domain.Party unsubst parties,
                   queries,
@@ -192,7 +207,7 @@ object ContractDao {
 
           case MatchedQueryMarker.Unused =>
             for {
-              dbContracts <- sjd.queries
+              dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
                   domain.Party unsubst parties,
                   queries,
@@ -217,9 +232,9 @@ object ContractDao {
       contractId: domain.ContractId,
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import sjd._
+    import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- queries.fetchById(
@@ -233,12 +248,12 @@ object ContractDao {
   private[http] def fetchByKey(
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      key: JsValue,
+      key: Hash,
   )(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
-    import sjd._
+    import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- queries.fetchByKey(domain.Party unsubst parties, tpId, key)
@@ -247,9 +262,9 @@ object ContractDao {
 
   private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(implicit
       log: LogHandler,
-      sjd: SupportedJdbcDriver,
+      sjd: SupportedJdbcDriver.TC,
   ) =
-    sjd.queries.surrogateTemplateId(
+    sjd.q.queries.surrogateTemplateId(
       templateId.packageId,
       templateId.moduleName,
       templateId.entityName,

@@ -11,10 +11,17 @@ module DA.List.Total
   , foldr1
   , foldBalanced1
   , (!!)
+  , minimumBy
+  , maximumBy
+  , minimumOn
+  , maximumOn
   )
 where
 
-import DA.List hiding (foldBalanced1, head, tail, init, last, foldl1, foldr1, (!!))
+import DA.List hiding (foldBalanced1, head, tail, init, last, foldl1, foldr1,
+                       (!!), minimumBy, maximumBy, minimumOn, maximumOn)
+
+import qualified DA.List
 
 head : ActionFail m => [a] -> m a
 head (x::_) = pure x
@@ -44,9 +51,38 @@ foldl1 f (x::xs) = pure (foldl f x xs)
 foldl1 _  [] = fail "foldl1: empty list"
 
 foldr1 : ActionFail m => (a -> a -> a) -> [a] -> m a
+foldr1 f [] = fail "foldr1: empty list"
 foldr1 f xs = foldl1 (flip f) (reverse xs)
 
 foldBalanced1 : ActionFail m => (a -> a -> a) -> [a] -> m a
 foldBalanced1 _ [] = fail "foldBalanced1: empty list"
 foldBalanced1 _ [x] = pure x
 foldBalanced1 f xs = foldBalanced1 f (combinePairs f xs)
+
+-- | `minimumBy f xs` returns the first element `x` of `xs` for which `f x y`
+-- is either `LT` or `EQ` for all other `y` in `xs`. The result is
+-- wrapped in a monadic context, with a failure if `xs` is empty.
+minimumBy : (ActionFail m) => (a -> a -> Ordering) -> [a] -> m a
+minimumBy _ [] = fail "minimumBy: empty list"
+minimumBy f xs = pure $ DA.List.minimumBy f xs
+
+-- | `maximumBy f xs` returns the first element `x` of `xs` for which `f x y`
+-- is either `GT` or `EQ` for all other `y` in `xs`. The result is
+-- wrapped in a monadic context, with a failure if `xs` is empty.
+maximumBy : (ActionFail m) => (a -> a -> Ordering) -> [a] -> m a
+maximumBy _ [] = fail "maximumBy: empty list"
+maximumBy f xs = pure $ DA.List.maximumBy f xs
+
+-- | `minimumOn f xs` returns the first element `x` of `xs` for which `f x`
+-- is smaller than or equal to any other `f y` for `y` in `xs`. The result is
+-- wrapped in a monadic context, with a failure if `xs` is empty.
+minimumOn : (ActionFail m, Ord k) => (a -> k) -> [a] -> m a
+minimumOn _ [] = fail "minimumOn: empty list"
+minimumOn f xs = pure $ DA.List.minimumOn f xs
+
+-- | `maximumOn f xs` returns the first element `x` of `xs` for which `f x`
+-- is greater than or equal to any other `f y` for `y` in `xs`. The result is
+-- wrapped in a monadic context, with a failure if `xs` is empty.
+maximumOn : (ActionFail m, Ord k) => (a -> k) -> [a] -> m a
+maximumOn _ [] = fail "maximumOn: empty list"
+maximumOn f xs = pure $ DA.List.maximumOn f xs

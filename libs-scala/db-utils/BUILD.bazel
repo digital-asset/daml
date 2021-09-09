@@ -23,7 +23,6 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scala_runtime_deps = [
         "@maven//:org_tpolecat_doobie_postgres",
@@ -39,7 +38,6 @@ da_scala_library(
     deps = [
         "//libs-scala/scala-utils",
         "@maven//:com_zaxxer_HikariCP",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -48,7 +46,10 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_typelevel_cats_core",
@@ -59,5 +60,6 @@ da_scala_test(
     deps = [
         ":db-utils",
         "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

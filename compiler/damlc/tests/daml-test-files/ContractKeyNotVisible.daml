@@ -1,8 +1,8 @@
 -- @ERROR range=18:1-18:10; Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR range=63:1-63:15; Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR range=81:1-81:12; Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR range=111:1-111:12; Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR range=117:1-117:11;  Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=61:1-61:15; Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=79:1-79:12; Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=109:1-109:12; Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=115:1-115:11;  Attempt to fetch, lookup or exercise a key associated with a contract
 module ContractKeyNotVisible where
 
 import DA.Optional
@@ -37,14 +37,13 @@ template Divulger
     sig : Party
   where
     signatory divulgee
+    observer sig
 
-    controller sig can
-      nonconsuming DivulgeKeyed
-        : Keyed
-        with
-          keyedCid : ContractId Keyed
-        do
-          fetch keyedCid
+    nonconsuming choice DivulgeKeyed : Keyed
+      with
+        keyedCid : ContractId Keyed
+      controller sig
+      do fetch keyedCid
 
 template Delegation
   with
@@ -57,8 +56,7 @@ template Delegation
     choice LookupKeyed
       : Optional (ContractId Keyed)
       controller divulgee
-      do
-        lookupByKey @Keyed sig
+      do lookupByKey @Keyed sig
 
 divulgeeLookup = scenario do
   sig <- getParty "s" -- Signatory

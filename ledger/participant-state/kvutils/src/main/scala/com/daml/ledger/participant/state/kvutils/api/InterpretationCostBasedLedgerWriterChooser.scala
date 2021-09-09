@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext

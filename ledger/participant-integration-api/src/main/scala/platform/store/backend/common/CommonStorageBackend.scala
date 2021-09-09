@@ -3,72 +3,69 @@
 
 package com.daml.platform.store.backend.common
 
-import java.sql.{Connection, PreparedStatement, ResultSet}
+import java.sql.Connection
 import java.time.Instant
-import java.util.Date
 
-import anorm.SqlParser.{array, binaryStream, bool, byteArray, date, flatten, get, int, long, str}
-import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import anorm.SqlParser.{array, binaryStream, byteArray, flatten, get, int, long, str}
+import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, ~}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.store.Conversions.{
   contractId,
   eventId,
-  flatEventWitnessesColumn,
   identifier,
-  instant,
+  instantFromMicros,
   ledgerString,
   offset,
-  party,
 }
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.common.MismatchException
 import com.daml.platform.store.Conversions
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
-import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
-import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
-  KeyAssigned,
-  KeyState,
-  KeyUnassigned,
-}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry}
 import com.daml.scalautil.Statement.discard
-
-import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
+import scalaz.syntax.tag._
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
 
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
   // Ingestion
 
-  private val preparedDeleteIngestionOverspillEntries: List[String] =
+  private val SQL_DELETE_OVERSPILL_ENTRIES: List[SqlQuery] =
     List(
-      "DELETE FROM configuration_entries WHERE ledger_offset > ?",
-      "DELETE FROM package_entries WHERE ledger_offset > ?",
-      "DELETE FROM packages WHERE ledger_offset > ?",
-      "DELETE FROM participant_command_completions WHERE completion_offset > ?",
-      "DELETE FROM participant_events_divulgence WHERE event_offset > ?",
-      "DELETE FROM participant_events_create WHERE event_offset > ?",
-      "DELETE FROM participant_events_consuming_exercise WHERE event_offset > ?",
-      "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > ?",
-      "DELETE FROM parties WHERE ledger_offset > ?",
-      "DELETE FROM party_entries WHERE ledger_offset > ?",
+      SQL("DELETE FROM configuration_entries WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM package_entries WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM packages WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_command_completions WHERE completion_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_events_divulgence WHERE event_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_events_create WHERE event_offset > {ledger_offset}"),
+      SQL("DELETE FROM participant_events_consuming_exercise WHERE event_offset > {ledger_offset}"),
+      SQL(
+        "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
+      ),
+      SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
     )
 
-  override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
-    val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
+  def queryStrategy: QueryStrategy
 
-    offset.foreach { existingOffset =>
-      preparedDeleteIngestionOverspillEntries.foreach { preparedStatementString =>
-        val preparedStatement = connection.prepareStatement(preparedStatementString)
-        preparedStatement.setString(1, existingOffset.toHexString)
-        preparedStatement.execute()
-        preparedStatement.close()
+  override def initializeIngestion(
+      connection: Connection
+  ): Option[ParameterStorageBackend.LedgerEnd] = {
+    val result = ledgerEnd(connection)
+
+    result.foreach { existingLedgerEnd =>
+      SQL_DELETE_OVERSPILL_ENTRIES.foreach { query =>
+        import com.daml.platform.store.Conversions.OffsetToStatement
+        query
+          .on("ledger_offset" -> existingLedgerEnd.lastOffset)
+          .execute()(connection)
         ()
       }
     }
@@ -78,62 +75,40 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Parameters
 
-  private val preparedUpdateLedgerEnd: Connection => PreparedStatement = _.prepareStatement(
+  private val SQL_UPDATE_LEDGER_END = SQL(
     """
       |UPDATE
       |  parameters
       |SET
-      |  ledger_end = ?,
-      |  ledger_end_sequential_id = ?
+      |  ledger_end = {ledger_end},
+      |  ledger_end_sequential_id = {ledger_end_sequential_id}
+      |""".stripMargin
+  )
+
+  override def updateLedgerEnd(
+      ledgerEnd: ParameterStorageBackend.LedgerEnd
+  )(connection: Connection): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    SQL_UPDATE_LEDGER_END
+      .on("ledger_end" -> ledgerEnd.lastOffset)
+      .on("ledger_end_sequential_id" -> ledgerEnd.lastEventSeqId)
+      .execute()(connection)
+    ()
+  }
+
+  private val SQL_GET_LEDGER_END = SQL(
+    """
+      |SELECT
+      |  ledger_end,
+      |  ledger_end_sequential_id
+      |FROM
+      |  parameters
       |
       |""".stripMargin
   )
 
-  def updateParams(params: StorageBackend.Params)(connection: Connection): Unit = {
-    val preparedStatement = preparedUpdateLedgerEnd(connection)
-    preparedStatement.setString(1, params.ledgerEnd.toHexString)
-    preparedStatement.setLong(2, params.eventSeqId)
-    preparedStatement.execute()
-    preparedStatement.close()
-    ()
-  }
-
-  def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd = {
-    val queryStatement = connection.createStatement()
-    val params = fetch(
-      queryStatement.executeQuery(
-        """
-          |SELECT
-          |  ledger_end,
-          |  ledger_end_sequential_id
-          |FROM
-          |  parameters
-          |
-          |""".stripMargin
-      )
-    )(rs =>
-      StorageBackend.LedgerEnd(
-        lastOffset =
-          if (rs.getString(1) == null) None
-          else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
-        lastEventSeqId = Option(rs.getLong(2)),
-      )
-    )
-    queryStatement.close()
-    assert(params.size == 1)
-    params.head
-  }
-
-  private def fetch[T](resultSet: ResultSet)(parse: ResultSet => T): Vector[T] = {
-    val buffer = mutable.ArrayBuffer.empty[T]
-    while (resultSet.next()) {
-      buffer += parse(resultSet)
-    }
-    resultSet.close()
-    buffer.toVector
-  }
-
-  private val EventSequentialIdBeforeBegin = 0L
+  override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
+    SQL_GET_LEDGER_END.as(LedgerEndParser.singleOpt)(connection).flatten
 
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
@@ -144,72 +119,103 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
 
-  private val ParticipantIdParser: RowParser[Option[ParticipantId]] =
-    Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_)).?
+  private val ParticipantIdParser: RowParser[ParticipantId] =
+    Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
-  private val LedgerEndParser: RowParser[Option[Offset]] =
+  private val LedgerEndOffsetParser: RowParser[Option[Offset]] =
     offset(LedgerEndColumnName).?
 
-  private val LedgerEndOrBeforeBeginParser: RowParser[Offset] =
-    LedgerEndParser.map(_.getOrElse(Offset.beforeBegin))
+  private val LedgerEndSequentialIdParser: RowParser[Option[Long]] =
+    long(LedgerEndSequentialIdColumnName).?
 
-  private val LedgerEndOffsetAndSequentialIdParser =
-    (offset(LedgerEndColumnName).? ~ long(LedgerEndSequentialIdColumnName).?)
-      .map(SqlParser.flatten)
-      .map {
-        case (Some(offset), Some(seqId)) => (offset, seqId)
-        case (Some(offset), None) => (offset, EventSequentialIdBeforeBegin)
-        case (None, None) => (Offset.beforeBegin, EventSequentialIdBeforeBegin)
-        case (None, Some(_)) =>
-          throw InvalidLedgerEnd("Parameters table in invalid state: ledger_end is not set")
-      }
+  private val LedgerIdentityParser: RowParser[ParameterStorageBackend.IdentityParams] =
+    LedgerIdParser ~ ParticipantIdParser map { case ledgerId ~ participantId =>
+      ParameterStorageBackend.IdentityParams(ledgerId, participantId)
+    }
 
-  private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
+  private val LedgerEndParser: RowParser[Option[ParameterStorageBackend.LedgerEnd]] =
+    LedgerEndOffsetParser ~ LedgerEndSequentialIdParser map {
+      case Some(lastOffset) ~ Some(lastEventSequentialId) =>
+        Some(ParameterStorageBackend.LedgerEnd(lastOffset, lastEventSequentialId))
+      case _ =>
+        // Note: offset and event sequential id are always written together.
+        // Cases where only one of them is defined are not handled here.
+        None
+    }
 
-  private val SelectLedgerEndOffsetAndSequentialId =
-    SQL"select #$LedgerEndColumnName, #$LedgerEndSequentialIdColumnName from #$TableName"
+  override def initializeParameters(
+      params: ParameterStorageBackend.IdentityParams
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Unit = {
+    // Note: this method is the only one that inserts a row into the parameters table
+    val previous = ledgerIdentity(connection)
+    val ledgerId = params.ledgerId
+    val participantId = params.participantId
+    previous match {
+      case None =>
+        logger.info(
+          s"Initializing new database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
+        )
+        discard(
+          SQL"insert into #$TableName(#$LedgerIdColumnName, #$ParticipantIdColumnName) values(${ledgerId.unwrap}, ${participantId.unwrap: String})"
+            .execute()(connection)
+        )
+      case Some(ParameterStorageBackend.IdentityParams(`ledgerId`, `participantId`)) =>
+        logger.info(
+          s"Found existing database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
+        )
+      case Some(ParameterStorageBackend.IdentityParams(existing, _))
+          if existing != params.ledgerId =>
+        logger.error(
+          s"Found existing database with mismatching ledgerId: existing '$existing', provided '${params.ledgerId}'"
+        )
+        throw MismatchException.LedgerId(
+          existing = existing,
+          provided = params.ledgerId,
+        )
+      case Some(ParameterStorageBackend.IdentityParams(_, existing)) =>
+        logger.error(
+          s"Found existing database with mismatching participantId: existing '$existing', provided '${params.participantId}'"
+        )
+        throw MismatchException.ParticipantId(
+          existing = existing,
+          provided = params.participantId,
+        )
+    }
+  }
 
-  def ledgerId(connection: Connection): Option[LedgerId] =
-    SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
+  override def ledgerIdentity(
+      connection: Connection
+  ): Option[ParameterStorageBackend.IdentityParams] =
+    SQL"select #$LedgerIdColumnName, #$ParticipantIdColumnName from #$TableName"
+      .as(LedgerIdentityParser.singleOpt)(connection)
 
-  def updateLedgerId(ledgerId: String)(connection: Connection): Unit =
-    discard(
-      SQL"insert into #$TableName(#$LedgerIdColumnName) values($ledgerId)".execute()(connection)
-    )
+  private val SQL_UPDATE_MOST_RECENT_PRUNING =
+    SQL("""
+        |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
+        |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
+        |""".stripMargin)
 
-  def participantId(connection: Connection): Option[ParticipantId] =
-    SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.single)(
-      connection
-    )
-
-  def updateParticipantId(participantId: String)(connection: Connection): Unit =
-    discard(
-      SQL"update #$TableName set #$ParticipantIdColumnName = $participantId".execute()(
-        connection
-      )
-    )
-
-  def ledgerEndOffset(connection: Connection): Offset =
-    SelectLedgerEnd.as(LedgerEndOrBeforeBeginParser.single)(connection)
-
-  // TODO mutable contract state cache - use only one getLedgerEnd method
-  def ledgerEndOffsetAndSequentialId(connection: Connection): (Offset, Long) =
-    SelectLedgerEndOffsetAndSequentialId.as(LedgerEndOffsetAndSequentialIdParser.single)(connection)
-
-  def initialLedgerEnd(connection: Connection): Option[Offset] =
-    SelectLedgerEnd.as(LedgerEndParser.single)(connection)
-
-  case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
-
-  private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL("""
-                                                     |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
-                                                     |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
-                                                     |""".stripMargin)
+  private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS =
+    SQL("""
+        |update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive={prune_all_divulged_contracts_up_to_inclusive}
+        |where participant_pruned_up_to_inclusive < {prune_all_divulged_contracts_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
+        |""".stripMargin)
 
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL_UPDATE_MOST_RECENT_PRUNING
       .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
+      .execute()(connection)
+    ()
+  }
+
+  def updatePrunedAllDivulgedContractsUpToInclusive(
+      prunedUpToInclusive: Offset
+  )(connection: Connection): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+
+    SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS
+      .on("prune_all_divulged_contracts_up_to_inclusive" -> prunedUpToInclusive)
       .execute()(connection)
     ()
   }
@@ -318,127 +324,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .asVectorOf(configurationEntryParser)(connection)
   }
 
-  // Parties
-
-  private val SQL_GET_PARTY_ENTRIES = SQL(
-    """select * from party_entries
-      |where ({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
-      |order by ledger_offset asc
-      |offset {queryOffset} rows
-      |fetch next {pageSize} rows only""".stripMargin
-  )
-
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    (offset("ledger_offset") ~
-      date("recorded_at") ~
-      ledgerString("submission_id").? ~
-      party("party").? ~
-      str("display_name").? ~
-      str("typ") ~
-      str("rejection_reason").? ~
-      bool("is_local").?)
-      .map(flatten)
-      .map {
-        case (
-              offset,
-              recordTime,
-              submissionIdOpt,
-              Some(party),
-              displayNameOpt,
-              `acceptType`,
-              None,
-              Some(isLocal),
-            ) =>
-          offset ->
-            PartyLedgerEntry.AllocationAccepted(
-              submissionIdOpt,
-              recordTime.toInstant,
-              PartyDetails(party, displayNameOpt, isLocal),
-            )
-        case (
-              offset,
-              recordTime,
-              Some(submissionId),
-              None,
-              None,
-              `rejectType`,
-              Some(reason),
-              None,
-            ) =>
-          offset -> PartyLedgerEntry.AllocationRejected(
-            submissionId,
-            recordTime.toInstant,
-            reason,
-          )
-        case invalidRow =>
-          sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
-      }
-  }
-
-  def partyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_GET_PARTY_ENTRIES
-      .on(
-        "startExclusive" -> startExclusive,
-        "endInclusive" -> endInclusive,
-        "pageSize" -> pageSize,
-        "queryOffset" -> queryOffset,
-      )
-      .asVectorOf(partyEntryParser)(connection)
-  }
-
-  private val SQL_SELECT_MULTIPLE_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where party in ({parties}) and parties.ledger_offset <= parameters.ledger_end"
-    )
-
-  private case class ParsedPartyData(
-      party: String,
-      displayName: Option[String],
-      ledgerOffset: Offset,
-      explicit: Boolean,
-      isLocal: Boolean,
-  )
-
-  private val PartyDataParser: RowParser[ParsedPartyData] = {
-    import com.daml.platform.store.Conversions.columnToOffset
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
-    Macro.parser[ParsedPartyData](
-      "party",
-      "display_name",
-      "ledger_offset",
-      "explicit",
-      "is_local",
-    )
-  }
-
-  private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
-    PartyDetails(Ref.Party.assertFromString(data.party), data.displayName, data.isLocal)
-
-  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] = {
-    import com.daml.platform.store.Conversions.partyToStatement
-    SQL_SELECT_MULTIPLE_PARTIES
-      .on("parties" -> parties)
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
-  }
-
-  private val SQL_SELECT_ALL_PARTIES =
-    SQL(
-      "select parties.party, parties.display_name, parties.ledger_offset, parties.explicit, parties.is_local from parties, parameters where parameters.ledger_end >= parties.ledger_offset"
-    )
-
-  def knownParties(connection: Connection): List[PartyDetails] =
-    SQL_SELECT_ALL_PARTIES
-      .as(PartyDataParser.*)(connection)
-      .map(constructPartyDetails)
-
   // Packages
 
   private val SQL_SELECT_PACKAGES =
@@ -453,7 +338,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       packageId: String,
       sourceDescription: Option[String],
       size: Long,
-      knownSince: Date,
+      knownSince: Long,
   )
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
@@ -470,7 +355,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .map(d =>
         PackageId.assertFromString(d.packageId) -> PackageDetails(
           d.size,
-          d.knownSince.toInstant,
+          instantFromMicros(d.knownSince),
           d.sourceDescription,
         )
       )
@@ -503,7 +388,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
     (offset("ledger_offset") ~
-      date("recorded_at") ~
+      instantFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
       str("typ") ~
       str("rejection_reason").?)
@@ -511,10 +396,10 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .map {
         case (offset, recordTime, Some(submissionId), `acceptType`, None) =>
           offset ->
-            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime.toInstant)
+            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)
         case (offset, recordTime, Some(submissionId), `rejectType`, Some(reason)) =>
           offset ->
-            PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime.toInstant, reason)
+            PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)
         case invalidRow =>
           sys.error(s"packageEntryParser: invalid party entry row: $invalidRow")
       }
@@ -547,9 +432,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   private case class ParsedCommandData(deduplicateUntil: Instant)
 
   private val CommandDataParser: RowParser[ParsedCommandData] =
-    Macro.parser[ParsedCommandData](
-      "deduplicate_until"
-    )
+    instantFromMicros("deduplicate_until")
+      .map(ParsedCommandData)
 
   def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Instant =
     SQL_SELECT_COMMAND
@@ -564,7 +448,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit = {
     SQL_DELETE_EXPIRED_COMMANDS
-      .on("currentTime" -> currentTime)
+      .on("currentTime" -> Timestamp.instantToMicros(currentTime))
       .execute()(connection)
     ()
   }
@@ -583,247 +467,50 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Completions
 
-  def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
-      .execute()(connection)
-    ()
+  def pruneCompletions(
+      pruneUpToInclusive: Offset
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
+    pruneWithLogging(queryDescription = "Command completions pruning") {
+      import com.daml.platform.store.Conversions.OffsetToStatement
+      SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
+    }(connection, loggingContext)
   }
-
-  // Contracts
-
-  def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] = {
-    import com.daml.platform.store.Conversions.HashToStatement
-    SQL"""
-  WITH last_contract_key_create AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE event_kind = 10 -- create
-            AND create_key_hash = ${key.hash}
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          ORDER BY event_sequential_id DESC
-          FETCH NEXT 1 ROW ONLY
-       )
-  SELECT contract_id
-    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-   WHERE NOT EXISTS
-         (SELECT 1
-            FROM participant_events, parameters
-           WHERE event_kind = 20 -- consuming exercise
-             AND event_sequential_id <= parameters.ledger_end_sequential_id
-             AND contract_id = last_contract_key_create.contract_id
-         )
-       """
-      .as(contractId("contract_id").singleOpt)(connection)
-  }
-
-  private def emptyContractIds: Throwable =
-    new IllegalArgumentException(
-      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  private def notFound(missingContractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
-    )
-
-  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
-  // TODO append-only: consider pulling up traversal logic to upper layer
-  def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Instant]] = {
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Instant]] = {
-        import com.daml.platform.store.Conversions.ContractIdToStatement
-        SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT ledger_effective_time
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 0 -- divulgence
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgance events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY
-               """.as(instant("ledger_effective_time").?.singleOpt)(connection)
-      }
-
-      val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
-        .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Instant]] = queriedIds
-        .collect { case (_, Some(found)) =>
-          found
-        }
-      if (foundLedgerEffectiveTimes.size != ids.size) {
-        val missingIds = queriedIds.collect { case (missingId, None) =>
-          missingId
-        }
-        Failure(notFound(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
-    }
-  }
-
-  def keyState(key: Key, validAt: Long)(connection: Connection): KeyState = {
-    import com.daml.platform.store.Conversions.HashToStatement
-    SQL"""
-          WITH last_contract_key_create AS (
-                 SELECT contract_id, flat_event_witnesses
-                   FROM participant_events
-                  WHERE event_kind = 10 -- create
-                    AND create_key_hash = ${key.hash}
-                    AND event_sequential_id <= $validAt
-                  ORDER BY event_sequential_id DESC
-                  FETCH NEXT 1 ROW ONLY
-               )
-          SELECT contract_id, flat_event_witnesses
-            FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-          WHERE NOT EXISTS       -- check no archival visible
-                 (SELECT 1
-                    FROM participant_events
-                   WHERE event_kind = 20 -- consuming exercise
-                     AND event_sequential_id <= $validAt
-                     AND contract_id = last_contract_key_create.contract_id
-         )
-         """
-      .as(
-        (contractId("contract_id") ~ flatEventWitnessesColumn("flat_event_witnesses")).map {
-          case cId ~ stakeholders => KeyAssigned(cId, stakeholders)
-        }.singleOpt
-      )(connection)
-      .getOrElse(KeyUnassigned)
-  }
-
-  private val fullDetailsContractRowParser: RowParser[StorageBackend.RawContractState] =
-    (str("template_id").?
-      ~ flatEventWitnessesColumn("flat_event_witnesses")
-      ~ binaryStream("create_argument").?
-      ~ int("create_argument_compression").?
-      ~ int("event_kind") ~ get[Instant]("ledger_effective_time")(anorm.Column.columnToInstant).?)
-      .map(SqlParser.flatten)
-      .map(StorageBackend.RawContractState.tupled)
-
-  def contractState(contractId: ContractId, before: Long)(
-      connection: Connection
-  ): Option[StorageBackend.RawContractState] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
-    SQL"""
-           SELECT
-             template_id,
-             flat_event_witnesses,
-             create_argument,
-             create_argument_compression,
-             event_kind,
-             ledger_effective_time
-           FROM participant_events
-           WHERE
-             contract_id = $contractId
-             AND event_sequential_id <= $before
-             AND (event_kind = 10 OR event_kind = 20)
-           ORDER BY event_sequential_id DESC
-           FETCH NEXT 1 ROW ONLY
-           """
-      .as(fullDetailsContractRowParser.singleOpt)(connection)
-  }
-
-  private val contractStateRowParser: RowParser[StorageBackend.RawContractStateEvent] =
-    (int("event_kind") ~
-      contractId("contract_id") ~
-      identifier("template_id").? ~
-      instant("ledger_effective_time").? ~
-      binaryStream("create_key_value").? ~
-      int("create_key_value_compression").? ~
-      binaryStream("create_argument").? ~
-      int("create_argument_compression").? ~
-      long("event_sequential_id") ~
-      flatEventWitnessesColumn("flat_event_witnesses") ~
-      offset("event_offset")).map {
-      case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
-        StorageBackend.RawContractStateEvent(
-          eventKind,
-          contractId,
-          templateId,
-          ledgerEffectiveTime,
-          createKeyValue,
-          createKeyCompression,
-          createArgument,
-          createArgumentCompression,
-          flatEventWitnesses,
-          eventSequentialId,
-          offset,
-        )
-    }
-
-  def contractStateEvents(startExclusive: Long, endInclusive: Long)(
-      connection: Connection
-  ): Vector[StorageBackend.RawContractStateEvent] =
-    SQL"""
-           SELECT
-               event_kind,
-               contract_id,
-               template_id,
-               create_key_value,
-               create_key_value_compression,
-               create_argument,
-               create_argument_compression,
-               flat_event_witnesses,
-               ledger_effective_time,
-               event_sequential_id,
-               event_offset
-           FROM
-               participant_events
-           WHERE
-               event_sequential_id > $startExclusive
-               and event_sequential_id <= $endInclusive
-               and (event_kind = 10 or event_kind = 20)
-           ORDER BY event_sequential_id ASC
-    """
-      .asVectorOf(contractStateRowParser)(connection)
 
   // Events
 
-  def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
+  // TODO Cleanup: Extract to [[EventStorageBackendTemplate]]
+  def pruneEvents(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    List(
-      SQL"""
-          -- Divulgence events (only for contracts archived before the specified offset)
+
+    if (pruneAllDivulgedContracts) {
+      pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events
+          delete from participant_events_divulgence delete_events
+          where delete_events.event_offset <= $pruneUpToInclusive
+            or delete_events.event_offset is null
+          """
+      }(connection, loggingContext)
+    } else {
+      pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events (only for contracts archived before the specified offset)
           delete from participant_events_divulgence delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
+            delete_events.event_offset <= $pruneUpToInclusive
+            and exists (
+              select 1 from participant_events_consuming_exercise archive_events
+              where
+                archive_events.event_offset <= $pruneUpToInclusive and
                 archive_events.contract_id = delete_events.contract_id
-            )""",
+            )"""
+      }(connection, loggingContext)
+    }
+
+    pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
           -- Create events (only for contracts archived before the specified offset)
           delete from participant_events_create delete_events
@@ -834,18 +521,69 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive AND
                 archive_events.contract_id = delete_events.contract_id
-            )""",
+            )"""
+    }(connection, loggingContext)
+
+    if (pruneAllDivulgedContracts) {
+      val pruneAfterClause = {
+        // We need to distinguish between the two cases since lexicographical comparison
+        // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
+        participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
+          case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
+          case None => cSQL""
+        }
+      }
+
+      pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
+        SQL"""
+            -- Immediate divulgence pruning
+            delete from participant_events_create c
+            where event_offset <= $pruneUpToInclusive
+            -- Only prune create events which did not have a locally hosted party before their creation offset
+            and not exists (
+              select 1
+              from party_entries p
+              where p.typ = 'accept'
+              and p.ledger_offset <= c.event_offset
+              and #${queryStrategy.isTrue("p.is_local")}
+              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party")}
+            )
+            $pruneAfterClause
+         """
+      }(connection, loggingContext)
+    }
+
+    pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
       SQL"""
           -- Exercise events (consuming)
           delete from participant_events_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive""",
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
       SQL"""
           -- Exercise events (non-consuming)
           delete from participant_events_non_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive""",
-    ).foreach(_.execute()(connection))
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+  }
+
+  private def participantAllDivulgedContractsPrunedUpToInclusive(
+      connection: Connection
+  ): Option[Offset] =
+    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
+      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+        connection
+      )
+
+  private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit = {
+    val deletedRows = query.executeUpdate()(connection)
+    logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(loggingContext)
   }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {
@@ -858,7 +596,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       eventId("event_id") ~
       contractId("contract_id") ~
       identifier("template_id").? ~
-      instant("ledger_effective_time").? ~
+      instantFromMicros("ledger_effective_time").? ~
       array[String]("create_signatories").? ~
       array[String]("create_observers").? ~
       str("create_agreement_text").? ~
@@ -967,4 +705,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       stmnt.close()
     }
   }
+
+  override def checkDatabaseAvailable(connection: Connection): Unit =
+    assert(SQL"SELECT 1".as(get[Int](1).single)(connection) == 1)
 }

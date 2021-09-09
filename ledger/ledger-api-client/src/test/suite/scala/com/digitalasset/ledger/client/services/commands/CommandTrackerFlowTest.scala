@@ -3,38 +3,44 @@
 
 package com.daml.ledger.client.services.commands
 
-import java.time.{Instant, Duration => JDuration}
+import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Keep, Source, SourceQueueWithComplete}
 import akka.stream.testkit.javadsl.TestSink
 import akka.stream.testkit.scaladsl.TestSource
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
+import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimestampConversion._
+import com.daml.concurrent.ExecutionContext
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
-import com.daml.ledger.api.v1.command_submission_service._
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+  NotOkResponse,
+}
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
-import io.grpc.{Status => GrpcStatus}
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.OptionValues
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import com.google.protobuf.duration.{Duration => DurationProto}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationLong
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -48,36 +54,34 @@ class CommandTrackerFlowTest
   type C[Value] = Ctx[(Int, String), Value]
 
   private val allSubmissionsSuccessful
-      : Flow[Ctx[(Int, String), SubmitRequest], Ctx[(Int, String), Try[Empty]], NotUsed] =
-    Flow[C[SubmitRequest]].map {
+      : Flow[Ctx[(Int, String), CommandSubmission], Ctx[(Int, String), Try[Empty]], NotUsed] =
+    Flow[C[CommandSubmission]].map {
       _.map(_ => Success(Empty.defaultInstance))
     }
 
-  private val shortDuration = JDuration.ofSeconds(1L)
+  private val shortDuration = Duration.ofSeconds(1L)
 
-  private lazy val submissionSource = TestSource.probe[Ctx[Int, SubmitRequest]]
-  private lazy val resultSink = TestSink.probe[Ctx[Int, Completion]](system)
+  private lazy val submissionSource = TestSource.probe[Ctx[Int, CommandSubmission]]
+  private lazy val resultSink =
+    TestSink.probe[Ctx[Int, Either[CompletionFailure, CompletionSuccess]]](system)
 
   private val mrt = Instant.EPOCH.plus(shortDuration)
   private val commandId = "commandId"
+  private val abortedCompletion =
+    Completion(
+      commandId,
+      Some(Status(Code.ABORTED.value)),
+    )
+  private val successStatus = Status(Code.OK.value)
   private val context = 1
-  private val submitRequest = newSubmitRequest(commandId)
-  private def newSubmitRequest(commandId: String, dedupTime: Option[JDuration] = None) = Ctx(
-    context,
-    SubmitRequest(
-      Some(
-        Commands(
-          commandId = commandId,
-          deduplicationTime =
-            dedupTime.map(t => com.google.protobuf.duration.Duration(t.getSeconds)),
-        )
-      )
-    ),
-  )
+  private val submission = newSubmission(commandId)
+
+  private def newSubmission(commandId: String, timeout: Option[Duration] = None) =
+    Ctx(context, CommandSubmission(Commands(commandId = commandId), timeout))
 
   private case class Handle(
-      submissions: TestPublisher.Probe[Ctx[Int, SubmitRequest]],
-      completions: TestSubscriber.Probe[Ctx[Int, Completion]],
+      submissions: TestPublisher.Probe[Ctx[Int, CommandSubmission]],
+      completions: TestSubscriber.Probe[Ctx[Int, Either[CompletionFailure, CompletionSuccess]]],
       whatever: Future[Map[String, Int]],
       completionsStreamMock: CompletionStreamMock,
   )
@@ -89,7 +93,7 @@ class CommandTrackerFlowTest
         startOffset: LedgerOffset,
     )
 
-    private implicit val ec = DirectExecutionContext
+    private implicit val ec: ExecutionContext[Nothing] = DirectExecutionContext
     private val stateRef = new AtomicReference[Promise[State]](Promise[State]())
 
     def createCompletionsSource(
@@ -103,11 +107,11 @@ class CommandTrackerFlowTest
       completionSource
     }
 
-    def send(elem: CompletionStreamElement) =
+    def send(elem: CompletionStreamElement): Future[QueueOfferResult] =
       for {
         state <- stateRef.get().future
         res <- state.queue.offer(elem)
-      } yield (res)
+      } yield res
 
     def breakCompletionsStream(): Future[Unit] =
       stateRef
@@ -115,11 +119,10 @@ class CommandTrackerFlowTest
         .future
         .map(state => state.queue.fail(new RuntimeException("boom")))
 
-    def getLastOffset = stateRef.get().future.map(_.startOffset)
+    def getLastOffset: Future[LedgerOffset] =
+      stateRef.get().future.map(_.startOffset)
 
   }
-
-  import Compat._
 
   "Command tracking flow" when {
 
@@ -130,8 +133,8 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, _) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(submitRequest)
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
+        submissions.sendNext(submission)
 
         results.expectError() shouldBe a[RuntimeException]
       }
@@ -144,13 +147,13 @@ class CommandTrackerFlowTest
         val Handle(submissions, _, unhandledF, _) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(submitRequest)
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
+        submissions.sendNext(submission)
 
         whenReady(unhandledF) { unhandled =>
           unhandled should have size 1
           unhandled should contain(
-            submitRequest.value.commands.value.commandId -> submitRequest.context
+            submission.value.commands.commandId -> submission.context
           )
         }
       }
@@ -164,12 +167,12 @@ class CommandTrackerFlowTest
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val otherCommandId = "otherId"
 
-        submissions.sendNext(newSubmitRequest(otherCommandId))
+        submissions.sendNext(newSubmission(otherCommandId))
 
         results.cancel()
         whenReady(unhandledF) { unhandled =>
           unhandled should have size 1
-          unhandled should contain(otherCommandId -> submitRequest.context)
+          unhandled should contain(otherCommandId -> submission.context)
         }
       }
     }
@@ -190,7 +193,7 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, _) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
         submissions.sendComplete()
 
         results.expectNoMessage(1.second)
@@ -203,16 +206,15 @@ class CommandTrackerFlowTest
       "output it as a completion if terminal" in {
 
         val Handle(submissions, results, _, _) =
-          runCommandTrackingFlow(Flow[C[SubmitRequest]].map {
+          runCommandTrackingFlow(Flow[C[CommandSubmission]].map {
             _.map(_ => Failure(new StatusRuntimeException(io.grpc.Status.RESOURCE_EXHAUSTED)))
           })
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
         val failureCompletion =
-          Completion(
-            commandId,
-            Some(Status(Code.RESOURCE_EXHAUSTED.value)),
+          Left(
+            NotOkResponse(commandId = commandId, grpcStatus = Status(Code.RESOURCE_EXHAUSTED.value))
           )
 
         results.expectNext(Ctx(context, failureCompletion))
@@ -222,40 +224,33 @@ class CommandTrackerFlowTest
       "swallow error if not terminal" in {
 
         val Handle(submissions, results, _, completionStreamMock) =
-          runCommandTrackingFlow(Flow[C[SubmitRequest]].map {
+          runCommandTrackingFlow(Flow[C[CommandSubmission]].map {
             _.map(_ => Failure(new StatusRuntimeException(io.grpc.Status.UNKNOWN)))
           })
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
         results.expectNoMessage(3.seconds)
 
-        val completion =
-          Completion(
-            commandId,
-            Some(Status(Code.ABORTED.value)),
-          )
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
-        results.requestNext().value shouldEqual completion
-        succeed
+        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        results.requestNext().value shouldEqual Left(
+          NotOkResponse(commandId, Status(Code.ABORTED.value))
+        )
       }
 
       "swallow error if not terminal, then output completion when it arrives" in {
 
         val Handle(submissions, results, _, completionStreamMock) =
-          runCommandTrackingFlow(Flow[C[SubmitRequest]].map {
+          runCommandTrackingFlow(Flow[C[CommandSubmission]].map {
             _.map(_ => Failure(new StatusRuntimeException(io.grpc.Status.UNKNOWN)))
           })
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
-        val completion =
-          Completion(
-            commandId,
-            Some(Status(Code.ABORTED.value)),
-          )
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
-        results.requestNext().value shouldEqual completion
+        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        results.requestNext().value shouldEqual Left(
+          NotOkResponse(commandId, Status(Code.ABORTED.value))
+        )
       }
 
     }
@@ -263,11 +258,10 @@ class CommandTrackerFlowTest
     "no completion arrives" should {
 
       "not timeout the command while MRT <= RT" in {
-
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
         completionStreamMock.send(
           CompletionStreamElement.CheckpointElement(Checkpoint(Some(fromInstant(mrt))))
@@ -277,9 +271,69 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "timeout the command when the MRT passes" in {
+      "timeout the command when the timeout passes" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        // TODO(RA): test timeouts
+        submissions.sendNext(newSubmission(commandId, timeout = Some(Duration.ofMillis(100))))
+
+        results.expectNext(
+          500.milliseconds,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
+        succeed
+      }
+
+      "use the maximum command timeout, if provided" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(
+          allSubmissionsSuccessful,
+          maximumCommandTimeout = Duration.ofMillis(500),
+        )
+
+        submissions.sendNext(submission)
+
+        results.expectNext(
+          1.second,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
+        succeed
+      }
+
+      "use the command deduplication time, if provided" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        val deduplicationTime = DurationProto.of(0, 200000000) // 200ms
+        submissions.sendNext(
+          Ctx(
+            context,
+            CommandSubmission(
+              Commands(
+                commandId = commandId,
+                deduplicationPeriod =
+                  Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTime),
+              )
+            ),
+          )
+        )
+
+        results.expectNext(
+          500.milliseconds,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
+        succeed
+      }
+
+      "cap the timeout at the maximum command timeout" in {
+        val Handle(submissions, results, _, _) = runCommandTrackingFlow(
+          allSubmissionsSuccessful,
+          maximumCommandTimeout = Duration.ofMillis(100),
+        )
+
+        submissions.sendNext(newSubmission(commandId, timeout = Some(Duration.ofSeconds(10))))
+
+        results.expectNext(
+          500.millis,
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
+        )
         succeed
       }
     }
@@ -287,15 +341,16 @@ class CommandTrackerFlowTest
     "successful completion arrives" should {
 
       "output the completion" in {
-
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
         completionStreamMock.send(successfulCompletion(commandId))
 
-        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
         succeed
       }
 
@@ -303,18 +358,12 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val timedOutCommandId = "timedOutCommandId"
-        val submitRequestShortDedupTime = newSubmitRequest(timedOutCommandId, Some(shortDuration))
-        submissions.sendNext(submitRequestShortDedupTime)
+
+        submissions.sendNext(newSubmission(timedOutCommandId, timeout = Some(shortDuration)))
 
         results.expectNext(
           shortDuration.getSeconds.seconds * 3,
-          Ctx(
-            context,
-            Completion(
-              timedOutCommandId,
-              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
-            ),
-          ),
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(timedOutCommandId))),
         )
 
         // since the command timed out before, the tracker shouldn't send the completion through
@@ -328,22 +377,17 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val timedOutCommandId = "timedOutCommandId"
-        val submitRequestShortDedupTime = newSubmitRequest(timedOutCommandId, Some(shortDuration))
+        val submitRequestShortDedupTime =
+          newSubmission(timedOutCommandId, timeout = Some(shortDuration))
 
         // we send 2 requests
         submissions.sendNext(submitRequestShortDedupTime)
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
         // the tracker observes the timeout before the completion, thus "consuming" the pull on the result output
         results.expectNext(
           3.seconds,
-          Ctx(
-            context,
-            Completion(
-              timedOutCommandId,
-              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
-            ),
-          ),
+          Ctx(context, Left(CompletionResponse.TimeoutResponse(timedOutCommandId))),
         )
         // we now receive a completion
         completionStreamMock.send(successfulCompletion(commandId))
@@ -352,7 +396,9 @@ class CommandTrackerFlowTest
         // The order below is important to reproduce the issue described in DPP-285.
         results.expectNoMessage()
         results.request(1)
-        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
         succeed
       }
 
@@ -365,12 +411,14 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
         completionStreamMock.send(successfulCompletion(commandId))
         completionStreamMock.send(successfulCompletion(commandId))
 
-        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
         results.expectNoMessage(1.second)
         succeed
       }
@@ -383,16 +431,22 @@ class CommandTrackerFlowTest
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(submitRequest)
+        submissions.sendNext(submission)
 
+        val status = Status(Code.INVALID_ARGUMENT.value)
         val failureCompletion =
           Completion(
             commandId,
-            Some(Status(Code.INVALID_ARGUMENT.value)),
+            Some(status),
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(failureCompletion))
 
-        results.expectNext(Ctx(context, failureCompletion))
+        results.expectNext(
+          Ctx(
+            context,
+            Left(CompletionResponse.NotOkResponse(commandId = commandId, grpcStatus = status)),
+          )
+        )
         succeed
       }
     }
@@ -411,7 +465,7 @@ class CommandTrackerFlowTest
         results.request(cmdCount.toLong - 1)
 
         commandIds.foreach { commandId =>
-          submissions.sendNext(submitRequest.copy(value = commandWithId(commandId)))
+          submissions.sendNext(submission.copy(value = commandWithId(commandId)))
         }
         commandIds.foreach { commandId =>
           completionStreamMock.send(successfulCompletion(commandId))
@@ -419,7 +473,7 @@ class CommandTrackerFlowTest
 
         results.expectNextUnorderedN(commandIds.map { commandId =>
           val successCompletion =
-            Completion(commandId, Some(Status()))
+            Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus))
           Ctx(context, successCompletion)
         })
         succeed
@@ -443,17 +497,14 @@ class CommandTrackerFlowTest
           } yield ()
 
         def sendCommand(commandId: String) = {
-          submissions.sendNext(submitRequest.copy(value = commandWithId(commandId)))
+          submissions.sendNext(submission.copy(value = commandWithId(commandId)))
           for {
             _ <- completionStreamMock.send(successfulCompletion(commandId))
             _ = results.request(1)
             _ = results.expectNext(
               Ctx(
                 context,
-                Completion(
-                  commandId,
-                  Some(Status()),
-                ),
+                Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)),
               )
             )
           } yield ()
@@ -488,12 +539,12 @@ class CommandTrackerFlowTest
   }
 
   private def commandWithId(commandId: String) = {
-    val request = submitRequest.value
-    request.copy(commands = request.commands.map(_.copy(commandId = commandId)))
+    val request = submission.value
+    request.copy(commands = request.commands.copy(commandId = commandId))
   }
 
   private def successfulCompletion(commandId: String) =
-    CompletionStreamElement.CompletionElement(Completion(commandId, Some(Status())))
+    CompletionStreamElement.CompletionElement(Completion(commandId, Some(successStatus)))
 
   private def checkPoint(ledgerOffset: LedgerOffset) =
     CompletionStreamElement.CheckpointElement(
@@ -505,20 +556,22 @@ class CommandTrackerFlowTest
 
   private def runCommandTrackingFlow(
       submissionFlow: Flow[
-        Ctx[(Int, String), SubmitRequest],
+        Ctx[(Int, String), CommandSubmission],
         Ctx[(Int, String), Try[Empty]],
         NotUsed,
-      ]
-  ) = {
+      ],
+      maximumCommandTimeout: Duration = Duration.ofSeconds(10),
+  ): Handle = {
 
     val completionsMock = new CompletionStreamMock()
 
     val trackingFlow =
       CommandTrackerFlow[Int, NotUsed](
-        submissionFlow,
-        completionsMock.createCompletionsSource,
-        LedgerOffset(Boundary(LEDGER_BEGIN)),
-        () => JDuration.ofSeconds(10),
+        commandSubmissionFlow = submissionFlow,
+        createCommandCompletionSource = completionsMock.createCompletionsSource,
+        startingOffset = LedgerOffset(Boundary(LEDGER_BEGIN)),
+        maximumCommandTimeout = maximumCommandTimeout,
+        timeoutDetectionPeriod = 1.millisecond,
       )
 
     val handle = submissionSource

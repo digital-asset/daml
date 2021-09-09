@@ -122,7 +122,6 @@ private[lf] object Speedy {
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
       // global contract discriminators, that are discriminators from contract created in previous transactions
-      var globalDiscriminators: Set[crypto.Hash],
       var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode {
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
@@ -344,7 +343,7 @@ private[lf] object Speedy {
 
     private[lf] def contextActors: Set[Party] =
       withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.info.authorizers.getOrElse(onLedger.committers)
+        onLedger.ptx.context.info.authorizers
       }
 
     private[lf] def auth: Authorize = Authorize(this.contextActors)
@@ -358,30 +357,10 @@ private[lf] object Speedy {
         key: Option[Node.KeyWithMaintainers[V[Nothing]]],
     ) =
       withOnLedger("addLocalContract") { onLedger =>
-        coid match {
-          case V.ContractId.V1(discriminator, _)
-              if onLedger.globalDiscriminators.contains(discriminator) =>
-            throw SErrorDamlException(
-              interpretation.Error.ContractIdFreshness(discriminator)
-            )
-          case _ =>
-            onLedger.cachedContracts = onLedger.cachedContracts.updated(
-              coid,
-              CachedContract(templateId, arg, signatories, observers, key),
-            )
-        }
-      }
-
-    def addGlobalCid(cid: V.ContractId) =
-      withOnLedger("addGlobalCid") { onLedger =>
-        cid match {
-          case V.ContractId.V1(discriminator, _) =>
-            if (onLedger.ptx.localContracts.contains(V.ContractId.V1(discriminator)))
-              throw SErrorDamlException(interpretation.Error.ContractIdFreshness(discriminator))
-            else
-              onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
-          case _ =>
-        }
+        onLedger.cachedContracts = onLedger.cachedContracts.updated(
+          coid,
+          CachedContract(templateId, arg, signatories, observers, key),
+        )
       }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
@@ -672,7 +651,6 @@ private[lf] object Speedy {
               case elemType :: Nil =>
                 value match {
                   case V.ValueContractId(cid) =>
-                    addGlobalCid(cid)
                     SValue.SContractId(cid)
                   case V.ValueNumeric(d) =>
                     SValue.SNumeric(d)
@@ -752,11 +730,13 @@ private[lf] object Speedy {
       onLedger.visibleToStakeholders(contract.stakeholders) match {
         case SVisibleToStakeholders.Visible => ()
         case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+          val readers = (actAs union readAs).mkString(",")
+          val stakeholders = contract.stakeholders.mkString(",")
           this.warningLog.add(
             Warning(
               commitLocation = onLedger.commitLocation,
               message =
-                s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning",
+                s"Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid} but none of the reading parties [${readers}] are contract stakeholders [${stakeholders}]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers [${readers}] as an observer to the contract.",
             )
           )
       }
@@ -776,7 +756,6 @@ private[lf] object Speedy {
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
         expr: SExpr,
-        globalCids: Set[V.ContractId],
         committers: Set[Party],
         readAs: Set[Party],
         validating: Boolean = false,
@@ -784,6 +763,7 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
         commitLocation: Option[Location] = None,
+        transactionNormalization: Boolean = true,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.interface.packageLanguageVersion.andThen(
@@ -801,14 +781,18 @@ private[lf] object Speedy {
         ledgerMode = OnLedger(
           validating = validating,
           ptx = PartialTransaction
-            .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
+            .initial(
+              pkg2TxVersion,
+              contractKeyUniqueness,
+              submissionTime,
+              initialSeeding,
+              transactionNormalization,
+              committers,
+            ),
           committers = committers,
           readAs = readAs,
           commitLocation = commitLocation,
           dependsOnTime = false,
-          globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
-            discriminator
-          },
           cachedContracts = Map.empty,
           contractKeyUniqueness = contractKeyUniqueness,
         ),
@@ -848,7 +832,6 @@ private[lf] object Speedy {
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
         expr = SEApp(updateSE, Array(SEValue.Token)),
-        globalCids = Set.empty,
         committers = Set(committer),
         readAs = Set.empty,
       )
@@ -1295,8 +1278,8 @@ private[lf] object Speedy {
   ) extends Kont {
 
     def execute(sv: SValue): Unit = {
-      val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
+        val cached = SBuiltin.extractCachedContract(onLedger, templateId, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value
@@ -1308,11 +1291,13 @@ private[lf] object Speedy {
     * (1) by 'endExercises' if this continuation is entered normally, or
     * (2) by 'abortExercises' if we unwind the stack through this continuation
     */
-  private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
+  private[speedy] final case class KCloseExercise(templateId: TypeConName, machine: Machine)
+      extends Kont {
 
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
-        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toValue)
+        val exerciseResultValue = onLedger.ptx.normValue(templateId, exerciseResult)
+        onLedger.ptx = onLedger.ptx.endExercises(exerciseResultValue)
         checkAborted(onLedger.ptx)
       }
       machine.returnValue = exerciseResult
@@ -1384,7 +1369,7 @@ private[lf] object Speedy {
         machine.env.clear()
         machine.envBase = 0
         throw SErrorDamlException(
-          interpretation.Error.UnhandledException(excep.ty, excep.value.toValue)
+          interpretation.Error.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )
     }
   }

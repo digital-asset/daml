@@ -540,7 +540,7 @@ object MutableCacheBackedContractStoreSpec {
     val templateId = Identifier.assertFromString(s"some:template:$templateName")
     val contractArgument = ValueRecord(
       Some(templateId),
-      ImmArray.empty,
+      ImmArray.Empty,
     )
     val contractInstance = ContractInst(
       templateId,

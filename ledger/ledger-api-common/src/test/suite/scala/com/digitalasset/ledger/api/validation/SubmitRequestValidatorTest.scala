@@ -3,16 +3,18 @@
 
 package com.daml.ledger.api.validation
 
-import java.time.Instant
+import java.time.{Instant, Duration => JDuration}
 import java.util.UUID
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.ledger.api.{DomainMocks, SubmissionIdGenerator}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
+import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
+import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks, SubmissionIdGenerator}
+import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
@@ -23,7 +25,6 @@ import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
-
 class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
@@ -59,7 +60,7 @@ class SubmitRequestValidatorTest
       commandId = commandId.unwrap,
       party = submitter,
       commands = Seq(command),
-      deduplicationTime = Some(deduplicationTime),
+      deduplicationPeriod = DeduplicationPeriodProto.DeduplicationTime(deduplicationTime),
       minLedgerTimeAbs = None,
       minLedgerTimeRel = None,
     )
@@ -69,7 +70,7 @@ class SubmitRequestValidatorTest
     val ledgerTime = Instant.EPOCH.plusSeconds(10)
     val submittedAt = Instant.now
     val timeDelta = java.time.Duration.ofSeconds(1)
-    val maxDeduplicationTime = java.time.Duration.ofDays(1)
+    val maxDeduplicationDuration = java.time.Duration.ofDays(1)
     val deduplicationDuration = java.time.Duration.ofSeconds(
       api.deduplicationTime.seconds,
       api.deduplicationTime.nanos.toLong,
@@ -84,7 +85,7 @@ class SubmitRequestValidatorTest
       actAs = Set(DomainMocks.party),
       readAs = Set.empty,
       submittedAt = submittedAt,
-      deduplicationDuration = deduplicationDuration,
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
       commands = LfCommands(
         ImmArray(
           LfCreateCommand(
@@ -138,7 +139,7 @@ class SubmitRequestValidatorTest
             api.commands.withCommands(Seq.empty),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationDuration),
           ),
           INVALID_ARGUMENT,
           "Missing field: commands",
@@ -153,7 +154,7 @@ class SubmitRequestValidatorTest
               api.commands.withLedgerId(""),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationTime),
+              Some(internal.maxDeduplicationDuration),
             ),
           INVALID_ARGUMENT,
           "Missing field: ledger_id",
@@ -167,7 +168,7 @@ class SubmitRequestValidatorTest
           api.commands.withWorkflowId(""),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime),
+          Some(internal.maxDeduplicationDuration),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
@@ -183,7 +184,7 @@ class SubmitRequestValidatorTest
             api.commands.withApplicationId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationDuration),
           ),
           INVALID_ARGUMENT,
           "Missing field: application_id",
@@ -197,7 +198,7 @@ class SubmitRequestValidatorTest
             api.commands.withCommandId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationDuration),
           ),
           INVALID_ARGUMENT,
           "Missing field: command_id",
@@ -212,7 +213,7 @@ class SubmitRequestValidatorTest
               api.commands.withParty(""),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationTime),
+              Some(internal.maxDeduplicationDuration),
             ),
           INVALID_ARGUMENT,
           """Missing field: party or act_as""",
@@ -231,7 +232,7 @@ class SubmitRequestValidatorTest
               .addReadAs("bob"),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationDuration),
           )
         inside(result) { case Right(cmd) =>
           // actAs parties are gathered from "party" and "readAs" fields
@@ -249,7 +250,7 @@ class SubmitRequestValidatorTest
             api.commands.withParty("").addActAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationDuration),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -261,7 +262,7 @@ class SubmitRequestValidatorTest
             api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationDuration),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -275,7 +276,7 @@ class SubmitRequestValidatorTest
           ),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime),
+          Some(internal.maxDeduplicationDuration),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -289,51 +290,108 @@ class SubmitRequestValidatorTest
           ),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime),
+          Some(internal.maxDeduplicationDuration),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
+      "transform valid deduplication into correct internal structure" in {
+        val deduplicationDuration = Duration.of(10, 0)
+        val offset = OffsetBuilder.fromLong(0)
+        forAll(
+          Table[DeduplicationPeriodProto, DeduplicationPeriod](
+            ("input proto deduplication", "valid model deduplication"),
+            DeduplicationPeriodProto.DeduplicationTime(deduplicationDuration) -> DeduplicationPeriod
+              .DeduplicationDuration(JDuration.ofSeconds(10)),
+            DeduplicationPeriodProto.DeduplicationDuration(
+              deduplicationDuration
+            ) -> DeduplicationPeriod
+              .DeduplicationDuration(JDuration.ofSeconds(10)),
+            DeduplicationPeriodProto.DeduplicationOffset(offset.toHexString) -> DeduplicationPeriod
+              .DeduplicationOffset(offset),
+            DeduplicationPeriodProto.Empty -> DeduplicationPeriod.DeduplicationDuration(
+              internal.maxDeduplicationDuration
+            ),
+          )
+        ) {
+          case (
+                sentDeduplication: DeduplicationPeriodProto,
+                expectedDeduplication: DeduplicationPeriod,
+              ) =>
+            val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
+            val result = commandsValidator.validateCommands(
+              api.commands.copy(deduplicationPeriod = sentDeduplication),
+              internal.ledgerTime,
+              internal.submittedAt,
+              Some(internal.maxDeduplicationDuration),
+            )
+            inside(result) { case Right(valid) =>
+              valid.deduplicationPeriod shouldBe (expectedDeduplication)
+            }
+        }
+      }
+
       "not allow negative deduplication time" in {
-        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands.copy(deduplicationTime = Some(Duration.of(-1, 0))),
-            internal.ledgerTime,
-            internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
-          ),
-          INVALID_ARGUMENT,
-          "Invalid field deduplication_time: Duration must be positive",
-        )
+        forAll(
+          Table(
+            "deduplication period",
+            DeduplicationPeriodProto.DeduplicationTime(Duration.of(-1, 0)),
+            DeduplicationPeriodProto.DeduplicationDuration(Duration.of(-1, 0)),
+          )
+        ) { deduplication =>
+          val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
+          requestMustFailWith(
+            commandsValidator.validateCommands(
+              api.commands.copy(deduplicationPeriod = deduplication),
+              internal.ledgerTime,
+              internal.submittedAt,
+              Some(internal.maxDeduplicationDuration),
+            ),
+            INVALID_ARGUMENT,
+            "Invalid field deduplication_period: Duration must be positive",
+          )
+        }
       }
 
       "not allow deduplication time exceeding maximum deduplication time" in {
-        val manySeconds = 100000L
-        val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands.copy(deduplicationTime = Some(Duration.of(manySeconds, 0))),
-            internal.ledgerTime,
-            internal.submittedAt,
-            Some(internal.maxDeduplicationTime),
-          ),
-          INVALID_ARGUMENT,
-          s"Invalid field deduplication_time: The given deduplication time of ${java.time.Duration
-            .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}",
-        )
+        val durationSecondsExceedingMax =
+          internal.maxDeduplicationDuration.plusSeconds(1).getSeconds
+        forAll(
+          Table(
+            "deduplication period",
+            DeduplicationPeriodProto.DeduplicationTime(Duration.of(durationSecondsExceedingMax, 0)),
+            DeduplicationPeriodProto.DeduplicationDuration(
+              Duration.of(durationSecondsExceedingMax, 0)
+            ),
+          )
+        ) { deduplication =>
+          val commandsValidator = new CommandsValidator(ledgerId, generateRandomSubmissionId)
+          requestMustFailWith(
+            commandsValidator.validateCommands(
+              api.commands
+                .copy(deduplicationPeriod = deduplication),
+              internal.ledgerTime,
+              internal.submittedAt,
+              Some(internal.maxDeduplicationDuration),
+            ),
+            INVALID_ARGUMENT,
+            s"Invalid field deduplication_period: The given deduplication time of ${java.time.Duration
+              .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
+          )
+        }
       }
 
-      "default to maximum deduplication time if deduplication time is missing" in {
+      "default to maximum deduplication time if deduplication is missing" in {
         val generateSubmissionId: SubmissionIdGenerator = () => submissionId.unwrap
         val commandsValidator = new CommandsValidator(ledgerId, generateSubmissionId)
         commandsValidator.validateCommands(
-          api.commands.copy(deduplicationTime = None),
+          api.commands.copy(deduplicationPeriod = DeduplicationPeriodProto.Empty),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime),
+          Some(internal.maxDeduplicationDuration),
         ) shouldEqual Right(
           internal.emptyCommands.copy(
-            deduplicationDuration = internal.maxDeduplicationTime
+            deduplicationPeriod =
+              DeduplicationPeriod.DeduplicationDuration(internal.maxDeduplicationDuration)
           )
         )
       }
@@ -695,9 +753,11 @@ class SubmitRequestValidatorTest
       }
 
       "convert valid maps" in {
-        val entries = ImmArray(1 until 5).map { x =>
-          Utf8.sha256(x.toString) -> x.toLong
-        }
+        val entries = (1 until 5)
+          .map { x =>
+            Utf8.sha256(x.toString) -> x.toLong
+          }
+          .to(ImmArray)
         val apiEntries = entries.map { case (k, v) =>
           ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
@@ -710,9 +770,11 @@ class SubmitRequestValidatorTest
       }
 
       "reject maps with repeated keys" in {
-        val entries = ImmArray(1 +: (1 until 5)).map { x =>
-          Utf8.sha256(x.toString) -> x.toLong
-        }
+        val entries = (1 +: (1 until 5))
+          .map { x =>
+            Utf8.sha256(x.toString) -> x.toLong
+          }
+          .to(ImmArray)
         val apiEntries = entries.map { case (k, v) =>
           ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }

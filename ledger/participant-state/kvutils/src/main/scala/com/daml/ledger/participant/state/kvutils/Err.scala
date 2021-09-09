@@ -39,4 +39,9 @@ object Err {
   final case class InternalError(message: String) extends Err {
     override def getMessage: String = s"Internal error: $message"
   }
+
+  final case class MissingDivulgedContractInstance(contractId: String) extends Err {
+    override def getMessage: String =
+      s"Missing divulged contract instance for contract id $contractId"
+  }
 }

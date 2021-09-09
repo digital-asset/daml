@@ -12,7 +12,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.{
@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 }
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.metrics.Metrics
 
 import scala.concurrent.Future
@@ -64,7 +64,7 @@ object Main {
           dataSource
         }
 
-      override def currentHealth(): HealthStatus = HealthStatus.healthy
+      override def currentHealth(): HealthStatus = Healthy
 
       override def ledgerId(): LedgerId = IndexerBenchmark.LedgerId
     }

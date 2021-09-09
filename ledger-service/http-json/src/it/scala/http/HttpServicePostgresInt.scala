@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import com.daml.http.dbbackend.ConnectionPool.PoolSize
+import com.daml.dbutils.ConnectionPool.PoolSize
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Inside

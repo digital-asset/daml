@@ -8,14 +8,15 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
-import anorm.{NamedParameter, RowParser, SQL, ~}
+import anorm.{RowParser, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{identifier, instant, offset}
+import com.daml.platform.store.Conversions.{identifier, instantFromMicros, offset}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{EventsTable, Identifier, Raw}
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 
 import scala.collection.compat.immutable.ArraySeq
 
@@ -23,6 +24,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   def eventStrategy: EventStrategy
+  def queryStrategy: QueryStrategy
 
   private val selectColumnsForFlatTransactions =
     Seq(
@@ -55,7 +57,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       long("event_sequential_id") ~
       str("event_id") ~
       str("contract_id") ~
-      instant("ledger_effective_time") ~
+      instantFromMicros("ledger_effective_time") ~
       identifier("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
@@ -243,7 +245,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
   private def events[T](
       columnPrefix: String,
       joinClause: String,
-      additionalAndClause: (String, List[NamedParameter]),
+      additionalAndClause: CompositeSql,
       rowParser: RowParser[T],
       selectColumns: String,
       witnessesColumn: String,
@@ -253,39 +255,19 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       filterParams: FilterParams,
   )(connection: Connection): Vector[T] = {
     val parties = filterParams.wildCardParties ++ filterParams.partiesAndTemplates.flatMap(_._1)
-    val (filteredEventWitnessesClause, filteredEventWitnessesParams) =
-      eventStrategy.filteredEventWitnessesClause(
-        witnessesColumnName = witnessesColumn,
-        parties = parties,
-      )
-    val (submittersArePartiesClause, submittersArePartiesParams) =
-      eventStrategy.submittersArePartiesClause(
-        submittersColumnName = "submitters",
-        parties = parties,
-      )
-    val (witnessesWhereClause, witnessesWhereParams) = eventStrategy.witnessesWhereClause(
-      witnessesColumnName = witnessesColumn,
-      filterParams = filterParams,
-    )
-    val (limitClause, limitParams) = eventStrategy.limitClause(limit)
-    val sql =
-      s"""SELECT
-         |  $selectColumns, $filteredEventWitnessesClause as event_witnesses,
-         |  case when $submittersArePartiesClause then command_id else '' end as command_id
-         |FROM
-         |  participant_events $columnPrefix $joinClause
-         |WHERE
-         |${additionalAndClause._1}
-         |  $witnessesWhereClause
-         |ORDER BY event_sequential_id
-         |$limitClause
-         |""".stripMargin
-    SQL(sql)
-      .on(additionalAndClause._2: _*)
-      .on(filteredEventWitnessesParams: _*)
-      .on(submittersArePartiesParams: _*)
-      .on(witnessesWhereParams: _*)
-      .on(limitParams: _*)
+    SQL"""
+        SELECT
+          #$selectColumns, ${eventStrategy
+      .filteredEventWitnessesClause(witnessesColumn, parties)} as event_witnesses,
+          case when ${eventStrategy
+      .submittersArePartiesClause("submitters", parties)} then command_id else '' end as command_id
+        FROM
+          participant_events #$columnPrefix #$joinClause
+        WHERE
+        $additionalAndClause
+          ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams)}
+        ORDER BY event_sequential_id
+        ${queryStrategy.limitClause(limit)}"""
       .withFetchSize(fetchSizeHint)
       .asVectorOf(rowParser)(connection)
   }
@@ -299,24 +281,18 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     events(
       columnPrefix = "active_cs",
       joinClause = "",
-      additionalAndClause = (
-        """  event_sequential_id > {startExclusive} AND
-          |  event_sequential_id <= {endInclusiveSeq} AND
-          |  active_cs.event_kind = 10 AND -- create
-          |  NOT EXISTS (
-          |    SELECT 1
-          |    FROM participant_events archived_cs
-          |    WHERE
-          |      archived_cs.contract_id = active_cs.contract_id AND
-          |      archived_cs.event_kind = 20 AND -- consuming
-          |      archived_cs.event_offset <= {endInclusiveOffset}
-          |  ) AND""".stripMargin,
-        List(
-          "startExclusive" -> rangeParams.startExclusive,
-          "endInclusiveSeq" -> rangeParams.endInclusive,
-          "endInclusiveOffset" -> endInclusiveOffset,
-        ),
-      ),
+      additionalAndClause = cSQL"""
+            event_sequential_id > ${rangeParams.startExclusive} AND
+            event_sequential_id <= ${rangeParams.endInclusive} AND
+            active_cs.event_kind = 10 AND -- create
+            NOT EXISTS (
+              SELECT 1
+              FROM participant_events archived_cs
+              WHERE
+                archived_cs.contract_id = active_cs.contract_id AND
+                archived_cs.event_kind = 20 AND -- consuming
+                archived_cs.event_offset <= $endInclusiveOffset
+            ) AND""",
       rowParser = rawFlatEventParser,
       selectColumns = selectColumnsForFlatTransactions,
       witnessesColumn = "flat_event_witnesses",
@@ -334,14 +310,9 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     events(
       columnPrefix = "",
       joinClause = "",
-      additionalAndClause = (
-        """  event_sequential_id > {startExclusive} AND
-          |  event_sequential_id <= {endInclusiveSeq} AND""".stripMargin,
-        List(
-          "startExclusive" -> rangeParams.startExclusive,
-          "endInclusiveSeq" -> rangeParams.endInclusive,
-        ),
-      ),
+      additionalAndClause = cSQL"""
+            event_sequential_id > ${rangeParams.startExclusive} AND
+            event_sequential_id <= ${rangeParams.endInclusive} AND""",
       rowParser = rawFlatEventParser,
       selectColumns = selectColumnsForFlatTransactions,
       witnessesColumn = "flat_event_witnesses",
@@ -362,13 +333,9 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       joinClause = """JOIN parameters ON
           |  (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
           |  AND event_offset <= ledger_end""".stripMargin,
-      additionalAndClause = (
-        """  transaction_id = {transactionId} AND
-          |  event_kind != 0 AND -- we do not want to fetch divulgence events""".stripMargin,
-        List(
-          "transactionId" -> transactionId
-        ),
-      ),
+      additionalAndClause = cSQL"""
+            transaction_id = $transactionId AND
+            event_kind != 0 AND -- we do not want to fetch divulgence events""",
       rowParser = rawFlatEventParser,
       selectColumns = selectColumnsForFlatTransactions,
       witnessesColumn = "flat_event_witnesses",
@@ -386,18 +353,13 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     events(
       columnPrefix = "",
       joinClause = "",
-      additionalAndClause = (
-        """  event_sequential_id > {startExclusive} AND
-          |  event_sequential_id <= {endInclusiveSeq} AND
-          |  event_kind != 0 AND -- we do not want to fetch divulgence events""".stripMargin,
-        List(
-          "startExclusive" -> rangeParams.startExclusive,
-          "endInclusiveSeq" -> rangeParams.endInclusive,
-        ),
-      ),
+      additionalAndClause = cSQL"""
+            event_sequential_id > ${rangeParams.startExclusive} AND
+            event_sequential_id <= ${rangeParams.endInclusive} AND
+            event_kind != 0 AND -- we do not want to fetch divulgence events""",
       rowParser = rawTreeEventParser,
       selectColumns =
-        s"$selectColumnsForTransactionTree, ${eventStrategy.columnEqualityBoolean("event_kind", "20")} as exercise_consuming",
+        s"$selectColumnsForTransactionTree, ${queryStrategy.columnEqualityBoolean("event_kind", "20")} as exercise_consuming",
       witnessesColumn = "tree_event_witnesses",
     )(
       limit = rangeParams.limit,
@@ -416,16 +378,12 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       joinClause = """JOIN parameters ON
           |  (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
           |  AND event_offset <= ledger_end""".stripMargin,
-      additionalAndClause = (
-        """  transaction_id = {transactionId} AND
-          |  event_kind != 0 AND -- we do not want to fetch divulgence events""".stripMargin,
-        List(
-          "transactionId" -> transactionId
-        ),
-      ),
+      additionalAndClause = cSQL"""
+            transaction_id = $transactionId AND
+            event_kind != 0 AND -- we do not want to fetch divulgence events""",
       rowParser = rawTreeEventParser,
       selectColumns =
-        s"$selectColumnsForTransactionTree, ${eventStrategy.columnEqualityBoolean("event_kind", "20")} as exercise_consuming",
+        s"$selectColumnsForTransactionTree, ${queryStrategy.columnEqualityBoolean("event_kind", "20")} as exercise_consuming",
       witnessesColumn = "tree_event_witnesses",
     )(
       limit = None,
@@ -446,16 +404,12 @@ trait EventStrategy {
     *
     * @param witnessesColumnName name of the witnesses column in the query
     * @param parties which is all the parties we are interested in in the resul
-    * @return a tuple:
-    *         - first part is a plain SQL which fits the query template
-    *         - second part is a list of NamedParameters
-    *         Important note: the NamedParameters should confirm to the generated SQL expression (all names there should match exactly)
-    *         Important note: implementor have to make sure that all used names are unique here in the scope of the whole query
+    * @return the composable SQL
     */
   def filteredEventWitnessesClause(
       witnessesColumnName: String,
       parties: Set[Ref.Party],
-  ): (String, List[NamedParameter])
+  ): CompositeSql
 
   /** This populates the following part of the query:
     *   SELECT ...,case when [THIS PART] then command_id else "" end as command_id
@@ -463,16 +417,12 @@ trait EventStrategy {
     *
     * @param submittersColumnName name of the Array column holding submitters
     * @param parties which is all the parties we are interested in in the resul
-    * @return a tuple:
-    *         - first part is a plain SQL which fits the query template
-    *         - second part is a list of NamedParameters
-    *         Important note: the NamedParameters should confirm to the generated SQL expression (all names there should match exactly)
-    *         Important note: implementor have to make sure that all used names are unique here in the scope of the whole query
+    * @return the composable SQL
     */
   def submittersArePartiesClause(
       submittersColumnName: String,
       parties: Set[Ref.Party],
-  ): (String, List[NamedParameter])
+  ): CompositeSql
 
   /** This populates the following part of the query:
     *   SELECT ... WHERE ... AND [THIS PART]
@@ -480,36 +430,10 @@ trait EventStrategy {
     *
     * @param witnessesColumnName name of the Array column holding witnesses
     * @param filterParams the filtering criteria
-    * @return a tuple:
-    *         - first part is a plain SQL which fits the query template
-    *         - second part is a list of NamedParameters
-    *         Important note: the NamedParameters should confirm to the generated SQL expression (all names there should match exactly)
-    *         Important note: implementor have to make sure that all used names are unique here in the scope of the whole query
+    * @return the composable SQL
     */
   def witnessesWhereClause(
       witnessesColumnName: String,
       filterParams: FilterParams,
-  ): (String, List[NamedParameter])
-
-  /** This populates the following part of the query:
-    *   SELECT ... WHERE ... ORDER BY event_sequential_id [THIS PART]
-    *
-    * @param limit optional limit
-    * @return a tuple:
-    *         - first part is a plain SQL which fits the query template
-    *         - second part is a list of NamedParameters
-    *         Important note: the NamedParameters should confirm to the generated SQL expression (all names there should match exactly)
-    *         Important note: implementor have to make sure that all used names are unique here in the scope of the whole query
-    */
-  def limitClause(limit: Option[Int]): (String, List[NamedParameter]) =
-    limit
-      .map(to => s"fetch next {tolc} rows only" -> List[NamedParameter]("tolc" -> to))
-      .getOrElse("" -> Nil)
-
-  /** An expression resulting to a boolean, to check equality between two SQL expressions
-    *
-    * @return plain SQL which fits the query template
-    */
-  def columnEqualityBoolean(column: String, value: String): String =
-    s"""$column = $value"""
+  ): CompositeSql
 }

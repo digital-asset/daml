@@ -8,20 +8,18 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
-import com.daml.scalautil.ExceptionOps._
+import com.daml.dbutils.ConfigCompanion
 import com.daml.ledger.api.tls.TlsConfiguration
-import scalaz.std.option._
-import scalaz.syntax.traverse._
-import scalaz.{@@, Show, Tag, \/}
+import scalaz.std.either._
+import scalaz.Show
+import scalaz.StateT.liftM
 
 import scala.concurrent.duration._
-import scala.util.Try
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.metrics.MetricsReporter
 import com.daml.http.dbbackend.JdbcConfig
-import scalaz.\/.right
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -39,7 +37,6 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     allowNonHttps: Boolean = false,
-    accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
@@ -60,58 +57,6 @@ private[http] object Config {
       ThrottleMode.Shaping,
       heartBeatPer = 5 second,
     )
-
-  type SupportedJdbcDriverNames = Set[String] @@ SupportedJdbcDrivers
-  sealed trait SupportedJdbcDrivers
-  val SupportedJdbcDrivers = Tag.of[SupportedJdbcDrivers]
-}
-
-private[http] abstract class ConfigCompanion[A, ReadCtx](name: String) {
-
-  protected val indent: String = List.fill(8)(" ").mkString
-
-  protected[this] def create(x: Map[String, String])(implicit readCtx: ReadCtx): Either[String, A]
-
-  private[http] implicit final def `read instance`(implicit ctx: ReadCtx): scopt.Read[A] =
-    scopt.Read.reads { s =>
-      val x = implicitly[scopt.Read[Map[String, String]]].reads(s)
-      create(x).fold(e => throw new IllegalArgumentException(e), identity)
-    }
-
-  protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
-    m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
-
-  protected def optionalStringField(m: Map[String, String])(
-      k: String
-  ): Either[String, Option[String]] =
-    right(m.get(k)).toEither
-
-  protected def optionalBooleanField(m: Map[String, String])(
-      k: String
-  ): Either[String, Option[Boolean]] =
-    m.get(k).traverse(v => parseBoolean(k)(v)).toEither
-
-  protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
-    m.get(k).traverse(v => parseLong(k)(v)).toEither
-
-  import scalaz.syntax.std.string._
-
-  protected def parseBoolean(k: String)(v: String): String \/ Boolean =
-    v.parseBoolean.leftMap(e => s"$k=$v must be a boolean value: ${e.description}").disjunction
-
-  protected def parseLong(k: String)(v: String): String \/ Long =
-    v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
-
-  protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
-    requiredField(m)(k).flatMap(directory)
-
-  protected def directory(s: String): Either[String, File] =
-    Try(new File(s).getAbsoluteFile).toEither.left
-      .map(e => e.description)
-      .flatMap { d =>
-        if (d.isDirectory) Right(d)
-        else Left(s"Directory does not exist: ${d.getAbsolutePath}")
-      }
 }
 
 // It is public for Daml Hub
@@ -142,12 +87,10 @@ private[http] object WebsocketConfig
     "Server-side heartBeat interval in seconds",
   )
 
-  override def create(
-      x: Map[String, String]
-  )(implicit readCtx: DummyImplicit): Either[String, WebsocketConfig] =
+  protected[this] override def create(implicit readCtx: DummyImplicit) =
     for {
-      md <- optionalLongField(x)("maxDuration")
-      hbp <- optionalLongField(x)("heartBeatPer")
+      md <- optionalLongField("maxDuration")
+      hbp <- optionalLongField("heartBeatPer")
     } yield Config.DefaultWsConfig
       .copy(
         maxDuration = md
@@ -181,12 +124,10 @@ private[http] object StaticContentConfig
 
   lazy val usage: String = helpString("<URL prefix>", "<directory>")
 
-  override def create(
-      x: Map[String, String]
-  )(implicit readCtx: DummyImplicit): Either[String, StaticContentConfig] =
+  protected[this] override def create(implicit readCtx: DummyImplicit) =
     for {
-      prefix <- requiredField(x)("prefix").flatMap(prefixCantStartWithSlash)
-      directory <- requiredDirectoryField(x)("directory")
+      prefix <- requiredField("prefix").flatMap(p => liftM(prefixCantStartWithSlash(p)))
+      directory <- requiredDirectoryField("directory")
     } yield StaticContentConfig(prefix, directory)
 
   private def prefixCantStartWithSlash(s: String): Either[String, String] =

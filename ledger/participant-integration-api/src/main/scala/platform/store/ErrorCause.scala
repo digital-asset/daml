@@ -13,8 +13,6 @@ private[platform] object ErrorCause {
 
   final case class DamlLf(error: LfError) extends ErrorCause {
 
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  Review once LF errors are properly structured
     override def explain: String = {
       val details = {
         error match {

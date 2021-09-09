@@ -55,7 +55,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -84,6 +87,7 @@ da_scala_test_suite(
         "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -141,6 +145,9 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
     ],
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant,
+    ],
 )
 
 conformance_test(
@@ -152,6 +159,9 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
         "--daml-lf-min-version-1.14-unsafe",
+    ],
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant,
     ],
 )
 
@@ -169,7 +179,28 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-multi-participant-pruning",
+    ports = [
+        6865,
+        6866,
+    ],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--participant=participant-id=example1,port=6865",
+        "--participant=participant-id=example2,port=6866",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
     ],
 )
 
@@ -186,7 +217,8 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ConfigManagementServiceIT," +
+        "CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -201,6 +233,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -231,5 +265,32 @@ conformance_test(
         "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
         "--perf-tests=PerformanceEnvelope.Latency.1000ms",
         "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-contract-ids",
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-command-deduplication",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=KVCommandDeduplicationIT",
     ],
 )

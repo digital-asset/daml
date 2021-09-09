@@ -53,7 +53,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val contractFormat: RootJsonFormat[ContractResult] =
     jsonFormat2(Application.ContractResult.apply)
   implicit val transactionFormat: RootJsonFormat[TransactionResult] =
-    jsonFormat2(Application.TransactionResult.apply)
+    jsonFormat3(Application.TransactionResult.apply)
 
   def saveAsJson[A: JsonWriter](outputFile: Path, a: A): Unit = {
     val _ = Files.write(outputFile, a.toJson.prettyPrint.getBytes())

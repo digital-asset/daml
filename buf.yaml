@@ -2,12 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 version: v1beta1
+
+deps:
+  - buf.build/googleapis/googleapis
+
 build:
   roots:
     - daml-lf/archive/src/main/protobuf/
     - daml-lf/transaction/src/main/protobuf/
     - ledger/ledger-configuration/protobuf/
     - ledger/participant-state/kvutils/src/main/protobuf/
+    - ledger-api/grpc-definitions
   excludes:
     # We have to exclude these to avoid duplicate definitions of e.g. Unit within the same package.
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_11/

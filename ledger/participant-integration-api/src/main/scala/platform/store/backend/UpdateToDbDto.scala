@@ -5,13 +5,16 @@ package com.daml.platform.store.backend
 
 import java.util.UUID
 
+import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
+import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.DeduplicationKeyMaker
@@ -27,15 +30,11 @@ object UpdateToDbDto {
     {
       case u: CommandRejected =>
         Iterator(
-          DbDto.CommandCompletion(
-            completion_offset = offset.toHexString,
-            record_time = u.recordTime.toInstant,
-            application_id = u.completionInfo.applicationId,
-            submitters = u.completionInfo.actAs.toSet,
-            command_id = u.completionInfo.commandId,
-            transaction_id = None,
-            status_code = Some(u.reasonTemplate.code),
-            status_message = Some(u.reasonTemplate.message),
+          commandCompletion(offset, u.recordTime, transactionId = None, u.completionInfo).copy(
+            rejection_status_code = Some(u.reasonTemplate.code),
+            rejection_status_message = Some(u.reasonTemplate.message),
+            rejection_status_details =
+              Some(StatusDetails.of(u.reasonTemplate.status.details).toByteArray),
           ),
           DbDto.CommandDeduplication(
             DeduplicationKeyMaker.make(
@@ -49,7 +48,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.acceptType,
             configuration = Configuration.encode(u.newConfiguration).toByteArray,
@@ -61,7 +60,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.rejectType,
             configuration = Configuration.encode(u.proposedConfiguration).toByteArray,
@@ -73,28 +72,21 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = u.submissionId,
             party = Some(u.party),
             display_name = Option(u.displayName),
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
             is_local = Some(u.participantId == participantId),
-          ),
-          DbDto.Party(
-            party = u.party,
-            display_name = Some(u.displayName),
-            explicit = true,
-            ledger_offset = Some(offset.toHexString),
-            is_local = u.participantId == participantId,
-          ),
+          )
         )
 
       case u: PartyAllocationRejected =>
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = Some(u.submissionId),
             party = None,
             display_name = None,
@@ -112,7 +104,7 @@ object UpdateToDbDto {
             upload_id = uploadId,
             source_description = u.sourceDescription,
             package_size = archive.getPayload.size.toLong,
-            known_since = u.recordTime.toInstant,
+            known_since = u.recordTime.micros,
             ledger_offset = offset.toHexString,
             _package = archive.toByteArray,
           )
@@ -120,7 +112,7 @@ object UpdateToDbDto {
         val packageEntries = u.submissionId.iterator.map(submissionId =>
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = Some(submissionId),
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
@@ -132,7 +124,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.toInstant,
+            recorded_at = u.recordTime.micros,
             submission_id = Some(u.submissionId),
             typ = JdbcLedgerDao.rejectType,
             rejection_reason = Some(u.rejectionReason),
@@ -164,7 +156,7 @@ object UpdateToDbDto {
               DbDto.EventCreate(
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
-                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
+                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
                 command_id = u.optCompletionInfo.map(_.commandId),
                 workflow_id = u.transactionMeta.workflowId,
                 application_id = u.optCompletionInfo.map(_.applicationId),
@@ -203,7 +195,7 @@ object UpdateToDbDto {
                 consuming = exercise.consuming,
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
-                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
+                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
                 command_id = u.optCompletionInfo.map(_.commandId),
                 workflow_id = u.transactionMeta.workflowId,
                 application_id = u.optCompletionInfo.map(_.applicationId),
@@ -261,21 +253,46 @@ object UpdateToDbDto {
             )
         }
 
-        val completions = u.optCompletionInfo.iterator.map { completionInfo =>
-          DbDto.CommandCompletion(
-            completion_offset = offset.toHexString,
-            record_time = u.recordTime.toInstant,
-            application_id = completionInfo.applicationId,
-            submitters = completionInfo.actAs.toSet,
-            command_id = completionInfo.commandId,
-            transaction_id = Some(u.transactionId),
-            status_code = None,
-            status_message = None,
+        val completions =
+          u.optCompletionInfo.iterator.map(
+            commandCompletion(offset, u.recordTime, Some(u.transactionId), _)
           )
-        }
 
         events ++ divulgences ++ completions
     }
   }
 
+  private def commandCompletion(
+      offset: Offset,
+      recordTime: Time.Timestamp,
+      transactionId: Option[Ref.TransactionId],
+      completionInfo: CompletionInfo,
+  ): DbDto.CommandCompletion = {
+    val (deduplicationOffset, deduplicationTimeSeconds, deduplicationTimeNanos) =
+      completionInfo.optDeduplicationPeriod
+        .map {
+          case DeduplicationOffset(offset) =>
+            (Some(offset.toHexString), None, None)
+          case DeduplicationDuration(duration) =>
+            (None, Some(duration.getSeconds), Some(duration.getNano))
+        }
+        .getOrElse((None, None, None))
+
+    DbDto.CommandCompletion(
+      completion_offset = offset.toHexString,
+      record_time = recordTime.micros,
+      application_id = completionInfo.applicationId,
+      submitters = completionInfo.actAs.toSet,
+      command_id = completionInfo.commandId,
+      transaction_id = transactionId,
+      rejection_status_code = None,
+      rejection_status_message = None,
+      rejection_status_details = None,
+      submission_id = completionInfo.submissionId,
+      deduplication_offset = deduplicationOffset,
+      deduplication_time_seconds = deduplicationTimeSeconds,
+      deduplication_time_nanos = deduplicationTimeNanos,
+      deduplication_start = None,
+    )
+  }
 }

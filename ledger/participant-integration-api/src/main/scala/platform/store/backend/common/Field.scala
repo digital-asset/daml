@@ -6,6 +6,7 @@ package com.daml.platform.store.backend.common
 import java.lang
 import java.sql.PreparedStatement
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 import scala.reflect.ClassTag
 
@@ -73,6 +74,11 @@ private[backend] case class IntOptional[FROM](extract: FROM => Option[Int])
 
 private[backend] case class Bigint[FROM](extract: FROM => Long) extends TrivialField[FROM, Long]
 
+private[backend] case class BigintOptional[FROM](extract: FROM => Option[Long])
+    extends Field[FROM, Option[Long], java.lang.Long] {
+  override def convert: Option[Long] => java.lang.Long = _.map(Long.box).orNull
+}
+
 private[backend] case class SmallintOptional[FROM](extract: FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
   override def convert: Option[Int] => Integer = _.map(Int.box).orNull
@@ -86,11 +92,10 @@ private[backend] case class BooleanOptional[FROM](extract: FROM => Option[Boolea
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
 }
 
-private[backend] case class Timestamp[FROM](extract: FROM => Instant)
-    extends TrivialField[FROM, Instant]
-
-private[backend] case class TimestampOptional[FROM](extract: FROM => Option[Instant])
-    extends TrivialOptionalField[FROM, Instant]
+private[backend] object Timestamp {
+  def instantToMicros(i: Instant): Long =
+    TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(i.getNano.toLong)
+}
 
 private[backend] case class StringArray[FROM](extract: FROM => Iterable[String])
     extends Field[FROM, Iterable[String], Array[String]] {

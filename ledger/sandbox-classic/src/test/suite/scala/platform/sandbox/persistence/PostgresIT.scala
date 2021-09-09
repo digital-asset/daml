@@ -62,8 +62,11 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   "Flyway" should {
     "execute initialisation script" in {
       newLoggingContext { implicit loggingContext =>
-        new FlywayMigrations(postgresDatabase.url)
-          .migrate()(ResourceContext(DirectExecutionContext))
+        new FlywayMigrations(postgresDatabase.url)(
+          ResourceContext(DirectExecutionContext),
+          implicitly,
+        )
+          .migrate()
       }.map { _ =>
         connectionProvider.runSQL(metrics.test.db) { conn =>
           def checkTableExists(table: String) = {

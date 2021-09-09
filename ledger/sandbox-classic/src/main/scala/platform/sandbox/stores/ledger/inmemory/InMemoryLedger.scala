@@ -41,6 +41,7 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, TransactionCommitter}
@@ -56,6 +57,7 @@ import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection}
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions.RejectionReasonOps
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -78,7 +80,24 @@ private[sandbox] final class InMemoryLedger(
     transactionCommitter: TransactionCommitter,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
+    engine: Engine,
 ) extends Ledger {
+
+  private val enricher = new ValueEnricher(engine)
+
+  private def consumeEnricherResult[V](res: Result[V]): V = {
+    LfEngineToApi.assertOrRuntimeEx(
+      "unexpected engine.Result when enriching value",
+      res match {
+        case ResultDone(x) => Right(x)
+        case x => Left(x.toString)
+      },
+    )
+  }
+
+  private def enrichTX(tx: LedgerEntry.Transaction): LedgerEntry.Transaction = {
+    tx.copy(transaction = consumeEnricherResult(enricher.enrichTransaction(tx.transaction)))
+  }
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -113,7 +132,8 @@ private[sandbox] final class InMemoryLedger(
             TransactionConversion
               .ledgerEntryToFlatTransaction(
                 LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
-                tx,
+                if (verbose) { enrichTX(tx) }
+                else { tx },
                 TransactionFilter(filter.map { case (party, templates) =>
                   party -> Filters(
                     if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None
@@ -144,7 +164,8 @@ private[sandbox] final class InMemoryLedger(
             TransactionConversion
               .ledgerEntryToTransactionTree(
                 LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
-                tx,
+                if (verbose) { enrichTX(tx) }
+                else tx,
                 requestingParties,
                 verbose,
               )
@@ -166,13 +187,52 @@ private[sandbox] final class InMemoryLedger(
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
-    entries
-      .getSource(startExclusive, endInclusive)
-      .collect { case (offset, InMemoryLedgerEntry(entry)) =>
-        (offset, entry)
-      }
-      .collect(CompletionFromTransaction(applicationId.unwrap, parties))
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
+    val appId = applicationId.unwrap
+    entries.getSource(startExclusive, endInclusive).collect {
+      case (
+            offset,
+            InMemoryLedgerEntry(
+              LedgerEntry.Transaction(
+                Some(commandId),
+                transactionId,
+                Some(`appId`),
+                _,
+                actAs,
+                _,
+                _,
+                recordTime,
+                _,
+                _,
+              )
+            ),
+          ) if actAs.exists(parties) =>
+        offset -> CompletionFromTransaction.acceptedCompletion(
+          recordTime,
+          offset,
+          commandId,
+          transactionId,
+          appId,
+        )
+
+      case (
+            offset,
+            InMemoryLedgerEntry(
+              LedgerEntry.Rejection(recordTime, commandId, `appId`, _, actAs, reason)
+            ),
+          ) if actAs.exists(parties) =>
+        val status = reason.toParticipantStateRejectionReason.status
+        offset -> CompletionFromTransaction.rejectedCompletion(
+          recordTime,
+          offset,
+          commandId,
+          status,
+          appId,
+        )
+    }
+  }
 
   override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = entries.ledgerEnd
 
@@ -197,6 +257,20 @@ private[sandbox] final class InMemoryLedger(
           )
         )
         .map { contract =>
+          val contractInst =
+            if (verbose) {
+              consumeEnricherResult(enricher.enrichVersionedContract(contract.contract))
+            } else {
+              contract.contract
+            }
+          val contractKey =
+            if (verbose) {
+              consumeEnricherResult(
+                enricher.enrichVersionedContractKey(contract.contract.template, contract.key)
+              )
+            } else {
+              contract.key
+            }
           GetActiveContractsResponse(
             workflowId = contract.workflowId.getOrElse(""),
             activeContracts = List(
@@ -204,7 +278,7 @@ private[sandbox] final class InMemoryLedger(
                 EventId(contract.transactionId, contract.nodeId).toLedgerString,
                 contract.id.coid,
                 Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
-                contractKey = contract.key.map(ck =>
+                contractKey = contractKey.map(ck =>
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
                     LfEngineToApi
@@ -215,7 +289,7 @@ private[sandbox] final class InMemoryLedger(
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
                     LfEngineToApi
-                      .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value),
+                      .lfValueToApiRecord(verbose = verbose, contractInst.arg.value),
                   )
                 ),
                 contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
@@ -240,7 +314,9 @@ private[sandbox] final class InMemoryLedger(
       acs.activeContracts
         .get(contractId)
         .filter(ac => acs.isVisibleForDivulgees(ac.id, forParties))
-        .map(_.contract)
+        .map { x0 =>
+          consumeEnricherResult(enricher.enrichVersionedContract(x0.contract))
+        }
     })
 
   override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
@@ -385,7 +461,7 @@ private[sandbox] final class InMemoryLedger(
     entries.items
       .collectFirst {
         case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) if tx.transactionId == id =>
-          (offset, tx)
+          (offset, enrichTX(tx))
       }
 
   override def lookupFlatTransactionById(
@@ -652,7 +728,7 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     // sandbox-classic in-memory ledger does not support pruning

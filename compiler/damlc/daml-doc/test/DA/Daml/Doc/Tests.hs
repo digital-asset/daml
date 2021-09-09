@@ -142,10 +142,10 @@ unitTests =
            , "    field1 : Party"
            , "  where"
            , "    signatory field1"
-           , "    controller field1 can"
-           , "      DoSomething : ()"
-           , "        with field: () -- ^ field"
-           , "        do pure ()"
+           , "    choice DoSomething : ()"
+           , "      with field: () -- ^ field"
+           , "      controller field1"
+           , "      do pure ()"
            ]
            (\md -> assertBool
                    ("Expected a choice with field in doc, got " <> show md)
@@ -165,13 +165,14 @@ unitTests =
            , "    field1 : Party"
            , "  where"
            , "    signatory field1"
-           , "    controller field1 can"
-           , "      DoSomething : ()"
-           , "        with field: ()"
-           , "        do pure ()"
-           , "      DoMore : ()"
-           , "        with field: ()"
-           , "        do pure ()"
+           , "    choice DoSomething : ()"
+           , "      with field: ()"
+           , "      controller field1"
+           , "      do pure ()"
+           , "    choice DoMore : ()"
+           , "      with field: ()"
+           , "      controller field1"
+           , "      do pure ()"
            ]
            (\md -> assertBool
                    ("Expected two choices in doc, got " <> show md)

@@ -3,10 +3,6 @@
 
 package com.daml.platform.sandbox.config
 
-import java.io.File
-import java.nio.file.Path
-import java.time.Duration
-
 import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
@@ -16,10 +12,17 @@ import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  InitialLedgerConfiguration,
+  SubmissionConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
+import java.io.File
+import java.nio.file.Path
+import java.time.Duration
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** Defines the basic configuration for running sandbox
@@ -36,6 +39,7 @@ final case class SandboxConfig(
     delayBeforeSubmittingLedgerConfiguration: Duration,
     timeModel: LedgerTimeModel,
     commandConfig: CommandConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
@@ -60,10 +64,20 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
+    maxDeduplicationDuration: Option[Duration],
 ) {
+
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
+    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+
   lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
     InitialLedgerConfiguration(
-      Configuration.reasonableInitialConfiguration.copy(timeModel = timeModel),
+      Configuration.reasonableInitialConfiguration.copy(
+        timeModel = timeModel,
+        maxDeduplicationTime = maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        ),
+      ),
       delayBeforeSubmittingLedgerConfiguration,
     )
 }
@@ -104,6 +118,7 @@ object SandboxConfig {
       delayBeforeSubmittingLedgerConfiguration = Duration.ofSeconds(1),
       timeModel = LedgerTimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,
@@ -128,6 +143,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableAppendOnlySchema = false,
       enableCompression = false,
+      maxDeduplicationDuration = None,
     )
 
   sealed abstract class EngineMode extends Product with Serializable

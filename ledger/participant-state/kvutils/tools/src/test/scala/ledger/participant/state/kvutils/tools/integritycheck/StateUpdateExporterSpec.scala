@@ -11,10 +11,10 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Time
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -34,7 +34,7 @@ class StateUpdateExporterSpec
   import StateUpdateExporterSpec._
 
   private[this] implicit val materializer: Materializer = Materializer(system)
-  private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
+  private[this] implicit val ec: ExecutionContext = materializer.executionContext
 
   override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
@@ -85,7 +85,7 @@ object StateUpdateExporterSpec extends MockitoSugar {
   private val aReadService = new ReplayingReadService {
     override def updateCount(): Long = 1
 
-    override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
       Source.empty
 
     override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
@@ -101,7 +101,7 @@ object StateUpdateExporterSpec extends MockitoSugar {
         )
       )
 
-    override def currentHealth(): HealthStatus = HealthStatus.healthy
+    override def currentHealth(): HealthStatus = Healthy
   }
 
   private def aConfig(

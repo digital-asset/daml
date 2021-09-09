@@ -100,20 +100,32 @@ object Error {
         override val message: String,
     ) extends Error
 
-    final case class ValueNesting(value: Value[Value.ContractId]) extends Error {
+    final case class ValueNesting(culprit: Value[Value.ContractId]) extends Error {
       override def message: String =
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
 
-    final case class RootNode(nodeId: NodeId, override val message: String) extends Error
-
-    final case class ContractIdFreshness(
-        localContractIds: Set[Value.ContractId],
-        globalContractIds: Set[Value.ContractId],
-    ) extends Error {
-      assert(localContractIds exists globalContractIds)
-      def message: String = "Conflicting discriminators between a global and local contract ID."
+    final case class IllegalContractId(cid: Value.ContractId, reason: IllegalContractId.Reason)
+        extends Error {
+      override def message: String =
+        s"""Illegal Contract ID "${cid.coid}", """ + reason.details
     }
+
+    object IllegalContractId {
+      sealed abstract class Reason extends Serializable with Product {
+        def details: String
+      }
+      case object V0ContractId extends Reason {
+        def details = "V0 Contract IDs are forbidden"
+        def apply(cid: Value.ContractId.V0): IllegalContractId = IllegalContractId(cid, this)
+      }
+      case object NonSuffixV1ContractId extends Reason {
+        def details = "non-suffixed V1 Contract IDs are forbidden"
+        def apply(cid: Value.ContractId.V1): IllegalContractId = IllegalContractId(cid, this)
+      }
+    }
+
+    final case class RootNode(nodeId: NodeId, override val message: String) extends Error
 
   }
 
@@ -139,13 +151,8 @@ object Error {
         with InternalError
 
     final case class DamlException(error: interpretation.Error) extends Error {
-      // TODO https://github.com/digital-asset/daml/issues/9974
-      //  For now we try to preserve the exact same message (for the ledger API)
-      //  Review once all the errors are properly structured
       override def message: String = error match {
         case interpretation.Error.ContractNotFound(cid) =>
-          // TODO https://github.com/digital-asset/daml/issues/9974
-          //   we should probably use ${cid.coid} instead of $cid
           s"Contract could not be found with id $cid"
         case interpretation.Error.ContractKeyNotFound(key) =>
           s"dependency error: couldn't find key: $key"

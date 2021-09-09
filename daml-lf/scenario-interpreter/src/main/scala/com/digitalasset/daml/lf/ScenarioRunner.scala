@@ -399,12 +399,12 @@ object ScenarioRunner {
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
       expr = SExpr.SEApp(commands, Array(SExpr.SEValue(SValue.SToken))),
-      globalCids = Set.empty,
       committers = committers,
       readAs = readAs,
       traceLog = traceLog,
       warningLog = warningLog,
       commitLocation = location,
+      transactionNormalization = false,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     @tailrec

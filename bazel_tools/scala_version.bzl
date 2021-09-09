@@ -1,36 +1,37 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Keep in sync with /nix/nixpkgs.nix and /release/src/Main.hs
-default_scala_version = "2.13.5"
+# Keep the Scala versions in sync with /nix/nixpkgs.nix and /release/src/Options.hs.
+
+default_scala_version = "2.13.6"
 
 scala_artifacts = {
-    "2.12.13": {
+    "2.12.14": {
         "io_bazel_rules_scala_scala_compiler": {
-            "artifact": "org.scala-lang:scala-compiler:2.12.13",
-            "sha256": "ea971e004e2f15d3b7569eee8b559f220e23b9993e688bbe986f97938d1dc9f9",
+            "artifact": "org.scala-lang:scala-compiler:2.12.14",
+            "sha256": "2a1b3fbf9c956073c8c5374098a6f987e3b8d76e34756ab985fc7d2ca37ee113",
         },
         "io_bazel_rules_scala_scala_library": {
-            "artifact": "org.scala-lang:scala-library:2.12.13",
-            "sha256": "1bb415cff43f792636556a1137b213b192ab0246be003680a3b006d01235dd89",
+            "artifact": "org.scala-lang:scala-library:2.12.14",
+            "sha256": "0451dce8322903a6c2aa7d31232b54daa72a61ced8ade0b4c5022442a3f6cb57",
         },
         "io_bazel_rules_scala_scala_reflect": {
-            "artifact": "org.scala-lang:scala-reflect:2.12.13",
-            "sha256": "2bd46318d87945e72eb186a7b5ea496c43cf8f0aabc6ff11b3e7962f8635e669",
+            "artifact": "org.scala-lang:scala-reflect:2.12.14",
+            "sha256": "497f4603e9d19dc4fa591cd467de5e32238d240bbd955d3dac6390b270889522",
         },
     },
-    "2.13.5": {
-        "io_bazel_rules_scala_scala_library": {
-            "artifact": "org.scala-lang:scala-library:2.13.5",
-            "sha256": "52aafeef8e0d104433329b1bc31463d1b4a9e2b8f24f85432c8cfaed9fad2587",
-        },
+    "2.13.6": {
         "io_bazel_rules_scala_scala_compiler": {
-            "artifact": "org.scala-lang:scala-compiler:2.13.5",
-            "sha256": "ea7423f3bc3673845d6d1c64335a4645abba0b0478ae00e15979915826ff6116",
+            "artifact": "org.scala-lang:scala-compiler:2.13.6",
+            "sha256": "310d263d622a3d016913e94ee00b119d270573a5ceaa6b21312d69637fd9eec1",
+        },
+        "io_bazel_rules_scala_scala_library": {
+            "artifact": "org.scala-lang:scala-library:2.13.6",
+            "sha256": "f19ed732e150d3537794fd3fe42ee18470a3f707efd499ecd05a99e727ff6c8a",
         },
         "io_bazel_rules_scala_scala_reflect": {
-            "artifact": "org.scala-lang:scala-reflect:2.13.5",
-            "sha256": "808c44b8adb3205e91d417bf57406715ca2508ad6952f6e2132ff8099b78bd73",
+            "artifact": "org.scala-lang:scala-reflect:2.13.6",
+            "sha256": "f713593809b387c60935bb9a940dfcea53bd0dbf8fdc8d10739a2896f8ac56fa",
         },
     },
 }

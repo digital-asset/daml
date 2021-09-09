@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.{
@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 }
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.metrics.Metrics
 
 import scala.collection.immutable
@@ -53,7 +53,7 @@ final class LogAppendingReadServiceFactory(
             Source.fromIterator(() => recordedBlocksSnapshot.iterator)
           }
 
-        override def currentHealth(): HealthStatus = HealthStatus.healthy
+        override def currentHealth(): HealthStatus = Healthy
 
         override def ledgerId(): LedgerId = "FakeParticipantStateReaderLedgerId"
       }
@@ -68,8 +68,8 @@ final class LogAppendingReadServiceFactory(
         new ReplayingReadService {
           override def updateCount(): Long = recordedBlocksSnapshot.length.toLong
 
-          override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-            implementation.getLedgerInitialConditions()
+          override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+            implementation.ledgerInitialConditions()
 
           override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
             implementation.stateUpdates(beginAfter)

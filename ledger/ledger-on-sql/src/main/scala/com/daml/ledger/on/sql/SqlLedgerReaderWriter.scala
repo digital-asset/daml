@@ -24,7 +24,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerWriter,
 }
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
@@ -152,7 +152,7 @@ object SqlLedgerReaderWriter {
           .flatMap { ledgerId =>
             if (providedLedgerId != ledgerId) {
               Failure(
-                new MismatchException.LedgerId(
+                MismatchException.LedgerId(
                   domain.LedgerId(ledgerId),
                   domain.LedgerId(providedLedgerId),
                 )
@@ -170,9 +170,7 @@ object SqlLedgerReaderWriter {
         head <- Resource.fromFuture(
           database
             .inReadTransaction("read_head") { queries =>
-              Future.fromTry(
-                queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex))
-              )
+              Future.fromTry(queries.selectLatestLogEntryId().map(_.getOrElse(StartIndex)))
             }
             .removeExecutionContext
         )

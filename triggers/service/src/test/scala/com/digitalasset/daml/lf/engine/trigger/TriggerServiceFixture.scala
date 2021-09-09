@@ -24,7 +24,7 @@ import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthS
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.clock.AdjustableClock
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.http.dbbackend.{ConnectionPool, JdbcConfig}
+import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
@@ -504,11 +504,10 @@ trait TriggerServiceFixture
               minRestartInterval,
               ServiceConfig.DefaultMaxRestartInterval,
             )
-            val lock = LockedFreePort.find()
             for {
               r <- ServiceMain.startServer(
                 host.getHostName,
-                lock.port.value,
+                Port.Dynamic.value,
                 ServiceConfig.DefaultMaxAuthCallbacks,
                 ServiceConfig.DefaultAuthCallbackTimeout,
                 ServiceConfig.DefaultMaxHttpEntityUploadSize,
@@ -522,7 +521,6 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 logTriggerStatus,
               )
-              _ = lock.unlock()
             } yield r
           } { case (_, system) =>
             system ! Server.Stop

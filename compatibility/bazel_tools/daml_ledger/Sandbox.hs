@@ -65,7 +65,7 @@ defaultSandboxConf = SandboxConfig
     , timeMode = WallClock
     , mbClientAuth = Nothing
     , mbSharedSecret = Nothing
-    , mbLedgerId = Nothing
+    , mbLedgerId = Just "MyLedger"
     }
 
 getSandboxProc :: SandboxConfig -> FilePath -> IO CreateProcess

@@ -6,6 +6,7 @@ package com.daml.platform.sandbox.services.command
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.api.util.TimeProvider
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.{
@@ -18,15 +19,12 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandClient
 import com.daml.ledger.client.services.testing.time.StaticTime
-import com.daml.dec.DirectExecutionContext
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
-import io.grpc.Status
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.OptionValues
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
@@ -96,7 +94,7 @@ final class CommandStaticTimeIT
       "commands should be accepted" in {
         for {
           commandClient <- createCommandClient()
-          completion <- commandClient
+          result <- commandClient
             .trackSingleCommand(
               SubmitRequest(
                 Some(
@@ -107,7 +105,7 @@ final class CommandStaticTimeIT
               )
             )
         } yield {
-          completion.status.value.code should be(Status.OK.getCode.value())
+          result shouldBe a[Right[_, _]]
         }
       }
 

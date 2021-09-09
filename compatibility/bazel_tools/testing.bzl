@@ -285,6 +285,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.16.0-snapshot.20210713.7343.1.1f35db17",
+        "end": "1.17.0-snapshot.20210907.7759.0.35a853fd",
         "platform_ranges": [
             {
                 "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
@@ -296,12 +297,90 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        "start": "1.17.0-snapshot.20210907.7759.1.35a853fd",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
+                "exclusions": [
+                    "ConfigManagementServiceIT:CMDuplicateSubmissionId",
+                    "PackageManagementServiceIT:PMDuplicateSubmissionId",
+                ],
+            },
+        ],
+    },
+    {
         "start": "1.16.0-snapshot.20210727.7476.1",
         "platform_ranges": [
             {
                 "end": "1.16.0-snapshot.20210727.7476.0.b5e9d861",
                 "exclusions": [
                     "DeeplyNestedValueIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "start": first_granular_test_tool,
+        "end": "1.5.0-snapshot.20200907.5151.0.eb68e680",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplication",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "start": "1.5.0-snapshot.20200907.5151.0.eb68e680",
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
+    {
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandServiceIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandServiceIT:CSRefuseBadParameter",
                 ],
             },
         ],

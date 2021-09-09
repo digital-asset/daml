@@ -3,14 +3,31 @@
 
 package com.daml.ledger.participant.state.v2
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 
-/** Identifier for ledger changes used by command deduplication
+/** Identifier for ledger changes used by command deduplication.
+  * Equality is defined in terms of the cryptographic hash.
   *
   * @see ReadService.stateUpdates for the command deduplication guarantee
   */
 final case class ChangeId(
-    private val applicationId: Ref.ApplicationId,
-    private val commandId: Ref.CommandId,
-    private val actAs: Set[Ref.Party],
-)
+    applicationId: Ref.ApplicationId,
+    commandId: Ref.CommandId,
+    actAs: Set[Ref.Party],
+) {
+
+  /** A stable hash of the change id.
+    * Suitable for storing in persistent storage.
+    */
+  lazy val hash: Hash = Hash.hashChangeId(applicationId, commandId, actAs)
+
+  override def equals(that: Any): Boolean = that match {
+    case other: ChangeId =>
+      if (this eq other) true
+      else other.canEqual(this) && this.hash == other.hash
+    case _ => false
+  }
+
+  override def hashCode(): Int = hash.hashCode()
+}

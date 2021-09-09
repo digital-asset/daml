@@ -50,7 +50,9 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/caching",
+        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
@@ -84,11 +86,14 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:kvutils-tests-lib:__VERSION__"],
     visibility = [
@@ -106,6 +111,7 @@ da_scala_library(
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/transaction-test-lib",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
@@ -125,6 +131,7 @@ da_scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -142,12 +149,17 @@ da_scala_test_suite(
     ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
@@ -167,10 +179,12 @@ da_scala_test_suite(
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/transaction-test-lib",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
@@ -186,6 +200,7 @@ da_scala_test_suite(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -228,8 +243,6 @@ proto_jars(
 
 REFERENCE_LEDGER_EXPORT_NAME = "reference-ledger-export"
 
-REFERENCE_LEDGER_EXPORT_PORT = 65102
-
 # Generates a ledger export by running the test tool against a kvutils-based ledger.
 client_server_build(
     name = REFERENCE_LEDGER_EXPORT_NAME,
@@ -239,15 +252,15 @@ client_server_build(
     client_args = [
         "--concurrent-test-runs=4",
         "--timeout-scale-factor=20",
-        "localhost:%d" % REFERENCE_LEDGER_EXPORT_PORT,
+        "localhost:%PORT%",
+        "--exclude=CommandDeduplicationIT" +  # It's a KV ledger so it needs the KV variant
+        ",HealthServiceIT",  # does not make sense to run it for the export
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
-    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
-    runner_args = [str(REFERENCE_LEDGER_EXPORT_PORT)],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
+        "--participant=participant-id=export,port=0,port-file=%PORT_FILE%",
     ],
     visibility = [":__subpackages__"],
 ) if not is_windows else None

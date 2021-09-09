@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.DomainMocks
+import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails, SubmissionId}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -30,7 +30,7 @@ import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.{LookupError, Reference}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayNodeMismatch}
+import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayMismatch}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -253,7 +253,7 @@ class ApiSubmissionServiceSpec
       ) -> Status.ABORTED,
       ErrorCause.DamlLf(
         LfError.Validation(
-          LfError.Validation.ReplayMismatch(ReplayNodeMismatch(null, null, null, null))
+          LfError.Validation.ReplayMismatch(ReplayMismatch(null, null))
         )
       ) -> Status.ABORTED,
       ErrorCause.DamlLf(
@@ -418,8 +418,8 @@ object ApiSubmissionServiceSpec {
         actAs = Set.empty,
         readAs = Set.empty,
         submittedAt = Instant.MIN,
-        deduplicationDuration = Duration.ZERO,
-        commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
+        deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+        commands = LfCommands(ImmArray.Empty, Timestamp.MinValue, ""),
       )
     )
   }
@@ -466,7 +466,7 @@ object ApiSubmissionServiceSpec {
       seedService = SeedService.WeakRandom,
       commandExecutor = commandExecutor,
       configuration = ApiSubmissionService
-        .Configuration(implicitPartyAllocation),
+        .Configuration(implicitPartyAllocation, enableDeduplication = true),
       metrics = new Metrics(new MetricRegistry),
     )
   }

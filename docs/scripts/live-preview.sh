@@ -8,12 +8,14 @@ set -eou pipefail
 SCRIPT_DIR=$PWD/$(dirname "$0")
 cd $SCRIPT_DIR
 BUILD_DIR=$(cd ..; pwd)/build
+BAZEL_BIN="$SCRIPT_DIR/../../bazel-bin"
 
 trap cleanup 1 2 3 6
 
 cleanup()
 {
   echo "Caught Signal ... cleaning up."
+  rm -rf $TEMPLATES_DIR/
   rm -rf $BUILD_DIR
   cd $SCRIPT_DIR
   rm -rf ../source/getting-started/code
@@ -43,6 +45,12 @@ cp ../../NOTICES ../source
 bazel build //templates:create-daml-app-docs
 mkdir -p $BUILD_DIR/source/getting-started/code/templates-tarball
 tar -zxf ../../bazel-bin/templates/create-daml-app-docs.tar.gz -C $BUILD_DIR/source/getting-started/code/templates-tarball/
+
+# Templates
+bazel build //templates:templates-tarball
+TEMPLATES_DIR=$BUILD_DIR/source/_templates
+mkdir -p $TEMPLATES_DIR
+tar -zxf $BAZEL_BIN/templates/templates-tarball.tar.gz -C $TEMPLATES_DIR --strip-components=1
 
 for arg in "$@"
 do

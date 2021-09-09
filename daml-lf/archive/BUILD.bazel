@@ -62,7 +62,7 @@ genrule(
         "\n".join(
             [
                 """
-                   $(location @proto3_suite//:compile-proto-file)  \
+                   $(location @proto3-suite//:compile-proto-file)  \
                      --includeDir daml-lf/archive/src/main/protobuf/        \
                      --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
                      --out $(@D)
@@ -71,7 +71,7 @@ genrule(
             ],
         ),
     tools = [
-        "@proto3_suite//:compile-proto-file",
+        "@proto3-suite//:compile-proto-file",
     ],
 )
 
@@ -136,8 +136,11 @@ da_scala_test_suite(
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
@@ -160,6 +163,7 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -171,7 +175,7 @@ da_scala_test_suite(
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
     scalacopts = lf_scalacopts,
     deps = [

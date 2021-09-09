@@ -6,21 +6,24 @@ package com.daml.platform.store.backend.h2
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.{NamedParameter, SQL, SqlStringInterpolation}
+import anorm.SQL
 import anorm.SqlParser.get
-import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
+import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
+  CompletionStorageBackendTemplate,
+  ContractStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
-  TemplatedStorageBackend,
+  PartyStorageBackendTemplate,
+  QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -34,7 +37,10 @@ import javax.sql.DataSource
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
-    with EventStorageBackendTemplate {
+    with EventStorageBackendTemplate
+    with ContractStorageBackendTemplate
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
 
   override def reset(connection: Connection): Unit = {
     SQL("""set referential_integrity false;
@@ -47,14 +53,29 @@ private[backend] object H2StorageBackend
         |truncate table participant_events_create;
         |truncate table participant_events_consuming_exercise;
         |truncate table participant_events_non_consuming_exercise;
-        |truncate table parties;
         |truncate table party_entries;
         |set referential_integrity true;""".stripMargin)
       .execute()(connection)
     ()
   }
 
-  override def duplicateKeyError: String = "Unique index or primary key violation"
+  override def resetAll(connection: Connection): Unit = {
+    SQL("""set referential_integrity false;
+          |truncate table configuration_entries;
+          |truncate table packages;
+          |truncate table package_entries;
+          |truncate table parameters;
+          |truncate table participant_command_completions;
+          |truncate table participant_command_submissions;
+          |truncate table participant_events_divulgence;
+          |truncate table participant_events_create;
+          |truncate table participant_events_consuming_exercise;
+          |truncate table participant_events_non_consuming_exercise;
+          |truncate table party_entries;
+          |set referential_integrity true;""".stripMargin)
+      .execute()(connection)
+    ()
+  }
 
   val SQL_INSERT_COMMAND: String =
     """merge into participant_command_submissions pcs
@@ -65,7 +86,7 @@ private[backend] object H2StorageBackend
       |when matched and pcs.deduplicate_until < {submittedAt} then
       |  update set deduplicate_until={deduplicateUntil}""".stripMargin
 
-  def upsertDeduplicationEntry(
+  override def upsertDeduplicationEntry(
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
@@ -73,8 +94,8 @@ private[backend] object H2StorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
-        "deduplicateUntil" -> deduplicateUntil,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 
@@ -83,44 +104,6 @@ private[backend] object H2StorageBackend
 
   override def insertBatch(connection: Connection, batch: AppendOnlySchema.Batch): Unit =
     H2Schema.schema.executeUpdate(batch, connection)
-
-  def commandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
-  )(connection: Connection): List[CompletionStreamResponse] =
-    TemplatedStorageBackend.commandCompletions(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      applicationId = applicationId,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-    )(connection)
-
-  def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[StorageBackend.RawContract] =
-    TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
-
-  def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[String] =
-    TemplatedStorageBackend.activeContractWithoutArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
-
-  def contractKey(readers: Set[Ref.Party], key: Key)(
-      connection: Connection
-  ): Option[ContractId] =
-    TemplatedStorageBackend.contractKey(
-      flatEventWitnesses = columnPrefix =>
-        arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers),
-      key = key,
-    )(connection)
 
   // TODO FIXME: this is for postgres not for H2
   def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {
@@ -132,64 +115,71 @@ private[backend] object H2StorageBackend
       .as(get[Long](1).singleOpt)(connection)
   }
 
+  object H2QueryStrategy extends QueryStrategy {
+
+    override def arrayIntersectionNonEmptyClause(
+        columnName: String,
+        parties: Set[Ref.Party],
+    ): CompositeSql =
+      if (parties.isEmpty)
+        cSQL"false"
+      else
+        parties.view
+          .map(p => cSQL"array_contains(#$columnName, '#${p.toString}')")
+          .mkComposite("(", " or ", ")")
+
+    override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
+      s"array_contains($arrayColumnName, $elementColumnName)"
+
+    override def isTrue(booleanColumnName: String): String = booleanColumnName
+  }
+
+  override def queryStrategy: QueryStrategy = H2QueryStrategy
+
   object H2EventStrategy extends EventStrategy {
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
-    ): (String, List[NamedParameter]) =
-      (
-        s"array_intersection($witnessesColumnName, {partiesArrayfewc})",
-        List("partiesArrayfewc" -> parties.view.map(_.toString).toArray),
-      )
+    ): CompositeSql = {
+      val partiesArray = parties.view.map(_.toString).toArray
+      cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
+    }
 
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
-    ): (String, List[NamedParameter]) =
-      (
-        s"(${arrayIntersectionWhereClause(submittersColumnName, parties)})",
-        Nil,
+    ): CompositeSql =
+      H2QueryStrategy.arrayIntersectionNonEmptyClause(
+        columnName = submittersColumnName,
+        parties = parties,
       )
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-    ): (String, List[NamedParameter]) = {
-      val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
-        case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)
+    ): CompositeSql = {
+      val wildCardClause = filterParams.wildCardParties match {
+        case wildCardParties if wildCardParties.isEmpty =>
+          Nil
+
         case wildCardParties =>
-          (
-            List(s"(${arrayIntersectionWhereClause(witnessesColumnName, wildCardParties)})"),
-            Nil,
-          )
+          cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties)})" :: Nil
       }
-      val (partiesTemplatesClauses, partiesTemplatesParams) =
-        filterParams.partiesAndTemplates.iterator.zipWithIndex
-          .map { case ((parties, templateIds), index) =>
-            (
-              s"( (${arrayIntersectionWhereClause(witnessesColumnName, parties)}) AND (template_id = ANY({templateIdsArraywwc$index})) )",
-              List[NamedParameter](
-                s"templateIdsArraywwc$index" -> templateIds.view.map(_.toString).toArray
-              ),
+      val partiesTemplatesClauses =
+        filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
+          val clause =
+            H2QueryStrategy.arrayIntersectionNonEmptyClause(
+              witnessesColumnName,
+              parties,
             )
-          }
-          .toList
-          .unzip
-      (
-        (wildCardClause ::: partiesTemplatesClauses).mkString("(", " OR ", ")"),
-        wildCardParams ::: partiesTemplatesParams.flatten,
-      )
+          val templateIdsArray = templateIds.view.map(_.toString).toArray
+          cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
+        }.toList
+      (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
     }
   }
 
   override def eventStrategy: common.EventStrategy = H2EventStrategy
-
-  // TODO append-only: remove as part of ContractStorageBackend consolidation, use the data-driven one
-  private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
-    if (parties.isEmpty)
-      "false"
-    else
-      parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
 
   override def createDataSource(
       jdbcUrl: String,
@@ -203,31 +193,29 @@ private[backend] object H2StorageBackend
     // user/password in the URLs, so we don't bother exposing user/password configs separately from the url just for h2
     // which is anyway not supported for production. (This also helps run canton h2 participants that set user and
     // password.)
-    val urlNoUser = setKeyValueAndRemoveFromUrl(jdbcUrl, "user", h2DataSource.setUser)
-    val urlNoUserNoPassword =
-      setKeyValueAndRemoveFromUrl(urlNoUser, "password", h2DataSource.setPassword)
+    val (urlNoUserNoPassword, user, password) = extractUserPasswordAndRemoveFromUrl(jdbcUrl)
+    user.foreach(h2DataSource.setUser)
+    password.foreach(h2DataSource.setPassword)
     h2DataSource.setUrl(urlNoUserNoPassword)
 
     InitHookDataSourceProxy(h2DataSource, connectionInitHook.toList)
   }
 
-  def setKeyValueAndRemoveFromUrl(url: String, key: String, setter: String => Unit): String = {
-    val separator = ";"
-    url.toLowerCase.indexOf(separator + key + "=") match {
-      case -1 => url // leave url intact if key is not found
-      case indexKeyValueBegin =>
-        val valueBegin = indexKeyValueBegin + 1 + key.length + 1 // separator, key, "="
-        val (value, shortenedUrl) = url.indexOf(separator, indexKeyValueBegin + 1) match {
-          case -1 => (url.substring(valueBegin), url.take(indexKeyValueBegin))
-          case indexKeyValueEnd =>
-            (
-              url.substring(valueBegin, indexKeyValueEnd),
-              url.take(indexKeyValueBegin) + url.takeRight(url.length - indexKeyValueEnd),
-            )
-        }
-        setter(value)
-        shortenedUrl
+  def extractUserPasswordAndRemoveFromUrl(
+      jdbcUrl: String
+  ): (String, Option[String], Option[String]) = {
+    def setKeyValueAndRemoveFromUrl(url: String, key: String): (String, Option[String]) = {
+      val regex = s".*(;(?i)${key}=([^;]*)).*".r
+      url match {
+        case regex(keyAndValue, value) =>
+          (url.replace(keyAndValue, ""), Some(value))
+        case _ => (url, None)
+      }
     }
+
+    val (urlNoUser, user) = setKeyValueAndRemoveFromUrl(jdbcUrl, "user")
+    val (urlNoUserNoPassword, password) = setKeyValueAndRemoveFromUrl(urlNoUser, "password")
+    (urlNoUserNoPassword, user, password)
   }
 
   override def tryAcquire(
@@ -243,4 +231,11 @@ private[backend] object H2StorageBackend
     throw new UnsupportedOperationException("db level locks are not supported for H2")
 
   override def dbLockSupported: Boolean = false
+
+  // Migration from mutable schema is not supported for H2
+  override def validatePruningOffsetAgainstMigration(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      connection: Connection,
+  ): Unit = ()
 }

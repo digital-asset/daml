@@ -21,7 +21,7 @@ object Util {
       def go(typ: Type, targs: List[Type]): Option[(Ref.TypeConName, ImmArray[Type])] =
         typ match {
           case TApp(tfun, targ) => go(tfun, targ :: targs)
-          case TTyCon(con) => Some((con, ImmArray(targs)))
+          case TTyCon(con) => Some((con, targs.to(ImmArray)))
           case _ => None
         }
       go(typ, Nil)
@@ -36,7 +36,7 @@ object Util {
       def go(typ: Type, targs: List[Type]): Option[(Ast.TypeVarName, ImmArray[Type])] =
         typ match {
           case TApp(tfun, targ) => go(tfun, targ :: targs)
-          case TVar(name) => Some((name, ImmArray(targs)))
+          case TVar(name) => Some((name, targs.to(ImmArray)))
           case _ => None
         }
       go(typ, Nil)

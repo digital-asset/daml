@@ -261,7 +261,7 @@ object ValueCoder {
           case proto.Value.SumCase.LIST =>
             ValueList(
               FrontStack(
-                ImmArray(protoValue.getList.getElementsList.asScala.map(go(newNesting, _)))
+                protoValue.getList.getElementsList.asScala.map(go(newNesting, _)).to(ImmArray)
               )
             )
 
@@ -308,19 +308,21 @@ object ValueCoder {
               }
             ValueRecord(
               id,
-              ImmArray(protoValue.getRecord.getFieldsList.asScala.map(fld => {
-                val lbl =
-                  if (fld.getLabel.isEmpty) {
-                    None
-                  } else {
-                    assertUntil(
-                      TransactionVersion.minTypeErasure,
-                      "label field in message RecordField",
-                    )
-                    Option(identifier(fld.getLabel))
-                  }
-                (lbl, go(newNesting, fld.getValue))
-              })),
+              protoValue.getRecord.getFieldsList.asScala.view
+                .map { fld =>
+                  val lbl =
+                    if (fld.getLabel.isEmpty) {
+                      None
+                    } else {
+                      assertUntil(
+                        TransactionVersion.minTypeErasure,
+                        "label field in message RecordField",
+                      )
+                      Option(identifier(fld.getLabel))
+                    }
+                  (lbl, go(newNesting, fld.getValue))
+                }
+                .to(ImmArray),
             )
 
           case proto.Value.SumCase.OPTIONAL =>
@@ -331,12 +333,10 @@ object ValueCoder {
             ValueOptional(mbV)
 
           case proto.Value.SumCase.MAP =>
-            val entries = ImmArray(
-              protoValue.getMap.getEntriesList.asScala.map(entry =>
-                entry.getKey -> go(newNesting, entry.getValue)
-              )
-            )
-
+            val entries =
+              protoValue.getMap.getEntriesList.asScala.view
+                .map(entry => entry.getKey -> go(newNesting, entry.getValue))
+                .to(ImmArray)
             val map = SortedLookupList
               .fromImmArray(entries)
               .fold(
@@ -347,10 +347,10 @@ object ValueCoder {
 
           case proto.Value.SumCase.GEN_MAP =>
             assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
-            val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
-              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue)
-            )
-            ValueGenMap(ImmArray(genMap))
+            val genMap = protoValue.getGenMap.getEntriesList.asScala.view
+              .map(entry => go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
+              .to(ImmArray)
+            ValueGenMap(genMap)
 
           case proto.Value.SumCase.SUM_NOT_SET =>
             throw Err(s"Value not set")

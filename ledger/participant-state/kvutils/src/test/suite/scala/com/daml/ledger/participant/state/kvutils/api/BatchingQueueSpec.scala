@@ -5,10 +5,13 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch.CorrelatedSubmission
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult.SynchronousError
 import com.google.protobuf.ByteString
+import com.google.rpc.code.Code
 import org.mockito.ArgumentMatchers.any
 import org.mockito.{Mockito, MockitoSugar}
+import org.scalatest.Inside.inside
 import org.scalatest.concurrent.Eventually
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.matchers.should.Matchers
@@ -146,7 +149,9 @@ class BatchingQueueSpec
         // Third one gets queued.
         res3 should be(SubmissionResult.Acknowledged)
         // Fourth will be dropped.
-        res4 should be(SubmissionResult.Overloaded)
+        inside(res4) { case SynchronousError(status) =>
+          status.code shouldBe Code.RESOURCE_EXHAUSTED.value
+        }
       }
     }
 

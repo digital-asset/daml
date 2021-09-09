@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
@@ -21,27 +22,34 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest,
 }
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.api.v1.value.{Record, RecordField}
 import com.daml.ledger.client.configuration.CommandClientConfiguration
-import com.daml.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+  NotOkResponse,
+}
+import com.daml.ledger.client.services.commands.{
+  CommandClient,
+  CommandSubmission,
+  CompletionStreamElement,
+}
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.platform.common.LedgerIdMode
-import com.daml.dec.DirectExecutionContext
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
-import org.scalatest.time.Span
-import org.scalatest.time.SpanSugar._
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.Span
+import org.scalatest.time.SpanSugar._
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
@@ -56,7 +64,8 @@ final class CommandClientIT
     with SandboxFixture
     with Matchers
     with SuiteResourceManagementAroundAll
-    with TryValues {
+    with TryValues
+    with Inside {
 
   private val defaultCommandClientConfiguration =
     CommandClientConfiguration(
@@ -106,9 +115,9 @@ final class CommandClientIT
   private def submitRequest(commandId: String, individualCommands: Seq[Command]): SubmitRequest =
     buildRequest(testLedgerId, commandId, individualCommands)
 
-  private def submitRequestWithId(id: String): SubmitRequest =
+  private def submitRequestWithId(commandId: String): SubmitRequest =
     submitRequest(
-      id,
+      commandId,
       List(
         CreateCommand(
           Some(templateIds.dummy),
@@ -121,6 +130,9 @@ final class CommandClientIT
         ).wrap
       ),
     )
+
+  private def commandSubmissionWithId(commandId: String): CommandSubmission =
+    CommandSubmission(submitRequestWithId(commandId).getCommands)
 
   // Commands and completions can be read out of order. Since we use GRPC monocalls to send,
   // they can even be sent out of order.
@@ -144,7 +156,9 @@ final class CommandClientIT
       .runWith(Sink.seq)
       .map(_.last) // one element is guaranteed
 
-  private def submitCommand(req: SubmitRequest): Future[Completion] =
+  private def submitCommand(
+      req: SubmitRequest
+  ): Future[Either[CompletionFailure, CompletionSuccess]] =
     commandClient().flatMap(_.trackSingleCommand(req))
 
   private def assertCommandFailsWithCode(
@@ -152,9 +166,11 @@ final class CommandClientIT
       expectedErrorCode: Code,
       expectedMessageSubString: String,
   ): Future[Assertion] =
-    submitCommand(submitRequest).map { completion =>
-      completion.getStatus.code should be(expectedErrorCode.value)
-      completion.getStatus.message should include(expectedMessageSubString)
+    submitCommand(submitRequest).map { result =>
+      inside(result) { case Left(NotOkResponse(_, grpcStatus)) =>
+        grpcStatus.code should be(expectedErrorCode.value)
+        grpcStatus.message should include(expectedMessageSubString)
+      }
     }(DirectExecutionContext)
 
   /** Reads a set of command IDs expected in the given client after the given checkpoint.
@@ -219,7 +235,7 @@ final class CommandClientIT
 
         for {
           client <- commandClient()
-          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .via(client.submissionFlow())
             .map(_.map(_.isSuccess))
             .runWith(Sink.seq)
@@ -229,19 +245,21 @@ final class CommandClientIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in {
+        val aSubmission = commandSubmissionWithId("1")
+        val submission = aSubmission.copy(
+          commands = aSubmission.commands.update(_.ledgerId := testNotLedgerId.unwrap)
+        )
         Source
-          .single(
-            Ctx(1, submitRequestWithId("1").update(_.commands.ledgerId := testNotLedgerId.unwrap))
-          )
+          .single(Ctx(1, submission))
           .via(commandClientWithoutTime(testNotLedgerId).submissionFlow())
           .runWith(Sink.head)
           .map(err => IsStatusException(Status.NOT_FOUND)(err.value.failure.exception))
       }
 
       "fail with INVALID REQUEST for empty application ids" in {
+        val request = submitRequestWithId("7000").update(_.commands.applicationId := "")
         val resF = for {
           client <- commandClient(applicationId = "")
-          request = submitRequestWithId("7000").update(_.commands.applicationId := "")
           res <- client.submitSingleCommand(request)
         } yield res
 
@@ -261,7 +279,7 @@ final class CommandClientIT
           client <- commandClient(applicationId = "")
           completionsSource = client.completionSource(submittingPartyList, LedgerBegin)
           completions <- completionsSource.takeWithin(5.seconds).runWith(Sink.seq)
-        } yield (completions)
+        } yield completions
 
         completionsF.failed.map { failure =>
           failure should be(a[StatusRuntimeException])
@@ -289,7 +307,9 @@ final class CommandClientIT
         val resultF = for {
           client <- commandClient()
           checkpoint <- client.getCompletionEnd()
-          submissionResults <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          submissionResults <- Source(
+            commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString)))
+          )
             .flatMapMerge(10, randomDelay)
             .via(client.submissionFlow())
             .map(_.value)
@@ -319,7 +339,7 @@ final class CommandClientIT
         for {
           client <- commandClient()
           checkpoint <- client.getCompletionEnd()
-          _ <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          _ <- Source(commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .flatMapMerge(10, randomDelay)
             .via(client.submissionFlow())
             .map(_.context)
@@ -344,7 +364,7 @@ final class CommandClientIT
         for {
           client <- commandClient()
           tracker <- client.trackCommands[Int](submittingPartyList)
-          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
             .via(tracker)
             .map(_.context)
             .runWith(Sink.seq)
@@ -357,7 +377,7 @@ final class CommandClientIT
         for {
           client <- commandClient()
           tracker <- client.trackCommands[Int](submittingPartyList)
-          _ <- Source.empty[Ctx[Int, SubmitRequest]].via(tracker).runWith(Sink.ignore)
+          _ <- Source.empty[Ctx[Int, CommandSubmission]].via(tracker).runWith(Sink.ignore)
         } yield {
           succeed
         }
@@ -405,7 +425,7 @@ final class CommandClientIT
 
       "not accept commands with unknown args, return INVALID_ARGUMENT" in {
         val expectedMessageSubstring =
-          "Missing record label"
+          "Missing record field"
         val command =
           submitRequest(
             "Param_with_wrong_name",

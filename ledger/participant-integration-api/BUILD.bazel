@@ -4,6 +4,7 @@
 load("@oracle//:index.bzl", "oracle_testing")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix")
+load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -16,7 +17,20 @@ load(
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//rules_daml:daml.bzl", "daml_compile")
 
+proto_jars(
+    name = "participant-integration-api-proto",
+    srcs = glob(["src/main/protobuf/**/*.proto"]),
+    maven_artifact_prefix = "participant-integration-api",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+    ],
+)
+
 compile_deps = [
+    ":participant-integration-api-proto_scala",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_proto_java",
     "//daml-lf/data",
@@ -55,6 +69,7 @@ compile_deps = [
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_grpc_grpc_context",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
     "@maven//:io_netty_netty_handler",
@@ -141,7 +156,10 @@ da_scala_library(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -184,12 +202,14 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -213,6 +233,9 @@ da_scala_test_suite(
     jvm_flags = [
         "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],
+    plugins = [
+        silencer_plugin,
+    ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -221,14 +244,21 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream_testkit",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_playframework_anorm_anorm",
+        "@maven//:org_playframework_anorm_anorm_tokenizer",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         ":participant-integration-api",
+        ":participant-integration-api-proto_scala",
         ":participant-integration-api-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -281,6 +311,7 @@ da_scala_test_suite(
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_context",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
@@ -291,6 +322,7 @@ da_scala_test_suite(
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -313,7 +345,11 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
@@ -335,6 +371,8 @@ da_scala_test_suite(
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",
+        "//ledger/metrics",
+        "//ledger/metrics:metrics-test-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
@@ -342,6 +380,8 @@ da_scala_test_suite(
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

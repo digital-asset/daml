@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Instant
 
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
@@ -15,9 +15,13 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
   outOfTimeBoundsEntryToUpdate,
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0, Update}
+import com.daml.ledger.participant.state.v2.Update
+import com.daml.ledger.participant.state.v2.Update.CommandRejected
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
-import com.google.protobuf.Empty
+import com.google.protobuf.{ByteString, Empty}
+import com.google.rpc.code.Code
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
@@ -25,7 +29,9 @@ import org.scalatest.prop.Tables.Table
 import org.scalatest.wordspec.AnyWordSpec
 
 class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
-  private val aLogEntryId = DamlLogEntryId.getDefaultInstance
+  private val aLogEntryIdString = "test"
+  private val aLogEntryId =
+    DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(aLogEntryIdString)).build()
   private val aLogEntryWithoutRecordTime = DamlLogEntry.newBuilder
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
     .build
@@ -81,11 +87,24 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   )
 
   "outOfTimeBoundsEntryToUpdate" should {
-    "not generate an update for deduplicated entries" in {
+    "generate update only for rejected and deduplicated transaction" in {
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(update =>
+            inside(update) { case Some(CommandRejected(_, _, FinalReason(status))) =>
+              status.code shouldBe Code.ALREADY_EXISTS.value
+              ()
+            }
+          ),
+        ),
+        (
+          TimeBounds(
+            deduplicateUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))
+          ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
           Assertions(),
@@ -114,10 +133,14 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "generate a rejection entry for a transaction if record time is out of time bounds" in {
       def verifyCommandRejection(actual: Option[Update]): Unit = actual match {
-        case Some(Update.CommandRejected(recordTime, submitterInfo, reason)) =>
+        case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
           recordTime shouldBe aRecordTime
-          submitterInfo shouldBe Conversions.parseSubmitterInfo(someSubmitterInfo)
-          reason shouldBe a[RejectionReasonV0.InvalidLedgerTime]
+          completionInfo shouldBe Conversions.parseCompletionInfo(
+            parseInstant(recordTime),
+            someSubmitterInfo,
+          )
+          completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)
+          status.code shouldBe Code.ABORTED.value
           ()
         case _ => fail()
       }
@@ -271,7 +294,9 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       ) =>
         val inputEntry = buildOutOfTimeBoundsEntry(timeBounds, logEntryType)
         if (assertions.throwsInternalError) {
-          assertThrows[Err.InternalError](outOfTimeBoundsEntryToUpdate(recordTime, inputEntry))
+          assertThrows[Err.InternalError](
+            outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
+          )
         } else {
           val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
           assertions.verify(actual)
@@ -297,7 +322,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       .addSubmitters("a submitter")
       .setApplicationId("test")
       .setCommandId("a command ID")
-      .setDeduplicateUntil(com.google.protobuf.Timestamp.getDefaultInstance)
+      .setSubmissionId("submission id")
       .build
 
   private def aTransactionRejectionEntry: DamlTransactionRejectionEntry =

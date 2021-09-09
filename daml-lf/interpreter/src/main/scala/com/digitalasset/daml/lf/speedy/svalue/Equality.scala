@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 package svalue
 
+import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
@@ -38,7 +39,28 @@ private[lf] object Equality {
     def step(tuple: (SValue, SValue)) =
       tuple match {
         case (x: SPrimLit, y: SPrimLit) =>
-          success = x == y
+          success =
+            if (x == y)
+              true
+            else
+              tuple match {
+                case (
+                      SContractId(cid1 @ ContractId.V1(discriminator1, suffix1)),
+                      SContractId(cid2 @ ContractId.V1(discriminator2, suffix2)),
+                    ) if discriminator1 == discriminator2 =>
+                  if (suffix1.isEmpty)
+                    throw SError.SErrorDamlException(
+                      interpretation.Error.ContractIdComparability(cid2)
+                    )
+                  else if (suffix2.isEmpty)
+                    throw SError.SErrorDamlException(
+                      interpretation.Error.ContractIdComparability(cid1)
+                    )
+                  else
+                    false
+                case _ =>
+                  false
+              }
         case (SEnum(_, _, xRank), SEnum(_, _, yRank)) =>
           success = xRank == yRank
         case (SRecord(_, _, xs), SRecord(_, _, ys)) =>

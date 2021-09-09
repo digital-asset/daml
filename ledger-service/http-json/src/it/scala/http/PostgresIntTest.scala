@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.dbutils
 import com.daml.http.PostgresIntTest.defaultJdbcConfig
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.testing.postgresql.PostgresAroundAll
@@ -19,10 +20,7 @@ class PostgresIntTest
 
 object PostgresIntTest {
   def defaultJdbcConfig(url: => String) = JdbcConfig(
-    driver = "org.postgresql.Driver",
-    url = url,
-    user = "test",
-    password = "",
+    dbutils.JdbcConfig(driver = "org.postgresql.Driver", url = url, user = "test", password = ""),
     dbStartupMode = DbStartupMode.CreateOnly,
     tablePrefix = "some_nice_prefix_",
   )

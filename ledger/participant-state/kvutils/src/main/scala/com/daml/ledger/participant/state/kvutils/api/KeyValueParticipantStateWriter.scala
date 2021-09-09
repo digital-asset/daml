@@ -12,13 +12,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
-import com.daml.ledger.participant.state.v1.{
-  PruningResult,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.metrics.Metrics
@@ -26,7 +20,12 @@ import com.daml.telemetry.TelemetryContext
 
 import scala.compat.java8.FutureConverters
 
-class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) extends WriteService {
+class KeyValueParticipantStateWriter(
+    writer: LedgerWriter,
+    metrics: Metrics,
+) extends WriteService {
+
+  override def isApiDeduplicationEnabled: Boolean = true
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
@@ -113,6 +112,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
     CompletableFuture.completedFuture(PruningResult.ParticipantPruned)

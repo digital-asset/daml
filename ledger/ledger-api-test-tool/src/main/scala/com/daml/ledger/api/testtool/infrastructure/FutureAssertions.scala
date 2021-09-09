@@ -15,11 +15,24 @@ final class FutureAssertions[T](future: Future[T]) {
     * It doesn't tell us what the value actually was.
     */
   def mustFail(context: String)(implicit executionContext: ExecutionContext): Future[Throwable] =
+    handle(_ => true, context)
+
+  /** Checks that the future failed satisfying the predicate and returns the throwable.
+    * We use this instead of `Future#failed` because the error message that delivers is unhelpful.
+    * It doesn't tell us what the value actually was.
+    */
+  def mustFailWith(context: String)(
+      predicate: Throwable => Boolean
+  )(implicit executionContext: ExecutionContext): Future[Throwable] =
+    handle(predicate, context)
+
+  private def handle(predicate: Throwable => Boolean, context: String)(implicit
+      executionContext: ExecutionContext
+  ): Future[Throwable] =
     future.transform {
-      case Failure(throwable) =>
-        Success(throwable)
-      case Success(value) =>
-        Failure(new ExpectedFailureException(context, value))
+      case Failure(throwable) if predicate(throwable) => Success(throwable)
+      case Success(value) => Failure(new ExpectedFailureException(context, value))
+      case Failure(other) => Failure(other)
     }
 }
 

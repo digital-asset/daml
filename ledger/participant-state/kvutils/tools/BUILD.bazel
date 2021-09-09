@@ -32,6 +32,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/kv-transaction-support",
         "//daml-lf/transaction",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -61,10 +62,14 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_testkit",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
+        "@maven//:org_scalatest_scalatest_compatible",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/transaction",
@@ -77,7 +82,6 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
-        "@maven//:io_grpc_grpc_api",
         "@maven//:org_mockito_mockito_core",
     ] + (["@maven//:com_google_protobuf_protobuf_java"] if scala_major_version == "2.13" else []),
 )
@@ -120,7 +124,10 @@ da_scala_test(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     deps = [
         ":integrity-check",
@@ -134,8 +141,10 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

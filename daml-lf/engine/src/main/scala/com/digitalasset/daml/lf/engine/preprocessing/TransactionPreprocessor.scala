@@ -6,32 +6,12 @@ package engine
 package preprocessing
 
 import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.ContractId
 
 private[preprocessing] final class TransactionPreprocessor(
-    compiledPackages: MutableCompiledPackages
+    commandPreprocessor: CommandPreprocessor
 ) {
-
-  val commandPreprocessor = new CommandPreprocessor(compiledPackages)
-
-  // Accumulator used by unsafeTranslateTransactionRoots method.
-  private[this] case class Acc(
-      globalCids: Set[ContractId],
-      localCids: Set[ContractId],
-      commands: BackStack[speedy.Command],
-  ) {
-    def update(
-        newInputCids: Iterable[ContractId],
-        newLocalCids: Iterable[ContractId],
-        cmd: speedy.Command,
-    ) = Acc(
-      globalCids ++ newInputCids.filterNot(localCids),
-      localCids ++ newLocalCids,
-      commands :+ cmd,
-    )
-  }
 
   private[this] def invalidRootNode(nodeId: NodeId, message: String) =
     throw Error.Preprocessing.RootNode(nodeId, message)
@@ -83,20 +63,19 @@ private[preprocessing] final class TransactionPreprocessor(
    * for more details.
    */
   @throws[Error.Preprocessing.Error]
-  def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction[NodeId, Cid]
-  ): (ImmArray[speedy.Command], Set[ContractId]) = {
+  def unsafeTranslateTransactionRoots(
+      tx: SubmittedTransaction
+  ): ImmArray[speedy.Command] = {
 
-    val result = tx.roots.foldLeft(Acc(Set.empty, Set.empty, BackStack.empty)) { (acc, id) =>
+    val result = tx.roots.foldLeft(BackStack.empty[speedy.Command]) { (acc, id) =>
       tx.nodes.get(id) match {
-        case Some(node: Node.GenActionNode[_, Cid]) =>
+        case Some(node: Node.GenActionNode[_, ContractId]) =>
           node match {
-            case create: Node.NodeCreate[Cid] =>
-              val (cmd, newCids) =
-                commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
-              acc.update(newCids, List(create.coid), cmd)
-            case exe: Node.NodeExercises[_, Cid] =>
-              val (cmd, newCids) = exe.key match {
+            case create: Node.NodeCreate[ContractId] =>
+              val cmd = commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+              acc :+ cmd
+            case exe: Node.NodeExercises[_, ContractId] =>
+              val cmd = exe.key match {
                 case Some(key) if exe.byKey =>
                   commandPreprocessor.unsafePreprocessExerciseByKey(
                     exe.templateId,
@@ -112,8 +91,7 @@ private[preprocessing] final class TransactionPreprocessor(
                     exe.chosenValue,
                   )
               }
-              val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
-              acc.update(newCids, newLocalCids, cmd)
+              acc :+ cmd
             case _: Node.NodeFetch[_] =>
               invalidRootNode(id, s"Transaction contains a fetch root node $id")
             case _: Node.NodeLookupByKey[_] =>
@@ -126,16 +104,7 @@ private[preprocessing] final class TransactionPreprocessor(
       }
     }
 
-    // The following check ensures that `localCids ∩ globalCids = ∅`.
-    // It is probably not 100% necessary, as the reinterpretation should catch the cases where it is not true.
-    // We still prefer to perform the check here as:
-    //  - it is cheap,
-    //  - it catches obviously buggy transaction,
-    //  - it is easier to reason about "soundness" of preprocessing under the disjointness assumption.
-    if (result.localCids exists result.globalCids)
-      throw Error.Preprocessing.ContractIdFreshness(result.localCids, result.globalCids)
-
-    result.commands.toImmArray -> result.globalCids
+    result.toImmArray
   }
 
 }

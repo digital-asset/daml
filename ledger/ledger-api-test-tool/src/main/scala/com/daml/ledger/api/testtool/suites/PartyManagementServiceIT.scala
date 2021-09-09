@@ -147,7 +147,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "PMGetParties",
+    "PMGetPartiesDetails",
     "It should get details for multiple parties, if they exist",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>

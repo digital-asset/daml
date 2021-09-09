@@ -50,7 +50,7 @@ steps:
       target_dir="$(Build.StagingDirectory)/$(pipeline_id)"
       mkdir -p "$target_dir"
       cp "job-md.json" "$target_dir/job-md.json"
-      for log_file in 'build-profile.json' 'build-events.json' 'test-profile.json' 'test-events.json'; do
+      for log_file in 'build-profile.json' 'build-events.json' 'test-profile.json' 'test-events.json' 'scala-test-suite-name-map.json'; do
         [[ -f "$log_file" ]] && cp "$log_file" "$target_dir/$log_file" || echo "$log_file not found"
       done
       cd "$(Build.StagingDirectory)"

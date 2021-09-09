@@ -93,11 +93,10 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl).migrate(enableAppendOnlySchema = enableAppendOnlySchema)
+          new FlywayMigrations(jdbcUrl, enableAppendOnlySchema = enableAppendOnlySchema).migrate()
         )
         dao <- daoOwner(100, 4).acquire()
-        _ <- Resource.fromFuture(dao.initializeLedger(TestLedgerId))
-        _ <- Resource.fromFuture(dao.initializeParticipantId(TestParticipantId))
+        _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
       } yield dao
     }
     ledgerDao = Await.result(resource.asFuture, 30.seconds)

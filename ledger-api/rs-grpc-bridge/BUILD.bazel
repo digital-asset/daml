@@ -45,7 +45,10 @@ da_scala_test(
     resources = glob(["src/test/suite/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_testng_6_7",
     ],
     visibility = [
@@ -59,6 +62,7 @@ da_scala_test(
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_reactivestreams_reactive_streams_examples",
         "@maven//:org_reactivestreams_reactive_streams_tck",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_testng_testng",
     ],

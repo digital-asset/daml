@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -129,7 +129,10 @@ trait ReproducesTransactions
         ledgerPort = serverPort.value,
         tlsConfig = TlsConfiguration(false, None, None, None),
         accessToken = None,
-        parties = parties,
+        partyConfig = PartyConfig(
+          parties = Party.subst(parties),
+          allParties = false,
+        ),
         start = offset,
         end = ledgerEnd,
         exportType = Some(

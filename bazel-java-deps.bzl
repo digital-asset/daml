@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
-# $ bazel run @unpinned_maven//:pin && DAML_SCALA_VERSION=2.12.13 bazel run @unpinned_maven//:pin
+# $ bazel run @unpinned_maven//:pin && DAML_SCALA_VERSION=2.12.14 bazel run @unpinned_maven//:pin
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
@@ -48,7 +48,7 @@ def install_java_deps():
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
             "com.github.ben-manes.caffeine:caffeine:2.8.0",
-            "com.github.ghik:silencer-plugin_{}:1.7.3".format(scala_version),
+            "com.github.ghik:silencer-plugin_{}:1.7.5".format(scala_version),
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
@@ -151,7 +151,7 @@ def install_java_deps():
             "org.apache.commons:commons-text:1.4",
             "org.awaitility:awaitility:3.1.6",
             "org.checkerframework:checker:2.5.4",
-            "org.flywaydb:flyway-core:6.5.0",
+            "org.flywaydb:flyway-core:7.13.0",
             "org.freemarker:freemarker-gae:2.3.28",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
@@ -168,26 +168,26 @@ def install_java_deps():
             "org.reactivestreams:reactive-streams-tck:1.0.2",
             "org.sangria-graphql:sangria_{}:2.0.1".format(scala_major_version),
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
-            "org.scalacheck:scalacheck_{}:1.14.3".format(scala_major_version),
+            "org.scalacheck:scalacheck_{}:1.15.4".format(scala_major_version),
             "org.scala-lang.modules:scala-collection-compat_{}:2.3.2".format(scala_major_version),
             "org.scala-lang.modules:scala-java8-compat_{}:0.9.0".format(scala_major_version),
             "org.scalameta:munit_{}:0.7.26".format(scala_major_version),
-            "org.scalactic:scalactic_{}:3.1.2".format(scala_major_version),
-            "org.scalatest:scalatest_{}:3.1.2".format(scala_major_version),
-            "org.scalatestplus:scalacheck-1-14_{}:3.1.4.0".format(scala_major_version),
-            "org.scalatestplus:selenium-3-141_{}:3.1.3.0".format(scala_major_version),
-            "org.scalatestplus:testng-6-7_{}:3.1.4.0".format(scala_major_version),
-            "org.scalaz:scalaz-core_{}:7.2.30".format(scala_major_version),
-            "org.scalaz:scalaz-scalacheck-binding_{}:7.2.30-scalacheck-1.14".format(scala_major_version),
+            "org.scalactic:scalactic_{}:3.2.9".format(scala_major_version),
+            "org.scalatest:scalatest_{}:3.2.9".format(scala_major_version),
+            "org.scalatestplus:scalacheck-1-15_{}:3.2.9.0".format(scala_major_version),
+            "org.scalatestplus:selenium-3-141_{}:3.2.9.0".format(scala_major_version),
+            "org.scalatestplus:testng-6-7_{}:3.2.9.0".format(scala_major_version),
+            "org.scalaz:scalaz-core_{}:7.2.33".format(scala_major_version),
+            "org.scalaz:scalaz-scalacheck-binding_{}:7.2.33-scalacheck-1.15".format(scala_major_version),
             "org.seleniumhq.selenium:selenium-java:3.12.0",
             "org.slf4j:slf4j-api:1.7.26",
             "org.slf4j:slf4j-simple:1.7.26",
-            "org.typelevel:kind-projector_{}:0.11.3".format(scala_version),
+            "org.typelevel:kind-projector_{}:0.13.0".format(scala_version),
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-hikari_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
-            "org.wartremover:wartremover_{}:2.4.13".format(scala_version),
+            "org.wartremover:wartremover_{}:2.4.16".format(scala_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
             "com.fasterxml.jackson.core:jackson-core:2.12.0",
             "com.fasterxml.jackson.core:jackson-databind:2.12.0",

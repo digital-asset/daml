@@ -10,7 +10,7 @@ import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -122,6 +122,31 @@ class CommonCliBase(name: LedgerName) {
           )
         )
 
+      opt[String]("secrets-url")
+        .optional()
+        .text(
+          "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+        )
+        .action((url, config) =>
+          config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.fromString(url))))
+        )
+
+      checkConfig(c =>
+        c.tlsConfig.fold(success) { tlsConfig =>
+          if (
+            tlsConfig.keyFile.isDefined
+            && tlsConfig.keyFile.get.getName.endsWith(".enc")
+            && tlsConfig.secretsUrl.isEmpty
+          ) {
+            failure(
+              "You need to provide a secrets server URL if the server's private key is an encrypted file."
+            )
+          } else {
+            success
+          }
+        }
+      )
+
       opt[String]("crt")
         .optional()
         .text(
@@ -156,9 +181,17 @@ class CommonCliBase(name: LedgerName) {
         .action((clientAuth, config) =>
           config.copy(tlsConfig =
             config.tlsConfig
-              .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
-                Some(c.copy(clientAuth = clientAuth))
-              )
+              .fold(
+                Some(
+                  TlsConfiguration(
+                    enabled = true,
+                    keyCertChainFile = None,
+                    keyFile = None,
+                    trustCertCollectionFile = None,
+                    clientAuth = clientAuth,
+                  )
+                )
+              )(c => Some(c.copy(clientAuth = clientAuth)))
           )
         )
 
@@ -291,21 +324,42 @@ class CommonCliBase(name: LedgerName) {
 
       // TODO append-only: cleanup
       opt[Unit]("enable-append-only-schema")
-        .hidden()
         .optional()
         .action((_, config) => config.copy(enableAppendOnlySchema = true))
         .text(
-          s"Turns on append-only schema support."
+          s"Turns on append-only schema support." +
+            " The first time this flag is enabled, the database will migrate to a new schema that allows for significantly higher ingestion performance." +
+            " This migration is irreversible, subsequent starts will have to enable this flag as well." +
+            " In the future, this flag will be removed and this application will automatically migrate to the new schema."
         )
 
       // TODO append-only: cleanup
       opt[Unit]("enable-compression")
-        .hidden()
         .optional()
         .action((_, config) => config.copy(enableCompression = true))
         .text(
-          s"By default compression is off, this switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
+          s"Enables application-side compression of Daml-LF values stored in the database using the append-only schema." +
+            " By default, compression is disabled."
         )
+
+      opt[Duration]("max-deduplication-duration")
+        .optional()
+        .hidden()
+        .action((maxDeduplicationDuration, config) =>
+          config
+            .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+        )
+        .text(
+          "Maximum command deduplication duration."
+        )
+
+      checkConfig(c => {
+        if (c.enableCompression && !c.enableAppendOnlySchema)
+          failure(
+            "Compression (`--enable-compression`) can only be used together with the append-only schema (`--enable-append-only-schema`)."
+          )
+        else success
+      })
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),

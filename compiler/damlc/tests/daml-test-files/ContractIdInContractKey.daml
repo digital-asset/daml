@@ -15,9 +15,9 @@ template ContractKeyWithCid with
   where
     signatory [party]
 
-    controller party can
-      nonconsuming Noop : ()
-       do pure ()
+    nonconsuming choice Noop : ()
+      controller party
+      do pure ()
 
     key (party, cid) : (Party, ContractId Contract)
     maintainer key._1

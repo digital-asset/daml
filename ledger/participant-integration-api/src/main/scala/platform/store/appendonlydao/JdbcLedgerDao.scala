@@ -33,17 +33,8 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractsReader,
-  LfValueTranslation,
-  PostCommitValidation,
-  QueryNonPrunedImpl,
-  TransactionsReader,
-}
-import com.daml.platform.store.backend.{StorageBackend, UpdateToDbDto}
-import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
-import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
+import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
 import com.daml.platform.store.dao.{
   DeduplicationKeyMaker,
   LedgerDao,
@@ -52,18 +43,18 @@ import com.daml.platform.store.dao.{
   MeteredLedgerReadDao,
   PersistenceResponse,
 }
+import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -87,46 +78,59 @@ private class JdbcLedgerDao(
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerId)(storageBackend.ledgerId)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerId)(
+        storageBackend.ledgerIdentity(_).map(_.ledgerId)
+      )
 
   override def lookupParticipantId()(implicit
       loggingContext: LoggingContext
   ): Future[Option[ParticipantId]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getParticipantId)(storageBackend.participantId)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getParticipantId)(
+        storageBackend.ledgerIdentity(_).map(_.participantId)
+      )
 
   /** Defaults to Offset.begin if ledger_end is unset
     */
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(storageBackend.ledgerEndOffset)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerEnd)(
+        storageBackend.ledgerEndOrBeforeBegin(_).lastOffset
+      )
+
+  case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
 
   override def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
   ): Future[(Offset, Long)] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId)(
-      storageBackend.ledgerEndOffsetAndSequentialId
-    )
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId) { connection =>
+        val end = storageBackend.ledgerEndOrBeforeBegin(connection)
+        end.lastOffset -> end.lastEventSeqId
+      }
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[Option[Offset]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
-      storageBackend.initialLedgerEnd
-    )
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
+        storageBackend.ledgerEnd(_).map(_.lastOffset)
+      )
 
-  override def initializeLedger(
-      ledgerId: LedgerId
+  override def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
-      implicit connection =>
-        storageBackend.updateLedgerId(ledgerId.unwrap)(connection)
-    }
-
-  override def initializeParticipantId(
-      participantId: ParticipantId
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
-      storageBackend.updateParticipantId(participantId.unwrap)(connection)
-    }
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.initializeLedgerParameters)(
+        storageBackend.initializeParameters(
+          ParameterStorageBackend.IdentityParams(
+            ledgerId = ledgerId,
+            participantId = participantId,
+          )
+        )
+      )
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
@@ -211,40 +215,37 @@ private class JdbcLedgerDao(
       }
     }
 
+  private val NonLocalParticipantId =
+    Ref.ParticipantId.assertFromString("RESTRICTED_NON_LOCAL_PARTICIPANT_ID")
+
   override def storePartyEntry(
       offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      val savepoint = conn.setSavepoint()
       val offset = validateOffsetStep(offsetStep, conn)
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
-          Try({
-            sequentialIndexer.store(
-              conn,
-              offset,
-              Some(
-                state.Update.PartyAddedToParticipant(
-                  party = partyDetails.party,
-                  displayName = partyDetails.displayName.orNull,
-                  participantId = participantId,
-                  recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                  submissionId = submissionIdOpt,
-                )
-              ),
-            )
-            PersistenceResponse.Ok
-          }).recover {
-            case NonFatal(e) if e.getMessage.contains(storageBackend.duplicateKeyError) =>
-              logger.warn(
-                s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt"
+          sequentialIndexer.store(
+            conn,
+            offset,
+            Some(
+              state.Update.PartyAddedToParticipant(
+                party = partyDetails.party,
+                displayName = partyDetails.displayName.orNull,
+                // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
+                // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
+                // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
+                //
+                // This will be properly resolved once we move away from the `sandbox-classic` codebase.
+                participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
+                recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                submissionId = submissionIdOpt,
               )
-              conn.rollback(savepoint)
-              sequentialIndexer.store(conn, offset, None)
-              PersistenceResponse.Duplicate
-          }.get
+            ),
+          )
+          PersistenceResponse.Ok
 
         case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
           sequentialIndexer.store(
@@ -387,7 +388,13 @@ private class JdbcLedgerDao(
                 applicationId <- tx.applicationId
                 commandId <- tx.commandId
                 submissionId <- tx.submissionId
-              } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
+              } yield state.CompletionInfo(
+                actAs,
+                applicationId,
+                commandId,
+                None,
+                Some(submissionId),
+              )
 
               sequentialIndexer.store(
                 connection,
@@ -427,8 +434,8 @@ private class JdbcLedgerDao(
                 Some(
                   state.Update.CommandRejected(
                     recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                    completionInfo =
-                      state.CompletionInfo(actAs, applicationId, commandId, None, submissionId),
+                    completionInfo = state
+                      .CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId)),
                     reasonTemplate = reason.toParticipantStateRejectionReason,
                   )
                 ),
@@ -591,15 +598,82 @@ private class JdbcLedgerDao(
     )
   }
 
+  /** Prunes the events and command completions tables.
+    *
+    * @param pruneUpToInclusive         Offset up to which to prune archived history inclusively.
+    * @param pruneAllDivulgedContracts  Enables pruning of all immediately and retroactively divulged contracts
+    *                                   up to `pruneUpToInclusive`.
+    *
+    * NOTE:  Pruning of all divulgence events needs to take into account the following considerations:
+    *        1.  Migration from mutating schema to append-only schema:
+    *            - Divulgence events ingested prior to the migration to the append-only schema do not have offsets assigned
+    *            and cannot be pruned incrementally (i.e. respecting the `pruneUpToInclusive)`.
+    *            - For this reason, when `pruneAllDivulgedContracts` is set, `pruneUpToInclusive` must be after
+    *            the last ingested event offset before the migration, otherwise an INVALID_ARGUMENT response is returned.
+    *            - On the first call with `pruneUpToInclusive` higher than the migration offset, all divulgence events are pruned.
+    *
+    *        2.  Backwards compatibility restriction with regard to transaction-local divulgence in the WriteService:
+    *            - Ledgers populated with WriteService versions that do not forward transaction-local divulgence
+    *            will hydrate the index with the divulgence events only once for a specific contract-party divulgence relationship
+    *            regardless of the number of re-divulgences of the contract to the same party have occurred after the initial one.
+    *            - In this case, pruning of all divulged contracts might lead to interpretation failures for command submissions despite
+    *            them relying on divulgences that happened after the `pruneUpToInclusive` offset.
+    *            - We thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
+    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
+    *            transaction-local divulgence.
+    *
+    *        3.  Backwards compatibility restriction with regard to backfilling lookups:
+    *            - Ledgers populated with an old KV WriteService that does not forward divulged contract instances
+    *            to the ReadService (see [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.blind]])
+    *            will hydrate the divulgence entries in the index without the create argument and template id.
+    *            - During command interpretation, on looking up a divulged contract, the create argument and template id
+    *            are backfilled from previous creates/immediate divulgence entries.
+    *            - In the case of pruning of all divulged contracts (which includes immediate divulgence pruning),
+    *            the previously-mentioned backfilling lookup might fail and lead to interpretation failures
+    *            for command submissions that rely on divulged contracts whose associated immediate divulgence event has been pruned.
+    *            As for Consideration 2, we thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
+    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
+    *            transaction-local divulgence.
+    */
   override def prune(
-      pruneUpToInclusive: Offset
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-      storageBackend.pruneEvents(pruneUpToInclusive)(conn)
-      storageBackend.pruneCompletions(pruneUpToInclusive)(conn)
-      storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
-      logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
-    }
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    val allDivulgencePruningParticle =
+      if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
+    logger.info(
+      s"Pruning the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.toHexString}."
+    )
+
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
+        storageBackend.validatePruningOffsetAgainstMigration(
+          pruneUpToInclusive,
+          pruneAllDivulgedContracts,
+          conn,
+        )
+
+        storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(
+          conn,
+          loggingContext,
+        )
+
+        storageBackend.pruneCompletions(pruneUpToInclusive)(conn, loggingContext)
+        storageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+
+        if (pruneAllDivulgedContracts) {
+          storageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(conn)
+        }
+      }
+      .andThen {
+        case Success(_) =>
+          logger.info(
+            s"Completed pruning of the ledger api server index db$allDivulgencePruningParticle"
+          )
+        case Failure(ex) =>
+          logger.warn("Pruning failed", ex)
+      }(servicesExecutionContext)
+  }
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables)(storageBackend.reset)
@@ -710,7 +784,7 @@ private class JdbcLedgerDao(
   private[this] def validateOffsetStep(offsetStep: OffsetStep, conn: Connection): Offset = {
     offsetStep match {
       case IncrementalOffsetStep(p, o) =>
-        val actualEnd = storageBackend.ledgerEndOffset(conn)
+        val actualEnd = storageBackend.ledgerEndOrBeforeBegin(conn).lastOffset
         if (actualEnd.compareTo(p) != 0) throw LedgerEndUpdateError(p) else o
       case CurrentOffset(o) => o
     }

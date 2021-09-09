@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
 
-exports_files(glob(["create-daml-app-test-resources/*"]))
+exports_files(glob(["create-daml-app-test-resources/*"]) + ["copy-trigger/src/CopyTrigger.daml"])
 
 # Split out into a separate rule so we can cheaply include this in the
 # live-preview.
@@ -49,13 +49,14 @@ genrule(
             "create-daml-app/**",
             "quickstart-java/**",
             "quickstart-scala/**",
+            "copy-trigger/**",
+            "gsg-trigger.patch",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
     ) + [
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
         "//docs:daml-patterns",
-        "//docs:copy-trigger-template",
         "//docs:script-example-template",
         "//language-support/scala/examples:quickstart-scala.tar",
     ],
@@ -64,8 +65,18 @@ genrule(
         SRC=templates
         OUT=templates-tarball
 
+        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+        cp -rL $$SRC/create-daml-app $$SRC/gsg-trigger
+        "$$PATCH_TOOL" -d $$SRC/gsg-trigger -p1 < $$SRC/gsg-trigger.patch
+
         # templates in templates dir
-        for d in skeleton empty-skeleton create-daml-app quickstart-scala quickstart-java; do
+        for d in skeleton \
+                 empty-skeleton \
+                 create-daml-app \
+                 quickstart-scala \
+                 quickstart-java \
+                 copy-trigger \
+                 gsg-trigger; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             for f in gitattributes gitignore dlint.yaml; do
@@ -88,9 +99,6 @@ genrule(
         # daml intro templates
         tar xf $(location //docs:daml-intro-templates) -C $$OUT
 
-        mkdir -p $$OUT/copy-trigger
-        tar xf $(location //docs:copy-trigger-template) -C $$OUT/copy-trigger
-
         mkdir -p $$OUT/script-example
         tar xf $(location //docs:script-example-template) -C $$OUT/script-example
 
@@ -99,6 +107,9 @@ genrule(
 
         $(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
     """,
-    tools = ["//bazel_tools/sh:mktgz"],
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "@patch_dev_env//:patch",
+    ],
     visibility = ["//visibility:public"],
 )

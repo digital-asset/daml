@@ -132,9 +132,9 @@ template Simple
     agreement show p
     signatory p
 
-    controller p can
-      Hello : Text
-        do pure "hello"
+    choice Hello : Text
+      controller p
+      do pure "hello"
 
 template SimpleMultiParty
   with
@@ -144,9 +144,9 @@ template SimpleMultiParty
     agreement show p1 <> show p2
     signatory p1, p2
 
-    controller p1, p2 can
-      HelloMultiParty : Text
-        do pure "Hello multi-party"
+    choice HelloMultiParty : Text
+      controller p1, p2
+      do pure "Hello multi-party"
     
 
 template Composite
@@ -155,12 +155,11 @@ template Composite
      agreement show p1
      signatory p1
 
-     controller p1 can
-       First : Text
-         do
-           cid <- create Simple with p = p1
-           cid2 <- exercise cid Hello
-           pure "hello"
+     choice First : Text
+       controller p1
+       do cid <- create Simple with p = p1
+          cid2 <- exercise cid Hello
+          pure "hello"
 
 
 ucreate : Party -> Update (ContractId Simple)
@@ -240,9 +239,9 @@ template TypeWithParameters
   where
     signatory p
 
-    controller p can
-      Hello2 : Text
-        do pure "hello"
+    choice Hello2 : Text
+      controller p
+      do pure "hello"
 
 test_typeWithParameters = scenario do
   alice <- getParty "Alice"
@@ -285,12 +284,14 @@ template CallablePayout
     receiver: Party
   where
     signatory giver
-    controller receiver can
-      Call : ContractId PayOut
-        do create PayOut with receiver; giver
-      Transfer : ContractId CallablePayout
-        with newReceiver: Party
-        do create this with receiver = newReceiver
+    observer receiver
+    choice Call : ContractId PayOut
+      controller receiver
+      do create PayOut with receiver; giver
+    choice Transfer : ContractId CallablePayout
+      with newReceiver: Party
+      controller receiver
+      do create this with receiver = newReceiver
 
 
 
@@ -317,13 +318,13 @@ template TwoParties
     signatory p
     signatory p2
 
-    controller p can
-      Hello3 : Text
-        do pure "hello"
+    choice Hello3 : Text
+      controller p
+      do pure "hello"
 
-    controller p2 can
-      World : Text
-        do pure "world"
+    choice World : Text
+      controller p2
+      do pure "world"
 
 template WithKey
   with p: Party
@@ -334,11 +335,10 @@ template WithKey
     key (p, k): (Party, Int)
     maintainer key._1
 
-    controller p can
-      nonconsuming SumToK : Int
-        with
-          n : Int
-        do pure (n + k)
+    nonconsuming choice SumToK : Int
+      with n : Int
+      controller p
+      do pure (n + k)
 
 template FetcherByKey
   with p: Party
@@ -346,10 +346,10 @@ template FetcherByKey
   where
     signatory p
 
-    controller p can
-      nonconsuming Fetch : WithKey
+    nonconsuming choice Fetch : WithKey
         with
           n : Int
+        controller p
         do
           (_, c) <- fetchByKey @WithKey (p, n)
           pure c
@@ -359,10 +359,10 @@ template LookerUpByKey
   where
     signatory p
 
-    controller p can
-      nonconsuming Lookup : Optional (ContractId WithKey)
+    nonconsuming choice Lookup : Optional (ContractId WithKey)
         with
           n : Int
+        controller p
         do
           lookupByKey @WithKey (p, n)
 
@@ -406,10 +406,11 @@ template Fetcher
     fetcher : Party
   where
     signatory sig
-    controller fetcher can
-      DoFetch : Fetched
-        with cid : ContractId Fetched
-        do fetch cid
+    observer fetcher
+    choice DoFetch : Fetched
+      with cid : ContractId Fetched
+      controller fetcher
+      do fetch cid
 
 
 template Forkable
@@ -419,14 +420,13 @@ template Forkable
   where
     signatory party
 
-    controller party can
-      Fork: [ContractId Forkable]
-        with n: Int
-          do
-            if (n == 0) then
-               pure [self]
-            else
-              do
+    choice Fork : [ContractId Forkable]
+      with n: Int
+      controller party
+      do if (n == 0)
+           then
+             pure [self]
+            else do
                 c1 <- create Forkable with party = party, parent = Some self
                 l1 <- exercise c1 Fork with n = n-1
                 c2 <- create Forkable with party = party, parent = Some self
@@ -589,14 +589,14 @@ template TimeGetter with
     p : Party
   where
     signatory p
-    controller p can
-      GetTime : Time
-        do
-         t <- getTime
+    choice GetTime : Time
+      controller p
+      do t <- getTime
          pure t
-      FactorialOfThree: Int
-        do
-          pure $ product [1, 2, 3]
+
+    choice FactorialOfThree: Int
+      controller p
+      do pure $ product [1, 2, 3]
 
 template ComputeContractKeyAfterEnsureClause with
     owner: Party

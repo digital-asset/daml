@@ -223,7 +223,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       stakeholders = Set(alice, bob),
       signatories = Set(alice, bob),
       choiceObservers = Set.empty,
-      children = ImmArray.empty,
+      children = ImmArray.Empty,
       exerciseResult = Some(someChoiceResult),
       key = key,
       byKey = false,
@@ -379,7 +379,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = divulgees,
         signatories = divulgees,
         choiceObservers = Set.empty,
-        children = ImmArray.empty,
+        children = ImmArray.Empty,
         exerciseResult = Some(someChoiceResult),
         key = None,
         byKey = false,
@@ -698,7 +698,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       applicationId <- entry.applicationId
       commandId <- entry.commandId
       submissionId <- entry.submissionId
-    } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
+    } yield state.CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId))
 
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction)
@@ -774,7 +774,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(party),
         signatories = Set(party),
         choiceObservers = Set.empty,
-        children = ImmArray.empty,
+        children = ImmArray.Empty,
         exerciseResult = Some(LfValue.ValueUnit),
         key = maybeKey.map(k => KeyWithMaintainers(someContractKey(party, k), Set(party))),
         byKey = false,

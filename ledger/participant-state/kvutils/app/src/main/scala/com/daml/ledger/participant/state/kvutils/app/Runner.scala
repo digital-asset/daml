@@ -11,12 +11,8 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v2.{
-  AdaptedV1ReadService,
-  AdaptedV1WriteService,
-  WritePackagesService,
-}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -85,7 +81,12 @@ final class Runner[T <: ReadWriteService, Extra](
     )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val sharedEngine = new Engine(EngineConfig(config.allowedLanguageVersions))
+    val sharedEngine = new Engine(
+      EngineConfig(
+        config.allowedLanguageVersions,
+        forbidV0ContractId = true,
+      )
+    )
 
     newLoggingContext { implicit loggingContext =>
       for {
@@ -114,8 +115,8 @@ final class Runner[T <: ReadWriteService, Extra](
             ledger <- factory
               .readWriteServiceOwner(config, participantConfig, sharedEngine)
               .acquire()
-            readService = new TimedReadService(new AdaptedV1ReadService(ledger), metrics)
-            writeService = new TimedWriteService(new AdaptedV1WriteService(ledger), metrics)
+            readService = new TimedReadService(ledger, metrics)
+            writeService = new TimedWriteService(ledger, metrics)
             healthChecks = new HealthChecks(
               "read" -> readService,
               "write" -> writeService,
@@ -153,6 +154,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   ledgerId = config.ledgerId,
                   config = factory.apiServerConfig(participantConfig, config),
                   commandConfig = config.commandConfig,
+                  submissionConfig = config.submissionConfig,
                   partyConfig = factory.partyConfig(config),
                   optWriteService = Some(writeService),
                   authService = factory.authService(config),

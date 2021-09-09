@@ -3,9 +3,8 @@
 
 package com.daml.http
 
-import java.nio.file.Paths
-
-import com.daml.http.dbbackend.{JdbcConfig, DBConfig}
+import com.daml.dbutils.DBConfig.JdbcConfigDefaults
+import dbbackend.JdbcConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scopt.{Read, RenderingMode}
@@ -14,7 +13,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 class OptionParser(getEnvVar: String => Option[String])(implicit
-    supportedJdbcDriverNames: DBConfig.SupportedJdbcDriverNames
+    jdbcConfigDefaults: JdbcConfigDefaults
 ) extends scopt.OptionParser[Config]("http-json-binary")
     with StrictLogging {
 
@@ -31,12 +30,7 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
   }
 
   private def parseJdbcConfig(s: String): Either[String, JdbcConfig] =
-    for {
-      m <- Try(implicitly[Read[Map[String, String]]].reads(s)).toEither.left.map(_ =>
-        s"Failed to parse $s into a comma-separated key-value map"
-      )
-      conf <- JdbcConfig.create(m)
-    } yield conf
+    Try(implicitly[Read[JdbcConfig]].reads(s)).toEither.left.map(_.getMessage)
 
   private def parseJdbcConfigEnvVar(
       envVar: String,
@@ -147,10 +141,14 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
     )
 
   opt[String]("access-token-file")
-    .text(
-      s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+    .foreach(_ =>
+      logger.warn(
+        s"The '--access-token-file' command line option is deprecated and has no effect. The authorization for the retrieval of packages required to serve a request is performed with the JWT in the request itself."
+      )
     )
-    .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+    .text(
+      s"DEPRECATED. Provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+    )
     .optional()
 
   opt[WebsocketConfig]("websocket-config")

@@ -664,7 +664,7 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileERecCon(tApp: TypeConApp, fields: ImmArray[(FieldName, Expr)]): SExpr =
     if (fields.isEmpty)
-      SEValue(SRecord(tApp.tycon, ImmArray.empty, noArgs))
+      SEValue(SRecord(tApp.tycon, ImmArray.Empty, noArgs))
     else {
       SEApp(
         SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
@@ -995,7 +995,7 @@ private[lf] final class Compiler(
         )
       ) { _ =>
         addExprVar(choice.selfBinder, cidPos)
-        SEScopeExercise(app(compile(choice.update), svar(tokenPos)))
+        SEScopeExercise(tmplId, app(compile(choice.update), svar(tokenPos)))
       }
     }
   }
@@ -1163,8 +1163,8 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, 1), handler),
         )
 
-      case SEScopeExercise(body) =>
-        SEScopeExercise(closureConvert(remaps, body))
+      case SEScopeExercise(templateId, body) =>
+        SEScopeExercise(templateId, closureConvert(remaps, body))
 
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
@@ -1235,7 +1235,7 @@ private[lf] final class Compiler(
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
-        case SEScopeExercise(body) =>
+        case SEScopeExercise(_, body) =>
           go(body, bound, free)
 
         case _: SELoc | _: SEMakeClo | _: SEDamlException | _: SEImportValue |
@@ -1326,7 +1326,7 @@ private[lf] final class Compiler(
         case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
-        case SEScopeExercise(body) =>
+        case SEScopeExercise(_, body) =>
           go(body)
 
         case _: SEVar | _: SEAbs | _: SEDamlException | _: SEImportValue =>

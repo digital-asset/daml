@@ -15,10 +15,14 @@ abstract class MismatchException[A](
 
 object MismatchException {
 
-  class LedgerId(existing: domain.LedgerId, provided: domain.LedgerId)
-      extends MismatchException[domain.LedgerId]("ledger id", existing, provided)
+  case class LedgerId(
+      override val existing: domain.LedgerId,
+      override val provided: domain.LedgerId,
+  ) extends MismatchException[domain.LedgerId]("ledger id", existing, provided)
 
-  class ParticipantId(existing: domain.ParticipantId, provided: domain.ParticipantId)
-      extends MismatchException[domain.ParticipantId]("participant id", existing, provided)
+  case class ParticipantId(
+      override val existing: domain.ParticipantId,
+      override val provided: domain.ParticipantId,
+  ) extends MismatchException[domain.ParticipantId]("participant id", existing, provided)
 
 }

@@ -6,12 +6,16 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0, TransactionMeta, Update}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
@@ -28,7 +32,7 @@ object KeyValueConsumption {
   /** Construct participant-state [[Update]]s from a [[DamlLogEntry]].
     * Throws [[Err]] exception on badly formed data.
     *
-    * This method is expected to be used to implement [[com.daml.ledger.participant.state.v1.ReadService.stateUpdates]].
+    * This method is expected to be used to implement [[com.daml.ledger.participant.state.v2.ReadService.stateUpdates]].
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
@@ -189,7 +193,10 @@ object KeyValueConsumption {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry)
+        transactionRejectionEntryToUpdate(
+          recordTime,
+          entry.getTransactionRejectionEntry,
+        ).toList
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
         outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
@@ -216,40 +223,15 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
-  ): List[Update] = {
-    def wrap(reason: RejectionReasonV0) =
-      List(
-        Update.CommandRejected(
-          recordTime = recordTime,
-          submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
-          reason = reason,
-        )
+  ): Option[Update] = Conversions
+    .decodeTransactionRejectionEntry(rejEntry)
+    .map { reason =>
+      Update.CommandRejected(
+        recordTime = recordTime,
+        completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
+        reasonTemplate = reason,
       )
-
-    rejEntry.getReasonCase match {
-      case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
-        wrap(RejectionReasonV0.Disputed(rejEntry.getDisputed.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
-        wrap(RejectionReasonV0.Inconsistent(rejEntry.getInconsistent.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
-        wrap(RejectionReasonV0.ResourcesExhausted(rejEntry.getResourcesExhausted.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        List()
-      case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
-        wrap(RejectionReasonV0.PartyNotKnownOnLedger(rejEntry.getPartyNotKnownOnLedger.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
-        wrap(
-          RejectionReasonV0.SubmitterCannotActViaParticipant(
-            rejEntry.getSubmitterCannotActViaParticipant.getDetails
-          )
-        )
-      case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
-        wrap(RejectionReasonV0.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
-      case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-        //TODO: Replace with "Unknown reason" error code or something similar
-        throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
     }
-  }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def transactionEntryToUpdate(
@@ -261,9 +243,22 @@ object KeyValueConsumption {
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
+
+    val (maybeBlindingInfo, divulgedContracts) =
+      if (txEntry.hasBlindingInfo) {
+        val damlTransactionBlindingInfo = txEntry.getBlindingInfo
+        val blindingInfo = Some(Conversions.decodeBlindingInfo(damlTransactionBlindingInfo))
+        val divulgedContracts = validateDivulgedContracts(hexTxId, damlTransactionBlindingInfo)
+        blindingInfo -> divulgedContracts
+      } else {
+        None -> List.empty
+      }
+
     Update.TransactionAccepted(
-      optSubmitterInfo =
-        if (txEntry.hasSubmitterInfo) Some(parseSubmitterInfo(txEntry.getSubmitterInfo)) else None,
+      optCompletionInfo =
+        if (txEntry.hasSubmitterInfo)
+          Some(parseCompletionInfo(parseInstant(recordTime), txEntry.getSubmitterInfo))
+        else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
         workflowId = Some(txEntry.getWorkflowId)
@@ -278,14 +273,39 @@ object KeyValueConsumption {
       transaction = CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
-      divulgedContracts = List.empty,
-      blindingInfo =
-        if (txEntry.hasBlindingInfo)
-          Some(Conversions.decodeBlindingInfo(txEntry.getBlindingInfo))
-        else
-          None,
+      divulgedContracts = divulgedContracts,
+      blindingInfo = maybeBlindingInfo,
     )
   }
+
+  /** Extracts divulgence entries and checks that they have an associated contract instance.
+    *
+    * NOTE: It is not a hard fault for the check to fail,
+    * but missing contracts can cause lookup failures during command interpretation if used.
+    * This can happen if the participant is hydrated from ledgers populated with versions of
+    * [[com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter]]
+    * predating the introduction of the `DivulgenceEntry.contractInstance` field.
+    */
+  private def validateDivulgedContracts(
+      hexTxId: LedgerString,
+      damlTransactionBlindingInfo: DamlTransactionBlindingInfo,
+  ) =
+    if (!damlTransactionBlindingInfo.getDivulgencesList.isEmpty) {
+      Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
+        case Right(divulgedContractsIndex) =>
+          divulgedContractsIndex.view.map { case (contractId, contractInstance) =>
+            DivulgedContract(contractId, contractInstance)
+          }.toList
+        case Left(missingContractIds) =>
+          logger.warn(
+            s"Missing divulged contract instances in transaction $hexTxId: ${missingContractIds
+              .mkString("[", ", ", "]")}. Command submissions using divulged contracts might fail."
+          )
+          List.empty
+      }
+    } else {
+      List.empty
+    }
 
   private[kvutils] case class TimeBounds(
       tooEarlyUntil: Option[Timestamp] = None,
@@ -305,8 +325,27 @@ object KeyValueConsumption {
 
     val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
     wrappedLogEntry.getPayloadCase match {
+      case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if deduplicated =>
+        val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
+        Some(
+          Update.CommandRejected(
+            recordTime = recordTime,
+            completionInfo = parseCompletionInfo(
+              Conversions.parseInstant(recordTime),
+              transactionRejectionEntry.getSubmitterInfo,
+            ),
+            reasonTemplate = FinalReason(
+              Status.of(
+                Code.ALREADY_EXISTS.value,
+                "Duplicate commands",
+                Seq.empty,
+              )
+            ),
+          )
+        )
+
       case _ if deduplicated =>
-        // We don't emit updates for deduplicated submissions.
+        // We only emit updates for duplicate transaction submissions.
         None
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidRecordTime =>
@@ -321,12 +360,20 @@ object KeyValueConsumption {
           case _ =>
             "Record time outside of valid range"
         }
-        val rejectionReason = RejectionReasonV0.InvalidLedgerTime(reason)
         Some(
           Update.CommandRejected(
             recordTime = recordTime,
-            submitterInfo = parseSubmitterInfo(transactionRejectionEntry.getSubmitterInfo),
-            reason = rejectionReason,
+            completionInfo = parseCompletionInfo(
+              Conversions.parseInstant(recordTime),
+              transactionRejectionEntry.getSubmitterInfo,
+            ),
+            reasonTemplate = FinalReason(
+              Status.of(
+                Code.ABORTED.value,
+                reason,
+                Seq.empty,
+              )
+            ),
           )
         )
 

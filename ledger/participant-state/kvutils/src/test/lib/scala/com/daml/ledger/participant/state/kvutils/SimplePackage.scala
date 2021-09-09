@@ -81,7 +81,7 @@ class SimplePackage(testDar: TestDar) {
       choiceArgument,
     )
 
-  private val choiceArgument = ValueRecord(None, ImmArray.empty)
+  private val choiceArgument = ValueRecord(None, ImmArray.Empty)
 
   private val simpleTemplateId: Ref.Identifier =
     Ref.Identifier(

@@ -160,14 +160,18 @@ object ApiCodecVerbose {
       case `tagTextMap` =>
         V.ValueTextMap(
           SortedLookupList
-            .fromImmArray(ImmArray(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry)))
+            .fromImmArray(
+              arrayField(value, propValue, "ApiMap").view.map(jsValueToMapEntry).to(ImmArray)
+            )
             .fold(
               err => deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, $err'"),
               identity,
             )
         )
       case `tagGenMap` =>
-        V.ValueGenMap(ImmArray(arrayField(value, propValue, "ApiGenMap").map(jsValueToGenMapEntry)))
+        V.ValueGenMap(
+          arrayField(value, propValue, "ApiGenMap").view.map(jsValueToGenMapEntry).to(ImmArray)
+        )
       case t =>
         deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, unknown type '$t'")
     }

@@ -32,12 +32,15 @@ da_scala_library(
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-grpc",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//libs-scala/concurrent",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
@@ -50,12 +53,10 @@ da_scala_library(
     srcs = glob(["src/test/{}/**/*.scala".format(scala_major_version)]),
     versioned_scala_deps = {
         "2.12": [
-            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalatest_scalatest_core",
             "@maven//:org_scalactic_scalactic",
         ],
     },
-    deps = [
-    ],
 )
 
 da_scala_test_suite(
@@ -69,7 +70,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_akka_akka_stream_testkit",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     scalacopts = [
         "-P:silencer:lineContentFilters=import Compat._",
@@ -81,11 +85,15 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
+        "//ledger/ledger-grpc",
         "//ledger/metrics",
         "//libs-scala/concurrent",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

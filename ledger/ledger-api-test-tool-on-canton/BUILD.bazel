@@ -49,7 +49,6 @@ sh_binary(
 
 conformance_test(
     name = "conformance-test",
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
     extra_data = [
         ":bootstrap.canton",
         ":canton_deploy.jar",
@@ -62,10 +61,8 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "no-exceptions",
-        # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
-        # "default",
-        # "latest",
+        "default",
+        "latest",
     ],
     ports = [
         5011,
@@ -73,25 +70,28 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
+    server_args = [],
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=4",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
         # The following three contract key tests require uniqueness
-        "--exclude=ContractKeysIT,ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
+        "--exclude=ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
         ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
         ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
         ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
         # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
         ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
-        ",DeeplyNestedValueIT",
+        ",RaceConditionIT:RWArchiveVsLookupByKey,RaceConditionIT:RWArchiveVsNonConsumingChoice,RaceConditionIT:RWArchiveVsFetch,RaceConditionIT:WWDoubleArchive" +
+        ",ExceptionsIT,ExceptionRaceConditionIT" +  # need UCK mode - added below
+        ",DeeplyNestedValueIT" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
+        ",CommandServiceIT:CSReturnStackTrace",  # FIXME: Ensure canton returns stack trace
     ],
 ) if not is_windows else None
 
 conformance_test(
     name = "conformance-test-contract-keys",
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
     extra_data = [
         ":bootstrap.canton",
         ":canton_deploy.jar",
@@ -105,10 +105,8 @@ conformance_test(
         "@jdk11_nix//:bin/java",
     ],
     lf_versions = [
-        "no-exceptions",
-        # FIXME: replace the previous line by the following ones once canton-test-runner supports LF 1.14
-        #  "default",
-        #  "latest",
+        "default",
+        "latest",
     ],
     ports = [
         5011,
@@ -116,19 +114,49 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=4",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
         "--include=ContractKeysIT" +
-        ",RaceConditionIT",
+        ",RaceConditionIT" +
+        ",ExceptionsIT" +
+        ",ExceptionRaceConditionIT",
     ],
 ) if not is_windows else None
 
 conformance_test(
+    name = "conformance-test-contract-ids",
+    extra_data = [
+        ":bootstrap.canton",
+        ":canton_deploy.jar",
+        ":canton.conf",
+        ":logback-debug.xml",
+        "@coreutils_nix//:bin/base64",
+        "@curl_nix//:bin/curl",
+        "@grpcurl_nix//:bin/grpcurl",
+        "@jq_dev_env//:jq",
+        "@jdk11_nix//:bin/java",
+    ],
+    ports = [
+        5011,
+        5021,
+        5031,
+        5041,
+    ],
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
+    server = ":canton-test-runner-with-dependencies",
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:RejectNonSuffixedV1Cid,ContractIdIT:AcceptSuffixedV1Cid",
+    ],
+    # TODO https://github.com/digital-asset/daml/issues/10504
+    #   replace `False` by `not is_windows` once canton rejects non suffix CIDs
+) if False else None
+
+conformance_test(
     name = "conformance-test-participant-pruning",
-    # Ideally these would be part of the script definition above, but that doesn't seem to work.
     extra_data = [
         ":bootstrap.canton",
         ":canton_deploy.jar",
@@ -151,13 +179,15 @@ conformance_test(
         5031,
         5041,
     ],
-    runner = "@//bazel_tools/client_server/runner:runner",
+    runner = "@//bazel_tools/client_server/runner_with_port_check",
     server = ":canton-test-runner-with-dependencies",
     tags = [
         "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
     ],
     test_tool_args = [
         "--verbose",
+        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+        "--timeout-scale-factor=4",  # provide additional time to avoid timing on on longer tests such as PRLocalAndNonLocalRetroactiveDivulgences or PRImmediateAndRetroactiveDivulgence
         "--include=ParticipantPruningIT",
     ],
 ) if not is_windows else None

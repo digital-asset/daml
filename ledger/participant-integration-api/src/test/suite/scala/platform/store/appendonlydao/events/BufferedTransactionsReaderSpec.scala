@@ -96,11 +96,12 @@ class BufferedTransactionsReaderSpec
           toApiTx = toApiTx,
           apiResponseCtor = apiResponseCtor,
           fetchTransactions = fetchTransactions,
+          toApiTxTimer = metrics.daml.services.index.streamsBuffer.toTransactionTrees,
           sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
           resolvedFromBufferCounter =
             metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
           totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
-          bufferSizeCounter = metrics.daml.services.index.transactionTreesBufferSize,
+          bufferSizeCounter = metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
           outputStreamBufferSize = 128,
         )
         .runWith(Sink.seq)

@@ -13,3 +13,12 @@ testApplicative = scenario do
   (fs <*> l) === NonEmpty 2 [4, 6, 8, 3, 6, 9, 12]
   hd l === 1
   tl l === [2, 3, 4]
+
+testOrd = scenario do
+  compare (NonEmpty 1 []) (NonEmpty 1 []) === EQ
+  compare (NonEmpty 2 []) (NonEmpty 1 []) === GT
+  compare (NonEmpty 1 []) (NonEmpty 2 []) === LT
+  compare (NonEmpty 1 [0]) (NonEmpty 1 []) === GT
+  compare (NonEmpty 1 []) (NonEmpty 1 [0]) === LT
+  compare (NonEmpty 1 [0]) (NonEmpty 1 [0]) === EQ
+  compare (NonEmpty 1 [0]) (NonEmpty 1 [1]) === LT

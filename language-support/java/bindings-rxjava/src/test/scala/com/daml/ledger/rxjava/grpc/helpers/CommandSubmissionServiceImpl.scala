@@ -15,15 +15,15 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class CommandSubmissionServiceImpl(response: Future[Empty])
+final class CommandSubmissionServiceImpl(getResponse: () => Future[Empty])
     extends CommandSubmissionService
     with FakeAutoCloseable {
 
-  private var submittedRequest: Option[SubmitRequest] = None
+  @volatile private var submittedRequest: Option[SubmitRequest] = None
 
   override def submit(request: SubmitRequest): Future[Empty] = {
     this.submittedRequest = Some(request)
-    response
+    getResponse()
   }
 
   def getSubmittedRequest: Option[SubmitRequest] = submittedRequest
@@ -31,10 +31,10 @@ final class CommandSubmissionServiceImpl(response: Future[Empty])
 
 object CommandSubmissionServiceImpl {
 
-  def createWithRef(response: Future[Empty], authorizer: Authorizer)(implicit
+  def createWithRef(getResponse: () => Future[Empty], authorizer: Authorizer)(implicit
       ec: ExecutionContext
   ): (ServerServiceDefinition, CommandSubmissionServiceImpl) = {
-    val impl = new CommandSubmissionServiceImpl(response)
+    val impl = new CommandSubmissionServiceImpl(getResponse)
     val authImpl = new CommandSubmissionServiceAuthorization(impl, authorizer)
     (CommandSubmissionServiceGrpc.bindService(authImpl, ec), impl)
   }

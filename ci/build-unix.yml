@@ -38,6 +38,10 @@ steps:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
 
+  - template: publish-platform-independence-dar.yml
+    parameters:
+      platform: '${{parameters.name}}'
+
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()
     continueOnError: true

@@ -14,7 +14,12 @@ import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
-private[engine] final class ValueTranslator(interface: language.Interface) {
+private[engine] final class ValueTranslator(
+    interface: language.Interface,
+    // See Preprocessor scala doc for more details about the following flags.
+    forbidV0ContractId: Boolean,
+    requireV1ContractIdSuffix: Boolean,
+) {
 
   import Preprocessor._
 
@@ -38,15 +43,36 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
     go(fields, Map.empty)
   }
 
+  private[this] val unsafeTranslateV1Cid: ContractId.V1 => SValue.SContractId =
+    if (requireV1ContractIdSuffix)
+      cid =>
+        if (cid.suffix.isEmpty)
+          throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
+        else
+          SValue.SContractId(cid)
+    else
+      SValue.SContractId(_)
+
+  private[this] val unsafeTranslateV0Cid: ContractId.V0 => SValue.SContractId =
+    if (forbidV0ContractId)
+      cid => throw Error.Preprocessing.IllegalContractId.V0ContractId(cid)
+    else
+      SValue.SContractId(_)
+
+  @throws[Error.Preprocessing.Error]
+  private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId =
+    cid match {
+      case cid1: ContractId.V1 => unsafeTranslateV1Cid(cid1)
+      case cid0: ContractId.V0 => unsafeTranslateV0Cid(cid0)
+    }
+
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value[ContractId],
-  ): (SValue, Set[Value.ContractId]) = {
-
-    val cids = Set.newBuilder[Value.ContractId]
+  ): SValue = {
 
     def go(ty0: Type, value0: Value[ContractId], nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
@@ -91,8 +117,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                         typeError()
                     }
                   case (BTContractId, ValueContractId(c)) =>
-                    cids += c
-                    SValue.SContractId(c)
+                    unsafeTranslateCid(c)
                   case (BTOptional, ValueOptional(mbValue)) =>
                     mbValue match {
                       case Some(v) =>
@@ -185,7 +210,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                       mbLbl.foreach(lbl_ =>
                         if (lbl_ != lbl)
                           typeError(
-                            s"Mismatching record label $lbl_ (expecting $lbl) for record $tyCon"
+                            s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
                           )
                       )
                       val replacedTyp = AstUtil.substitute(typ, subst)
@@ -195,7 +220,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                     recordFlds.map { case (lbl, typ) =>
                       labeledRecords
                         .get(lbl)
-                        .fold(typeError(s"Missing record label $lbl for record $tyCon")) { v =>
+                        .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) { v =>
                           val replacedTyp = AstUtil.substitute(typ, subst)
                           lbl -> go(replacedTyp, v, newNesting)
                         }
@@ -224,7 +249,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
         }
       }
 
-    go(ty, value) -> cids.result()
+    go(ty, value)
   }
 
   // This does not try to pull missing packages, return an error instead.
@@ -232,6 +257,6 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
       ty: Type,
       value: Value[ContractId],
   ): Either[Error.Preprocessing.Error, SValue] =
-    safelyRun(unsafeTranslateValue(ty, value)._1)
+    safelyRun(unsafeTranslateValue(ty, value))
 
 }

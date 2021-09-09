@@ -8,6 +8,7 @@ import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
@@ -22,7 +23,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantPruningIT extends LedgerTestSuite {
 
-  private val batchesToPopulate = 74
+  private val batchesToPopulate =
+    74 // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
   private val lastItemToPruneIndex = batchesToPopulate
 
   test(
@@ -32,7 +34,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       failure <- participant
-        .prune("", attempts = 1)
+        .prune("", attempts = 1, pruneAllDivulgedContracts = true)
         .mustFail("pruning without specifying an offset")
     } yield {
       assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "prune_up_to not specified")
@@ -46,8 +48,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       cannotPruneNonHexOffset <- participant
-        .prune("cofefe", attempts = 1)
-        .mustFail("pruning, specifiying a non-hexadecimal offset")
+        .prune("covfefe", attempts = 1, pruneAllDivulgedContracts = true)
+        .mustFail("pruning, specifying a non-hexadecimal offset")
     } yield {
       assertGrpcError(
         cannotPruneNonHexOffset,
@@ -68,7 +70,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       actualEndExclusive <- participant.currentEnd()
       cannotPruneOffsetBeyondEnd <- participant
         .prune(actualEndExclusive, attempts = 1)
-        .mustFail("pruning, specifiying an offset after the ledger end")
+        .mustFail("pruning, specifying an offset after the ledger end")
     } yield {
       assertGrpcError(
         cannotPruneOffsetBeyondEnd,
@@ -440,6 +442,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
       offsetToPruneUpToInSecondRealPrune = offsets((lastItemToPruneIndex + 1) * 2 - 1)
       offsetOfFirstSurvivingTransactionInSecondPrune = offsets((lastItemToPruneIndex + 1) * 2)
 
+      // Add more events before second prune too to advance canton's safe pruning offset
+      offsetsFollowingSecondRealPrune <- populateLedgerAndGetOffsets(participant, submitter)
+
       _ <- participant.prune(offsetToPruneUpToInSecondRealPrune)
 
       transactionsAfterSecondPrune <- participant.transactionTrees(
@@ -466,7 +471,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         s"transaction trees not pruned at expected offset after redundant prune",
       )
       assert(
-        transactionsAfterSecondPrune.size == offsets.size - 2 * (lastItemToPruneIndex + 1),
+        transactionsAfterSecondPrune.size == offsets.size - 2 * (lastItemToPruneIndex + 1) + offsetsFollowingSecondRealPrune.size,
         s"transaction tree count after second pruning does not match expected count",
       )
       assert(
@@ -497,7 +502,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRPruneQueryEmptyRangeOk",
     // This test is not terribly useful for conformance, but helps ensure that pruning does not interfere when run before
-    // TransactionServiceIT "TXBeginToBegin" and "TXTreesBeginToBegin" tests.
+    // TransactionServiceStreamingIT "TXBeginToBegin" and "TXTreesBeginToBegin" tests.
     "Prune succeeds and does not prevent querying empty ranges even in pruned space",
     allocate(SingleParty),
     runConcurrently = false,
@@ -530,6 +535,64 @@ class ParticipantPruningIT extends LedgerTestSuite {
   })
 
   test(
+    "PRDivulgenceArchivalPruning",
+    "Prune succeeds for divulgence events whose contracts are archived",
+    allocate(TwoParties),
+    runConcurrently = false, // pruning call may interact with other tests
+  )(implicit ec => { case Participants(Participant(participant, alice, bob)) =>
+    for {
+      divulgence <- createDivulgence(alice, bob, participant, participant)
+      contract <- participant.create(alice, Contract(alice))
+
+      // Retroactively divulge Alice's contract to bob
+      _ <- participant.exercise(
+        alice,
+        divulgence.exerciseDivulge(_, contract),
+      )
+
+      // Bob can see the divulged contract
+      _ <- participant.exerciseAndGetContract[Dummy](
+        bob,
+        divulgence.exerciseCanFetch(_, contract),
+      )
+
+      _ <- pruneAtCurrentOffset(
+        participant,
+        bob,
+        pruneAllDivulgedContracts = false,
+      )
+
+      // Bob can still see the divulged contract
+      _ <- participant.exerciseAndGetContract[Dummy](
+        bob,
+        divulgence.exerciseCanFetch(_, contract),
+      )
+
+      // Archive the divulged contract
+      _ <- participant.exercise(alice, contract.exerciseArchive)
+
+      _ <- pruneAtCurrentOffset(
+        participant,
+        bob,
+        pruneAllDivulgedContracts = false,
+      )
+
+      _ <- participant
+        .exerciseAndGetContract[Dummy](
+          bob,
+          divulgence.exerciseCanFetch(_, contract),
+        )
+        .mustFailWith("Bob cannot access a divulged contract which was already archived") {
+          exception =>
+            val errorMessage = exception.getMessage
+            errorMessage.contains(
+              "Contract could not be found with id"
+            ) && errorMessage.contains(contract.toString)
+        }
+    } yield ()
+  })
+
+  test(
     "PRRetroactiveDivulgences",
     "Divulgence pruning succeeds",
     allocate(SingleParty, SingleParty),
@@ -538,6 +601,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
       contract <- alpha.create(alice, Contract(alice))
+
+      _ <- synchronize(alpha, beta) // because of exercise on beta inside createDivulgence
 
       // Retroactively divulge Alice's contract to bob
       _ <- alpha.exercise(
@@ -570,9 +635,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield ()
   })
 
+  // This test can only be run in multi-participant setups, since the participant
+  // on which we assert pruning of the immediate divulgence
+  // must not have a locally-hosted stakeholder of the divulged contract.
   test(
-    "PRDisclosureAndRetroactiveDivulgence",
-    "Disclosure pruning succeeds",
+    "PRImmediateAndRetroactiveDivulgence",
+    "Immediate divulgence pruning succeeds",
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
@@ -583,6 +651,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         alice,
         divulgence.exerciseCreateAndDisclose,
       )
+
       _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
     } yield ()
   })
@@ -595,6 +664,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec: ExecutionContext) =
     for {
       divulgenceHelper <- alpha.create(alice, DivulgenceProposal(alice, bob))
+      _ <- synchronize(alpha, beta)
       divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseAccept)
     } yield divulgence
 
@@ -607,13 +677,15 @@ class ParticipantPruningIT extends LedgerTestSuite {
       divulgence: binding.Primitive.ContractId[Divulgence],
   )(implicit ec: ExecutionContext) =
     for {
+      _ <- synchronize(alpha, beta)
+
       // Check that Bob can fetch the contract
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      offsetAfter_divulgence_1 <- beta.currentEnd()
+      offsetAfterDivulgence_1 <- beta.currentEnd()
 
       // Alice re-divulges the contract to Bob
       _ <- alpha.exerciseAndGetContract[Contract](
@@ -621,38 +693,35 @@ class ParticipantPruningIT extends LedgerTestSuite {
         divulgence.exerciseDivulge(_, contract),
       )
 
+      _ <- synchronize(alpha, beta)
+
       // Check that Bob can fetch the contract
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
-      offsetAfter_divulgence_2 <- beta.currentEnd()
 
-      _ <- beta.prune(offsetAfter_divulgence_1)
+      _ <- beta.prune(
+        pruneUpTo = offsetAfterDivulgence_1,
+        pruneAllDivulgedContracts = true,
+      )
       // Check that Bob can still fetch the contract after pruning the first transaction
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
 
-      _ <- beta.prune(offsetAfter_divulgence_2)
-      // TODO divulgence pruning: Remove - The following assertion should fail once full divulgence pruning
-      //                          is implemented in the participant
+      // Populate "other" participant too to advance canton's safe pruning offset
+      _ <- populateLedgerAndGetOffsets(alpha, alice)
+
+      _ <- pruneAtCurrentOffset(beta, bob, pruneAllDivulgedContracts = true)
+
       _ <- beta
         .exerciseAndGetContract[Dummy](
           bob,
           divulgence.exerciseCanFetch(_, contract),
         )
-
-      // TODO divulgence pruning: Un-comment the assertion below to make tests pass once
-      //                          full divulgence pruning is implemented in the participant
-      //
-      // _ <- beta
-      //   .exerciseAndGetContract[Dummy](
-      //     bob,
-      //     divulgence.exerciseCanFetch(_, contract),
-      //   )
-      //   .mustFail("Bob cannot access the divulged contract after the second pruning")
+        .mustFail("Bob cannot access the divulged contract after the second pruning")
     } yield ()
 
   private def populateLedgerAndGetOffsets(participant: ParticipantTestContext, submitter: Party)(
@@ -700,4 +769,28 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant.getTransactionsRequest(parties = Seq(submitter), begin = endOffsetAtTestStart)
       )
     } yield trees
+
+  private def pruneAtCurrentOffset(
+      participant: ParticipantTestContext,
+      localParty: Party,
+      pruneAllDivulgedContracts: Boolean,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    for {
+      offset <- participant.currentEnd()
+
+      _ <- populateLedgerAndGetOffsets(participant, localParty)
+
+      // Dummy needed to prune at this offset
+      _ <- participant.create(localParty, Dummy(localParty))
+
+      acsBeforePruning <- participant.activeContracts(localParty)
+      _ <- participant.prune(offset, pruneAllDivulgedContracts = pruneAllDivulgedContracts)
+      acsAfterPruning <- participant.activeContracts(localParty)
+
+    } yield {
+      assert(
+        acsBeforePruning == acsAfterPruning,
+        s"Active contract set comparison before and after pruning failed: $acsBeforePruning vs $acsAfterPruning",
+      )
+    }
 }

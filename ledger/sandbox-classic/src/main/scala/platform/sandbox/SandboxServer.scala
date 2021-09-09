@@ -107,8 +107,8 @@ object SandboxServer {
 
     newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
-      new FlywayMigrations(config.jdbcUrl.get)
-        .migrate(enableAppendOnlySchema = config.enableAppendOnlySchema)
+      new FlywayMigrations(config.jdbcUrl.get, config.enableAppendOnlySchema)
+        .migrate()
     }
   }
 
@@ -174,6 +174,7 @@ final class SandboxServer(
         allowedLanguageVersions = allowedLanguageVersions,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
+        forbidV0ContractId = false,
       )
     }
     getEngine(engineConfig)
@@ -247,13 +248,11 @@ final class SandboxServer(
             },
           )
           .left
-          // TODO https://github.com/digital-asset/daml/issues/9974
-          //  Review how the error is displayed once LF errors are properly structured
           .foreach(err => sys.error(err.message))
       }
     }
     config.scenario match {
-      case None => (InMemoryActiveLedgerState.empty, ImmArray.empty, None)
+      case None => (InMemoryActiveLedgerState.empty, ImmArray.Empty, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
           ScenarioLoader.fromScenario(
@@ -346,6 +345,7 @@ final class SandboxServer(
             transactionCommitter,
             packageStore,
             metrics,
+            engine,
           )
       }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
@@ -379,6 +379,7 @@ final class SandboxServer(
         partyConfig = PartyConfiguration.default.copy(
           implicitPartyAllocation = config.implicitPartyAllocation
         ),
+        submissionConfig = config.submissionConfig,
         optTimeServiceBackend = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,

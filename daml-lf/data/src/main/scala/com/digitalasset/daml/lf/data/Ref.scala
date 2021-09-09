@@ -196,7 +196,7 @@ object Ref {
     def fromString(s: String): Either[String, QualifiedName] = {
       val segments = split(s, ':')
       if (segments.length != 2)
-        Left(s"Expecting two segments in $s, but got ${segments.length}")
+        Left(s"Expected script identifier of the form ModuleName:scriptName but got $s")
       else
         ModuleName.fromString(segments(0)).flatMap { module =>
           DottedName.fromString(segments(1)).map { name =>

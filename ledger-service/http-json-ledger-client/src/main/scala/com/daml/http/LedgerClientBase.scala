@@ -6,7 +6,7 @@ package com.daml.http
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.scalautil.ExceptionOps._
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
 import scalaz._
 import Scalaz._
@@ -16,6 +16,7 @@ import com.daml.timer.RetryStrategy
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 object LedgerClientBase {
@@ -47,7 +48,7 @@ trait LedgerClientBase {
       ledgerHost,
       ledgerPort,
       nonRepudiationConfig,
-    ).flatMap(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
+    ).map(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
 
   def fromRetried(
       ledgerHost: String,
@@ -59,22 +60,31 @@ trait LedgerClientBase {
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
       lc: LoggingContextOf[InstanceUUID],
-  ): Future[LedgerClientBase.Error \/ DamlLedgerClient] =
+  ): Future[LedgerClientBase.Error \/ DamlLedgerClient] = {
+    logger.info(
+      s"Attempting to connect to the ledger $ledgerHost:$ledgerPort ($maxInitialConnectRetryAttempts attempts)"
+    )
     RetryStrategy
       .constant(maxInitialConnectRetryAttempts, 1.seconds) { (i, _) =>
-        logger.info(s"""Attempting to connect to the ledger $ledgerHost:$ledgerPort
-           | (attempt $i/$maxInitialConnectRetryAttempts)""".stripMargin)
-        buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
+        val client = buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
+        client.onComplete {
+          case Success(_) =>
+            logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts succeeded!""")
+          case Failure(e) =>
+            logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts failed: ${e.description}""")
+        }
+        client
       }
       .map(_.right)
       .recover { case NonFatal(e) =>
         \/.left(
           LedgerClientBase.Error(
-            s"""Maximum initial connection retry attempts($maxInitialConnectRetryAttempts) reached,
+            s"""Maximum initial connection retry attempts ($maxInitialConnectRetryAttempts) reached,
                | Cannot connect to ledger server: ${e.description}""".stripMargin
           )
         )
       }
+  }
 
   def apply(
       ledgerHost: String,

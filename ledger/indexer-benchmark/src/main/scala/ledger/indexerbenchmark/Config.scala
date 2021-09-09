@@ -54,37 +54,42 @@ object Config {
         .action((value, config) => config.copy(updateSource = value))
 
       opt[Int]("indexer-input-mapping-parallelism")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.inputMappingParallelism.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(inputMappingParallelism = value))
         )
       opt[Int]("indexer-ingestion-parallelism")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.ingestionParallelism.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(ingestionParallelism = value))
         )
+      opt[Int]("indexer-batching-parallelism")
+        .text("Sets the value of IndexerConfig.batchingParallelism.")
+        .action((value, config) =>
+          config.copy(indexerConfig = config.indexerConfig.copy(batchingParallelism = value))
+        )
       opt[Long]("indexer-submission-batch-size")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.submissionBatchSize.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(submissionBatchSize = value))
         )
       opt[Int]("indexer-tailing-rate-limit-per-second")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.tailingRateLimitPerSecond.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(tailingRateLimitPerSecond = value))
         )
       opt[Long]("indexer-batch-within-millis")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.batchWithinMillis.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(batchWithinMillis = value))
         )
       opt[Boolean]("indexer-enable-compression")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.enableCompression.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(enableCompression = value))
         )
       opt[Int]("indexer-max-input-buffer-size")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.maxInputBufferSize.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(maxInputBufferSize = value))
         )

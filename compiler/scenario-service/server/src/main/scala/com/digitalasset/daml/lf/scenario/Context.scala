@@ -199,7 +199,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
             clientMachine.warningLog,
             ledgerClient.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
-            ImmArray.empty,
+            ImmArray.Empty,
             e,
           )
         )
@@ -223,6 +223,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           )
         )
       case Failure(e: Error) => handleFailure(e)
+      case Failure(e: Runner.InterpretationError) => {
+        handleFailure(Error.RunnerException(e.error))
+      }
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)

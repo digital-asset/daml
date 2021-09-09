@@ -18,7 +18,9 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:testing-utils:__VERSION__"],
@@ -40,6 +42,7 @@ da_scala_library(
         "@maven//:com_typesafe_config",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

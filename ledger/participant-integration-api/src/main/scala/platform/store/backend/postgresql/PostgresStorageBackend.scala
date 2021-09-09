@@ -6,21 +6,26 @@ package com.daml.platform.store.backend.postgresql
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.{NamedParameter, SQL, SqlStringInterpolation}
-import anorm.SqlParser.get
-import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import anorm.SQL
+import anorm.SqlParser.{get, int}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key, Party}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.appendonlydao.events.Party
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
+import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
+  CompletionStorageBackendTemplate,
+  ContractStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
-  TemplatedStorageBackend,
+  PartyStorageBackendTemplate,
+  QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -35,7 +40,12 @@ import org.postgresql.ds.PGSimpleDataSource
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
-    with EventStorageBackendTemplate {
+    with EventStorageBackendTemplate
+    with ContractStorageBackendTemplate
+    with CompletionStorageBackendTemplate
+    with PartyStorageBackendTemplate {
+
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def insertBatch(
       connection: Connection,
@@ -62,8 +72,8 @@ private[backend] object PostgresStorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
-        "deduplicateUntil" -> deduplicateUntil,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 
@@ -77,109 +87,116 @@ private[backend] object PostgresStorageBackend
       |truncate table participant_events_create cascade;
       |truncate table participant_events_consuming_exercise cascade;
       |truncate table participant_events_non_consuming_exercise cascade;
-      |truncate table parties cascade;
       |truncate table party_entries cascade;
       |""".stripMargin)
       .execute()(connection)
     ()
   }
 
-  override val duplicateKeyError: String = "duplicate key"
+  override def resetAll(connection: Connection): Unit = {
+    SQL("""truncate table configuration_entries cascade;
+          |truncate table packages cascade;
+          |truncate table package_entries cascade;
+          |truncate table parameters cascade;
+          |truncate table participant_command_completions cascade;
+          |truncate table participant_command_submissions cascade;
+          |truncate table participant_events_divulgence cascade;
+          |truncate table participant_events_create cascade;
+          |truncate table participant_events_consuming_exercise cascade;
+          |truncate table participant_events_non_consuming_exercise cascade;
+          |truncate table party_entries cascade;
+          |""".stripMargin)
+      .execute()(connection)
+    ()
+  }
 
-  override def commandCompletions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
-  )(connection: Connection): List[CompletionStreamResponse] =
-    TemplatedStorageBackend.commandCompletions(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      applicationId = applicationId,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", parties),
-    )(connection)
+  /** If `pruneAllDivulgedContracts` is set, validate that the pruning offset is after
+    * the last ingested event offset (if exists) before the migration to append-only schema
+    * (see [[com.daml.platform.store.appendonlydao.JdbcLedgerDao.prune]])
+    */
+  def validatePruningOffsetAgainstMigration(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      connection: Connection,
+  ): Unit =
+    if (pruneAllDivulgedContracts) {
+      import com.daml.platform.store.Conversions.OffsetToStatement
+      SQL"""
+       with max_offset_before_migration as (
+         select max(event_offset) as max_event_offset
+         from participant_events, participant_migration_history_v100
+         where event_sequential_id <= ledger_end_sequential_id_before
+       )
+       select 1 as result
+       from max_offset_before_migration
+       where max_event_offset >= $pruneUpToInclusive
+       """
+        .as(int("result").singleOpt)(connection)
+        .foreach(_ =>
+          throw ErrorFactories.invalidArgument(
+            "Pruning offset for all divulged contracts needs to be after the migration offset"
+          )
+        )
+    }
 
-  override def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[StorageBackend.RawContract] =
-    TemplatedStorageBackend.activeContractWithArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
+  object PostgresQueryStrategy extends QueryStrategy {
 
-  override def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[String] =
-    TemplatedStorageBackend.activeContractWithoutArgument(
-      treeEventWitnessesWhereClause = arrayIntersectionWhereClause("tree_event_witnesses", readers),
-      contractId = contractId,
-    )(connection)
+    override def arrayIntersectionNonEmptyClause(
+        columnName: String,
+        parties: Set[Ref.Party],
+    ): CompositeSql = {
+      import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+      val partiesArray: Array[String] = parties.map(_.toString).toArray
+      cSQL"#$columnName::text[] && $partiesArray::text[]"
+    }
 
-  override def contractKey(readers: Set[Ref.Party], key: Key)(
-      connection: Connection
-  ): Option[ContractId] =
-    TemplatedStorageBackend.contractKey(
-      flatEventWitnesses = columnPrefix =>
-        arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers),
-      key = key,
-    )(connection)
+    override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
+      s"$elementColumnName = any($arrayColumnName)"
+
+    override def isTrue(booleanColumnName: String): String = booleanColumnName
+  }
+
+  override def queryStrategy: QueryStrategy = PostgresQueryStrategy
 
   object PostgresEventStrategy extends EventStrategy {
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Party],
-    ): (String, List[NamedParameter]) =
+    ): CompositeSql =
       if (parties.size == 1)
-        (
-          s"array[{singlePartyfewc}]::text[]",
-          List("singlePartyfewc" -> parties.head.toString),
-        )
-      else
-        (
-          s"array(select unnest($witnessesColumnName) intersect select unnest({partiesArrayfewc}::text[]))",
-          List("partiesArrayfewc" -> parties.view.map(_.toString).toArray),
-        )
+        cSQL"array[${parties.head.toString}]::text[]"
+      else {
+        val partiesArray: Array[String] = parties.view.map(_.toString).toArray
+        cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($partiesArray::text[]))"
+      }
 
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Party],
-    ): (String, List[NamedParameter]) =
-      (
-        s"($submittersColumnName::text[] && {wildCardPartiesArraysapc}::text[])",
-        List("wildCardPartiesArraysapc" -> parties.view.map(_.toString).toArray),
-      )
+    ): CompositeSql = {
+      val partiesArray = parties.view.map(_.toString).toArray
+      cSQL"(#$submittersColumnName::text[] && $partiesArray::text[])"
+    }
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-    ): (String, List[NamedParameter]) = {
-      val (wildCardClause, wildCardParams) = filterParams.wildCardParties match {
-        case wildCardParties if wildCardParties.isEmpty => (Nil, Nil)
+    ): CompositeSql = {
+      val wildCardClause = filterParams.wildCardParties match {
+        case wildCardParties if wildCardParties.isEmpty =>
+          Nil
+
         case wildCardParties =>
-          (
-            List(s"($witnessesColumnName::text[] && {wildCardPartiesArraywwc}::text[])"),
-            List[NamedParameter](
-              "wildCardPartiesArraywwc" -> wildCardParties.view.map(_.toString).toArray
-            ),
-          )
+          val partiesArray = wildCardParties.view.map(_.toString).toArray
+          cSQL"(#$witnessesColumnName::text[] && $partiesArray::text[])" :: Nil
       }
-      val (partiesTemplatesClauses, partiesTemplatesParams) =
-        filterParams.partiesAndTemplates.iterator.zipWithIndex
-          .map { case ((parties, templateIds), index) =>
-            (
-              s"( ($witnessesColumnName::text[] && {partiesArraywwc$index}::text[]) AND (template_id = ANY({templateIdsArraywwc$index}::text[])) )",
-              List[NamedParameter](
-                s"partiesArraywwc$index" -> parties.view.map(_.toString).toArray,
-                s"templateIdsArraywwc$index" -> templateIds.view.map(_.toString).toArray,
-              ),
-            )
-          }
-          .toList
-          .unzip
-      (
-        (wildCardClause ::: partiesTemplatesClauses).mkString("(", " OR ", ")"),
-        wildCardParams ::: partiesTemplatesParams.flatten,
-      )
+      val partiesTemplatesClauses =
+        filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
+          val partiesArray = parties.view.map(_.toString).toArray
+          val templateIdsArray = templateIds.view.map(_.toString).toArray
+          cSQL"( (#$witnessesColumnName::text[] && $partiesArray::text[]) AND (template_id = ANY($templateIdsArray::text[])) )"
+        }.toList
+      (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
     }
   }
 
@@ -194,13 +211,6 @@ private[backend] object PostgresStorageBackend
       .as(get[Long](1).singleOpt)(connection)
   }
 
-  // TODO append-only: remove as part of ContractStorageBackend consolidation
-  private def format(parties: Set[Party]): String = parties.view.map(p => s"'$p'").mkString(",")
-
-  // TODO append-only: remove as part of ContractStorageBackend consolidation
-  private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
-    s"$arrayColumn::text[] && array[${format(parties)}]::text[]"
-
   override def createDataSource(
       jdbcUrl: String,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
@@ -208,12 +218,50 @@ private[backend] object PostgresStorageBackend
   )(implicit loggingContext: LoggingContext): DataSource = {
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
+
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
         .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
       connectionInitHook.toList,
     ).flatten
     InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions)
+  }
+
+  override def checkCompatibility(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Unit = {
+    getPostgresVersion(connection) match {
+      case Some((major, minor)) =>
+        if (major < 10) {
+          logger.error(
+            "Deprecated Postgres version. " +
+              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
+              "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
+              "Please upgrade your Postgres database to version 10 or later to fix this issue."
+          )
+        }
+      case None =>
+        logger.warn(
+          s"Could not determine the version of the Postgres database. Please verify that this application is compatible with this Postgres version."
+        )
+    }
+    ()
+  }
+
+  private[backend] def getPostgresVersion(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
+    val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
+    logger.debug(s"Found Postgres version $version")
+    parsePostgresVersion(version)
+  }
+
+  private[backend] def parsePostgresVersion(version: String): Option[(Int, Int)] = {
+    val versionPattern = """(\d+)[.](\d+).*""".r
+    version match {
+      case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
+      case _ => None
+    }
   }
 
   override def tryAcquire(

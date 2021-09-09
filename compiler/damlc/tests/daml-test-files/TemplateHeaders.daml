@@ -9,13 +9,12 @@ template A with
     pa : Party
   where
     signatory pa
-    controller pa can
-      -- Used in template I
-      Transfer : ContractId A
-        with newParty: Party
-        do create A with pa = newParty
+    choice Transfer : ContractId A
+      with newParty: Party
+      controller pa
+      do create A with pa = newParty
 
-template () => D
+template D
   with
     pd: Party
   where

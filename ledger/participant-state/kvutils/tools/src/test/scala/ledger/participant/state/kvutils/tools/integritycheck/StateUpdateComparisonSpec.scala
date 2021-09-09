@@ -3,26 +3,22 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.daml.ledger.participant.state.v1.Update.{
-  CommandRejected,
+import com.daml.ledger.participant.state.v2.TransactionMeta
+import com.daml.ledger.participant.state.v2.Update.{
   ConfigurationChangeRejected,
   TransactionAccepted,
 }
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0, SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, NodeId}
-import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 final class StateUpdateComparisonSpec
     extends AsyncWordSpec
@@ -34,33 +30,8 @@ final class StateUpdateComparisonSpec
       val right = aConfigurationChangeRejected.copy(rejectionReason = "another reason")
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, List.empty, List.empty)
+        .compareUpdates(left, right, Iterable.empty, Iterable.empty, Iterable.empty)
         .map(_ => succeed)
-    }
-
-    "ignore rejection reason for CommandRejected updates" in {
-      val rejectionReasons = Table(
-        ("Left", "Right"),
-        RejectionReasonV0.Disputed("a") -> RejectionReasonV0.Disputed("b"),
-        RejectionReasonV0.Inconsistent("a") -> RejectionReasonV0.Inconsistent("b"),
-        RejectionReasonV0.InvalidLedgerTime("a") -> RejectionReasonV0.InvalidLedgerTime("b"),
-        RejectionReasonV0.PartyNotKnownOnLedger("a") -> RejectionReasonV0.PartyNotKnownOnLedger(
-          "b"
-        ),
-        RejectionReasonV0.ResourcesExhausted("a") -> RejectionReasonV0.ResourcesExhausted("b"),
-        RejectionReasonV0.SubmitterCannotActViaParticipant("a") -> RejectionReasonV0
-          .SubmitterCannotActViaParticipant("b"),
-      )
-      forAll(rejectionReasons)(compareCommandRejectionReasons)
-    }
-
-    "conflate Disputed, InvalidLedgerTime and Inconsistent for CommandRejected updates" in {
-      val rejectionReasons = Table(
-        ("Left", "Right"),
-        RejectionReasonV0.Disputed("a") -> RejectionReasonV0.Inconsistent("a"),
-        RejectionReasonV0.InvalidLedgerTime("a") -> RejectionReasonV0.Inconsistent("a"),
-      )
-      forAll(rejectionReasons)(compareCommandRejectionReasons)
     }
 
     "ignore blinding info for TransactionAccepted updates" in {
@@ -74,7 +45,7 @@ final class StateUpdateComparisonSpec
       val normalizers = List(BlindingInfoNormalizer)
 
       ReadServiceStateUpdateComparison
-        .compareUpdates(left, right, normalizers, normalizers)
+        .compareUpdates(left, right, normalizers, normalizers, Iterable.empty)
         .map(_ => succeed)
     }
 
@@ -93,6 +64,7 @@ final class StateUpdateComparisonSpec
           right,
           expectedUpdateNormalizers = normalizers,
           actualUpdateNormalizers = normalizers,
+          pairwiseUpdateNormalizers = Iterable.empty,
         )
         .map(_ => succeed)
     }
@@ -107,19 +79,9 @@ final class StateUpdateComparisonSpec
       Configuration(1L, LedgerTimeModel.reasonableDefault, Duration.ofMinutes(1)),
     rejectionReason = "a rejection reason",
   )
-  private lazy val aCommandRejectedUpdate = CommandRejected(
-    recordTime = Time.Timestamp.now(),
-    submitterInfo = SubmitterInfo(
-      actAs = List.empty,
-      applicationId = Ref.ApplicationId.assertFromString("an application ID"),
-      commandId = Ref.CommandId.assertFromString("a command ID"),
-      deduplicateUntil = Instant.now(),
-    ),
-    reason = RejectionReasonV0.Disputed("a rejection reason"),
-  )
   private lazy val aTransactionAcceptedUpdate =
     TransactionAccepted(
-      optSubmitterInfo = None,
+      optCompletionInfo = None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = aRecordTime,
         workflowId = None,
@@ -181,16 +143,4 @@ final class StateUpdateComparisonSpec
       },
     )
 
-  private def compareCommandRejectionReasons(
-      left: RejectionReasonV0,
-      right: RejectionReasonV0,
-  ): Future[Assertion] =
-    ReadServiceStateUpdateComparison
-      .compareUpdates(
-        aCommandRejectedUpdate.copy(reason = left),
-        aCommandRejectedUpdate.copy(reason = right),
-        expectedUpdateNormalizers = Iterable.empty,
-        actualUpdateNormalizers = Iterable.empty,
-      )
-      .map(_ => succeed)
 }

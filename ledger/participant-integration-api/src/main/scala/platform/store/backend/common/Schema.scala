@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-import java.time.Instant
 
 import com.daml.platform.store.backend.DbDto
 
@@ -47,16 +46,11 @@ private[backend] object AppendOnlySchema {
     def bigint[FROM, _](extractor: FROM => Long): Field[FROM, Long, _] =
       Bigint(extractor)
 
+    def bigintOptional[FROM, _](extractor: FROM => Option[Long]): Field[FROM, Option[Long], _] =
+      BigintOptional(extractor)
+
     def smallintOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
-
-    def timestamp[FROM, _](extractor: FROM => Instant): Field[FROM, Instant, _] =
-      Timestamp(extractor)
-
-    def timestampOptional[FROM, _](
-        extractor: FROM => Option[Instant]
-    ): Field[FROM, Option[Instant], _] =
-      TimestampOptional(extractor)
 
     def intOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
@@ -71,9 +65,9 @@ private[backend] object AppendOnlySchema {
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
     def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
-    def idempotentInsert(tableName: String, keyFieldIndex: Int)(
-        fields: (String, Field[DbDto.Package, _, _])*
-    ): Table[DbDto.Package]
+    def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+        fields: (String, Field[FROM, _, _])*
+    ): Table[FROM]
   }
 
   def apply(fieldStrategy: FieldStrategy): Schema[DbDto] = {
@@ -98,7 +92,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("participant_events_create")(
         "event_offset" -> fieldStrategy.stringOptional(_.event_offset),
         "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "ledger_effective_time" -> fieldStrategy.timestampOptional(_.ledger_effective_time),
+        "ledger_effective_time" -> fieldStrategy.bigintOptional(_.ledger_effective_time),
         "command_id" -> fieldStrategy.stringOptional(_.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_.application_id),
@@ -130,7 +124,7 @@ private[backend] object AppendOnlySchema {
         "event_offset" -> fieldStrategy.stringOptional(_.event_offset),
         "contract_id" -> fieldStrategy.string(_.contract_id),
         "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "ledger_effective_time" -> fieldStrategy.timestampOptional(_.ledger_effective_time),
+        "ledger_effective_time" -> fieldStrategy.bigintOptional(_.ledger_effective_time),
         "node_index" -> fieldStrategy.intOptional(_.node_index),
         "command_id" -> fieldStrategy.stringOptional(_.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_.workflow_id),
@@ -166,7 +160,7 @@ private[backend] object AppendOnlySchema {
     val configurationEntries: Table[DbDto.ConfigurationEntry] =
       fieldStrategy.insert("configuration_entries")(
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-        "recorded_at" -> fieldStrategy.timestamp(_.recorded_at),
+        "recorded_at" -> fieldStrategy.bigint(_.recorded_at),
         "submission_id" -> fieldStrategy.string(_.submission_id),
         "typ" -> fieldStrategy.string(_.typ),
         "configuration" -> fieldStrategy.bytea(_.configuration),
@@ -176,7 +170,7 @@ private[backend] object AppendOnlySchema {
     val packageEntries: Table[DbDto.PackageEntry] =
       fieldStrategy.insert("package_entries")(
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-        "recorded_at" -> fieldStrategy.timestamp(_.recorded_at),
+        "recorded_at" -> fieldStrategy.bigint(_.recorded_at),
         "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
         "typ" -> fieldStrategy.string(_.typ),
         "rejection_reason" -> fieldStrategy.stringOptional(_.rejection_reason),
@@ -191,7 +185,7 @@ private[backend] object AppendOnlySchema {
         "upload_id" -> fieldStrategy.string(_.upload_id),
         "source_description" -> fieldStrategy.stringOptional(_.source_description),
         "package_size" -> fieldStrategy.bigint(_.package_size),
-        "known_since" -> fieldStrategy.timestamp(_.known_since),
+        "known_since" -> fieldStrategy.bigint(_.known_since),
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
         "package" -> fieldStrategy.bytea(_._package),
       )
@@ -199,7 +193,7 @@ private[backend] object AppendOnlySchema {
     val partyEntries: Table[DbDto.PartyEntry] =
       fieldStrategy.insert("party_entries")(
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-        "recorded_at" -> fieldStrategy.timestamp(_.recorded_at),
+        "recorded_at" -> fieldStrategy.bigint(_.recorded_at),
         "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
         "party" -> fieldStrategy.stringOptional(_.party),
         "display_name" -> fieldStrategy.stringOptional(_.display_name),
@@ -208,25 +202,22 @@ private[backend] object AppendOnlySchema {
         "is_local" -> fieldStrategy.booleanOptional(_.is_local),
       )
 
-    val parties: Table[DbDto.Party] =
-      fieldStrategy.insert("parties")(
-        "party" -> fieldStrategy.string(_.party),
-        "display_name" -> fieldStrategy.stringOptional(_.display_name),
-        "explicit" -> fieldStrategy.boolean(_.explicit),
-        "ledger_offset" -> fieldStrategy.stringOptional(_.ledger_offset),
-        "is_local" -> fieldStrategy.boolean(_.is_local),
-      )
-
     val commandCompletions: Table[DbDto.CommandCompletion] =
       fieldStrategy.insert("participant_command_completions")(
         "completion_offset" -> fieldStrategy.string(_.completion_offset),
-        "record_time" -> fieldStrategy.timestamp(_.record_time),
+        "record_time" -> fieldStrategy.bigint(_.record_time),
         "application_id" -> fieldStrategy.string(_.application_id),
         "submitters" -> fieldStrategy.stringArray(_.submitters),
         "command_id" -> fieldStrategy.string(_.command_id),
         "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "status_code" -> fieldStrategy.intOptional(_.status_code),
-        "status_message" -> fieldStrategy.stringOptional(_.status_message),
+        "rejection_status_code" -> fieldStrategy.intOptional(_.rejection_status_code),
+        "rejection_status_message" -> fieldStrategy.stringOptional(_.rejection_status_message),
+        "rejection_status_details" -> fieldStrategy.byteaOptional(_.rejection_status_details),
+        "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
+        "deduplication_offset" -> fieldStrategy.stringOptional(_.deduplication_offset),
+        "deduplication_time_seconds" -> fieldStrategy.bigintOptional(_.deduplication_time_seconds),
+        "deduplication_time_nanos" -> fieldStrategy.intOptional(_.deduplication_time_nanos),
+        "deduplication_start" -> fieldStrategy.bigintOptional(_.deduplication_start),
       )
 
     val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =
@@ -242,7 +233,6 @@ private[backend] object AppendOnlySchema {
       configurationEntries.executeUpdate,
       packageEntries.executeUpdate,
       packages.executeUpdate,
-      parties.executeUpdate,
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
       commandSubmissionDeletes.executeUpdate,
@@ -262,7 +252,6 @@ private[backend] object AppendOnlySchema {
           configurationEntries.prepareData(collect[ConfigurationEntry]),
           packageEntries.prepareData(collect[PackageEntry]),
           packages.prepareData(collect[Package]),
-          parties.prepareData(collect[Party]),
           partyEntries.prepareData(collect[PartyEntry]),
           commandCompletions.prepareData(collect[CommandCompletion]),
           commandSubmissionDeletes.prepareData(collect[CommandDeduplication]),

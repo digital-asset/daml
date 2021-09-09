@@ -17,7 +17,7 @@ def conformance_test(
         ports = [6865],
         test_tool_args = [],
         tags = [],
-        runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+        runner = "@//bazel_tools/client_server/runner_with_port_check",
         lf_versions = ["default"],
         flaky = False):
     for lf_version in lf_versions_aggregate(lf_versions):

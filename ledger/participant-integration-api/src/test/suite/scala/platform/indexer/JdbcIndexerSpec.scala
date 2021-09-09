@@ -12,6 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Time.Timestamp
@@ -22,7 +23,7 @@ import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
 import com.daml.platform.store.dao.LedgerDao
-import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata, LfValueTranslationCache}
+import com.daml.platform.store.{DbType, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -138,11 +139,10 @@ final class JdbcIndexerSpec
       OffsetUpdate(OffsetStep(Some(offset2), offset3), update3),
     )
 
-    initializeIndexer(participantId, flow)
+    initializeIndexer(participantId, mockedReadService(offsets zip mockedUpdates), flow)
       .flatMap {
         _.use {
-          _.subscription(mockedReadService(offsets zip mockedUpdates))
-            .use(_.completed())
+          _.use(identity)
         }
       }
       .map(_ => captureBuffer should contain theSameElementsInOrderAs expected)
@@ -151,7 +151,7 @@ final class JdbcIndexerSpec
   private def asyncCommitTest(mode: DbType.AsyncCommitMode): Future[Assertion] = {
     val participantId = "the-participant"
     for {
-      indexer <- initializeIndexer(participantId, jdbcAsyncCommitMode = mode)
+      indexer <- initializeIndexer(participantId, mockedReadService(), jdbcAsyncCommitMode = mode)
       _ = LogCollector.clear[this.type]
       _ <- runAndShutdown(indexer)
     } yield {
@@ -167,10 +167,11 @@ final class JdbcIndexerSpec
     owner.use(_ => Future.unit)
 
   private def runAndShutdownIndexer(participantId: String): Future[Unit] =
-    initializeIndexer(participantId).flatMap(runAndShutdown)
+    initializeIndexer(participantId, mockedReadService()).flatMap(runAndShutdown)
 
   private def initializeIndexer(
       participantId: String,
+      readService: ReadService,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed] = noOpFlow,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit,
   ): Future[ResourceOwner[Indexer]] = {
@@ -179,19 +180,27 @@ final class JdbcIndexerSpec
       jdbcUrl = postgresDatabase.url,
       startupMode = IndexerStartupMode.MigrateAndStart,
       asyncCommitMode = jdbcAsyncCommitMode,
+      enableAppendOnlySchema = false,
     )
     val metrics = new Metrics(new MetricRegistry)
-    new indexer.JdbcIndexer.Factory(
-      config = config,
-      readService = mockedReadService(),
-      servicesExecutionContext = materializer.executionContext,
-      metrics = metrics,
-      updateFlowOwnerBuilder =
-        mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
-      serverRole = ServerRole.Indexer,
-      flywayMigrations = new FlywayMigrations(config.jdbcUrl),
-      LfValueTranslationCache.Cache.none,
-    ).migrateSchema(allowExistingSchema = true)
+    StandaloneIndexerServer
+      .migrateOnly(
+        jdbcUrl = config.jdbcUrl,
+        enableAppendOnlySchema = config.enableAppendOnlySchema,
+        allowExistingSchema = true,
+      )
+      .map(_ =>
+        new indexer.JdbcIndexer.Factory(
+          config = config,
+          readService = readService,
+          servicesExecutionContext = materializer.executionContext,
+          metrics = metrics,
+          updateFlowOwnerBuilder =
+            mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
+          serverRole = ServerRole.Indexer,
+          LfValueTranslationCache.Cache.none,
+        ).initialized()
+      )
   }
 
   private def mockedUpdateFlowOwnerBuilder(

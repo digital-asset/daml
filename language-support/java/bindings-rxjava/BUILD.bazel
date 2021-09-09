@@ -39,7 +39,6 @@ da_java_library(
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_context",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
@@ -64,7 +63,9 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -79,11 +80,11 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//libs-scala/grpc-utils",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_context",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -108,8 +109,11 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -125,12 +129,12 @@ da_scala_test_suite(
         "//libs-scala/grpc-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_context",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_pcollections_pcollections",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -148,7 +152,10 @@ da_scala_test(
     ],
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -167,6 +174,7 @@ da_scala_test(
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_pcollections_pcollections",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

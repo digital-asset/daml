@@ -39,6 +39,7 @@ import DA.Action qualified as M
 
 deriving instance Eq a => Eq (NonEmpty a)
 deriving instance Show a => Show (NonEmpty a)
+deriving instance Ord a => Ord (NonEmpty a)
 
 -- NonEmpty is defined in a stable LF package so we need to handwrite the HasField instances here.
 

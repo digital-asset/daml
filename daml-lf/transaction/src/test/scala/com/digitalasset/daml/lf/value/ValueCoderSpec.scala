@@ -150,7 +150,7 @@ class ValueCoderSpec
     "do deep record" in {
       def toNat(
           i: Int,
-          acc: ValueRecord[Nothing] = ValueRecord(None, ImmArray.empty),
+          acc: ValueRecord[Nothing] = ValueRecord(None, ImmArray.Empty),
       ): ValueRecord[Nothing] =
         if (i <= 0) acc
         else toNat(i - 1, ValueRecord(None, ImmArray(None -> acc)))

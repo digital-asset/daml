@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.backend.oracle
 
-import java.time.Instant
-
 import com.daml.platform.store.backend.DbDto
 import com.daml.platform.store.backend.common.AppendOnlySchema.FieldStrategy
 import com.daml.platform.store.backend.common.{AppendOnlySchema, Field, Schema, Table}
@@ -21,14 +19,6 @@ private[oracle] object OracleSchema {
     ): Field[FROM, Option[Iterable[String]], _] =
       OracleStringArrayOptional(extractor)
 
-    override def timestamp[FROM, _](extractor: FROM => Instant): Field[FROM, Instant, _] =
-      OracleTimestamp(extractor)
-
-    override def timestampOptional[FROM, _](
-        extractor: FROM => Option[Instant]
-    ): Field[FROM, Option[Instant], _] =
-      OracleTimestampOptional(extractor)
-
     override def insert[FROM](tableName: String)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
@@ -37,9 +27,9 @@ private[oracle] object OracleSchema {
     override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
       Table.batchedDelete(tableName)(field)
 
-    override def idempotentInsert(tableName: String, keyFieldIndex: Int)(
-        fields: (String, Field[DbDto.Package, _, _])*
-    ): Table[DbDto.Package] =
+    override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+        fields: (String, Field[FROM, _, _])*
+    ): Table[FROM] =
       OracleTable.idempotentBatchedInsert(tableName, keyFieldIndex)(fields: _*)
   }
 

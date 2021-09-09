@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -598,12 +598,12 @@ private[lf] object SBuiltin {
 
   final case object SBMapKeys extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(ImmArray(getSMap(args, 0).entries.keys) ++: FrontStack.empty)
+      SList(getSMap(args, 0).entries.keys.to(FrontStack))
   }
 
   final case object SBMapValues extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(ImmArray(getSMap(args, 0).entries.values) ++: FrontStack.empty)
+      SList(getSMap(args, 0).entries.values.to(FrontStack))
   }
 
   final case object SBMapSize extends SBuiltinPure(1) {
@@ -678,7 +678,7 @@ private[lf] object SBuiltin {
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(ImmArray(args.subList(0, n).asScala) ++: getSList(args, n))
+      SList(args.subList(0, n).asScala.to(ImmArray) ++: getSList(args, n))
   }
 
   /** $cons :: a -> List a -> List a */
@@ -891,7 +891,7 @@ private[lf] object SBuiltin {
           IE.TemplatePreconditionViolated(
             templateId = templateId,
             optLocation = None,
-            arg = args.get(0).toValue,
+            arg = args.get(0).toUnnormalizedValue,
           )
         )
       SUnit
@@ -913,11 +913,16 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       val createArg = args.get(0)
-      val createArgValue = createArg.toValue
+      val createArgValue = onLedger.ptx.normValue(templateId, createArg)
       val agreement = getSText(args, 1)
       val sigs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
       val obs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
-      val mbKey = extractOptionalKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
+      val mbKey = extractOptionalKeyWithMaintainers(
+        onLedger,
+        templateId,
+        NameOf.qualifiedNameOfCurrentFunc,
+        args.get(4),
+      )
       mbKey.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
         if (maintainers.isEmpty)
           throw SErrorDamlException(
@@ -967,7 +972,7 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
-      val arg = args.get(0).toValue
+      val chosenValue = onLedger.ptx.normValue(templateId, args.get(0))
       val coid = getSContractId(args, 1)
       val cached =
         onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
@@ -993,7 +998,7 @@ private[lf] object SBuiltin {
           choiceObservers = choiceObservers,
           mbKey = mbKey,
           byKey = byKey,
-          chosenValue = arg,
+          chosenValue = chosenValue,
         )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1118,7 +1123,12 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       val keyWithMaintainers =
-        extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
+        extractKeyWithMaintainers(
+          onLedger,
+          templateId,
+          NameOf.qualifiedNameOfCurrentFunc,
+          args.get(0),
+        )
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1145,19 +1155,11 @@ private[lf] object SBuiltin {
 
   private[this] abstract class KeyOperation {
     val templateId: TypeConName
-    private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
 
-    final protected def importCid(cid: V.ContractId): SEImportValue =
-      // We have to check that the discriminator of cid does not conflict with a local ones
-      // however we cannot raise an exception in case of failure here.
-      // We delegate to CtrlImportValue the task to check cid.
-      SEImportValue(typ, V.ValueContractId(cid))
     // Callback from the engine returned NotFound
-    def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit
+    def handleKeyFound(machine: Machine, cid: V.ContractId): Unit
     // We already saw this key, but it was undefined or was archived
     def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean
-    // We already saw this key and it is still active
-    def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
 
     final def handleKnownInputKey(
         machine: Machine,
@@ -1165,33 +1167,28 @@ private[lf] object SBuiltin {
         keyMapping: PartialTransaction.KeyMapping,
     ): Unit =
       keyMapping match {
-        case PartialTransaction.KeyActive(cid) => handleActiveKey(machine, cid)
+        case PartialTransaction.KeyActive(cid) => handleKeyFound(machine, cid)
         case PartialTransaction.KeyInactive => discard(handleKeyNotFound(machine, gkey))
       }
   }
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.ctrl = importCid(cid)
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SContractId(cid)
       override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
         machine.ctrl = SEDamlException(IE.ContractKeyNotFound(gkey))
         false
       }
-
-      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SContractId(cid)
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
-      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.ctrl = SBSome(importCid(cid))
+      override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SOptional(Some(SContractId(cid)))
       override def handleKeyNotFound(machine: Machine, key: GlobalKey): Boolean = {
         machine.returnValue = SValue.SValue.None
         true
       }
-      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SOptional(Some(SContractId(cid)))
     }
   }
 
@@ -1218,7 +1215,12 @@ private[lf] object SBuiltin {
     ): Unit = {
       import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers =
-        extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
+        extractKeyWithMaintainers(
+          onLedger,
+          operation.templateId,
+          NameOf.qualifiedNameOfCurrentFunc,
+          args.get(0),
+        )
       if (keyWithMaintainers.maintainers.isEmpty)
         throw SErrorDamlException(
           IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
@@ -1233,7 +1235,7 @@ private[lf] object SBuiltin {
           val stakeholders = cachedContract.signatories union cachedContract.observers
           onLedger.visibleToStakeholders(stakeholders) match {
             case SVisibleToStakeholders.Visible =>
-              operation.handleActiveKey(machine, coid)
+              operation.handleKeyFound(machine, coid)
             case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
               machine.ctrl = SEDamlException(
                 IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
@@ -1261,7 +1263,7 @@ private[lf] object SBuiltin {
                         onLedger.ptx = onLedger.ptx.copy(
                           keys = onLedger.ptx.keys.updated(gkey, KeyActive(cid))
                         )
-                        operation.handleInputKeyFound(machine, cid)
+                        operation.handleKeyFound(machine, cid)
                         true
                       case _ =>
                         onLedger.ptx = onLedger.ptx.copy(
@@ -1615,12 +1617,14 @@ private[lf] object SBuiltin {
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
+      onLedger: OnLedger,
+      templateId: TypeConName,
       location: String,
       v: SValue,
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
       case SStruct(_, vals) =>
-        val key = vals.get(keyIdx).toValue
+        val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
         key.ensureNoCid match {
           case Right(keyVal) =>
             Node.KeyWithMaintainers(
@@ -1635,11 +1639,13 @@ private[lf] object SBuiltin {
     }
 
   private[this] def extractOptionalKeyWithMaintainers(
+      onLedger: OnLedger,
+      templateId: TypeConName,
       where: String,
       optKey: SValue,
   ): Option[Node.KeyWithMaintainers[V[Nothing]]] =
     optKey match {
-      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(where, _))
+      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(onLedger, templateId, where, _))
       case v => throw SErrorCrash(where, s"Expected optional key with maintainers, got: $v")
     }
 
@@ -1662,6 +1668,7 @@ private[lf] object SBuiltin {
     cachedContractStructFields.indexOf(Ast.observersFieldName)
 
   private[speedy] def extractCachedContract(
+      onLedger: OnLedger,
       templateId: Ref.TypeConName,
       v: SValue,
   ): CachedContract =
@@ -1677,6 +1684,8 @@ private[lf] object SBuiltin {
           observers =
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedContractObserversIdx)),
           key = extractOptionalKeyWithMaintainers(
+            onLedger,
+            templateId,
             NameOf.qualifiedNameOfCurrentFunc,
             vals.get(cachedContractKeyIdx),
           ),

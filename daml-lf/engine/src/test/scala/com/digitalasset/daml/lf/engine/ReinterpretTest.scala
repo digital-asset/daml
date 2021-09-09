@@ -52,7 +52,7 @@ class ReinterpretTest
 
   private val defaultContracts: Map[ContractId, ContractInst[VersionedValue[ContractId]]] =
     Map(
-      toContractId("#ReinterpretTests:MySimple:1") ->
+      toContractId("ReinterpretTests:MySimple:1") ->
         ContractInst(
           TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
           assertAsVersionedValue(
@@ -69,7 +69,13 @@ class ReinterpretTest
   val lookupPackage = allPackages.get(_)
   val lookupKey = { _: GlobalKeyWithMaintainers => None }
 
-  private val engine = Engine.DevEngine()
+  private val engine = new Engine(
+    EngineConfig(
+      allowedLanguageVersions = language.LanguageVersion.DevVersions,
+      forbidV0ContractId = true,
+      requireSuffixedGlobalContractId = true,
+    )
+  )
 
   def Top(xs: Shape*) = Shape.Top(xs.toList)
   def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
@@ -107,8 +113,8 @@ class ReinterpretTest
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
-        val cid = toContractId("#ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        val cid = toContractId("ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
@@ -119,8 +125,8 @@ class ReinterpretTest
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
-        val cid = toContractId("#ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        val cid = toContractId("ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
@@ -131,8 +137,8 @@ class ReinterpretTest
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
-        val cid = toContractId("#ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        val cid = toContractId("ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Left(err) = reinterpretCommand(theCommand)
       assert(err.message.contains("Error: functions are not comparable"))
@@ -143,8 +149,8 @@ class ReinterpretTest
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
-        val cid = toContractId("#ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        val cid = toContractId("ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
@@ -155,8 +161,8 @@ class ReinterpretTest
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
-        val cid = toContractId("#ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        val cid = toContractId("ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
 
       val Left(err) = reinterpretCommand(theCommand)
@@ -174,8 +180,10 @@ object ReinterpretTest {
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
+  private val dummySuffix = Bytes.assertFromString("00")
+
   private def toContractId(s: String): ContractId =
-    ContractId.assertFromString(s)
+    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
 
   sealed trait Shape
   object Shape {

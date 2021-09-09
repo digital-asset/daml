@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.execution
 import java.time.{Duration, Instant}
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, Commands, LedgerId, SubmissionId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -33,7 +34,7 @@ class StoreBackedCommandExecutorSpec
     submissionTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
     dependsOnTime = false,
-    nodeSeeds = ImmArray.empty,
+    nodeSeeds = ImmArray.Empty,
   )
 
   "execute" should {
@@ -63,9 +64,9 @@ class StoreBackedCommandExecutorSpec
         actAs = Set.empty,
         readAs = Set.empty,
         submittedAt = Instant.EPOCH,
-        deduplicationDuration = Duration.ZERO,
+        deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
         commands = LfCommands(
-          commands = ImmArray.empty,
+          commands = ImmArray.Empty,
           ledgerEffectiveTime = Time.Timestamp.Epoch,
           commandsReference = "",
         ),

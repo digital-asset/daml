@@ -3,12 +3,14 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Instant
+import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.{DeduplicationPeriod => ApiDeduplicationPeriod}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlCommandDedupKey, DamlStateKey}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
@@ -41,7 +43,10 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       actAs = List(alice),
       applicationId = applicationId,
       commandId = commandId,
-      deduplicateUntil = Instant.EPOCH,
+      deduplicationPeriod = ApiDeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+      submissionId = Ref.LedgerString.assertFromString("submission"),
+      ledgerConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )
     keyValueSubmission.transactionToSubmission(
       submitterInfo = submitterInfo,
@@ -70,7 +75,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     builder.create(
       id = id,
       template = templateId.toString,
-      argument = Value.ValueRecord(None, ImmArray.empty),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
       signatories = Seq(),
       observers = Seq(),
       key = if (hasKey) Some(keyValue) else None,
@@ -85,7 +90,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     builder.exercise(
       contract = create(builder, id, hasKey),
       choice = "Choice",
-      argument = Value.ValueRecord(None, ImmArray.empty),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
       actingParties = Set(),
       consuming = consuming,
       result = Some(Value.ValueUnit),

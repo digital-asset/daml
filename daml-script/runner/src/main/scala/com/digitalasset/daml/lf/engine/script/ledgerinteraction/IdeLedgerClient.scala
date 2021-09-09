@@ -46,7 +46,12 @@ class IdeLedgerClient(
 
   def currentSubmission: Option[ScenarioRunner.CurrentSubmission] = _currentSubmission
 
-  private[this] val preprocessor = new engine.preprocessing.CommandPreprocessor(compiledPackages)
+  private[this] val preprocessor =
+    new preprocessing.CommandPreprocessor(
+      compiledPackages.interface,
+      forbidV0ContractId = true,
+      requireV1ContractIdSuffix = false,
+    )
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger
@@ -107,7 +112,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     GlobalKey
-      .build(templateId, key.toValue)
+      .build(templateId, key.toUnnormalizedValue)
       .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -127,7 +132,7 @@ class IdeLedgerClient(
     ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
   ] =
     Future {
-      val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
+      val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)

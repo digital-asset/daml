@@ -168,6 +168,7 @@ in rec {
     lsof = pkgs.lsof;
 
     patch = pkgs.patch;
+    timeout = pkgs.coreutils;
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 
@@ -191,6 +192,7 @@ in rec {
     # Packaging tools
     patchelf = bazel_dependencies.patchelf;
     zip = bazel_dependencies.zip;
+    unzip = pkgs.unzip;
     openssl = pkgs.openssl.bin;
     tar = bazel_dependencies.gnutar;
 

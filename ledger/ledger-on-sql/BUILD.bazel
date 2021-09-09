@@ -23,10 +23,6 @@ supported_databases = [
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
         ],
-        "conformance_test_tool_args": [
-            "--concurrent-test-runs=2",
-            "--timeout-scale-factor=4",
-        ],
     },
     {
         "name": "postgresql",
@@ -145,7 +141,12 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     visibility = [
         "//visibility:public",
@@ -168,11 +169,15 @@ da_scala_library(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -188,7 +193,12 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -211,12 +221,15 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/flyway-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -237,6 +250,7 @@ da_scala_test_suite(
         tags = db.get("conformance_test_tags", []),
         test_tool_args = db.get("conformance_test_tool_args", []) + [
             "--verbose",
+            "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         ],
     )
     for db in supported_databases
@@ -266,6 +280,8 @@ da_scala_test_suite(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
                 "--include=ParticipantPruningIT",
+                # Disable tests targeting only append-only schema functionality
+                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
             ],
         ),
         conformance_test(
@@ -280,6 +296,19 @@ da_scala_test_suite(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
                 "--include=MultiPartySubmissionIT",
+            ],
+        ),
+        conformance_test(
+            name = "conformance-test-kv-command-deduplication-{}".format(db["name"]),
+            ports = [6865],
+            server = ":conformance-test-{}-bin".format(db["name"]),
+            server_args = [
+                "--contract-id-seeding=testing-weak",
+                "--participant participant-id=conformance-test,port=6865",
+            ] + db.get("conformance_test_server_args", []),
+            tags = db.get("conformance_test_tags", []),
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--include=KVCommandDeduplicationIT",
             ],
         ),
         conformance_test(
@@ -328,6 +357,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -345,8 +375,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=2",
-        "--timeout-scale-factor=4",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -363,6 +392,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -377,6 +407,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -394,6 +425,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -411,6 +443,7 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -428,6 +461,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -445,9 +480,9 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=2",
-        "--timeout-scale-factor=4",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -466,6 +501,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -481,6 +518,8 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -515,8 +554,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--concurrent-test-runs=2",
-        "--timeout-scale-factor=4",
         "--include=MultiPartySubmissionIT",
     ],
 )
@@ -551,5 +588,20 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=MultiPartySubmissionIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-contract-ids",
+    ports = [6865],
+    server = ":conformance-test-h2-memory-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
     ],
 )

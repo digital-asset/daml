@@ -8,7 +8,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 
@@ -58,6 +58,7 @@ package object api {
 
   def createKeyValueLedger(reader: LedgerReader, writer: LedgerWriter): KeyValueLedger =
     new LedgerReader with LedgerWriter {
+
       override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
         reader.events(startExclusive)
 
