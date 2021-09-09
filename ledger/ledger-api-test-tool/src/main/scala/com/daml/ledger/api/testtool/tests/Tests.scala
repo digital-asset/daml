@@ -68,7 +68,6 @@ object Tests {
       new ContractIdIT,
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,
-      new MultiPartySubmissionIT,
       new MonotonicRecordTimeIT,
     )
 
