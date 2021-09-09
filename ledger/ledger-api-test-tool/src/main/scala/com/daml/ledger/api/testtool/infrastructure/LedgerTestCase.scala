@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,12 +25,12 @@ sealed class LedgerTestCase(
     val runConcurrently: Boolean,
     val repeated: Int = 1,
     participants: ParticipantAllocation,
-    runTestCase: ExecutionContext => Participants => Future[Unit],
+    runTestCase: ExecutionContext => Seq[ParticipantTestContext] => Participants => Future[Unit],
 ) {
   val name: String = s"${suite.name}:$shortIdentifier"
 
   def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
-    context.allocate(participants).flatMap(p => runTestCase(ec)(p))
+    context.allocate(participants).flatMap(p => runTestCase(ec)(context.configuredParticipants)(p))
 
   def repetitions: Vector[LedgerTestCase.Repetition] =
     if (repeated == 1)
