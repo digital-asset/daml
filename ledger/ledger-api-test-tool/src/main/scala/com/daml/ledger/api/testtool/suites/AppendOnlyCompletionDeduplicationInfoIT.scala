@@ -24,8 +24,9 @@ import io.grpc.Status
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-final class AppendOnlyCompletionDeduplicationInfoIT[ServiceRequest](service: Service[ServiceRequest])
-    extends LedgerTestSuite {
+final class AppendOnlyCompletionDeduplicationInfoIT[ServiceRequest](
+    service: Service[ServiceRequest]
+) extends LedgerTestSuite {
 
   private val serviceName: String = service.productPrefix
 
