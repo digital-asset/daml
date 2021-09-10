@@ -105,6 +105,9 @@ private[engine] final class Preprocessor(
                       variants.foldRight(typesToProcess0)(_._2 :: _)
                     case Ast.DataEnum(_) =>
                       typesToProcess0
+                    case Ast.DataInterface =>
+                      // TODO https://github.com/digital-asset/daml/issues/10810
+                      sys.error("Interface not supported")
                   }
                   go(
                     typesToProcess,

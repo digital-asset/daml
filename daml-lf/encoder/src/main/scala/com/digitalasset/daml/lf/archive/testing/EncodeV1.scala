@@ -469,7 +469,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setString(binder, b.setBinderStr, b.setBinderInternedStr)
           builder.setVariant(b)
         case CPEnum(tyCon, con) =>
-          assertSince(LV.Features.enum, "CaseAlt.Enum")
           val b = PLF.CaseAlt.Enum.newBuilder()
           b.setCon(tyCon)
           setString(con, b.setConstructorStr, b.setConstructorInternedStr)
@@ -547,7 +546,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setVariantArg(arg)
           builder.setVariantCon(b)
         case EEnumCon(tyCon, con) =>
-          assertSince(LV.Features.enum, "Expr.Enum")
           val b = PLF.Expr.EnumCon.newBuilder().setTycon(tyCon)
           setString(con, b.setEnumConStr, b.setEnumConInternedStr)
           builder.setEnumCon(b.build())
@@ -669,12 +667,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
             PLF.DefDataType.Fields.newBuilder().accumulateLeft(variants)(_ addFields _)
           )
         case DataEnum(constructors) =>
-          assertSince(LV.Features.enum, "DefDataType.Enum")
           val b = PLF.DefDataType.EnumConstructors.newBuilder()
           constructors.foreach(
             setString(_, b.addConstructorsStr, b.addConstructorsInternedStr)
           )
           builder.setEnum(b)
+        case DataInterface =>
+          // TODO https://github.com/digital-asset/daml/issues/10810
+          sys.error("Interface not supported")
       }
       builder.build()
     }

@@ -5,6 +5,7 @@ package com.daml.http.dbbackend
 
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain.{Party, TemplateId}
+import com.daml.http.util.Logging.instanceUUIDLogCtx
 import doobie.implicits._
 import org.openjdk.jmh.annotations._
 import scalaz.OneAnd
@@ -43,9 +44,11 @@ class QueryBenchmark extends ContractDaoBenchmark {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
     implicit val driver: SupportedJdbcDriver.TC = dao.jdbcDriver
-    val result = dao
-      .transact(ContractDao.selectContracts(OneAnd(Party(party), Set.empty), tpid, fr"1 = 1"))
-      .unsafeRunSync()
+    val result = instanceUUIDLogCtx(implicit lc =>
+      dao
+        .transact(ContractDao.selectContracts(OneAnd(Party(party), Set.empty), tpid, fr"1 = 1"))
+        .unsafeRunSync()
+    )
     assert(result.size == batchSize)
   }
 }

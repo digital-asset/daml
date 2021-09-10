@@ -11,6 +11,9 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+// TODO https://github.com/digital-asset/daml/issues/10810
+//  Test Interface logic
+
 class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private def defaultVersion = LanguageVersion.defaultV1
@@ -21,8 +24,8 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
       Package(
         List(
-          Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
-          Module(modName2, List.empty, List.empty, List.empty, FeatureFlags.default),
+          Module(modName1, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
+          Module(modName2, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
         ),
         Set.empty,
         defaultVersion,
@@ -31,8 +34,8 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       a[PackageError] shouldBe thrownBy(
         Package(
           List(
-            Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
-            Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
+            Module(modName1, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
+            Module(modName1, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
           ),
           Set.empty,
           defaultVersion,
@@ -54,6 +57,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       observers = eParties,
       key = None,
+      implements = List.empty,
     )
     def exception = DefException(
       message = eText
@@ -76,6 +80,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         templates = List(defName("def3") -> template),
         exceptions = List.empty,
+        interfaces = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -90,6 +95,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           templates = List(defName("def3") -> template),
           exceptions = List.empty,
+          interfaces = List.empty,
           featureFlags = FeatureFlags.default,
         )
       )
@@ -108,6 +114,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           defName("defName1") -> template
         ),
         exceptions = List.empty,
+        interfaces = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -123,6 +130,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             defName("defName1") -> template,
           ),
           exceptions = List.empty,
+          interfaces = List.empty,
           featureFlags = FeatureFlags.default,
         )
       )
@@ -139,6 +147,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         exceptions = List(
           defName("defName1") -> exception
         ),
+        interfaces = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -154,6 +163,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             defName("defName1") -> exception,
             defName("defName1") -> exception,
           ),
+          interfaces = List.empty,
           featureFlags = FeatureFlags.default,
         )
       )
@@ -172,6 +182,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         exceptions = List(
           defName("defName2") -> exception
         ),
+        interfaces = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -188,6 +199,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           exceptions = List(
             defName("defName1") -> exception
           ),
+          interfaces = List.empty,
           featureFlags = FeatureFlags.default,
         )
       )
@@ -227,6 +239,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         observers = eParties,
         key = None,
+        implements = List.empty,
       )
 
       a[PackageError] shouldBe thrownBy(
@@ -242,6 +255,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           observers = eParties,
           key = None,
+          implements = List.empty,
         )
       )
     }

@@ -727,6 +727,8 @@ final class Metrics(val registry: MetricRegistry) {
     object HttpJsonApi {
       private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
 
+      val surrogateTemplateIdCache = new CacheMetrics(registry, Prefix :+ "surrogate_tpid_cache")
+
       // Meters how long processing of a command submission request takes
       val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
       // Meters how long processing of a query GET request takes
