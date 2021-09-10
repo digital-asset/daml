@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.ledger.api.testtool.infrastructure.deduplication.KVCommandDeduplicationBase
+
 import scala.concurrent.duration.FiniteDuration
 
 /** For append-only schemas we can run extra assertions based on the [[com.daml.ledger.api.v1.completion.Completion.submissionId]] and the [[com.daml.ledger.api.v1.completion.Completion.deduplicationPeriod]]
@@ -11,6 +13,8 @@ import scala.concurrent.duration.FiniteDuration
 class AppendOnlyKVCommandDeduplicationIT(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
-) extends KVCommandDeduplicationIT(timeoutScaleFactor, ledgerTimeInterval) {
+) extends KVCommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
   override protected def isAppendOnly: Boolean = true
+
+  override protected def testNamingPrefix: String = "AppendOnlyKVCommandDeduplication"
 }
