@@ -245,7 +245,7 @@ class TransactionCommitterSpec
           .build()
       }
 
-      "throw err for unsupported deduplication" in {
+      "throw an error for unsupported deduplication periods" in {
         forAll(
           Table[DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder](
             "deduplication setter",
