@@ -3,10 +3,21 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{
+  Participant,
+  Participants,
+  SingleParty,
+  allocate,
+}
 import com.daml.ledger.api.testtool.infrastructure.CommandDeduplicationBase
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.test.model.Test.DummyWithAnnotation
+import com.daml.timer.Delayed
+import io.grpc.Status.Code
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
@@ -18,17 +29,99 @@ import scala.util.control.NonFatal
   * The committer side deduplication period adds `minSkew` to the participant-side one, so we have to account for that as well.
   * If updating the time model fails then the tests will assume a `minSkew` of 1 second.
   */
-final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
+class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
     extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
 
   override def testNamingPrefix: String = "KVCommandDeduplication"
 
+  testGivenAllParticipants(
+    s"${testNamingPrefix}CommitterDeduplication",
+    "Deduplicate commands in the committer using max deduplication duration as deduplication period",
+    allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      lazy val request = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "submission").create.command)
+        .update(
+          _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationDuration(
+            deduplicationDuration.asProtobuf
+          )
+        )
+      runWithConfig(configuredParticipants) { (maxDeduplicationDuration, minSkew) =>
+        for {
+          completion1 <- requestHasOkCompletion(ledger)(request, party)
+          // participant side deduplication, sync result
+          _ <- requestFailsWithStatus(ledger)(request, Code.ALREADY_EXISTS)
+          // Wait for the end of participant deduplication
+          _ <- Delayed.by(deduplicationDuration)(())
+          // Validate committer deduplication
+          duplicateCompletion <- requestHasCompletionWithStatusCode(ledger)(
+            request,
+            party,
+            Code.ALREADY_EXISTS,
+          )
+          // Wait for the end of committer deduplication
+          _ <- Delayed.by(maxDeduplicationDuration.plus(minSkew).minus(deduplicationDuration))(())
+          // Deduplication has finished
+          completion2 <- requestHasOkCompletion(ledger)(request, party)
+          // Inspect created contracts
+          activeContracts <- ledger.activeContracts(party)
+        } yield {
+          assert(
+            completion1.commandId == request.commands.get.commandId,
+            "The command ID of the first completion does not match the command ID of the submission",
+          )
+          assert(
+            completion2.commandId == request.commands.get.commandId,
+            "The command ID of the second completion does not match the command ID of the submission",
+          )
+          assert(
+            duplicateCompletion.commandId == request.commands.get.commandId,
+            "The command ID of the duplicate completion does not match the command ID of the submission",
+          )
+          // The [[Completion.deduplicationPeriod]] is set only for append-only ledgers
+          if (isAppendOnly) {
+            val expectedCompletionDeduplicationPeriod =
+              Completion.DeduplicationPeriod.DeduplicationTime(
+                maxDeduplicationDuration.asProtobuf
+              )
+            assert(
+              completion1.deduplicationPeriod == expectedCompletionDeduplicationPeriod,
+              s"First completion deduplication period [${completion1.deduplicationPeriod}] is not the max deduplication",
+            )
+            assert(
+              duplicateCompletion.deduplicationPeriod == expectedCompletionDeduplicationPeriod,
+              s"Duplicate completion deduplication period [${completion1.deduplicationPeriod}] is not the max deduplication",
+            )
+            assert(
+              completion2.deduplicationPeriod == expectedCompletionDeduplicationPeriod,
+              s"Second completion deduplication period [${completion1.deduplicationPeriod}] is not the max deduplication",
+            )
+          }
+          assert(
+            activeContracts.size == 2,
+            s"There should be 2 active contracts, but received $activeContracts",
+          )
+        }
+      }
+    }
+  )
   override def runGivenDeduplicationWait(
       participants: Seq[ParticipantTestContext]
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+    runWithConfig(participants) { case (maxDeduplicationDuration, minSkew) =>
+      test(maxDeduplicationDuration.plus(minSkew).plus(ledgerWaitInterval))
+    }
+  }
+  private def runWithConfig(
+      participants: Seq[ParticipantTestContext]
+  )(
+      test: (FiniteDuration, FiniteDuration) => Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is increased by minSkew in the committer so we set the skew to a low value for testing
-    val minSkew = 1.second.asProtobuf
+    val minSkew = scaledDuration(1.second).asProtobuf
     val anyParticipant = participants.head
     anyParticipant
       .configuration()
@@ -41,14 +134,17 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
           )
           .asScala
         assert(
-          maxDeduplicationTime <= 10.seconds,
+          maxDeduplicationTime <= 5.seconds,
           s"Max deduplication time [$maxDeduplicationTime] is too high for the test.",
         )
         runWithUpdatedTimeModel(
           participants,
           _.update(_.minSkew := minSkew),
         )(timeModel =>
-          test(maxDeduplicationTime.plus(timeModel.getMinSkew.asScala).plus(ledgerWaitInterval))
+          test(
+            asFiniteDuration(maxDeduplicationTime),
+            asFiniteDuration(timeModel.getMinSkew.asScala),
+          )
         )
       })
   }
@@ -116,4 +212,5 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
     }
   }
 
+  override protected def isAppendOnly: Boolean = false
 }

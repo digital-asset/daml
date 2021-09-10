@@ -70,6 +70,7 @@ object Tests {
       new AppendOnlyCompletionDeduplicationInfoIT(CommandService),
       new AppendOnlyCompletionDeduplicationInfoIT(CommandSubmissionService),
       new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
+      new AppendOnlyKVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ContractIdIT,
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,

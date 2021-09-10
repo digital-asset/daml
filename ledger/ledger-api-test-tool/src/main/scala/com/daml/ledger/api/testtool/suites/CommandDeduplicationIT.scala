@@ -22,4 +22,8 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
   }
 
   override def testNamingPrefix: String = "ParticipantCommandDeduplication"
+
+  /** Assertions for append-only schema are important for KV ledgers
+    */
+  override protected def isAppendOnly: Boolean = false
 }
