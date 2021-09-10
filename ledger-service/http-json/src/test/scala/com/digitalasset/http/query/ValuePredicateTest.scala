@@ -309,7 +309,7 @@ class ValuePredicateTest
         import org.scalatest.EitherValues._
         implicit val metrics: Metrics = new Metrics(new MetricRegistry())
         implicit val sjd: dbbackend.SupportedJdbcDriver.TC =
-          backend.configure("", Map.empty, SurrogateTemplateIdCache.MAX_ENTRIES).value
+          backend.configure("", Map.empty, SurrogateTemplateIdCache.MaxEntries).value
         val frag = vp.toSqlWhereClause
         frag.toString should ===(sql.toString)
         fragmentElems(frag) should ===(fragmentElems(sql))

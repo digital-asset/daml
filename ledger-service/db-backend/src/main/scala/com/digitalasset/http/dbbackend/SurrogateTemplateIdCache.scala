@@ -11,7 +11,7 @@ import com.daml.metrics.Metrics
 
 object SurrogateTemplateIdCache {
   private val logger = ContextualizedLogger.get(getClass)
-  final val MAX_ENTRIES = 10L
+  final val MaxEntries = 10L
 }
 
 class SurrogateTemplateIdCache(metrics: Metrics, maxEntries: Long) {

@@ -70,7 +70,7 @@ class ContractDao private (
 }
 
 object ContractDao {
-  import ConnectionPool.PoolSize, SurrogateTemplateIdCache.MAX_ENTRIES
+  import ConnectionPool.PoolSize, SurrogateTemplateIdCache.MaxEntries
   private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
@@ -94,7 +94,7 @@ object ContractDao {
         .toRight(
           s"JDBC driver ${cfg.baseConfig.driver} is not one of ${supportedJdbcDrivers.keySet}"
         )
-      sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MAX_ENTRIES))
+      sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MaxEntries))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       //pool for connections awaiting database access
