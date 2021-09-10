@@ -197,7 +197,6 @@ class CommitterSpec
   }
 
   "runSteps" should {
-
     "stop at first StepStop" in {
       val expectedLogEntry = aLogEntry
       val instance = new TestCommitter {

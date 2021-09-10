@@ -324,7 +324,8 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
   )(implicit loggingContext: LoggingContext): Unit = {
     val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
-    // Deduplication duration must be explicitly overwritten in a previous step (see [[TransactionCommitter.init]]) and set to ``config.maxDeduplicationTime``.
+    // Deduplication duration must be explicitly overwritten in a previous step
+    //  (see [[TransactionCommitter.overwriteDeduplicationPeriodWithMaxDuration]]) and set to ``config.maxDeduplicationTime``.
     if (!transactionEntry.submitterInfo.hasDeduplicationDuration) {
       throw Err.InvalidSubmission("Deduplication duration is not set.")
     }

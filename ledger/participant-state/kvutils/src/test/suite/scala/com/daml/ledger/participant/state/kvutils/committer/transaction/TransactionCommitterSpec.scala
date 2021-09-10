@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{buildDuration, bui
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.committer._
+import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
@@ -266,7 +266,7 @@ class TransactionCommitterSpec
       }
     }
 
-    "overwrite deduplication period" should {
+    "overwriteDeduplicationPeriodWithMaxDuration" should {
       "set max deduplication duration as deduplication period" in {
         val maxDeduplicationDuration = time.Duration.ofSeconds(Random.nextLong())
         val config = theDefaultConfig.copy(maxDeduplicationTime = maxDeduplicationDuration)
