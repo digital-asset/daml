@@ -14,7 +14,7 @@ The :ref:`running-a-no-op-trigger` section shows a simple method using the ``dam
 
 Complex workflows can require running many triggers for many parties and at a certain point, use of ``daml trigger`` with its process per trigger model becomes unwieldy. The Trigger Service provides the means to host multiple triggers for multiple parties running against a common ledger in a single process and provides a convenient interface for starting, stopping and monitoring them.
 
-The Trigger Service is a ledger client that acts as an end-user agent. The Trigger Service intermediates between the ledger and end-users by running triggers on their behalf. The Trigger Service is an HTTP REST service. All requests and responses use JSON to encode data.
+The Trigger Service is a ledger client that acts as an end-user agent. The Trigger Service intermediates between the ledger and end-users by running triggers on their behalf. The Trigger Service is an HTTP service. All requests and responses use JSON to encode data.
 
 Starting the Trigger Service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,7 +61,7 @@ where
 
 - ``triggerName`` contains the identifier for the trigger in the form
   ``${packageId}:${moduleName}:${identifierName}``. You can find the
-  package id using ``daml damlc inspect path/to/trigger.dar``.
+  package id using ``daml damlc inspect path/to/trigger.dar | head -1``.
 - ``party`` is the party the trigger will be running as.
 - ``applicationId`` is an optional field to specify the application ID
   the trigger will use for command submissions. If omitted, the
@@ -134,7 +134,7 @@ HTTP Response
 Status of a trigger
 *******************
 
-The status endoint returns you metadata about the trigger like the
+The status endoint returns metadata about the trigger like the
 party it is running as and the trigger id as well as the state the
 trigger is in (querying the acs, running, stopped).
 
@@ -165,7 +165,7 @@ HTTP Response
 Upload a new DAR
 ****************
 
-Upload a DAR containing one or more triggers. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect-dar path/to/dar``).
+Upload a DAR containing one or more triggers. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect path/to/dar | head -1``).
 
 HTTP Request
 ============
@@ -200,10 +200,6 @@ HTTP Request
 
 - URL: ``/livez``
 - Method: ``GET``
-
-.. code-block:: json
-
-   {"status":"pass"}
 
 HTTP Response
 =============
