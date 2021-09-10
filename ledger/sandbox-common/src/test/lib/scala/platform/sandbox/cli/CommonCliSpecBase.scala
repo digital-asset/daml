@@ -124,7 +124,7 @@ abstract class CommonCliSpecBase(
         Array(
           "--pem",
           "key.enc",
-          "--secrets-url",
+          "--tls-secrets-url",
           "http://aaa",
         ),
         _.copy(tlsConfig =
