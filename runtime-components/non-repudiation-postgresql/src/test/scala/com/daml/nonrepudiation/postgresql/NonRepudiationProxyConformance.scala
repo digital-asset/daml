@@ -3,7 +3,7 @@
 
 package com.daml.nonrepudiation.postgresql
 
-import java.time.Clock
+import java.time.{Clock, Duration}
 
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.ledger.api.testtool.infrastructure.{
@@ -64,7 +64,10 @@ final class NonRepudiationProxyConformance
 
   it should "pass all conformance tests" in {
     implicit val context: ResourceContext = ResourceContext(executionContext)
-    val config = SandboxConfig.defaultConfig.copy(port = Port.Dynamic)
+    val config = SandboxConfig.defaultConfig.copy(
+      port = Port.Dynamic,
+      maxDeduplicationDuration = Some(Duration.ofSeconds(10)),
+    )
 
     val proxyName = InProcessServerBuilder.generateName()
     val proxyBuilder = InProcessServerBuilder.forName(proxyName)

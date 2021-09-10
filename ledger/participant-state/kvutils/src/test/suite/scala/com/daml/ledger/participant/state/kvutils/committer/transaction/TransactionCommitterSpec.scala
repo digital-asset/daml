@@ -7,12 +7,12 @@ import java.time
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildDuration, buildTimestamp}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepStop}
-import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
@@ -24,13 +24,18 @@ import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf
+import com.google.protobuf.Duration
 import org.mockito.MockitoSugar
+import org.scalatest.Inside.inside
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
+import scala.util.Random
+
 @nowarn("msg=deprecated")
 class TransactionCommitterSpec
     extends AnyWordSpec
@@ -222,14 +227,7 @@ class TransactionCommitterSpec
       val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
       val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60).build()
 
-      "set deduplicate until based on submitter info deduplicate until" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(submissionTime, _.setDeduplicateUntil(deduplicateUntil))
-        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe deduplicateUntil
-      }
-
-      "set deduplicate until based on submitter info deduplicate duration" in {
+      "calculate deduplicate until based on deduplication duration" in {
         val deduplicationDuration = time.Duration.ofSeconds(3)
         val (context, transactionEntrySummary) =
           buildContextAndTransaction(
@@ -237,7 +235,10 @@ class TransactionCommitterSpec
             _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
           )
         transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe protobuf.Timestamp
+        contextDeduplicateUntil(
+          context,
+          transactionEntrySummary,
+        ).value shouldBe protobuf.Timestamp
           .newBuilder()
           .setSeconds(
             submissionTime.getSeconds + deduplicationDuration.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
@@ -245,27 +246,46 @@ class TransactionCommitterSpec
           .build()
       }
 
-      "set deduplicate until based on submitter info deduplication offset" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(submissionTime, _.setDeduplicationOffset("offset"))
-        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        contextDeduplicateUntil(context, transactionEntrySummary).value shouldBe protobuf.Timestamp
-          .newBuilder()
-          .setSeconds(
-            submissionTime.getSeconds + theDefaultConfig.maxDeduplicationTime.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
+      "throw an error for unsupported deduplication periods" in {
+        forAll(
+          Table[DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder](
+            "deduplication setter",
+            _.clearDeduplicationPeriod(),
+            _.setDeduplicationOffset("offset"),
+            _.setDeduplicateUntil(deduplicateUntil),
           )
-          .build()
+        ) { deduplicationSetter =>
+          {
+            val (context, transactionEntrySummary) =
+              buildContextAndTransaction(submissionTime, deduplicationSetter)
+            a[Err.InvalidSubmission] shouldBe thrownBy(
+              transactionCommitter.setDedupEntry(context, transactionEntrySummary)
+            )
+          }
+        }
       }
+    }
 
-      "do not set deduplicate until when no submitter info deduplication is set" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(submissionTime, identity)
-        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
-        context
-          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
-          .value
-          .getCommandDedup
-          .hasDeduplicatedUntil shouldBe false
+    "overwriteDeduplicationPeriodWithMaxDuration" should {
+      "set max deduplication duration as deduplication period" in {
+        val maxDeduplicationDuration = time.Duration.ofSeconds(Random.nextLong())
+        val config = theDefaultConfig.copy(maxDeduplicationTime = maxDeduplicationDuration)
+        val commitContext = createCommitContext(
+          None,
+          Map(
+            Conversions.configurationStateKey -> None
+          ),
+        )
+        val committer = createTransactionCommitter(config)
+        val result = committer.overwriteDeduplicationPeriodWithMaxDuration(
+          commitContext,
+          aTransactionEntrySummary,
+        )
+        inside(result) { case StepContinue(entry) =>
+          entry.submitterInfo.getDeduplicationDuration shouldBe buildDuration(
+            maxDeduplicationDuration
+          )
+        }
       }
     }
   }
@@ -326,11 +346,15 @@ class TransactionCommitterSpec
       val cid = builder.newCid
 
       val (expectedContractInstance, txEntry) = txEntryWithDivulgedContract(builder, cid)
-
+      val txEntryBuilder = txEntry.toBuilder
+      // deduplication duration is mandatory as we set the context dedup entry during blinding
+      txEntryBuilder.getSubmitterInfoBuilder.setDeduplicationDuration(
+        Duration.newBuilder().setSeconds(5)
+      )
       val actual =
         transactionCommitter.blind(
           context,
-          DamlTransactionEntrySummary(txEntry),
+          DamlTransactionEntrySummary(txEntryBuilder.build()),
         )
 
       actual match {
@@ -365,9 +389,11 @@ class TransactionCommitterSpec
     }
   }
 
-  private def createTransactionCommitter(): committer.transaction.TransactionCommitter =
+  private def createTransactionCommitter(
+      defaultConfig: Configuration = theDefaultConfig
+  ): committer.transaction.TransactionCommitter =
     new committer.transaction.TransactionCommitter(
-      theDefaultConfig,
+      defaultConfig,
       mock[Engine],
       metrics,
       inStaticTimeMode = false,

@@ -39,6 +39,7 @@ final case class Config[Extra](
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
     configurationLoadTimeout: Duration,
+    maxDeduplicationDuration: Option[Duration],
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
@@ -52,7 +53,6 @@ final case class Config[Extra](
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableHa: Boolean, // TODO ha: remove after stable
-    maxDeduplicationDuration: Option[Duration],
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =

@@ -29,7 +29,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -76,6 +76,7 @@ private[kvutils] class TransactionCommitter(
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
+    "overwrite_deduplication_period" -> overwriteDeduplicationPeriodWithMaxDuration,
     "deduplicate" -> deduplicateCommand,
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
@@ -84,6 +85,19 @@ private[kvutils] class TransactionCommitter(
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,
   )
+
+  private[transaction] def overwriteDeduplicationPeriodWithMaxDuration: Step = new Step {
+    override def apply(context: CommitContext, input: DamlTransactionEntrySummary)(implicit
+        loggingContext: LoggingContext
+    ): StepResult[DamlTransactionEntrySummary] = {
+      val (_, currentConfig) = getCurrentConfiguration(defaultConfig, context)
+      val submission = input.submission.toBuilder
+      submission.getSubmitterInfoBuilder.setDeduplicationDuration(
+        buildDuration(currentConfig.maxDeduplicationTime)
+      )
+      StepContinue(input.copyPreservingDecodedTransaction(submission.build()))
+    }
+  }
 
   /** Reject duplicate commands
     */
@@ -305,36 +319,23 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  @nowarn("msg=deprecated")
   private[transaction] def setDedupEntry(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
   )(implicit loggingContext: LoggingContext): Unit = {
     val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
-    val commandDedupBuilder = DamlCommandDedupValue.newBuilder
-    transactionEntry.submitterInfo.getDeduplicationPeriodCase match {
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATE_UNTIL =>
-        commandDedupBuilder.setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
-        commandDedupBuilder.setDeduplicatedUntil(
-          Conversions.buildTimestamp(
-            transactionEntry.submissionTime
-              .add(
-                Conversions.parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
-              )
-              .add(config.timeModel.minSkew)
-          )
-        )
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_OFFSET =>
-        commandDedupBuilder.setDeduplicatedUntil(
-          Conversions.buildTimestamp(
-            transactionEntry.submissionTime
-              .add(config.maxDeduplicationTime)
-              .add(config.timeModel.minSkew)
-          )
-        )
-      case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
+    // Deduplication duration must be explicitly overwritten in a previous step
+    //  (see [[TransactionCommitter.overwriteDeduplicationPeriodWithMaxDuration]]) and set to ``config.maxDeduplicationTime``.
+    if (!transactionEntry.submitterInfo.hasDeduplicationDuration) {
+      throw Err.InvalidSubmission("Deduplication duration is not set.")
     }
+    val commandDedupBuilder = DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(
+      Conversions.buildTimestamp(
+        transactionEntry.submissionTime
+          .add(parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration))
+          .add(config.timeModel.minSkew)
+      )
+    )
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
