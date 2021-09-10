@@ -91,8 +91,18 @@ private[testtool] abstract class CommandDeduplicationBase(
           // Inspect created contracts
           activeContracts <- ledger.activeContracts(party)
         } yield {
-          assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-          assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+          assertGrpcError(
+            failure1,
+            Status.Code.ALREADY_EXISTS,
+            "",
+            checkDefiniteAnswerMetadata = true,
+          )
+          assertGrpcError(
+            failure2,
+            Status.Code.ALREADY_EXISTS,
+            "",
+            checkDefiniteAnswerMetadata = true,
+          )
 
           assert(ledgerEnd1 != ledgerEnd2)
 
@@ -137,8 +147,18 @@ private[testtool] abstract class CommandDeduplicationBase(
         .submit(requestA)
         .mustFail("submitting an invalid argument for the second time")
     } yield {
-      assertGrpcError(failure1, Status.Code.INVALID_ARGUMENT, "")
-      assertGrpcError(failure2, Status.Code.INVALID_ARGUMENT, "")
+      assertGrpcError(
+        failure1,
+        Status.Code.INVALID_ARGUMENT,
+        "",
+        checkDefiniteAnswerMetadata = true,
+      )
+      assertGrpcError(
+        failure2,
+        Status.Code.INVALID_ARGUMENT,
+        "",
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -217,8 +237,18 @@ private[testtool] abstract class CommandDeduplicationBase(
           // Inspect created contracts
           activeContracts <- ledger.activeContracts(party)
         } yield {
-          assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-          assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+          assertGrpcError(
+            failure1,
+            Status.Code.ALREADY_EXISTS,
+            "",
+            checkDefiniteAnswerMetadata = true,
+          )
+          assertGrpcError(
+            failure2,
+            Status.Code.ALREADY_EXISTS,
+            "",
+            checkDefiniteAnswerMetadata = true,
+          )
 
           assert(
             activeContracts.size == 2,
@@ -258,8 +288,8 @@ private[testtool] abstract class CommandDeduplicationBase(
       aliceContracts <- ledger.activeContracts(alice)
       bobContracts <- ledger.activeContracts(bob)
     } yield {
-      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
+      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
 
       assert(
         aliceContracts.length == 1,
@@ -300,8 +330,8 @@ private[testtool] abstract class CommandDeduplicationBase(
       aliceContracts <- ledger.activeContracts(alice)
       bobContracts <- ledger.activeContracts(bob)
     } yield {
-      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
-      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
+      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
 
       assert(
         aliceContracts.length == 1,
