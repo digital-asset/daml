@@ -323,7 +323,7 @@ object Config {
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
 
-        opt[String]("secrets-url")
+        opt[String]("tls-secrets-url")
           .optional()
           .text(
             "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."

@@ -122,7 +122,7 @@ class CommonCliBase(name: LedgerName) {
           )
         )
 
-      opt[String]("secrets-url")
+      opt[String]("tls-secrets-url")
         .optional()
         .text(
           "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
