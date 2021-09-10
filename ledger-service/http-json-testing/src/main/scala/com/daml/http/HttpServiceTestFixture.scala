@@ -243,6 +243,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private def initializeDb(c: JdbcConfig)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[ContractDao] =
     for {
       dao <- Future(ContractDao(c, poolSize = PoolSize.Integration))
