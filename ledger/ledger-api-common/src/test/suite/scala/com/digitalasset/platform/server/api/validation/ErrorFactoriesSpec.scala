@@ -20,7 +20,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       val status = StatusProto.fromThrowable(DuplicateCommandException)
       status.getCode shouldBe Code.ALREADY_EXISTS.value()
       status.getMessage shouldBe "Duplicate command"
-      status.getDetailsList.asScala shouldBe Seq(definiteAnswers(true))
+      status.getDetailsList.asScala shouldBe Seq(definiteAnswers(false))
     }
 
     "return a permissionDenied error" in {
@@ -98,6 +98,14 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         status.getMessage shouldBe "Ledger ID 'received' not found. Actual Ledger ID is 'expected'."
         status.getDetailsList.asScala shouldBe expectedDetails
       }
+    }
+
+    "fail on creating a ledgerIdMismatch error due to a wrong definite answer" in {
+      an[IllegalArgumentException] should be thrownBy ledgerIdMismatch(
+        LedgerId("expected"),
+        LedgerId("received"),
+        definiteAnswer = Some(true),
+      )
     }
 
     "return a participantPrunedDataAccessed error" in {

@@ -23,7 +23,7 @@ trait ErrorFactories {
         .newBuilder()
         .setCode(Code.ALREADY_EXISTS.value())
         .setMessage("Duplicate command")
-        .addDetails(definiteAnswers(true))
+        .addDetails(definiteAnswers(false))
         .build()
     )
 
@@ -46,6 +46,7 @@ trait ErrorFactories {
       received: LedgerId,
       definiteAnswer: Option[Boolean],
   ): StatusRuntimeException = {
+    require(!definiteAnswer.contains(true), "Wrong ledger ID can never be a definite answer.")
     val statusBuilder = Status
       .newBuilder()
       .setCode(Code.NOT_FOUND.value())
