@@ -285,12 +285,25 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.16.0-snapshot.20210713.7343.1.1f35db17",
+        "end": "1.17.0-snapshot.20210907.7759.0.35a853fd",
         "platform_ranges": [
             {
                 "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
                 "exclusions": [
                     "ConfigManagementServiceIT:DuplicateSubmissionId",
                     "PackageManagementServiceIT:DuplicateSubmissionId",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.17.0-snapshot.20210907.7759.1.35a853fd",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
+                "exclusions": [
+                    "ConfigManagementServiceIT:CMDuplicateSubmissionId",
+                    "PackageManagementServiceIT:PMDuplicateSubmissionId",
                 ],
             },
         ],

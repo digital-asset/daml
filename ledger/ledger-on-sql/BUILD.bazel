@@ -305,6 +305,7 @@ da_scala_test_suite(
             server_args = [
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
+                "--max-deduplication-duration=PT10S",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [
@@ -393,6 +394,64 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-postgres-command-completion-dedup-info",
+    ports = [6865],
+    server = ":conformance-test-postgresql-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--include=" +
+        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-h2-command-completion-dedup-info",
+    ports = [6865],
+    server = ":conformance-test-h2-memory-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--include=" +
+        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-oracle-command-completion-dedup-info",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
+        "--include=" +
+        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 

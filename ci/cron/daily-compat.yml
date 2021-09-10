@@ -273,10 +273,11 @@ jobs:
           RES=""
           for KEY in $READ_PERF_KEYS; do
             # capture the avg, stddev, p90, p99, requests_per_second numbers from gatling summary csv
-            perf=$(cat ${OUT}/${KEY}/*/summary.csv | awk -F, '{print $11,$12,$6,$8,$13}' | tail -n 1)
+            perf=$(cat ${OUT}/${KEY}/*/summary.csv | tail -n 1 | awk -F, '{printf "%.1f, %.1f, %.1f, %.1f, %.1f", $11, $12, $6, $8, $13 }')
             RES="${RES}json_oracle/${KEY}: $perf\n"
           done
 
+          RES=${RES%"\n"}
           setvar oracle_perf_results "$RES"
 
           GZIP=-9 tar -zcf ${OUT}.tgz ${OUT}

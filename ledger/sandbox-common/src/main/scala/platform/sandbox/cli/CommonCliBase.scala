@@ -122,7 +122,7 @@ class CommonCliBase(name: LedgerName) {
           )
         )
 
-      opt[String]("secrets-url")
+      opt[String]("tls-secrets-url")
         .optional()
         .text(
           "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
@@ -340,6 +340,17 @@ class CommonCliBase(name: LedgerName) {
         .text(
           s"Enables application-side compression of Daml-LF values stored in the database using the append-only schema." +
             " By default, compression is disabled."
+        )
+
+      opt[Duration]("max-deduplication-duration")
+        .optional()
+        .hidden()
+        .action((maxDeduplicationDuration, config) =>
+          config
+            .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+        )
+        .text(
+          "Maximum command deduplication duration."
         )
 
       checkConfig(c => {

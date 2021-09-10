@@ -198,7 +198,7 @@ class ContractsService(
             x =>
               resolveTemplateId(lc)(jwt, ledgerId)(x)
                 .map(_.toOption.flatten.map(Set(_))),
-            Future.successful(allTemplateIds().some),
+            allTemplateIds(lc)(jwt, ledgerId).map(_.some),
           )
         )
 
@@ -250,9 +250,12 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID]
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
     domain.OkResponse(
-      Source(allTemplateIds()).flatMapConcat(x =>
-        searchInMemoryOneTpId(jwt, ledgerId, parties, x, _ => true)
-      )
+      Source
+        .future(allTemplateIds(lc)(jwt, ledgerId))
+        .flatMapConcat(x =>
+          Source(x)
+            .flatMapConcat(x => searchInMemoryOneTpId(jwt, ledgerId, parties, x, _ => true))
+        )
     )
 
   def search(
@@ -390,6 +393,8 @@ class ContractsService(
             parties: OneAnd[Set, domain.Party],
             templateId: domain.TemplateId.RequiredPkg,
             queryParams: Map[String, JsValue],
+        )(implicit
+            lc: LoggingContextOf[InstanceUUID]
         ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
           val predicate = valuePredicate(templateId, queryParams)
           ContractDao.selectContracts(parties, templateId, predicate.toSqlWhereClause)

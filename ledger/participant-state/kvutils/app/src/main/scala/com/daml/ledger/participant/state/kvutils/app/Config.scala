@@ -39,6 +39,7 @@ final case class Config[Extra](
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
     configurationLoadTimeout: Duration,
+    maxDeduplicationDuration: Option[Duration],
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
@@ -87,6 +88,7 @@ object Config {
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
       enableHa = false,
+      maxDeduplicationDuration = None,
       extra = extra,
     )
 
@@ -321,7 +323,7 @@ object Config {
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
 
-        opt[String]("secrets-url")
+        opt[String]("tls-secrets-url")
           .optional()
           .text(
             "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
@@ -425,6 +427,17 @@ object Config {
           )
           .text(
             "Disable participant-side command deduplication."
+          )
+
+        opt[Duration]("max-deduplication-duration")
+          .optional()
+          .hidden()
+          .action((maxDeduplicationDuration, config) =>
+            config
+              .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+          )
+          .text(
+            "Maximum command deduplication duration."
           )
 
         opt[Int]("max-inbound-message-size")

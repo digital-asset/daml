@@ -559,6 +559,10 @@ object Ast {
       params: ImmArray[(TypeVarName, Kind)],
       cons: DataCons,
   ) extends GenDefinition[Nothing]
+  object DDataType {
+    val Interface = DDataType(true, ImmArray.empty, DataInterface)
+  }
+
   final case class GenDValue[E](
       typ: Type,
       noPartyLiterals: Boolean,
@@ -597,8 +601,9 @@ object Ast {
   final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons {
     lazy val constructorRank: Map[EnumConName, Int] = constructors.iterator.zipWithIndex.toMap
   }
+  case object DataInterface extends DataCons
 
-  case class GenTemplateKey[E](
+  final case class GenTemplateKey[E](
       typ: Type,
       body: E,
       // function from key type to [Party]
@@ -619,6 +624,29 @@ object Ast {
   type TemplateKeySignature = GenTemplateKey[Unit]
   object TemplateKeySignature extends GenTemplateKeyCompanion[Unit]
 
+  final case class DefInterface(choices: Map[ChoiceName, InterfaceChoice])
+
+  object DefInterface {
+    def apply(
+        choices: Iterable[(ChoiceName, InterfaceChoice)]
+    ): DefInterface = {
+      val choiceMap = toMapWithoutDuplicate(
+        choices,
+        (name: ChoiceName) =>
+          throw PackageError(s"collision on interface choice name ${name.toString}"),
+      )
+      DefInterface(choiceMap)
+    }
+  }
+
+  case class InterfaceChoice(
+      name: ChoiceName,
+      consuming: Boolean,
+      argType: Type,
+      returnType: Type,
+      // TODO interfaces Should observers or controllers be part of the interface?
+  )
+
   case class GenTemplate[E] private[Ast] (
       param: ExprVarName, // Binder for template argument.
       precond: E, // Template creation precondition.
@@ -627,6 +655,7 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
+      implements: Set[TypeConName],
   ) extends NoCopy
 
   sealed class GenTemplateCompanion[E] {
@@ -639,12 +668,20 @@ object Ast {
         choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         observers: E,
         key: Option[GenTemplateKey[E]],
+        implements: Iterable[TypeConName],
     ): GenTemplate[E] = {
 
       val choiceMap = toMapWithoutDuplicate(
         choices,
         (choiceName: ChoiceName) =>
           throw PackageError(s"collision on choice name ${choiceName.toString}"),
+      )
+
+      val implementsSet = implements.foldLeft(Set.empty[TypeConName])((acc, implement) =>
+        if (acc.contains(implement))
+          throw PackageError(s"repeated implementation ${implements.toString}")
+        else
+          acc + implement
       )
 
       new GenTemplate[E](
@@ -655,6 +692,7 @@ object Ast {
         choiceMap,
         observers,
         key,
+        implementsSet,
       )
     }
 
@@ -667,6 +705,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
+          Set[TypeConName],
       )
     ] = GenTemplate.unapply(arg)
 
@@ -679,6 +718,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
+          Set[TypeConName],
       )
     ] = Some(
       (
@@ -689,6 +729,7 @@ object Ast {
         arg.choices,
         arg.observers,
         arg.key,
+        arg.implements,
       )
     )
   }
@@ -801,6 +842,7 @@ object Ast {
       definitions: Map[DottedName, GenDefinition[E]],
       templates: Map[DottedName, GenTemplate[E]],
       exceptions: Map[DottedName, GenDefException[E]],
+      interfaces: Map[DottedName, DefInterface],
       featureFlags: FeatureFlags,
   ) extends NoCopy
 
@@ -823,6 +865,7 @@ object Ast {
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
         exceptions: Iterable[(DottedName, GenDefException[E])],
+        interfaces: Iterable[(DottedName, DefInterface)],
         featureFlags: FeatureFlags,
     ): GenModule[E] = {
 
@@ -844,11 +887,17 @@ object Ast {
           (name: DottedName) => throw PackageError(s"Collision on exception name ${name.toString}"),
         )
 
+      val interfaceMap =
+        toMapWithoutDuplicate(
+          interfaces,
+          (name: DottedName) => throw PackageError(s"Collision on interface name ${name.toString}"),
+        )
+
       templateMap.keysIterator.find(exceptionMap.keySet.contains).foreach { name =>
         throw PackageError(s"Collision between exception and template name ${name.toString}")
       }
 
-      GenModule(name, definitionMap, templateMap, exceptionMap, featureFlags)
+      GenModule(name, definitionMap, templateMap, exceptionMap, interfaceMap, featureFlags)
     }
 
     def unapply(arg: GenModule[E]): Some[
@@ -857,9 +906,12 @@ object Ast {
           Map[DottedName, GenDefinition[E]],
           Map[DottedName, GenTemplate[E]],
           Map[DottedName, GenDefException[E]],
+          Map[DottedName, DefInterface],
           FeatureFlags,
       )
-    ] = Some((arg.name, arg.definitions, arg.templates, arg.exceptions, arg.featureFlags))
+    ] = Some(
+      (arg.name, arg.definitions, arg.templates, arg.exceptions, arg.interfaces, arg.featureFlags)
+    )
   }
 
   type Module = GenModule[Expr]

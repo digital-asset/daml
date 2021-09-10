@@ -34,6 +34,7 @@ import com.google.protobuf.empty.Empty
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
 
@@ -188,6 +189,7 @@ private[daml] final class CommandClient(
     )
   }
 
+  @nowarn("msg=deprecated")
   private def commandUpdaterFlow[Context](ledgerIdToUse: LedgerId) =
     Flow[Ctx[Context, CommandSubmission]]
       .map(_.map { case submission @ CommandSubmission(commands, _) =>

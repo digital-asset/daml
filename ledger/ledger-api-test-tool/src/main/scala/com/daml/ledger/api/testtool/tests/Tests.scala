@@ -3,13 +3,16 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.nio.file.Path
-
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
+import com.daml.ledger.api.testtool.suites.AppendOnlyCompletionDeduplicationInfoIT.{
+  CommandService,
+  CommandSubmissionService,
+}
 import com.daml.ledger.api.testtool.suites._
-import com.daml.lf.language.LanguageVersion
 import com.daml.ledger.test.TestDar
+import com.daml.lf.language.LanguageVersion
 
+import java.nio.file.Path
 import scala.collection.SortedSet
 import scala.concurrent.duration.FiniteDuration
 
@@ -63,11 +66,13 @@ object Tests {
       ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
   ): Vector[LedgerTestSuite] =
     Vector(
-      new CommandDeduplicationOffsetIT,
+      new AppendOnlyCompletionDeduplicationInfoIT(CommandService),
+      new AppendOnlyCompletionDeduplicationInfoIT(CommandSubmissionService),
       new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ContractIdIT,
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,
+      new MonotonicRecordTimeIT,
     )
 
   val retired: Vector[LedgerTestSuite] =
@@ -93,5 +98,4 @@ object Tests {
 
   private[testtool] val PerformanceTestsKeys: SortedSet[String] =
     SortedSet(Envelope.All.map(_.name): _*)
-
 }

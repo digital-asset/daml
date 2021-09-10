@@ -3,6 +3,7 @@
 
 package com.daml.http.dbbackend
 
+import com.daml.metrics.Metrics
 import scalaz.Liskov, Liskov.<~<
 
 /** Incompatible JDBC operations and settings, selected by
@@ -14,8 +15,10 @@ final class SupportedJdbcDriver[+Q] private (
     private[http] val q: Q,
 ) {
   import SupportedJdbcDriver.{Staged, Configured}
-  def configure(tablePrefix: String, extraConf: Map[String, String])(implicit
-      Q: Q <~< Staged
+  def configure(tablePrefix: String, extraConf: Map[String, String], tpIdCacheMaxEntries: Long)(
+      implicit
+      Q: Q <~< Staged,
+      metrics: Metrics,
   ): Either[String, SupportedJdbcDriver.TC] = {
     val staged: Staged = Q(q)
     import staged.{backend, ipol}
@@ -23,7 +26,7 @@ final class SupportedJdbcDriver[+Q] private (
       new SupportedJdbcDriver(
         label,
         retrySqlStates,
-        new Configured(backend.queries(tablePrefix, conf)),
+        new Configured(backend.queries(tablePrefix, conf, tpIdCacheMaxEntries)),
       )
     }
   }

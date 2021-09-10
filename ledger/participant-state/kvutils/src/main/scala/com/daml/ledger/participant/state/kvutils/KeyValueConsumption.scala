@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -14,7 +15,9 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
@@ -326,19 +329,28 @@ object KeyValueConsumption {
     val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
     wrappedLogEntry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if deduplicated =>
-        val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
+        val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
         Some(
           Update.CommandRejected(
             recordTime = recordTime,
             completionInfo = parseCompletionInfo(
               Conversions.parseInstant(recordTime),
-              transactionRejectionEntry.getSubmitterInfo,
+              rejectionEntry.getSubmitterInfo,
             ),
             reasonTemplate = FinalReason(
               Status.of(
                 Code.ALREADY_EXISTS.value,
                 "Duplicate commands",
-                Seq.empty,
+                Seq(
+                  AnyProto.pack[ErrorInfo](
+                    // the definite answer is false, as the rank-based deduplication is not yet implemented
+                    ErrorInfo(metadata =
+                      Map(
+                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+                      )
+                    )
+                  )
+                ),
               )
             ),
           )
@@ -349,7 +361,7 @@ object KeyValueConsumption {
         None
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidRecordTime =>
-        val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
+        val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
         val reason = (timeBounds.tooEarlyUntil, timeBounds.tooLateFrom) match {
           case (Some(lowerBound), Some(upperBound)) =>
             s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
@@ -365,13 +377,21 @@ object KeyValueConsumption {
             recordTime = recordTime,
             completionInfo = parseCompletionInfo(
               Conversions.parseInstant(recordTime),
-              transactionRejectionEntry.getSubmitterInfo,
+              rejectionEntry.getSubmitterInfo,
             ),
             reasonTemplate = FinalReason(
               Status.of(
                 Code.ABORTED.value,
                 reason,
-                Seq.empty,
+                Seq(
+                  AnyProto.pack[ErrorInfo](
+                    ErrorInfo(metadata =
+                      Map(
+                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+                      )
+                    )
+                  )
+                ),
               )
             ),
           )

@@ -14,7 +14,6 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks, SubmissionIdGenerator}
-import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
@@ -25,6 +24,10 @@ import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
+
+import scala.annotation.nowarn
+
+@nowarn("msg=deprecated")
 class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
@@ -296,7 +299,6 @@ class SubmitRequestValidatorTest
 
       "transform valid deduplication into correct internal structure" in {
         val deduplicationDuration = Duration.of(10, 0)
-        val offset = OffsetBuilder.fromLong(0)
         forAll(
           Table[DeduplicationPeriodProto, DeduplicationPeriod](
             ("input proto deduplication", "valid model deduplication"),
@@ -306,8 +308,6 @@ class SubmitRequestValidatorTest
               deduplicationDuration
             ) -> DeduplicationPeriod
               .DeduplicationDuration(JDuration.ofSeconds(10)),
-            DeduplicationPeriodProto.DeduplicationOffset(offset.toHexString) -> DeduplicationPeriod
-              .DeduplicationOffset(offset),
             DeduplicationPeriodProto.Empty -> DeduplicationPeriod.DeduplicationDuration(
               internal.maxDeduplicationDuration
             ),

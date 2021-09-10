@@ -115,6 +115,7 @@ json_deps_shared = [
     "//daml-lf/interface",
     "//daml-lf/transaction",
     "//language-support/scala/bindings-akka",
+    "//ledger/metrics",
     "//ledger-api/rs-grpc-bridge",
     "//ledger-service/db-backend",
     "//ledger-service/jwt",
@@ -127,6 +128,7 @@ json_deps_shared = [
     "//libs-scala/ports",
     "//libs-scala/scala-utils",
     "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:io_dropwizard_metrics_metrics_core",
 ]
 
 json_deps = {
@@ -221,6 +223,7 @@ daml_compile(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-service/db-backend",
+            "//ledger/metrics",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/cli-opts",
             "//ledger-service/lf-value-json",
@@ -228,6 +231,7 @@ daml_compile(
             "//libs-scala/db-utils",
             "//libs-scala/scala-utils",
             "//libs-scala/scalatest-utils",
+            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -279,6 +283,7 @@ alias(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger/metrics",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/db-backend",
@@ -298,6 +303,7 @@ alias(
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
             "//runtime-components/non-repudiation-testing",
+            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -364,6 +370,7 @@ alias(
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/db-backend",
+            "//ledger/metrics",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/jwt",
@@ -376,6 +383,7 @@ alias(
             "//libs-scala/scala-utils",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
+            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -437,6 +445,7 @@ test_suite(
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
+            "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/participant-integration-api:participant-integration-api-tests-lib",
             "//ledger/sandbox",
@@ -449,6 +458,7 @@ test_suite(
             "//libs-scala/resources",
             "//libs-scala/timer-utils",
             "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -486,11 +496,15 @@ da_scala_benchmark_jmh(
         "//language-support/scala/bindings",
         "//ledger-service/db-backend",
         "//ledger-service/http-json-cli:base",
+        "//ledger-service/utils",
+        "//ledger/metrics",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/db-utils",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "@maven//:com_oracle_database_jdbc_ojdbc8",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

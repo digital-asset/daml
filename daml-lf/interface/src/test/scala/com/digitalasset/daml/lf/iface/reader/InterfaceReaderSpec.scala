@@ -187,11 +187,12 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =
     Ast.Module(
-      moduleName,
-      Map(dataName -> dfn),
-      Map.empty,
-      Map.empty,
-      Ast.FeatureFlags.default,
+      name = moduleName,
+      definitions = Map(dataName -> dfn),
+      templates = Map.empty,
+      exceptions = Map.empty,
+      interfaces = Map.empty,
+      featureFlags = Ast.FeatureFlags.default,
     )
 
   private def dottedName(segments: Iterable[String]): DottedName =

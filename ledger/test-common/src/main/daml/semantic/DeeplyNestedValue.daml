@@ -42,47 +42,41 @@ template Handler
     party : Party
   where
     signatory party
-    controller party can
-      nonconsuming Construct : Nat
-        with i : Int
-        do
-          pure $ toNat i
-      nonconsuming Destruct : Int
-        with n: Nat
-        do pure $ toInt n
-      nonconsuming ConstructThenDestruct : Int
-        with
-          i: Int
-        do
-          exercise self Destruct with n = toNat i
-      nonconsuming Create: ContractId Contract
-        with
-          i : Int
-        do
-          create Contract with
-            party = party
-            i = i
-            n = toNat i
-      nonconsuming CreateKey: ContractId ContractWithKey
-        with
-          i : Int
-        do
-          create ContractWithKey with
-            party = party
-            i = i
-      nonconsuming Fetch: Contract
-        with cid: ContractId Contract
-        do
-          fetch cid
-      nonconsuming FetchByKey: ContractId ContractWithKey
-        with
-          i: Int
-        do
-          (cid, _) <- fetchByKey @ContractWithKey (party, toNat i)
-          pure cid
-      nonconsuming LookupByKey: Optional (ContractId ContractWithKey)
-        with
-          i: Int
-        do
-          lookupByKey @ContractWithKey (party, toNat i)
-
+    nonconsuming choice Construct : Nat
+      with i : Int
+      controller party
+      do pure $ toNat i
+    nonconsuming choice Destruct : Int
+      with n: Nat
+      controller party
+      do pure $ toInt n
+    nonconsuming choice ConstructThenDestruct : Int
+      with i: Int
+      controller party
+      do exercise self Destruct with n = toNat i
+    nonconsuming choice Create: ContractId Contract
+      with i : Int
+      controller party
+      do create Contract with
+           party = party
+           i = i
+           n = toNat i
+    nonconsuming choice CreateKey: ContractId ContractWithKey
+      with i : Int
+      controller party
+      do create ContractWithKey with
+           party = party
+           i = i
+    nonconsuming choice Fetch: Contract
+      with cid: ContractId Contract
+      controller party
+      do fetch cid
+    nonconsuming choice FetchByKey: ContractId ContractWithKey
+      with i: Int
+      controller party
+      do (cid, _) <- fetchByKey @ContractWithKey (party, toNat i)
+         pure cid
+    nonconsuming choice LookupByKey: Optional (ContractId ContractWithKey)
+      with i: Int
+      controller party
+      do lookupByKey @ContractWithKey (party, toNat i)

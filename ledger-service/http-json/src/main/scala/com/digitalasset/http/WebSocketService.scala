@@ -495,6 +495,8 @@ object WebSocketService {
       def streamPredicate(
           q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]],
           unresolved: Set[OptionalPkg],
+      )(implicit
+          lc: LoggingContextOf[InstanceUUID]
       ) =
         StreamPredicate(
           q.keySet,

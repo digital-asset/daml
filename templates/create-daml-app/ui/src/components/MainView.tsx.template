@@ -33,7 +33,7 @@ const MainView: React.FC = () => {
       await ledger.exerciseByKey(User.User.Follow, username, {userToFollow});
       return true;
     } catch (error) {
-      alert(`Unknown error:\n${error}`);
+      alert(`Unknown error:\n${JSON.stringify(error)}`);
       return false;
     }
   }

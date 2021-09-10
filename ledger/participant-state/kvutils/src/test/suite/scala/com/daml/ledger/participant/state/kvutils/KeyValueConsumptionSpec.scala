@@ -4,8 +4,8 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Instant
-
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -19,8 +19,10 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -97,6 +99,11 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           Assertions(update =>
             inside(update) { case Some(CommandRejected(_, _, FinalReason(status))) =>
               status.code shouldBe Code.ALREADY_EXISTS.value
+              status.details shouldBe Seq(
+                AnyProto.pack[ErrorInfo](
+                  ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+                )
+              )
               ()
             }
           ),
@@ -131,6 +138,23 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       runAll(testCases)
     }
 
+    "generate update for deduplicated transaction with definite answer set to true" in {
+      val inputEntry = buildOutOfTimeBoundsEntry(
+        TimeBounds(deduplicateUntil = Some(aRecordTime)),
+        TRANSACTION_REJECTION_ENTRY,
+        definiteAnswer = Some(true),
+      )
+      val actual = outOfTimeBoundsEntryToUpdate(aRecordTime, inputEntry)
+      inside(actual) { case Some(CommandRejected(_, _, FinalReason(status))) =>
+        status.code shouldBe Code.ALREADY_EXISTS.value
+        status.details shouldBe Seq(
+          AnyProto.pack[ErrorInfo](
+            ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true"))
+          )
+        )
+      }
+    }
+
     "generate a rejection entry for a transaction if record time is out of time bounds" in {
       def verifyCommandRejection(actual: Option[Update]): Unit = actual match {
         case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
@@ -141,6 +165,11 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           )
           completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)
           status.code shouldBe Code.ABORTED.value
+          status.details shouldBe Seq(
+            AnyProto.pack[ErrorInfo](
+              ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+            )
+          )
           ()
         case _ => fail()
       }
@@ -308,12 +337,13 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   private def buildOutOfTimeBoundsEntry(
       timeBounds: TimeBounds,
       logEntryType: DamlLogEntry.PayloadCase,
+      definiteAnswer: Option[Boolean] = None,
   ): DamlOutOfTimeBoundsEntry = {
     val builder = DamlOutOfTimeBoundsEntry.newBuilder
     timeBounds.tooEarlyUntil.foreach(value => builder.setTooEarlyUntil(buildTimestamp(value)))
     timeBounds.tooLateFrom.foreach(value => builder.setTooLateFrom(buildTimestamp(value)))
     timeBounds.deduplicateUntil.foreach(value => builder.setDuplicateUntil(buildTimestamp(value)))
-    builder.setEntry(buildLogEntry(logEntryType))
+    builder.setEntry(buildLogEntry(logEntryType, definiteAnswer))
     builder.build
   }
 
@@ -325,10 +355,13 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       .setSubmissionId("submission id")
       .build
 
-  private def aTransactionRejectionEntry: DamlTransactionRejectionEntry =
-    DamlTransactionRejectionEntry.newBuilder
-      .setSubmitterInfo(someSubmitterInfo)
-      .build
+  private def aTransactionRejectionEntry(
+      maybeDefiniteAnswer: Option[Boolean]
+  ): DamlTransactionRejectionEntry = {
+    val builder = DamlTransactionRejectionEntry.newBuilder.setSubmitterInfo(someSubmitterInfo)
+    maybeDefiniteAnswer.foreach(builder.setDefiniteAnswer)
+    builder.build
+  }
 
   private def aConfigurationRejectionEntry: DamlConfigurationRejectionEntry =
     DamlConfigurationRejectionEntry.newBuilder
@@ -337,13 +370,16 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       .setParticipantId("a participant")
       .build
 
-  private def buildLogEntry(payloadCase: DamlLogEntry.PayloadCase): DamlLogEntry = {
+  private def buildLogEntry(
+      payloadCase: DamlLogEntry.PayloadCase,
+      definiteAnswer: Option[Boolean],
+  ): DamlLogEntry = {
     val builder = DamlLogEntry.newBuilder
     payloadCase match {
       case TRANSACTION_ENTRY =>
         builder.setTransactionEntry(DamlTransactionEntry.getDefaultInstance)
       case TRANSACTION_REJECTION_ENTRY =>
-        builder.setTransactionRejectionEntry(aTransactionRejectionEntry)
+        builder.setTransactionRejectionEntry(aTransactionRejectionEntry(definiteAnswer))
       case PACKAGE_UPLOAD_ENTRY =>
         builder.setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
       case PACKAGE_UPLOAD_REJECTION_ENTRY =>

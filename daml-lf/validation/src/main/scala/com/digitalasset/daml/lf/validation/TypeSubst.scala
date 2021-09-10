@@ -43,8 +43,8 @@ private[validation] object TypeSubst {
       DataRecord(fields.transform((_, x) => substitute(subst, x)))
     case DataVariant(variants) =>
       DataVariant(variants.transform((_, x) => substitute(subst, x)))
-    case dEnum: DataEnum =>
-      dEnum
+    case _: DataEnum | DataInterface =>
+      dataCons
   }
 
   def substitute(subst: Map[TypeVarName, Type], app: TypeConApp): TypeConApp = app match {

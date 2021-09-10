@@ -693,6 +693,8 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
+        -- TODO https://github.com/digital-asset/daml/issues/10810
+        let tplImplements = []
         pure Template {..}
 
     | otherwise =

@@ -484,6 +484,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             ),
             templates = List.empty,
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -512,6 +513,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             definitions = List(DottedName.assertFromString("fact") -> valDef),
             templates = List.empty,
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -590,6 +592,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ),
           observers = e"Cons @Party ['Alice'] (Nil @Party)",
           key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
+          implements = List.empty,
         )
 
       val recDef = DDataType(
@@ -605,6 +608,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             definitions = List(name -> recDef),
             templates = List(name -> template),
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -639,6 +643,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           choices = Map.empty,
           observers = e"Nil @Unit",
           key = None,
+          implements = List.empty,
         )
 
       val recDef = DDataType(
@@ -654,6 +659,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             definitions = List(name -> recDef),
             templates = List(name -> template),
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -690,6 +696,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           definitions = List(name -> recDef),
           templates = List.empty,
           exceptions = List(name -> exception),
+          interfaces = List.empty,
           featureFlags = FeatureFlags.default,
         )
       )

@@ -31,8 +31,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       onlySerializableDataDefs: Boolean,
   ): Either[Error, Package] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
     val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
-    if (internedStrings.nonEmpty)
-      assertSince(LV.Features.internedPackageId, "interned strings table")
 
     val internedDottedNames =
       decodeInternedDottedNames(
@@ -201,6 +199,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
+      val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
       if (versionIsOlderThan(LV.Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
@@ -276,11 +275,29 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
-            exceptions += ((defName, decodeException(defName, defn)))
+            exceptions += (defName -> decodeException(defName, defn))
           }
       }
 
-      Module(moduleName, defs, templates, exceptions, decodeFeatureFlags(lfModule.getFlags))
+      if (versionIsOlderThan(LV.Features.interfaces)) {
+        assertEmpty(lfModule.getInterfacesList, "Module.interfaces")
+      } else {
+        lfModule.getInterfacesList.asScala.foreach { defn =>
+          val defName = getInternedDottedName(defn.getTyconInternedDname)
+          interfaces += (defName -> decodeDefInterface(defn))
+        }
+      }
+
+      val interfaceDataTypes = interfaces.view.map { case (k, _) => k -> DDataType.Interface }
+
+      Module(
+        moduleName,
+        interfaceDataTypes ++ defs,
+        templates,
+        exceptions,
+        interfaces,
+        decodeFeatureFlags(lfModule.getFlags),
+      )
     }
 
     // -----------------------------------------------------------------------
@@ -289,10 +306,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         throw Error.Parsing(s"invalid internedString table index $id")
       }
 
-    private[this] def getInternedPackageId(id: Int): PackageId = {
-      assertSince(LV.Features.internedPackageId, "interned PackageId")
+    private[this] def getInternedPackageId(id: Int): PackageId =
       eitherToParseError(PackageId.fromString(getInternedStr(id)))
-    }
 
     private[this] def getInternedName(id: Int, description: => String): Name = {
       assertSince(LV.Features.internedStrings, description)
@@ -361,7 +376,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           case PLF.DefDataType.DataConsCase.VARIANT =>
             DataVariant(decodeFields(lfDataType.getVariant.getFieldsList.asScala))
           case PLF.DefDataType.DataConsCase.ENUM =>
-            assertSince(LV.Features.enum, "DefDataType.DataCons.Enum")
             assertEmpty(params, "params")
             DataEnum(decodeEnumCon(lfDataType.getEnum))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
@@ -553,6 +567,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     }
 
     private[this] def decodeTemplate(tpl: DottedName, lfTempl: PLF.DefTemplate): Template = {
+      val lfImplements = lfTempl.getImplementsList.asScala
+      if (versionIsOlderThan(LV.Features.interfaces))
+        assertEmpty(lfImplements, "DefTemplate.implements")
       val paramName = handleInternedName(
         lfTempl.getParamCase,
         PLF.DefTemplate.ParamCase.PARAM_STR,
@@ -570,6 +587,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           .map(decodeChoice(tpl, _))
           .map(ch => (ch.name, ch)),
         observers = decodeExpr(lfTempl.getObservers, s"$tpl:observer"),
+        implements = lfImplements.map(decodeTypeConName),
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, paramName))
           else None,
@@ -620,6 +638,25 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfException: PLF.DefException,
     ): DefException =
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
+
+    private[this] def decodeDefInterface(
+        lfInterface: PLF.DefInterface
+    ): DefInterface =
+      DefInterface(
+        lfInterface.getChoicesList.asScala.toList
+          .map(decodeInterfaceChoice)
+          .map(choice => (choice.name, choice))
+      )
+
+    private[this] def decodeInterfaceChoice(
+        lfChoice: PLF.InterfaceChoice
+    ): InterfaceChoice =
+      InterfaceChoice(
+        name = getInternedName(lfChoice.getNameInternedString, "InterfaceChoice.name"),
+        consuming = lfChoice.getConsuming,
+        argType = decodeType(lfChoice.getArgType),
+        returnType = decodeType(lfChoice.getRetType),
+      )
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
       lfKind.getSumCase match {
@@ -883,7 +920,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.ENUM_CON =>
-          assertSince(LV.Features.enum, "Expr.Enum")
           val enumCon = lfExpr.getEnumCon
           EEnumCon(
             decodeTypeConName(enumCon.getTycon),
@@ -1096,7 +1132,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             ),
           )
         case PLF.CaseAlt.SumCase.ENUM =>
-          assertSince(LV.Features.enum, "CaseAlt.Enum")
           val enum = lfCaseAlt.getEnum
           CPEnum(
             tycon = decodeTypeConName(enum.getCon),
@@ -1731,7 +1766,7 @@ private[lf] object DecodeV1 {
         minVersion = contractIdTextConversions,
       ),
       BuiltinFunctionInfo(PARTY_TO_QUOTED_TEXT, BPartyToQuotedText, maxVersion = Some(exceptions)),
-      BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText, minVersion = textPacking),
+      BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
       BuiltinFunctionInfo(
@@ -1741,7 +1776,7 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
       ),
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints, minVersion = textPacking),
+      BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
