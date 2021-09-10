@@ -176,8 +176,17 @@ private class PackageService(
           .TypeCon(iface.TypeConName(IdentifierConverters.lfIdentifier(templateId)), ImmArraySeq())
       )
 
-  def allTemplateIds: AllTemplateIds =
-    () => state.templateIdMap.all
+  def allTemplateIds(implicit ec: ExecutionContext): AllTemplateIds = {
+    implicit lc => (jwt, ledgerId) =>
+      val f =
+        if (cache.packagesShouldBeFetchedAgain) {
+          logger.trace(
+            "no package id and we do have the package, refresh because of timeout"
+          )
+          reload(jwt, ledgerId)
+        } else Future.successful(())
+      f.map(_ => state.templateIdMap.all)
+  }
 
   // See the above comment
   def resolveChoiceArgType: ResolveChoiceArgType =
@@ -214,7 +223,9 @@ object PackageService {
     TemplateId.RequiredPkg => Error \/ iface.Type
 
   type AllTemplateIds =
-    () => Set[TemplateId.RequiredPkg]
+    LoggingContextOf[
+      InstanceUUID
+    ] => (Jwt, LedgerApiDomain.LedgerId) => Future[Set[TemplateId.RequiredPkg]]
 
   type ResolveChoiceArgType =
     (TemplateId.RequiredPkg, Choice) => Error \/ iface.Type
