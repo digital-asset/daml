@@ -135,6 +135,7 @@ abstract class KVCommandDeduplicationBase(
             )
           )
           .asScala
+        // max deduplication should be set to 5 seconds through the --max-deduplication-duration flag
         assert(
           maxDeduplicationTime <= 5.seconds,
           s"Max deduplication time [$maxDeduplicationTime] is too high for the test.",
