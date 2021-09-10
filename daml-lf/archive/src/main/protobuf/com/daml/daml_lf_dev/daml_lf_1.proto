@@ -1487,6 +1487,7 @@ message DefDataType {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
     EnumConstructors enum = 7;
+    Unit interface = 9; // Interfaces are special, they can't be represented as records or variants.
   }
 
   // If true, this data type preserves serializability in the sense that when
