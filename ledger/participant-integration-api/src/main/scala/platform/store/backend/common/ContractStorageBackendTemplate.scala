@@ -64,26 +64,23 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         import com.daml.platform.store.Conversions.ContractIdToStatement
         SQL"""
   WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
+         SELECT 1
+           FROM participant_events_consuming_exercise, parameters
           WHERE contract_id = $id
-            AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT ledger_effective_time
-           FROM participant_events, parameters
+           FROM participant_events_create, parameters
           WHERE contract_id = $id
-            AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
-         SELECT ledger_effective_time
-           FROM participant_events, parameters
+         SELECT null
+           FROM participant_events_divulgence, parameters
           WHERE contract_id = $id
-            AND event_kind = 0 -- divulgence
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
