@@ -73,7 +73,7 @@ For submitted commands, there are these response codes:
 ABORTED
    The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission. In case of a time constraint violation, please refer to the section :ref:`Dealing with time <dealing-with-time>` on how to handle commands with long processing times.
 ALREADY_EXISTS
-   The command was discarded by the ledger server because it was sent within the deduplication period of a previous command with the same change ID.
+   The command was rejected because it was sent within the deduplication period of a previous command with the same change ID.
 INVALID_ARGUMENT
    The submission failed because of a client error. The platform will definitely reject resubmissions of the same command.
 OK, INTERNAL, UNKNOWN (when returned by the Command Submission Service)
