@@ -41,7 +41,7 @@ abstract class AbstractImmArraySeq[+A](array: ImmArray[A])
     bf match {
       case _: IASCanBuildFrom[A] => this
       case _: ImmArrayInstances.IACanBuildFrom[A] => toImmArray
-      case _: FrontStackInstances.FSCanBuildFrom[A] => FrontStack(toImmArray)
+      case _: FrontStackInstances.FSCanBuildFrom[A] => FrontStack.from(toImmArray)
       case _ => super.to(bf)
     }
 }

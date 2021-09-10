@@ -89,7 +89,7 @@ object ValueValidator {
               validatedValue <- validateValue(v)
             } yield values :+ validatedValue
         )
-        .map(elements => Lf.ValueList(FrontStack(elements.toImmArray)))
+        .map(elements => Lf.ValueList(elements.toFrontStack))
     case _: Sum.Unit => Right(ValueUnit)
     case Sum.Optional(o) =>
       o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueNone))(

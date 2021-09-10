@@ -354,6 +354,9 @@ final class ImmArray[+A] private (
     collect { case x if f(x) => x }
 
   override def hashCode(): Int = toSeq.hashCode()
+
+  def toFrontStack: FrontStack[A] = FrontStack.from(this)
+
 }
 
 object ImmArray extends ImmArrayInstances {

@@ -703,7 +703,7 @@ class SubmitRequestValidatorTest
       "convert valid lists" in {
         val list = Value(Sum.List(ApiList(Seq(Value(api.int64), Value(api.int64)))))
         val expected =
-          Lf.ValueList(FrontStack(ImmArray(DomainMocks.values.int64, DomainMocks.values.int64)))
+          Lf.ValueList(FrontStack(DomainMocks.values.int64, DomainMocks.values.int64))
         validateValue(list) shouldEqual Right(expected)
       }
 

@@ -61,7 +61,7 @@ object LedgerValue {
   private def convertList(apiList: api.value.List) = {
     for {
       values <- apiList.elements.toList.traverse(_.convert)
-    } yield V.ValueList(FrontStack(values))
+    } yield V.ValueList(values.to(FrontStack))
   }
 
   private def convertVariant(apiVariant: api.value.Variant) = {
