@@ -93,17 +93,23 @@ private[trigger] object ServiceConfig {
     opt[String]("auth")
       .optional()
       .action((t, c) => c.copy(authBothUri = Some(Uri(t))))
-      .text("Sets both the internal and external auth URIs. Incompatible with --auth-internal and --auth-external.")
+      .text(
+        "Sets both the internal and external auth URIs. Incompatible with --auth-internal and --auth-external."
+      )
 
     opt[String]("auth-internal")
       .optional()
       .action((t, c) => c.copy(authInternalUri = Some(Uri(t))))
-      .text("Sets the internal auth URIs (used by the trigger service to connect directly to the middleware). Incompatible with --auth.")
+      .text(
+        "Sets the internal auth URIs (used by the trigger service to connect directly to the middleware). Incompatible with --auth."
+      )
 
     opt[String]("auth-external")
       .optional()
       .action((t, c) => c.copy(authExternalUri = Some(Uri(t))))
-      .text("Sets the external auth URI (the one returned to the browser). Incompatible with --auth.")
+      .text(
+        "Sets the external auth URI (the one returned to the browser). Incompatible with --auth."
+      )
 
     opt[AuthClient.RedirectToLogin]("auth-redirect")
       .optional()

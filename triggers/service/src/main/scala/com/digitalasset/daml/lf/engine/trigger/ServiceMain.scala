@@ -95,14 +95,17 @@ object ServiceMain {
             case Left(err) => sys.error(s"Failed to read archive: $err")
             case Right(dars) => dars.map(_.map(p => p.pkgId -> p.proto))
           }
-        val authConfig: AuthConfig = (config.authInternalUri, config.authExternalUri, config.authBothUri) match {
-          case (None, None, None) => NoAuth
-          case (None, None, Some(both)) => AuthMiddleware(both, both)
-          case (Some(int), Some(ext), None) => AuthMiddleware(int, ext)
-          case (int,ext, both) =>
-              logger.withoutContext.error(s"Must specify either both --auth-internal and --auth-external or just --auth. Got: auth-internal: $int, auth-external: $ext, auth: $both.")
+        val authConfig: AuthConfig =
+          (config.authInternalUri, config.authExternalUri, config.authBothUri) match {
+            case (None, None, None) => NoAuth
+            case (None, None, Some(both)) => AuthMiddleware(both, both)
+            case (Some(int), Some(ext), None) => AuthMiddleware(int, ext)
+            case (int, ext, both) =>
+              logger.withoutContext.error(
+                s"Must specify either both --auth-internal and --auth-external or just --auth. Got: auth-internal: $int, auth-external: $ext, auth: $both."
+              )
               sys.exit(1)
-        }
+          }
         val ledgerConfig =
           LedgerConfig(
             config.ledgerHost,
