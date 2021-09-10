@@ -329,13 +329,13 @@ object KeyValueConsumption {
     val wrappedLogEntry = outOfTimeBoundsEntry.getEntry
     wrappedLogEntry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if deduplicated =>
-        val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
+        val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
         Some(
           Update.CommandRejected(
             recordTime = recordTime,
             completionInfo = parseCompletionInfo(
               Conversions.parseInstant(recordTime),
-              transactionRejectionEntry.getSubmitterInfo,
+              rejectionEntry.getSubmitterInfo,
             ),
             reasonTemplate = FinalReason(
               Status.of(
@@ -344,7 +344,11 @@ object KeyValueConsumption {
                 Seq(
                   AnyProto.pack[ErrorInfo](
                     // the definite answer is false, as the rank-based deduplication is not yet implemented
-                    ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+                    ErrorInfo(metadata =
+                      Map(
+                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+                      )
+                    )
                   )
                 ),
               )
@@ -357,7 +361,7 @@ object KeyValueConsumption {
         None
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if invalidRecordTime =>
-        val transactionRejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
+        val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
         val reason = (timeBounds.tooEarlyUntil, timeBounds.tooLateFrom) match {
           case (Some(lowerBound), Some(upperBound)) =>
             s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
@@ -373,7 +377,7 @@ object KeyValueConsumption {
             recordTime = recordTime,
             completionInfo = parseCompletionInfo(
               Conversions.parseInstant(recordTime),
-              transactionRejectionEntry.getSubmitterInfo,
+              rejectionEntry.getSubmitterInfo,
             ),
             reasonTemplate = FinalReason(
               Status.of(
@@ -381,7 +385,11 @@ object KeyValueConsumption {
                 reason,
                 Seq(
                   AnyProto.pack[ErrorInfo](
-                    ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+                    ErrorInfo(metadata =
+                      Map(
+                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+                      )
+                    )
                   )
                 ),
               )

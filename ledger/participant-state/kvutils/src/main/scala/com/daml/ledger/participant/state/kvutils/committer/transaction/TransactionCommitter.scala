@@ -104,7 +104,7 @@ private[kvutils] class TransactionCommitter(
             rejections.reject(
               DamlTransactionRejectionEntry.newBuilder
                 .setSubmitterInfo(transactionEntry.submitterInfo)
-                // the definite answer is false, as the rank-based deduplication is not yet implemented
+                // No duplicate rejection is a definite answer as the deduplication entry will eventually expire.
                 .setDefiniteAnswer(false)
                 .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
               "the command is a duplicate",

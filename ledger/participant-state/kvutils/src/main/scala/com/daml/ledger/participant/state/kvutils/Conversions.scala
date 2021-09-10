@@ -369,7 +369,6 @@ private[state] object Conversions {
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
       .setSubmitterInfo(submitterInfo)
-      // so far it's false for all rejections before the rank-based deduplication is implemented
       .setDefiniteAnswer(false)
 
     rejection match {
