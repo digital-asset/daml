@@ -7,15 +7,14 @@ import java.time
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildDuration, buildTimestamp}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer._
-import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, TestHelpers, committer}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -27,6 +26,7 @@ import com.daml.metrics.Metrics
 import com.google.protobuf
 import com.google.protobuf.Duration
 import org.mockito.MockitoSugar
+import org.scalatest.Inside.inside
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -34,6 +34,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
+import scala.util.Random
 
 @nowarn("msg=deprecated")
 class TransactionCommitterSpec
@@ -263,38 +264,28 @@ class TransactionCommitterSpec
           }
         }
       }
+    }
 
-      "run deduplication with overwritten deduplication period" in {
-        val config = theDefaultConfig.copy(maxDeduplicationTime = time.Duration.ofSeconds(10))
-        val expectedDeduplicationDuration = Duration
-          .newBuilder()
-          .setSeconds(10)
-          .build()
-        val committer = new TransactionCommitter(config, mock[Engine], metrics, false) {
-          override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
-            "test step" -> new Step {
-              override def apply(context: CommitContext, input: DamlTransactionEntrySummary)(
-                  implicit loggingContext: LoggingContext
-              ): StepResult[DamlTransactionEntrySummary] = {
-                input.submitterInfo.getDeduplicationDuration shouldBe expectedDeduplicationDuration
-                StepStop(TransactionCommitter.buildLogEntry(input, context))
-              }
-            }
-          )
-        }
-        val transactionEntry = TestHelpers.createEmptyTransactionEntry(List()).toBuilder
-        transactionEntry.getSubmitterInfoBuilder.setDeduplicationDuration(
-          Duration.newBuilder().setSeconds(2)
-        )
-        val (logEntry, _) = committer.run(
+    "overwrite deduplication period" should {
+      "set max deduplication duration as deduplication period" in {
+        val maxDeduplicationDuration = time.Duration.ofSeconds(Random.nextLong())
+        val config = theDefaultConfig.copy(maxDeduplicationTime = maxDeduplicationDuration)
+        val commitContext = createCommitContext(
           None,
-          DamlSubmission.newBuilder().setTransactionEntry(transactionEntry).build(),
-          Ref.ParticipantId.assertFromString("test"),
           Map(
             Conversions.configurationStateKey -> None
           ),
         )
-        logEntry.getTransactionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe expectedDeduplicationDuration
+        val committer = createTransactionCommitter(config)
+        val result = committer.overwriteDeduplicationPeriodWithMaxDuration(
+          commitContext,
+          aTransactionEntrySummary,
+        )
+        inside(result) { case StepContinue(entry) =>
+          entry.submitterInfo.getDeduplicationDuration shouldBe buildDuration(
+            maxDeduplicationDuration
+          )
+        }
       }
     }
   }
@@ -397,9 +388,11 @@ class TransactionCommitterSpec
     }
   }
 
-  private def createTransactionCommitter(): committer.transaction.TransactionCommitter =
+  private def createTransactionCommitter(
+      defaultConfig: Configuration = theDefaultConfig
+  ): committer.transaction.TransactionCommitter =
     new committer.transaction.TransactionCommitter(
-      theDefaultConfig,
+      defaultConfig,
       mock[Engine],
       metrics,
       inStaticTimeMode = false,

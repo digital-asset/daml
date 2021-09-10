@@ -66,20 +66,8 @@ private[kvutils] class TransactionCommitter(
   override protected def init(
       commitContext: CommitContext,
       submission: DamlSubmission,
-  )(implicit loggingContext: LoggingContext): DamlTransactionEntrySummary = {
-    val currentConfig = getCurrentConfiguration(defaultConfig, commitContext)
-    val entry = submission.getTransactionEntry
-    val entryBuilder = entry.toBuilder
-    // Overwrite the deduplication period to use max deduplication duration
-    // This guarantees that the deduplication period used is constant
-    // By having a constant deduplication period we guarantee the same behavior for forwards looking and backwards looking deduplication
-    // The deduplication is overwritten in the submitter info so that it's propagated to the completion
-    entryBuilder.getSubmitterInfoBuilder
-      .setDeduplicationDuration(
-        buildDuration(currentConfig._2.maxDeduplicationTime)
-      )
-    DamlTransactionEntrySummary(entryBuilder.build())
-  }
+  )(implicit loggingContext: LoggingContext): DamlTransactionEntrySummary =
+    DamlTransactionEntrySummary(submission.getTransactionEntry)
 
   private val rejections = new Rejections(metrics)
   private val ledgerTimeValidator = new LedgerTimeValidator(defaultConfig)
@@ -88,6 +76,7 @@ private[kvutils] class TransactionCommitter(
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
+    "overwrite_deduplication_period" -> overwriteDeduplicationPeriodWithMaxDuration,
     "deduplicate" -> deduplicateCommand,
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
@@ -96,6 +85,19 @@ private[kvutils] class TransactionCommitter(
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,
   )
+
+  private[transaction] def overwriteDeduplicationPeriodWithMaxDuration: Step = new Step {
+    override def apply(context: CommitContext, input: DamlTransactionEntrySummary)(implicit
+        loggingContext: LoggingContext
+    ): StepResult[DamlTransactionEntrySummary] = {
+      val (_, currentConfig) = getCurrentConfiguration(defaultConfig, context)
+      val submission = input.submission.toBuilder
+      submission.getSubmitterInfoBuilder.setDeduplicationDuration(
+        buildDuration(currentConfig.maxDeduplicationTime)
+      )
+      StepContinue(input.copyPreservingDecodedTransaction(submission.build()))
+    }
+  }
 
   /** Reject duplicate commands
     */
@@ -322,7 +324,7 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
   )(implicit loggingContext: LoggingContext): Unit = {
     val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
-    // deduplicate duration must be set. Deduplication duration was previously overwritten with max deduplication duration
+    // Deduplication duration must be explicitly overwritten in a previous step (see [[TransactionCommitter.init]]) and set to ``config.maxDeduplicationTime``.
     if (!transactionEntry.submitterInfo.hasDeduplicationDuration) {
       throw Err.InvalidSubmission("Deduplication duration is not set.")
     }

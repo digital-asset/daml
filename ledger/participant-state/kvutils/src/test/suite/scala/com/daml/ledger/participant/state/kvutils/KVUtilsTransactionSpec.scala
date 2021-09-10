@@ -3,10 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlTransactionRejectionEntry,
-}
+import java.time.Duration
+
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlTransactionRejectionEntry}
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v2.Update
@@ -17,16 +16,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{
-  ContractId,
-  ValueList,
-  ValueOptional,
-  ValueParty,
-  ValueRecord,
-  ValueTextMap,
-  ValueUnit,
-  ValueVariant,
-}
+import com.daml.lf.value.Value.{ContractId, ValueList, ValueOptional, ValueParty, ValueRecord, ValueTextMap, ValueUnit, ValueVariant}
 import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -523,6 +513,34 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
         }
+      }
+    }
+
+    "use max deduplication duration as deduplication period" in KVTest.runTestWithSimplePackage(
+      alice,
+      bob,
+      eve,
+    ) { simplePackage =>
+      val seed = hash(this.getClass.getName)
+      val command = simpleCreateCmd(simplePackage)
+      val maxDeduplicationDuration = Duration.ofHours(2)
+      for {
+        _ <- preExecuteConfig(existingConfig => {
+          existingConfig.copy(
+            generation = existingConfig.generation + 1,
+            maxDeduplicationTime = maxDeduplicationDuration,
+          )
+        })
+        transaction <- runSimpleCommand(alice, seed, command)
+        preExecutionResult <- preExecuteTransaction(
+          submitter = alice,
+          transaction = transaction,
+          submissionSeed = seed,
+          deduplicationTime = Duration.ofHours(1),
+        ).map(_._2)
+      } yield {
+        preExecutionResult.successfulLogEntry.getTransactionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe Conversions
+          .buildDuration(maxDeduplicationDuration)
       }
     }
   }
