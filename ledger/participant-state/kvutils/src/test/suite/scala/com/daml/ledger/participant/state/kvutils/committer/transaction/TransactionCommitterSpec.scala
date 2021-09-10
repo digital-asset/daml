@@ -347,6 +347,7 @@ class TransactionCommitterSpec
 
       val (expectedContractInstance, txEntry) = txEntryWithDivulgedContract(builder, cid)
       val txEntryBuilder = txEntry.toBuilder
+      // deduplication duration is mandatory as we set the context dedup entry during blinding
       txEntryBuilder.getSubmitterInfoBuilder.setDeduplicationDuration(
         Duration.newBuilder().setSeconds(5)
       )
