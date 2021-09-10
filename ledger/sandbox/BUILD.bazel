@@ -343,20 +343,22 @@ server_conformance_test(
     name = "next-conformance-test-append-only-command-completion-dedup-info",
     server_args = [
         "--enable-append-only-schema",
+        "--max-deduplication-duration=PT5S",
     ],
     servers = {"postgresql": NEXT_SERVERS["postgresql"]},
     test_tool_args = [
         "--open-world",
         "--include=" +
         "AppendOnlyCompletionDeduplicationInfoITCommandService" +
-        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService" +
+        ",AppendOnlyKVCommandDeduplicationIT",
     ],
 )
 
 server_conformance_test(
     name = "next-conformance-test-command-deduplication",
     server_args = [
-        "--max-deduplication-duration=PT10S",
+        "--max-deduplication-duration=PT5S",
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
