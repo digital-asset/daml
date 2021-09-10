@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -14,7 +15,9 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
@@ -338,7 +341,12 @@ object KeyValueConsumption {
               Status.of(
                 Code.ALREADY_EXISTS.value,
                 "Duplicate commands",
-                Seq.empty,
+                Seq(
+                  AnyProto.pack[ErrorInfo](
+                    // the definite answer is false, as the rank-based deduplication is not yet implemented
+                    ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+                  )
+                ),
               )
             ),
           )
@@ -371,7 +379,11 @@ object KeyValueConsumption {
               Status.of(
                 Code.ABORTED.value,
                 reason,
-                Seq.empty,
+                Seq(
+                  AnyProto.pack[ErrorInfo](
+                    ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+                  )
+                ),
               )
             ),
           )

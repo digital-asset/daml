@@ -4,8 +4,8 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Instant
-
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -19,8 +19,10 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -97,6 +99,11 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           Assertions(update =>
             inside(update) { case Some(CommandRejected(_, _, FinalReason(status))) =>
               status.code shouldBe Code.ALREADY_EXISTS.value
+              status.details shouldBe Seq(
+                AnyProto.pack[ErrorInfo](
+                  ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+                )
+              )
               ()
             }
           ),
@@ -141,6 +148,11 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           )
           completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)
           status.code shouldBe Code.ABORTED.value
+          status.details shouldBe Seq(
+            AnyProto.pack[ErrorInfo](
+              ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
+            )
+          )
           ()
         case _ => fail()
       }

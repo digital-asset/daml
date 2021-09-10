@@ -303,7 +303,9 @@ class TransactionCommitterSpec
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
         actual.hasTransactionRejectionEntry shouldBe true
-        actual.getTransactionRejectionEntry.getSubmitterInfo shouldBe aTransactionEntrySummary.submitterInfo
+        val entry = actual.getTransactionRejectionEntry
+        entry.getSubmitterInfo shouldBe aTransactionEntrySummary.submitterInfo
+        entry.getDefiniteAnswer shouldBe false
       }
     }
 

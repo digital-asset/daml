@@ -174,10 +174,11 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                 rejection,
               )
               .build()
-            Conversions
+            val finalReason = Conversions
               .decodeTransactionRejectionEntry(encodedEntry)
               .value
-              .code shouldBe expectedCode.value()
+            finalReason.code shouldBe expectedCode.value()
+            finalReason.definiteAnswer shouldBe false
           }
         }
       }
@@ -221,13 +222,14 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             )
           ) { (rejectionBuilder, code) =>
             {
-              Conversions
+              val finalReason = Conversions
                 .decodeTransactionRejectionEntry(
                   rejectionBuilder(DamlTransactionRejectionEntry.newBuilder())
                     .build()
                 )
                 .value
-                .code shouldBe code.value()
+              finalReason.code shouldBe code.value()
+              finalReason.definiteAnswer shouldBe false
             }
           }
         }

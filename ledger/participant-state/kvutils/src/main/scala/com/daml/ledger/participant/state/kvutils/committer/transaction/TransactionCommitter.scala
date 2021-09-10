@@ -104,6 +104,8 @@ private[kvutils] class TransactionCommitter(
             rejections.reject(
               DamlTransactionRejectionEntry.newBuilder
                 .setSubmitterInfo(transactionEntry.submitterInfo)
+                // the definite answer is false, as the rank-based deduplication is not yet implemented
+                .setDefiniteAnswer(false)
                 .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
               "the command is a duplicate",
               commitContext.recordTime,
@@ -451,6 +453,7 @@ private[kvutils] object TransactionCommitter {
       val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
         .setTransactionRejectionEntry(
           DamlTransactionRejectionEntry.newBuilder
+            .setDefiniteAnswer(false)
             .setSubmitterInfo(transactionEntry.submitterInfo)
         )
         .build
