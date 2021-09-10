@@ -116,6 +116,8 @@ private[validation] object Serializability {
         else Iterator.empty
       case DataRecord(fields) =>
         fields.iterator.map(_._2)
+      case DataInterface =>
+        Iterator.empty
     }
     typs.foreach(env.checkType)
   }

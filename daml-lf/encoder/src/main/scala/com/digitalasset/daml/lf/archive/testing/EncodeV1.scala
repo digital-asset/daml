@@ -675,6 +675,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
             setString(_, b.addConstructorsStr, b.addConstructorsInternedStr)
           )
           builder.setEnum(b)
+        case DataInterface =>
+          // TODO https://github.com/digital-asset/daml/issues/10810
+          sys.error("Interface not supported")
       }
       builder.build()
     }

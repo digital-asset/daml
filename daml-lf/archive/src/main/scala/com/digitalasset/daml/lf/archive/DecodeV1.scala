@@ -201,6 +201,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
+      val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
       if (versionIsOlderThan(LV.Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
@@ -276,11 +277,29 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
-            exceptions += ((defName, decodeException(defName, defn)))
+            exceptions += (defName -> decodeException(defName, defn))
           }
       }
 
-      Module(moduleName, defs, templates, exceptions, decodeFeatureFlags(lfModule.getFlags))
+      if (versionIsOlderThan(LV.Features.interfaces)) {
+        assertEmpty(lfModule.getInterfacesList, "Module.interfaces")
+      } else {
+        lfModule.getInterfacesList.asScala.foreach { defn =>
+          val defName = getInternedDottedName(defn.getTyconInternedDname)
+          interfaces += (defName -> decodeDefInterface(defn))
+        }
+      }
+
+      val interfaceDataTypes = interfaces.view.map { case (k, _) => k -> DDataType.Interface }
+
+      Module(
+        moduleName,
+        interfaceDataTypes ++ defs,
+        templates,
+        exceptions,
+        interfaces,
+        decodeFeatureFlags(lfModule.getFlags),
+      )
     }
 
     // -----------------------------------------------------------------------
@@ -553,6 +572,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     }
 
     private[this] def decodeTemplate(tpl: DottedName, lfTempl: PLF.DefTemplate): Template = {
+      val lfImplements = lfTempl.getImplementsList.asScala
+      if (versionIsOlderThan(LV.Features.interfaces))
+        assertEmpty(lfImplements, "DefTemplate.implements")
       val paramName = handleInternedName(
         lfTempl.getParamCase,
         PLF.DefTemplate.ParamCase.PARAM_STR,
@@ -570,6 +592,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           .map(decodeChoice(tpl, _))
           .map(ch => (ch.name, ch)),
         observers = decodeExpr(lfTempl.getObservers, s"$tpl:observer"),
+        implements = lfImplements.map(decodeTypeConName),
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, paramName))
           else None,
@@ -620,6 +643,25 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfException: PLF.DefException,
     ): DefException =
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
+
+    private[this] def decodeDefInterface(
+        lfInterface: PLF.DefInterface
+    ): DefInterface =
+      DefInterface(
+        lfInterface.getChoicesList.asScala.toList
+          .map(decodeInterfaceChoice)
+          .map(choice => (choice.name, choice))
+      )
+
+    private[this] def decodeInterfaceChoice(
+        lfChoice: PLF.InterfaceChoice
+    ): InterfaceChoice =
+      InterfaceChoice(
+        name = getInternedName(lfChoice.getNameInternedString, "InterfaceChoice.name"),
+        consuming = lfChoice.getConsuming,
+        argType = decodeType(lfChoice.getArgType),
+        returnType = decodeType(lfChoice.getRetType),
+      )
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
       lfKind.getSumCase match {

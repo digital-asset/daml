@@ -49,7 +49,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       case _ ~ modTag ~ modName ~ _ ~ defs =>
         val (definitions, templates, exceptions) = split(defs)
         val flags = FeatureFlags(forbidPartyLiterals = modTag(noPartyLitsTag))
-        Module(modName, definitions, templates, exceptions, flags)
+        Module(modName, definitions, templates, exceptions, List.empty, flags)
     }
 
   private lazy val definition: Parser[Def] =
@@ -136,7 +136,10 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           agreement ~
           choices ~
           key =>
-        TemplDef(tycon, Template(x, precon, signatories, agreement, choices, observers, key))
+        TemplDef(
+          tycon,
+          Template(x, precon, signatories, agreement, choices, observers, key, List.empty),
+        )
     }
 
   private lazy val exceptionDefinition: Parser[ExcepDef] =
