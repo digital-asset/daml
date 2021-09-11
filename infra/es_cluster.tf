@@ -22,8 +22,8 @@ locals {
       ubuntu_version = "2004",
       size           = 0,
       init           = "[]",
-      type           = "e2-standard-2",
-      xmx            = "6g",
+      type           = "n2-highcpu-16",
+      xmx            = "12g",
     },
     {
       suffix         = "-init",
@@ -136,6 +136,9 @@ resource "google_compute_instance_template" "es" {
   metadata_startup_script = <<STARTUP
 #! /bin/bash
 set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
 apt-get update
 apt-get -y upgrade
 ### stackdriver
@@ -184,6 +187,7 @@ EOF
 
 docker build -t es .
 docker run -d \
+           --restart on-failure \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
@@ -191,6 +195,7 @@ docker run -d \
            es
 
 docker run -d \
+           --restart on-failure \
            --name kibana \
            -p 5601:5601 \
            --link es:elasticsearch \
