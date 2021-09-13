@@ -1045,7 +1045,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "returns the keys in order" in {
 
         eval(e"GENMAP_KEYS @Text @Int64 ${buildMap("Int64", words: _*)}") shouldBe
-          Right(SList(FrontStack(sortedWords.map { case (k, _) => SText(k) })))
+          Right(SList(sortedWords.map { case (k, _) => SText(k) }.to(FrontStack)))
       }
     }
 
@@ -1053,7 +1053,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
       "returns the values in order" in {
         eval(e"GENMAP_VALUES @Text @Int64 ${buildMap("Int64", words: _*)}") shouldBe
-          Right(SList(FrontStack(sortedWords.map { case (_, v) => SInt64(v.toLong) })))
+          Right(SList(sortedWords.map { case (_, v) => SInt64(v.toLong) }.to(FrontStack)))
       }
     }
 

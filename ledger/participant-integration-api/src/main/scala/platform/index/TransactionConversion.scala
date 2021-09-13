@@ -185,7 +185,7 @@ private[platform] object TransactionConversion {
           acc.toImmArray.toSeq
       }
 
-    go(FrontStack(tx.roots), BackStack.empty)
+    go(tx.roots.toFrontStack, BackStack.empty)
   }
 
   private def applyDisclosure(

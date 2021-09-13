@@ -53,7 +53,7 @@ final class BackStack[+A] private (fq: BQ[A], val length: Int) {
         case BQAppend(init, last) => go(init, last ++: acc)
         case BQEmpty => acc
       }
-    go(fq, FrontStack.empty)
+    go(fq, FrontStack.Empty)
   }
 
   /** O(1) */
