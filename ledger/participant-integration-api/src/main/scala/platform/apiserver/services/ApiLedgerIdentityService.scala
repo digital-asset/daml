@@ -14,8 +14,8 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ApiException
-import io.grpc.{BindableService, ServerServiceDefinition, Status}
+import com.daml.platform.server.api.validation.ErrorFactories
+import io.grpc.{BindableService, ServerServiceDefinition}
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,12 +35,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
   ): Future[GetLedgerIdentityResponse] = {
     logger.info(s"Received request for ledger identity: $request")
     if (closed)
-      Future.failed(
-        new ApiException(
-          Status.UNAVAILABLE
-            .withDescription("Ledger Identity Service closed.")
-        )
-      )
+      Future.failed(ErrorFactories.serviceNotRunning(None))
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))

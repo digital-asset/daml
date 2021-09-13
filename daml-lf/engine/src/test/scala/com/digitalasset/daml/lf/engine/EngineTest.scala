@@ -1162,7 +1162,7 @@ class EngineTest
         .translateValue(TList(TBuiltin(BTInt64)), list)
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldEqual Right(SList(FrontStack(ImmArray(SInt64(1)))))
+      res shouldEqual Right(SList(FrontStack(SInt64(1))))
     }
 
     "translate average list" in {
@@ -1174,7 +1174,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldEqual Right(
-        SValue.SList(FrontStack(ImmArray(SInt64(1), SInt64(2), SInt64(3), SInt64(4), SInt64(5))))
+        SValue.SList(FrontStack(SInt64(1), SInt64(2), SInt64(3), SInt64(4), SInt64(5)))
       )
     }
 

@@ -30,7 +30,12 @@ final class ExceptionsIT extends LedgerTestSuite {
       t <- ledger.create(party, ExceptionTester(party))
       failure <- ledger.exercise(party, t.exerciseThrowUncaught(_)).mustFail("Unhandled exception")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Unhandled exception")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some("Unhandled exception"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -76,7 +81,12 @@ final class ExceptionsIT extends LedgerTestSuite {
         .exercise(party, t.exerciseRollbackFetch(_, tFetch))
         .mustFail("contract is archived")
     } yield {
-      assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
+      assertGrpcError(
+        failure,
+        Status.Code.ABORTED,
+        Some("Contract could not be found"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -94,7 +104,12 @@ final class ExceptionsIT extends LedgerTestSuite {
         .exercise(party, t.exerciseRollbackConsuming(_, tExercise))
         .mustFail("contract is archived")
     } yield {
-      assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
+      assertGrpcError(
+        failure,
+        Status.Code.ABORTED,
+        Some("Contract could not be found"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -112,7 +127,12 @@ final class ExceptionsIT extends LedgerTestSuite {
         .exercise(party, t.exerciseRollbackNonConsuming(_, tExercise))
         .mustFail("contract is archived")
     } yield {
-      assertGrpcError(failure, Status.Code.ABORTED, "Contract could not be found")
+      assertGrpcError(
+        failure,
+        Status.Code.ABORTED,
+        Some("Contract could not be found"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -162,7 +182,12 @@ final class ExceptionsIT extends LedgerTestSuite {
       _ <- ledger.create(party, WithSimpleKey(party))
       failure <- ledger.exercise(party, t.exerciseDuplicateKey(_)).mustFail("duplicate key")
     } yield {
-      assertGrpcError(failure, Status.Code.ABORTED, "DuplicateKey")
+      assertGrpcError(
+        failure,
+        Status.Code.ABORTED,
+        Some("DuplicateKey"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -175,7 +200,12 @@ final class ExceptionsIT extends LedgerTestSuite {
       t <- ledger.create(party, ExceptionTester(party))
       withKey <- ledger.create(party, WithSimpleKey(party))
       failure <- ledger.exercise(party, t.exerciseDuplicateKey(_)).mustFail("duplicate key")
-      _ = assertGrpcError(failure, Status.Code.ABORTED, "DuplicateKey")
+      _ = assertGrpcError(
+        failure,
+        Status.Code.ABORTED,
+        Some("DuplicateKey"),
+        checkDefiniteAnswerMetadata = true,
+      )
       _ <- ledger.exercise(party, withKey.exerciseArchive(_))
       _ <- ledger.exercise(party, t.exerciseDuplicateKey(_))
     } yield ()
@@ -193,7 +223,12 @@ final class ExceptionsIT extends LedgerTestSuite {
       _ <- ledger.exercise(party, withKey.exerciseArchive(_))
       failure <- ledger.exercise(party, t.exerciseFetchKey(_)).mustFail("couldn't find key")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some("couldn't find key"),
+        checkDefiniteAnswerMetadata = true,
+      )
       ()
     }
   })
@@ -206,7 +241,12 @@ final class ExceptionsIT extends LedgerTestSuite {
     for {
       t <- ledger.create(party, ExceptionTester(party))
       failure <- ledger.exercise(party, t.exerciseFetchKey(_)).mustFail("contract not found")
-      _ = assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+      _ = assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some("couldn't find key"),
+        checkDefiniteAnswerMetadata = true,
+      )
       _ <- ledger.create(party, WithSimpleKey(party))
       _ <- ledger.exercise(party, t.exerciseFetchKey(_))
     } yield ()
@@ -244,7 +284,12 @@ final class ExceptionsIT extends LedgerTestSuite {
         fetchFailure <- aLedger
           .exercise(aParty, fetcher.exerciseFetch(_, t))
           .mustFail("contract could not be found")
-        _ = assertGrpcError(fetchFailure, Status.Code.ABORTED, "Contract could not be found")
+        _ = assertGrpcError(
+          fetchFailure,
+          Status.Code.ABORTED,
+          Some("Contract could not be found"),
+          checkDefiniteAnswerMetadata = true,
+        )
         _ <- bLedger.exercise(bParty, divulger.exerciseDivulge(_, t))
         _ <- synchronize(aLedger, bLedger)
         _ <- aLedger
@@ -266,11 +311,21 @@ final class ExceptionsIT extends LedgerTestSuite {
         fetchFailure <- bLedger
           .exercise(bParty, fetcher.exerciseFetch_(_, withKey0))
           .mustFail("contract could not be found")
-        _ = assertGrpcError(fetchFailure, Status.Code.ABORTED, "Contract could not be found")
+        _ = assertGrpcError(
+          fetchFailure,
+          Status.Code.ABORTED,
+          Some("Contract could not be found"),
+          checkDefiniteAnswerMetadata = true,
+        )
         fetchFailure <- bLedger
           .exercise(bParty, fetcher.exerciseFetch_(_, withKey1))
           .mustFail("contract could not be found")
-        _ = assertGrpcError(fetchFailure, Status.Code.ABORTED, "Contract could not be found")
+        _ = assertGrpcError(
+          fetchFailure,
+          Status.Code.ABORTED,
+          Some("Contract could not be found"),
+          checkDefiniteAnswerMetadata = true,
+        )
         tester <- aLedger.create(aParty, ExceptionTester(aParty))
         _ <- aLedger.exercise(aParty, tester.exerciseProjectionDivulgence(_, bParty, withKey0))
         _ <- synchronize(aLedger, bLedger)

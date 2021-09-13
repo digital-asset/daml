@@ -22,7 +22,12 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           .exercise(party, fakeDummyWithParam.exerciseDummyChoice2(_, "txt"))
           .mustFail("exercising on a wrong type")
       } yield {
-        assertGrpcError(exerciseFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
+        assertGrpcError(
+          exerciseFailure,
+          Code.INVALID_ARGUMENT,
+          Some("wrongly typed contract id"),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
     }
   )
@@ -38,7 +43,12 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           .exercise(party, delegation.exerciseFetchDelegated(_, fakeDelegated))
           .mustFail("fetching the wrong type")
       } yield {
-        assertGrpcError(fetchFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
+        assertGrpcError(
+          fetchFailure,
+          Code.INVALID_ARGUMENT,
+          Some("wrongly typed contract id"),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
   })
 
@@ -60,7 +70,12 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         )
         .mustFail("exercising on a wrong type")
     } yield {
-      assertGrpcError(failure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
+      assertGrpcError(
+        failure,
+        Code.INVALID_ARGUMENT,
+        Some("wrongly typed contract id"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 }

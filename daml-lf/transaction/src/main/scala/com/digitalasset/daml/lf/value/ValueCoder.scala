@@ -260,9 +260,7 @@ object ValueCoder {
             )
           case proto.Value.SumCase.LIST =>
             ValueList(
-              FrontStack(
-                protoValue.getList.getElementsList.asScala.map(go(newNesting, _)).to(ImmArray)
-              )
+              protoValue.getList.getElementsList.asScala.map(go(newNesting, _)).to(FrontStack)
             )
 
           case proto.Value.SumCase.VARIANT =>

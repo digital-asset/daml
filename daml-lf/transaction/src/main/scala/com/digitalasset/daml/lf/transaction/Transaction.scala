@@ -145,7 +145,7 @@ final case class GenTransaction[Nid, +Cid](
               }
           }
       }
-    val (errors, visited) = go(Set.empty, Set.empty, FrontStack(roots))
+    val (errors, visited) = go(Set.empty, Set.empty, FrontStack.from(roots))
     val orphaned = nodes.keys.toSet.diff(visited).map(nid => NotWellFormedError(nid, OrphanedNode))
     errors ++ orphaned
   }
@@ -217,7 +217,7 @@ final case class GenTransaction[Nid, +Cid](
     if (roots.length != other.roots.length)
       false
     else
-      go(FrontStack(roots.zip(other.roots)))
+      go(roots.zip(other.roots).toFrontStack)
 
   }
 
@@ -321,7 +321,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         }
     }
 
-    go(FrontStack(roots))
+    go(roots.toFrontStack)
   }
 
   /** Traverses the transaction tree in pre-order traversal (i.e. exercise nodes are traversed before their children)
@@ -361,7 +361,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         }
     }
 
-    go(FrontStack(roots.map(_ -> pathState0)))
+    go(roots.map(_ -> pathState0).toFrontStack)
     globalState
   }
 
@@ -672,13 +672,13 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
           nodes(nid) match {
             case rb: Node.NodeRollback[_] =>
               if (rollbackBegin(nid, rb)) {
-                loop(FrontStack(rb.children), ((nid, Left(rb)), rest) +: stack)
+                loop(rb.children.toFrontStack, ((nid, Left(rb)), rest) +: stack)
               } else {
                 loop(rest, stack)
               }
             case exe: Node.NodeExercises[Nid, Cid] =>
               if (exerciseBegin(nid, exe)) {
-                loop(FrontStack(exe.children), ((nid, Right(exe)), rest) +: stack)
+                loop(exe.children.toFrontStack, ((nid, Right(exe)), rest) +: stack)
               } else {
                 loop(rest, stack)
               }
@@ -701,7 +701,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
           }
       }
 
-    loop(FrontStack(roots), FrontStack.empty)
+    loop(roots.toFrontStack, FrontStack.empty)
   }
 
   // This method visits to all nodes of the transaction in execution order.

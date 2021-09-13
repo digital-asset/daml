@@ -392,6 +392,37 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # gRPC errors from transaction-related services have been enriched with definite answer details
+        # and a new assertion has been added.
+        # See: https://github.com/digital-asset/daml/pull/10832/files#diff-e0fa328a58650c48e8770804e35a1464c81cc80a51547860a01e9197a8fb9c71R49
+        "start": "1.17.0-snapshot.20210910.7786.1",
+        "platform_ranges": [
+            {
+                "end": "1.17.0-snapshot.20210910.7786.0.976ca400",
+                "exclusions": [
+                    "WronglyTypedContractIdIT:WTExerciseFails",
+                    "WronglyTypedContractIdIT:WTFetchFails",
+                    "WronglyTypedContractIdIT:WTMultipleExerciseFails",
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                    "ContractKeysIT:CKTransients",
+                    "ContractKeysIT:CKExerciseByKey",
+                    "ContractKeysIT:CKLocalKeyVisibility",
+                    "ClosedWorldIT:ClosedWorldObserver",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorMissingAuth",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "CommandServiceIT",
+                    "ExceptionsIT",
+                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                    "CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId",
+                    "CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",
+                    "SemanticTests:SemanticDoubleSpendSameTx",
+                    "SemanticTests:SemanticPartialSignatories",
+                    "SemanticTests:SemanticAcceptOnBehalf",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

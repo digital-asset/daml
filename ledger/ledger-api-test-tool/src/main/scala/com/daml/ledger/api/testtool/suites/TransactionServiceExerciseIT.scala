@@ -128,7 +128,12 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
         )
         .mustFail("exercising with a failing assertion")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some("Assertion failed"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 }

@@ -3,13 +3,10 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.{Duration, Instant}
-import java.util.UUID
-
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
+import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -32,8 +29,10 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.ErrorCause
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
-import io.grpc.Status
+import io.grpc.StatusRuntimeException
 
+import java.time.{Duration, Instant}
+import java.util.UUID
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -104,8 +103,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val DuplicateCommand = Status.ALREADY_EXISTS.augmentDescription("Duplicate command")
-
   override def submit(
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
@@ -125,7 +122,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
             evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
               .transform(handleSubmissionResult)
           }
-        case None => Future.failed[Unit](ErrorFactories.missingLedgerConfig())
+        case None =>
+          Future.failed[Unit](ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)))
       }
       evaluatedCommand
         .andThen(logger.logErrorsOnCall[Unit])
@@ -157,8 +155,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
             }
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
-          logger.debug(DuplicateCommand.getDescription)
-          Future.failed(DuplicateCommand.asRuntimeException)
+          logger.debug(DuplicateCommandException.getMessage)
+          Future.failed(DuplicateCommandException)
       }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
@@ -186,7 +184,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     result.fold(
       error => {
         metrics.daml.commands.failedCommandInterpretations.mark()
-        Future.failed(grpcError(toStatus(error)))
+        Future.failed(toStatusException(error))
       },
       Future.successful,
     )
@@ -283,7 +281,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       .toScala
   }
 
-  private def toStatus(errorCause: ErrorCause) =
+  private def toStatusException(errorCause: ErrorCause): StatusRuntimeException =
     errorCause match {
       case cause @ ErrorCause.DamlLf(error) =>
         error match {
@@ -294,11 +292,12 @@ private[apiserver] final class ApiSubmissionService private[services] (
                 ),
                 _,
               ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
-            Status.ABORTED.withDescription(cause.explain)
-          case _ => Status.INVALID_ARGUMENT.withDescription(cause.explain)
+            ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
+          case _ =>
+            ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
         }
       case cause: ErrorCause.LedgerTime =>
-        Status.ABORTED.withDescription(cause.explain)
+        ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
     }
 
   override def close(): Unit = ()
