@@ -76,7 +76,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // Submit command A (first deduplication window)
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
           // only one submission is therefore sent to the ledger.
-          completion1 <- submitRequestAndAssertAccepted(ledger)(requestA1, party)
+          completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(requestA1, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(requestA1)
           // Wait until the end of first deduplication window
           _ <- Delayed.by(deduplicationWait)(())
@@ -86,7 +86,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // the ledger API server and the ledger itself, since the test waited more than
           // `deduplicationSeconds` after receiving the first command *completion*.
           // The first submit() in this block should therefore lead to an accepted transaction.
-          completion2 <- submitRequestAndAssertAccepted(ledger)(requestA2, party)
+          completion2 <- submitRequestAndAssertCompletionAccepted(ledger)(requestA2, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(requestA2, party)
           // Inspect created contracts
           activeContracts <- ledger.activeContracts(party)
@@ -120,10 +120,10 @@ private[testtool] abstract class CommandDeduplicationBase(
 
     for {
       // Submit an invalid command (should fail with INVALID_ARGUMENT)
-      _ <- submitRequestAndAssertCompletionStatus(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertSyncFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
 
       // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
-      _ <- submitRequestAndAssertCompletionStatus(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertSyncFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
     } yield {}
   })
 
@@ -300,7 +300,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   })
 
-  def submitRequestAndAssertAccepted(
+  def submitRequestAndAssertCompletionAccepted(
       ledger: ParticipantTestContext
   )(request: SubmitRequest, parties: Party*)(implicit ec: ExecutionContext): Future[Completion] = {
     submitRequestAndAssertCompletionStatus(ledger)(request, Code.OK, parties: _*)
@@ -314,7 +314,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     if (deduplicationFeatures.participantDeduplication) {
       submitRequestAndAssertSyncDeduplication(ledger, request)
     } else {
-      submitRequestAndAssertAsyncDeduplication(ledger, request, parties: _*)
+      submitRequestAndAssertAsyncDeduplication(ledger)(request, parties: _*)
         .map(_ => ())
     }
   }
@@ -322,13 +322,18 @@ private[testtool] abstract class CommandDeduplicationBase(
   protected def submitRequestAndAssertSyncDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
-  )(implicit ec: ExecutionContext): Future[Unit] = ledger
-    .submit(request)
-    .mustFail(s"Request expected to fail with code ${Code.ALREADY_EXISTS}")
-    .map(assertGrpcError(_, Code.ALREADY_EXISTS, None))
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    submitRequestAndAssertSyncFailure(ledger)(request, Code.ALREADY_EXISTS)
 
-  protected def submitRequestAndAssertAsyncDeduplication(
-      ledger: ParticipantTestContext,
+  private def submitRequestAndAssertSyncFailure(ledger: ParticipantTestContext)(
+      request: SubmitRequest,
+      code: Code,
+  )(implicit ec: ExecutionContext) = ledger
+    .submit(request)
+    .mustFail(s"Request expected to fail with code $code")
+    .map(assertGrpcError(_, code, None))
+
+  protected def submitRequestAndAssertAsyncDeduplication(ledger: ParticipantTestContext)(
       request: SubmitRequest,
       parties: Party*
   )(implicit ec: ExecutionContext): Future[Completion] = submitRequestAndAssertCompletionStatus(

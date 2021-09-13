@@ -49,18 +49,18 @@ abstract class KVCommandDeduplicationBase(
         )
       runWithConfig(configuredParticipants) { (maxDeduplicationDuration, minSkew) =>
         for {
-          completion1 <- submitRequestAndAssertAccepted(ledger)(request, party)
+          completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           // participant side deduplication, sync result
           _ <- submitRequestAndAssertSyncDeduplication(ledger, request)
           // Wait for the end of participant deduplication
           // We also add min skew to also validate the committer deduplication duration
           _ <- Delayed.by(deduplicationDuration.plus(minSkew))(())
           // Validate committer deduplication
-          duplicateCompletion <- submitRequestAndAssertAsyncDeduplication(ledger, request, party)
+          duplicateCompletion <- submitRequestAndAssertAsyncDeduplication(ledger)(request, party)
           // Wait for the end of committer deduplication, we already waited for minSkew
           _ <- Delayed.by(maxDeduplicationDuration.minus(deduplicationDuration))(())
           // Deduplication has finished
-          completion2 <- submitRequestAndAssertAccepted(ledger)(request, party)
+          completion2 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           // Inspect created contracts
           activeContracts <- ledger.activeContracts(party)
         } yield {
