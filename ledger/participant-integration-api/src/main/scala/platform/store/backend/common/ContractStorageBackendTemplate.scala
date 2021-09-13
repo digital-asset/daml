@@ -42,12 +42,12 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       validAt = None,
     )(connection)
 
-  private def emptyContractIds: Throwable =
+  protected def emptyContractIds: Throwable =
     new IllegalArgumentException(
       "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
     )
 
-  private def notFound(missingContractIds: Set[ContractId]): Throwable =
+  protected def notFound(missingContractIds: Set[ContractId]): Throwable =
     new IllegalArgumentException(
       s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
     )
@@ -64,23 +64,26 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         import com.daml.platform.store.Conversions.ContractIdToStatement
         SQL"""
   WITH archival_event AS (
-         SELECT 1
-           FROM participant_events_consuming_exercise, parameters
+         SELECT participant_events.*
+           FROM participant_events, parameters
           WHERE contract_id = $id
+            AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT ledger_effective_time
-           FROM participant_events_create, parameters
+           FROM participant_events, parameters
           WHERE contract_id = $id
+            AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
-         SELECT null
-           FROM participant_events_divulgence, parameters
+         SELECT ledger_effective_time
+           FROM participant_events, parameters
           WHERE contract_id = $id
+            AND event_kind = 0 -- divulgence
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
@@ -220,7 +223,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       .map(SqlParser.flatten)
       .map(StorageBackend.RawContract.tupled)
 
-  private def activeContract[T](
+  protected def activeContract[T](
       resultSetParser: ResultSetParser[T],
       resultColumns: List[String],
   )(
@@ -239,17 +242,19 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       )
       .mkString(", ")
     SQL"""  WITH archival_event AS (
-               SELECT 1
-                 FROM participant_events_consuming_exercise, parameters
+               SELECT participant_events.*
+                 FROM participant_events, parameters
                 WHERE contract_id = $contractId
+                  AND event_kind = 20  -- consuming exercise
                   AND event_sequential_id <= parameters.ledger_end_sequential_id
                   AND $treeEventWitnessesClause  -- only use visible archivals
                 FETCH NEXT 1 ROW ONLY
              ),
              create_event AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events_create, parameters
+                 FROM participant_events, parameters
                 WHERE contract_id = $contractId
+                  AND event_kind = 10  -- create
                   AND event_sequential_id <= parameters.ledger_end_sequential_id
                   AND $treeEventWitnessesClause
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
@@ -257,8 +262,9 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
              -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
              create_event_unrestricted AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events_create, parameters
+                 FROM participant_events, parameters
                 WHERE contract_id = $contractId
+                  AND event_kind = 10  -- create
                   AND event_sequential_id <= parameters.ledger_end_sequential_id
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
@@ -270,9 +276,10 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
                       -- therefore only communicates the change in visibility to the IndexDB, but
                       -- does not include a full divulgence event.
                       #$coalescedColumns
-                 FROM participant_events_divulgence divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
+                 FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
                       parameters
                 WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
+                  AND divulgence_events.event_kind = 0 -- divulgence
                   AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
                   AND $treeEventWitnessesClause
                 ORDER BY divulgence_events.event_sequential_id
