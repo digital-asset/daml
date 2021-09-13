@@ -520,7 +520,7 @@ class HaCoordinatorSpec
     }
 
     def wait(): Unit = {
-      val waitMillis: Long = Random.nextLong(100)
+      val waitMillis: Long = Random.nextInt(100).toLong
       Thread.sleep(waitMillis)
       info(s"As waiting $waitMillis millis")
     }
@@ -663,7 +663,7 @@ class HaCoordinatorSpec
     }
 
     def wait(): Unit = {
-      val waitMillis: Long = Random.nextLong(100)
+      val waitMillis: Long = Random.nextInt(100).toLong
       Thread.sleep(waitMillis)
       info(s"As waiting $waitMillis millis")
     }
