@@ -5,7 +5,6 @@ package com.daml.grpc.adapter.server.rs;
 
 import com.daml.grpc.adapter.CallCounter;
 import com.daml.grpc.adapter.ExecutionSequencer;
-import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -114,7 +113,7 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
     executionSequencer.sequence(
         () -> {
           if (!responseObserver.isCancelled()) {
-            responseObserver.onError(Status.fromThrowable(throwable).asRuntimeException());
+            responseObserver.onError(throwable);
             completionPromise.completeExceptionally(throwable);
           }
         });

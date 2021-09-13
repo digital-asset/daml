@@ -391,6 +391,27 @@ resource "google_project_iam_member" "es-feed" {
   member  = "serviceAccount:${google_service_account.es-feed.email}"
 }
 
+resource "google_project_iam_custom_role" "es-feed-write" {
+  role_id     = "es_feed_write"
+  title       = "es-feed-write"
+  description = "es-feed-write"
+  permissions = [
+    "storage.objects.create"
+  ]
+}
+
+resource "google_project_iam_member" "es-feed-write" {
+  project = local.project
+  role    = google_project_iam_custom_role.es-feed-write.id
+  member  = "serviceAccount:${google_service_account.es-feed.email}"
+
+  condition {
+    title       = "es_feed_write"
+    description = "es_feed_write"
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.data.name}/objects/kibana-export\")"
+  }
+}
+
 resource "google_compute_instance_group_manager" "es-feed" {
   provider           = google-beta
   name               = "es-feed"
@@ -844,8 +865,8 @@ index() {
 }
 
 pid=$$
-exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [$pid] [err]: $line"; done)
-exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [$pid] [out]: $line"; done)
+exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [ingest] [$pid] [err]: $line"; done)
+exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [ingest] [$pid] [out]: $line"; done)
 
 LOCK=/root/lock
 
@@ -888,9 +909,46 @@ for tar in $todo; do
 done
 CRON
 
+cat <<'HOURLY' >/root/hourly.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+pid=$$
+exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [kibex] [$pid] [err]: $line"; done)
+exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [kibex] [$pid] [out]: $line"; done)
+
+HOUR="$(date -u -Is | cut -c 1-13)"
+TMP=$(mktemp)
+TARGET="gs://daml-data/kibana-export/$HOUR.gz"
+
+echo "Starting Kibana export..."
+
+# Kibana export API does not support wildcard, so we list all of the object
+# types that exist as of Kibana 7.13.
+curl http://$KIBANA_IP/api/saved_objects/_export \
+     -XPOST \
+     -d'{"excludeExportDetails": true,
+         "type": ["visualization", "dashboard", "search", "index-pattern",
+                  "config", "timelion-sheet"]}' \
+     -H 'kbn-xsrf: true' \
+     -H 'Content-Type: application/json' \
+     --fail \
+     --silent \
+     | gzip -9 > $TMP
+
+
+echo "Pushing $TARGET"
+
+$GSUTIL -q cp $TMP $TARGET
+
+echo "Done."
+HOURLY
+
 chmod +x /root/cron.sh
+chmod +x /root/hourly.sh
 
 ES_IP=${google_compute_address.es[0].address}
+KIB_IP=${google_compute_address.es[1].address}
 
 DATA=/root/data
 mkdir -p $DATA
@@ -938,6 +996,7 @@ fi
 
 cat <<CRONTAB >> /etc/crontab
 * * * * * root GSUTIL="$(which gsutil)" DONE="$DONE" DATA="$DATA" ES_IP="$ES_IP" /root/cron.sh >> /root/log 2>&1
+1 * * * * root GSUTIL="$(which gsutil)" KIBANA_IP="$KIB_IP" /root/hourly.sh >> /root/log 2>&1
 CRONTAB
 
 echo "Waiting for first run..." > /root/log
@@ -958,7 +1017,7 @@ STARTUP
       # Required for cloud logging
       "logging-write",
       # Read access to storage
-      "storage-ro",
+      "storage-rw",
     ]
   }
 

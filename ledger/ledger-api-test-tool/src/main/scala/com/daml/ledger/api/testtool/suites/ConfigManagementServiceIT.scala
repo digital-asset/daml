@@ -86,7 +86,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         "Restoring the original time model failed",
       )
 
-      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, "")
+      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, exceptionMessageSubstring = None)
     }
   })
 
@@ -126,7 +126,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("setting Time Model with an outdated generation")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "")
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
     }
   })
 
@@ -234,7 +234,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       case Success(value: SetTimeModelResponse) =>
         Success(Some(value))
       case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-          if (notAuthorizedPattern.matcher(msg).find()) =>
+          if notAuthorizedPattern.matcher(msg).find() =>
         Success(None)
       case Failure(failure) =>
         Failure(failure)

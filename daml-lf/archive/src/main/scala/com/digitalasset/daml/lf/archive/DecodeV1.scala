@@ -380,6 +380,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             DataEnum(decodeEnumCon(lfDataType.getEnum))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
             throw Error.Parsing("DefDataType.DATACONS_NOT_SET")
+          case PLF.DefDataType.DataConsCase.INTERFACE => DataInterface
 
         },
       )

@@ -150,7 +150,7 @@ object ValueGenerators {
   private def valueListGen(nesting: Int): Gen[ValueList[ContractId]] =
     for {
       values <- Gen.listOf(Gen.lzy(valueGen(nesting)))
-    } yield ValueList[ContractId](FrontStack(values))
+    } yield ValueList[ContractId](values.to(FrontStack))
 
   def valueListGen: Gen[ValueList[ContractId]] = valueListGen(0)
 
