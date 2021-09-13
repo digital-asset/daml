@@ -118,29 +118,7 @@ The JSON API essentially performs two separate tasks:
 1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
 2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
-.. note:: By default, the Daml Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
-
-Internal Access Token
----------------------
-
-.. note:: This is deprecated and no longer required from version ``1.17.0``, the operations which required this token are now done on demand using the token from the incoming request.
-
-This access token is used exclusively by the JSON API service for maintaining the internal list of known packages and templates that it gets from the Ledger API.
-
-.. note:: At no point should this access token be provided to an end user, these are for internal use only.
-
-Every access token is different and will depend on your specific ledger operator's requirements.
-The JSON API server requires no access to party-specific data, only access to the ledger identity and package services.
-These services are public meaning that you need a valid token to access them but no party-specific claims nor an admin claim.
-Please refer to your ledger operator's documentation to find out how to get these tokens from your ledger operator.
-
-Once you have retrieved your access token, you can provide it to the JSON API by storing it in a file
-and starting ``daml json-api`` with the flag ``--access-token-file /path/to/your/token.file``.
-
-If the token cannot be read from the provided path or the Ledger API reports an authentication error
-(for example due to token expiration), the JSON API will report the error via logging.
-
-.. note:: If the token file is updated with a new token it will be picked up at the next attempt to send a request. You can use this to handle cases where an old token expires without restarting your JSON API service.
+.. note:: By default, the Daml Sandbox does not does not require access tokens. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
 
 Party-specific Access Tokens
 ----------------------------
