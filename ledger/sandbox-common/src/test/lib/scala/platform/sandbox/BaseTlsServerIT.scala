@@ -39,6 +39,7 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
         }
         "reject client connections secured lower than TLSv1.3" in {
           for {
+            _ <- assertFailedClient(enabledProtocols = Seq.empty)
             _ <- assertFailedClient(enabledProtocols = Seq(TlsVersion.V1))
             _ <- assertFailedClient(enabledProtocols = Seq(TlsVersion.V1_1))
             _ <- assertFailedClient(enabledProtocols = Seq(TlsVersion.V1_2))
@@ -55,6 +56,7 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
         }
         "reject client connections secured lower than TLSv1.2" in {
           for {
+            _ <- assertFailedClient(enabledProtocols = Seq.empty)
             _ <- assertFailedClient(enabledProtocols = Seq(TlsVersion.V1))
             _ <- assertFailedClient(enabledProtocols = Seq(TlsVersion.V1_1))
           } yield succeed

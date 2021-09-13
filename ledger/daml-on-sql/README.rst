@@ -226,6 +226,9 @@ which should serve decryption details as a JSON document like so:
 
 Sample command to start a server with private key encrypted: ``java -jar daml-on-sql-<version>.jar --pem server.pem.enc --crt server.crt --tls-secrets-url http://localhost:8080``.
 
+To specify minimum TLS version for the server, add either ``--tls-version 1.2`` or ``--tls-version 1.3``
+to the server's invocation.
+
 By default, the Ledger API requires client authentication as well. You can set a
 custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``.
 You can change the client authentication mode via ``--client-auth none`` which
