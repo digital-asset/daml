@@ -48,45 +48,6 @@ grpc_error_code_breaking_change_exclusions_suites = [
     "ContractKeysIT",
 ]
 
-# gRPC errors from transaction-related services have been enriched with definite answer details
-# and a new assertion has been added
-# See: https://github.com/digital-asset/daml/pull/10832/files#diff-e0fa328a58650c48e8770804e35a1464c81cc80a51547860a01e9197a8fb9c71R49
-last_test_without_definite_answer_assertion = "1.17.0-snapshot.20210910.7786.0.976ca400"
-first_test_with_definite_answer_assertion = "1.17.0-snapshot.20210910.7786.1.976ca400"
-
-definite_answer_assertion_exclusions = [
-    "WronglyTypedContractIdIT:WTExerciseFails",
-    "WronglyTypedContractIdIT:WTFetchFails",
-    "WronglyTypedContractIdIT:WTMultipleExerciseFails",
-    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
-    "ContractKeysIT:CKTransients",
-    "ContractKeysIT:CKExerciseByKey",
-    "ContractKeysIT:CKLocalKeyVisibility",
-    "ClosedWorldIT:ClosedWorldObserver",
-    "TransactionServiceAuthorizationIT:TXRejectMultiActorMissingAuth",
-    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
-    "CommandServiceIT",
-    "ExceptionsIT",
-    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
-    "CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId",
-    "CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",
-    "SemanticTests:SemanticDoubleSpendSameTx",
-    "SemanticTests:SemanticPartialSignatories",
-    "SemanticTests:SemanticAcceptOnBehalf",
-]
-
-definite_answer_assertion_exclusions_suites = [
-    "WronglyTypedContractIdIT",
-    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
-    "ContractKeysIT",
-    "ClosedWorldIT",
-    "TransactionServiceAuthorizationIT",
-    "CommandServiceIT",
-    "ExceptionsIT",
-    "CommandSubmissionCompletionIT",
-    "SemanticTests",
-]
-
 excluded_test_tool_tests = [
     {
         "start": "1.0.0",
@@ -425,21 +386,33 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "end": last_nongranular_test_tool,
+        # gRPC errors from transaction-related services have been enriched with definite answer details
+        # and a new assertion has been added
+        # See: https://github.com/digital-asset/daml/pull/10832/files#diff-e0fa328a58650c48e8770804e35a1464c81cc80a51547860a01e9197a8fb9c71R49
+        "start": "1.17.0-snapshot.20210910.7786.1",
         "platform_ranges": [
             {
-                "start": first_test_with_definite_answer_assertion,
-                "exclusions": definite_answer_assertion_exclusions_suites,
-            },
-        ],
-    },
-    {
-        "start": first_granular_test_tool,
-        "end": last_test_without_definite_answer_assertion,
-        "platform_ranges": [
-            {
-                "start": first_test_with_definite_answer_assertion,
-                "exclusions": definite_answer_assertion_exclusions,
+                "end": "1.17.0-snapshot.20210910.7786.0.976ca400",
+                "exclusions": [
+                    "WronglyTypedContractIdIT:WTExerciseFails",
+                    "WronglyTypedContractIdIT:WTFetchFails",
+                    "WronglyTypedContractIdIT:WTMultipleExerciseFails",
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                    "ContractKeysIT:CKTransients",
+                    "ContractKeysIT:CKExerciseByKey",
+                    "ContractKeysIT:CKLocalKeyVisibility",
+                    "ClosedWorldIT:ClosedWorldObserver",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorMissingAuth",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "CommandServiceIT",
+                    "ExceptionsIT",
+                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                    "CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId",
+                    "CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",
+                    "SemanticTests:SemanticDoubleSpendSameTx",
+                    "SemanticTests:SemanticPartialSignatories",
+                    "SemanticTests:SemanticAcceptOnBehalf",
+                ],
             },
         ],
     },
