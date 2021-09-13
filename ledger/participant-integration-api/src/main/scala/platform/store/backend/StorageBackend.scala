@@ -268,7 +268,9 @@ trait EventStorageBackend {
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
-  def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long]
+
+  /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
+  def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[RawTransactionEvent]
