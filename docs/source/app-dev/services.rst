@@ -66,10 +66,10 @@ Each intended ledger change is identified by its **change ID**, consisting of of
 Application-specific IDs
 ------------------------
 
-Commands can be labeled with application-specific IDs, all of which are returned in completion events:
+The following application-specific IDs, all of which are included in completion events, can be set in commands:
 
-- A :ref:`commandId <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only. It is generally used to implement this correlation between commands and completions. 
 - A :ref:`submissionId <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
+- A :ref:`commandId <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
 - A :ref:`workflowId <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandSubmissionService>`.
