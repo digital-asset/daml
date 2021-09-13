@@ -98,7 +98,7 @@ final class ConfigSpec
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
-        "--tls-version",
+        "--min-tls-version",
         "111",
       )
     ) shouldBe None
@@ -109,7 +109,7 @@ final class ConfigSpec
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
-        "--tls-version",
+        "--min-tls-version",
         "1.3",
       )
     )

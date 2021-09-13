@@ -5,17 +5,17 @@ package com.daml.ledger.api.tls
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
-import io.netty.handler.ssl.{OpenSslClientContext, OpenSslServerContext, SslContext}
+import io.netty.handler.ssl.{OpenSslServerContext, SslContext}
+import org.apache.commons.io.IOUtils
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{File, InputStream}
 import java.net.ConnectException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.security.Security
-import org.apache.commons.io.IOUtils
-import org.scalatest.BeforeAndAfterEach
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 
 class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfterEach {
 
@@ -70,28 +70,14 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
         getServerEnabledProtocols(Some(TlsVersion.V1_3)) shouldBe Seq("SSLv2Hello", "TLSv1.3")
       }
       "is TLS 1.2" in {
-        getServerEnabledProtocols(Some(TlsVersion.V1_2)) shouldBe Seq("SSLv2Hello", "TLSv1.2")
-      }
-      "is default" in {
-        getServerEnabledProtocols(None) shouldBe Seq(
+        getServerEnabledProtocols(Some(TlsVersion.V1_2)) shouldBe Seq(
           "SSLv2Hello",
-          "TLSv1",
-          "TLSv1.1",
           "TLSv1.2",
           "TLSv1.3",
         )
       }
-    }
-
-    "configure client with TLS protocol versions" which {
-      "is TLS 1.3" in {
-        getClientEnabledProtocols(Some(TlsVersion.V1_3)) shouldBe Seq("SSLv2Hello", "TLSv1.3")
-      }
-      "is TLS 1.2" in {
-        getClientEnabledProtocols(Some(TlsVersion.V1_2)) shouldBe Seq("SSLv2Hello", "TLSv1.2")
-      }
       "is default" in {
-        getClientEnabledProtocols(None) shouldBe Seq(
+        getServerEnabledProtocols(None) shouldBe Seq(
           "SSLv2Hello",
           "TLSv1",
           "TLSv1.1",
@@ -145,7 +131,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
       // then
       e.getCause shouldBe a[IllegalStateException]
-      e.getCause.getMessage shouldBe "Unable to convert TlsConfiguration(true,None,None,None,None,REQUIRE,false,List()) to SSL Context: cannot decrypt keyFile without secretsUrl."
+      e.getCause.getMessage should endWith("cannot decrypt keyFile without secretsUrl.")
     }
 
     "attempt to decrypt private key using by fetching decryption params from an url" in {
@@ -184,13 +170,6 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
     val sslContext: Option[SslContext] = configWithProtocols(minTls).server
     assume(sslContext.isDefined)
     assume(sslContext.get.isInstanceOf[OpenSslServerContext])
-    TlsInfo.fromSslContext(sslContext.get).enabledProtocols
-  }
-
-  private def getClientEnabledProtocols(minTls: Option[TlsVersion]): Seq[String] = {
-    val sslContext = configWithProtocols(minTls).client()
-    assume(sslContext.isDefined)
-    assume(sslContext.get.isInstanceOf[OpenSslClientContext])
     TlsInfo.fromSslContext(sslContext.get).enabledProtocols
   }
 

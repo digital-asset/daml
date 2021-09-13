@@ -143,7 +143,7 @@ abstract class CommonCliSpecBase(
     "fail parsing a bogus TLS version" in {
       checkOptionFail(
         Array(
-          "--tls-version",
+          "--min-tls-version",
           "111",
         )
       )
@@ -152,7 +152,7 @@ abstract class CommonCliSpecBase(
     "succeed parsing a supported TLS version" in {
       checkOption(
         Array(
-          "--tls-version",
+          "--min-tls-version",
           "1.3",
         ),
         _.copy(tlsConfig =

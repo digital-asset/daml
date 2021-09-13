@@ -195,7 +195,7 @@ class CommonCliBase(name: LedgerName) {
           )
         )
 
-      opt[TlsVersion]("tls-version")
+      opt[TlsVersion]("min-tls-version")
         .optional()
         .text(
           "TLS: Indicates the minimum TLS version to enable. If specified must be either '1.2' or '1.3'."
