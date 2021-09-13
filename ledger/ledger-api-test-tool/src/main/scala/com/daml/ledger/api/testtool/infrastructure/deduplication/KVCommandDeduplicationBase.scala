@@ -16,7 +16,6 @@ import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.test.model.Test.DummyWithAnnotation
 import com.daml.timer.Delayed
-import io.grpc.Status.Code
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
@@ -50,22 +49,18 @@ abstract class KVCommandDeduplicationBase(
         )
       runWithConfig(configuredParticipants) { (maxDeduplicationDuration, minSkew) =>
         for {
-          completion1 <- requestHasOkCompletion(ledger)(request, party)
+          completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           // participant side deduplication, sync result
-          _ <- submitRequestAndAssertFailure(ledger)(request, Code.ALREADY_EXISTS)
+          _ <- submitRequestAndAssertSyncDeduplication(ledger, request)
           // Wait for the end of participant deduplication
           // We also add min skew to also validate the committer deduplication duration
           _ <- Delayed.by(deduplicationDuration.plus(minSkew))(())
           // Validate committer deduplication
-          duplicateCompletion <- requestHasCompletionWithStatusCode(ledger)(
-            request,
-            party,
-            Code.ALREADY_EXISTS,
-          )
+          duplicateCompletion <- submitRequestAndAssertAsyncDeduplication(ledger)(request, party)
           // Wait for the end of committer deduplication, we already waited for minSkew
           _ <- Delayed.by(maxDeduplicationDuration.minus(deduplicationDuration))(())
           // Deduplication has finished
-          completion2 <- requestHasOkCompletion(ledger)(request, party)
+          completion2 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           // Inspect created contracts
           activeContracts <- ledger.activeContracts(party)
         } yield {
@@ -82,7 +77,7 @@ abstract class KVCommandDeduplicationBase(
             "The command ID of the duplicate completion does not match the command ID of the submission",
           )
           // The [[Completion.deduplicationPeriod]] is set only for append-only ledgers
-          if (isAppendOnly) {
+          if (deduplicationFeatures.appendOnlySchema) {
             val expectedCompletionDeduplicationPeriod =
               Completion.DeduplicationPeriod.DeduplicationTime(
                 maxDeduplicationDuration.asProtobuf

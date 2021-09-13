@@ -3,7 +3,11 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import com.daml.ledger.api.testtool.infrastructure.deduplication.KVCommandDeduplicationBase
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationFeatures
+import com.daml.ledger.api.testtool.infrastructure.deduplication.{
+  CommandDeduplicationBase,
+  KVCommandDeduplicationBase,
+}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -14,7 +18,12 @@ class AppendOnlyKVCommandDeduplicationIT(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
 ) extends KVCommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
-  override protected def isAppendOnly: Boolean = true
 
   override protected def testNamingPrefix: String = "AppendOnlyKVCommandDeduplication"
+
+  override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
+    DeduplicationFeatures(
+      participantDeduplication = true,
+      appendOnlySchema = true,
+    )
 }
