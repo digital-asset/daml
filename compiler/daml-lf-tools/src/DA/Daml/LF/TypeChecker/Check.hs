@@ -779,7 +779,8 @@ checkIface DefInterface{intName, intChoices} = do
   forM_ intChoices checkIfaceChoice
 
 checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
-checkIfaceChoice InterfaceChoice{ifcRetType} =
+checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
+  checkType ifcArgType KStar
   checkType ifcRetType KStar
 
 -- | Check that a type constructor definition is well-formed.
@@ -852,8 +853,8 @@ checkIfaceImplementation modName tplTcon ifTcon
     forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
       TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <- inWorld $ lookupChoice (tplTcon, ifcName)
       unless (chcConsuming == ifcConsuming) $ throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
-      unless (snd chcArgBinder == ifcArgType) $ throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
-      unless (chcReturnType == ifcRetType) $ throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
+      unless (alphaType (snd chcArgBinder) ifcArgType) $ throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
+      unless (alphaType chcReturnType ifcRetType) $ throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
   | otherwise = throwWithContext $ EForeignInterfaceImplementation ifTcon
 
 _checkFeature :: MonadGamma m => Feature -> m ()
