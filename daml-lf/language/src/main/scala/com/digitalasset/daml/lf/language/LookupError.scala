@@ -95,6 +95,10 @@ object Reference {
     override def pretty: String = s"template $tyCon"
   }
 
+  final case class Interface(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"interface $tyCon"
+  }
+
   final case class TemplateKey(tyCon: TypeConName) extends Reference {
     override def pretty: String = s"template without contract key $tyCon."
   }

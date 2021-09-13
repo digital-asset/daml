@@ -842,19 +842,18 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   whenJust mbKey $ checkTemplateKey param tcon
-  forM_ implements $ checkIfaceImplementation (moduleName m) tcon
+  forM_ implements $ checkIfaceImplementation tcon
   where
     withPart p = withContext (ContextTemplate m t p)
 
 checkIfaceImplementation ::
      MonadGamma m
-  => ModuleName
-  -> Qualified TypeConName
+  => Qualified TypeConName
   -> Qualified TypeConName
   -> m ()
-checkIfaceImplementation modName tplTcon ifTcon
-  | Qualified PRSelf m _tconName <- ifTcon
-  , m == modName = do
+checkIfaceImplementation tplTcon ifTcon
+  | qualPackage tplTcon == qualPackage ifTcon
+    && qualModule tplTcon == qualModule tplTcon = do
     DefInterface {intChoices} <- inWorld $ lookupInterface ifTcon
     forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
       TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <- inWorld $ lookupChoice (tplTcon, ifcName)

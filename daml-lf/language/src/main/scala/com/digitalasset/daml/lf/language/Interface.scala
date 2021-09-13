@@ -179,6 +179,19 @@ private[lf] class Interface(signatures: PartialFunction[PackageId, PackageSignat
   def lookupTemplate(name: TypeConName): Either[LookupError, TemplateSignature] =
     lookupTemplate(name, Reference.Template(name))
 
+  private[this] def lookupInterface(
+      name: TypeConName,
+      context: => Reference,
+  ): Either[LookupError, DefInterface] =
+    lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
+      _.interfaces
+        .get(name.qualifiedName.name)
+        .toRight(LookupError(Reference.Interface(name), context))
+    )
+
+  def lookupInterface(name: TypeConName): Either[LookupError, DefInterface] =
+    lookupInterface(name, Reference.Interface(name))
+
   private[this] def lookupChoice(
       tmpName: TypeConName,
       chName: ChoiceName,

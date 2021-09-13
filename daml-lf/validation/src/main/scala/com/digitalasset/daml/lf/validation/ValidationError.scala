@@ -27,6 +27,9 @@ final case class ContextTemplate(tycon: TypeConName) extends Context {
 final case class ContextDefException(tycon: TypeConName) extends Context {
   def pretty: String = s"exception definition ${tycon.qualifiedName}"
 }
+final case class ContextDefInterface(tycon: TypeConName) extends Context {
+  def pretty: String = s"interface definition ${tycon.qualifiedName}"
+}
 final case class ContextDefValue(ref: ValueRef) extends Context {
   def pretty: String = s"value definition ${ref.qualifiedName}"
 }
@@ -366,6 +369,10 @@ final case class EIllegalHigherEnumType(context: Context, defn: TypeConName)
     extends ValidationError {
   protected def prettyInternal: String = s"illegal higher order enum type"
 }
+final case class EIllegalHigherInterfaceType(context: Context, defn: TypeConName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"illegal higher interface type"
+}
 final case class EIllegalEnumArgument(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String = s"illegal non Unit enum argument"
 }
@@ -408,4 +415,45 @@ final case class EModuleVersionDependencies(
     s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"
 
   override def context: Context = NoContext
+}
+final case class EForeignInterfaceImplementation(
+    context: Context,
+    iface: TypeConName,
+) extends ValidationError {
+
+  override protected def prettyInternal: String =
+    s"The definition and implementation for the interface $iface need to be in the same module."
+}
+
+final case class EBadInterfaceChoiceImplConsuming(
+    context: Context,
+    choice: ChoiceName,
+    ifaceConsuming: Boolean,
+    tplConsuming: Boolean,
+) extends ValidationError {
+
+  override protected def prettyInternal: String =
+    s"Choice implementation and interface definition for $choice differ in consuming/non-consuming behaviour.\nExpected: $ifaceConsuming\nBut got: $tplConsuming\n"
+}
+
+final case class EBadInterfaceChoiceImplArgType(
+    context: Context,
+    choice: ChoiceName,
+    ifaceArgType: Type,
+    tplArgType: Type,
+) extends ValidationError {
+
+  override protected def prettyInternal: String =
+    s"Choice implementation and interface definition for $choice differ in argument type.\nExpected: $ifaceArgType\n But got: $tplArgType"
+}
+
+final case class EBadInterfaceChoiceImplRetType(
+    context: Context,
+    choice: ChoiceName,
+    ifaceRetType: Type,
+    tplRetType: Type,
+) extends ValidationError {
+
+  override protected def prettyInternal: String =
+    s"Choice implementation and interface defintion for $choice differ in return type.\nExpected: $ifaceRetType\nBut got: $tplRetType"
 }

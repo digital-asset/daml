@@ -273,7 +273,7 @@ private[validation] object Typing {
           case DataEnum(values) =>
             env.checkEnumType(tyConName, params, values)
           case DataInterface =>
-            ()
+            env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
         Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
@@ -303,6 +303,12 @@ private[validation] object Typing {
         case _ =>
           throw EExpectedExceptionableType(env.ctx, tyConName)
       }
+    }
+    mod.interfaces.foreach { case (ifaceName, defInterface) =>
+      // uniquess of choice names is already checked on construction of the choice map.
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
+      val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
+      defInterface.choices.values.foreach { env.checkIfaceChoice(_) }
     }
   }
 
@@ -369,6 +375,14 @@ private[validation] object Typing {
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
     }
 
+    def checkInterfaceType[X](
+        tyConName: => TypeConName,
+        params: ImmArray[X],
+    ): Unit = {
+      if (params.nonEmpty) throw EIllegalHigherInterfaceType(ctx, tyConName)
+      val _ = handleLookup(ctx, interface.lookupInterface(tyConName))
+    }
+
     def checkDValue(dfn: DValue): Unit = dfn match {
       case DValue(typ, _, body, isTest) =>
         checkType(typ, KStar)
@@ -417,7 +431,16 @@ private[validation] object Typing {
       }
 
     def checkTemplate(tplName: TypeConName, template: Template): Unit = {
-      val Template(param, precond, signatories, agreementText, choices, observers, mbKey, _) =
+      val Template(
+        param,
+        precond,
+        signatories,
+        agreementText,
+        choices,
+        observers,
+        mbKey,
+        implementations,
+      ) =
         template
       val env = introExprVar(param, TTyCon(tplName))
       env.checkExpr(precond, TBool)
@@ -430,6 +453,28 @@ private[validation] object Typing {
         env.checkExpr(key.body, key.typ)
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
+      }
+      implementations.foreach(env.checkIfaceImplementation(tplName, _))
+    }
+
+    def checkIfaceChoice(choice: InterfaceChoice): Unit = {
+      checkType(choice.argType, KStar)
+      checkType(choice.returnType, KStar)
+    }
+
+    def checkIfaceImplementation(tplTcon: TypeConName, ifaceTcon: TypeConName): Unit = {
+      if (
+        !(tplTcon.packageId == ifaceTcon.packageId && tplTcon.qualifiedName.module == ifaceTcon.qualifiedName.module)
+      ) throw EForeignInterfaceImplementation(ctx, ifaceTcon)
+      val DefInterface(choices) = handleLookup(ctx, interface.lookupInterface(ifaceTcon))
+      choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
+        val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
+        if (tplChoice.consuming != consuming)
+          throw EBadInterfaceChoiceImplConsuming(ctx, name, consuming, tplChoice.consuming)
+        if (!alphaEquiv(tplChoice.argBinder._2, argType))
+          throw EBadInterfaceChoiceImplArgType(ctx, name, argType, tplChoice.argBinder._2)
+        if (!alphaEquiv(tplChoice.returnType, returnType))
+          throw EBadInterfaceChoiceImplRetType(ctx, name, returnType, tplChoice.returnType)
       }
     }
 
@@ -736,8 +781,7 @@ private[validation] object Typing {
                     introPatternEnum(scrutTCon, cons),
                   )
                 case DataInterface =>
-                  // TODO https://github.com/digital-asset/daml/issues/10810
-                  sys.error("Interface not supported")
+                  (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
               }
           }
         case TUnit =>
