@@ -51,6 +51,9 @@ class PollingChecker(
   def check(): Unit = synchronized {
     logger.debug(s"Checking...")
     Try(checkBody) match {
+      case _ if closed =>
+        throw new Exception("Checker is already closed")
+
       case Success(_) =>
         logger.debug(s"Check successful.")
 
@@ -61,5 +64,10 @@ class PollingChecker(
     }
   }
 
-  def close(): Unit = timer.cancel()
+  private var closed: Boolean = false
+
+  def close(): Unit = synchronized {
+    closed = true
+    timer.cancel()
+  }
 }
