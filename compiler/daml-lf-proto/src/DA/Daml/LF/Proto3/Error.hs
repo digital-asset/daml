@@ -21,6 +21,7 @@ data Error
   | EDuplicateTemplate TypeConName
   | DuplicateChoice ChoiceName
   | DuplicateException TypeConName
+  | DuplicateInterface TypeConName
   | UnsupportedMinorVersion T.Text
   | BadStringId Int32
   | BadDottedNameId Int32

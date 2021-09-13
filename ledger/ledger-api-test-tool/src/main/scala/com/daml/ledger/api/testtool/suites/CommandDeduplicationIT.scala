@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import com.daml.ledger.api.testtool.infrastructure.CommandDeduplicationBase
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,4 +22,8 @@ final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterva
   }
 
   override def testNamingPrefix: String = "ParticipantCommandDeduplication"
+
+  /** Assertions for append-only schema are important for KV ledgers
+    */
+  override protected def isAppendOnly: Boolean = false
 }

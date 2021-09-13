@@ -144,7 +144,7 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--max-deduplication-duration=PT10S",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--additional=MultiPartySubmissionIT",
@@ -166,7 +166,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
         "--daml-lf-min-version-1.14-unsafe",
-        "--max-deduplication-duration=PT10S",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--additional=MultiPartySubmissionIT",
@@ -186,6 +186,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example1,port=6865",
         "--participant=participant-id=example2,port=6866",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--verbose",
@@ -211,12 +212,12 @@ conformance_test(
         "--mutable-contract-state-cache",
         "--participant=participant-id=example1,port=6865",
         "--participant=participant-id=example2,port=6866",
-        "--max-deduplication-duration=PT10S",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--verbose",
         "--additional=ParticipantPruningIT",
-        "--additional=KVCommandDeduplicationIT",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         # The following two tests don't actually care about multi-participant but they do need append-only.
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
@@ -235,6 +236,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--verbose",

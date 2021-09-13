@@ -5,24 +5,21 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.ValueRecord
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
-import scala.language.implicitConversions
-
 class BlindingSpec extends AnyFreeSpec with Matchers {
 
-  private implicit def toParty(p: String): Party = Party.assertFromString(p)
+  import TransactionBuilder.Implicits._
 
   def create(builder: TransactionBuilder) = {
     val cid = builder.newCid
     val create = builder.create(
       id = cid,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.Empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
@@ -95,7 +92,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     val cid = builder.newCid
     val create = builder.create(
       id = cid,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
@@ -115,7 +112,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     val cid = builder.newCid
     val create = builder.create(
       id = cid,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
@@ -139,7 +136,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     val cid4 = builder.newCid
     val create1 = builder.create(
       id = cid1,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("A"),
       observers = Seq(),
@@ -147,7 +144,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     )
     val create2 = builder.create(
       id = cid2,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("B"),
       observers = Seq(),
@@ -155,7 +152,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     )
     val create3 = builder.create(
       id = cid3,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("C"),
       observers = Seq(),
@@ -163,7 +160,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     )
     val create4 = builder.create(
       id = cid4,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("D"),
       observers = Seq(),
@@ -198,7 +195,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     val cid2 = builder.newCid
     val create1 = builder.create(
       id = cid1,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("A", "B"),
       observers = Seq(),
@@ -210,7 +207,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     val rollback = builder.add(builder.rollback(), ex1)
     val create2 = builder.create(
       id = cid2,
-      template = "pkgid:M:T",
+      templateId = "M:T",
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("D"),
       observers = Seq(),

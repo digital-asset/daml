@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.{DeduplicationPeriod => ApiDeduplicationPeriod}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -21,6 +20,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
+
+  import TransactionBuilder.Implicits._
+
   private val metrics: Metrics = new Metrics(new MetricRegistry)
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
@@ -71,19 +73,19 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
   private val keyValue = Value.ValueUnit
   private val templateId = Ref.Identifier.assertFromString("pkg:M:T")
 
-  private def create(builder: TransactionBuilder, id: String, hasKey: Boolean = false) =
+  private def create(builder: TransactionBuilder, id: Value.ContractId, hasKey: Boolean = false) =
     builder.create(
       id = id,
-      template = templateId.toString,
+      templateId = templateId,
       argument = Value.ValueRecord(None, ImmArray.Empty),
-      signatories = Seq(),
-      observers = Seq(),
+      signatories = Set.empty,
+      observers = Set.empty,
       key = if (hasKey) Some(keyValue) else None,
     )
 
   private def exercise(
       builder: TransactionBuilder,
-      id: String,
+      id: Value.ContractId,
       hasKey: Boolean = false,
       consuming: Boolean = true,
   ) =
@@ -91,15 +93,15 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       contract = create(builder, id, hasKey),
       choice = "Choice",
       argument = Value.ValueRecord(None, ImmArray.Empty),
-      actingParties = Set(),
+      actingParties = Set.empty,
       consuming = consuming,
       result = Some(Value.ValueUnit),
     )
 
-  private def fetch(builder: TransactionBuilder, id: String, byKey: Boolean) =
+  private def fetch(builder: TransactionBuilder, id: Value.ContractId, byKey: Boolean) =
     builder.fetch(contract = create(builder, id, hasKey = true), byKey = byKey)
 
-  private def lookup(builder: TransactionBuilder, id: String, found: Boolean) =
+  private def lookup(builder: TransactionBuilder, id: Value.ContractId, found: Boolean) =
     builder.lookupByKey(contract = create(builder, id, hasKey = true), found = found)
 
   import Conversions.{contractIdToStateKey, contractKeyToStateKey}
