@@ -262,6 +262,29 @@ class HaCoordinatorSpec
     }
   }
 
+  it should "wait for main lock can be interrupted by graceful shutdown" in {
+    val dbLock = new TestDBLockStorageBackend
+    val blockingConnection = new TestConnection
+    dbLock.tryAcquire(main, DBLockStorageBackend.LockMode.Exclusive)(blockingConnection).get
+    info("As acquiring the main lock from the outside")
+    val protectedSetup = setup(dbLock = dbLock)
+    import protectedSetup._
+    Thread.sleep(200)
+    info("And as waiting for 200 millis")
+    connectionInitializerFuture.isCompleted shouldBe false
+    protectedHandle.completed.isCompleted shouldBe false
+    info("Initialization should be waiting")
+    protectedHandle.killSwitch.shutdown()
+    info("As graceful shutdown started")
+
+    for {
+      _ <- protectedHandle.completed
+    } yield {
+      info("Protected Handle is completed successfully")
+      connectionInitializerFuture.isCompleted shouldBe false
+    }
+  }
+
   it should "wait if worker lock cannot be acquired due to exclusive blocking" in {
     val dbLock = new TestDBLockStorageBackend
     val blockingConnection = new TestConnection
@@ -318,6 +341,30 @@ class HaCoordinatorSpec
       _ <- protectedHandle.completed
     } yield {
       1 shouldBe 1
+    }
+  }
+
+  it should "wait for worker lock can be interrupted by graceful shutdown" in {
+    val dbLock = new TestDBLockStorageBackend
+    val blockingConnection = new TestConnection
+    dbLock.tryAcquire(worker, DBLockStorageBackend.LockMode.Shared)(blockingConnection).get
+    info("As acquiring the worker lock from the outside")
+    val protectedSetup = setup(dbLock = dbLock)
+    import protectedSetup._
+
+    Thread.sleep(200)
+    info("And as waiting for 200 millis")
+    connectionInitializerFuture.isCompleted shouldBe false
+    protectedHandle.completed.isCompleted shouldBe false
+    info("Initialization should be waiting")
+    protectedHandle.killSwitch.shutdown()
+    info("As graceful shutdown starts")
+
+    for {
+      _ <- protectedHandle.completed
+    } yield {
+      info("Protected Handle completes successfully")
+      connectionInitializerFuture.isCompleted shouldBe false
     }
   }
 
