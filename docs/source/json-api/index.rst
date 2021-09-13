@@ -123,6 +123,8 @@ The JSON API essentially performs two separate tasks:
 Internal Access Token
 ---------------------
 
+.. note:: This is deprecated and no longer required from version ``1.17.0``, the operations which required this token are now done on demand using the token from the incoming request.
+
 This access token is used exclusively by the JSON API service for maintaining the internal list of known packages and templates that it gets from the Ledger API.
 
 .. note:: At no point should this access token be provided to an end user, these are for internal use only.
