@@ -798,7 +798,6 @@ class HaCoordinatorSpec
         executionContext = system.dispatcher,
         timer = timer,
         haConfig = HaConfig(
-          enable = true,
           mainLockAcquireRetryMillis = mainLockAcquireRetryMillis,
           workerLockAcquireRetryMillis = workerLockAcquireRetryMillis,
           workerLockAcquireMaxRetry = workerLockAcquireMaxRetry,

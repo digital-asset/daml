@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
-import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -28,7 +27,6 @@ import com.daml.platform.store.backend.{
   UpdateToDbDto,
 }
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
@@ -87,19 +85,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           .map(_ -> System.nanoTime())
       )
         .map(_ => ())
-        .keepAlive( // TODO ha: remove as stable. This keepAlive approach was introduced for safety with async commit. This is still needed until HA is mandatory for Postgres to ensure safety with async commit. This will not needed anymore if HA is enabled by default, since the Ha mutual exclusion implementation with advisory locks makes impossible to let a db-shutdown go undetected.
-          keepAliveMaxIdleDuration,
-          () =>
-            if (dbDispatcher.currentHealth() == Healthy) {
-              logger.debug("Indexer keep-alive: database connectivity OK")
-            } else {
-              logger
-                .warn("Indexer keep-alive: database connectivity lost. Stopping indexing.")
-              throw new Exception(
-                "Connectivity issue to the index-database detected. Stopping indexing."
-              )
-            },
-        )
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
         .toMat(Sink.ignore)(Keep.both)
         .run()(materializer)
@@ -108,8 +93,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
 }
 
 object ParallelIndexerSubscription {
-
-  private val keepAliveMaxIdleDuration = FiniteDuration(200, "millis")
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
