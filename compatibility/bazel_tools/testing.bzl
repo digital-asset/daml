@@ -9,8 +9,11 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
-# Range of test-tool versions version and then a nested list of ranges
-# of platform versions and their corresponding exclusions.
+# Each exclusion in the list above is an object with a range of ledger API test tool versions
+# described by `start` and `end` and a list of platform (ledger) ranges. Each platform range
+# is again described by `start` and `end` as well as the actual list of --exclude flags that
+# should be passed to the ledger API test tool.
+# Start and end are always inclusive and can be omitted if you only need an upper or lower bound.
 # Note that before 1.3 the granularity for disabling tests
 # was sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
