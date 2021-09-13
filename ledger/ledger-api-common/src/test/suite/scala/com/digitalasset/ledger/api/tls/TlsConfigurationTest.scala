@@ -66,10 +66,10 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
   "TlsConfiguration" should {
 
     "configure server with TLS protocol versions" which {
-      "is TLS 1.3" in {
+      "is 1.3" in {
         getServerEnabledProtocols(Some(TlsVersion.V1_3)) shouldBe Seq("SSLv2Hello", "TLSv1.3")
       }
-      "is TLS 1.2" in {
+      "is 1.2" in {
         getServerEnabledProtocols(Some(TlsVersion.V1_2)) shouldBe Seq(
           "SSLv2Hello",
           "TLSv1.2",
