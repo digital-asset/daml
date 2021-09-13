@@ -161,7 +161,11 @@ object Cli {
       .action((inc, c) => c.copy(included = c.included ++ inc))
       .unbounded()
       .text(
-        """A comma-separated list of inclusion prefixes. If not specified, all default tests are included. If specified, only tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`."""
+        """A comma-separated list of inclusion prefixes. If not specified,
+              |all default tests are included. If specified, only tests that match at least one
+              |of the given inclusion prefixes (and none of the given exclusion prefixes) will be run.
+              |Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.
+              |Mutually exclusive with `--additional`.""".stripMargin
       )
 
     opt[Seq[String]]("additional")
@@ -169,7 +173,10 @@ object Cli {
       .hidden()
       .unbounded()
       .text(
-        """A comma-separated list of additional prefixes. If specified, also tests that match at least one of the given inclusion prefixes (and none of the given exclusion prefixes) will be run. Can be specified multiple times, i.e. `--additional=a,b` is the same as `--additional=a --additional=b`."""
+        """A comma-separated list of additional prefixes. If specified, also tests that match at least one
+              |of the given inclusion prefixes (and none of the given exclusion prefixes) will be run.
+              |Can be specified multiple times, i.e. `--additional=a,b` is the same as `--additional=a --additional=b`.
+              |Mutually exclusive with `--include`.""".stripMargin
       )
 
     opt[Seq[String]]("perf-tests")
@@ -237,6 +244,13 @@ object Cli {
       .optional()
       .action((_, c) => c.copy(uploadDars = false))
       .text("Skip DARs upload into ledger before running tests")
+
+    checkConfig(c =>
+      if (c.included.nonEmpty && c.additional.nonEmpty)
+        failure("`--include` and `--additional` are mutually exclusive")
+      else
+        success
+    )
 
     help("help").text("Prints this usage text")
 
