@@ -23,14 +23,15 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
 
   private implicit lazy val executionContext: ExecutionContext =
     ExecutionContext.fromExecutorService(
-      Executors.newCachedThreadPool(
+      Executors.newFixedThreadPool(
+        16,
         new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
           .setUncaughtExceptionHandler((thread, e) =>
             logger.error(s"got an uncaught exception on thread: ${thread.getName}", e)
           )
-          .build()
+          .build(),
       )
     )
 
