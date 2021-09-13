@@ -3,10 +3,10 @@
 
 package com.daml.platform.indexer.ha
 
-import akka.actor.Scheduler
+import java.util.{Timer, TimerTask}
+
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -88,7 +88,7 @@ object PreemptableSequence {
     *   - and encapsulate synchronous work in futures (this could be possibly blocking)
     *   Because of the possible blocking nature a dedicated pool is recommended.
     */
-  def apply(scheduler: Scheduler)(implicit
+  def apply(timer: Timer)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): PreemptableSequence = { sequence =>
@@ -98,8 +98,16 @@ object PreemptableSequence {
     var releaseStack: List[() => Future[Unit]] = Nil
 
     val helper: SequenceHelper = new SequenceHelper {
-      private def waitFor(delayMillis: Long): Future[Unit] =
-        goF(akka.pattern.after(FiniteDuration(delayMillis, "millis"), scheduler)(Future.unit))
+      private def waitFor(delayMillis: Long): Future[Unit] = {
+        val p = Promise[Unit]()
+        timer.schedule(
+          new TimerTask {
+            override def run(): Unit = p.success(())
+          },
+          delayMillis,
+        )
+        goF(p.future)
+      }
 
       override def registerRelease(release: => Unit): Unit = synchronized {
         logger.info(s"Registered release function")

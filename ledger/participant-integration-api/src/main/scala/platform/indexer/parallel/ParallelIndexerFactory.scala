@@ -3,6 +3,7 @@
 
 package com.daml.platform.indexer.parallel
 
+import java.util.Timer
 import java.util.concurrent.Executors
 
 import akka.stream.{KillSwitch, Materializer}
@@ -52,28 +53,29 @@ object ParallelIndexerFactory {
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
       haCoordinator <-
-        if (storageBackend.dbLockSupported && haConfig.enable)
-          ResourceOwner
-            .forExecutorService(() =>
-              ExecutionContext.fromExecutorService(
-                Executors.newFixedThreadPool(
-                  1,
-                  new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
+        if (storageBackend.dbLockSupported && haConfig.enable) {
+          for {
+            executionContext <- ResourceOwner
+              .forExecutorService(() =>
+                ExecutionContext.fromExecutorService(
+                  Executors.newFixedThreadPool(
+                    1,
+                    new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
+                  )
                 )
               )
-            )
-            .map(
-              HaCoordinator.databaseLockBasedHaCoordinator(
-                // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
-                // The life-cycle of such connections matches the life-cycle of a protectedExecution
-                dataSource = storageBackend.createDataSource(jdbcUrl),
-                storageBackend = storageBackend,
-                _,
-                scheduler = mat.system.scheduler,
-                haConfig = haConfig,
-              )
-            )
-        else
+            timer <- ResourceOwner.forTimer(() => new Timer)
+            // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
+            // The life-cycle of such connections matches the life-cycle of a protectedExecution
+            dataSource = storageBackend.createDataSource(jdbcUrl)
+          } yield HaCoordinator.databaseLockBasedHaCoordinator(
+            connectionFactory = () => dataSource.getConnection,
+            storageBackend = storageBackend,
+            executionContext = executionContext,
+            timer = timer,
+            haConfig = haConfig,
+          )
+        } else
           ResourceOwner.successful(NoopHaCoordinator)
     } yield toIndexer { implicit resourceContext =>
       implicit val ec: ExecutionContext = resourceContext.executionContext

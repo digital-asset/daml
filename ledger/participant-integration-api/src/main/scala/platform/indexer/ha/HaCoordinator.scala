@@ -4,8 +4,8 @@
 package com.daml.platform.indexer.ha
 
 import java.sql.Connection
+import java.util.Timer
 
-import akka.actor.Scheduler
 import akka.stream.KillSwitch
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.DBLockStorageBackend.{Lock, LockId, LockMode}
@@ -83,14 +83,14 @@ object HaCoordinator {
       dataSource: DataSource,
       storageBackend: DBLockStorageBackend,
       executionContext: ExecutionContext,
-      scheduler: Scheduler,
+      timer: Timer,
       haConfig: HaConfig,
   )(implicit loggingContext: LoggingContext): HaCoordinator = {
     implicit val ec: ExecutionContext = executionContext
 
     val indexerLockId = storageBackend.lock(haConfig.indexerLockId)
     val indexerWorkerLockId = storageBackend.lock(haConfig.indexerWorkerLockId)
-    val preemptableSequence = PreemptableSequence(scheduler)
+    val preemptableSequence = PreemptableSequence(timer)
 
     new HaCoordinator {
       override def protectedExecution(
