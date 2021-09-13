@@ -261,14 +261,16 @@ data Definition
   | DValue DefValue
   | DTemplate Template
   | DException DefException
+  | DInterface DefInterface
+  deriving Show
 
 moduleFromDefinitions :: ModuleName -> Maybe FilePath -> FeatureFlags -> [Definition] -> Module
 moduleFromDefinitions name path flags defs = do
-  let (syns, dats, vals, tpls, exps) = partitionDefinitions defs
-  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls) (NM.fromList exps) NM.empty -- TODO interfaces
+  let (syns, dats, vals, tpls, exps, ifs) = partitionDefinitions defs
+  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls) (NM.fromList exps) (NM.fromList ifs)
 
-partitionDefinitions :: [Definition] -> ([DefTypeSyn], [DefDataType], [DefValue], [Template], [DefException])
-partitionDefinitions = foldr f ([], [], [], [], [])
+partitionDefinitions :: [Definition] -> ([DefTypeSyn], [DefDataType], [DefValue], [Template], [DefException], [DefInterface])
+partitionDefinitions = foldr f ([], [], [], [], [], [])
   where
     f = \case
       DTypeSyn s  -> over _1 (s:)
@@ -276,6 +278,7 @@ partitionDefinitions = foldr f ([], [], [], [], [])
       DValue v    -> over _3 (v:)
       DTemplate t -> over _4 (t:)
       DException e -> over _5 (e:)
+      DInterface i -> over _6 (i:)
 
 -- | This is the analogue of GHC’s moduleNameString for the LF
 -- `ModuleName` type.
