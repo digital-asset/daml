@@ -363,9 +363,9 @@ server_conformance_test(
     servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -393,10 +393,10 @@ server_conformance_test(
     servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
+        "--exclude=ClosedWorldIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],

@@ -234,13 +234,13 @@ conformance_test(
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
         "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-        "--exclude=CommandDeduplicationIT",
         "--additional=IdentityIT",
         "--additional=IdentityIT:IdNotEmpty",
         # Explicitly include retired tests here to make sure existing CI pipelines are not broken.
         # Retired tests will be eventually removed.
         "--additional=LotsOfPartiesIT",
         "--additional=TransactionScaleIT",
+        "--exclude=CommandDeduplicationIT",
         # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken.
         # This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
         # exclusively for backwards-compatibility.

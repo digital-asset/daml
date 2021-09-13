@@ -142,18 +142,18 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
         "--additional=KVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
         "--exclude=RaceConditionIT",
         "--exclude=ExceptionRaceConditionIT",
         "--exclude=ExceptionsIT",
-        "--additional=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-        "--additional=MultiPartySubmissionIT",
     ],
 )
 
