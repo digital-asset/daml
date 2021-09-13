@@ -13,7 +13,6 @@ import com.daml.lf.transaction.GenTransaction.{
 }
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeRollback}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
@@ -23,7 +22,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.HashMap
-import scala.language.implicitConversions
 import scala.util.Random
 
 class TransactionSpec
@@ -33,6 +31,7 @@ class TransactionSpec
     with ScalaCheckDrivenPropertyChecks {
 
   import TransactionSpec._
+  import TransactionBuilder.Implicits._
 
   "isWellFormed" - {
     "detects dangling references in roots" in {
@@ -42,7 +41,7 @@ class TransactionSpec
 
     "detects dangling references in children" in {
       val tx = mkTransaction(
-        HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2)))),
+        HashMap(NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2)))),
         ImmArray(NodeId(1)),
       )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), DanglingNodeId))
@@ -50,7 +49,7 @@ class TransactionSpec
 
     "detects cycles" in {
       val tx = mkTransaction(
-        HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(1)))),
+        HashMap(NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(1)))),
         ImmArray(NodeId(1)),
       )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), AliasedNode))
@@ -59,9 +58,9 @@ class TransactionSpec
     "detects aliasing from roots and exercise" in {
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyExerciseNode("cid0", ImmArray(NodeId(1))),
-          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2))),
-          NodeId(2) -> dummyCreateNode("cid2"),
+          NodeId(0) -> dummyExerciseNode("#cid0", ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode("#cid2"),
         ),
         ImmArray(NodeId(0), NodeId(2)),
       )
@@ -69,7 +68,7 @@ class TransactionSpec
     }
 
     "detects orphans" in {
-      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode("cid1")), ImmArray.Empty)
+      val tx = mkTransaction(HashMap(NodeId(1) -> dummyCreateNode("#cid1")), ImmArray.Empty)
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), OrphanedNode))
     }
   }
@@ -79,9 +78,9 @@ class TransactionSpec
     "collects contract IDs" in {
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyExerciseNode("cid0", ImmArray(NodeId(1))),
-          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2))),
-          NodeId(2) -> dummyCreateNode("cid2"),
+          NodeId(0) -> dummyExerciseNode("#cid0", ImmArray(NodeId(1))),
+          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2))),
+          NodeId(2) -> dummyCreateNode("#cid2"),
         ),
         ImmArray(NodeId(0), NodeId(2)),
       )
@@ -92,7 +91,7 @@ class TransactionSpec
         cids.result()
       }
 
-      collectCids(tx) shouldBe Set[V.ContractId]("cid0", "cid1", "cid2", dummyCid)
+      collectCids(tx) shouldBe Set[V.ContractId]("#cid0", "#cid1", "#cid2", "#dummyCid")
 
     }
 
@@ -103,12 +102,12 @@ class TransactionSpec
 
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyCreateNode("cid0"),
-          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2), NodeId(4))),
-          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.Empty),
-          NodeId(3) -> dummyCreateNode("cid3"),
+          NodeId(0) -> dummyCreateNode("#cid0"),
+          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2), NodeId(4))),
+          NodeId(2) -> dummyExerciseNode("#cid2", ImmArray.Empty),
+          NodeId(3) -> dummyCreateNode("#cid3"),
           NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
-          NodeId(5) -> dummyCreateNode("cid5"),
+          NodeId(5) -> dummyCreateNode("#cid5"),
         ),
         ImmArray(NodeId(0), NodeId(1), NodeId(3)),
       )
@@ -131,19 +130,19 @@ class TransactionSpec
 
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyCreateNode("cid0"),
-          NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2), NodeId(4))),
-          NodeId(2) -> dummyExerciseNode("cid2", ImmArray.Empty),
-          NodeId(3) -> dummyCreateNode("cid3"),
+          NodeId(0) -> dummyCreateNode("#cid0"),
+          NodeId(1) -> dummyExerciseNode("#cid1", ImmArray(NodeId(2), NodeId(4))),
+          NodeId(2) -> dummyExerciseNode("#cid2", ImmArray.Empty),
+          NodeId(3) -> dummyCreateNode("#cid3"),
           NodeId(4) -> dummyRollbackNode(ImmArray(NodeId(5))),
-          NodeId(5) -> dummyCreateNode("cid5"),
+          NodeId(5) -> dummyCreateNode("#cid5"),
           // these are not reachable
-          NodeId(10) -> dummyCreateNode("cid10"),
-          NodeId(11) -> dummyExerciseNode("cid11", ImmArray(NodeId(12), NodeId(14))),
-          NodeId(12) -> dummyExerciseNode("cid12", ImmArray.Empty),
-          NodeId(13) -> dummyCreateNode("cid13"),
+          NodeId(10) -> dummyCreateNode("#cid10"),
+          NodeId(11) -> dummyExerciseNode("#cid11", ImmArray(NodeId(12), NodeId(14))),
+          NodeId(12) -> dummyExerciseNode("#cid12", ImmArray.Empty),
+          NodeId(13) -> dummyCreateNode("#cid13"),
           NodeId(14) -> dummyRollbackNode(ImmArray(NodeId(15))),
-          NodeId(15) -> dummyCreateNode("cid15"),
+          NodeId(15) -> dummyCreateNode("#cid15"),
         ),
         ImmArray(NodeId(0), NodeId(1), NodeId(3)),
       )
@@ -172,15 +171,15 @@ class TransactionSpec
    */
 
   "isReplayedBy" - {
-    def genTrans(node: GenNode[NodeId, ContractId]) = {
+    def genTrans(node: GenNode[NodeId, V.ContractId]) = {
       val nid = NodeId(1)
       val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
-        n1: GenNode[NodeId, ContractId],
-        n2: GenNode[NodeId, ContractId],
+        n1: GenNode[NodeId, V.ContractId],
+        n2: GenNode[NodeId, V.ContractId],
     ) = Validation.isReplayedBy(genTrans(n1), genTrans(n2))
 
     // the whole-transaction-relevant parts are handled by equalForest testing
@@ -230,32 +229,30 @@ class TransactionSpec
   "suffixCid" - {
     "suffix non suffixed and only non suffixed contract ids" in {
 
+      val cids = List.fill(2)(TransactionBuilder.newV1Cid)
+      assert(cids.distinct.length == cids.length)
+      val List(cid1, cid2) = cids
+      val mapping1 = cids.map { cid =>
+        assert(cid.suffix.isEmpty)
+        cid.discriminator -> cid.discriminator.bytes.slice(10, 20)
+      }.toMap
+      val mapping2: V.ContractId => V.ContractId = {
+        case cid @ V.ContractId.V1(discriminator, Bytes.Empty) =>
+          mapping1.get(discriminator) match {
+            case Some(value) => V.ContractId.V1.assertBuild(discriminator, value)
+            case None => cid
+          }
+        case cid => cid
+      }
+
       val tx = mkTransaction(
         HashMap(
-          NodeId(0) -> dummyCreateNode("cid1"),
-          NodeId(0) -> dummyExerciseNode("cid1", ImmArray(NodeId(0))),
-          NodeId(1) -> dummyExerciseNode("cid2", ImmArray(NodeId(1))),
+          NodeId(0) -> dummyCreateNode(cid1),
+          NodeId(0) -> dummyExerciseNode(cid1, ImmArray(NodeId(0))),
+          NodeId(1) -> dummyExerciseNode(cid2, ImmArray(NodeId(1))),
         ),
         ImmArray(NodeId(0), NodeId(1)),
       )
-
-      val suffix1 = Bytes.assertFromString("01")
-      val suffix2 = Bytes.assertFromString("02")
-
-      val cid1 = toCid("cid1")
-      val cid2 = toCid("cid2")
-
-      val mapping1: crypto.Hash => Bytes = Map(
-        cid1.discriminator -> suffix1,
-        cid2.discriminator -> suffix2,
-      )
-
-      val mapping2: V.ContractId => V.ContractId = Map(
-        cid1 -> V.ContractId.V1.assertBuild(cid1.discriminator, suffix1),
-        cid2 -> V.ContractId.V1.assertBuild(cid2.discriminator, suffix2),
-      )
-
-      dummyCreateNode("dd").arg.suffixCid(mapping1)
 
       val tx1 = tx.suffixCid(mapping1)
       val tx2 = tx.suffixCid(mapping1)
@@ -266,23 +263,22 @@ class TransactionSpec
 
     }
     "suffixing v0 contract id should be a no op" in {
-
       val v0Cid = V.ValueContractId(V.ContractId.V0.assertFromString("#deadbeef"))
       val Right(v0CidSuffixed) = v0Cid.suffixCid(_ => Bytes.assertFromString("cafe"))
       v0Cid shouldBe v0CidSuffixed
-
     }
   }
 
   "contractKeys" - {
     "return all the contract keys" in {
-      val builder = TransactionBuilder(TransactionVersion.StableVersions.max)
-      val parties = List("Alice")
+
+      val builder = TransactionBuilder()
+      val parties = Set("Alice")
 
       def create(s: String) = builder
         .create(
           id = s"#$s",
-          template = s"-pkg-:Mod:$s",
+          templateId = s"Mod:$s",
           argument = V.ValueUnit,
           signatories = parties,
           observers = parties,
@@ -309,7 +305,7 @@ class TransactionSpec
       val root1 =
         builder.create(
           "#root",
-          template = "-pkg-:Mod:Root",
+          templateId = "Mod:Root",
           argument = V.ValueUnit,
           signatories = parties,
           observers = parties,
@@ -366,9 +362,7 @@ class TransactionSpec
           "RolledBackFetchByKey",
           "RolledBackSuccessfulLookup",
           "RolledBackUnsuccessfulLookup",
-        ).map(s =>
-          GlobalKey.assertBuild(Ref.Identifier.assertFromString(s"-pkg-:Mod:$s"), V.ValueText(s))
-        ).toSet
+        ).map(s => GlobalKey.assertBuild("Mod:" + s, V.ValueText(s))).toSet
 
       builder.build().contractKeys shouldBe expectedResults
     }
@@ -376,15 +370,14 @@ class TransactionSpec
 
   "contractKeyInputs" - {
     import Transaction._
-    val dummyBuilder = TransactionBuilder(TransactionVersion.StableVersions.max)
+    val dummyBuilder = TransactionBuilder()
     val parties = List("Alice")
-    val tmplId = Ref.Identifier.assertFromString("-pkg-:Mod:T")
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(s: String) = GlobalKey(tmplId, keyValue(s))
+    def globalKey(s: String) = GlobalKey("Mod:T", keyValue(s))
     def create(s: String) = dummyBuilder
       .create(
         id = s,
-        template = "-pkg-:Mod:T",
+        templateId = "Mod:T",
         argument = V.ValueUnit,
         signatories = parties,
         observers = parties,
@@ -409,26 +402,23 @@ class TransactionSpec
       dummyBuilder.lookupByKey(contract = create(s), found = found)
 
     "return None for create" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val createNode = create("#0")
       builder.add(createNode)
       builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
     }
     "return Some(_) for fetch and fetch-by-key" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val fetchNode0 = fetch("#0", byKey = false)
       val fetchNode1 = fetch("#1", byKey = true)
       builder.add(fetchNode0)
       builder.add(fetchNode1)
       builder.build().contractKeyInputs shouldBe Right(
-        Map(
-          globalKey("#0") -> KeyActive(fetchNode0.coid),
-          globalKey("#1") -> KeyActive(fetchNode1.coid),
-        )
+        Map(globalKey("#0") -> KeyActive("#0"), globalKey("#1") -> KeyActive("#1"))
       )
     }
     "return Some(_) for consuming/non-consuming exercise and exercise-by-key" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val exe0 = exe("#0", consuming = false, byKey = false)
       val exe1 = exe("#1", consuming = true, byKey = false)
       val exe2 = exe("#2", consuming = false, byKey = true)
@@ -437,23 +427,20 @@ class TransactionSpec
       builder.add(exe1)
       builder.add(exe2)
       builder.add(exe3)
-      builder.build().contractKeyInputs shouldBe
-        Right(
-          Seq(exe0, exe1, exe2, exe3).view
-            .map(exe => globalKey(exe.targetCoid.coid) -> KeyActive(exe.targetCoid))
-            .toMap
-        )
+      builder.build().contractKeyInputs shouldBe Right(
+        Seq("#0", "#1", "#2", "#3").map(s => globalKey(s) -> KeyActive(s)).toMap
+      )
     }
 
     "return None for negative lookup by key" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val lookupNode = lookup("#0", found = false)
       builder.add(lookupNode)
       builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> NegativeKeyLookup))
     }
 
     "return Some(_) for negative lookup by key" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val lookupNode = lookup("#0", found = true)
       builder.add(lookupNode)
       inside(lookupNode.result) { case Some(cid) =>
@@ -461,7 +448,7 @@ class TransactionSpec
       }
     }
     "returns keys used under rollback nodes" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val createNode = create("#0")
       val exerciseNode = exe("#1", consuming = false, byKey = false)
       val fetchNode = fetch("#2", byKey = false)
@@ -481,59 +468,59 @@ class TransactionSpec
       )
     }
     "two creates conflict" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       builder.add(create("#0"))
       builder.add(create("#0"))
       builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "two creates do not conflict if interleaved with archive" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       builder.add(create("#0"))
       builder.add(exe("#0", consuming = true, byKey = false))
       builder.add(create("#0"))
       builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
     }
     "two creates do not conflict if one is in rollback" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(create("#0"), rollback)
       builder.add(create("#0"))
       builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
     }
     "negative lookup after create fails" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       builder.add(create("#0"))
       builder.add(lookup("#0", found = false))
       builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
     }
     "inconsistent lookups conflict" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       builder.add(lookup("#0", found = true))
       builder.add(lookup("#0", found = false))
       builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
     }
     "inconsistent lookups conflict across rollback" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(lookup("#0", found = true), rollback)
       builder.add(lookup("#0", found = false))
       builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
     }
     "positive lookup conflicts with create" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       builder.add(lookup("#0", found = true))
       builder.add(create("#0"))
       builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "positive lookup in rollback conflicts with create" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(lookup("#0", found = true), rollback)
       builder.add(create("#0"))
       builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "rolled back archive does not prevent conflict" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       builder.add(create("#0"))
       val rollback = builder.add(builder.rollback())
       builder.add(exe("#0", consuming = true, byKey = true), rollback)
@@ -541,7 +528,7 @@ class TransactionSpec
       builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "successful, inconsistent lookups conflict" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val create0 = create("#0")
       val create1 = create("#1").copy(
         key = Some(
@@ -556,7 +543,7 @@ class TransactionSpec
       builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
     }
     "first negative input wins" in {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
       val create0 = create("#0")
       val lookup0 = builder.lookupByKey(create0, found = false)
@@ -572,11 +559,11 @@ class TransactionSpec
     }
   }
 
-  def create(builder: TransactionBuilder, parties: Seq[String], key: Option[String] = None) = {
-    val cid: ContractId = builder.newCid
+  def create(builder: TransactionBuilder, parties: Set[Ref.Party], key: Option[String] = None) = {
+    val cid = builder.newCid
     val node = builder.create(
       id = cid,
-      template = "-pkg-:Mod:T",
+      templateId = "Mod:T",
       argument = V.ValueUnit,
       signatories = parties,
       observers = Seq(),
@@ -586,8 +573,8 @@ class TransactionSpec
   }
   def exercise(
       builder: TransactionBuilder,
-      create: Node.NodeCreate[ContractId],
-      parties: Seq[String],
+      create: Node.NodeCreate[V.ContractId],
+      parties: Set[Ref.Party],
       consuming: Boolean,
   ) =
     builder.exercise(
@@ -650,8 +637,7 @@ class TransactionSpec
       builder.add(create5, rollback)
       builder.add(exercise(builder, create3, parties, true), rollback)
       builder.add(create4, rollback)
-      def key(s: String) =
-        GlobalKey.assertBuild(Ref.Identifier.assertFromString("-pkg-:Mod:T"), V.ValueText(s))
+      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s))
       builder.build().updatedContractKeys shouldBe
         Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
     }
@@ -659,6 +645,9 @@ class TransactionSpec
 }
 
 object TransactionSpec {
+
+  import TransactionBuilder.Implicits._
+
   type Transaction = GenTransaction[NodeId, V.ContractId]
   def mkTransaction(
       nodes: HashMap[NodeId, GenNode[NodeId, V.ContractId]],
@@ -679,10 +668,7 @@ object TransactionSpec {
   ): NodeExercises[NodeId, V.ContractId] =
     NodeExercises(
       targetCoid = cid,
-      templateId = Ref.Identifier(
-        Ref.PackageId.assertFromString("-dummyPkg-"),
-        Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
-      ),
+      templateId = "DummyModule:dummyName",
       choiceId = "dummyChoice",
       consuming = true,
       actingParties = Set.empty,
@@ -697,26 +683,16 @@ object TransactionSpec {
       version = TransactionVersion.minVersion,
     )
 
-  val dummyCid = V.ContractId.V1.assertBuild(
-    toCid("dummyCid").discriminator,
-    Bytes.assertFromString("f00d"),
-  )
-
-  def dummyCreateNode(cid: String): NodeCreate[V.ContractId] =
+  def dummyCreateNode(cid: V.ContractId): NodeCreate[V.ContractId] =
     NodeCreate(
-      coid = toCid(cid),
+      coid = cid,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
-      arg = V.ValueContractId(dummyCid),
+      arg = V.ValueContractId("#dummyCid"),
       agreementText = "dummyAgreement",
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
       version = TransactionVersion.minVersion,
     )
-
-  implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
-
-  implicit def toCid(s: String): V.ContractId.V1 =
-    V.ContractId.V1(crypto.Hash.hashPrivateKey(s))
 
 }

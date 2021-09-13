@@ -13,13 +13,13 @@ import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
-import com.daml.lf.value.Value.{ValueRecord, ValueText}
+import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
 import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -43,6 +43,8 @@ class TransactionCommitterSpec
     with MockitoSugar
     with OptionValues {
   import TransactionCommitterSpec._
+
+  import TransactionBuilder.Implicits._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -344,7 +346,7 @@ class TransactionCommitterSpec
       val context = createCommitContext(recordTime = None)
       context.set(Conversions.configurationStateKey, aDamlConfigurationStateValue)
 
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val cid = builder.newCid
 
       val (expectedContractInstance, txEntry) = txEntryWithDivulgedContract(builder, cid)
@@ -409,17 +411,17 @@ class TransactionCommitterSpec
       .build
 
   private def create(
-      contractId: String,
-      signatories: Seq[String] = Seq(aKeyMaintainer),
+      contractId: ContractId,
+      signatories: Set[Ref.Party] = Set(aKeyMaintainer),
       argument: TransactionBuilder.Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
   ): TransactionBuilder.Create =
     txBuilder.create(
       id = contractId,
-      template = "dummyPackage:DummyModule:DummyTemplate",
+      templateId = "DummyModule:DummyTemplate",
       argument = argument,
       signatories = signatories,
-      observers = Seq.empty,
+      observers = Set.empty,
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
@@ -438,6 +440,9 @@ class TransactionCommitterSpec
 }
 
 object TransactionCommitterSpec {
+
+  import TransactionBuilder.Implicits._
+
   private val Alice = "alice"
   private val Bob = "bob"
   private val Emma = "emma"
@@ -504,7 +509,6 @@ object TransactionCommitterSpec {
       builder: TransactionBuilder,
       divulgedContractId: Value.ContractId,
   ) = {
-    val packageName = "DummyPackage"
     val moduleName = "DummyModule"
     val templateName = "DummyTemplate"
 
@@ -512,10 +516,10 @@ object TransactionCommitterSpec {
 
     val createNode = builder.create(
       id = divulgedContractId,
-      template = s"$packageName:$moduleName:$templateName",
+      templateId = s"$moduleName:$templateName",
       argument = ValueText(argValue),
-      signatories = Seq("Alice"),
-      observers = Seq.empty,
+      signatories = Set("Alice"),
+      observers = Set.empty,
       key = None,
     )
     val exerciseNode = builder.exercise(
@@ -536,14 +540,14 @@ object TransactionCommitterSpec {
         .setTemplateId(
           ValueOuterClass.Identifier
             .newBuilder()
-            .setPackageId(packageName)
+            .setPackageId(defaultPackageId)
             .addModuleName(moduleName)
             .addName(templateName)
         )
         .setArgVersioned(
           ValueOuterClass.VersionedValue
             .newBuilder()
-            .setVersion(TransactionVersion.VDev.protoValue)
+            .setVersion(TransactionVersion.StableVersions.max.protoValue)
             .setValue(
               ValueOuterClass.Value.newBuilder().setText(argValue).build().toByteString
             )
