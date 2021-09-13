@@ -47,8 +47,11 @@ private[platform] case class InitializeParallelIngestion(
           )
         )
       )
-      ledgerEnd <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
-        storageBackend.initializeIngestion
+      ledgerEnd <- dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(
+        storageBackend.ledgerEnd
+      )
+      _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
+        storageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(EventSequentialId.beforeBegin),

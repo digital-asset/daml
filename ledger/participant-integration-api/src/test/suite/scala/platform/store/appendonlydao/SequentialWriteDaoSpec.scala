@@ -81,9 +81,9 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       captured = captured ++ batch
     }
 
-    override def initializeIngestion(
+    override def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
         connection: Connection
-    ): Option[ParameterStorageBackend.LedgerEnd] =
+    ): Unit =
       throw new UnsupportedOperationException
 
     override def updateLedgerEnd(

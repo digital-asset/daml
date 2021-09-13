@@ -19,19 +19,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   import StorageBackendTestValues._
 
-  it should "report the correct ledger end" in {
-    val someLedgerEnd = ParameterStorageBackend.LedgerEnd(offset(1), 1L)
-    for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      endBefore <- executeSql(backend.initializeIngestion)
-      _ <- executeSql(backend.updateLedgerEnd(someLedgerEnd))
-      endAfter <- executeSql(backend.initializeIngestion)
-    } yield {
-      endBefore shouldBe empty
-      endAfter shouldBe Some(someLedgerEnd)
-    }
-  }
-
   it should "delete overspill entries" in {
     val dtos1: Vector[DbDto] = Vector(
       // 1: config change
@@ -75,7 +62,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
 
       // Start the indexer (a no-op in this case)
-      _ <- executeSql(backend.initializeIngestion)
+      end1 <- executeSql(backend.ledgerEnd)
+      _ <- executeSql(backend.deletePartiallyIngestedData(end1))
 
       // Fully insert first batch of updates
       _ <- executeSql(ingest(dtos1, _))
@@ -96,7 +84,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
 
       // Restart the indexer - should delete data from the partial insert above
-      _ <- executeSql(backend.initializeIngestion)
+      end2 <- executeSql(backend.ledgerEnd)
+      _ <- executeSql(backend.deletePartiallyIngestedData(end2))
 
       // Move the ledger end so that any non-deleted data would become visible
       _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(10, 6L)))
