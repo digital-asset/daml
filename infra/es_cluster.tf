@@ -396,19 +396,19 @@ resource "google_project_iam_custom_role" "es-feed-write" {
   title       = "es-feed-write"
   description = "es-feed-write"
   permissions = [
-    "storage.objects.write"
+    "storage.objects.create"
   ]
 }
 
 resource "google_project_iam_member" "es-feed-write" {
   project = local.project
   role    = google_project_iam_custom_role.es-feed-write.id
-  member  = "serviceAccount:${google_service_account.es-feed-write.email}"
+  member  = "serviceAccount:${google_service_account.es-feed.email}"
 
   condition {
     title       = "es_feed_write"
     description = "es_feed_write"
-    expression  = "resource.name.startsWith(“projects/_/buckets/${google_storage_bucket.data.name}/objects/kibana-export”)"
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.data.name}/objects/kibana-export\")"
   }
 }
 
@@ -1017,7 +1017,7 @@ STARTUP
       # Required for cloud logging
       "logging-write",
       # Read access to storage
-      "storage-ro",
+      "storage-rw",
     ]
   }
 
