@@ -105,7 +105,6 @@ private[backend] object H2StorageBackend
   override def insertBatch(connection: Connection, batch: AppendOnlySchema.Batch): Unit =
     H2Schema.schema.executeUpdate(batch, connection)
 
-  // TODO FIXME: this is for postgres not for H2
   def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
