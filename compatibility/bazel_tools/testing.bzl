@@ -392,6 +392,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "1.17.0-snapshot.20210910.7786.1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210811.7565.0.f1a55aa4",
+                "end": "1.17.0-snapshot.20210910.7786.0.976ca400 ",
+                "exclusions": [
+                    "CommandDeduplicationIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
