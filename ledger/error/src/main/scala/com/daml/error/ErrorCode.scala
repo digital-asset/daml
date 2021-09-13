@@ -41,6 +41,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   // TODO error codes: Implement `asGrpcError`
 
+  require(id.nonEmpty, "error-id must be non empty")
   require(id.length < 64, s"error-id is too long: $id")
   require(id.forall(c => c.isUpper || c == '_' || c.isDigit), s"Invalid characters in error-id $id")
 

@@ -49,13 +49,13 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
   private def convertToDocItem(error: ErrorCode): DocItem = {
     val (expl, res) = getErrorNameAndAnnotations(error)
     DocItem(
-      error.getClass.getName,
-      error.category.getClass.getSimpleName,
-      error.parent.docNames.filter(_ != ""),
-      error.errorConveyanceDocString.getOrElse(""),
-      error.id,
-      expl,
-      res,
+      className = error.getClass.getName,
+      category = error.category.getClass.getSimpleName,
+      hierarchicalGrouping = error.parent.docNames.filter(_ != ""),
+      conveyance = error.errorConveyanceDocString.getOrElse(""),
+      code = error.id,
+      explanation = expl,
+      resolution = res,
     )
   }
 

@@ -17,7 +17,7 @@ import com.daml.error.{Explanation, Resolution}
   * @param resolution The suggested error resolution.
   */
 case class DocItem(
-    className: String,
+    className: String, // TODO error codes: Rename to `errorCodeName` or `errorCodeClassName` to prevent confusion
     category: String,
     hierarchicalGrouping: List[String],
     conveyance: String,

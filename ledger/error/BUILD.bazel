@@ -25,8 +25,8 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "error-test-package",
-    srcs = glob(["src/test/scala/com/daml/error/utils/**/*.scala"]),
+    name = "error-test-utils",
+    srcs = glob(["src/test/utils/**/*.scala"]),
     scala_deps = [],
     tags = ["maven_coordinates=com.daml:error-test-package:__VERSION__"],
     visibility = ["//visibility:private"],
@@ -38,10 +38,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "error-test-suite",
-    srcs = glob(
-        ["src/test/scala/**/*.scala"],
-        exclude = ["src/test/scala/com/daml/error/utils/**/*.scala"],
-    ),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     resources = ["src/test/resources/logback-test.xml"],
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
@@ -51,7 +48,7 @@ da_scala_test_suite(
     ],
     deps = [
         ":error",
-        ":error-test-package",
+        ":error-test-utils",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "@maven//:ch_qos_logback_logback_classic",

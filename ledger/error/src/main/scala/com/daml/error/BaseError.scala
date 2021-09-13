@@ -58,8 +58,9 @@ trait LocationMixin {
   /** Contains the location where the error has been created. */
   val location: Option[String] = {
     val stack = Thread.currentThread().getStackTrace
+    val thisClassName = this.getClass.getName
     val idx = stack.indexWhere { element =>
-      element.getClassName == this.getClass.getName
+      element.getClassName == thisClassName
     }
     if (idx != -1 && (idx + 1) < stack.length) {
       val stackTraceElement = stack(idx + 1)
