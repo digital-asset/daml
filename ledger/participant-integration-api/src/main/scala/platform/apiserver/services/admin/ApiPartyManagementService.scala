@@ -106,7 +106,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 error =>
                   Future.failed(
                     ValidationLogger
-                      .logFailureWithContext(request, ErrorFactories.invalidArgument(error))
+                      .logFailureWithContext(request, ErrorFactories.invalidArgument(None)(error))
                   ),
                 party => Future.successful(Some(party)),
               )
@@ -203,7 +203,7 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
-        ErrorFactories.invalidArgument(reason)
+        ErrorFactories.invalidArgument(None)(reason)
     }
   }
 

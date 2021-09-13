@@ -39,7 +39,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .transactionTreeById(tree.transactionId, intruder)
         .mustFail("subscribing to an invisible transaction tree")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 
@@ -53,7 +57,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .transactionTreeById("a" * 60, party)
         .mustFail("looking up an non-existent transaction tree")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 
@@ -83,7 +91,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .flatTransactionById(tree.transactionId, intruder)
         .mustFail("looking up an invisible flat transaction")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 
@@ -97,7 +109,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .flatTransactionById("a" * 60, party)
         .mustFail("looking up a non-existent flat transaction")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 
@@ -129,7 +145,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .transactionTreeByEventId(tree.rootEventIds.head, intruder)
         .mustFail("looking up an invisible transaction tree")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 
@@ -143,7 +163,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .transactionTreeByEventId(s"#${"a" * 60}:000", party)
         .mustFail("looking up a non-existent transaction tree")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 
@@ -175,7 +199,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .flatTransactionByEventId(tree.rootEventIds.head, intruder)
         .mustFail("looking up an invisible flat transaction")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 
@@ -189,7 +217,11 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .flatTransactionByEventId(s"#${"a" * 60}:000", party)
         .mustFail("looking up a non-existent flat transaction")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        Some("Transaction not found, or not visible."),
+      )
     }
   })
 }

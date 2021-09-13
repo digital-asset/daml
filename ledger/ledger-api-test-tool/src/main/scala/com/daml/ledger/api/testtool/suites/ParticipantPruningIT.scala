@@ -37,7 +37,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         .prune("", attempts = 1, pruneAllDivulgedContracts = true)
         .mustFail("pruning without specifying an offset")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "prune_up_to not specified")
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, Some("prune_up_to not specified"))
     }
   })
 
@@ -54,7 +54,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       assertGrpcError(
         cannotPruneNonHexOffset,
         Status.Code.INVALID_ARGUMENT,
-        "prune_up_to needs to be a hexadecimal string and not",
+        Some("prune_up_to needs to be a hexadecimal string and not"),
       )
     }
   })
@@ -75,7 +75,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       assertGrpcError(
         cannotPruneOffsetBeyondEnd,
         Status.Code.INVALID_ARGUMENT,
-        "prune_up_to needs to be before ledger end",
+        Some("prune_up_to needs to be before ledger end"),
       )
     }
   })
@@ -114,7 +114,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
         s"transaction trees not pruned at expected offset",
       )
-      assertGrpcError(
+      assertGrpcErrorRegex(
         cannotReadAnymore,
         Status.Code.NOT_FOUND,
         Some(
@@ -160,7 +160,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         txAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
         s"flat transactions not pruned at expected offset",
       )
-      assertGrpcError(
+      assertGrpcErrorRegex(
         cannotReadAnymore,
         Status.Code.NOT_FOUND,
         Some(
@@ -213,7 +213,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         ),
         s"first checkpoint offset ${firstCheckpointsAfterPrune.offset} after pruning does not match expected offset $offsetOfFirstSurvivingCheckpoint",
       )
-      assertGrpcError(
+      assertGrpcErrorRegex(
         cannotReadAnymore,
         Status.Code.NOT_FOUND,
         Some(
@@ -222,7 +222,6 @@ class ParticipantPruningIT extends LedgerTestSuite {
           )
         ),
       )
-
     }
   })
 
@@ -284,7 +283,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       )
     } yield {
       prunedTransactionTrees.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
       )
     }
   })
@@ -327,7 +326,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       )
     } yield {
       prunedFlatTransactions.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
       )
     }
   })
@@ -366,7 +365,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- Future.sequence(unprunedEventIds.map(participant.transactionTreeByEventId(_, submitter)))
     } yield {
       prunedEventsViaTree.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
       )
     }
   })
@@ -405,7 +404,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- Future.sequence(unprunedEventIds.map(participant.flatTransactionByEventId(_, submitter)))
     } yield {
       prunedEventsViaFlat.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
       )
     }
   })

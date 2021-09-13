@@ -40,7 +40,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "Invalid argument: Invalid DAR: package-upload",
+        Some("Invalid argument: Invalid DAR: package-upload"),
       )
     }
   })
