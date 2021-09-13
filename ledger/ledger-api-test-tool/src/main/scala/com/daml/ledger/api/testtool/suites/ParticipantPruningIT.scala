@@ -646,6 +646,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
+      // synchronize to wait until alice has observed contract divulged by bob
+      _ <- synchronize(alpha, beta)
       // Alice's contract creation is disclosed to Bob
       contract <- alpha.exerciseAndGetContract[Contract](
         alice,
@@ -700,6 +702,10 @@ class ParticipantPruningIT extends LedgerTestSuite {
         bob,
         divulgence.exerciseCanFetch(_, contract),
       )
+
+      // Add events to both participants to advance canton's safe pruning offset
+      _ <- populateLedgerAndGetOffsets(alpha, alice)
+      _ <- populateLedgerAndGetOffsets(beta, bob)
 
       _ <- beta.prune(
         pruneUpTo = offsetAfterDivulgence_1,
