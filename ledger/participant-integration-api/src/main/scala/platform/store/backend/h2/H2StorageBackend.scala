@@ -117,15 +117,15 @@ private[backend] object H2StorageBackend
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
     // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
     SQL"""
-select max_esi from (
-  (SELECT max(event_sequential_id) as max_esi FROM participant_events_consuming_exercise WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW only)
-  union all
-  (SELECT max(event_sequential_id) as max_esi FROM participant_events_non_consuming_exercise WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW only)
-  union all
-  (SELECT max(event_sequential_id) as max_esi FROM participant_events_create WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW only)
-) as t
-order by max_esi desc
-fetch next 1 row only;
+SELECT max_esi FROM (
+  (SELECT max(event_sequential_id) AS max_esi FROM participant_events_consuming_exercise WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW ONLY)
+  UNION ALL
+  (SELECT max(event_sequential_id) AS max_esi FROM participant_events_non_consuming_exercise WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW ONLY)
+  UNION ALL
+  (SELECT max(event_sequential_id) AS max_esi FROM participant_events_create WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW ONLY)
+) AS t
+ORDER BY max_esi DESC
+FETCH NEXT 1 ROW ONLY;
        """.as(get[Long](1).singleOpt)(connection)
   }
 
