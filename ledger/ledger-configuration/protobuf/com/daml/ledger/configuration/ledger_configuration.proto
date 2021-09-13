@@ -32,9 +32,9 @@ message LedgerConfiguration {
   // ledger effective time and maximum record time of transactions.
   LedgerTimeModel time_model = 3;
 
-  // The maximum value for the ``deduplication_duration`` parameter of command submissions
+  // The default value for the ``deduplication_duration`` parameter of command submissions
   // (as described in ``commands.proto``). This defines the maximum time window during which
-  // commands can be deduplicated.
+  // commands SHOULD be deduplicated.
   google.protobuf.Duration max_deduplication_time = 4;
 }
 
@@ -48,7 +48,7 @@ message LedgerTimeModel {
   // being assigned a record time.
   google.protobuf.Duration avg_transaction_latency = 4;
 
-  // The minimimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
+  // The minimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
   google.protobuf.Duration min_skew = 5;
 
   // The maximum skew between ledger time and record time: lt_TX <= rt_TX + maxSkew
