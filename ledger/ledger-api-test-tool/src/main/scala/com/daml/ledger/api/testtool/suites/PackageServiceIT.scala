@@ -54,7 +54,7 @@ final class PackageServiceIT extends LedgerTestSuite {
         .getPackage(unknownPackageId)
         .mustFail("getting the contents of an unknown package")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "")
+      assertGrpcError(failure, Status.Code.NOT_FOUND, None)
     }
   })
 

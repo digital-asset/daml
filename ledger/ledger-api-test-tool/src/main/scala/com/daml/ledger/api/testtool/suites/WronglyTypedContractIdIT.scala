@@ -25,7 +25,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         assertGrpcError(
           exerciseFailure,
           Code.INVALID_ARGUMENT,
-          "wrongly typed contract id",
+          Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
       }
@@ -46,7 +46,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         assertGrpcError(
           fetchFailure,
           Code.INVALID_ARGUMENT,
-          "wrongly typed contract id",
+          Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
       }
@@ -73,7 +73,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Code.INVALID_ARGUMENT,
-        "wrongly typed contract id",
+        Some("wrongly typed contract id"),
         checkDefiniteAnswerMetadata = true,
       )
     }

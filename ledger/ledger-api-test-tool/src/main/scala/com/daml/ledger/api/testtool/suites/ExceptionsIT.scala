@@ -33,7 +33,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "Unhandled exception",
+        Some("Unhandled exception"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -84,7 +84,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.ABORTED,
-        "Contract could not be found",
+        Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -107,7 +107,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.ABORTED,
-        "Contract could not be found",
+        Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -130,7 +130,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.ABORTED,
-        "Contract could not be found",
+        Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -185,7 +185,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.ABORTED,
-        "DuplicateKey",
+        Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -203,7 +203,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       _ = assertGrpcError(
         failure,
         Status.Code.ABORTED,
-        "DuplicateKey",
+        Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
       _ <- ledger.exercise(party, withKey.exerciseArchive(_))
@@ -226,7 +226,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "couldn't find key",
+        Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
       ()
@@ -244,7 +244,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       _ = assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "couldn't find key",
+        Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
       _ <- ledger.create(party, WithSimpleKey(party))
@@ -287,7 +287,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         _ = assertGrpcError(
           fetchFailure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         _ <- bLedger.exercise(bParty, divulger.exerciseDivulge(_, t))
@@ -314,7 +314,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         _ = assertGrpcError(
           fetchFailure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         fetchFailure <- bLedger
@@ -323,7 +323,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         _ = assertGrpcError(
           fetchFailure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         tester <- aLedger.create(aParty, ExceptionTester(aParty))

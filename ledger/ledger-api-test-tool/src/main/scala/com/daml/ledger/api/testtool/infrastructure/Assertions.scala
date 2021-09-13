@@ -44,37 +44,37 @@ object Assertions {
     }
   }
 
-  /** non-regex overload for assertGrpcError which just does a substring check.
+  /** A non-regex alternative to [[assertGrpcErrorRegex]] which just does a substring check.
     */
   def assertGrpcError(
       t: Throwable,
       expectedCode: Status.Code,
-      exceptionMessageSubString: String,
+      exceptionMessageSubstring: Option[String],
       checkDefiniteAnswerMetadata: Boolean = false,
   ): Unit =
-    assertGrpcError(
+    assertGrpcErrorRegex(
       t,
       expectedCode,
-      if (exceptionMessageSubString.isEmpty) None
-      else Some(Pattern.compile(Pattern.quote(exceptionMessageSubString))),
+      exceptionMessageSubstring
+        .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
       checkDefiniteAnswerMetadata,
     )
 
   /** Match the given exception against a status code and a regex for the expected message.
-    *      Succeeds if the exception is a GrpcException with the expected code and
-    *      the regex matches some part of the message or there is no message and the pattern is
-    *      None.
+    * Succeeds if the exception is a GrpcException with the expected code and
+    * the regex matches some part of the message or there is no message and the pattern is
+    * None.
     */
   @tailrec
-  def assertGrpcError(
+  def assertGrpcErrorRegex(
       t: Throwable,
       expectedCode: Status.Code,
       optPattern: Option[Pattern],
-      checkDefiniteAnswerMetadata: Boolean,
+      checkDefiniteAnswerMetadata: Boolean = false,
   ): Unit =
     (t, optPattern) match {
       case (RetryStrategy.FailedRetryException(cause), _) =>
-        assertGrpcError(cause, expectedCode, optPattern, checkDefiniteAnswerMetadata)
+        assertGrpcErrorRegex(cause, expectedCode, optPattern, checkDefiniteAnswerMetadata)
       case (
             exception @ GrpcException(GrpcStatus(`expectedCode`, Some(message)), _),
             Some(pattern),
@@ -92,13 +92,12 @@ object Assertions {
         fail("Exception is neither a StatusRuntimeException nor a StatusException", t)
     }
 
-  private def assertMatches(message: String, pattern: Pattern): Unit = {
+  private def assertMatches(message: String, pattern: Pattern): Unit =
     if (pattern.matcher(message).find()) {
       ()
     } else {
       fail(s"Error message did not contain [$pattern], but was [$message].")
     }
-  }
 
   private def assertDefiniteAnswer(exception: Exception): Unit = {
     val details = StatusProto.fromThrowable(exception).getDetailsList.asScala

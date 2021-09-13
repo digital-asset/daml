@@ -71,7 +71,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("submitting a contract with a missing authorizers")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         None,
@@ -119,7 +119,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice with a missing authorizers")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         None,
@@ -171,7 +171,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
@@ -202,7 +202,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.ABORTED,
         Some(Pattern.compile("Contract could not be found")),
@@ -254,7 +254,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
@@ -285,7 +285,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("dependency error: couldn't find key")),
@@ -339,7 +339,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("requires authorizers (.*) for lookup by key, but it only has")),
@@ -371,7 +371,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(

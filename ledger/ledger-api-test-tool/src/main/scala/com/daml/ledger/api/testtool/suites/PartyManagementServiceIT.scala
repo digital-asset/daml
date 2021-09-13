@@ -106,7 +106,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("allocating a party with a very long identifier")
     } yield {
-      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, "Party is too long")
+      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, Some("Party is too long"))
     }
   })
 
@@ -124,7 +124,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("allocating a party with invalid characters")
     } yield {
-      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, "non expected character")
+      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, Some("non expected character"))
     }
   })
 

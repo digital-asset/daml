@@ -69,7 +69,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
         .firstCompletions(invalidRequest)
         .mustFail("subscribing to completions past the ledger end")
     } yield {
-      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
+      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, Some("is after ledger end"))
     }
   })
 
@@ -101,7 +101,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       wrongRequest = ledger.submitRequest(party, wrongExercise)
       failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(
@@ -128,7 +128,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
-      s"Ledger ID '$invalidLedgerId' not found.",
+      Some(s"Ledger ID '$invalidLedgerId' not found."),
       checkDefiniteAnswerMetadata = true,
     )
   })
@@ -145,7 +145,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "Missing field: commands",
+        Some("Missing field: commands"),
         checkDefiniteAnswerMetadata = true,
       )
     }

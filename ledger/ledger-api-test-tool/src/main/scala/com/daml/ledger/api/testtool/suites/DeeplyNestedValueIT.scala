@@ -60,7 +60,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
             ParticipantTestContext,
             Party,
         ) => Future[Either[Throwable, T]]
-    ) =
+    ): Unit =
       super.test(
         result + camlCase(description) + nesting.toString,
         s"${result.toLowerCase}s $description with a nesting of $nesting",

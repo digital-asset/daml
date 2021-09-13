@@ -95,13 +95,13 @@ private[testtool] abstract class CommandDeduplicationBase(
           assertGrpcError(
             failure1,
             Status.Code.ALREADY_EXISTS,
-            "",
+            exceptionMessageSubstring = None,
             checkDefiniteAnswerMetadata = true,
           )
           assertGrpcError(
             failure2,
             Status.Code.ALREADY_EXISTS,
-            "",
+            exceptionMessageSubstring = None,
             checkDefiniteAnswerMetadata = true,
           )
 
@@ -151,13 +151,13 @@ private[testtool] abstract class CommandDeduplicationBase(
       assertGrpcError(
         failure1,
         Status.Code.INVALID_ARGUMENT,
-        "",
+        exceptionMessageSubstring = None,
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         failure2,
         Status.Code.INVALID_ARGUMENT,
-        "",
+        exceptionMessageSubstring = None,
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -241,13 +241,13 @@ private[testtool] abstract class CommandDeduplicationBase(
           assertGrpcError(
             failure1,
             Status.Code.ALREADY_EXISTS,
-            "",
+            exceptionMessageSubstring = None,
             checkDefiniteAnswerMetadata = true,
           )
           assertGrpcError(
             failure2,
             Status.Code.ALREADY_EXISTS,
-            "",
+            exceptionMessageSubstring = None,
             checkDefiniteAnswerMetadata = true,
           )
 
@@ -289,8 +289,18 @@ private[testtool] abstract class CommandDeduplicationBase(
       aliceContracts <- ledger.activeContracts(alice)
       bobContracts <- ledger.activeContracts(bob)
     } yield {
-      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
-      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
+      assertGrpcError(
+        failure1,
+        Status.Code.ALREADY_EXISTS,
+        exceptionMessageSubstring = None,
+        checkDefiniteAnswerMetadata = true,
+      )
+      assertGrpcError(
+        failure2,
+        Status.Code.ALREADY_EXISTS,
+        exceptionMessageSubstring = None,
+        checkDefiniteAnswerMetadata = true,
+      )
 
       assert(
         aliceContracts.length == 1,
@@ -331,8 +341,18 @@ private[testtool] abstract class CommandDeduplicationBase(
       aliceContracts <- ledger.activeContracts(alice)
       bobContracts <- ledger.activeContracts(bob)
     } yield {
-      assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
-      assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "", checkDefiniteAnswerMetadata = true)
+      assertGrpcError(
+        failure1,
+        Status.Code.ALREADY_EXISTS,
+        exceptionMessageSubstring = None,
+        checkDefiniteAnswerMetadata = true,
+      )
+      assertGrpcError(
+        failure2,
+        Status.Code.ALREADY_EXISTS,
+        exceptionMessageSubstring = None,
+        checkDefiniteAnswerMetadata = true,
+      )
 
       assert(
         aliceContracts.length == 1,

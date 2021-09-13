@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.util.regex.Pattern
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -72,11 +70,11 @@ final class ContractKeysIT extends LedgerTestSuite {
         .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
         .mustFail("looking up by key with a party that cannot see the contract")
     } yield {
-      assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+      assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, Some("couldn't find key"))
       assertGrpcError(
         lookupByKeyFailure,
         Status.Code.ABORTED,
-        Some(Pattern.compile("Inconsistent")),
+        Some("Inconsistent"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -118,14 +116,14 @@ final class ContractKeysIT extends LedgerTestSuite {
       assertGrpcError(
         fetchFailure,
         Status.Code.ABORTED,
-        "Contract could not be found",
+        Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
-      assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+      assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, Some("couldn't find key"))
       assertGrpcError(
         lookupByKeyFailure,
         Status.Code.ABORTED,
-        Some(Pattern.compile("Inconsistent")),
+        Some("Inconsistent"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -198,31 +196,31 @@ final class ContractKeysIT extends LedgerTestSuite {
       assertGrpcError(
         duplicateKeyFailure,
         Status.Code.ABORTED,
-        Some(Pattern.compile("Inconsistent")),
+        Some("Inconsistent"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         bobLooksUpTextKeyFailure,
         Status.Code.INVALID_ARGUMENT,
-        "requires authorizers",
+        Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         bobLooksUpBogusTextKeyFailure,
         Status.Code.INVALID_ARGUMENT,
-        "requires authorizers",
+        Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         aliceFailedFetch,
         Status.Code.INVALID_ARGUMENT,
-        "couldn't find key",
+        Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         maintainerNotSignatoryFailed,
         Status.Code.INVALID_ARGUMENT,
-        "are not a subset of the signatories",
+        Some("are not a subset of the signatories"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -284,7 +282,7 @@ final class ContractKeysIT extends LedgerTestSuite {
       assertGrpcError(
         failedFetch,
         Status.Code.INVALID_ARGUMENT,
-        "couldn't find key",
+        Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -361,13 +359,13 @@ final class ContractKeysIT extends LedgerTestSuite {
       assertGrpcError(
         failureBeforeCreation,
         Status.Code.INVALID_ARGUMENT,
-        "dependency error: couldn't find key",
+        Some("dependency error: couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
         failureAfterConsuming,
         Status.Code.INVALID_ARGUMENT,
-        "dependency error: couldn't find key",
+        Some("dependency error: couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -403,13 +401,13 @@ final class ContractKeysIT extends LedgerTestSuite {
         assertGrpcError(
           failedLookup,
           Status.Code.INVALID_ARGUMENT,
-          "not visible",
+          Some("not visible"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
           failedFetch,
           Status.Code.INVALID_ARGUMENT,
-          "not visible",
+          Some("not visible"),
           checkDefiniteAnswerMetadata = true,
         )
       }

@@ -61,7 +61,7 @@ final class SemanticTests extends LedgerTestSuite {
         assertGrpcError(
           failure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
       }
@@ -127,7 +127,7 @@ final class SemanticTests extends LedgerTestSuite {
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          "Update failed due to fetch of an inactive contract",
+          Some("Update failed due to fetch of an inactive contract"),
           checkDefiniteAnswerMetadata = true,
         )
       }
@@ -150,7 +150,7 @@ final class SemanticTests extends LedgerTestSuite {
         assertGrpcError(
           failure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
       }
@@ -243,7 +243,7 @@ final class SemanticTests extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "requires authorizers",
+        Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -265,7 +265,7 @@ final class SemanticTests extends LedgerTestSuite {
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          "requires authorizers",
+          Some("requires authorizers"),
           checkDefiniteAnswerMetadata = true,
         )
       }
@@ -331,25 +331,25 @@ final class SemanticTests extends LedgerTestSuite {
         assertGrpcError(
           iouFetchFailure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
           paintOfferFetchFailure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
           paintAgreeFetchFailure,
           Status.Code.ABORTED,
-          "Contract could not be found",
+          Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
           secondIouFetchFailure,
           Status.Code.INVALID_ARGUMENT,
-          "requires one of the stakeholders",
+          Some("requires one of the stakeholders"),
           checkDefiniteAnswerMetadata = true,
         )
       }
@@ -415,7 +415,7 @@ final class SemanticTests extends LedgerTestSuite {
           assertGrpcError(
             failure,
             Status.Code.ABORTED,
-            "Contract could not be found",
+            Some("Contract could not be found"),
             checkDefiniteAnswerMetadata = true,
           )
         }

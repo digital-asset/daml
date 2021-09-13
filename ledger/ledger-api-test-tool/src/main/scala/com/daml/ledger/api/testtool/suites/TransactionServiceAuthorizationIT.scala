@@ -96,7 +96,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
             assertGrpcError(
               failure,
               Status.Code.INVALID_ARGUMENT,
-              "requires authorizers",
+              Some("requires authorizers"),
               checkDefiniteAnswerMetadata = true,
             )
           }
@@ -134,7 +134,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
             assertGrpcError(
               failure,
               Status.Code.INVALID_ARGUMENT,
-              "Assertion failed",
+              Some("Assertion failed"),
               checkDefiniteAnswerMetadata = true,
             )
           }
