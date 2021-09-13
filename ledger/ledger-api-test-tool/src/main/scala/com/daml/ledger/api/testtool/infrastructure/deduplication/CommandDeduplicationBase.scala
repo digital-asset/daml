@@ -358,7 +358,14 @@ private[testtool] abstract class CommandDeduplicationBase(
     ledger
       .submit(request)
       .mustFail(s"Request expected to fail with status $statusCode")
-      .map(assertGrpcError(_, statusCode, None, checkDefiniteAnswerMetadata = true))
+      .map(
+        assertGrpcError(
+          _,
+          statusCode,
+          exceptionMessageSubstring = None,
+          checkDefiniteAnswerMetadata = true,
+        )
+      )
   }
 
   protected def submitRequestAndFindCompletion(
