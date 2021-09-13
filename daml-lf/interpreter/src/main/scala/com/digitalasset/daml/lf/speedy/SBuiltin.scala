@@ -1072,6 +1072,96 @@ private[lf] object SBuiltin {
     }
   }
 
+  // The strategy here is to fetch the contract first to find its actual template id,
+  // and cache the contract in the process (TODO), without creating a fetch node.
+  // Then we run FetchDefRef with the (now known) actual template id, which both
+  // fetches the contract (again) and creates a fetch node with the correct template id.
+  //
+  // Interfaces have a "toll-free" representation with the underlying template,
+  // since the template's SRecord already includes the type constructor (templateId)
+  // of its template, we shouldn't need to wrap or change the fetched template value
+  // in any way.
+  //
+  // TODO interfaces: Maybe consider factoring out the common parts of
+  // SBUFetch, SBUFetchInterface, SBUChoiceInterface into a builtin that
+  // fetches and (actually) caches a contract.
+  final case class SBUFetchInterface(
+      ifaceId: TypeConName
+  ) extends OnLedgerBuiltin(1) {
+    override protected def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Unit = {
+      val coid = getSContractId(args, 0)
+      onLedger.cachedContracts.get(coid) match {
+        case Some(cached) =>
+          // TODO interfaces: Fail here if the template doesn't implement the interface
+          machine.ctrl = FetchDefRef(cached.templateId)(SEValue(SContractId(coid)), SEValue(SToken))
+        case None =>
+          throw SpeedyHungry(
+            SResultNeedContract(
+              coid,
+              ifaceId,
+                // TODO interfaces: Maybe drop the templateId argument from SResultNeedContract?
+                // It isn't actually used. Here we're passing the interface id since it's all we have.
+              onLedger.committers,
+              { case V.ContractInst(actualTmplId, V.VersionedValue(_, _), _) =>
+                // TODO interfaces: Fail here if the template doesn't implement the interface
+                // TODO interfaces: Cache the template before calling FetchDefRef
+                machine.ctrl =
+                  FetchDefRef(actualTmplId)(SEValue(SContractId(coid)), SEValue(SToken))
+              },
+            )
+          )
+      }
+    }
+  }
+
+  // Very similar to fetch. The strategy here is to fetch the contract without
+  // generating a fetch node, so we can find its actual template id, while caching
+  // the contract (TODO), and then call ChoiceDefRef with the actual template id.
+  final case class SBUChoiceInterface(
+      ifaceId: TypeConName,
+      choiceName: ChoiceName,
+  ) extends OnLedgerBuiltin(2) {
+    override protected def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Unit = {
+      val coid = getSContractId(args, 0)
+      val choiceArg = args.get(1)
+      onLedger.cachedContracts.get(coid) match {
+        case Some(cached) =>
+          // TODO interfaces: Fail here if the template doesn't implement the interface
+          machine.ctrl = ChoiceDefRef(cached.templateId, choiceName)(
+            SEValue(SContractId(coid)),
+            SEValue(choiceArg),
+            SEValue(SToken),
+          )
+        case None =>
+          throw SpeedyHungry(
+            SResultNeedContract(
+              coid,
+              ifaceId, // TODO interfaces: Same as above, drop this argument.
+              onLedger.committers,
+              { case V.ContractInst(actualTmplId, V.VersionedValue(_, _), _) =>
+                // TODO interfaces: Fail here if the template doesn't implement the interface
+                // TODO interfaces: Cache the template before calling ChoiceDefRef
+                machine.ctrl = ChoiceDefRef(actualTmplId, choiceName)(
+                  SEValue(SContractId(coid)),
+                  SEValue(choiceArg),
+                  SEValue(SToken),
+                )
+              },
+            )
+          )
+      }
+    }
+  }
+
+
   /** $insertFetch[tid]
     *    :: ContractId a
     *    -> List Party    (signatories)

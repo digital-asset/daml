@@ -330,6 +330,14 @@ private[lf] final class Compiler(
       }
     }
 
+    module.interfaces.foreach { case (ifaceName, iface) =>
+      val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
+      builder += compileFetchInterface(identifier)
+      iface.choices.values.foreach(
+        builder += compileChoiceInterface(identifier, _)
+      )
+    }
+
     builder.result()
   }
 
@@ -1006,6 +1014,17 @@ private[lf] final class Compiler(
     }
   }
 
+  private[this] def compileChoiceInterface(
+      ifaceId: TypeConName,
+      choice: InterfaceChoice,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) { case List(cidPos, choiceArgPos, _) =>
+      SBUChoiceInterface(ifaceId, choice.name)(
+        svar(cidPos),
+        svar(choiceArgPos),
+      )
+    }
+
   private[this] def compileChoice(
       tmplId: TypeConName,
       tmpl: Template,
@@ -1395,6 +1414,13 @@ private[lf] final class Compiler(
     //   in <tmplArg>
     topLevelFunction(FetchDefRef(tmplId), 2) { case List(cidPos, tokenPos) =>
       compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
+    }
+
+  private[this] def compileFetchInterface(
+      ifaceId: Identifier
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, _) =>
+      SBUFetchInterface(ifaceId)(svar(cidPos))
     }
 
   private[this] def compileKey(
