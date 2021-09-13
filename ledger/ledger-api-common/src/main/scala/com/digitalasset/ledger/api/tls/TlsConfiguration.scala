@@ -10,6 +10,7 @@ import io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
 import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
+import java.lang
 import java.nio.file.Files
 import javax.net.ssl.SSLEngine
 import scala.jdk.CollectionConverters._
@@ -74,44 +75,55 @@ final case class TlsConfiguration(
   /** If enabled and all required fields are present, it returns an SslContext suitable for server usage */
   def server: Option[SslContext] =
     if (enabled) {
-      val tlsInfo0 = scala.util.Using.resources(
+
+      val tlsInfo = scala.util.Using.resources(
         keyCertChainInputStreamOrFail,
         keyInputStreamOrFail,
       ) { (keyCertChain: InputStream, key: InputStream) =>
-        val defaultSslContext: SslContext = GrpcSslContexts
-          .forServer(
-            keyCertChain,
-            key,
-          )
-          .trustManager(trustCertCollectionFile.orNull)
-          .clientAuth(clientAuth)
-          .protocols(null.asInstanceOf[java.lang.Iterable[String]])
-          .sslProvider(SslContext.defaultServerProvider())
-          .build()
-        val tlsInfo0 = TlsInfo.fromSslContext(defaultSslContext)
-        tlsInfo0
+        val protocols = null.asInstanceOf[lang.Iterable[String]]
+        val defaultSslContext = buildServersSslContext(
+          keyCertChain = keyCertChain,
+          key = key,
+          protocols = protocols,
+        )
+        TlsInfo.fromSslContext(defaultSslContext)
       }
+
       scala.util.Using.resources(
         keyCertChainInputStreamOrFail,
         keyInputStreamOrFail,
       ) { (keyCertChain: InputStream, key: InputStream) =>
-        val sslContext = GrpcSslContexts
-          .forServer(
-            keyCertChain,
-            key,
-          )
-          .trustManager(trustCertCollectionFile.orNull)
-          .clientAuth(clientAuth)
-          .protocols(protocolsNames(tlsInfo0))
-          .sslProvider(SslContext.defaultServerProvider())
-          .build()
+        val protocols = protocolsNames(tlsInfo)
+        val sslContext = buildServersSslContext(
+          keyCertChain = keyCertChain,
+          key = key,
+          protocols = protocols,
+        )
         logTlsProtocolsAndCipherSuites(sslContext, isServer = true)
         Some(sslContext)
       }
+
     } else {
       logger.info(s"Server's TLS: Disabled.")
       None
     }
+
+  private def buildServersSslContext(
+      keyCertChain: InputStream,
+      key: InputStream,
+      protocols: lang.Iterable[String],
+  ) = {
+    GrpcSslContexts
+      .forServer(
+        keyCertChain,
+        key,
+      )
+      .trustManager(trustCertCollectionFile.orNull)
+      .clientAuth(clientAuth)
+      .protocols(protocols)
+      .sslProvider(SslContext.defaultServerProvider())
+      .build()
+  }
 
   private[tls] def logTlsProtocolsAndCipherSuites(
       sslContext: SslContext,
