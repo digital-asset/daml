@@ -79,7 +79,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
           // only one submission is therefore sent to the ledger.
           completion1 <- requestHasOkCompletion(ledger)(requestA1, party)
-          _ <- requestFailsWithStatus(ledger)(requestA1, Code.ALREADY_EXISTS)
+          _ <- submitRequestAndAssertFailure(ledger)(requestA1, Code.ALREADY_EXISTS)
           // Wait until the end of first deduplication window
           _ <- Delayed.by(deduplicationWait)(())
 
@@ -89,7 +89,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // `deduplicationSeconds` after receiving the first command *completion*.
           // The first submit() in this block should therefore lead to an accepted transaction.
           completion2 <- requestHasOkCompletion(ledger)(requestA2, party)
-          _ <- requestFailsWithStatus(ledger)(requestA2, Code.ALREADY_EXISTS)
+          _ <- submitRequestAndAssertFailure(ledger)(requestA2, Code.ALREADY_EXISTS)
           // Inspect created contracts
           activeContracts <- ledger.activeContracts(party)
         } yield {
@@ -122,10 +122,10 @@ private[testtool] abstract class CommandDeduplicationBase(
 
     for {
       // Submit an invalid command (should fail with INVALID_ARGUMENT)
-      _ <- requestFailsWithStatus(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
 
       // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
-      _ <- requestFailsWithStatus(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
     } yield {}
   })
 
@@ -313,7 +313,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   )(request: SubmitRequest, party: Party, code: Code)(implicit
       ec: ExecutionContext
   ): Future[Completion] = {
-    requestIsSubmittedAndHasCompletion(ledger)(request, party).map(completion => {
+    submitRequestAndFindCompletion(ledger)(request, party).map(completion => {
       assert(
         completion.getStatus.code == code.value(),
         s"Expecting completion with status code $code but completion has status ${completion.status}",
@@ -322,7 +322,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     })
   }
 
-  protected def requestFailsWithStatus(
+  protected def submitRequestAndAssertFailure(
       ledger: ParticipantTestContext
   )(request: SubmitRequest, statusCode: Code)(implicit ec: ExecutionContext): Future[Unit] = {
     ledger
@@ -331,7 +331,7 @@ private[testtool] abstract class CommandDeduplicationBase(
       .map(assertGrpcError(_, statusCode, None))
   }
 
-  protected def requestIsSubmittedAndHasCompletion(
+  protected def submitRequestAndFindCompletion(
       ledger: ParticipantTestContext
   )(request: SubmitRequest, party: Party)(implicit ec: ExecutionContext): Future[Completion] = {
     val submissionId = UUID.randomUUID().toString
@@ -353,24 +353,20 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   protected def submitRequest(
       ledger: ParticipantTestContext
-  )(request: SubmitRequest)(implicit ec: ExecutionContext): Future[LedgerOffset] = {
-    for {
-      ledgerEnd1 <- ledger.currentEnd()
-      _ <- ledger.submit(request)
-    } yield {
-      ledgerEnd1
-    }
+  )(request: SubmitRequest)(implicit ec: ExecutionContext): Future[LedgerOffset] = for {
+    ledgerEnd <- ledger.currentEnd()
+    _ <- ledger.submit(request)
+  } yield {
+    ledgerEnd
   }
 
-  protected def scaledDuration(duration: FiniteDuration): FiniteDuration = {
-    asFiniteDuration(duration * timeoutScaleFactor)
-  }
+  protected def scaledDuration(duration: FiniteDuration): FiniteDuration = asFiniteDuration(
+    duration * timeoutScaleFactor
+  )
 
-  protected def asFiniteDuration(duration: Duration): FiniteDuration = {
-    duration match {
-      case duration: FiniteDuration => duration
-      case _ =>
-        throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
-    }
+  protected def asFiniteDuration(duration: Duration): FiniteDuration = duration match {
+    case duration: FiniteDuration => duration
+    case _ =>
+      throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
   }
 }

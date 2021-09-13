@@ -52,7 +52,7 @@ abstract class KVCommandDeduplicationBase(
         for {
           completion1 <- requestHasOkCompletion(ledger)(request, party)
           // participant side deduplication, sync result
-          _ <- requestFailsWithStatus(ledger)(request, Code.ALREADY_EXISTS)
+          _ <- submitRequestAndAssertFailure(ledger)(request, Code.ALREADY_EXISTS)
           // Wait for the end of participant deduplication
           // We also add min skew to also validate the committer deduplication duration
           _ <- Delayed.by(deduplicationDuration.plus(minSkew))(())
@@ -198,7 +198,7 @@ abstract class KVCommandDeduplicationBase(
   /** Try to run the [[update]] sequentially on all the participants.
     * The function returns the first success or the last failure of the update operation.
     * Useful for updating the configuration when we don't know which participant can update the config,
-    *  as only the first one that submitted the initial configuration has the permissions to do so.
+    * as only the first one that submitted the initial configuration has the permissions to do so.
     */
   private def tryTimeModelUpdateOnAllParticipants(
       participants: Seq[ParticipantTestContext],
