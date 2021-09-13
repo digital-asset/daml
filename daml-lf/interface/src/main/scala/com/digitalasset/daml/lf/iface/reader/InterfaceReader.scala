@@ -140,6 +140,9 @@ object InterfaceReader {
             variant(fullName, tyVars, dfn)
           case dfn: Ast.DataEnum =>
             enum(fullName, tyVars, dfn)
+          case Ast.DataInterface =>
+            // TODO https://github.com/digital-asset/daml/issues/10810
+            sys.error("Interface not supported")
         }
 
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {

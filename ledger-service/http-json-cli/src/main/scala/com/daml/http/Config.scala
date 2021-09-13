@@ -43,6 +43,7 @@ private[http] final case class Config(
     logEncoder: LogEncoder = LogEncoder.Plain,
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = 10 seconds,
+    surrogateTpIdCacheMaxEntries: Option[Long] = None,
 ) extends StartSettings
 
 private[http] object Config {

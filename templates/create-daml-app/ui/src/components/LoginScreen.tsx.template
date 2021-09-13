@@ -29,7 +29,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
       }
       onLogin(credentials);
     } catch(error) {
-      alert(`Unknown error:\n${error}`);
+      alert(`Unknown error:\n${JSON.stringify(error)}`);
     }
   }, [onLogin]);
 

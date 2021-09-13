@@ -29,10 +29,28 @@ final class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInter
   )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is increased by minSkew in the committer so we set the skew to a low value for testing
     val minSkew = 1.second.asProtobuf
-    runWithUpdatedTimeModel(
-      participants,
-      _.update(_.minSkew := minSkew),
-    )(timeModel => test(defaultDeduplicationWindowWait.plus(timeModel.getMinSkew.asScala)))
+    val anyParticipant = participants.head
+    anyParticipant
+      .configuration()
+      .flatMap(ledgerConfiguration => {
+        val maxDeduplicationTime = ledgerConfiguration.maxDeduplicationTime
+          .getOrElse(
+            throw new IllegalStateException(
+              "Max deduplication time was not set and our deduplication period depends on it"
+            )
+          )
+          .asScala
+        assert(
+          maxDeduplicationTime <= 10.seconds,
+          s"Max deduplication time [$maxDeduplicationTime] is too high for the test.",
+        )
+        runWithUpdatedTimeModel(
+          participants,
+          _.update(_.minSkew := minSkew),
+        )(timeModel =>
+          test(maxDeduplicationTime.plus(timeModel.getMinSkew.asScala).plus(ledgerWaitInterval))
+        )
+      })
   }
 
   private def runWithUpdatedTimeModel(

@@ -257,6 +257,7 @@ da_scala_test_suite(
             server_args = [
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
+                "--max-deduplication-duration=PT10S",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [

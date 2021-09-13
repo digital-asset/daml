@@ -12,7 +12,7 @@ The Daml Connect SDK currently runs on Windows, macOS and Linux.
 You need to install:
 
 1. `Visual Studio Code <https://code.visualstudio.com/download>`_.
-2. JDK 8 or greater. If you don't already have a JDK installed, try `AdoptOpenJDK <https://adoptopenjdk.net>`_.
+2. JDK 8 or greater. If you don't already have a JDK installed, try `Eclipse Adoptium <https://adoptium.net>`_.
 
    As part of the installation process you might need to set up the ``JAVA_HOME`` variable. You can find here the instructions on how to do it on :doc:`Windows,macOS, and Linux <path-variables>`.
 

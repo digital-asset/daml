@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.time.Duration
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry,
@@ -523,6 +525,34 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
         }
+      }
+    }
+
+    "use max deduplication duration as deduplication period" in KVTest.runTestWithSimplePackage(
+      alice,
+      bob,
+      eve,
+    ) { simplePackage =>
+      val seed = hash(this.getClass.getName)
+      val command = simpleCreateCmd(simplePackage)
+      val maxDeduplicationDuration = Duration.ofHours(2)
+      for {
+        _ <- preExecuteConfig(existingConfig => {
+          existingConfig.copy(
+            generation = existingConfig.generation + 1,
+            maxDeduplicationTime = maxDeduplicationDuration,
+          )
+        })
+        transaction <- runSimpleCommand(alice, seed, command)
+        preExecutionResult <- preExecuteTransaction(
+          submitter = alice,
+          transaction = transaction,
+          submissionSeed = seed,
+          deduplicationTime = Duration.ofHours(1),
+        ).map(_._2)
+      } yield {
+        preExecutionResult.successfulLogEntry.getTransactionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe Conversions
+          .buildDuration(maxDeduplicationDuration)
       }
     }
   }

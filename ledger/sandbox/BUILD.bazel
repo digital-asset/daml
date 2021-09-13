@@ -281,6 +281,7 @@ server_conformance_test(
     ],
     server_args = [
         "--static-time",
+        "--max-deduplication-duration=PT10S",
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
@@ -295,6 +296,7 @@ server_conformance_test(
     name = "next-conformance-test-wall-clock",
     server_args = [
         "--wall-clock-time",
+        "--max-deduplication-duration=PT10S",
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
@@ -332,6 +334,7 @@ server_conformance_test(
     name = "next-conformance-test-append-only",
     server_args = [
         "--enable-append-only-schema",
+        "--max-deduplication-duration=PT10S",
     ],
     servers = {"postgresql": NEXT_SERVERS["postgresql"]},
     test_tool_args = [

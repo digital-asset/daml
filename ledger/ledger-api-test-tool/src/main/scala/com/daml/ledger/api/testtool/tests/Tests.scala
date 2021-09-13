@@ -66,7 +66,6 @@ object Tests {
       ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
   ): Vector[LedgerTestSuite] =
     Vector(
-      new CommandDeduplicationOffsetIT,
       new AppendOnlyCompletionDeduplicationInfoIT(CommandService),
       new AppendOnlyCompletionDeduplicationInfoIT(CommandSubmissionService),
       new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),

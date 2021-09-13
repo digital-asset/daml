@@ -272,6 +272,8 @@ private[validation] object Typing {
             env.checkVariantType(fields)
           case DataEnum(values) =>
             env.checkEnumType(tyConName, params, values)
+          case DataInterface =>
+            ()
         }
       case (dfnName, dfn: DValue) =>
         Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
@@ -415,7 +417,7 @@ private[validation] object Typing {
       }
 
     def checkTemplate(tplName: TypeConName, template: Template): Unit = {
-      val Template(param, precond, signatories, agreementText, choices, observers, mbKey) =
+      val Template(param, precond, signatories, agreementText, choices, observers, mbKey, _) =
         template
       val env = introExprVar(param, TTyCon(tplName))
       env.checkExpr(precond, TBool)
@@ -733,6 +735,9 @@ private[validation] object Typing {
                     enumExpectedPatterns(scrutTCon, cons),
                     introPatternEnum(scrutTCon, cons),
                   )
+                case DataInterface =>
+                  // TODO https://github.com/digital-asset/daml/issues/10810
+                  sys.error("Interface not supported")
               }
           }
         case TUnit =>

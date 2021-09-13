@@ -34,8 +34,6 @@ object LanguageVersion {
 
   object Features {
     val default = v1_6
-    val textPacking = v1_6
-    val enum = v1_6
     val internedPackageId = v1_6
     val internedStrings = v1_7
     val internedDottedNames = v1_7
@@ -53,6 +51,7 @@ object LanguageVersion {
     val choiceObservers = v1_11
     val bigNumeric = v1_13
     val exceptions = v1_14
+    val interfaces = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate

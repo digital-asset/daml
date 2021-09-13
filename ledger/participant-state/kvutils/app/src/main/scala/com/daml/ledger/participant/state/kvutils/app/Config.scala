@@ -39,6 +39,7 @@ final case class Config[Extra](
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
     configurationLoadTimeout: Duration,
+    maxDeduplicationDuration: Option[Duration],
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
@@ -52,7 +53,6 @@ final case class Config[Extra](
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableHa: Boolean, // TODO ha: remove after stable
-    maxDeduplicationDuration: Option[Duration],
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -323,7 +323,7 @@ object Config {
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
 
-        opt[String]("secrets-url")
+        opt[String]("tls-secrets-url")
           .optional()
           .text(
             "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
