@@ -45,6 +45,7 @@ final case class TlsConfiguration(
       ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
     enableCertRevocationChecking: Boolean = false,
     minimumServerProtocolVersion: Option[TlsVersion] = None,
+    clientProtocolVersion: Option[TlsVersion] = None
 ) {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -53,9 +54,14 @@ final case class TlsConfiguration(
   def client(enabledProtocols: Seq[TlsVersion] = Seq.empty): Option[SslContext] = {
     if (enabled) {
       val enabledProtocolsNames =
-        if (enabledProtocols.isEmpty)
-          null
-        else
+        if (enabledProtocols.isEmpty) {
+          // TODO PBATKO clientProtocolVersion vs. enabledProtocols
+          if (clientProtocolVersion.isEmpty){
+            null
+          } else {
+            Seq(clientProtocolVersion.get.version).asJava
+          }
+        } else
           enabledProtocols.map(_.version).asJava
       val sslContext = GrpcSslContexts
         .forClient()
