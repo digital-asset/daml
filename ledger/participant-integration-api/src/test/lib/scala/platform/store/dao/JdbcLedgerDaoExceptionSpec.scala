@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -22,7 +21,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
   behavior of "JdbcLedgerDao (exceptions)"
 
   it should "not find contracts created under rollback nodes" in {
-    val builder = TransactionBuilder(TransactionVersion.VDev)
+    val builder = TransactionBuilder()
     val rollback = builder.add(builder.rollback())
     val cid1 = builder.newCid
     val cid2 = builder.newCid
@@ -49,7 +48,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
 
     // A transaction that fetches a contract under a rollback node
     def rolledBackFetch(createCid: ContractId, fetcherCid: ContractId) = {
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder()
       val exercise1 = exerciseNode(fetcherCid).copy(
         consuming = false,
         actingParties = stakeholders,
@@ -116,7 +115,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
     val stakeholders = Set(alice)
     val divulgees = Set(bob)
 
-    val builder = TransactionBuilder(TransactionVersion.VDev)
+    val builder = TransactionBuilder()
     val createCid = builder.newCid
     val fetcherCid = builder.newCid
     val create1 = createNode(createCid, stakeholders, stakeholders)

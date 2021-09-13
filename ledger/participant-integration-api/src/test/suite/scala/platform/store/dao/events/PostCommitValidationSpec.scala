@@ -481,18 +481,21 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 }
 
 object PostCommitValidationSpec {
+
+  import TxBuilder.Implicits._
+
   // Very dirty hack to have a contract store fixture without persistence
   private implicit val connection: Connection = null
 
-  private val txBuilder = new TxBuilder()
+  private val txBuilder = TxBuilder()
 
   private def genTestCreate(): TxBuilder.Create =
     txBuilder.create(
       id = s"#${UUID.randomUUID}",
-      template = "foo:bar:baz",
+      templateId = "bar:baz",
       argument = TxBuilder.record("field" -> "value"),
-      signatories = Seq("Alice"),
-      observers = Seq.empty,
+      signatories = Set("Alice"),
+      observers = Set.empty,
       key = Some(ValueText("key")),
     )
 
