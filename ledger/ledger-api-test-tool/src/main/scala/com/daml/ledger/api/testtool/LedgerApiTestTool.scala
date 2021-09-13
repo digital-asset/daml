@@ -241,7 +241,7 @@ object LedgerApiTestTool {
   ): ResourceOwner[Channel] = {
     logger.info(s"Setting up managed channel to participant at $host:$port...")
     val channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext()
-    for (ssl <- tlsConfig; sslContext <- ssl.client) {
+    for (ssl <- tlsConfig; sslContext <- ssl.client()) {
       logger.info("Setting up managed channel with transport security.")
       channelBuilder
         .useTransportSecurity()

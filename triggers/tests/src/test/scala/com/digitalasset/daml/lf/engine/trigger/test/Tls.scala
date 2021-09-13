@@ -37,7 +37,7 @@ class Tls
 
   override protected def ledgerClientConfiguration =
     super.ledgerClientConfiguration
-      .copy(sslContext = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt).client)
+      .copy(sslContext = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt).client())
 
   "TLS" can {
     // We just need something simple to test the connection.

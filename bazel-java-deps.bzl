@@ -124,6 +124,7 @@ def install_java_deps():
             "io.grpc:grpc-services:{}".format(grpc_version),
             "io.grpc:grpc-stub:{}".format(grpc_version),
             # netty
+            "io.netty:netty-buffer:{}".format(netty_version),
             "io.netty:netty-codec-http2:{}".format(netty_version),
             "io.netty:netty-handler:{}".format(netty_version),
             "io.netty:netty-handler-proxy:{}".format(netty_version),

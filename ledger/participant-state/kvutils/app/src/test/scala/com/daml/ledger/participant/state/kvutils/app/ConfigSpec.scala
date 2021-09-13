@@ -5,8 +5,7 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import java.io.File
 import java.time.Duration
-
-import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
@@ -92,6 +91,36 @@ final class ConfigSpec
         "key.enc",
       )
     ) shouldBe None
+  }
+
+  it should "fail parsing a bogus TLS version" in {
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--tls-version",
+        "111",
+      )
+    ) shouldBe None
+  }
+
+  it should "succeed parsing a supported TLS version" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--tls-version",
+        "1.3",
+      )
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        minimumServerProtocolVersion = Some(TlsVersion.V1_3),
+      )
+    )
   }
 
   it should "succeed when server's private key is in plaintext and secret-url is not provided" in {
