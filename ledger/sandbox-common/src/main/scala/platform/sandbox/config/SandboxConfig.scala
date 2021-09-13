@@ -36,6 +36,7 @@ final case class SandboxConfig(
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
     configurationLoadTimeout: Duration,
+    maxDeduplicationDuration: Option[Duration],
     delayBeforeSubmittingLedgerConfiguration: Duration,
     timeModel: LedgerTimeModel,
     commandConfig: CommandConfiguration,
@@ -64,7 +65,6 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
-    maxDeduplicationDuration: Option[Duration],
 ) {
 
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =

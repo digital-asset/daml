@@ -66,7 +66,7 @@ final class ConfigSpec
         "some-jdbc-url",
         "--pem",
         "key.enc",
-        "--secrets-url",
+        "--tls-secrets-url",
         "http://aaa",
       )
     )

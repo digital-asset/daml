@@ -212,7 +212,7 @@ To enable TLS, you need to specify the private key for your server and the
 certificate chain via ``java -jar daml-on-sql-<version>.jar --pem server.pem --crt server.crt``.
 You can also supply private key as an encrypted (using a symmetric AES like algorithm)
 file with an ``.enc`` suffix.
-While doing so you also need to specify secrets server via ``--secrets-url`` flag
+While doing so you also need to specify secrets server via ``--tls-secrets-url`` flag
 which should serve decryption details as a JSON document like so:
 
 .. code-block:: json
@@ -224,7 +224,7 @@ which should serve decryption details as a JSON document like so:
       "key_length" : 128
     }
 
-Sample command to start a server with private key encrypted: ``java -jar daml-on-sql-<version>.jar --pem server.pem.enc --crt server.crt --secrets-url http://localhost:8080``.
+Sample command to start a server with private key encrypted: ``java -jar daml-on-sql-<version>.jar --pem server.pem.enc --crt server.crt --tls-secrets-url http://localhost:8080``.
 
 By default, the Ledger API requires client authentication as well. You can set a
 custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``.

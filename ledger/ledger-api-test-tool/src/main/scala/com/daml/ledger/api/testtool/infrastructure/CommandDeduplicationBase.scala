@@ -29,7 +29,8 @@ private[testtool] abstract class CommandDeduplicationBase(
     case _ =>
       throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
   }
-  val defaultDeduplicationWindowWait: FiniteDuration = deduplicationTime + ledgerTimeInterval * 2
+  val ledgerWaitInterval: FiniteDuration = ledgerTimeInterval * 2
+  val defaultDeduplicationWindowWait: FiniteDuration = deduplicationTime + ledgerWaitInterval
 
   def runGivenDeduplicationWait(
       participants: Seq[ParticipantTestContext]

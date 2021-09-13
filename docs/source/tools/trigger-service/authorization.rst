@@ -29,8 +29,8 @@ For example, use the following flags if the trigger service and the auth middlew
     --auth https://example.com/auth
     --auth-callback https://example.com/trigger/cb
 
-Assuming that the auth middleware is available under ``https://example.com/auth/``
-and the trigger service is available under ``https://example.com/trigger/``.
+Assuming that the auth middleware is available under ``https://example.com/auth``
+and the trigger service is available under ``https://example.com/trigger``.
 
 Note that the trigger service must be able to share cookies with the auth middleware as described in the :ref:`Deployment notes <oauth2-middleware-deployment>`.
 

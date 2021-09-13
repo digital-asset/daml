@@ -7,7 +7,6 @@ import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
@@ -143,12 +142,6 @@ trait FieldValidations {
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case DeduplicationPeriodProto.DeduplicationTime(duration) =>
           protoDurationToDurationPeriod(duration)
-        case DeduplicationPeriodProto.DeduplicationOffset(offset) =>
-          Right(
-            DeduplicationPeriod.DeduplicationOffset(
-              Offset.fromHexString(Ref.HexString.assertFromString(offset))
-            )
-          )
         case DeduplicationPeriodProto.DeduplicationDuration(duration) =>
           protoDurationToDurationPeriod(duration)
       }

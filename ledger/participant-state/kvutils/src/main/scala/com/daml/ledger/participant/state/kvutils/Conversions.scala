@@ -3,9 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.{Duration, Instant}
-
 import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmitterInfo.DeduplicationPeriodCase
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
@@ -27,9 +26,12 @@ import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.google.protobuf.Empty
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 
+import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -367,6 +369,7 @@ private[state] object Conversions {
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
       .setSubmitterInfo(submitterInfo)
+      .setDefiniteAnswer(false)
 
     rejection match {
       case Rejection.ValidationFailure(error) =>
@@ -446,7 +449,17 @@ private[state] object Conversions {
       entry: DamlTransactionRejectionEntry
   ): Option[FinalReason] = {
     def buildStatus(code: Code, message: String) = {
-      Status.of(code.value, message, Seq.empty)
+      Status.of(
+        code.value,
+        message,
+        Seq(
+          AnyProto.pack[ErrorInfo](
+            ErrorInfo(metadata =
+              Map(GrpcStatuses.DefiniteAnswerKey -> entry.getDefiniteAnswer.toString)
+            )
+          )
+        ),
+      )
     }
 
     val status = entry.getReasonCase match {

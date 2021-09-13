@@ -36,7 +36,7 @@ message Commands {
   // Uniquely identifies the command.
   // The triple (application_id, party + act_as, command_id) constitutes the change ID for the intended ledger change,
   // where party + act_as is interpreted as a set of party names.
-  // The change ID can be used for matching the intended ledger changes with their respective completions.
+  // The change ID can be used for matching the intended ledger changes with all their completions.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string command_id = 4;
@@ -58,7 +58,8 @@ message Commands {
   repeated Command commands = 8;
 
   // Specifies the deduplication period for the change ID.
-  // If omitted, the participant chooses a deduplication period at its discretion.
+  // If omitted, the participant will assume the configured maximum deduplication time (see
+  // ``ledger_configuration_service.proto``).
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // Same semantics apply as for `deduplication_duration`.
@@ -66,18 +67,11 @@ message Commands {
     // Must be non-negative.
     google.protobuf.Duration deduplication_time = 9 [deprecated = true];
 
-    // Specifies the start of the deduplication period by a completion stream offset.
-    //
-    // Must be a valid LedgerString (as described in ``value.proto``).
-    string deduplication_offset = 15;
-
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
-    // If omitted, the participant will assume the configured maximum deduplication time (see
-    // ``ledger_configuration_service.proto``).
     //
     // Must be non-negative.
-    google.protobuf.Duration deduplication_duration = 16;
+    google.protobuf.Duration deduplication_duration = 15;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.

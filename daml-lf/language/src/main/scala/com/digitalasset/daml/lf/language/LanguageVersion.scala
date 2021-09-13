@@ -34,8 +34,6 @@ object LanguageVersion {
 
   object Features {
     val default = v1_6
-    val textPacking = v1_6
-    val enum = v1_6
     val internedPackageId = v1_6
     val internedStrings = v1_7
     val internedDottedNames = v1_7

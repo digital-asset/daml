@@ -232,6 +232,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import domain.Offset._
@@ -479,6 +480,7 @@ private[http] object ContractsFetch {
   )(implicit
       log: doobie.LogHandler,
       sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Map[K, SurrogateTpId]] = {
     import doobie.implicits._, cats.instances.vector._, cats.syntax.functor._,
     cats.syntax.traverse._
@@ -515,7 +517,11 @@ private[http] object ContractsFetch {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
       step: InsertDeleteStep[Any, PreInsertContract]
-  )(implicit log: doobie.LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] = {
+  )(implicit
+      log: doobie.LogHandler,
+      sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._

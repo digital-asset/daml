@@ -84,6 +84,7 @@ object Main {
         s", nonRepudiationCertificateFile=${config.nonRepudiation.certificateFile: Option[Path]}" +
         s", nonRepudiationPrivateKeyFile=${config.nonRepudiation.privateKeyFile: Option[Path]}" +
         s", nonRepudiationPrivateKeyAlgorithm=${config.nonRepudiation.privateKeyAlgorithm: Option[String]}" +
+        s", surrogateTpIdCacheMaxEntries=${config.surrogateTpIdCacheMaxEntries: Option[Long]}" +
         ")"
     )
 
@@ -105,56 +106,62 @@ object Main {
       Await.result(asys.terminate(), 10.seconds)
     }
 
-    val contractDao = config.jdbcConfig.map(c => ContractDao(c))
-
-    (contractDao, config.jdbcConfig) match {
-      case (Some(dao), Some(c)) =>
-        import cats.effect.IO
-        def terminateProcess(errorCode: Int): Unit = {
-          logger.info("Terminating process...")
-          terminate()
-          System.exit(errorCode)
-        }
-        Try(
-          dao
-            .isValid(120)
-            .attempt
-            .flatMap {
-              case Left(ex) =>
-                logger.error("Unexpected error while checking database connection", ex)
-                IO.pure(some(ErrorCodes.StartupError))
-              case Right(false) =>
-                logger.error("Database connection is not valid.")
-                IO.pure(some(ErrorCodes.StartupError))
-              case Right(true) =>
-                DbStartupOps
-                  .fromStartupMode(dao, c.dbStartupMode)
-                  .map(success =>
-                    if (success)
-                      if (DbStartupOps.shouldStart(c.dbStartupMode)) none
-                      else some(ErrorCodes.Ok)
-                    else some(ErrorCodes.StartupError)
-                  )
-            }
-            .unsafeRunSync()
-        ).fold(
-          { ex =>
-            logger
-              .error("Unexpected error while checking connection or DB schema initialization", ex)
-            terminateProcess(ErrorCodes.StartupError)
-          },
-          _.foreach(terminateProcess),
-        )
-      case _ =>
+    val contractDao = metricsResource.asFuture.map { implicit metrics =>
+      val contractDao =
+        config.jdbcConfig.map(c => ContractDao(c, config.surrogateTpIdCacheMaxEntries))
+      (contractDao, config.jdbcConfig) match {
+        case (Some(dao), Some(c)) =>
+          import cats.effect.IO
+          def terminateProcess(errorCode: Int): Unit = {
+            logger.info("Terminating process...")
+            terminate()
+            System.exit(errorCode)
+          }
+          Try(
+            dao
+              .isValid(120)
+              .attempt
+              .flatMap {
+                case Left(ex) =>
+                  logger.error("Unexpected error while checking database connection", ex)
+                  IO.pure(some(ErrorCodes.StartupError))
+                case Right(false) =>
+                  logger.error("Database connection is not valid.")
+                  IO.pure(some(ErrorCodes.StartupError))
+                case Right(true) =>
+                  DbStartupOps
+                    .fromStartupMode(dao, c.dbStartupMode)
+                    .map(success =>
+                      if (success)
+                        if (DbStartupOps.shouldStart(c.dbStartupMode)) none
+                        else some(ErrorCodes.Ok)
+                      else some(ErrorCodes.StartupError)
+                    )
+              }
+              .unsafeRunSync()
+          ).fold(
+            { ex =>
+              logger
+                .error("Unexpected error while checking connection or DB schema initialization", ex)
+              terminateProcess(ErrorCodes.StartupError)
+            },
+            _.foreach(terminateProcess),
+          )
+        case _ =>
+      }
+      contractDao
     }
 
-    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] =
+    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] = {
       metricsResource.asFuture.flatMap(implicit metrics =>
-        HttpService.start(
-          startSettings = config,
-          contractDao = contractDao,
+        contractDao.flatMap(dao =>
+          HttpService.start(
+            startSettings = config,
+            contractDao = dao,
+          )
         )
       )
+    }
 
     discard {
       sys.addShutdownHook {
