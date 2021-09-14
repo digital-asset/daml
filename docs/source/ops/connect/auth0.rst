@@ -453,7 +453,7 @@ Now, the trigger service:
       --auth-internal http://localhost:5000 \
       --auth-external %%ORIGIN%%/auth \
       --auth-callback %%ORIGIN%%/trigger/cb \
-      --dar .daml/dist/my-ptoject-0.1.0.dar
+      --dar .daml/dist/my-project-0.1.0.dar
 
 Next, we'll build our frontend code, but first we're going to make a small
 change to let us demonstrate interactions with the Trigger Service.
