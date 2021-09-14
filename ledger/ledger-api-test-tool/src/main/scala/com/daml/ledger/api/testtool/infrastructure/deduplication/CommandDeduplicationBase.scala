@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.infrastructure.deduplication
 
 import java.util.UUID
 
-import com.daml.grpc.GrpcException
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, assertSingleton, _}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -24,7 +23,6 @@ import io.grpc.Status
 import io.grpc.Status.Code
 
 import scala.annotation.nowarn
-import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -332,33 +330,6 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   })
 
-  test(
-    s"${testNamingPrefix}DeduplicateParallelSubmissions",
-    "Commands submitted at the same, in parallel, should be deduplicated",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    lazy val request = ledger
-      .submitRequest(party, DummyWithAnnotation(party, "Duplicate").create.command)
-      .update(
-        _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationTime(
-          deduplicationDuration.asProtobuf
-        )
-      )
-    val numberOfParallelRequests = 10
-    Future
-      .traverse(Seq.fill(numberOfParallelRequests)(request))(request => {
-        submitRequestAndGetStatusCode(ledger)(request, party)
-      })
-      .map(_.groupMapReduce(identity)(_ => 1)(_ + _))
-      .map(responses => {
-        val expectedDuplicateResponses = numberOfParallelRequests - 1
-        assert(
-          responses == Map(Code.ALREADY_EXISTS -> expectedDuplicateResponses, Code.OK -> 1),
-          s"Expected $expectedDuplicateResponses duplicate responses and one accepted, got $responses",
-        )
-      })
-  })
-
   def submitRequestAndAssertCompletionAccepted(
       ledger: ParticipantTestContext
   )(request: SubmitRequest, parties: Party*)(implicit ec: ExecutionContext): Future[Completion] = {
@@ -375,21 +346,6 @@ private[testtool] abstract class CommandDeduplicationBase(
     else
       submitRequestAndAssertAsyncDeduplication(ledger)(request, parties: _*)
         .map(_ => ())
-  }
-
-  def submitRequestAndGetStatusCode(
-      ledger: ParticipantTestContext
-  )(request: SubmitRequest, parties: Party*)(implicit ec: ExecutionContext): Future[Code] = {
-    if (deduplicationFeatures.participantDeduplication)
-      ledger.submit(request).map(_ => Code.OK).recover {
-        case GrpcException(status, _) =>
-          Status.fromCodeValue(status.getCode.value()).getCode
-        case otherException => fail("Not a GRPC exception", otherException)
-      }
-    else
-      submitRequestAndFindCompletion(ledger)(request, parties: _*).map(completion =>
-        Status.fromCodeValue(completion.getStatus.code).getCode
-      )
   }
 
   protected def submitRequestAndAssertSyncDeduplication(
