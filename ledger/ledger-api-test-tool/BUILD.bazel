@@ -73,6 +73,9 @@ da_scala_binary(
         da_scala_library(
             name = "ledger-api-test-tool-%s-lib" % lf_version,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
+            plugins = [
+                silencer_plugin,
+            ],
             scala_deps = [
                 "@maven//:com_typesafe_akka_akka_actor",
                 "@maven//:com_typesafe_akka_akka_stream",
