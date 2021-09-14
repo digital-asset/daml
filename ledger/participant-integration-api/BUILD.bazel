@@ -43,6 +43,7 @@ compile_deps = [
     "//ledger-api/rs-grpc-akka",
     "//ledger-api/rs-grpc-bridge",
     "//ledger/caching",
+    "//ledger/error",
     "//ledger/ledger-api-akka",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-client",
