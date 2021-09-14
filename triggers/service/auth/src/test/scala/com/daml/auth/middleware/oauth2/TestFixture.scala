@@ -118,9 +118,12 @@ trait TestFixture
             ),
           )
         )
-        authUri = Uri().withScheme("http")
-                       .withAuthority(middlewareBinding.localAddress.getHostName,
-                                      middlewareBinding.localAddress.getPort)
+        authUri = Uri()
+          .withScheme("http")
+          .withAuthority(
+            middlewareBinding.localAddress.getHostName,
+            middlewareBinding.localAddress.getPort,
+          )
         middlewareClientConfig = Client.Config(
           authMiddlewareInternalUri = authUri,
           authMiddlewareExternalUri = authUri,
