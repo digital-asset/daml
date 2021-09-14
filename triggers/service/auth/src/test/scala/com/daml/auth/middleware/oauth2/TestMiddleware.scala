@@ -605,7 +605,8 @@ class TestMiddlewareClientLoginCallbackUri
     with ScalatestRouteTest {
   private val client = Client(
     Client.Config(
-      authMiddlewareUri = Uri("http://auth.domain"),
+      authMiddlewareInternalUri = Uri("http://auth.internal"),
+      authMiddlewareExternalUri = Uri("http://auth.external"),
       redirectToLogin = Client.RedirectToLogin.Yes,
       maxAuthCallbacks = 1000,
       authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
@@ -622,7 +623,7 @@ class TestMiddlewareClientLoginCallbackUri
       val claims = Request.Claims(actAs = List(Party("Alice")))
       routes.loginUri(claims = claims) shouldBe
         Uri(
-          s"http://auth.domain/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
         )
     }
   }
@@ -635,7 +636,7 @@ class TestMiddlewareClientLoginCallbackUri
         complete(routes.loginUri(claims).toString)
       } ~> check {
         responseAs[String] shouldEqual
-          s"http://auth.domain/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
       }
     }
   }
@@ -646,7 +647,7 @@ class TestMiddlewareClientLoginCallbackUri
       import akka.http.scaladsl.server.directives.RouteDirectives._
       Get() ~> routes { routes => complete(routes.loginUri(claims).toString) } ~> check {
         responseAs[String] shouldEqual
-          s"http://auth.domain/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
       }
     }
     "be from request when relative" in {
@@ -657,7 +658,7 @@ class TestMiddlewareClientLoginCallbackUri
         complete(routes.loginUri(claims).toString)
       } ~> check {
         responseAs[String] shouldEqual
-          s"http://auth.domain/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
       }
     }
   }

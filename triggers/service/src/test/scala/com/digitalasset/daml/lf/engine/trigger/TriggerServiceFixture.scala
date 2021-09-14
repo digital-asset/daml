@@ -159,7 +159,7 @@ trait AuthMiddlewareFixture
       .get
     jwt.value
   }
-  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
+  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri, authMiddlewareUri)
   protected def authClock: AdjustableClock = resource.value._1
   protected def authServer: OAuthServer = resource.value._2
 
