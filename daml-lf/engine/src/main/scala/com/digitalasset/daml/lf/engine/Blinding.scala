@@ -78,7 +78,7 @@ object Blinding {
     }
 
     GenTransaction(
-      roots = go(BackStack.empty, FrontStack(tx.roots)),
+      roots = go(BackStack.empty, tx.roots.toFrontStack),
       nodes = filteredNodes,
     )
   }

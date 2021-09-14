@@ -133,7 +133,7 @@ private[backend] object PostgresStorageBackend
        """
         .as(int("result").singleOpt)(connection)
         .foreach(_ =>
-          throw ErrorFactories.invalidArgument(
+          throw ErrorFactories.invalidArgument(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
           )
         )

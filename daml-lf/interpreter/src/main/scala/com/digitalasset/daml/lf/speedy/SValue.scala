@@ -366,13 +366,11 @@ object SValue {
 
   def toList(entries: TreeMap[SValue, SValue]): SList =
     SList(
-      FrontStack(
-        entries.iterator
-          .map { case (k, v) =>
-            entry(k, v)
-          }
-          .to(ImmArray)
-      )
+      entries.view
+        .map { case (k, v) =>
+          entry(k, v)
+        }
+        .to(FrontStack)
     )
 
   private def mapArrayList(

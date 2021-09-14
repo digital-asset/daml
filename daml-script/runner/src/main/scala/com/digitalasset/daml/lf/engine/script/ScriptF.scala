@@ -219,7 +219,8 @@ object ScriptF {
         )
         acs <- client.query(parties, tplId)
         res <- Converter.toFuture(
-          FrontStack(acs)
+          acs
+            .to(FrontStack)
             .traverse(
               Converter
                 .fromCreated(env.valueTranslator, _)
@@ -329,7 +330,7 @@ object ScriptF {
           partyDetails
             .traverse(details => Converter.fromPartyDetails(env.scriptIds, details))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(partyDetails_)))))
+      } yield SEApp(SEValue(continue), Array(SEValue(SList(partyDetails_.to(FrontStack)))))
 
   }
   final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd {

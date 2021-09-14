@@ -334,7 +334,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   ): ExerciseCommand = {
     val choice = "Size"
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
-    val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64)))
+    val damlList = ValueList(List.range(0L, size.toLong).map(ValueInt64).to(FrontStack))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
     ExerciseCommand(templateId, contractId, choice, choiceArgs)
   }

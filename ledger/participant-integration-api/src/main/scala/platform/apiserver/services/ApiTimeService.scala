@@ -3,8 +3,6 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -18,13 +16,13 @@ import com.daml.platform.akkastreams.dispatcher.SignalDispatcher
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.FieldValidations
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.empty.Empty
-import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NoStackTrace
 
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
@@ -79,12 +77,9 @@ private[apiserver] final class ApiTimeService private (
           if (success) Right(requestedTime)
           else
             Left(
-              new StatusRuntimeException(
-                Status.INVALID_ARGUMENT
-                  .withDescription(
-                    s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
-                  )
-              ) with NoStackTrace
+              ErrorFactories.invalidArgument(None)(
+                s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
+              )
             )
         )
     }
@@ -98,12 +93,9 @@ private[apiserver] final class ApiTimeService private (
           Right(())
         else
           Left(
-            new StatusRuntimeException(
-              Status.INVALID_ARGUMENT
-                .withDescription(
-                  s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
-                )
-            ) with NoStackTrace
+            ErrorFactories.invalidArgument(None)(
+              s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
+            )
           )
       }
     } yield {

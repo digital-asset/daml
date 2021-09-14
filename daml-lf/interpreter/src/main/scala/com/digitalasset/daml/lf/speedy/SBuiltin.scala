@@ -372,7 +372,7 @@ private[lf] object SBuiltin {
   //
   final case object SBExplodeText extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(FrontStack(Utf8.explode(getSText(args, 0)).map(SText)))
+      SList(FrontStack.from(Utf8.explode(getSText(args, 0)).map(SText)))
   }
 
   final case object SBImplodeText extends SBuiltinPure(1) {
@@ -507,7 +507,7 @@ private[lf] object SBuiltin {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
       val string = getSText(args, 0)
       val codePoints = Utf8.unpack(string)
-      SList(FrontStack(codePoints.map(SInt64)))
+      SList(FrontStack.from(codePoints.map(SInt64)))
     }
   }
 

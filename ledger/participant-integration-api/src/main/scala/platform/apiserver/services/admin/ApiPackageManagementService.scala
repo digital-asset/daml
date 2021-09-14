@@ -116,7 +116,10 @@ private[apiserver] final class ApiPackageManagementService private (
             err =>
               Future.failed(
                 ValidationLogger
-                  .logFailureWithContext(request, ErrorFactories.invalidArgument(err.getMessage))
+                  .logFailureWithContext(
+                    request,
+                    ErrorFactories.invalidArgument(None)(err.getMessage),
+                  )
               ),
             Future.successful,
           )
@@ -190,7 +193,7 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        ErrorFactories.invalidArgument(reason)
+        ErrorFactories.invalidArgument(None)(reason)
     }
   }
 

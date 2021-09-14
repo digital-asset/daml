@@ -94,6 +94,7 @@ da_scala_binary(
                 "//libs-scala/resources-akka",
                 "//libs-scala/resources-grpc",
                 "//libs-scala/timer-utils",
+                "@maven//:com_google_api_grpc_proto_google_common_protos",
                 "@maven//:com_typesafe_config",
                 "@maven//:io_netty_netty_common",
                 "@maven//:io_netty_netty_transport",

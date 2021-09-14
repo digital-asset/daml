@@ -149,7 +149,7 @@ private[lf] final class CommandPreprocessor(
       }
     }
 
-    go(FrontStack(cmds), BackStack.empty)
+    go(cmds.toFrontStack, BackStack.empty)
   }
 
 }

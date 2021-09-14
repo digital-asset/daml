@@ -20,7 +20,7 @@ class PartyValidator(partyNameChecker: PartyNameChecker) {
   private def requireKnownParties(partiesInRequest: Set[Party]): Result[Set[Party]] = {
     val unknownParties = partiesInRequest.filterNot(partyNameChecker.isKnownParty)
     if (unknownParties.nonEmpty)
-      Left(invalidArgument(s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"))
+      Left(invalidArgument(None)(s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"))
     else Right(partiesInRequest)
   }
 }

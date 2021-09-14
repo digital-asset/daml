@@ -117,20 +117,30 @@ object CompletionResponse {
   }
 
   private def buildException(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
-    val newDetails = status.getDetailsList.asScala.map { detail =>
-      if (detail.is(classOf[ErrorInfo])) {
-        val previousErrorInfo: ErrorInfo = detail.unpack(classOf[ErrorInfo])
-        val newErrorInfo = previousErrorInfo.toBuilder.putAllMetadata(metadata.asJava).build()
-        AnyProto.pack(newErrorInfo)
-      } else {
-        detail
-      }
-    }
+    val details = mergeDetails(metadata, status)
     protobuf.StatusProto.toStatusException(
       status
         .clearDetails()
-        .addAllDetails(newDetails.asJava)
+        .addAllDetails(details.asJava)
         .build()
     )
+  }
+
+  private def mergeDetails(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
+    val previousDetails = status.getDetailsList.asScala
+    val newDetails = if (previousDetails.exists(_.is(classOf[ErrorInfo]))) {
+      previousDetails.map {
+        case detail if detail.is(classOf[ErrorInfo]) =>
+          val previousErrorInfo: ErrorInfo = detail.unpack(classOf[ErrorInfo])
+          val newErrorInfo = previousErrorInfo.toBuilder.putAllMetadata(metadata.asJava).build()
+          AnyProto.pack(newErrorInfo)
+        case otherDetail => otherDetail
+      }
+    } else {
+      previousDetails :+ AnyProto.pack(
+        ErrorInfo.newBuilder().putAllMetadata(metadata.asJava).build()
+      )
+    }
+    newDetails
   }
 }
