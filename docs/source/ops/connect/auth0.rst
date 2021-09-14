@@ -634,7 +634,7 @@ your app folder (``my-project`` in this example):
 
    If you want to work on your frontend code while otherwise using the rest
    of this pseudo-production system, you can uncomment the last ``proxy_pass``
-   directive, comment the ``try_files`` line after it, and start you reloading
+   directive, comment the ``try_files`` line after it, and start a reloading
    development server with:
 
 .. code-block:: bash
