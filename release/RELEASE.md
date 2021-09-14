@@ -40,7 +40,7 @@ patches we backport to the 1.0 release branch).
        [semver](https://semver.org/) ordering is probably the right thing to do)
        of the line produced by the `release.sh snapshot` invocation above.
 
-   Add the `Standard-Change` label _before  confirming the PR's creation_
+   Add the `Standard-Change` label _before confirming the PR's creation_
    (else the associated CI check will fail and merging the PR will require
    you to re-run it after all the other ones have completed successfully).
 
