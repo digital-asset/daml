@@ -36,6 +36,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
     s"DeduplicateParallelSubmissions",
     "Commands submitted at the same, in parallel, should be deduplicated",
     allocate(SingleParty),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val deduplicationDuration = 3.seconds
     lazy val request = ledger
@@ -78,11 +79,13 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
       .flatMap(_ => ledger.findCompletion(parties: _*)(_.submissionId == submissionId))
       .map {
         case Some(completion) =>
+          println(s"Found completions $completion")
           completion.getStatus.code
         case None => fail(s"Did not find completion for request with submission id $submissionId")
       }
       .recover {
         case GrpcException(status, _) =>
+          println(s"Exception status $status")
           status.getCode.value()
         case otherException => fail("Not a GRPC exception", otherException)
       }
