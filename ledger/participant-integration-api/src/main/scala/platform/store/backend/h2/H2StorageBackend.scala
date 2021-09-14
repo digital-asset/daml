@@ -11,7 +11,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.Conversions.instantFromMicros
 import com.daml.platform.store.appendonlydao.events.ContractId
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -36,7 +35,6 @@ import com.daml.platform.store.backend.{
 }
 
 import javax.sql.DataSource
-import scala.util.{Failure, Success, Try}
 
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -249,66 +247,6 @@ FETCH NEXT 1 ROW ONLY;
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Unit = ()
-
-  override def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Instant]] = {
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Instant]] = {
-        import com.daml.platform.store.Conversions.ContractIdToStatement
-        SQL"""
-  WITH archival_event AS (
-         SELECT 1
-           FROM participant_events_consuming_exercise, parameters
-          WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events_create, parameters
-          WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT null
-           FROM participant_events_divulgence, parameters
-          WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY"""
-          .as(instantFromMicros("ledger_effective_time").?.singleOpt)(connection)
-      }
-
-      val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
-        .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Instant]] = queriedIds
-        .collect { case (_, Some(found)) =>
-          found
-        }
-      if (foundLedgerEffectiveTimes.size != ids.size) {
-        val missingIds = queriedIds.collect { case (missingId, None) =>
-          missingId
-        }
-        Failure(notFound(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
-    }
-  }
 
   override protected def activeContract[T](
       resultSetParser: ResultSetParser[T],
