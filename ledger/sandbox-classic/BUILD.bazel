@@ -366,6 +366,7 @@ server_conformance_test(
         "--open-world",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -396,6 +397,7 @@ server_conformance_test(
         "--open-world",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
         "--additional=ParticipantPruningIT",
         "--exclude=ClosedWorldIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic

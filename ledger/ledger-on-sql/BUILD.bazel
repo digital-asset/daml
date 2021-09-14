@@ -322,6 +322,7 @@ conformance_test(
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -348,6 +349,7 @@ conformance_test(
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -373,6 +375,7 @@ conformance_test(
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -420,6 +423,7 @@ conformance_test(
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -446,6 +450,7 @@ conformance_test(
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",

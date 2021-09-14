@@ -131,6 +131,7 @@ conformance_test(
         "--additional=MultiPartySubmissionIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
     ],
 )
 
