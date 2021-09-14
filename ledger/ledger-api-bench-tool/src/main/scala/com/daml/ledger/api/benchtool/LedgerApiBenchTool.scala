@@ -170,7 +170,7 @@ object LedgerApiBenchTool {
       .usePlaintext()
 
     if (tls.enabled) {
-      tls.client.map { sslContext =>
+      tls.client().map { sslContext =>
         logger.info(s"Setting up a managed channel with transport security...")
         channelBuilder
           .useTransportSecurity()

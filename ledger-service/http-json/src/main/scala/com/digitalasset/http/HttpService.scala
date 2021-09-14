@@ -85,7 +85,7 @@ object HttpService {
       applicationId = ApplicationId.unwrap(DummyApplicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.client,
+      sslContext = tlsConfig.client(),
       maxInboundMessageSize = maxInboundMessageSize,
     )
 

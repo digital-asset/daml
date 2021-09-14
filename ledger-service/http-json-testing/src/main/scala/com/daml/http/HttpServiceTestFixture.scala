@@ -212,7 +212,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = if (useTls) clientTlsConfig.client else None,
+      sslContext = if (useTls) clientTlsConfig.client() else None,
       token = token,
     )
 

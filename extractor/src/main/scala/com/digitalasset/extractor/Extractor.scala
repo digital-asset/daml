@@ -260,7 +260,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         applicationId = config.appId,
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration(1, 1, java.time.Duration.ofSeconds(20L)),
-        sslContext = config.tlsConfig.client,
+        sslContext = config.tlsConfig.client(),
         token = tokenHolder.flatMap(_.token),
         maxInboundMessageSize = config.ledgerInboundMessageSizeMax,
       ),
