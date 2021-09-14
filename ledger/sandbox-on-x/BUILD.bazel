@@ -145,8 +145,7 @@ conformance_test(
         "--verbose",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=CommandDeduplicationIT",
         "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
