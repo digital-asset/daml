@@ -185,7 +185,7 @@ class Component extends React.Component<Props, ComponentState> {
         // No user logged in yet, use default config.
         return {
           config: defaultConfig(),
-          theme: this.computeStateFromConfig( {} as Session.User, configSource).theme,
+          theme: this.computeStateFromConfig( { id: "", party: "", canAdvanceTime: false, role: "" }, configSource).theme,
         };
       case 'authenticated':
         // User available, try to evaluate the config.

@@ -74,7 +74,7 @@ const Frame: React.FC<FrameProps> = ({
           return (
             <Item
               title={title}
-              isActive={activeRoute === Routes.customView && window.location.pathname.split("/")[2] === id}
+              isActive={page.type === "customview" && page.state.id === id}
               route={Routes.customView}
               params={{id}}
               key={`Custom-${id}`}
