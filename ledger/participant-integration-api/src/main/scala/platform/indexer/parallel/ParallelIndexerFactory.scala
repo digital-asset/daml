@@ -75,55 +75,80 @@ object ParallelIndexerFactory {
             )
         else
           ResourceOwner.successful(NoopHaCoordinator)
-    } yield toIndexer { resourceContext =>
-      implicit val rc: ResourceContext = resourceContext
+    } yield toIndexer { implicit resourceContext =>
       implicit val ec: ExecutionContext = resourceContext.executionContext
-      haCoordinator.protectedExecution { connectionInitializer =>
-        val killSwitchPromise = Promise[KillSwitch]()
-
-        val completionFuture = DbDispatcher
-          .owner(
-            // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
-            // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-            dataSource = storageBackend.createDataSource(
-              jdbcUrl = jdbcUrl,
-              dataSourceConfig = dataSourceConfig,
-              connectionInitHook = Some(connectionInitializer.initialize),
-            ),
-            serverRole = ServerRole.Indexer,
-            connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
-            connectionTimeout = FiniteDuration(
-              250,
-              "millis",
-            ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
-            metrics = metrics,
-          )
-          .use { dbDispatcher =>
-            initializeParallelIngestion(
+      haCoordinator.protectedExecution(connectionInitializer =>
+        initializeHandle(
+          DbDispatcher
+            .owner(
+              // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+              // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
+              dataSource = storageBackend.createDataSource(
+                jdbcUrl = jdbcUrl,
+                dataSourceConfig = dataSourceConfig,
+                connectionInitHook = Some(connectionInitializer.initialize),
+              ),
+              serverRole = ServerRole.Indexer,
+              connectionPoolSize =
+                ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
+              connectionTimeout = FiniteDuration(
+                250,
+                "millis",
+              ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+              metrics = metrics,
+            )
+        ) { dbDispatcher =>
+          initializeParallelIngestion(
+            dbDispatcher = dbDispatcher,
+            readService = readService,
+            ec = ec,
+            mat = mat,
+          ).map(
+            parallelIndexerSubscription(
+              inputMapperExecutor = inputMapperExecutor,
+              batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
-              readService = readService,
-              ec = ec,
-              mat = mat,
-            ).map(
-              parallelIndexerSubscription(
-                inputMapperExecutor = inputMapperExecutor,
-                batcherExecutor = batcherExecutor,
-                dbDispatcher = dbDispatcher,
-                materializer = mat,
-              )
-            ).andThen {
-              // the tricky bit:
-              // the future in the completion handler will be this one
-              // but the future for signaling for the HaCoordinator, that the protected execution is initialized, needs to complete precisely here
-              case Success(handle) => killSwitchPromise.success(handle.killSwitch)
-              case Failure(ex) => killSwitchPromise.failure(ex)
-            }.flatMap(_.completed)
-          }
-
-        killSwitchPromise.future
-          .map(Handle(completionFuture.map(_ => ()), _))
-      }
+              materializer = mat,
+            )
+          )
+        }
+      )
     }
+
+  /** Helper function to combine a ResourceOwner and an initialization function to initialize a Handle.
+    *
+    * @param owner A ResourceOwner which needs to be used to spawn a resource needed by initHandle
+    * @param initHandle Asynchronous initialization function to create a Handle
+    * @return A Future of a Handle where Future encapsulates initialization (as completed initialization completed)
+    */
+  def initializeHandle[T](
+      owner: ResourceOwner[T]
+  )(initHandle: T => Future[Handle])(implicit rc: ResourceContext): Future[Handle] = {
+    implicit val ec: ExecutionContext = rc.executionContext
+    val killSwitchPromise = Promise[KillSwitch]()
+    val completed = owner
+      .use(resource =>
+        initHandle(resource)
+          .andThen {
+            // the tricky bit:
+            // the future in the completion handler will be this one
+            // but the future for signaling completion of initialization (the Future of the result), needs to complete precisely here
+            case Success(handle) => killSwitchPromise.success(handle.killSwitch)
+          }
+          .flatMap(_.completed)
+      )
+      .andThen {
+        // if error happens:
+        //   - at Resource initialization (inside ResourceOwner.acquire()): result should complete with a Failure
+        //   - at initHandle: result should complete with a Failure
+        //   - at the execution spawned by initHandle (represented by the result Handle's complete): result should be with a success
+        // In the last case it is already finished the promise with a success, and this tryFailure will not succeed (returning false).
+        // In the other two cases the promise was not completed, and we complete here successfully with a failure.
+        case Failure(ex) => killSwitchPromise.tryFailure(ex)
+      }
+    killSwitchPromise.future
+      .map(Handle(completed, _))
+  }
 
   def toIndexer(subscription: ResourceContext => Handle): Indexer =
     new Indexer {
