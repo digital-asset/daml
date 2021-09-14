@@ -568,7 +568,7 @@ class Ledger {
    * contract id.
    *
    * @param choice The choice to exercise.
-   * @param contractId The contract id of the contract to exercise.
+   * @param key The contract key of the contract to exercise.
    * @param argument The choice arguments.
    *
    * @typeparam T The contract template type.
