@@ -33,7 +33,7 @@ sealed trait SValue {
   def toUnnormalizedValue: V[V.ContractId] = {
     toValue(
       disallowGenMapAtVersion = None,
-      eraseType = false,
+      normalize = false,
     )
   }
 
@@ -44,17 +44,17 @@ sealed trait SValue {
     toValue(
       disallowGenMapAtVersion =
         if (version >= TransactionVersion.minGenMap) None else Some(version),
-      eraseType = version >= TransactionVersion.minTypeErasure,
+      normalize = version >= TransactionVersion.minTypeErasure,
     )
   }
 
   private def toValue(
       disallowGenMapAtVersion: Option[TransactionVersion],
-      eraseType: Boolean,
+      normalize: Boolean,
   ): V[V.ContractId] = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
-      if (eraseType) {
+      if (normalize) {
         None
       } else {
         Some(x)
