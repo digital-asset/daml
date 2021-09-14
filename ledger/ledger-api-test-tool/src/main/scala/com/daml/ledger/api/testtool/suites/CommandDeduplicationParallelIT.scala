@@ -27,7 +27,7 @@ import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Should be enabled for ledgers that fill the submission id in the completions,
+/** Should be enabled for ledgers that fill the submission ID in the completions,
   * as we need to use the submission id to find completions for parallel submissions
   */
 class CommandDeduplicationParallelIT extends LedgerTestSuite {
@@ -56,7 +56,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
         val expectedDuplicateResponses = numberOfParallelRequests - 1
         val okResponses = responses.getOrElse(Code.OK, 0)
         val alreadyExistsResponses = responses.getOrElse(Code.ALREADY_EXISTS, 0)
-        // Because of the way participant deduplication currently works, requests can fail with duplicate keys for command deduplication
+        // Participant-based command de-duplication can currently also reject duplicates via a SQL exception
         val internalResponses = responses.getOrElse(Code.INTERNAL, 0)
         // Canton can return ABORTED for duplicate submissions
         val abortedResponses = responses.getOrElse(Code.ABORTED, 0)
