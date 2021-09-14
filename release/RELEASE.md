@@ -32,7 +32,7 @@ patches we backport to the 1.0 release branch).
    $ ./release.sh snapshot cc880e2 0.1.2
    cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
    ```
-   Then open a PR _to ber merged into the `main` branch_ (even if it's for a maintenance release)
+   Then open a PR _to be merged into the `main` branch_ (even if it's for a maintenance release)
    that should contain:
 
      - The files changed by the `./release.sh prepare snapshot` invocation above.
