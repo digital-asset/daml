@@ -7,6 +7,14 @@ Setting Up Auth0
 In this section, we will walk through a complete setup of an entire Daml
 Connect system using Auth0 as its authentication provider.
 
+.. note::
+
+   These instructions include detailed steps to be performed through the Auth0
+   UI, which we do not control. They have been tested on 2021-09-14. It is
+   possible Auth0 has updated their UI since then in ways that invalidate parts
+   of the instructions here; if you notice any discrepancy, please report it on
+   `the forum <https://discuss.daml.com>`_.
+
 Authentication v. Authorization
 -------------------------------
 
