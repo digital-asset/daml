@@ -23,14 +23,13 @@ import com.daml.ledger.test.model.Test.DummyWithAnnotation
 import io.grpc.Status
 import io.grpc.Status.Code
 
-import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Should be enabled for ledgers that fill the submission ID in the completions,
   * as we need to use the submission id to find completions for parallel submissions
   */
-class CommandDeduplicationParallelIT extends LedgerTestSuite {
+class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
 
   test(
     s"DeduplicateParallelSubmissions",
@@ -39,6 +38,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val deduplicationDuration = 3.seconds
+    val numberOfParallelRequests = 10
     lazy val request = ledger
       .submitRequest(party, DummyWithAnnotation(party, "Duplicate").create.command)
       .update(
@@ -46,12 +46,11 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
           deduplicationDuration.asProtobuf
         )
       )
-    val numberOfParallelRequests = 10
     Future
       .traverse(Seq.fill(numberOfParallelRequests)(request))(request => {
         submitRequestAndGetStatusCode(ledger)(request, party)
       })
-      .map(_.groupMapReduce(identity)(_ => 1)(_ + _))
+      .map(_.groupBy(identity).view.mapValues(_.size).toMap)
       .map(responses => {
         val expectedDuplicateResponses = numberOfParallelRequests - 1
         val okResponses = responses.getOrElse(Code.OK, 0)
@@ -79,13 +78,11 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
       .flatMap(_ => ledger.findCompletion(parties: _*)(_.submissionId == submissionId))
       .map {
         case Some(completion) =>
-          println(s"Found completions $completion")
           completion.getStatus.code
         case None => fail(s"Did not find completion for request with submission id $submissionId")
       }
       .recover {
         case GrpcException(status, _) =>
-          println(s"Exception status $status")
           status.getCode.value()
         case otherException => fail("Not a GRPC exception", otherException)
       }
