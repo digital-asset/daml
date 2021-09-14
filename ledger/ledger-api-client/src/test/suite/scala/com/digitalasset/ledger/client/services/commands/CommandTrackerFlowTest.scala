@@ -475,6 +475,58 @@ class CommandTrackerFlowTest
       }
     }
 
+    "a completion without submission id arrives" should {
+      "fail if there are multiple pending commands with the same command id" in {
+        val Handle(submissions, _, unhandledF, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        submissions.sendNext(newSubmission("submissionId", "commandId"))
+        submissions.sendNext(newSubmission("anotherSubmissionId", "commandId"))
+
+        val completionWithoutSubmissionId =
+          Completion(
+            commandId,
+            Some(successStatus),
+            submissionId = "",
+          )
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(completionWithoutSubmissionId)
+        )
+
+        whenReady(unhandledF) { unhandled =>
+          unhandled should have size 2
+          unhandled should contain(
+            TrackedCommandKey("submissionId", "commandId") -> submission.context
+          )
+          unhandled should contain(
+            TrackedCommandKey("anotherSubmissionId", "commandId") -> submission.context
+          )
+        }
+      }
+
+      "output the completion" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        submissions.sendNext(submission)
+
+        val completionWithoutSubmissionId =
+          Completion(
+            commandId,
+            Some(successStatus),
+            submissionId = "",
+          )
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(completionWithoutSubmissionId)
+        )
+
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
+        succeed
+      }
+    }
+
     "a multitude of successful completions arrive for submitted commands" should {
 
       "output all expected values" in {
@@ -552,7 +604,7 @@ class CommandTrackerFlowTest
           _ <- checkOffset(LedgerOffset(Boundary(LEDGER_BEGIN)))
           _ <- breakUntilOffsetArrives()
           _ <- checkOffset(checkPointOffset)
-          _ <- sendCommand("submission-1", "command-2")
+          _ <- sendCommand("submission-2", "command-2")
         } yield {
           succeed
         }

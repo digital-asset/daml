@@ -4,7 +4,6 @@
 package com.daml.ledger.client.services.commands.tracker
 
 import java.time.{Duration, Instant}
-
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
@@ -299,7 +298,7 @@ private[commands] class CommandTracker[Context](
       }
 
       private def getOutputForCompletion(completion: Completion) = {
-        val (commandKey, errorText) = {
+        val (potentialCommandKey, errorText) = {
           completion.status match {
             case Some(StatusProto(code, _, _, _)) if code == Status.Code.OK.value =>
               TrackedCommandKey(
@@ -314,7 +313,25 @@ private[commands] class CommandTracker[Context](
           }
         }
 
-        logger.trace("Handling {} {}", errorText, completion.commandId: Any)
+        val commandKey = if (potentialCommandKey.submissionId.isEmpty) {
+          val potentialKeys =
+            pendingCommands.keys.filter(_.commandId == potentialCommandKey.commandId)
+          if (potentialKeys.size > 1) {
+            throw new IllegalStateException(
+              s"There are multiple pending commands for the id ${potentialCommandKey.commandId}. This can only happen for the mutating schema."
+            ) with NoStackTrace
+          }
+          potentialKeys.head
+        } else {
+          potentialCommandKey
+        }
+
+        logger.trace(
+          "Handling {} {} from submission {}",
+          errorText,
+          completion.commandId,
+          completion.submissionId,
+        )
         pendingCommands.remove(commandKey).map { t =>
           Ctx(t.context, tracker.CompletionResponse(completion))
         }
