@@ -11,16 +11,16 @@ cd "$(dirname "$0")"
 # load the dev-env
 eval "$(dev-env/bin/dade-assist)"
 
-# Location of reference image used for buf breaking check.
+# Location of reference image used for `buf`'s protobuf breaking checks, including the Ledger API's.
 #
-# It should be re-built by running './fmt.sh --rebuild-buf-image' and then committed:
+# This `buf` image will be re-built and committed automatically as part of the SDK release process;
+# this means that all protobuf changes in the next SDK development cycle will be checked by `buf`
+# against the new SDK's protobufs, effectively considering them stable.
 #
-# 1. as part of a commit also containing breaking proto changes (that have been agreed to), and/or
-# 2. as part of a subsequent commit (e.g. in the same PR, in a later PR or as part of the SDK release process),
-#    when already committed proto changes become stable.
+# The `buf` image should be re-built manually only when making breaking protobuf changes that have
+# been agreed to and it should be part of the same commit also containing such changes.
 #
-# Proto changes that are part of an SDK release (especially RC and stable ones) should also be included in
-# the buf image.
+# To re-build it manually, run './fmt.sh --rebuild-buf-image'.
 
 buf_image="buf-stable-protos-image.bin"
 
@@ -45,7 +45,7 @@ run() {
   if [[ $is_test = 1 && $ret -gt 0 ]]; then
     log "command failed with return $ret"
     log
-    log "run ./fmt.sh to fix the issue"
+    log "run ./fmt.sh to fix formatting issues or ./fmt.sh --rebuild-buf-image if you intend to make a breaking change"
     exit 1
   fi
   return 0

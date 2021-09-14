@@ -24,6 +24,7 @@ patches we backport to the 1.0 release branch).
    If you are manually creating the PR for an out-of-schedule snapshot, start
    _from latest `main`_ and run
    ```
+   ./release.sh prepare snapshot
    ./release.sh snapshot <sha> <prefix>
    ```
    for example:
@@ -31,13 +32,17 @@ patches we backport to the 1.0 release branch).
    $ ./release.sh snapshot cc880e2 0.1.2
    cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
    ```
-   Then open a PR _to be merged to `main`_ (even if it's for a maintenance release)
-   with the changed `LATEST` file, add the line produced by the `release.sh`
-   invocation in a meaningful position (if you’re not sure, [semver](https://semver.org/) ordering is
-   probably the right thing to do) and add the `Standard-Change` label. It
-   is better to add such a label _before confirming the PR's creation_, else
-   the associated CI check will fail and merging the PR will require you to
-   re-run it after all the other ones have completed successfully.
+   Then open a PR _to ber merged into the `main` branch_ (even if it's for a maintenance release)
+   that should contain:
+
+     - The files changed by the `./release.sh prepare snapshot` invocation above.
+     - The addition to `LATEST` in a meaningful position (if you’re not sure,
+       [semver](https://semver.org/) ordering is probably the right thing to do)
+       of the line produced by the `release.sh snapshot` invocation above.
+
+   Add the `Standard-Change` label _before  confirming the PR's creation_
+   (else the associated CI check will fail and merging the PR will require
+   you to re-run it after all the other ones have completed successfully).
 
 1. Once the PR has built, check that it was considered a release build by our
    CI. If you are working from an automated PR, check that it sent a message to

@@ -75,10 +75,13 @@ $0 snapshot SHA PREFIX
 
         Any non-ambiguous git commit reference can be given as SHA.
 
+$0 prepare snapshot
+        Prepares a snapshot; currently, this step updates the buf image.
+
 $0 new snapshot
-        Updates LATEST to add current commit as a new snapshot. Figures out
-        prefix version by keeping the same if the first line in LATEST is a
-        snapshot, and incrementing minor if the first line is stable.
+        Prepares a snapshot and updates LATEST to add current commit as a new snapshot.
+        Figures out prefix version by keeping the same if the first
+        line in LATEST is a snapshot, and incrementing minor if the first line is stable.
 
 $0 check
         Checks that each line of the LATEST file is well-formed.
@@ -99,7 +102,13 @@ commit_belongs_to_release_branch() {
       | grep -q -E '^origin/(main$|release/)'
 }
 
+prepare_snapshot() {
+    (./fmt.sh --rebuild-buf-image)
+}
+
 new_snapshot () {
+    prepare_snapshot
+
     local sha latest latest_prefix prefix new_line tmp
     sha=$(git rev-parse HEAD)
     if ! commit_belongs_to_release_branch $sha; then
@@ -143,6 +152,13 @@ case $1 in
                 echo "WARNING: Commit does not belong to a release branch."
             fi
             make_snapshot $(git rev-parse $2) $3
+        else
+            display_help
+        fi
+    ;;
+    prepare)
+        if [ $# -eq 2 ] && [ "$2" == 'snapshot' ]; then
+            prepare_snapshot
         else
             display_help
         fi
