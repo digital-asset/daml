@@ -206,6 +206,15 @@ private[trigger] object ServiceConfig {
           + JdbcConfig.help()
       )
 
+    checkConfig { cfg =>
+      if ((cfg.authBothUri.nonEmpty && (cfg.authInternalUri.nonEmpty || cfg.authExternalUri.nonEmpty))
+        || (cfg.authInternalUri.nonEmpty != cfg.authExternalUri.nonEmpty))
+        failure("You must specify either just --auth or both --auth-internal and --auth-external.")
+      else
+        success
+    }
+
+
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
       .text("Initialize database and terminate.")

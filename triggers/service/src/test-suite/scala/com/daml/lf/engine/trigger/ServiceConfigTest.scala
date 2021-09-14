@@ -35,5 +35,14 @@ class ServiceConfigTest extends AnyWordSpec with Matchers with OptionValues {
         Set("notcustom"),
       ) should ===(None)
     }
+    "auth and auth-* should not be set together" in {
+      parse(baseOpts ++ Seq("--auth", "http://example.com"), Set()) should !==(None)
+      parse(baseOpts ++ Seq("--auth-internal", "http://example.com/1", "--auth-external", "http://example.com/2"), Set()) should !==(None)
+      parse(baseOpts ++ Seq("--auth", "http://example.com", "--auth-internal", "http://example.com/1"), Set()) should ===(None)
+      parse(baseOpts ++ Seq("--auth", "http://example.com", "--auth-external", "http://example.com/1"), Set()) should ===(None)
+      parse(baseOpts ++ Seq("--auth-internal", "http://example.com/1"), Set()) should ===(None)
+      parse(baseOpts ++ Seq("--auth-external", "http://example.com/1"), Set()) should ===(None)
+      parse(baseOpts ++ Seq("--auth", "http://example.com", "--auth-internal", "http://example.com/1", "--auth-external", "http://example.com/2"), Set()) should ===(None)
+    }
   }
 }
