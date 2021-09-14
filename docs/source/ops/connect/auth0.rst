@@ -13,8 +13,8 @@ Authentication v. Authorization
 In a complete Daml system, the Daml components only concern themselves with
 *authorization*: requests are accompanied by a (signed) token that *claims* a
 number of rights (such as the right to *act as*  a given party). The Daml
-system will accept these claims at face value provided that the token signature
-checks out.
+system will check the signature of the token, but will not perform any further
+verification of the claims themselves.
 
 On the other side of the fence, the *authentication system* needs to verify a
 client's identity and, based on the result, provide them with an appropriate
