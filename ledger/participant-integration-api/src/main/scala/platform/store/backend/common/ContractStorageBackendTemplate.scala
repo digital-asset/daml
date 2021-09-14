@@ -52,6 +52,8 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
     )
 
+  protected val CastNullLedgerEffectiveTime: String = "NULL::BIGINT"
+
   // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
   // TODO append-only: consider pulling up traversal logic to upper layer
   override def maximumLedgerTime(
@@ -78,7 +80,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
-         SELECT NULL::BIGINT
+         SELECT #$CastNullLedgerEffectiveTime
            FROM participant_events_divulgence, parameters
           WHERE contract_id = $id
             AND event_sequential_id <= parameters.ledger_end_sequential_id
