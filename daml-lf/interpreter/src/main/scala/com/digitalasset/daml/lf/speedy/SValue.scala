@@ -32,8 +32,7 @@ sealed trait SValue {
     */
   def toUnnormalizedValue: V[V.ContractId] = {
     toValue(
-      disallowGenMapAtVersion = None,
-      eraseType = false,
+      normalize = false
     )
   }
 
@@ -42,19 +41,16 @@ sealed trait SValue {
   def toNormalizedValue(version: TransactionVersion): V[V.ContractId] = {
     import Ordering.Implicits.infixOrderingOps
     toValue(
-      disallowGenMapAtVersion =
-        if (version >= TransactionVersion.minGenMap) None else Some(version),
-      eraseType = version >= TransactionVersion.minTypeErasure,
+      normalize = version >= TransactionVersion.minTypeErasure
     )
   }
 
   private def toValue(
-      disallowGenMapAtVersion: Option[TransactionVersion],
-      eraseType: Boolean,
+      normalize: Boolean
   ): V[V.ContractId] = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
-      if (eraseType) {
+      if (normalize) {
         None
       } else {
         Some(x)
@@ -99,20 +95,11 @@ sealed trait SValue {
               )
           }))
         case SMap(false, entries) =>
-          // TODO: Is it necessary to check GenMap/version here? Can't it just be assumed?
-          disallowGenMapAtVersion match {
-            case None =>
-              V.ValueGenMap(
-                entries.view
-                  .map { case (k, v) => go(k, nextMaxNesting) -> go(v, nextMaxNesting) }
-                  .to(ImmArray)
-              )
-            case Some(version) =>
-              throw SError.SErrorCrash(
-                NameOf.qualifiedNameOfCurrentFunc,
-                s"SValue.toValue: GenMap are not allowed in transaction version $version",
-              )
-          }
+          V.ValueGenMap(
+            entries.view
+              .map { case (k, v) => go(k, nextMaxNesting) -> go(v, nextMaxNesting) }
+              .to(ImmArray)
+          )
         case SContractId(coid) =>
           V.ValueContractId(coid)
         case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
