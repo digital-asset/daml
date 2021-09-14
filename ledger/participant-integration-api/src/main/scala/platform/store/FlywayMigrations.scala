@@ -7,6 +7,7 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.FlywayMigrations._
 import com.daml.platform.store.backend.VerifiedDataSource
+import com.daml.timer.RetryStrategy
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
@@ -76,31 +77,17 @@ private[platform] class FlywayMigrations(
 
       logger.info("Running Flyway validation...")
 
-      @tailrec
-      def flywayMigrationDone(
-          retries: Int
-      ): Unit = {
+      RetryStrategy.constant(Some(retries), retryBackoff) { case t =>
+        logger
+          .warn("Exception encountered while validating flyway migrations", t)
+        false
+      } { case (_, _) =>
         val pendingMigrations = flyway.info().pending().length
         if (pendingMigrations == 0) {
-          ()
-        } else if (retries <= 0) {
-          throw ExhaustedRetries(pendingMigrations)
+          Future.unit
         } else {
-          logger.debug(
-            s"Concurrent migration has reduced the pending migrations set to $pendingMigrations, waiting until pending set is empty.."
-          )
-          Thread.sleep(retryBackoff.toMillis)
-          flywayMigrationDone(retries - 1)
+          Future.failed(MigrationIncomplete(pendingMigrations))
         }
-      }
-
-      try {
-        flywayMigrationDone(retries)
-        logger.info("Flyway schema validation finished successfully.")
-      } catch {
-        case ex: RuntimeException =>
-          logger.error(s"Failed to validate and wait only: ${ex.getMessage}", ex)
-          throw ex
       }
   }
 
@@ -163,8 +150,8 @@ private[platform] object FlywayMigrations {
     }
   }
 
-  case class ExhaustedRetries(pendingMigrations: Int)
-      extends RuntimeException(s"Ran out of retries with $pendingMigrations migrations remaining")
+  case class MigrationIncomplete(pendingMigrations: Int)
+      extends RuntimeException(s"Migration incomplete with $pendingMigrations migrations remaining")
   case class MigrateOnEmptySchema(appliedMigrations: Int, pendingMigrations: Int)
       extends RuntimeException(
         s"Asked to migrate-on-empty-schema, but encountered neither an empty database with $appliedMigrations " +
