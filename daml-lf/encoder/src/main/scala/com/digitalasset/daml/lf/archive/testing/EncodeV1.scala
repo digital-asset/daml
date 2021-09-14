@@ -99,6 +99,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.accumulateLeft(module.definitions.sortByKey)(addDefinition)
       builder.accumulateLeft(module.templates.sortByKey) { (a, b) => a.addTemplates(b) }
       builder.accumulateLeft(module.exceptions.sortByKey) { (a, b) => a.addExceptions(b) }
+      builder.accumulateLeft(module.interfaces.sortByKey) { (a, b) => a.addInterfaces(b) }
       builder.build()
     }
 
@@ -673,8 +674,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
           builder.setEnum(b)
         case DataInterface =>
-          // TODO https://github.com/digital-asset/daml/issues/10810
-          sys.error("Interface not supported")
+          builder.setInterface(PLF.Unit.newBuilder())
       }
       builder.build()
     }
@@ -686,6 +686,16 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.DefException.newBuilder()
       builder.setNameInternedDname(dottedNameTable.insert(dottedName))
       builder.setMessage(exception.message)
+      builder.build()
+    }
+
+    private implicit def encodeInterfaceDef(
+        nameWithDef: (DottedName, DefInterface)
+    ): PLF.DefInterface = {
+      val (dottedName, interface) = nameWithDef
+      val builder = PLF.DefInterface.newBuilder()
+      builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
+      builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
       builder.build()
     }
 
@@ -742,6 +752,18 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.build()
     }
 
+    private implicit def encodeInterfaceChoice(
+        nameWithChoice: (ChoiceName, InterfaceChoice)
+    ): PLF.InterfaceChoice = {
+      val (name, choice) = nameWithChoice
+      val b = PLF.InterfaceChoice.newBuilder()
+      b.setNameInternedString(stringsTable.insert(name))
+      b.setConsuming(choice.consuming)
+      b.setArgType(choice.argType)
+      b.setRetType(choice.returnType)
+      b.build()
+    }
+
     private implicit def encodeTemplateKey(key: TemplateKey): PLF.DefTemplate.DefKey =
       PLF.DefTemplate.DefKey
         .newBuilder()
@@ -763,6 +785,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))
+      b.accumulateLeft(template.implements)(_ addImplements _)
       b.build()
     }
 
