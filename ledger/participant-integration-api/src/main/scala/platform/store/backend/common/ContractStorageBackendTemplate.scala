@@ -5,9 +5,8 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SqlParser.{binaryStream, int, long, str}
-import anorm.{ResultSetParser, RowParser, SqlParser, ~}
+import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{
   contractId,
@@ -52,37 +51,30 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
     )
 
-  protected val CastNullLedgerEffectiveTime: String = "NULL::BIGINT"
-
-  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
-  // TODO append-only: consider pulling up traversal logic to upper layer
-  override def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Instant]] = {
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Instant]] = {
-        import com.daml.platform.store.Conversions.ContractIdToStatement
-        SQL"""
+  protected def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
+    import com.daml.platform.store.Conversions.ContractIdToStatement
+    SQL"""
   WITH archival_event AS (
-         SELECT 1
-           FROM participant_events_consuming_exercise, parameters
+         SELECT participant_events.*
+           FROM participant_events, parameters
           WHERE contract_id = $id
+            AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT ledger_effective_time
-           FROM participant_events_create, parameters
+           FROM participant_events, parameters
           WHERE contract_id = $id
+            AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
-         SELECT #$CastNullLedgerEffectiveTime
-           FROM participant_events_divulgence, parameters
+         SELECT ledger_effective_time
+           FROM participant_events, parameters
           WHERE contract_id = $id
+            AND event_kind = 0 -- divulgence
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
@@ -98,8 +90,20 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
    FETCH NEXT 1 ROW ONLY"""
-          .as(instantFromMicros("ledger_effective_time").?.singleOpt)(connection)
-      }
+  }
+
+  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
+  // TODO append-only: consider pulling up traversal logic to upper layer
+  override def maximumLedgerTime(
+      ids: Set[ContractId]
+  )(connection: Connection): Try[Option[Instant]] = {
+    if (ids.isEmpty) {
+      Failure(emptyContractIds)
+    } else {
+      def lookup(id: ContractId): Option[Option[Instant]] =
+        maximumLedgerTimeSqlLiteral(id).as(instantFromMicros("ledger_effective_time").?.singleOpt)(
+          connection
+        )
 
       val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
         .map(id => id -> lookup(id))

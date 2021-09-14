@@ -262,6 +262,4 @@ private[backend] object OracleStorageBackend
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Unit = ()
-
-  override val CastNullLedgerEffectiveTime: String = "cast(NULL as NUMBER)"
 }
