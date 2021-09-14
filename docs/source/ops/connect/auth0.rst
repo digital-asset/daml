@@ -311,7 +311,8 @@ changes.
 Finally, we need to extend our LOGIN_ACTION to respond to requests from the
 OAuth2 Middleware. Navigate back to the Action code (left menu > Actions >
 Library > Custom > click on LOGIN_ACTION) and add a second branch to the main
-``if``:
+``if`` (new code starting on the line with ``CHANGES START HERE``; everything
+before that should remain unchanged).
 
 .. code-block:: javascript
 
@@ -329,6 +330,7 @@ Library > Custom > click on LOGIN_ACTION) and add a second branch to the main
       if (event.client.client_id === "%%LOGIN_ID%%") {
         const party = await getParty();
         setToken(party);
+        // CHANGES START HERE
       } else if (event.client.client_id === "%%OAUTH_ID%%") {
         const party = await getParty();
         const readAs = [];
@@ -364,7 +366,9 @@ will send a request with a number of *requested scopes*; the above code shows
 how to walk through them as well as a simple approach to handling them. You can
 change this code to fit your application's requirements.
 
-Don't forget to click on Deploy to save your changes (and deploy them).
+Don't forget to click on Deploy to save your changes. This time, as the Action
+is already part of a Flow, clicking the Deploy button really deploys the Action
+and there is no further action needed.
 
 Running Your App
 ----------------
@@ -430,7 +434,7 @@ put respectively under ``/trigger`` and ``/auth``. First, the middleware:
 .. code-block:: bash
 
     DAML_CLIENT_ID=%%OAUTH_APP_ID%% \
-    DAML_CLIENT_SECRET=%%OAUTH_APP_SECRET \
+    DAML_CLIENT_SECRET=%%OAUTH_APP_SECRET%% \
     daml oauth2-middleware \
       --address localhost \
       --http-port 5000 \
@@ -465,6 +469,16 @@ Now, the trigger service:
 
 Next, we'll build our frontend code, but first we're going to make a small
 change to let us demonstrate interactions with the Trigger Service.
+
+We'll need the package ID of the main DAR for the next step, so first collect
+it by running:
+
+.. code-block:: bash
+
+    daml damlc inspect .daml/dist/my-project-0.1.0.dar | head -1
+
+from the root of the project. In the following, we'll refer to it as
+``%%PACKAGE_ID%%``.
 
 Open up ``ui/src/components/MainView.tsx`` and add the ``Button`` component to
 the existing imports from ``semantic-ui-react``:
@@ -504,13 +518,8 @@ tag (around line 18):
         'Content-Type': 'application/json'
     }});
 
-where ``%%PACKAGE_ID%%`` is the package ID can be found by running
-
-.. code-block:: bash
-
-    daml damlc inspect .daml/dist/my-project-0.1.0.dar | head -1
-
-from the root of the project.
+where ``%%PACKAGE_ID%%`` is the package ID of the main DAR file, as explained
+above.
 
 Finally, scroll down to the end of the ``Grid.Column`` tag, and add:
 
@@ -542,7 +551,7 @@ for that, but you can use any HTTP server you (and your security team) are
 comfortable with, as long as it can serve static files and proxy some paths.
 
 First, create a file ``nginx/nginx.conf.sh`` with the following content next to
-your app folder (``my-project`` in this example):
+your app folder, i.e. in our example ``nginx`` is a sibling to ``my-project``.
 
 .. code-block:: bash
 
@@ -629,23 +638,6 @@ your app folder (``my-project`` in this example):
     }
     NGINX_CONFIG
 
-
-.. note::
-
-   If you want to work on your frontend code while otherwise using the rest
-   of this pseudo-production system, you can uncomment the last ``proxy_pass``
-   directive, comment the ``try_files`` line after it, and start a reloading
-   development server with:
-
-.. code-block:: bash
-
-    cd ui
-    npm install
-    REACT_APP_AUTH=auth0 \
-    REACT_APP_AUTH0_DOMAIN=%%AUTH0_DOMAIN%% \
-    REACT_APP_AUTH0_CLIENT_ID=%%LOGIN_ID%% \
-    npm start
-
 Next, create a file ``nginx/Dockerfile`` with this content:
 
 .. code-block:: bash
@@ -670,3 +662,17 @@ in the folder that contains both ``nginx`` and ``my-project``:
 Where ``%%DOMAIN%%`` is the domain the Docker container will generate a
 self-signed certificate for. In our simple case of running everything on the
 same server, this is just the IP address of that server.
+
+This runs a "production build" of your frontend code. If instead you want to
+develop frontend code against the rest of this setup, you can uncomment the
+last ``proxy_pass`` directive in ``nginx.conf.sh``, comment the ``try_files``
+line after it, and start a reloading development server with:
+
+.. code-block:: bash
+
+    cd ui
+    npm install
+    REACT_APP_AUTH=auth0 \
+    REACT_APP_AUTH0_DOMAIN=%%AUTH0_DOMAIN%% \
+    REACT_APP_AUTH0_CLIENT_ID=%%LOGIN_ID%% \
+    npm start
