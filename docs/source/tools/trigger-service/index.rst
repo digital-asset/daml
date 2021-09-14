@@ -23,7 +23,9 @@ In this example, it is assumed there is a sandbox ledger running on port 6865 on
 
 .. code-block:: bash
 
-   daml trigger-service --ledger-host localhost --ledger-port 6865 --wall-clock-time
+   daml trigger-service --ledger-host localhost \
+                        --ledger-port 6865 \
+                        --wall-clock-time
 
 The above starts the Trigger Service using a number of default parameters. Most notably, the HTTP port the Trigger Service listens on which defaults to 8088. To see all of the available parameters, their defaults and descriptions, one can execute the command ``daml trigger-service --help``.
 
@@ -31,7 +33,10 @@ Although as we'll see, the Trigger Service exposes an endpoint for end-users to 
 
 .. code-block:: bash
 
-   daml trigger-service --ledger-host localhost --ledger-port 6865 --wall-clock-time
+   daml trigger-service --ledger-host localhost \
+                        --ledger-port 6865 \
+                        --wall-clock-time \
+                        --dar .daml/dist/create-daml-app-0.1.0.dar
 
 Endpoints
 ~~~~~~~~~
