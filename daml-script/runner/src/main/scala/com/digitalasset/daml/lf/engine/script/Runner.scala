@@ -231,7 +231,7 @@ object Runner {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.client,
+      sslContext = tlsConfig.client(),
       token = params.access_token,
       maxInboundMessageSize = maxInboundMessageSize,
     )

@@ -101,7 +101,7 @@ case class TlsFixture(
     applicationId = s"TlsCertificates-app",
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = clientTlsConfiguration.client,
+    sslContext = clientTlsConfiguration.client(),
     token = None,
   )
 

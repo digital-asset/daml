@@ -77,7 +77,7 @@ object RunnerMain {
           ledgerIdRequirement = LedgerIdRequirement.none,
           commandClient =
             CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
-          sslContext = config.tlsConfig.client,
+          sslContext = config.tlsConfig.client(),
           token = tokenHolder.flatMap(_.token),
           maxInboundMessageSize = config.maxInboundMessageSize,
         )

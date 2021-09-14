@@ -51,6 +51,7 @@ da_scala_library(
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_buffer",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -84,6 +85,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "ledger-api-common-scala-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    data = [
+        "//ledger/test-common/test-certificates",
+    ],
     plugins = [
         silencer_plugin,
     ],
@@ -111,6 +115,7 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-common",
         ":ledger-api-common-scala-tests-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
@@ -137,6 +142,7 @@ da_scala_test_suite(
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",

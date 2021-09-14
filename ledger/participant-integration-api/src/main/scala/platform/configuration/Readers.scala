@@ -3,8 +3,10 @@
 
 package com.daml.platform.configuration
 
-import java.time.Duration
+import com.daml.ledger.api.tls.TlsVersion
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 
+import java.time.Duration
 import io.netty.handler.ssl.ClientAuth
 import scopt.Read
 
@@ -22,6 +24,13 @@ object Readers {
     case "require" => ClientAuth.REQUIRE
     case _ =>
       throw new InvalidConfigException(s"""Must be one of "none", "optional", or "require".""")
+  }
+
+  implicit val tlsVersionRead: Read[TlsVersion] = Read.reads {
+    case "1.2" => TlsVersion.V1_2
+    case "1.3" => TlsVersion.V1_3
+    case _ =>
+      throw new InvalidConfigException(s"""Must be one of "1.2" or "1.3".""")
   }
 
 }

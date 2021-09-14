@@ -8,8 +8,8 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-
 import com.daml.caching
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.VersionRange
@@ -377,6 +377,15 @@ object Config {
           )
           .action((clientAuth, config) =>
             config.withTlsConfig(c => c.copy(clientAuth = clientAuth))
+          )
+
+        opt[TlsVersion]("min-tls-version")
+          .optional()
+          .text(
+            "TLS: Indicates the minimum TLS version to enable. If specified must be either '1.2' or '1.3'."
+          )
+          .action((tlsVersion, config) =>
+            config.withTlsConfig(c => c.copy(minimumServerProtocolVersion = Some(tlsVersion)))
           )
 
         opt[Int]("max-commands-in-flight")

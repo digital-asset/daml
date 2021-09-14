@@ -213,7 +213,7 @@ da_scala_test_suite(
 )
 
 conformance_test(
-    name = "ssl-test",
+    name = "conformance-test",
     extra_data = [
         "//ledger/test-common/test-certificates:client.crt",
         "//ledger/test-common/test-certificates:client.pem",
@@ -222,85 +222,37 @@ conformance_test(
         "//ledger/test-common/test-certificates:server.pem.enc",
         "//ledger/test-common/test-certificates:ca.crt",
     ],
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ssl-test,port=6865",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
-        "--tls-secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=SemanticTests",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-    ],
-)
-
-# Explicitly include retired tests here to make sure existing CI pipelines are not broken
-# Retired tests will be eventually removed
-conformance_test(
-    name = "retired-tests",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ssl-test,port=6865",
-    ],
-    test_tool_args = [
-        "--include=LotsOfPartiesIT",
-        "--include=TransactionScaleIT",
-    ],
-)
-
-# Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken
-# This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
-# exclusively for backwards-compatibility
-# Deprecated CLI options will be eventually removed
-conformance_test(
-    name = "deprecated-cli-options",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ssl-test,port=6865",
-    ],
-    test_tool_args = [
-        "--include=IdentityIT",
-        "--all-tests",
-        "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
-        "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
-    ],
-)
-
-# Test that both --include ContractKeysIT as well as --include ContractKeysIT:CKFetchOrLookup
-# are supported.
-conformance_test(
-    name = "test-name-syntax",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=test-name,port=6865",
-    ],
-    test_tool_args = [
-        "--include=IdentityIT",
-        "--include=IdentityIT:IdNotEmpty",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test",
     lf_versions = lf_version_configuration_versions,
     ports = [6865],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
+        "--tls-secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
+        "--min-tls-version 1.3",
     ],
     test_tool_args = [
         "--verbose",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
+        "--additional=IdentityIT",
+        "--additional=IdentityIT:IdNotEmpty",
+        # Explicitly include retired tests here to make sure existing CI pipelines are not broken.
+        # Retired tests will be eventually removed.
+        "--additional=LotsOfPartiesIT",
+        "--additional=TransactionScaleIT",
         "--exclude=CommandDeduplicationIT",
+        # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken.
+        # This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
+        # exclusively for backwards-compatibility.
+        # Deprecated CLI options will be eventually removed.
+        "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+        "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+        "--all-tests",
     ],
 )
 

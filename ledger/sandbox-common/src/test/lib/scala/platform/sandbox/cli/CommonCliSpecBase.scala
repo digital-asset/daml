@@ -6,9 +6,8 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.{Files, Paths}
-
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
@@ -139,6 +138,33 @@ abstract class CommonCliSpecBase(
           )
         ),
       )
+    }
+
+    "fail parsing a bogus TLS version" in {
+      checkOptionFail(
+        Array(
+          "--min-tls-version",
+          "111",
+        )
+      )
+    }
+
+    "succeed parsing a supported TLS version" in {
+      checkOption(
+        Array(
+          "--min-tls-version",
+          "1.3",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              minimumServerProtocolVersion = Some(TlsVersion.V1_3),
+            )
+          )
+        ),
+      )
+
     }
 
     "fail when server's private key is encrypted but secret-url is not provided" in {
