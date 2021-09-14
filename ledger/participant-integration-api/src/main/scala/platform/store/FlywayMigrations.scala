@@ -84,8 +84,6 @@ private[platform] class FlywayMigrations(
         ()
       } else if (retries <= 0) {
         throw ExhaustedRetries(pendingMigrations)
-      } else if (pendingMigrationsSoFar.exists(pendingMigrations >= _)) {
-        throw StoppedProgressing(pendingMigrations)
       } else {
         logger.debug(
           s"Concurrent migration has reduced the pending migrations set to $pendingMigrations, waiting until pending set is empty.."
@@ -166,8 +164,6 @@ private[platform] object FlywayMigrations {
 
   case class ExhaustedRetries(pendingMigrations: Int)
       extends RuntimeException(s"Ran out of retries with $pendingMigrations migrations remaining")
-  case class StoppedProgressing(pendingMigrations: Int)
-      extends RuntimeException(s"Stopped progressing with $pendingMigrations migrations")
   case class MigrateOnEmptySchema(appliedMigrations: Int, pendingMigrations: Int)
       extends RuntimeException(
         s"Asked to migrate-on-empty-schema, but encountered neither an empty database with $appliedMigrations " +
