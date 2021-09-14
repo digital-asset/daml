@@ -9,7 +9,7 @@ import java.util
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{TransactionVersion, Util}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
@@ -30,13 +30,99 @@ sealed trait SValue {
   /** Convert a speedy-value to a value which may not be correctly normalized.
     * And so the resulting value should not be serialized.
     */
-  def toUnnormalizedValue: V[V.ContractId] = SValue.toValue(this)
+  def toUnnormalizedValue: V[V.ContractId] = {
+    toValue(
+      disallowGenMapAtVersion = None,
+      eraseType = false,
+    )
+  }
 
   /** Convert a speedy-value to a value normalized according to the LF version.
     */
   def toNormalizedValue(version: TransactionVersion): V[V.ContractId] = {
-    val v = SValue.toValue(this)
-    Util.assertNormalizeValue(v, version) //TODO: avoid separate pass; inline norm into toValue
+    import Ordering.Implicits.infixOrderingOps
+    toValue(
+      disallowGenMapAtVersion =
+        if (version >= TransactionVersion.minGenMap) None else Some(version),
+      eraseType = version >= TransactionVersion.minTypeErasure,
+    )
+  }
+
+  private def toValue(
+      disallowGenMapAtVersion: Option[TransactionVersion],
+      eraseType: Boolean,
+  ): V[V.ContractId] = {
+
+    def maybeEraseTypeInfo[X](x: X): Option[X] =
+      if (eraseType) {
+        None
+      } else {
+        Some(x)
+      }
+
+    def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V[V.ContractId] = {
+      if (maxNesting < 0)
+        throw SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting)
+      val nextMaxNesting = maxNesting - 1
+      v match {
+        case SInt64(x) => V.ValueInt64(x)
+        case SNumeric(x) => V.ValueNumeric(x)
+        case SText(x) => V.ValueText(x)
+        case STimestamp(x) => V.ValueTimestamp(x)
+        case SParty(x) => V.ValueParty(x)
+        case SBool(x) => V.ValueBool(x)
+        case SUnit => V.ValueUnit
+        case SDate(x) => V.ValueDate(x)
+
+        case SRecord(id, fields, svalues) =>
+          V.ValueRecord(
+            maybeEraseTypeInfo(id),
+            (fields.toSeq zip svalues.asScala)
+              .map { case (fld, sv) => (maybeEraseTypeInfo(fld), go(sv, nextMaxNesting)) }
+              .to(ImmArray),
+          )
+        case SVariant(id, variant, _, sv) =>
+          V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
+        case SEnum(id, constructor, _) =>
+          V.ValueEnum(maybeEraseTypeInfo(id), constructor)
+        case SList(lst) =>
+          V.ValueList(lst.map(go(_, nextMaxNesting)))
+        case SOptional(mbV) =>
+          V.ValueOptional(mbV.map(go(_, nextMaxNesting)))
+        case SMap(true, entries) =>
+          V.ValueTextMap(SortedLookupList(entries.map {
+            case (SText(t), v) => t -> go(v, nextMaxNesting)
+            case (_, _) =>
+              throw SError.SErrorCrash(
+                NameOf.qualifiedNameOfCurrentFunc,
+                "SValue.toValue: TextMap with non text key",
+              )
+          }))
+        case SMap(false, entries) =>
+          // TODO: Is it necessary to check GenMap/version here? Can't it just be assumed?
+          disallowGenMapAtVersion match {
+            case None =>
+              V.ValueGenMap(
+                entries.view
+                  .map { case (k, v) => go(k, nextMaxNesting) -> go(v, nextMaxNesting) }
+                  .to(ImmArray)
+              )
+            case Some(version) =>
+              throw SError.SErrorCrash(
+                NameOf.qualifiedNameOfCurrentFunc,
+                s"SValue.toValue: GenMap are not allowed in transaction version $version",
+              )
+          }
+        case SContractId(coid) =>
+          V.ValueContractId(coid)
+        case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"SValue.toValue: unexpected ${getClass.getSimpleName}",
+          )
+      }
+    }
+    go(this)
   }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
@@ -72,60 +158,6 @@ sealed trait SValue {
 }
 
 object SValue {
-
-  def toValue(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V[V.ContractId] = {
-    if (maxNesting < 0)
-      throw SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting)
-    val nextMaxNesting = maxNesting - 1
-    v match {
-      case SInt64(x) => V.ValueInt64(x)
-      case SNumeric(x) => V.ValueNumeric(x)
-      case SText(x) => V.ValueText(x)
-      case STimestamp(x) => V.ValueTimestamp(x)
-      case SParty(x) => V.ValueParty(x)
-      case SBool(x) => V.ValueBool(x)
-      case SUnit => V.ValueUnit
-      case SDate(x) => V.ValueDate(x)
-
-      case SRecord(id, fields, svalues) =>
-        V.ValueRecord(
-          Some(id),
-          (fields.toSeq zip svalues.asScala)
-            .map { case (fld, sv) => (Some(fld), toValue(sv, nextMaxNesting)) }
-            .to(ImmArray),
-        )
-      case SVariant(id, variant, _, sv) =>
-        V.ValueVariant(Some(id), variant, toValue(sv, nextMaxNesting))
-      case SEnum(id, constructor, _) =>
-        V.ValueEnum(Some(id), constructor)
-      case SList(lst) =>
-        V.ValueList(lst.map(toValue(_, nextMaxNesting)))
-      case SOptional(mbV) =>
-        V.ValueOptional(mbV.map(toValue(_, nextMaxNesting)))
-      case SMap(true, entries) =>
-        V.ValueTextMap(SortedLookupList(entries.map {
-          case (SText(t), v) => t -> toValue(v, nextMaxNesting)
-          case (_, _) =>
-            throw SError.SErrorCrash(
-              NameOf.qualifiedNameOfCurrentFunc,
-              "SValue.toValue: TextMap with non text key",
-            )
-        }))
-      case SMap(false, entries) =>
-        V.ValueGenMap(
-          entries.view
-            .map { case (k, v) => toValue(k, nextMaxNesting) -> toValue(v, nextMaxNesting) }
-            .to(ImmArray)
-        )
-      case SContractId(coid) =>
-        V.ValueContractId(coid)
-      case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
-        throw SError.SErrorCrash(
-          NameOf.qualifiedNameOfCurrentFunc,
-          s"SValue.toValue: unexpected ${getClass.getSimpleName}",
-        )
-    }
-  }
 
   /** "Primitives" that can be applied. */
   sealed trait Prim
