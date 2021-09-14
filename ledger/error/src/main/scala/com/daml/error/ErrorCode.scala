@@ -197,7 +197,9 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       loggingContext: LoggingContext,
   ): Map[String, String] = {
     val loggingContextEntries =
-      loggingContext.entries.contents.view.mapValues(loggingValueToString)
+      loggingContext.entries.contents.view.map { case (key, value) =>
+        key -> loggingValueToString(value)
+      }
     val raw =
       (err.context ++ loggingContextEntries).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
     val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)
@@ -258,10 +260,7 @@ object ErrorCode {
       sequence.map(loggingValueToString).mkString("[", ", ", "]")
     case LoggingValue.Nested(entries) =>
       entries.contents.view
-        .mapValues(loggingValueToString)
-        .map { case (key, value) =>
-          s"$key: $value"
-        }
+        .map { case (key, value) => s"$key: ${loggingValueToString(value)}" }
         .mkString("{", ", ", "}")
     case LoggingValue.OfJson(json) => json.toString()
   }
