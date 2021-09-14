@@ -41,7 +41,7 @@ private[sandboxnext] object Cli extends SandboxCli {
       .opt[Int]("database-connection-pool-size")
       .optional()
       .text(
-        s"The number of connections in the database connection pool. Defaults to ${SandboxConfig.DefaultDatabaseConnectionPoolSize}."
+        s"The number of connections in the database connection pool used for serving ledger API requests."
       )
       .action((poolSize, config) => config.copy(databaseConnectionPoolSize = poolSize))
 
