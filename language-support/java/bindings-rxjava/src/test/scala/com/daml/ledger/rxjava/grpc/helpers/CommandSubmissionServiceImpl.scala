@@ -21,12 +21,14 @@ final class CommandSubmissionServiceImpl(getResponse: () => Future[Empty])
 
   @volatile private var submittedRequest: Option[SubmitRequest] = None
 
-  override def submit(request: SubmitRequest): Future[Empty] = {
+  override def submit(request: SubmitRequest): Future[Empty] = submittedRequest.synchronized {
     this.submittedRequest = Some(request)
     getResponse()
   }
 
-  def getSubmittedRequest: Option[SubmitRequest] = submittedRequest
+  def getSubmittedRequest: Option[SubmitRequest] = submittedRequest.synchronized {
+    submittedRequest
+  }
 }
 
 object CommandSubmissionServiceImpl {
