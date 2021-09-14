@@ -144,27 +144,16 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant,
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-command-completion-dedup-info",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=" +
-        "AppendOnlyCompletionDeduplicationInfoITCommandService" +
-        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=MultiPartySubmissionIT",
+        "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
+        "--additional=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -177,9 +166,12 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
         "--daml-lf-min-version-1.14-unsafe",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant,
+        "--additional=MultiPartySubmissionIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
     ],
 )
 
@@ -194,36 +186,21 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example1,port=6865",
         "--participant=participant-id=example2,port=6866",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--verbose",
+        "--additional=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
 conformance_test(
-    name = "conformance-test-multi-participant-pruning",
-    ports = [
-        6865,
-        6866,
-    ],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--participant=participant-id=example1,port=6865",
-        "--participant=participant-id=example2,port=6866",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-multi-participant-command-deduplication",
+    name = "conformance-test-append-only-multi-participant",
     ports = [
         6865,
         6866,
@@ -238,7 +215,14 @@ conformance_test(
         "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
-        "--include=KVCommandDeduplicationIT",
+        "--verbose",
+        "--additional=ParticipantPruningIT",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        # The following two tests don't actually care about multi-participant but they do need append-only.
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -252,41 +236,13 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ConfigManagementServiceIT," +
-        "CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-participant-pruning",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-multi-party-submission",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -303,33 +259,5 @@ conformance_test(
         "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
         "--perf-tests=PerformanceEnvelope.Latency.1000ms",
         "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-contract-ids",
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-command-deduplication",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--max-deduplication-duration=PT5S",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=KVCommandDeduplicationIT",
     ],
 )
