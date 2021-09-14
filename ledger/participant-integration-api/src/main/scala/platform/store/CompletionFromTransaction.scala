@@ -97,6 +97,7 @@ private[platform] object CompletionFromTransaction {
       status = maybeStatus,
       transactionId = transactionId,
       applicationId = applicationId,
+      submissionId = maybeSubmissionId.getOrElse(""),
     )
     val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
       maybeDeduplicationOffset = maybeDeduplicationOffset,
