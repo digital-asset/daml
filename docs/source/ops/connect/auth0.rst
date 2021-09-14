@@ -665,6 +665,8 @@ in the folder that contains both ``nginx`` and ``my-project``:
     cp -r my-project/ui/build nginx/build
     cd nginx
     docker build -t frontend .
-    docker run -e JSON_IP=localhost:4000 -e AUTH_IP=localhost:5000 -e TRIGGER_IP=localhost:6000 -e FRONTEND_IP=%%ORIGIN%% --network=host frontend
+    docker run -e JSON_IP=localhost:4000 -e AUTH_IP=localhost:5000 -e TRIGGER_IP=localhost:6000 -e FRONTEND_IP=%%DOMAIN%% --network=host frontend
 
-At this point, you should have a running webserver on ``%%ORIGIN%%``.
+Where ``%%DOMAIN%%`` is the domain the Docker container will generate a
+self-signed certificate for. In our simple case of running everything on the
+same server, this is just the IP address of that server.
