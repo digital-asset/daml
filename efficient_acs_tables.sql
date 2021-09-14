@@ -7,10 +7,12 @@ DROP TABLE IF EXISTS participant_template_interning;
 DROP TABLE IF EXISTS participant_party_interning;
 DROP TABLE IF EXISTS participant_events_create_interned;
 DROP TABLE IF EXISTS participant_events_create_filter;
+DROP TABLE IF EXISTS participant_streams_active_contracts;
+
 
 CREATE TABLE participant_template_interning 
   ( template_internal_id SERIAL PRIMARY KEY
-  , template_external_id TEXT NOT NULL
+  , template_external_id TEXT NOT NULL UNIQUE
   );
 
 INSERT INTO participant_template_interning (template_external_id)
@@ -21,7 +23,7 @@ INSERT INTO participant_template_interning (template_external_id)
 
 CREATE TABLE participant_party_interning 
   ( party_internal_id SERIAL PRIMARY KEY
-  , party_external_id TEXT NOT NULL
+  , party_external_id TEXT NOT NULL UNIQUE
   );
 
 INSERT INTO participant_party_interning (party_external_id)
@@ -30,9 +32,6 @@ INSERT INTO participant_party_interning (party_external_id)
          unnest(array_cat(flat_event_witnesses, array_cat(tree_event_witnesses, array_cat(submitters, array_cat(create_signatories, create_observers))))) witnesses(party_id)
    GROUP BY party_id
    ORDER BY party_id;
-
-CREATE INDEX participant_template_interning_external_id_idx ON participant_template_interning USING hash(template_external_id);
-CREATE INDEX participant_party_interning_external_id_idx ON participant_party_interning USING hash(party_external_id);
 
 
 -- EXPLAIN ANALYZE 
