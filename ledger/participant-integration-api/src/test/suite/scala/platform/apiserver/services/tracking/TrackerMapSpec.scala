@@ -7,6 +7,7 @@ import java.time.Duration
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
@@ -16,10 +17,10 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.tracking.TrackerMapSpec._
 import com.daml.timer.Delayed
 import com.google.rpc.status.Status
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.compat._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,9 +57,11 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
           CommandSubmission(Commands(commandId = "2", actAs = Seq("Bob")))
         )
       } yield {
-        completion1 should matchPattern { case Right(CompletionSuccess("1", "transaction A", _)) =>
+        inside(completion1) { case Right(success: CompletionSuccess) =>
+          success.commandId shouldBe "1"
         }
-        completion2 should matchPattern { case Right(CompletionSuccess("2", "transaction B", _)) =>
+        inside(completion2) { case Right(success: CompletionSuccess) =>
+          success.commandId shouldBe "2"
         }
       }
     }
@@ -85,9 +88,13 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
         )
       } yield {
         trackerCount.get() should be(1)
-        completion1 should matchPattern { case Right(CompletionSuccess("X", "Alice, Bob: 0", _)) =>
+        inside(completion1) { case Right(success: CompletionSuccess) =>
+          success.commandId shouldBe "X"
+          success.transactionId shouldBe "Alice, Bob: 0"
         }
-        completion2 should matchPattern { case Right(CompletionSuccess("Y", "Alice, Bob: 1", _)) =>
+        inside(completion2) { case Right(success: CompletionSuccess) =>
+          success.commandId shouldBe "Y"
+          success.transactionId shouldBe "Alice, Bob: 1"
         }
       }
     }
@@ -189,9 +196,11 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                 Future.successful(
                   Right(
                     CompletionSuccess(
-                      commandId = submission.commands.commandId,
-                      transactionId = "",
-                      originalStatus = Status.defaultInstance,
+                      Completion(
+                        commandId = submission.commands.commandId,
+                        status = Some(Status.defaultInstance),
+                        transactionId = "",
+                      )
                     )
                   )
                 )
@@ -236,9 +245,11 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                 Future.successful(
                   Right(
                     CompletionSuccess(
-                      commandId = submission.commands.commandId,
-                      transactionId = "",
-                      originalStatus = Status.defaultInstance,
+                      Completion(
+                        commandId = submission.commands.commandId,
+                        status = Some(Status.defaultInstance),
+                        transactionId = "",
+                      )
                     )
                   )
                 )
@@ -273,9 +284,11 @@ object TrackerMapSpec {
       Future.successful(
         Right(
           CompletionSuccess(
-            commandId = submission.commands.commandId,
-            transactionId = transactionIds.next(),
-            originalStatus = Status.defaultInstance,
+            Completion(
+              commandId = submission.commands.commandId,
+              status = Some(Status.defaultInstance),
+              transactionId = transactionIds.next(),
+            )
           )
         )
       )

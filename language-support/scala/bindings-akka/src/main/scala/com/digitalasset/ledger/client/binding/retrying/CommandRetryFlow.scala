@@ -71,32 +71,32 @@ object CommandRetryFlow {
             {
               case Ctx(
                     RetryInfo(value, nrOfRetries, firstSubmissionTime, _),
-                    Left(CompletionResponse.NotOkResponse(_, status)),
+                    Left(notOk: CompletionResponse.NotOkResponse),
                     _,
-                  ) if RETRYABLE_ERROR_CODES.contains(status.code) =>
+                  ) if RETRYABLE_ERROR_CODES.contains(notOk.grpcStatus.code) =>
                 if ((firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime) {
                   RetryLogger.logStopRetrying(
                     value,
-                    status,
+                    notOk.grpcStatus,
                     nrOfRetries,
                     firstSubmissionTime,
                   )
                   PROPAGATE_PORT
                 } else {
-                  RetryLogger.logNonFatal(value, status, nrOfRetries)
+                  RetryLogger.logNonFatal(value, notOk.grpcStatus, nrOfRetries)
                   RETRY_PORT
                 }
               case Ctx(
                     RetryInfo(value, nrOfRetries, _, _),
-                    Left(CompletionResponse.NotOkResponse(_, status)),
+                    Left(notOk: CompletionResponse.NotOkResponse),
                     _,
                   ) =>
-                RetryLogger.logFatal(value, status, nrOfRetries)
+                RetryLogger.logFatal(value, notOk.grpcStatus, nrOfRetries)
                 PROPAGATE_PORT
               case Ctx(_, Left(CompletionResponse.TimeoutResponse(_)), _) =>
                 PROPAGATE_PORT
-              case Ctx(_, Left(CompletionResponse.NoStatusInResponse(commandId)), _) =>
-                statusNotFoundError(commandId)
+              case Ctx(_, Left(statusNotFound: CompletionResponse.NoStatusInResponse), _) =>
+                statusNotFoundError(statusNotFound.commandId)
               case Ctx(_, Right(_), _) =>
                 PROPAGATE_PORT
             },
