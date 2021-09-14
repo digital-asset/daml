@@ -269,11 +269,13 @@ Click Apply. You now have a working Auth0 system that automatically allocates
 new parties upon first login, and remembers the mapping for future logins (that
 happens by setting the party in the "app metadata", which Auth0 persists).
 
-Note: If you are hosting your JSON API instance behind a self-signed
-certificate (Auth0 absolutely requires TLS, but can be made to work with a
-self-signed cert), you'll need to uncomment the ``https`` import and the
-``httpsAgent`` line above. The ``https`` module does not require extra setup
-(unlike the ``axios`` one).
+.. note::
+
+   If you are hosting your JSON API instance behind a self-signed certificate
+   (Auth0 absolutely requires TLS, but can be made to work with a self-signed
+   cert), you'll need to uncomment the ``https`` import and the ``httpsAgent``
+   line above. The ``https`` module does not require extra setup (unlike the
+   ``axios`` one).
 
 Token Refresh for Trigger Service
 ---------------------------------
@@ -619,10 +621,13 @@ your app folder (``my-project`` in this example):
     }
     NGINX_CONFIG
 
-Note: if you want to work on your frontend code while otherwise using the rest
-of this pseudo-production system, you can uncomment the last ``proxy_pass``
-directive, comment the ``try_files`` line after it, and start you reloading
-development server with:
+
+.. note::
+
+   If you want to work on your frontend code while otherwise using the rest
+   of this pseudo-production system, you can uncomment the last ``proxy_pass``
+   directive, comment the ``try_files`` line after it, and start you reloading
+   development server with:
 
 .. code-block:: bash
 
