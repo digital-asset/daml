@@ -142,7 +142,7 @@ directly affect your live setup.
 
 At this point you should be able to verify, using the curl command from the
 "Quick Start" tab of the M2M application, that you get a token. You should also
-be able to check that that token has the expected claims. You can do that by
+be able to check that the token has the expected claims. You can do that by
 piping the result of the curl command through:
 
 .. code-block:: bash
@@ -266,9 +266,9 @@ HTTP calls; we need to tell Auth0 about that, so it can provision the library
 at runtime.
 
 To do that, click on the little box icon to the left of code editor, then on
-the button Add Module that that revealed, and type in ``axios`` for the name
-and ``0.21.1`` for the version. Then, click the Create button, and then the
-Deploy button.
+the button Add Module that just got revealed, and type in ``axios`` for the
+name and ``0.21.1`` for the version. Then, click the Create button, and then
+the Deploy button.
 
 Now you need to go to Actions > Flows, choose the Login flow, and drag the
 LOGIN_ACTION action in-between the two black circles Start and Complete.
@@ -370,7 +370,7 @@ Running Your App
 ----------------
 
 For simplicity, we assume that all of the Daml components will run on a single
-machine (they can find each other on ``localhost``) and that that machine has
+machine (they can find each other on ``localhost``) and that this machine has
 either a public IP or a public DNS that Auth0 can reach. Furthermore, we assume
 that IP/DNS is what you've configured as the callback URL above.
 
