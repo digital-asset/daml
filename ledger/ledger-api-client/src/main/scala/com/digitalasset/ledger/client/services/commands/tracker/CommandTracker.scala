@@ -121,11 +121,7 @@ private[commands] class CommandTracker[Context](
             val commands = submitRequest.value.commands
             val submissionId = commands.submissionId
             val commandId = commands.commandId
-            logger.trace(
-              "Submitted command {} in submission {}",
-              commandId,
-              submissionId,
-            )
+            logger.trace(s"Submitted command $commandId in submission $submissionId.")
             push(
               submitRequestOut,
               submitRequest.enrich((context, _) =>
@@ -224,9 +220,7 @@ private[commands] class CommandTracker[Context](
             None
           case Success(_) =>
             logger.trace(
-              "Received confirmation that command {} from submission {} was accepted.",
-              commandKey.commandId,
-              commandKey.submissionId,
+              s"Received confirmation that command ${commandKey.commandId} from submission ${commandKey.submissionId} was accepted."
             )
             None
         }
@@ -237,7 +231,7 @@ private[commands] class CommandTracker[Context](
         val commands = submission.value.commands
         val submissionId = commands.submissionId
         val commandId = commands.commandId
-        logger.trace("Begin tracking of command {} for submission {}", commandId, submissionId)
+        logger.trace(s"Begin tracking of command $commandId for submission $submissionId.")
         if (pendingCommands.contains(TrackedCommandKey(submissionId, commandId))) {
           // TODO return an error identical to the server side duplicate command error once that's defined.
           throw new IllegalStateException(
@@ -327,7 +321,7 @@ private[commands] class CommandTracker[Context](
         }
 
         logger.trace(
-          "Handling {} {} from submission {}",
+          "Handling {} {} from submission {}.",
           errorText,
           completion.commandId,
           completion.submissionId,
@@ -342,9 +336,7 @@ private[commands] class CommandTracker[Context](
           status: StatusProto,
       ): Option[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
         logger.trace(
-          "Handling failure of command {} from submission {}",
-          commandKey.commandId,
-          commandKey.submissionId,
+          s"Handling failure of command ${commandKey.commandId} from submission ${commandKey.submissionId}."
         )
         pendingCommands
           .remove(commandKey)
@@ -362,9 +354,7 @@ private[commands] class CommandTracker[Context](
           }
           .orElse {
             logger.trace(
-              "Platform signaled failure for unknown command {} from submission {}",
-              commandKey.commandId,
-              commandKey.submissionId,
+              s"Platform signaled failure for unknown command ${commandKey.commandId} from submission ${commandKey.submissionId}."
             )
             None
           }
