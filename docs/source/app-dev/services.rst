@@ -159,7 +159,7 @@ Active contracts service
 
 Use the **active contracts service** to obtain a party-specific view of all contracts that are active on the ledger at the time of the request.
 
-The active contracts service returns its response as a stream of batches of the created events that would re-create the state being reported (the size of these batches is left to the ledger implementation). As part of the last message message, the offset at which which the reported active contract set was valid is included. This offset can be used to subscribe to the "flat transactions" stream to keep a consistent view of the active contract set without querying the active contract service further.
+The active contracts service returns its response as a stream of batches of the created events that would re-create the state being reported (the size of these batches is left to the ledger implementation). As part of the last message message, the offset at which the reported active contract set was valid is included. This offset can be used to subscribe to the "flat transactions" stream to keep a consistent view of the active contract set without querying the active contract service further.
 
 This is most important at application start, if the application needs to synchronize its initial state with a known view of the ledger. Without this service, the only way to do this would be to read the Transaction Stream from the beginning of the ledger, which can be prohibitively expensive with a large ledger.
 
