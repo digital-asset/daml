@@ -170,7 +170,7 @@ private[backend] object OracleStorageBackend
 
   override def eventStrategy: common.EventStrategy = OracleEventStrategy
 
-  // TODO FIXME: confirm this works for oracle
+  // TODO FIXME: Use tables directly instead of the participant_events view.
   def maxEventSequentialIdOfAnObservableEvent(
       offset: Offset
   )(connection: Connection): Option[Long] = {

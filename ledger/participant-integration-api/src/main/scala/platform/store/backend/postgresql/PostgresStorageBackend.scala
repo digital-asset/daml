@@ -202,6 +202,7 @@ private[backend] object PostgresStorageBackend
 
   override def eventStrategy: common.EventStrategy = PostgresEventStrategy
 
+  // TODO FIXME: Use tables directly instead of the participant_events view.
   override def maxEventSequentialIdOfAnObservableEvent(
       offset: Offset
   )(connection: Connection): Option[Long] = {
