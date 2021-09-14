@@ -80,7 +80,12 @@ final class StandaloneIndexerServer(
 
       case IndexerStartupMode.ValidateAndWaitOnly =>
         Resource
-          .fromFuture(flywayMigrations.validateAndWaitOnly())
+          .fromFuture(
+            flywayMigrations.validateAndWaitOnly(
+              config.schemaMigrationRetries,
+              config.schemaMigrationRetryBackoff,
+            )
+          )
           .map[ReportsHealth] { _ =>
             logger.debug("Waiting for the indexer to validate the schema migrations.")
             () => Healthy

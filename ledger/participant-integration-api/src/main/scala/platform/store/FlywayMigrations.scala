@@ -13,6 +13,7 @@ import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
 import scala.annotation.tailrec
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] class FlywayMigrations(
@@ -67,40 +68,40 @@ private[platform] class FlywayMigrations(
     logger.info("Flyway schema clean finished successfully.")
   }
 
-  def validateAndWaitOnly(): Future[Unit] = run { configBase =>
-    val flyway = configBase
-      .ignoreFutureMigrations(false)
-      .load()
+  def validateAndWaitOnly(retries: Int, retryBackoff: FiniteDuration): Future[Unit] = run {
+    configBase =>
+      val flyway = configBase
+        .ignoreFutureMigrations(false)
+        .load()
 
-    logger.info("Running Flyway validation...")
+      logger.info("Running Flyway validation...")
 
-    @tailrec
-    def flywayMigrationDone(
-        retries: Int,
-        pendingMigrationsSoFar: Option[Int],
-    ): Unit = {
-      val pendingMigrations = flyway.info().pending().length
-      if (pendingMigrations == 0) {
-        ()
-      } else if (retries <= 0) {
-        throw ExhaustedRetries(pendingMigrations)
-      } else {
-        logger.debug(
-          s"Concurrent migration has reduced the pending migrations set to $pendingMigrations, waiting until pending set is empty.."
-        )
-        Thread.sleep(1000)
-        flywayMigrationDone(retries - 1, Some(pendingMigrations))
+      @tailrec
+      def flywayMigrationDone(
+          retries: Int
+      ): Unit = {
+        val pendingMigrations = flyway.info().pending().length
+        if (pendingMigrations == 0) {
+          ()
+        } else if (retries <= 0) {
+          throw ExhaustedRetries(pendingMigrations)
+        } else {
+          logger.debug(
+            s"Concurrent migration has reduced the pending migrations set to $pendingMigrations, waiting until pending set is empty.."
+          )
+          Thread.sleep(retryBackoff.toMillis)
+          flywayMigrationDone(retries - 1)
+        }
       }
-    }
 
-    try {
-      flywayMigrationDone(10, None)
-      logger.info("Flyway schema validation finished successfully.")
-    } catch {
-      case ex: RuntimeException =>
-        logger.error(s"Failed to validate and wait only: ${ex.getMessage}", ex)
-        throw ex
-    }
+      try {
+        flywayMigrationDone(retries)
+        logger.info("Flyway schema validation finished successfully.")
+      } catch {
+        case ex: RuntimeException =>
+          logger.error(s"Failed to validate and wait only: ${ex.getMessage}", ex)
+          throw ex
+      }
   }
 
   def migrateOnEmptySchema(): Future[Unit] = run { configBase =>
