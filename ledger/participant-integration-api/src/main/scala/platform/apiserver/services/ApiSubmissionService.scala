@@ -155,8 +155,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
             }
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
-          logger.debug(DuplicateCommandException.getMessage)
-          Future.failed(DuplicateCommandException)
+          logger.debug(duplicateCommandException.getMessage)
+          Future.failed(duplicateCommandException)
       }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit

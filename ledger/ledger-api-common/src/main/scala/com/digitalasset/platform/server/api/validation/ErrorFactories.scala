@@ -17,7 +17,7 @@ trait ErrorFactories {
 
   import ErrorFactories._
 
-  lazy val DuplicateCommandException: StatusRuntimeException =
+  def duplicateCommandException: StatusRuntimeException =
     grpcError(
       Status
         .newBuilder()
