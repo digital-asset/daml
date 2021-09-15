@@ -4,6 +4,7 @@
 package com.daml.error
 
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import io.grpc.StatusRuntimeException
 
 /** The main error interface for everything that should be logged and notified.
   *
@@ -38,8 +39,24 @@ trait BaseError extends LocationMixin {
     */
   def context: Map[String, String] = BaseError.extractContext(this)
 
-  def logWithContext(logger: ContextualizedLogger)(implicit loggingContext: LoggingContext): Unit =
-    code.log(logger, this)
+  /** The resources related to this error
+    *
+    * We return the set of resources via com.google.rpc.ResourceInfo. Override this method
+    * in order to return resource information via com.google.rpc.Status
+    */
+  def resources: Seq[(ErrorResource, String)] = Seq()
+
+  def logWithContext(
+      logger: ContextualizedLogger,
+      correlationId: Option[String],
+      extra: Map[String, String] = Map(),
+  )(implicit loggingContext: LoggingContext): Unit =
+    code.log(logger, this, correlationId, extra)
+
+  def asGrpcErrorFromContext(correlationId: Option[String], logger: ContextualizedLogger)(
+      loggingContext: LoggingContext
+  ): StatusRuntimeException =
+    code.asGrpcError(this, logger, correlationId)(loggingContext)
 
   /** Returns retryability information of this particular error
     *
@@ -59,9 +76,7 @@ trait LocationMixin {
   val location: Option[String] = {
     val stack = Thread.currentThread().getStackTrace
     val thisClassName = this.getClass.getName
-    val idx = stack.indexWhere { element =>
-      element.getClassName == thisClassName
-    }
+    val idx = stack.indexWhere { _.getClassName == thisClassName }
     if (idx != -1 && (idx + 1) < stack.length) {
       val stackTraceElement = stack(idx + 1)
       Some(s"${stackTraceElement.getFileName}:${stackTraceElement.getLineNumber}")
@@ -71,6 +86,8 @@ trait LocationMixin {
 
 object BaseError {
   private val ignoreFields = Set("cause", "throwable", "loggingContext")
+  val SECURITY_SENSITIVE_MESSAGE_ON_API =
+    "An error occurred. Please contact the operator and inquire about the request"
 
   def extractContext[D](obj: D): Map[String, String] = {
     obj.getClass.getDeclaredFields

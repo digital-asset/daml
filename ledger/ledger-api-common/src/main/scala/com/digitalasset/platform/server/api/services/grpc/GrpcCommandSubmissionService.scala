@@ -3,8 +3,6 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import java.time.{Duration, Instant}
-
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
@@ -24,6 +22,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcCommandSubmissionService(
@@ -41,9 +40,7 @@ class GrpcCommandSubmissionService(
 
   protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
-  private val validator = new SubmitRequestValidator(
-    new CommandsValidator(ledgerId, submissionIdGenerator)
-  )
+  private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {
     implicit val telemetryContext: TelemetryContext =
@@ -54,6 +51,7 @@ class GrpcCommandSubmissionService(
       telemetryContext.setAttribute(SpanAttribute.Submitter, commands.party)
       telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
     }
+    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
       metrics.daml.commands.submissionsRunning,
@@ -61,14 +59,14 @@ class GrpcCommandSubmissionService(
         .value(
           metrics.daml.commands.validation,
           validator.validate(
-            request,
+            requestWithSubmissionId,
             currentLedgerTime(),
             currentUtcTime(),
             maxDeduplicationTime(),
           ),
         )
         .fold(
-          t => Future.failed(ValidationLogger.logFailure(request, t)),
+          t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
           service.submit(_).map(_ => Empty.defaultInstance),
         ),
     )
@@ -77,4 +75,13 @@ class GrpcCommandSubmissionService(
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, executionContext)
 
+  private def generateSubmissionIdIfEmpty(request: ApiSubmitRequest): ApiSubmitRequest = {
+    if (request.commands.exists(_.submissionId.isEmpty)) {
+      val commandsWithSubmissionId =
+        request.commands.map(_.copy(submissionId = submissionIdGenerator.generate()))
+      request.copy(commands = commandsWithSubmissionId)
+    } else {
+      request
+    }
+  }
 }

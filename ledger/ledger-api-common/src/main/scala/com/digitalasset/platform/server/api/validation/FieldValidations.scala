@@ -3,7 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.value.Identifier
@@ -84,6 +84,19 @@ trait FieldValidations {
 
   def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
+
+  def requireSubmissionId(s: String): Either[StatusRuntimeException, domain.SubmissionId] = {
+    val fieldName = "submission_id"
+    if (s.isEmpty) {
+      Left(missingField(fieldName, definiteAnswer = Some(false)))
+    } else {
+      Ref.SubmissionId
+        .fromString(s)
+        .map(domain.SubmissionId(_))
+        .left
+        .map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+    }
+  }
 
   def requireContractId(
       s: String,

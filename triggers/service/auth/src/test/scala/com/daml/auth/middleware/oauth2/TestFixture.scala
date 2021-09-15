@@ -118,13 +118,15 @@ trait TestFixture
             ),
           )
         )
+        authUri = Uri()
+          .withScheme("http")
+          .withAuthority(
+            middlewareBinding.localAddress.getHostName,
+            middlewareBinding.localAddress.getPort,
+          )
         middlewareClientConfig = Client.Config(
-          authMiddlewareUri = Uri()
-            .withScheme("http")
-            .withAuthority(
-              middlewareBinding.localAddress.getHostName,
-              middlewareBinding.localAddress.getPort,
-            ),
+          authMiddlewareInternalUri = authUri,
+          authMiddlewareExternalUri = authUri,
           redirectToLogin = redirectToLogin,
           maxAuthCallbacks = maxClientAuthCallbacks,
           authCallbackTimeout = FiniteDuration(1, duration.MINUTES),

@@ -10,7 +10,7 @@ import waitOn from 'wait-on';
 
 import Ledger from '@daml/ledger';
 import { User } from '@daml.js/create-daml-app';
-import { computeCredentials } from './Credentials';
+import { authConfig } from './config';
 
 const JSON_API_PORT_FILE_NAME = 'json-api.port';
 
@@ -118,8 +118,8 @@ afterAll(async () => {
 });
 
 test('create and look up user using ledger library', async () => {
-  const partyName = getParty();
-  const {party, token} = computeCredentials(partyName);
+  const party = getParty();
+  const token = authConfig.makeToken(party);
   const ledger = new Ledger({token});
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
@@ -199,7 +199,7 @@ test('log in as a new user, log out and log back in', async () => {
   await login(page, partyName);
 
   // Check that the ledger contains the new User contract.
-  const {token} = computeCredentials(partyName);
+  const token = authConfig.makeToken(partyName);
   const ledger = new Ledger({token});
   const users = await ledger.query(User.User);
   expect(users).toHaveLength(1);
