@@ -186,7 +186,7 @@ private[backend] trait StorageBackendTestsCompletions
     val nanos = 10
 
     val expectedErrorMessage =
-      "One of deduplication time seconds and nanos has been provided " +
+      "One of deduplication duration seconds and nanos has been provided " +
         "but they must be either both provided or both absent"
 
     val dtos1 = Vector(
