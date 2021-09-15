@@ -101,24 +101,9 @@ da_scala_test(
     ],
 )
 
+# Full conformance test
 conformance_test(
     name = "conformance-test",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-        "--eager-package-loading",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--additional=MultiPartySubmissionIT",
-        "--additional=ContractIdIT:Accept",
-    ],
-)
-
-# TODO append-only: cleanup
-conformance_test(
-    name = "conformance-test-append-only",
     server = ":daml-on-sql-ephemeral-postgresql",
     server_args = [
         "--ledgerid=conformance-test",

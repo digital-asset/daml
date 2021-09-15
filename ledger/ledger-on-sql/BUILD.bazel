@@ -303,8 +303,9 @@ da_scala_binary(
     ],
 )
 
+# Full conformance test (Postgres)
 conformance_test(
-    name = "conformance-test-append-only-postgres",
+    name = "conformance-test-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
@@ -329,8 +330,9 @@ conformance_test(
     ],
 )
 
+# Full conformance test (H2)
 conformance_test(
-    name = "conformance-test-append-only-h2",
+    name = "conformance-test-h2",
     ports = [6865],
     server = ":conformance-test-h2-memory-bin",
     server_args = [
@@ -356,8 +358,9 @@ conformance_test(
     ],
 )
 
+# Full conformance test (Oracle)
 conformance_test(
-    name = "conformance-test-append-only-oracle",
+    name = "conformance-test-oracle",
     ports = [6865],
     server = ":conformance-test-oracle-bin",
     server_args = [
@@ -382,29 +385,9 @@ conformance_test(
     ],
 )
 
+# Feature test: --buffered-ledger-api-streams-unsafe (in-memory fan-out) (Postgres)
 conformance_test(
-    name = "conformance-test-oracle",
-    ports = [6865],
-    server = ":conformance-test-oracle-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--max-deduplication-duration=PT5S",
-    ],
-    tags = [] if oracle_testing else ["manual"],
-    test_tool_args = [
-        "--verbose",
-        "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-in-memory-fan-out-postgres",
+    name = "conformance-test-in-memory-fan-out-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
@@ -430,6 +413,7 @@ conformance_test(
     ],
 )
 
+# Feature test: --buffered-ledger-api-streams-unsafe (in-memory fan-out) (Oracle)
 conformance_test(
     name = "conformance-test-append-only-in-memory-fan-out-oracle",
     ports = [6865],
@@ -457,6 +441,9 @@ conformance_test(
     ],
 )
 
+# Feature test: contract ids
+# This asserts that the Daml engine in ledger-on-sql only accepts V1 contract ids.
+# These tests do not depend on the ledger backend, and therefore only run on H2
 conformance_test(
     name = "conformance-test-contract-ids",
     ports = [6865],
@@ -464,6 +451,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
     ],
     test_tool_args = [
