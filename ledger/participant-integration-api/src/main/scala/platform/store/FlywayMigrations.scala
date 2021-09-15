@@ -26,13 +26,11 @@ private[platform] class FlywayMigrations(
   private val dbType = DbType.jdbcType(jdbcUrl)
   implicit private val ec: ExecutionContext = resourceContext.executionContext
 
-  private def run[T](t: FluentConfiguration => T): Future[T] = {
-    VerifiedDataSource(jdbcUrl).flatMap(dataSource =>
-      Future(
-        t(configurationBase(dataSource))
-      )
-    )
-  }
+  private def runF[T](t: FluentConfiguration => Future[T]): Future[T] =
+    VerifiedDataSource(jdbcUrl).flatMap(dataSource => t(configurationBase(dataSource)))
+
+  private def run[T](t: FluentConfiguration => T): Future[T] =
+    runF(fc => Future(t(fc)))
 
   private def configurationBase(dataSource: DataSource): FluentConfiguration =
     Flyway
@@ -68,7 +66,7 @@ private[platform] class FlywayMigrations(
     logger.info("Flyway schema clean finished successfully.")
   }
 
-  def validateAndWaitOnly(retries: Int, retryBackoff: FiniteDuration): Future[Unit] = run {
+  def validateAndWaitOnly(retries: Int, retryBackoff: FiniteDuration): Future[Unit] = runF {
     configBase =>
       val flyway = configBase
         .ignoreFutureMigrations(false)
@@ -76,15 +74,14 @@ private[platform] class FlywayMigrations(
 
       logger.info("Running Flyway validation...")
 
-      RetryStrategy.constant(Some(retries), retryBackoff) { case t =>
-        logger
-          .warn("Exception encountered while validating flyway migrations", t)
-        false
-      } { case (_, _) =>
+      RetryStrategy.constant(retries, retryBackoff) { (attempt, _) =>
         val pendingMigrations = flyway.info().pending().length
         if (pendingMigrations == 0) {
           Future.unit
         } else {
+          logger.debug(
+            s"Pending migrations ${pendingMigrations} on attempt ${attempt} of ${retries} attempts"
+          )
           Future.failed(MigrationIncomplete(pendingMigrations))
         }
       }
