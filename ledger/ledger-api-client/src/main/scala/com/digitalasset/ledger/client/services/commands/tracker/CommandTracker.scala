@@ -317,7 +317,7 @@ private[commands] class CommandTracker[Context](
           case id if id.nonEmpty => id
         }
         val trackedCommands =
-          pendingCommandKeys(maybeSubmissionId, commandId).flatMap(pendingCommands.remove)
+          pendingCommandKeys(maybeSubmissionId, commandId).flatMap(pendingCommands.remove(_).toList)
 
         if (trackedCommands.size > 1) {
           trackedCommands.map { trackingData =>
