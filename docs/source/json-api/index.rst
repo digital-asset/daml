@@ -34,7 +34,7 @@ We welcome feedback about the JSON API on
 
    lf-value-specification
    search-query-language
-   metrics
+   production-setup
 
 Running the JSON API
 ********************
@@ -92,8 +92,8 @@ using.
 With Query Store
 ------------------
 
-In production setups, you should configure the JSON API to use a
-PostgreSQL backend as a cache. The in-memory backend will call the
+You can configure the JSON API to use a PostgreSQL/Oracle(Enterprise Edition Only)
+backend as a cache. The in-memory backend will call the
 ledger to fetch the entire active contract set for the templates in
 your query every time so it is generally not recommended to rely on
 this in production. Note that the PostgreSQL backend acts purely as a
@@ -101,12 +101,13 @@ cache. It is safe to reinitialize the database at any time.
 
 To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
 
-.. note:: When you use the Query Store you'll want your first run to specify ``createSchema=true`` so that all the necessary tables are created. After the first run make sure ``createSchema=false`` so that it doesn't attempt to create the tables again.
+.. note:: For development purposes we suggest to use  ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
+
 
 .. code-block:: shell
 
     daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
-    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=create-if-needed-and-start"
 
 .. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
