@@ -175,6 +175,7 @@ data Env = Env
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
+    ,envImplements :: MS.Map TypeConName [GHC.Type]
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
@@ -408,12 +409,17 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
-convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
-convertInterfaces env tyThings
+interfaceNames :: Env -> [TyThing] -> ConvertM (S.Set T.Text)
+interfaceNames env tyThings
+    | envLfVersion env `supports` featureInterfaces =
+      pure (S.fromList [ getOccText t | ATyCon t <- tyThings, hasDamlInterfaceCtx t ])
+    | otherwise = pure S.empty
+
+convertInterfaces :: Env -> S.Set T.Text -> [TyThing] -> ConvertM [Definition]
+convertInterfaces env interfaceCons tyThings
   | envLfVersion env `supports` featureInterfaces = interfaceClasses
   | otherwise = pure []
   where
-    interfaceCons = S.fromList [ getOccText t | ATyCon t <- tyThings, hasDamlInterfaceCtx t ]
     interfaceClasses = sequence
         [ DInterface <$> convertInterface interface cls
         | ATyCon t <- tyThings
@@ -454,11 +460,12 @@ convertModule
     -> ModDetails
     -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap stablePackages isGenerated file x details = runConvertM (ConversionEnv file Nothing) $ do
-    definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
+    interfaceCons <- interfaceNames env (eltsUFM (cm_types x))
+    definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env interfaceCons bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
-    interfaces <- convertInterfaces env (eltsUFM (cm_types x))
+    interfaces <- convertInterfaces env interfaceCons (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces))
     where
         ghcModName = GHC.moduleName $ cm_module x
@@ -475,6 +482,12 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
                 | otherwise -> [(name, body)]
               Rec binds -> binds
           ]
+        tplImplements = MS.fromListWith (++)
+           [ (mkTypeCon [getOccText tplTy], [ifaceTy])
+           | (name, _) <- binds
+           , "_implements_" `T.isPrefixOf` getOccText name
+           , TypeCon _ [TypeCon tplTy [], ifaceTy] <- [varType name]
+           ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
@@ -498,6 +511,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
           , envLfVersion = lfVersion
           , envTemplateBinds = templateBinds
           , envExceptionBinds = exceptionBinds
+          , envImplements = tplImplements
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -743,8 +757,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        let tplImplements = []
+        tplImplements <- convertImplements env tplTypeCon
         pure Template {..}
 
     | otherwise =
@@ -814,6 +827,16 @@ useSingleMethodDict env (Cast ghcExpr _) f = do
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
+convertImplements :: Env -> LF.TypeConName -> ConvertM [Qualified TypeConName]
+convertImplements env tplTypeCon =
+    mapM convertInterfaceCon (MS.findWithDefault [] tplTypeCon (envImplements env))
+  where
+    convertInterfaceCon ty = do
+        ty' <- convertType env ty
+        case ty' of
+            TCon con -> pure con
+            _ -> unhandled "interface type" ty
+
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =
     NM.fromList <$> traverse (convertChoice env tbinds)
@@ -828,7 +851,7 @@ convertChoice env tbinds (ChoiceData ty expr)
               , (_, action)
               , _
               , (_, optObservers)
-              ] <- convertExpr env expr
+              ] <- removeLocations <$> convertExpr env expr
 
     mbObservers <-
       case optObservers of
@@ -870,8 +893,8 @@ convertChoice env tbinds (ChoiceData ty expr)
         applyThisAndArg func = func `ETmApp` EVar this `ETmApp` EVar arg
 
 
-convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
-convertBind env (name, x)
+convertBind :: Env -> S.Set T.Text -> (Var, GHC.Expr Var) -> ConvertM [Definition]
+convertBind env interfaceCons (name, x)
     -- This is inlined in the choice in the template so we can just drop this.
     | "_choice_" `T.isPrefixOf` getOccText name
     = pure []
@@ -880,6 +903,11 @@ convertBind env (name, x)
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
+
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    -- Reconsider once we have a constructor for existential interfaces
+    -- in LF.
+    | getOccText name `S.member` S.map ("$W" <>) interfaceCons = pure []
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -912,7 +940,7 @@ convertBind env (name, x)
     , let (lets, body2) = collectNonRecLets body1
     , Let (Rec [(f, Lam v y)]) (Var f') <- body2
     , f == f'
-    = convertBind env $ (,) name $ mkLams params $ makeNonRecLets lets $
+    = convertBind env interfaceCons $ (,) name $ mkLams params $ makeNonRecLets lets $
         Lam v $ Let (NonRec f $ mkVarApps (Var name) params) y
 
     -- Constraint tuple projections are turned into LF struct projections at use site.
