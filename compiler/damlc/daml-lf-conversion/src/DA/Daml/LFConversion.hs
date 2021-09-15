@@ -532,9 +532,9 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` internalTypes
     -> pure []
     | NameIn DA_Internal_Prelude "Optional" <- t -> pure []
-    -- Consumption marker types used to transfer information from template desugaring to LF conversion.
+    -- Types used only for desugaring are dropped during the LF conversion.
     | NameIn DA_Internal_Desugar n <- t
-    , n `elementOfUniqSet` consumingTypes
+    , n `elementOfUniqSet` desugarTypes
     -> pure []
 
     | hasDamlInterfaceCtx t && envLfVersion env `supports` featureInterfaces
@@ -899,6 +899,10 @@ convertBind env (name, x)
     | "_choice_" `T.isPrefixOf` getOccText name
     = pure []
 
+    -- These are only used as markers for the LF conversion.
+    | "_implements_" `T.isPrefixOf` getOccText name
+    = pure []
+
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
@@ -992,8 +996,8 @@ internalTypes = mkUniqSet
     , "Experimental"
     ]
 
-consumingTypes :: UniqSet FastString
-consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
+desugarTypes :: UniqSet FastString
+desugarTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming", "Implements"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
