@@ -322,17 +322,28 @@ SERVERS = {
     },
 }
 
-# TODO append-only: only for temporary testing
-ONLY_POSTGRES_SERVER = {
-    "postgresql": {
-        "binary": ":sandbox-classic-ephemeral-postgresql",
-        "server_args": [
-            "--port=6865",
-            "--eager-package-loading",
-        ],
-    },
+# The in-memory ledger is deprecated, and does not support all operations (e.g., pruning)
+# TODO: remove this after removing the sandbox classic in-memory ledger
+NON_DEPRECATED_SERVERS = {
+    "postgresql": SERVERS["postgresql"],
+    "h2database": SERVERS["h2database"],
 }
 
+# TODO append-only: after removing the mutating schema, only run this on the in-memory ledger
+server_conformance_test(
+    name = "conformance-test-static-time-mutating-schema",
+    server_args = [
+        "--static-time",
+        "--contract-id-seeding=testing-weak",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# Secondary conformance test: static time
 server_conformance_test(
     name = "conformance-test-static-time",
     lf_versions = [
@@ -342,26 +353,9 @@ server_conformance_test(
     server_args = [
         "--static-time",
         "--contract-id-seeding=testing-weak",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-# TODO append-only: only for temporary testing
-server_conformance_test(
-    name = "conformance-test-static-time-append-only",
-    lf_versions = [
-        "default",
-    ],
-    server_args = [
-        "--static-time",
-        "--contract-id-seeding=testing-weak",
         "--enable-append-only-schema",
     ],
-    servers = ONLY_POSTGRES_SERVER,
+    servers = NON_DEPRECATED_SERVERS,
     test_tool_args = [
         "--open-world",
         "--additional=AppendOnlyCommandDeduplicationParallelIT",
@@ -371,8 +365,9 @@ server_conformance_test(
     ],
 )
 
+# TODO append-only: after removing the mutating schema, only run this on the in-memory ledger
 server_conformance_test(
-    name = "conformance-test-wall-clock",
+    name = "conformance-test-wall-clock-mutating-schema",
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
@@ -384,15 +379,15 @@ server_conformance_test(
     ],
 )
 
-# TODO append-only: only for temporary testing
+# Main conformance test:
 server_conformance_test(
-    name = "conformance-test-wall-clock-append-only",
+    name = "conformance-test-wall-clock",
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
         "--enable-append-only-schema",
     ],
-    servers = ONLY_POSTGRES_SERVER,
+    servers = NON_DEPRECATED_SERVERS,
     test_tool_args = [
         "--open-world",
         "--additional=AppendOnlyCommandDeduplicationParallelIT",
@@ -405,12 +400,14 @@ server_conformance_test(
     ],
 )
 
+# Secondary conformance test: legacy contract Ids
 server_conformance_test(
     name = "conformance-test-legacy-cid",
     lf_versions = ["legacy"],
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=no",
+        "--enable-append-only-schema",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -423,7 +420,10 @@ server_conformance_test(
 # It does not depend on the ledger backend, that's why it runs on a single (arbitrary) server.
 server_conformance_test(
     name = "conformance-test-contract-ids",
-    server_args = ["--contract-id-seeding=testing-weak"],
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--enable-append-only-schema",
+    ],
     servers = {"memory": SERVERS["memory"]},
     test_tool_args = [
         "--verbose",

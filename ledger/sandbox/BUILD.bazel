@@ -272,52 +272,6 @@ NEXT_SERVERS = {
     },
 }
 
-server_conformance_test(
-    name = "next-conformance-test-static-time",
-    lf_versions = [
-        "default",
-        "latest",
-        "preview",
-    ],
-    server_args = [
-        "--static-time",
-    ],
-    servers = NEXT_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "next-conformance-test-wall-clock",
-    server_args = [
-        "--wall-clock-time",
-        "--max-deduplication-duration=PT5S",
-    ],
-    servers = NEXT_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "next-conformance-test-closed-world",
-    server_args = [
-        "--wall-clock-time",
-        "--implicit-party-allocation=false",
-    ],
-    servers = NEXT_SERVERS,
-    test_tool_args = [
-        "--verbose",
-        "--include=ClosedWorldIT",
-    ],
-)
-
 # This test asserts that the Daml engine is configured correctly for the sandbox executable.
 # It does not depend on the ledger backend, that's why it runs on a single (arbitrary) server.
 server_conformance_test(
@@ -329,20 +283,72 @@ server_conformance_test(
     ],
 )
 
-# TODO append-only: cleanup
+# Main conformance test: runs all applicable tests on all LF versions
 server_conformance_test(
     name = "next-conformance-test-append-only",
+    lf_versions = [
+        "default",
+        "latest",
+        "preview",
+    ],
     server_args = [
         "--enable-append-only-schema",
         "--max-deduplication-duration=PT5S",
     ],
-    servers = {"postgresql": NEXT_SERVERS["postgresql"]},
+    servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
         "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# Secondary conformance test: closed world mode
+server_conformance_test(
+    name = "next-conformance-test-closed-world",
+    server_args = [
+        "--enable-append-only-schema",
+        "--wall-clock-time",
+        "--implicit-party-allocation=false",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ClosedWorldIT",
+    ],
+)
+
+# Secondary conformance test: static time mode
+server_conformance_test(
+    name = "next-conformance-test-static-time",
+    server_args = [
+        "--enable-append-only-schema",
+        "--static-time",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# Deprecated conformance test: testing the mutating schema
+# TODO append-only: remove after removing the mutating schema
+server_conformance_test(
+    name = "next-conformance-test-mutating-schema",
+    server_args = [
+        "--wall-clock-time",
+        "--max-deduplication-duration=PT5S",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ClosedWorldIT",
     ],
