@@ -283,7 +283,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--include=TLSv1_3IT",
+        "--include=TLSOnePointThreeIT",
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
         "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",

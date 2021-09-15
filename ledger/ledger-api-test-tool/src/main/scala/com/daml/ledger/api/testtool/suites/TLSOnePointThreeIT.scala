@@ -22,17 +22,23 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-final class TLSv1_3IT extends LedgerTestSuite {
+final class TLSOnePointThreeIT extends LedgerTestSuite {
 
-  testTlsConnection(clientTls = TlsVersion.V1_3, assertion = assertSuccessfulConnection)
-  testTlsConnection(clientTls = TlsVersion.V1_2, assertion = assertFailedlConnection)
-  testTlsConnection(clientTls = TlsVersion.V1_1, assertion = assertFailedlConnection)
-  testTlsConnection(clientTls = TlsVersion.V1, assertion = assertFailedlConnection)
+  testTlsConnection(clientTls = TlsVersion.V1_3, assertConnectionSuccessful = true)
+  testTlsConnection(clientTls = TlsVersion.V1_2, assertConnectionSuccessful = false)
+  testTlsConnection(clientTls = TlsVersion.V1_1, assertConnectionSuccessful = false)
+  testTlsConnection(clientTls = TlsVersion.V1, assertConnectionSuccessful = false)
 
-  def testTlsConnection(clientTls: TlsVersion, assertion: Try[String] => Try[Unit]): Unit = {
+  def testTlsConnection(clientTls: TlsVersion, assertConnectionSuccessful: Boolean): Unit = {
+    val (what, assertion) =
+      if (assertConnectionSuccessful)
+        ("accept", assertSuccessfulConnection)
+      else
+        ("reject", assertFailedlConnection)
+
     test2(
-      "ConnectionOnTLSv1.3",
-      "A ledger API server accepts TLS 1.3 connection",
+      s"ConnectionOnTLSv13FromClientOn${clientTls.version.replace(".", "")}",
+      s"A ledger API server  should ${what} a ${clientTls} connection",
       allocate(NoParties),
     ) { implicit ec => (testContexts: Seq[ParticipantTestContext]) =>
       { case _ =>
