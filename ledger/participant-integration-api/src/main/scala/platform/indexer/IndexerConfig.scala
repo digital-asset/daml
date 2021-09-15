@@ -33,8 +33,8 @@ case class IndexerConfig(
     tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
-    schemaMigrationRetries: Int = DefaultSchemaMigrationRetries,
-    schemaMigrationRetryBackoff: FiniteDuration = DefaultSchemaMigrationRetryBackoff,
+    schemaMigrationAttempts: Int = DefaultSchemaMigrationAttempts,
+    schemaMigrationAttemptBackoff: FiniteDuration = DefaultSchemaMigrationAttemptBackoff,
     haConfig: HaConfig = HaConfig(),
 )
 
@@ -56,6 +56,6 @@ object IndexerConfig {
   val DefaultBatchWithinMillis: Long = 50L
   val DefaultEnableCompression: Boolean = false
 
-  val DefaultSchemaMigrationRetries: Int = 10
-  val DefaultSchemaMigrationRetryBackoff: FiniteDuration = 1.second
+  val DefaultSchemaMigrationAttempts: Int = 30
+  val DefaultSchemaMigrationAttemptBackoff: FiniteDuration = 1.second
 }

@@ -82,8 +82,8 @@ final class StandaloneIndexerServer(
         Resource
           .fromFuture(
             flywayMigrations.validateAndWaitOnly(
-              config.schemaMigrationRetries,
-              config.schemaMigrationRetryBackoff,
+              config.schemaMigrationAttempts,
+              config.schemaMigrationAttemptBackoff,
             )
           )
           .map[ReportsHealth] { _ =>
