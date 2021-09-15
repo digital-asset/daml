@@ -11,6 +11,9 @@ load(
 da_scala_library(
     name = "error",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+    ],
     tags = ["maven_coordinates=com.daml:error:__VERSION__"],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -18,7 +21,11 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_protobuf",
         "@maven//:org_reflections_reflections",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -33,6 +40,7 @@ da_scala_library(
     deps = [
         ":error",
         "//libs-scala/contextualized-logging",
+        "@maven//:io_grpc_grpc_api",
     ],
 )
 
@@ -46,13 +54,19 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     deps = [
         ":error",
         ":error-test-utils",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_protobuf",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],

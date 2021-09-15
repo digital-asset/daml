@@ -3,10 +3,7 @@
 
 package com.daml.error.generator
 
-import com.daml.error.ErrorCategory.{
-  BackgroundProcessDegradationWarning,
-  SystemInternalAssumptionViolated,
-}
+import com.daml.error.ErrorCategory.{SystemInternalAssumptionViolated, TransientServerFailure}
 import com.daml.error.utils.testpackage.SeriousError
 import com.daml.error.utils.testpackage.subpackage.NotSoSeriousError
 import com.daml.error.{Explanation, Resolution}
@@ -35,9 +32,10 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
       ),
       DocItem(
         className = NotSoSeriousError.getClass.getTypeName,
-        category = BackgroundProcessDegradationWarning.getClass.getSimpleName,
+        category = TransientServerFailure.getClass.getSimpleName,
         hierarchicalGrouping = "Some error class" :: Nil,
-        conveyance = "This error is logged with log-level WARN on the server side.",
+        conveyance =
+          "This error is logged with log-level INFO on the server side.\nThis error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message",
         code = "TEST_ROUTINE_FAILURE_PLEASE_IGNORE",
         explanation = Explanation("Test: Things like this always happen."),
         resolution = Resolution("Test: Why not ignore?"),

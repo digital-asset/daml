@@ -11,7 +11,7 @@ import com.daml.logging.LoggingContext
 case object NotSoSeriousError
     extends ErrorCode(
       "TEST_ROUTINE_FAILURE_PLEASE_IGNORE",
-      ErrorCategory.BackgroundProcessDegradationWarning,
+      ErrorCategory.TransientServerFailure,
     )(
       ErrorClass.root().extend("Some error class")
     ) {
@@ -21,5 +21,11 @@ case object NotSoSeriousError
     override def code: ErrorCode = NotSoSeriousError.code
 
     override def cause: String = "Some obscure cause"
+
+    override def resources: Seq[(ErrorResource, String)] = Seq(
+      (ErrorResource.LedgerId, LedgerIdResource)
+    )
   }
+
+  private[error] val LedgerIdResource = "some ledger id"
 }
