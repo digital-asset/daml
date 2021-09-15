@@ -3,7 +3,7 @@
 
 package com.daml.error
 
-import com.daml.error.ErrorCode.{loggingValueToString, truncateResourceForTransport}
+import com.daml.error.ErrorCode.{StatusInfo, loggingValueToString, truncateResourceForTransport}
 import com.daml.logging.entries.LoggingValue
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.Status.Code
@@ -63,7 +63,8 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   def asGrpcError(err: BaseError, logger: ContextualizedLogger, correlationId: Option[String])(
       loggingContext: LoggingContext
   ): StatusRuntimeException = {
-    val (codeInt, message, contextMap) = getStatusInfo(err, correlationId, logger)(loggingContext)
+    val StatusInfo(codeInt, message, contextMap, _) =
+      getStatusInfo(err, correlationId, logger)(loggingContext)
 
     // Provide error id and context via ErrorInfo
     val errInfoBuilder = com.google.rpc.ErrorInfo
@@ -119,7 +120,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     // Build status
     val statusBuilder = com.google.rpc.Status
       .newBuilder()
-      .setCode(codeInt)
+      .setCode(codeInt.value())
       .setMessage(message)
 
     (Seq(errInfo) ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfo)
@@ -132,6 +133,12 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     // Strip stack trace from exception
     new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
   }
+
+  def formatContextAsString(contextMap: Map[String, String]): String =
+    contextMap.view
+      .filter(_._2.nonEmpty)
+      .map { case (k, v) => s"$k=$v" }
+      .mkString(", ")
 
   /** log level of the error code
     *
@@ -170,26 +177,27 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     }
   }
 
-  private[error] def getStatusInfo(
+  def getStatusInfo(
       err: BaseError,
       correlationId: Option[String],
       logger: ContextualizedLogger,
-  )(loggingContext: LoggingContext): (Int, String, Map[String, String]) = {
+  )(loggingContext: LoggingContext): StatusInfo = {
     val message =
       if (code.category.securitySensitive)
         s"${BaseError.SECURITY_SENSITIVE_MESSAGE_ON_API}: ${correlationId.getOrElse("<no-correlation-id>")}"
       else
         code.toMsg(err.cause, correlationId)
+
     val codeInt = category.grpcCode
       .getOrElse {
         logger.warn(s"Passing non-grpc error via grpc $id ")(loggingContext)
         Code.INTERNAL
       }
-      .value()
+
     val contextMap =
       getTruncatedContext(err, loggingContext) + ("category" -> category.asInt.toString)
 
-    (codeInt, message, contextMap)
+    StatusInfo(codeInt, message, contextMap, correlationId)
   }
 
   private[error] def getTruncatedContext(
@@ -235,12 +243,6 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     }
     Some(loggedAs ++ apiLevel)
   }
-
-  private[error] def formatContextAsString(contextMap: Map[String, String]): String =
-    contextMap.view
-      .filter(_._2.nonEmpty)
-      .map { case (k, v) => s"$k=$v" }
-      .mkString(", ")
 }
 
 object ErrorCode {
@@ -269,8 +271,15 @@ object ErrorCode {
       extends StatusRuntimeException(status, metadata)
       with NoStackTrace
 
+  case class StatusInfo(
+      codeGrpc: io.grpc.Status.Code,
+      message: String,
+      contextMap: Map[String, String],
+      correlationId: Option[String],
+  )
+
   /** Truncate resource information such that we don't exceed a max error size */
-  private[error] def truncateResourceForTransport(
+  def truncateResourceForTransport(
       res: Seq[(ErrorResource, String)]
   ): Seq[(ErrorResource, String)] = {
     res

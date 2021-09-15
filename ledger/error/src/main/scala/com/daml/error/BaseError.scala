@@ -48,7 +48,8 @@ trait BaseError extends LocationMixin {
 
   def logWithContext(
       logger: ContextualizedLogger,
-      correlationId: Option[String],
+      correlationId: Option[String] =
+        None, // TODO remove the default and pass correlation ID in DAML SDK
       extra: Map[String, String] = Map(),
   )(implicit loggingContext: LoggingContext): Unit =
     code.log(logger, this, correlationId, extra)
@@ -66,8 +67,10 @@ trait BaseError extends LocationMixin {
     * Do not use this to change the contract of the error categories. Non-retryable errors shouldn't
     * be made retryable. Only use it for adjusting the retry intervals.
     */
-  private[error] def retryable: Option[ErrorCategoryRetry] = code.category.retryable
+  def retryable: Option[ErrorCategoryRetry] = code.category.retryable
 
+  /** Controls whether a `definite_answer` error detail is added to the gRPC status code */
+  def definiteAnswerO: Option[Boolean] = None
 }
 
 trait LocationMixin {
@@ -97,5 +100,36 @@ object BaseError {
         (field.getName, field.get(obj).toString)
       }
       .toMap
+  }
+
+  abstract class Impl(
+      override val cause: String,
+      override val throwableO: Option[Throwable] = None,
+  )(implicit override val code: ErrorCode)
+      extends BaseError {
+
+    /** The logging context obtained when we created the error, usually passed in as implicit */
+    def loggingContext: LoggingContext
+
+    def logger: ContextualizedLogger
+
+    /** Flag to control if an error should be logged at creation
+      *
+      * Generally, we do want to log upon creation, except in the case of "nested" or combined errors,
+      * where we just nest the error but don't want it to be logged twice.
+      */
+    def logOnCreation: Boolean = true
+
+    def log(): Unit = logWithContext(logger)(loggingContext)
+
+    def asGrpcError: StatusRuntimeException = {
+      // TODO error codes: Pass correlation id
+      code.asGrpcError(this, logger, None)(loggingContext)
+    }
+
+    // Automatically log the error on generation
+    if (logOnCreation) {
+      log()
+    }
   }
 }
