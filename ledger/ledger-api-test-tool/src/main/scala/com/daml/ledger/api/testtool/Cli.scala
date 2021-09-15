@@ -20,10 +20,11 @@ object Cli {
 
   private val Name = "ledger-api-test-tool"
 
-  private def reportUsageOfDeprecatedOption[B](option: String) = {
-    (_: Any, config: B) =>
-      System.err.println(s"WARNING: $option has been deprecated and will be removed in a future version")
-      config
+  private def reportUsageOfDeprecatedOption[B](option: String) = { (_: Any, config: B) =>
+    System.err.println(
+      s"WARNING: $option has been deprecated and will be removed in a future version"
+    )
+    config
   }
 
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
@@ -55,15 +56,16 @@ object Cli {
     private def invalidPerformanceTestName[A](name: String): Either[String, Unit] =
       failure(s"$name is not a valid performance test name. Use `--list` to see valid names.")
 
-    head(
-      """The Ledger API Test Tool is a command line tool for testing the correctness of
+    head("""The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on Daml and Ledger API.""".stripMargin)
 
     arg[(String, Int)]("[endpoints...]")(endpointRead)
-      .action((address, config) => config.copy(participants = config.participants :+ address))
+      .action((address, config) =>
+        config.copy(participantsEndpoints = config.participantsEndpoints :+ address)
+      )
       .unbounded()
       .optional()
-      .text("""Addresses of the participants to test, specified as `<host>:<port>`.""")
+      .text("""Addresses of the participants servers to test, specified as `<host>:<port>`.""")
 
     opt[Int]("max-connection-attempts")
       .action((maxConnectionAttempts, config) =>
@@ -91,9 +93,8 @@ object Cli {
       .text(
         "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints."
       )
-      .action {
-        (path: String, config: Config) =>
-          config.withTlsConfig(_.copy(keyCertChainFile = Some(new File(path))))
+      .action { (path: String, config: Config) =>
+        config.withTlsConfig(_.copy(keyCertChainFile = Some(new File(path))))
       }
 
     opt[String]("cacrt")
@@ -113,8 +114,7 @@ object Cli {
     opt[Double](name = "timeout-scale-factor")
       .optional()
       .action((v, c) => c.copy(timeoutScaleFactor = v))
-      .text(
-        """Scale factor for timeouts used in all test suites. Useful to tune timeouts
+      .text("""Scale factor for timeouts used in all test suites. Useful to tune timeouts
           |depending on the environment and the Ledger implementation under test.
           |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
           |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
@@ -137,8 +137,7 @@ object Cli {
 
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
-      .text(
-        """Reverse success status logic of the tool. Use this flag if you expect one or
+      .text("""Reverse success status logic of the tool. Use this flag if you expect one or
           |more or the scenario tests to fail. If enabled, the tool will succeed when at
           |least one test fails, and it will fail when all tests succeed. Defaults to
           |false.""".stripMargin)
@@ -184,8 +183,7 @@ object Cli {
 
     opt[Unit]("shuffle-participants")
       .action((_, c) => c.copy(shuffleParticipants = true))
-      .text(
-        """Shuffle the list of participants used in a test.
+      .text("""Shuffle the list of participants used in a test.
           |By default participants are used in the order they're given.""".stripMargin)
 
     opt[Unit]("no-wait-for-parties")
@@ -195,8 +193,7 @@ object Cli {
 
     opt[Unit]("open-world")
       .action((_, c) => c.copy(partyAllocation = PartyAllocationConfiguration.OpenWorld))
-      .text(
-        """|Do not allocate parties explicitly.
+      .text("""|Do not allocate parties explicitly.
            |Instead, expect the ledger to allocate parties dynamically.
            |Party names must be their hints.""".stripMargin)
 

@@ -32,6 +32,33 @@ private[testtool] abstract class LedgerTestSuite {
       repeated,
     )((ec: ExecutionContext) => (_: Seq[ParticipantTestContext]) => testCase(ec))
   }
+
+  // TODO PBATKO: How to name it? Differs from test() method in the type `testCase` parameter (here `testCase` function accepts also `Seq[ParticipantTestContext]`)
+  protected final def test2(
+      shortIdentifier: String,
+      description: String,
+      participants: ParticipantAllocation,
+      timeoutScale: Double = 1.0,
+      runConcurrently: Boolean = true,
+      repeated: Int = 1,
+  )(
+      testCase: ExecutionContext => Seq[ParticipantTestContext] => PartialFunction[
+        Participants,
+        Future[Unit],
+      ]
+  ): Unit = {
+    testGivenAllParticipants(
+      shortIdentifier,
+      description,
+      participants,
+      timeoutScale,
+      runConcurrently,
+      repeated,
+    )((ec: ExecutionContext) =>
+      (testContext: Seq[ParticipantTestContext]) => testCase(ec)(testContext)
+    )
+  }
+
   protected final def testGivenAllParticipants(
       shortIdentifier: String,
       description: String,

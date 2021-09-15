@@ -11,7 +11,7 @@ import java.nio.file.Path
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config(
-    participants: Vector[(String, Int)],
+    participantsEndpoints: Vector[(String, Int)],
     maxConnectionAttempts: Int,
     darPackages: List[File],
     mustFail: Boolean,
@@ -39,7 +39,7 @@ final case class Config(
 
 object Config {
   val default: Config = Config(
-    participants = Vector.empty,
+    participantsEndpoints = Vector.empty,
     maxConnectionAttempts = 10,
     darPackages = Nil,
     mustFail = false,

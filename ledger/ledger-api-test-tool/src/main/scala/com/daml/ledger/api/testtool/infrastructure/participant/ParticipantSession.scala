@@ -4,14 +4,16 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.testtool.infrastructure.{
+  ChannelEndpoint,
   Errors,
   LedgerServices,
   PartyAllocationConfiguration,
 }
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import com.daml.timer.RetryStrategy
-import io.grpc.{Channel, ClientInterceptor}
+import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
@@ -27,44 +29,57 @@ private[infrastructure] final class ParticipantSession private (
     // The test tool is designed to run tests in an isolated environment but changing the
     // global state of the ledger breaks this assumption, no matter what.
     ledgerId: String,
+    ledgerHostname: String,
+    ledgerPort: Int,
 )(implicit val executionContext: ExecutionContext) {
+
   private[testtool] def createInitContext(
       applicationId: String,
       identifierSuffix: String,
+      clientTlsConfiguration: Option[TlsConfiguration],
   ): Future[ParticipantTestContext] =
-    createTestContext("init", applicationId, identifierSuffix)
+    createTestContext(
+      "init",
+      applicationId,
+      identifierSuffix,
+      clientTlsConfiguration = clientTlsConfiguration,
+    )
 
   private[testtool] def createTestContext(
       endpointId: String,
       applicationId: String,
       identifierSuffix: String,
+      clientTlsConfiguration: Option[TlsConfiguration],
   ): Future[ParticipantTestContext] =
     for {
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
     } yield new ParticipantTestContext(
-      ledgerId,
-      endpointId,
-      applicationId,
-      identifierSuffix,
-      end,
-      services,
-      partyAllocation,
+      ledgerId = ledgerId,
+      endpointId = endpointId,
+      applicationId = applicationId,
+      identifierSuffix = identifierSuffix,
+      referenceOffset = end,
+      services = services,
+      partyAllocation = partyAllocation,
+      ledgerHostname = ledgerHostname,
+      ledgerPort = ledgerPort,
+      clientTlsConfiguration = clientTlsConfiguration,
     )
 }
 
 object ParticipantSession {
   private val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
 
-  def apply(
+  def createSessions(
       partyAllocation: PartyAllocationConfiguration,
-      participants: Vector[Channel],
+      participants: Vector[ChannelEndpoint],
       maxConnectionAttempts: Int,
       commandInterceptors: Seq[ClientInterceptor],
   )(implicit
       executionContext: ExecutionContext
   ): Future[Vector[ParticipantSession]] =
-    Future.traverse(participants) { participant =>
-      val services = new LedgerServices(participant, commandInterceptors)
+    Future.traverse(participants) { participant: ChannelEndpoint =>
+      val services = new LedgerServices(participant.channel, commandInterceptors)
       for {
         ledgerId <- RetryStrategy
           .exponentialBackoff(attempts = maxConnectionAttempts, 100.millis) { (attempt, wait) =>
@@ -80,7 +95,13 @@ object ParticipantSession {
           .recoverWith { case NonFatal(exception) =>
             Future.failed(new Errors.ParticipantConnectionException(exception))
           }
-      } yield new ParticipantSession(partyAllocation, services, ledgerId)
+      } yield new ParticipantSession(
+        partyAllocation = partyAllocation,
+        services = services,
+        ledgerId = ledgerId,
+        ledgerHostname = participant.hostname,
+        ledgerPort = participant.port,
+      )
     }
 
 }

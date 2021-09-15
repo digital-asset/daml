@@ -88,6 +88,7 @@ da_scala_binary(
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
                 "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+                "//ledger/ledger-api-common",
                 "//libs-scala/build-info",
                 "//libs-scala/grpc-utils",
                 "//libs-scala/resources",
@@ -120,6 +121,10 @@ da_scala_binary(
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
                 "//ledger/ledger-api-common",
+                "//ledger/ledger-resources",
+                "//libs-scala/resources",
+                "//libs-scala/resources-akka",
+                "//libs-scala/resources-grpc",
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:package_management-tests-%s.scala" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
@@ -130,6 +135,8 @@ da_scala_binary(
                 "//libs-scala/timer-utils",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
+                "@maven//:io_grpc_grpc_netty",
+                "@maven//:io_netty_netty_handler",
                 "@maven//:org_slf4j_slf4j_api",
             ],
         ),
@@ -234,7 +241,36 @@ conformance_test(
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
         "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-        "--tls-version 1.2"
+        "--tls-version 1.2",
+    ],
+)
+
+conformance_test(
+    name = "TLSv1.3-only-server",
+    extra_data = [
+        "//ledger/test-common/test-certificates:client.crt",
+        "//ledger/test-common/test-certificates:client.pem",
+        "//ledger/test-common/test-certificates:server.crt",
+        "//ledger/test-common/test-certificates:server.pem",
+        "//ledger/test-common/test-certificates:server.pem.enc",
+        "//ledger/test-common/test-certificates:ca.crt",
+    ],
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=ssl-test,port=6865",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
+        "--tls-secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
+        "--min-tls-version 1.3",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=TLSv1_3IT",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
     ],
 )
 
