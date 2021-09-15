@@ -173,6 +173,7 @@ Daml Documentation
    ctn/usermanual/identity_management.rst
    ctn/usermanual/monitoring.rst
    ctn/usermanual/operational_processes.rst
+   ctn/usermanual/versioning.rst
 
 .. toctree::
    :maxdepth: 3
