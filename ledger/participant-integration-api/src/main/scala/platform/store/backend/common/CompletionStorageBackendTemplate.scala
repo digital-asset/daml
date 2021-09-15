@@ -72,9 +72,9 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
 
   private val deduplicationOffsetColumn: RowParser[Option[String]] =
     str("deduplication_offset").?
-  private val deduplicationTimeSecondsColumn: RowParser[Option[Long]] =
+  private val deduplicationDurationSecondsColumn: RowParser[Option[Long]] =
     long("deduplication_duration_seconds").?
-  private val deduplicationTimeNanosColumn: RowParser[Option[Int]] =
+  private val deduplicationDurationNanosColumn: RowParser[Option[Int]] =
     int("deduplication_duration_nanos").?
   private val deduplicationStartColumn: RowParser[Option[Instant]] =
     instantFromMicros("deduplication_start").?
@@ -82,20 +82,20 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
     acceptedCommandSharedColumns ~
       deduplicationOffsetColumn ~
-      deduplicationTimeSecondsColumn ~ deduplicationTimeNanosColumn ~
+      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
       deduplicationStartColumn map {
         case offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ transactionId ~
-            deduplicationOffset ~ deduplicationTimeSeconds ~ deduplicationTimeNanos ~ _ =>
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ =>
           CompletionFromTransaction.acceptedCompletion(
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
             transactionId = transactionId,
             applicationId = applicationId,
-            maybeSubmissionId = submissionId,
-            maybeDeduplicationOffset = deduplicationOffset,
-            maybeDeduplicationDurationSeconds = deduplicationTimeSeconds,
-            maybeDeduplicationDurationNanos = deduplicationTimeNanos,
+            optSubmissionId = submissionId,
+            optDeduplicationOffset = deduplicationOffset,
+            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+            optDeduplicationDurationNanos = deduplicationDurationNanos,
           )
       }
 
@@ -107,13 +107,13 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
   private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
     sharedColumns ~
       deduplicationOffsetColumn ~
-      deduplicationTimeSecondsColumn ~ deduplicationTimeNanosColumn ~
+      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
       deduplicationStartColumn ~
       rejectionStatusCodeColumn ~
       rejectionStatusMessageColumn ~
       rejectionStatusDetailsColumn map {
         case offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~
-            deduplicationOffset ~ deduplicationTimeSeconds ~ deduplicationTimeNanos ~ _ ~
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
@@ -123,10 +123,10 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
             commandId = commandId,
             status = status,
             applicationId = applicationId,
-            maybeSubmissionId = submissionId,
-            maybeDeduplicationOffset = deduplicationOffset,
-            maybeDeduplicationDurationSeconds = deduplicationTimeSeconds,
-            maybeDeduplicationDurationNanos = deduplicationTimeNanos,
+            optSubmissionId = submissionId,
+            optDeduplicationOffset = deduplicationOffset,
+            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+            optDeduplicationDurationNanos = deduplicationDurationNanos,
           )
       }
 
