@@ -341,12 +341,11 @@ private[testtool] abstract class CommandDeduplicationBase(
   )(request: SubmitRequest, parties: Party*)(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    if (deduplicationFeatures.participantDeduplication) {
+    if (deduplicationFeatures.participantDeduplication)
       submitRequestAndAssertSyncDeduplication(ledger, request)
-    } else {
+    else
       submitRequestAndAssertAsyncDeduplication(ledger)(request, parties: _*)
         .map(_ => ())
-    }
   }
 
   protected def submitRequestAndAssertSyncDeduplication(
@@ -361,7 +360,14 @@ private[testtool] abstract class CommandDeduplicationBase(
   )(implicit ec: ExecutionContext) = ledger
     .submit(request)
     .mustFail(s"Request expected to fail with code $code")
-    .map(assertGrpcError(_, code, None, checkDefiniteAnswerMetadata = true))
+    .map(
+      assertGrpcError(
+        _,
+        code,
+        exceptionMessageSubstring = None,
+        checkDefiniteAnswerMetadata = true,
+      )
+    )
 
   protected def submitRequestAndAssertAsyncDeduplication(ledger: ParticipantTestContext)(
       request: SubmitRequest,
