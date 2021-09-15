@@ -465,16 +465,16 @@ private[validation] object Typing {
     def checkIfaceImplementation(tplTcon: TypeConName, ifaceTcon: TypeConName): Unit = {
       if (
         !(tplTcon.packageId == ifaceTcon.packageId && tplTcon.qualifiedName.module == ifaceTcon.qualifiedName.module)
-      ) throw EForeignInterfaceImplementation(ctx, ifaceTcon)
+      ) throw EForeignInterfaceImplementation(ctx, ifaceTcon, tplTcon)
       val DefInterface(choices) = handleLookup(ctx, interface.lookupInterface(ifaceTcon))
       choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
         if (tplChoice.consuming != consuming)
-          throw EBadInterfaceChoiceImplConsuming(ctx, name, consuming, tplChoice.consuming)
+          throw EBadInterfaceChoiceImplConsuming(ctx, ifaceTcon, tplTcon, name, consuming, tplChoice.consuming)
         if (!alphaEquiv(tplChoice.argBinder._2, argType))
-          throw EBadInterfaceChoiceImplArgType(ctx, name, argType, tplChoice.argBinder._2)
+          throw EBadInterfaceChoiceImplArgType(ctx, ifaceTcon, tplTcon, name, argType, tplChoice.argBinder._2)
         if (!alphaEquiv(tplChoice.returnType, returnType))
-          throw EBadInterfaceChoiceImplRetType(ctx, name, returnType, tplChoice.returnType)
+          throw EBadInterfaceChoiceImplRetType(ctx, ifaceTcon, tplTcon, name, returnType, tplChoice.returnType)
       }
     }
 
@@ -877,6 +877,18 @@ private[validation] object Typing {
       TUpdate(choice.returnType)
     }
 
+    private def typeOfExerciseInterface(
+        tpl: TypeConName,
+        chName: ChoiceName,
+        cid: Expr,
+        arg: Expr,
+    ): Type = {
+      val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
+      checkExpr(cid, TContractId(TTyCon(tpl)))
+      checkExpr(arg, choice.argType)
+      TUpdate(choice.returnType)
+    }
+
     private def typeOfExerciseByKey(
         tmplId: TypeConName,
         chName: ChoiceName,
@@ -891,6 +903,12 @@ private[validation] object Typing {
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
       handleLookup(ctx, interface.lookupTemplate(tpl))
+      checkExpr(cid, TContractId(TTyCon(tpl)))
+      TUpdate(TTyCon(tpl))
+    }
+
+    private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Type = {
+      handleLookup(ctx, interface.lookupInterface(tpl))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
@@ -911,16 +929,14 @@ private[validation] object Typing {
         typeOfCreate(tpl, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
-      case UpdateExerciseInterface(_, _, _, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/10810
-        sys.error("Interface not supported")
+      case UpdateExerciseInterface(tpl, choice, cid, arg) =>
+        typeOfExerciseInterface(tpl, choice, cid, arg)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>
         typeOfFetch(tpl, cid)
-      case UpdateFetchInterface(_, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/10810
-        sys.error("Interface not supported")
+      case UpdateFetchInterface(tpl, cid) =>
+        typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>
         TUpdate(TTimestamp)
       case UpdateEmbedExpr(typ, exp) =>

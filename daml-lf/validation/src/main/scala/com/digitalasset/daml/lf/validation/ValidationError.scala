@@ -419,41 +419,50 @@ final case class EModuleVersionDependencies(
 final case class EForeignInterfaceImplementation(
     context: Context,
     iface: TypeConName,
+    template: TypeConName,
 ) extends ValidationError {
 
   override protected def prettyInternal: String =
-    s"The definition and implementation for the interface $iface need to be in the same module."
+    s"The template $template and the implementation for the interface $iface need to be in the same module."
 }
 
 final case class EBadInterfaceChoiceImplConsuming(
     context: Context,
+    iface: TypeConName,
+    template: TypeConName,
     choice: ChoiceName,
     ifaceConsuming: Boolean,
     tplConsuming: Boolean,
 ) extends ValidationError {
 
+  def prettyConsuming(consuming: Boolean): String = if (consuming) "consuming" else "non-consuming"
+
   override protected def prettyInternal: String =
-    s"Choice implementation and interface definition for $choice differ in consuming/non-consuming behaviour.\nExpected: $ifaceConsuming\nBut got: $tplConsuming\n"
+    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the consuming/non-consuming behaviour.\nExpected: ${prettyConsuming(ifaceConsuming)}\n But got: ${prettyConsuming(tplConsuming)}"
 }
 
 final case class EBadInterfaceChoiceImplArgType(
     context: Context,
+    iface: TypeConName,
+    template: TypeConName,
     choice: ChoiceName,
     ifaceArgType: Type,
     tplArgType: Type,
 ) extends ValidationError {
 
   override protected def prettyInternal: String =
-    s"Choice implementation and interface definition for $choice differ in argument type.\nExpected: $ifaceArgType\n But got: $tplArgType"
+    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the argument type.\nExpected: $ifaceArgType\n But got: $tplArgType"
 }
 
 final case class EBadInterfaceChoiceImplRetType(
     context: Context,
+    iface: TypeConName,
+    template: TypeConName,
     choice: ChoiceName,
     ifaceRetType: Type,
     tplRetType: Type,
 ) extends ValidationError {
 
   override protected def prettyInternal: String =
-    s"Choice implementation and interface defintion for $choice differ in return type.\nExpected: $ifaceRetType\nBut got: $tplRetType"
+    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the return type.\nExpected: $ifaceRetType\n But got: $tplRetType"
 }

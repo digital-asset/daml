@@ -207,6 +207,21 @@ private[lf] class Interface(signatures: PartialFunction[PackageId, PackageSignat
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupChoice(tmpName, chName, Reference.Choice(tmpName, chName))
 
+  private[this] def lookupInterfaceChoice(
+      tmpName: TypeConName,
+      chName: ChoiceName,
+      context: => Reference,
+  ): Either[LookupError, InterfaceChoice] =
+    lookupInterface(tmpName, context).flatMap(
+      _.choices.get(chName).toRight(LookupError(Reference.Choice(tmpName, chName), context))
+    )
+
+  def lookupInterfaceChoice(
+      tmpName: TypeConName,
+      chName: ChoiceName,
+  ): Either[LookupError, InterfaceChoice] =
+    lookupInterfaceChoice(tmpName, chName, Reference.Choice(tmpName, chName))
+
   private[this] def lookupTemplateKey(
       name: TypeConName,
       context: => Reference,
