@@ -52,11 +52,11 @@ class HaCoordinatorSpec
     for {
       _ <- connectionInitializerFuture
       _ = {
-        info("As HA initialized")
+        info("As HACoordinator is initialized")
         protectedHandle.completed.isCompleted shouldBe false
         info("Protected Handle is not completed")
         completeExecutionInitialization()
-        info("As finishing protected execution initialization")
+        info("As protected execution initialization is finished")
         executionCompletedPromise.success(())
         info("As execution is completed")
       }
@@ -74,11 +74,11 @@ class HaCoordinatorSpec
     for {
       _ <- connectionInitializerFuture
       _ = {
-        info("As HA initialized")
+        info("As HACoordinator is initialized")
         protectedHandle.completed.isCompleted shouldBe false
         info("Protected Handle is not completed")
         completeExecutionInitialization()
-        info("As finishing protected execution initialization")
+        info("As protected execution initialization is finished")
         executionCompletedPromise.failure(new Exception("failed execution"))
         info("As execution completes with failure")
       }
@@ -96,13 +96,13 @@ class HaCoordinatorSpec
     for {
       connectionInitializer <- connectionInitializerFuture
       _ = {
-        info("As HA initialized")
+        info("As HACoordinator is initialized")
         protectedHandle.completed.isCompleted shouldBe false
         info("Protected Handle is not completed")
         connectionInitializer.initialize(new TestConnection)
         info("Connection initializer works")
         completeExecutionInitialization()
-        info("As finishing protected execution initialization")
+        info("As protected execution initialization is finished")
         connectionInitializer.initialize(new TestConnection)
         info("Connection initializer works")
         protectedHandle.killSwitch.shutdown()
@@ -142,7 +142,7 @@ class HaCoordinatorSpec
     for {
       connectionInitializer <- connectionInitializerFuture
       _ = {
-        info("As HA initialized")
+        info("As HACoordinator is initialized")
         protectedHandle.completed.isCompleted shouldBe false
         info("Protected Handle is not completed")
         connectionInitializer.initialize(new TestConnection)
@@ -150,7 +150,7 @@ class HaCoordinatorSpec
         protectedHandle.killSwitch.shutdown()
         info("As graceful shutdown started")
         completeExecutionInitialization()
-        info("And as finishing protected execution initialization")
+        info("And As protected execution initialization is finished")
         connectionInitializer.initialize(new TestConnection)
         info(
           "Connection initializer still works (release process first releases the execution, and only then the main connection and the poller)"
@@ -184,13 +184,13 @@ class HaCoordinatorSpec
     for {
       connectionInitializer <- connectionInitializerFuture
       _ = {
-        info("As HA initialized")
+        info("As HACoordinator is initialized")
         protectedHandle.completed.isCompleted shouldBe false
         info("Protected Handle is not completed")
         connectionInitializer.initialize(new TestConnection)
         info("Connection initializer works")
         completeExecutionInitialization()
-        info("As finishing protected execution initialization")
+        info("As protected execution initialization is finished")
         connectionInitializer.initialize(new TestConnection)
         info("Connection initializer works")
         protectedHandle.killSwitch.shutdown()
@@ -415,11 +415,11 @@ class HaCoordinatorSpec
     for {
       connectionInitializer <- connectionInitializerFuture
       _ = {
-        info("As HA initialized")
+        info("As HACoordinator is initialized")
         protectedHandle.completed.isCompleted shouldBe false
         info("Protected Handle is not completed")
         completeExecutionInitialization()
-        info("As finishing protected execution initialization")
+        info("As protected execution initialization is finished")
         connectionInitializer.initialize(new TestConnection)
         info("Connection initializer works")
         Thread.sleep(200)
@@ -462,11 +462,11 @@ class HaCoordinatorSpec
     for {
       connectionInitializer <- connectionInitializerFuture
       mainConnectionSeveredAtNanos = {
-        info("As HA initialized")
+        info("As HACoordinator is initialized")
         protectedHandle.completed.isCompleted shouldBe false
         info("Protected Handle is not completed")
         completeExecutionInitialization()
-        info("As finishing protected execution initialization")
+        info("As protected execution initialization is finished")
         connectionInitializer.initialize(new TestConnection)
         info("Connection initializer works")
         Thread.sleep(200)
