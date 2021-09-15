@@ -21,7 +21,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
-import com.daml.ledger.client.services.commands.tracker.{TrackedCommandKey, CompletionResponse}
+import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -31,8 +31,8 @@ import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
-import com.google.rpc.status.Status
-import io.grpc.StatusRuntimeException
+import com.google.rpc.status.{Status => StatusProto}
+import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
@@ -74,10 +74,10 @@ class CommandTrackerFlowTest
   private val abortedCompletion =
     Completion(
       commandId,
-      Some(Status(Code.ABORTED.value)),
+      Some(StatusProto(Code.ABORTED.value)),
       submissionId = submissionId,
     )
-  private val successStatus = Status(Code.OK.value)
+  private val successStatus = StatusProto(Code.OK.value)
   private val context = 1
   private val submission = newSubmission(submissionId, commandId)
 
@@ -229,7 +229,10 @@ class CommandTrackerFlowTest
 
         val failureCompletion =
           Left(
-            NotOkResponse(commandId = commandId, grpcStatus = Status(Code.RESOURCE_EXHAUSTED.value))
+            NotOkResponse(
+              commandId = commandId,
+              grpcStatus = StatusProto(Code.RESOURCE_EXHAUSTED.value),
+            )
           )
 
         results.expectNext(Ctx(context, failureCompletion))
@@ -249,7 +252,7 @@ class CommandTrackerFlowTest
 
         completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
         results.requestNext().value shouldEqual Left(
-          NotOkResponse(commandId, Status(Code.ABORTED.value))
+          NotOkResponse(commandId, StatusProto(Code.ABORTED.value))
         )
       }
 
@@ -264,7 +267,7 @@ class CommandTrackerFlowTest
 
         completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
         results.requestNext().value shouldEqual Left(
-          NotOkResponse(commandId, Status(Code.ABORTED.value))
+          NotOkResponse(commandId, StatusProto(Code.ABORTED.value))
         )
       }
 
@@ -456,7 +459,7 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submission)
 
-        val status = Status(Code.INVALID_ARGUMENT.value)
+        val status = StatusProto(Code.INVALID_ARGUMENT.value)
         val failureCompletion =
           Completion(
             commandId,
@@ -475,9 +478,9 @@ class CommandTrackerFlowTest
       }
     }
 
-    "a completion without submission id arrives" should {
-      "fail if there are multiple pending commands with the same command id" in {
-        val Handle(submissions, _, unhandledF, completionStreamMock) =
+    "a completion without the submission id arrives" should {
+      "output a failure if there are multiple pending commands with the same command id" in {
+        val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
         submissions.sendNext(newSubmission("submissionId", "commandId"))
@@ -493,18 +496,25 @@ class CommandTrackerFlowTest
           CompletionStreamElement.CompletionElement(completionWithoutSubmissionId)
         )
 
-        whenReady(unhandledF) { unhandled =>
-          unhandled should have size 2
-          unhandled should contain(
-            TrackedCommandKey("submissionId", "commandId") -> submission.context
+        results.expectNext(
+          Ctx(
+            context,
+            Left(
+              CompletionResponse.NotOkResponse(
+                commandId = commandId,
+                grpcStatus = StatusProto.of(
+                  Status.Code.INTERNAL.value(),
+                  s"There are multiple pending commands for the id $commandId. This can only happen for the mutating schema.",
+                  Seq.empty,
+                ),
+              )
+            ),
           )
-          unhandled should contain(
-            TrackedCommandKey("anotherSubmissionId", "commandId") -> submission.context
-          )
-        }
+        )
+        succeed
       }
 
-      "output the completion" in {
+      "output a successful completion" in {
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 

@@ -185,7 +185,7 @@ private[commands] class CommandTracker[Context](
       )
 
       private def pushResultOrPullCommandResultIn(
-          compl: immutable.Iterable[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]]
+          compl: Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]]
       ): Unit = {
         // The command tracker detects timeouts outside the regular pull/push
         // mechanism of the input/output ports. Basically the timeout
@@ -196,9 +196,8 @@ private[commands] class CommandTracker[Context](
         // handling the signaling properly.
         if (compl.isEmpty && !hasBeenPulled(commandResultIn)) {
           pull(commandResultIn)
-        } else {
-          emitMultiple(resultOut, compl)
         }
+        emitMultiple(resultOut, compl)
       }
 
       private def completeStageIfTerminal(): Unit = {
@@ -211,7 +210,7 @@ private[commands] class CommandTracker[Context](
 
       private def handleSubmitResponse(
           submitResponse: Ctx[(Context, TrackedCommandKey), Try[Empty]]
-      ): immutable.Iterable[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
+      ): Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
         val Ctx((_, commandKey), value, _) = submitResponse
         value match {
           case Failure(GrpcException(status @ GrpcStatus(code, _), metadata))
@@ -222,12 +221,12 @@ private[commands] class CommandTracker[Context](
               s"Service responded with error for submitting command with context ${submitResponse.context}. Status of command is unknown. watching for completion...",
               throwable,
             )
-            immutable.Iterable.empty
+            Seq.empty
           case Success(_) =>
             logger.trace(
               s"Received confirmation that command ${commandKey.commandId} from submission ${commandKey.submissionId} was accepted."
             )
-            immutable.Iterable.empty
+            Seq.empty
         }
       }
 
@@ -272,33 +271,31 @@ private[commands] class CommandTracker[Context](
 
       private def getOutputForTimeout(instant: Instant) = {
         logger.trace("Checking timeouts at {}", instant)
-        pendingCommands.view
-          .flatMap { case (commandKey, trackingData) =>
-            if (trackingData.commandTimeout.isBefore(instant)) {
-              pendingCommands -= commandKey
-              logger.info(
-                s"Command {} from submission {} (command timeout {}) timed out at checkpoint {}.",
-                commandKey.commandId,
-                commandKey.submissionId,
-                trackingData.commandTimeout,
-                instant,
+        pendingCommands.view.flatMap { case (commandKey, trackingData) =>
+          if (trackingData.commandTimeout.isBefore(instant)) {
+            pendingCommands -= commandKey
+            logger.info(
+              s"Command {} from submission {} (command timeout {}) timed out at checkpoint {}.",
+              commandKey.commandId,
+              commandKey.submissionId,
+              trackingData.commandTimeout,
+              instant,
+            )
+            List(
+              Ctx(
+                trackingData.context,
+                Left(CompletionResponse.TimeoutResponse(commandId = trackingData.commandId)),
               )
-              List(
-                Ctx(
-                  trackingData.context,
-                  Left(CompletionResponse.TimeoutResponse(commandId = trackingData.commandId)),
-                )
-              )
-            } else {
-              Nil
-            }
+            )
+          } else {
+            Nil
           }
-          .to(immutable.Iterable)
+        }.toSeq
       }
 
       private def getOutputForCompletion(
           completion: Completion
-      ): immutable.Iterable[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
+      ): Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
         val completionDescription = completion.status match {
           case Some(StatusProto(code, _, _, _)) if code == Status.Code.OK.value =>
             "successful completion of command"
@@ -316,8 +313,9 @@ private[commands] class CommandTracker[Context](
         val maybeSubmissionId = Option(completion.submissionId).collect {
           case id if id.nonEmpty => id
         }
+        val value = pendingCommandKeys(maybeSubmissionId, commandId)
         val trackedCommands =
-          pendingCommandKeys(maybeSubmissionId, commandId).flatMap(pendingCommands.remove(_).toList)
+          value.flatMap(pendingCommands.remove(_).toList)
 
         if (trackedCommands.size > 1) {
           trackedCommands.map { trackingData =>
@@ -345,15 +343,15 @@ private[commands] class CommandTracker[Context](
       private def pendingCommandKeys(
           submissionId: Option[String],
           commandId: String,
-      ) =
-        submissionId.map(id => immutable.Iterable(TrackedCommandKey(id, commandId))).getOrElse {
-          pendingCommands.keys.filter(_.commandId == commandId).to(immutable.Iterable)
+      ): Seq[TrackedCommandKey] =
+        submissionId.map(id => Seq(TrackedCommandKey(id, commandId))).getOrElse {
+          pendingCommands.keys.filter(_.commandId == commandId).toList
         }
 
       private def getOutputForTerminalStatusCode(
           commandKey: TrackedCommandKey,
           status: StatusProto,
-      ): immutable.Iterable[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
+      ): Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
         logger.trace(
           s"Handling failure of command ${commandKey.commandId} from submission ${commandKey.submissionId}."
         )
