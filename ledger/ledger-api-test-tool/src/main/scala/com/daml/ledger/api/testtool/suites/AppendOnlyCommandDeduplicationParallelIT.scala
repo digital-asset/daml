@@ -25,6 +25,7 @@ import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation}
 import io.grpc.Status
 import io.grpc.Status.Code
 
+import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,9 +36,8 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
 
   test(
     s"DeduplicateParallelSubmissionsUsingCommandSubmissionService",
-    "Commands submitted at the same, in parallel,  should be deduplicated",
+    "Commands submitted at the same, in parallel, using the CommandSubmissionService, should be deduplicated",
     allocate(SingleParty),
-    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val deduplicationDuration = 3.seconds
     lazy val request = ledger
@@ -55,7 +55,7 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
 
   test(
     s"DeduplicateParallelSubmissionsUsingCommandService",
-    "Commands submitted at the same, in parallel, should be deduplicated",
+    "Commands submitted at the same, in parallel, using the CommandService, should be deduplicated",
     allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>

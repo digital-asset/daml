@@ -218,7 +218,7 @@ class Client(config: Client.Config) {
         if (redirect) { Some(callbackUri) }
         else { None }
       appendToUri(
-        config.authMiddlewareUri,
+        config.authMiddlewareExternalUri,
         Path./("login"),
         Request.Login(redirectUri, claims, requestId.map(_.toString)).toQuery,
       )
@@ -292,13 +292,13 @@ class Client(config: Client.Config) {
 
   def authUri(claims: Request.Claims): Uri =
     appendToUri(
-      config.authMiddlewareUri,
+      config.authMiddlewareInternalUri,
       Path./("auth"),
       Request.Auth(claims).toQuery,
     )
 
   val refreshUri: Uri =
-    appendToUri(config.authMiddlewareUri, Path./("refresh"))
+    appendToUri(config.authMiddlewareInternalUri, Path./("refresh"))
 }
 
 object Client {
@@ -326,7 +326,8 @@ object Client {
   }
 
   case class Config(
-      authMiddlewareUri: Uri,
+      authMiddlewareInternalUri: Uri,
+      authMiddlewareExternalUri: Uri,
       redirectToLogin: RedirectToLogin,
       maxAuthCallbacks: Int,
       authCallbackTimeout: FiniteDuration,

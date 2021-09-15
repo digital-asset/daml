@@ -5,9 +5,8 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SqlParser.{binaryStream, int, long, str}
-import anorm.{ResultSetParser, RowParser, SqlParser, ~}
+import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{
   contractId,
@@ -52,17 +51,9 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
     )
 
-  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
-  // TODO append-only: consider pulling up traversal logic to upper layer
-  override def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Instant]] = {
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Instant]] = {
-        import com.daml.platform.store.Conversions.ContractIdToStatement
-        SQL"""
+  protected def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
+    import com.daml.platform.store.Conversions.ContractIdToStatement
+    SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
            FROM participant_events, parameters
@@ -99,8 +90,20 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
    FETCH NEXT 1 ROW ONLY"""
-          .as(instantFromMicros("ledger_effective_time").?.singleOpt)(connection)
-      }
+  }
+
+  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
+  // TODO append-only: consider pulling up traversal logic to upper layer
+  override def maximumLedgerTime(
+      ids: Set[ContractId]
+  )(connection: Connection): Try[Option[Instant]] = {
+    if (ids.isEmpty) {
+      Failure(emptyContractIds)
+    } else {
+      def lookup(id: ContractId): Option[Option[Instant]] =
+        maximumLedgerTimeSqlLiteral(id).as(instantFromMicros("ledger_effective_time").?.singleOpt)(
+          connection
+        )
 
       val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
         .map(id => id -> lookup(id))
@@ -223,24 +226,13 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       .map(SqlParser.flatten)
       .map(StorageBackend.RawContract.tupled)
 
-  private def activeContract[T](
-      resultSetParser: ResultSetParser[T],
-      resultColumns: List[String],
-  )(
-      readers: Set[Ref.Party],
+  protected def activeContractSqlLiteral(
       contractId: ContractId,
-  )(connection: Connection): T = {
+      treeEventWitnessesClause: CompositeSql,
+      resultColumns: List[String],
+      coalescedColumns: String,
+  ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
-    val treeEventWitnessesClause =
-      queryStrategy.arrayIntersectionNonEmptyClause(
-        columnName = "tree_event_witnesses",
-        parties = readers,
-      )
-    val coalescedColumns = resultColumns
-      .map(columnName =>
-        s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
-      )
-      .mkString(", ")
     SQL"""  WITH archival_event AS (
                SELECT participant_events.*
                  FROM participant_events, parameters
@@ -296,6 +288,26 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
           FROM create_and_divulged_contracts
          WHERE NOT EXISTS (SELECT 1 FROM archival_event)
          FETCH NEXT 1 ROW ONLY"""
+  }
+
+  private def activeContract[T](
+      resultSetParser: ResultSetParser[T],
+      resultColumns: List[String],
+  )(
+      readers: Set[Ref.Party],
+      contractId: ContractId,
+  )(connection: Connection): T = {
+    val treeEventWitnessesClause: CompositeSql =
+      queryStrategy.arrayIntersectionNonEmptyClause(
+        columnName = "tree_event_witnesses",
+        parties = readers,
+      )
+    val coalescedColumns: String = resultColumns
+      .map(columnName =>
+        s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
+      )
+      .mkString(", ")
+    activeContractSqlLiteral(contractId, treeEventWitnessesClause, resultColumns, coalescedColumns)
       .as(resultSetParser)(connection)
   }
 

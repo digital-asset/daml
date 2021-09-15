@@ -4,7 +4,7 @@
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const httpJsonDevUrl =
-  "http://localhost:" + process.env.REACT_APP_HTTP_JSON_PORT;
+  process.env.REACT_APP_HTTP_JSON ? process.env.REACT_APP_HTTP_JSON : "http://localhost:7575";
 
 /**
  * @return {Boolean}

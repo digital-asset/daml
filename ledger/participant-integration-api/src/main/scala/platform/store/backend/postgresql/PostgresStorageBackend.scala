@@ -202,7 +202,10 @@ private[backend] object PostgresStorageBackend
 
   override def eventStrategy: common.EventStrategy = PostgresEventStrategy
 
-  override def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {
+  // TODO FIXME: Use tables directly instead of the participant_events view.
+  override def maxEventSequentialIdOfAnObservableEvent(
+      offset: Offset
+  )(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index

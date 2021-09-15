@@ -9,6 +9,8 @@ import org.slf4j.Marker
 
 object LoggingContext {
 
+  val ForTesting: LoggingContext = new LoggingContext(LoggingEntries.empty)
+
   private[logging] def newLoggingContext[A](entries: LoggingEntries)(f: LoggingContext => A): A =
     f(new LoggingContext(entries))
 
@@ -71,12 +73,9 @@ object LoggingContext {
       f: LoggingContext => A
   )(implicit loggingContext: LoggingContext): A =
     f(loggingContext ++ entries)
-
-  val ForTesting: LoggingContext = new LoggingContext(LoggingEntries.empty)
-
 }
 
-final class LoggingContext private (entries: LoggingEntries) {
+final class LoggingContext private (val entries: LoggingEntries) {
 
   private lazy val forLogging: Marker with StructuredArgument =
     new LoggingMarker(entries.contents)
@@ -88,5 +87,4 @@ final class LoggingContext private (entries: LoggingEntries) {
 
   private def ++[V](other: LoggingEntries): LoggingContext =
     new LoggingContext(entries ++ other)
-
 }
