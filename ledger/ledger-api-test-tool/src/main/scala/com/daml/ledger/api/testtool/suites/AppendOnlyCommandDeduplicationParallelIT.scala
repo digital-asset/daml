@@ -36,7 +36,6 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
     s"DeduplicateParallelSubmissions",
     "Commands submitted at the same, in parallel, should be deduplicated",
     allocate(SingleParty),
-    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val deduplicationDuration = 3.seconds
     val numberOfParallelRequests = 10
