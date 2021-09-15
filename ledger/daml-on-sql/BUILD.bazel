@@ -129,6 +129,7 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--additional=MultiPartySubmissionIT",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
