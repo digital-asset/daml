@@ -14,7 +14,8 @@ module DA.Internal.Desugar (
     Bool(..), Text, Optional(..),
     concat, magic,
     Party, ContractId, Update, Any,
-    NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..)
+    NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
+    Implements(..),
 ) where
 
 import DA.Internal.Prelude
@@ -33,3 +34,4 @@ data NonConsuming t = NonConsuming {}
 data PreConsuming t = PreConsuming {}
 data Consuming t = Consuming {}
 data PostConsuming t = PostConsuming {}
+data Implements t i = Implements
