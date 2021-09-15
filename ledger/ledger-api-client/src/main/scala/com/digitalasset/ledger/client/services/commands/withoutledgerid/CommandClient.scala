@@ -23,6 +23,7 @@ import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -149,7 +150,7 @@ private[daml] final class CommandClient(
         .via(commandUpdaterFlow[Context](ledgerIdToUse))
         .viaMat(
           CommandTrackerFlow[Context, NotUsed](
-            commandSubmissionFlow = CommandSubmissionFlow[(Context, String)](
+            commandSubmissionFlow = CommandSubmissionFlow[(Context, TrackedCommandKey)](
               submit(token),
               config.maxParallelSubmissions,
             ),
