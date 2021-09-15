@@ -4,20 +4,35 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.{Identifier, Name}
+import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.Node.{GenNode, KeyWithMaintainers}
 import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.speedy.SValue
 
 // Provide methods to add missing information in values (and value containers):
 // - type constructor in records, variants, and enums
 // - Records' field names
-final class ValueEnricher(engine: Engine) {
 
-  def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
-    engine.preprocessor.translateValue(typ, value).map(_.toUnnormalizedValue)
+final class ValueEnricher(
+    compiledPackages: CompiledPackages,
+    translateValue: (Ast.Type, Value) => Result[SValue],
+    loadPackage: (PackageId, language.Reference) => Result[Unit],
+) {
+
+  def this(engine: Engine) = {
+    this(
+      engine.compiledPackages(),
+      engine.preprocessor.translateValue,
+      engine.loadPackage,
+    )
+  }
+
+  def enrichValue(typ: Ast.Type, value: Value): Result[Value] = {
+    translateValue(typ, value).map(_.toUnnormalizedValue)
+  }
 
   def enrichVersionedValue(
       typ: Ast.Type,
@@ -44,13 +59,12 @@ final class ValueEnricher(engine: Engine) {
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
     enrichValue(Ast.TTyCon(tyCon), value)
 
-  private[this] def interface = engine.compiledPackages().interface
+  private[this] def interface = compiledPackages.interface
 
   private[this] def handleLookup[X](lookup: => Either[LookupError, X]) = lookup match {
     case Right(value) => ResultDone(value)
     case Left(LookupError.MissingPackage(pkgId, context)) =>
-      engine
-        .loadPackage(pkgId, context)
+      loadPackage(pkgId, context)
         .flatMap(_ =>
           lookup match {
             case Right(value) => ResultDone(value)

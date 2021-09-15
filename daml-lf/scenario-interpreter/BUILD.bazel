@@ -47,6 +47,7 @@ da_scala_test_suite(
     deps = [
         ":scenario-interpreter",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -77,6 +78,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",
