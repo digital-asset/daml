@@ -4,12 +4,11 @@
 package com.daml.ledger.client.services.commands
 
 import java.time.Duration
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
 import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.services.commands.tracker.CommandTracker
+import com.daml.ledger.client.services.commands.tracker.{TrackedCommandKey, CommandTracker}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -32,13 +31,13 @@ object CommandTrackerFlow {
 
   final case class Materialized[SubmissionMat, Context](
       submissionMat: SubmissionMat,
-      trackingMat: Future[immutable.Map[String, Context]],
+      trackingMat: Future[immutable.Map[TrackedCommandKey, Context]],
   )
 
   def apply[Context, SubmissionMat](
       commandSubmissionFlow: Flow[
-        Ctx[(Context, String), CommandSubmission],
-        Ctx[(Context, String), Try[
+        Ctx[(Context, TrackedCommandKey), CommandSubmission],
+        Ctx[(Context, TrackedCommandKey), Try[
           Empty
         ]],
         SubmissionMat,
@@ -62,12 +61,13 @@ object CommandTrackerFlow {
       implicit builder => (submissionFlow, tracker) =>
         import GraphDSL.Implicits._
 
-        val wrapResult = builder.add(Flow[Ctx[(Context, String), Try[Empty]]].map(Left.apply))
+        val wrapResult =
+          builder.add(Flow[Ctx[(Context, TrackedCommandKey), Try[Empty]]].map(Left.apply))
 
         val wrapCompletion = builder.add(Flow[CompletionStreamElement].map(Right.apply))
 
         val merge = builder.add(
-          Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](
+          Merge[Either[Ctx[(Context, TrackedCommandKey), Try[Empty]], CompletionStreamElement]](
             inputPorts = 2,
             eagerComplete = false,
           )
