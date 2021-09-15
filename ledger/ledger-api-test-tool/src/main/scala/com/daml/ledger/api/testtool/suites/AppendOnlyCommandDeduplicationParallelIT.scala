@@ -47,7 +47,7 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
           deduplicationDuration.asProtobuf
         )
       )
-    runTestWithSubmission(
+    runTestWithSubmission[SubmitRequest](
       request,
       submitRequestAndGetStatusCode(ledger)(_, party),
     )
@@ -65,7 +65,7 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
       .update(
         _.commands.deduplicationDuration := deduplicationDuration.asProtobuf
       )
-    runTestWithSubmission(
+    runTestWithSubmission[SubmitAndWaitRequest](
       request,
       submitAndWaitRequestAndGetStatusCode(ledger)(_, party),
     )
