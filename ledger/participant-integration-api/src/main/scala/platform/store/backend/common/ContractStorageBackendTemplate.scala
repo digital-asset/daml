@@ -56,9 +56,17 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     */
   protected val NullAsLedgerEffectiveTimeType: String = queryStrategy.nullAs("BIGINT")
 
-  private def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
-    SQL"""
+  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
+  // TODO append-only: consider pulling up traversal logic to upper layer
+  override def maximumLedgerTime(
+      ids: Set[ContractId]
+  )(connection: Connection): Try[Option[Instant]] = {
+    if (ids.isEmpty) {
+      Failure(emptyContractIds)
+    } else {
+      def lookup(id: ContractId): Option[Option[Instant]] = {
+        import com.daml.platform.store.Conversions.ContractIdToStatement
+        SQL"""
 WITH archival_event AS (
   SELECT 1
   FROM participant_events_consuming_exercise, parameters
@@ -91,21 +99,10 @@ create_and_divulged_contracts AS (
 SELECT ledger_effective_time
 FROM create_and_divulged_contracts
 WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-FETCH NEXT 1 ROW ONLY"""
-  }
-
-  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
-  // TODO append-only: consider pulling up traversal logic to upper layer
-  override def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Instant]] = {
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Instant]] =
-        maximumLedgerTimeSqlLiteral(id).as(instantFromMicros("ledger_effective_time").?.singleOpt)(
+FETCH NEXT 1 ROW ONLY""".as(instantFromMicros("ledger_effective_time").?.singleOpt)(
           connection
         )
+      }
 
       val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
         .map(id => id -> lookup(id))
