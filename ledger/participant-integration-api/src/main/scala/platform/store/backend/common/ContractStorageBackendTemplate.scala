@@ -51,45 +51,47 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
     )
 
-  protected def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
+  /** The data type of the ledger_effective_time column varies between different database types.
+    * For this reason we need to customise the casting method and the result type.
+    */
+  protected val NullAsLedgerEffectiveTimeType: String = queryStrategy.nullAs("BIGINT")
+
+  private def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT ledger_effective_time
-           FROM participant_events, parameters
-          WHERE contract_id = $id
-            AND event_kind = 0 -- divulgence
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
+WITH archival_event AS (
+  SELECT 1
+  FROM participant_events_consuming_exercise, parameters
+  WHERE contract_id = $id
+    AND event_sequential_id <= parameters.ledger_end_sequential_id
+  FETCH NEXT 1 ROW ONLY
+),
+create_event AS (
   SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY"""
+  FROM participant_events_create, parameters
+  WHERE contract_id = $id
+    AND event_sequential_id <= parameters.ledger_end_sequential_id
+  FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
+),
+divulged_contract AS (
+  SELECT #$NullAsLedgerEffectiveTimeType
+  FROM participant_events_divulgence, parameters
+  WHERE contract_id = $id
+    AND event_sequential_id <= parameters.ledger_end_sequential_id
+  ORDER BY event_sequential_id
+  -- prudent engineering: make results more stable by preferring earlier divulgence events
+  -- Results might still change due to pruning.
+  FETCH NEXT 1 ROW ONLY
+),
+create_and_divulged_contracts AS (
+  (SELECT * FROM create_event) -- prefer create over divulgence events
+  UNION ALL
+  (SELECT * FROM divulged_contract)
+)
+SELECT ledger_effective_time
+FROM create_and_divulged_contracts
+WHERE NOT EXISTS (SELECT 1 FROM archival_event)
+FETCH NEXT 1 ROW ONLY"""
   }
 
   // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.

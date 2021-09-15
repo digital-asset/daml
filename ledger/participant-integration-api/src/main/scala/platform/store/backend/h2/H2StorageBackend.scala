@@ -257,44 +257,6 @@ FETCH NEXT 1 ROW ONLY;
       connection: Connection,
   ): Unit = ()
 
-  override def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
-    SQL"""
-  WITH archival_event AS (
-         SELECT 1
-           FROM participant_events_consuming_exercise, parameters
-          WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events_create, parameters
-          WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT NULL::BIGINT
-           FROM participant_events_divulgence, parameters
-          WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY"""
-  }
-
   override def activeContractSqlLiteral(
       contractId: ContractId,
       treeEventWitnessesClause: CompositeSql,

@@ -55,4 +55,6 @@ trait QueryStrategy {
 
   /** Boolean predicate */
   def isTrue(booleanColumnName: String): String
+
+  def nullAs(typeName: String): String = s"NULL::$typeName"
 }

@@ -129,6 +129,8 @@ private[backend] object OracleStorageBackend
       s"EXISTS (SELECT 1 FROM JSON_TABLE($arrayColumnName, '$$[*]' columns (value PATH '$$')) WHERE value = $elementColumnName)"
 
     override def isTrue(booleanColumnName: String): String = s"$booleanColumnName = 1"
+
+    override def nullAs(typeName: String): String = s"CAST(NULL AS $typeName)"
   }
 
   override def queryStrategy: QueryStrategy = OracleQueryStrategy
@@ -272,4 +274,6 @@ private[backend] object OracleStorageBackend
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Unit = ()
+
+  override val NullAsLedgerEffectiveTimeType: String = queryStrategy.nullAs("NUMBER")
 }
