@@ -372,7 +372,7 @@ class ModelConformanceValidatorSpec
   private def create(
       contractId: ContractId,
       signatories: Set[Ref.Party] = Set(aKeyMaintainer),
-      argument: TransactionBuilder.Value = aDummyValue,
+      argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
   ): TransactionBuilder.Create = {
     txBuilder.create(

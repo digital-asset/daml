@@ -20,6 +20,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.value.Value
 import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
@@ -84,7 +85,7 @@ object TestHelpers {
       .logEntry
       .getTransactionRejectionEntry
 
-  def lfTuple(values: String*): TransactionBuilder.Value =
+  def lfTuple(values: String*): Value =
     TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
       s"_$i" -> v
     }: _*)
