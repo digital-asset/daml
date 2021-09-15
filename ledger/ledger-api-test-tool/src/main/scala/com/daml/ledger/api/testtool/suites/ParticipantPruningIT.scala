@@ -596,6 +596,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "Divulgence pruning succeeds",
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
+    // Higher timeout - The test generates a significant number of events
+    timeoutScale = 4.0,
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
@@ -618,6 +620,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "Divuglence pruning succeeds if first divulgence is not a disclosure but happens in the same transaction as the create",
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
+    // Higher timeout - The test generates a significant number of events
+    timeoutScale = 4.0,
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
@@ -642,6 +646,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "Immediate divulgence pruning succeeds",
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
+    // Higher timeout - The test generates a significant number of events
+    timeoutScale = 4.0,
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
