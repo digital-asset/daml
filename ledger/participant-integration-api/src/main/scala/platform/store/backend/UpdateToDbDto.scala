@@ -268,7 +268,7 @@ object UpdateToDbDto {
       transactionId: Option[Ref.TransactionId],
       completionInfo: CompletionInfo,
   ): DbDto.CommandCompletion = {
-    val (deduplicationOffset, deduplicationTimeSeconds, deduplicationTimeNanos) =
+    val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
       completionInfo.optDeduplicationPeriod
         .map {
           case DeduplicationOffset(offset) =>
@@ -290,8 +290,8 @@ object UpdateToDbDto {
       rejection_status_details = None,
       submission_id = completionInfo.submissionId,
       deduplication_offset = deduplicationOffset,
-      deduplication_time_seconds = deduplicationTimeSeconds,
-      deduplication_time_nanos = deduplicationTimeNanos,
+      deduplication_duration_seconds = deduplicationDurationSeconds,
+      deduplication_duration_nanos = deduplicationDurationNanos,
       deduplication_start = None,
     )
   }

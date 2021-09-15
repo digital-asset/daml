@@ -69,6 +69,6 @@ message Completion {
     // It is measured in record time of completions.
     //
     // Must be non-negative.
-    google.protobuf.Duration deduplication_time = 9;
+    google.protobuf.Duration deduplication_duration = 9;
   }
 }

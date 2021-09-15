@@ -50,7 +50,7 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   testGivenAllParticipants(
     s"${testNamingPrefix}SimpleDeduplicationBasic",
-    "Deduplicate commands within the deduplication time window",
+    "Deduplicate commands within the deduplication duration window",
     allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec =>

@@ -45,8 +45,8 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
           application_id,
           submission_id,
           deduplication_offset,
-          deduplication_time_seconds,
-          deduplication_time_nanos,
+          deduplication_duration_seconds,
+          deduplication_duration_nanos,
           deduplication_start
         FROM
           participant_command_completions
@@ -73,9 +73,9 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
   private val deduplicationOffsetColumn: RowParser[Option[String]] =
     str("deduplication_offset").?
   private val deduplicationTimeSecondsColumn: RowParser[Option[Long]] =
-    long("deduplication_time_seconds").?
+    long("deduplication_duration_seconds").?
   private val deduplicationTimeNanosColumn: RowParser[Option[Int]] =
-    int("deduplication_time_nanos").?
+    int("deduplication_duration_nanos").?
   private val deduplicationStartColumn: RowParser[Option[Instant]] =
     instantFromMicros("deduplication_start").?
 
@@ -94,8 +94,8 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
             applicationId = applicationId,
             maybeSubmissionId = submissionId,
             maybeDeduplicationOffset = deduplicationOffset,
-            maybeDeduplicationTimeSeconds = deduplicationTimeSeconds,
-            maybeDeduplicationTimeNanos = deduplicationTimeNanos,
+            maybeDeduplicationDurationSeconds = deduplicationTimeSeconds,
+            maybeDeduplicationDurationNanos = deduplicationTimeNanos,
           )
       }
 
@@ -125,8 +125,8 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
             applicationId = applicationId,
             maybeSubmissionId = submissionId,
             maybeDeduplicationOffset = deduplicationOffset,
-            maybeDeduplicationTimeSeconds = deduplicationTimeSeconds,
-            maybeDeduplicationTimeNanos = deduplicationTimeNanos,
+            maybeDeduplicationDurationSeconds = deduplicationTimeSeconds,
+            maybeDeduplicationDurationNanos = deduplicationTimeNanos,
           )
       }
 

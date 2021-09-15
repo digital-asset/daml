@@ -123,10 +123,10 @@ CREATE TABLE participant_command_completions
     -- 1. an initial offset
     -- 2. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
     -- 3. an initial timestamp
-    deduplication_offset        VARCHAR2(4000),
-    deduplication_time_seconds  NUMBER,
-    deduplication_time_nanos    NUMBER,
-    deduplication_start         NUMBER,
+    deduplication_offset            VARCHAR2(4000),
+    deduplication_duration_seconds  NUMBER,
+    deduplication_duration_nanos    NUMBER,
+    deduplication_start             NUMBER,
 
     submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
     command_id                  NVARCHAR2(1000) NOT NULL,
