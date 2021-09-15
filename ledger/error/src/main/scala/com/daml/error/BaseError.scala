@@ -48,8 +48,7 @@ trait BaseError extends LocationMixin {
 
   def logWithContext(
       logger: ContextualizedLogger,
-      correlationId: Option[String] =
-        None, // TODO remove the default and pass correlation ID in DAML SDK
+      correlationId: Option[String],
       extra: Map[String, String] = Map(),
   )(implicit loggingContext: LoggingContext): Unit =
     code.log(logger, this, correlationId, extra)
@@ -103,6 +102,7 @@ object BaseError {
   }
 
   abstract class Impl(
+      correlationId: Option[String],
       override val cause: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit override val code: ErrorCode)
@@ -120,11 +120,10 @@ object BaseError {
       */
     def logOnCreation: Boolean = true
 
-    def log(): Unit = logWithContext(logger)(loggingContext)
+    def log(): Unit = logWithContext(logger, correlationId)(loggingContext)
 
     def asGrpcError: StatusRuntimeException = {
-      // TODO error codes: Pass correlation id
-      code.asGrpcError(this, logger, None)(loggingContext)
+      code.asGrpcError(this, logger, correlationId)(loggingContext)
     }
 
     // Automatically log the error on generation

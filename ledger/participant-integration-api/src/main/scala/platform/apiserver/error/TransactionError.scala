@@ -13,11 +13,12 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.rpc.status.{Status => RpcStatus}
 
 trait TransactionError extends BaseError {
-  def logger: ContextualizedLogger
-
   def createRejection(
       correlationId: Option[String]
-  )(implicit loggingContext: LoggingContext): RejectionReasonTemplate = {
+  )(implicit
+      logger: ContextualizedLogger,
+      loggingContext: LoggingContext,
+  ): RejectionReasonTemplate = {
     FinalReason(rpcStatus(correlationId))
   }
 
@@ -28,7 +29,7 @@ trait TransactionError extends BaseError {
 
   def rpcStatus(
       correlationId: Option[String]
-  )(implicit loggingContext: LoggingContext): RpcStatus = {
+  )(implicit logger: ContextualizedLogger, loggingContext: LoggingContext): RpcStatus = {
 
     // yes, this is a horrible duplication of ErrorCode.asGrpcError. why? because
     // scalapb does not really support grpc rich errors. there is literally no method
@@ -85,14 +86,11 @@ trait TransactionError extends BaseError {
       message,
       details,
     )
-
   }
-
 }
 
 abstract class TransactionErrorImpl(
     override val cause: String,
-    override val logger: ContextualizedLogger,
     override val throwableO: Option[Throwable] = None,
     override val definiteAnswer: Boolean = false,
 )(implicit override val code: ErrorCode)
@@ -100,13 +98,16 @@ abstract class TransactionErrorImpl(
 
 abstract class LoggingTransactionErrorImpl(
     cause: String,
-    logger: ContextualizedLogger,
     throwableO: Option[Throwable] = None,
     definiteAnswer: Boolean = false,
-)(implicit code: ErrorCode, loggingContext: LoggingContext)
-    extends TransactionErrorImpl(cause, logger, throwableO, definiteAnswer)(code) {
+)(implicit
+    code: ErrorCode,
+    loggingContext: LoggingContext,
+    logger: ContextualizedLogger,
+    correlationId: CorrelationId,
+) extends TransactionErrorImpl(cause, throwableO, definiteAnswer)(code) {
 
-  def log(): Unit = logWithContext(logger)(loggingContext)
+  def log(): Unit = logWithContext(logger, correlationId.id)(loggingContext)
 
   // Automatically log the error on generation
   log()

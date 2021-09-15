@@ -17,21 +17,24 @@ import scala.util.{Failure, Success, Try}
 
 object RejectionGenerators {
 
-  def toGrpc(reject: BaseError, correlationId: Option[String] = None)(implicit
+  def toGrpc(reject: BaseError)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
+      correlationId: CorrelationId,
   ): StatusRuntimeException =
-    reject.asGrpcErrorFromContext(correlationId, logger)(loggingContext)
+    reject.asGrpcErrorFromContext(correlationId.id, logger)(loggingContext)
 
   def duplicateCommand(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
+      correlationId: CorrelationId,
   ): StatusRuntimeException =
     toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
 
   def commandExecutorError(cause: ErrorCauseExport)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
+      correlationId: CorrelationId,
   ): Option[StatusRuntimeException] = {
 
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
@@ -150,6 +153,7 @@ object RejectionGenerators {
   def validationFailure(reject: StatusRuntimeException)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
+      correlationId: CorrelationId,
   ): StatusRuntimeException = {
     val description = reject.getStatus.getDescription
     reject.getStatus.getCode match {
