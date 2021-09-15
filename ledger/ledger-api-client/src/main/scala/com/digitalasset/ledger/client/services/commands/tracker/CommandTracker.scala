@@ -94,7 +94,7 @@ private[commands] class CommandTracker[Context](
         timerKey match {
           case `timeout_detection` =>
             val timeouts = getOutputForTimeout(Instant.now)
-            if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts)
+            if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts.to(immutable.Iterable))
           case _ => // unknown timer, nothing to do
         }
       }
@@ -197,7 +197,7 @@ private[commands] class CommandTracker[Context](
         if (compl.isEmpty && !hasBeenPulled(commandResultIn)) {
           pull(commandResultIn)
         }
-        emitMultiple(resultOut, compl)
+        emitMultiple(resultOut, compl.to(immutable.Iterable))
       }
 
       private def completeStageIfTerminal(): Unit = {
