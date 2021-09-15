@@ -349,6 +349,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
       .build
 
+  private[this] val txVersion = TransactionVersion.StableVersions.max
+
   private def deduplicationKeyBytesFor(parties: List[String]): Array[Byte] = {
     val submitterInfo = DamlSubmitterInfo.newBuilder
       .setApplicationId("test")
@@ -373,7 +375,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       .setArgVersioned(
         ValueOuterClass.VersionedValue
           .newBuilder()
-          .setVersion(TransactionVersion.VDev.protoValue)
+          .setVersion(txVersion.protoValue)
           .setValue(
             ValueOuterClass.Value.newBuilder().setText(discriminator).build().toByteString
           )
@@ -381,7 +383,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       .build()
 
   private def lfContractInstance(discriminator: String) =
-    TransactionBuilder(TransactionVersion.VDev).versionContract(
+    new TransactionBuilder(_ => txVersion).versionContract(
       ContractInst(
         Ref.Identifier.assertFromString("some:template:name"),
         ValueText(discriminator),

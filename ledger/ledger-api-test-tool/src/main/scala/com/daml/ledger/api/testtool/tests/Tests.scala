@@ -68,6 +68,7 @@ object Tests {
     Vector(
       new AppendOnlyCompletionDeduplicationInfoIT(CommandService),
       new AppendOnlyCompletionDeduplicationInfoIT(CommandSubmissionService),
+      new AppendOnlyKVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ContractIdIT,
       new MultiPartySubmissionIT,

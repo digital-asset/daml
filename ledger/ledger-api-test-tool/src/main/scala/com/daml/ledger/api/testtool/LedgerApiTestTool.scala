@@ -156,8 +156,10 @@ object LedgerApiTestTool {
       if (config.included.isEmpty) defaultCases
       else allCases.filter(matches(config.included))
 
+    val addedTests = allCases.filter(matches(config.additional))
+
     val (excludedTests, testsToRun) =
-      includedTests.partition(matches(config.excluded))
+      (includedTests ++ addedTests).partition(matches(config.excluded))
 
     implicit val resourceManagementExecutionContext: ExecutionContext =
       ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())

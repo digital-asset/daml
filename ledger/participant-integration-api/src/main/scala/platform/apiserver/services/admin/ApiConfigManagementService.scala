@@ -104,7 +104,7 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(ErrorFactories.missingLedgerConfig())
+                Future.failed(ErrorFactories.missingLedgerConfig(None))
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 
@@ -115,7 +115,7 @@ private[apiserver] final class ApiConfigManagementService private (
               Future.failed(
                 ValidationLogger.logFailureWithContext(
                   request,
-                  ErrorFactories.invalidArgument(
+                  ErrorFactories.invalidArgument(None)(
                     s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
                   ),
                 )
@@ -172,7 +172,7 @@ private[apiserver] final class ApiConfigManagementService private (
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
-        case Failure(err) => Left(ErrorFactories.invalidArgument(err.toString))
+        case Failure(err) => Left(ErrorFactories.invalidArgument(None)(err.toString))
         case Success(ok) => Right(ok)
       }
       // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
@@ -185,7 +185,7 @@ private[apiserver] final class ApiConfigManagementService private (
       }
       maximumRecordTime <- Time.Timestamp
         .fromInstant(mrtInstant)
-        .fold(err => Left(ErrorFactories.invalidArgument(err)), Right(_))
+        .fold(err => Left(ErrorFactories.invalidArgument(None)(err)), Right(_))
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
   }
 
@@ -248,7 +248,7 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        ErrorFactories.aborted(reason)
+        ErrorFactories.aborted(reason, None)
     }
   }
 

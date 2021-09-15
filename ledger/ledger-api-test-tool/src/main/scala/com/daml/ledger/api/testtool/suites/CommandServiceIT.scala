@@ -155,7 +155,12 @@ final class CommandServiceIT extends LedgerTestSuite {
       _ <- ledger.submitAndWait(request)
       failure <- ledger.submitAndWait(request).mustFail("submitting a duplicate request")
     } yield {
-      assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
+      assertGrpcError(
+        failure,
+        Status.Code.ALREADY_EXISTS,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -171,7 +176,12 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWaitForTransactionId(request)
         .mustFail("submitting a duplicate request")
     } yield {
-      assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
+      assertGrpcError(
+        failure,
+        Status.Code.ALREADY_EXISTS,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -187,7 +197,12 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWaitForTransaction(request)
         .mustFail("submitting a duplicate request")
     } yield {
-      assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
+      assertGrpcError(
+        failure,
+        Status.Code.ALREADY_EXISTS,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -203,7 +218,12 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWaitForTransactionTree(request)
         .mustFail("submitting a duplicate request")
     } yield {
-      assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
+      assertGrpcError(
+        failure,
+        Status.Code.ALREADY_EXISTS,
+        None,
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -223,7 +243,8 @@ final class CommandServiceIT extends LedgerTestSuite {
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
-      s"Ledger ID '$invalidLedgerId' not found.",
+      Some(s"Ledger ID '$invalidLedgerId' not found."),
+      checkDefiniteAnswerMetadata = true,
     )
   })
 
@@ -243,7 +264,8 @@ final class CommandServiceIT extends LedgerTestSuite {
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
-      s"Ledger ID '$invalidLedgerId' not found.",
+      Some(s"Ledger ID '$invalidLedgerId' not found."),
+      checkDefiniteAnswerMetadata = true,
     )
   })
 
@@ -263,7 +285,8 @@ final class CommandServiceIT extends LedgerTestSuite {
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
-      s"Ledger ID '$invalidLedgerId' not found.",
+      Some(s"Ledger ID '$invalidLedgerId' not found."),
+      checkDefiniteAnswerMetadata = true,
     )
   })
 
@@ -280,10 +303,11 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWait(badRequest)
         .mustFail("submitting a request with a bad parameter label")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile(s"Missing record (label|field)")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -299,7 +323,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         .exercise(party, dummy.exerciseFailingClone)
         .mustFail("submitting a request with an interpretation error")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(
@@ -307,6 +331,7 @@ final class CommandServiceIT extends LedgerTestSuite {
             "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
           )
         ),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -455,9 +480,24 @@ final class CommandServiceIT extends LedgerTestSuite {
           .submitAndWait(ledger.submitAndWaitRequest(party, rounding(negativeOutOfBounds)))
           .mustFail("submitting a request with a negative number out of bounds")
       } yield {
-        assertGrpcError(e1, Status.Code.INVALID_ARGUMENT, "Cannot represent")
-        assertGrpcError(e2, Status.Code.INVALID_ARGUMENT, "Out-of-bounds (Numeric 10)")
-        assertGrpcError(e3, Status.Code.INVALID_ARGUMENT, "Out-of-bounds (Numeric 10)")
+        assertGrpcError(
+          e1,
+          Status.Code.INVALID_ARGUMENT,
+          Some("Cannot represent"),
+          checkDefiniteAnswerMetadata = true,
+        )
+        assertGrpcError(
+          e2,
+          Status.Code.INVALID_ARGUMENT,
+          Some("Out-of-bounds (Numeric 10)"),
+          checkDefiniteAnswerMetadata = true,
+        )
+        assertGrpcError(
+          e3,
+          Status.Code.INVALID_ARGUMENT,
+          Some("Out-of-bounds (Numeric 10)"),
+          checkDefiniteAnswerMetadata = true,
+        )
       }
     }
   )
@@ -505,7 +545,12 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWait(request)
         .mustFail("submitting a request with bad create arguments")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Expecting 1 field for record")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some("Expecting 1 field for record"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -524,7 +569,12 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWait(request)
         .mustFail("submitting a request with bad choice arguments")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "mismatching type")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some("mismatching type"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -544,7 +594,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         .submitAndWait(request)
         .mustFail("submitting a request with an invalid choice")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(
@@ -552,6 +602,7 @@ final class CommandServiceIT extends LedgerTestSuite {
             "(unknown|Couldn't find requested) choice " + missingChoice
           )
         ),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })

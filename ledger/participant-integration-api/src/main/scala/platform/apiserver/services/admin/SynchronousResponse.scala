@@ -51,7 +51,9 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
             .recoverWith { case _: TimeoutException =>
-              Future.failed(ErrorFactories.aborted("Request timed out"))
+              Future.failed(
+                ErrorFactories.aborted("Request timed out", definiteAnswer = Some(false))
+              )
             }
             .flatten
         case r: SubmissionResult.SynchronousError =>

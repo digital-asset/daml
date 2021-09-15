@@ -83,6 +83,23 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         exception.getStatus.getCode shouldBe Code.RESOURCE_EXHAUSTED
       }
 
+      "include default metadata for status not ok" in {
+        val exception = CompletionResponse.toException(
+          QueueCompletionFailure(
+            NotOkResponse(
+              commandId,
+              Status(
+                Code.CANCELLED.value(),
+                details = Seq.empty,
+              ),
+            )
+          )
+        )
+        val status = protobuf.StatusProto.fromThrowable(exception)
+        val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
+        packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "false"
+      }
+
       "include metadata for status not ok" in {
         val errorInfo = ErrorInfo(
           metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
@@ -109,7 +126,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
 
       "merge metadata for status not ok" in {
         val errorInfo = ErrorInfo(
-          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false")
+          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
         )
         val requestInfo = RequestInfo(requestId = "aRequestId")
         val exception = CompletionResponse.toException(
@@ -134,7 +151,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         details.exists { detail =>
           detail.is(classOf[JavaErrorInfo]) && detail
             .unpack(classOf[JavaErrorInfo])
-            .getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) == "false"
+            .getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) == "true"
         } shouldEqual true
         details.exists { detail =>
           detail.is(classOf[JavaRequestInfo]) && detail

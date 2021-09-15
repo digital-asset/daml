@@ -198,7 +198,7 @@ function createColumns(config: ConfigType, viewId: string)
               renderLink={(id, name) => (
                 <Link
                   route={Routes.contract}
-                  params={{id: encodeURIComponent(id), name}}
+                  params={{id: encodeURIComponent(id), choice:name}}
                 >
                   <div>{name}</div>
                 </Link>

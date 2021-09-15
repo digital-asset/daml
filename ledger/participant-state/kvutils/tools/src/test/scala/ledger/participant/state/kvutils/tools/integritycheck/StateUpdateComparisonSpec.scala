@@ -16,6 +16,7 @@ import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, NodeId}
+import com.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AsyncWordSpec
@@ -24,6 +25,9 @@ final class StateUpdateComparisonSpec
     extends AsyncWordSpec
     with TableDrivenPropertyChecks
     with Matchers {
+
+  import TransactionBuilder.Implicits._
+
   "compareUpdates" should {
     "ignore rejection reason for ConfigurationChangeRejected updates" in {
       val left = aConfigurationChangeRejected.copy(rejectionReason = "one reason")
@@ -101,7 +105,7 @@ final class StateUpdateComparisonSpec
   private lazy val aDummyValue = TransactionBuilder.record("field" -> "value")
 
   private def buildATransaction(withFetchAndLookupByKeyNodes: Boolean): CommittedTransaction = {
-    val builder = new TransactionBuilder()
+    val builder = TransactionBuilder()
     val create1 = create("#someContractId")
     val create2 = create("#otherContractId")
     val fetch1 = builder.fetch(create1)
@@ -127,17 +131,17 @@ final class StateUpdateComparisonSpec
   }
 
   private def create(
-      contractId: String,
-      signatories: Seq[String] = Seq(aKeyMaintainer),
+      contractId: ContractId,
+      signatories: Set[Ref.Party] = Set(aKeyMaintainer),
       argument: TransactionBuilder.Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some("key" -> aKeyMaintainer),
   ): TransactionBuilder.Create =
-    new TransactionBuilder().create(
+    TransactionBuilder().create(
       id = contractId,
-      template = "dummyPackage:DummyModule:DummyTemplate",
+      templateId = "DummyModule:DummyTemplate",
       argument = argument,
       signatories = signatories,
-      observers = Seq.empty,
+      observers = Set.empty,
       key = keyAndMaintainer.map { case (key, maintainer) =>
         TransactionBuilder.record(maintainer -> key)
       },

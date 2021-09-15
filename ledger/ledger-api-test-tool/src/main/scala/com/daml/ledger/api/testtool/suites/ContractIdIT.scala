@@ -43,7 +43,7 @@ final class ContractIdIT extends LedgerTestSuite {
             ParticipantTestContext,
             Party,
         ) => Future[Try[_]]
-    ) =
+    ): Unit =
       super.test(
         result + camlCase(cidDescription) + "Cid" + camlCase(description),
         result + "s " + cidDescription + " Contract Id in " + description,
@@ -55,7 +55,8 @@ final class ContractIdIT extends LedgerTestSuite {
             assertGrpcError(
               err,
               Status.Code.INVALID_ARGUMENT,
-              s"""Illegal Contract ID "$testedCid"""",
+              Some(s"""Illegal Contract ID "$testedCid""""),
+              checkDefiniteAnswerMetadata = true,
             )
             ()
           case otherwise =>

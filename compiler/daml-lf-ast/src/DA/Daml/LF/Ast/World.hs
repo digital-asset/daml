@@ -19,7 +19,8 @@ module DA.Daml.LF.Ast.World(
     lookupDataType,
     lookupChoice,
     lookupValue,
-    lookupModule
+    lookupModule,
+    lookupInterface
     ) where
 
 import DA.Pretty
@@ -97,6 +98,7 @@ data LookupError
   | LETemplate !(Qualified TypeConName)
   | LEException !(Qualified TypeConName)
   | LEChoice !(Qualified TypeConName) !ChoiceName
+  | LEInterface !(Qualified TypeConName)
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
@@ -136,6 +138,9 @@ lookupValue = lookupDefinition moduleValues LEValue
 lookupTemplate :: Qualified TypeConName -> World -> Either LookupError Template
 lookupTemplate = lookupDefinition moduleTemplates LETemplate
 
+lookupInterface :: Qualified TypeConName -> World -> Either LookupError DefInterface
+lookupInterface = lookupDefinition moduleInterfaces LEInterface
+
 lookupException :: Qualified TypeConName -> World -> Either LookupError DefException
 lookupException = lookupDefinition moduleExceptions LEException
 
@@ -157,3 +162,4 @@ instance Pretty LookupError where
     LETemplate tplRef -> "unknown template:" <-> pretty tplRef
     LEException exnRef -> "unknown exception:" <-> pretty exnRef
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
+    LEInterface ifaceRef -> "unknown interface" <-> pretty ifaceRef

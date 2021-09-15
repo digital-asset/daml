@@ -5,32 +5,25 @@ package com.daml.lf
 package transaction
 package test
 
-import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, ImmArray, Ref}
+import com.daml.lf.data._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
-import com.daml.lf.value.{Value => LfValue}
+import com.daml.lf.value.Value.ContractId
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
+import scala.language.implicitConversions
 
-final class TransactionBuilder(
-    pkgTxVersion: Ref.PackageId => TransactionVersion = _ => TransactionVersion.minVersion
-) {
+final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion) {
 
   import TransactionBuilder._
 
-  private[this] val newHash: () => crypto.Hash = {
-    val bytes = Array.ofDim[Byte](crypto.Hash.underlyingHashLength)
-    scala.util.Random.nextBytes(bytes)
-    crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(bytes))
-  }
-
-  private[this] val ids = Iterator.from(0).map(NodeId(_))
-  private[this] var nodes = HashMap.empty[NodeId, TxNode]
-  private[this] var children =
-    HashMap.empty[NodeId, BackStack[NodeId]].withDefaultValue(BackStack.empty)
-  private[this] var roots = BackStack.empty[NodeId]
+  private[this] val ids: Iterator[NodeId] = Iterator.from(0).map(NodeId(_))
+  private[this] var nodes: Map[NodeId, TxNode] = HashMap.empty
+  private[this] var children: Map[NodeId, BackStack[NodeId]] =
+    HashMap.empty.withDefaultValue(BackStack.empty)
+  private[this] var roots: BackStack[NodeId] = BackStack.empty
 
   private[this] def newNode(node: Node): NodeId = {
     val nodeId = ids.next()
@@ -81,81 +74,62 @@ final class TransactionBuilder(
 
   def buildCommitted(): CommittedTransaction = CommittedTransaction(build())
 
-  def newCid: ContractId = ContractId.V1(newHash())
+  def newCid: ContractId = TransactionBuilder.newV1Cid
 
-  def versionContract(contract: ContractInst[Value]): ContractInst[TxValue] =
-    ContractInst.map1[Value, TxValue](transactionValue(contract.template))(contract)
+  def versionContract(contract: Value.ContractInst[Value]): value.Value.ContractInst[TxValue] =
+    Value.ContractInst.map1[Value, TxValue](transactionValue(contract.template))(contract)
 
   private[this] def transactionValue(templateId: Ref.TypeConName): Value => TxValue =
     value.Value.VersionedValue(pkgTxVersion(templateId.packageId), _)
 
   def create(
-      id: String,
-      template: String,
+      id: ContractId,
+      templateId: Ref.Identifier,
       argument: Value,
-      signatories: Seq[String],
-      observers: Seq[String],
-      key: Option[Value],
+      signatories: Set[Ref.Party],
+      observers: Set[Ref.Party],
+      key: Option[Value] = None,
   ): Create =
-    create(ContractId.assertFromString(id), template, argument, signatories, observers, key)
+    create(id, templateId, argument, signatories, observers, key, signatories)
 
   def create(
       id: ContractId,
-      template: String,
+      templateId: Ref.Identifier,
       argument: Value,
-      signatories: Seq[String],
-      observers: Seq[String],
+      signatories: Set[Ref.Party],
+      observers: Set[Ref.Party],
       key: Option[Value],
-  ): Create =
-    create(
-      id,
-      template,
-      argument,
-      signatories,
-      observers,
-      key,
-      signatories,
-    )
-
-  def create(
-      id: ContractId,
-      template: String,
-      argument: Value,
-      signatories: Seq[String],
-      observers: Seq[String],
-      key: Option[Value],
-      maintainers: Seq[String],
+      maintainers: Set[Ref.Party],
   ): Create = {
-    val templateId = Ref.Identifier.assertFromString(template)
     Create(
       coid = id,
       templateId = templateId,
       arg = argument,
       agreementText = "",
-      signatories = signatories.map(Ref.Party.assertFromString).toSet,
-      stakeholders = signatories.toSet.union(observers.toSet).map(Ref.Party.assertFromString),
-      key = key.map(keyWithMaintainers(maintainers = maintainers, _)),
+      signatories = signatories,
+      stakeholders = signatories | observers,
+      key = key.map(KeyWithMaintainers(_, maintainers)),
       version = pkgTxVersion(templateId.packageId),
     )
   }
 
   def exercise(
       contract: Create,
-      choice: String,
+      choice: Ref.Name,
       consuming: Boolean,
-      actingParties: Set[String],
+      actingParties: Set[Ref.Party],
       argument: Value,
       result: Option[Value] = None,
-      choiceObservers: Set[String] = Set.empty,
+      choiceObservers: Set[Ref.Party] = Set.empty,
       byKey: Boolean = true,
   ): Exercise =
     Exercise(
-      choiceObservers = choiceObservers.map(Ref.Party.assertFromString),
+      choiceObservers = choiceObservers,
       targetCoid = contract.coid,
       templateId = contract.coinst.template,
-      choiceId = Ref.ChoiceName.assertFromString(choice),
+      choiceId = choice,
       consuming = consuming,
-      actingParties = actingParties.map(Ref.Party.assertFromString),
+      actingParties = actingParties,
       chosenValue = argument,
       stakeholders = contract.stakeholders,
       signatories = contract.signatories,
@@ -168,14 +142,14 @@ final class TransactionBuilder(
 
   def exerciseByKey(
       contract: Create,
-      choice: String,
+      choice: Ref.Name,
       consuming: Boolean,
-      actingParties: Set[String],
+      actingParties: Set[Ref.Party],
       argument: Value,
   ): Exercise =
     exercise(contract, choice, consuming, actingParties, argument, byKey = true)
 
-  def fetch(contract: Create, byKey: Boolean = true): Fetch =
+  def fetch(contract: Create, byKey: Boolean = false): Fetch =
     Fetch(
       coid = contract.coid,
       templateId = contract.coinst.template,
@@ -223,38 +197,38 @@ object TransactionBuilder {
   type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
   type TxRollBack = Node.NodeRollback[NodeId]
 
-  private val Create = Node.NodeCreate
-  private val Exercise = Node.NodeExercises
-  private val Fetch = Node.NodeFetch
-  private val LookupByKey = Node.NodeLookupByKey
-  private val Rollback = Node.NodeRollback
-  private val KeyWithMaintainers = Node.KeyWithMaintainers
+  val Value = value.Value
+  val Create = Node.NodeCreate
+  val Exercise = Node.NodeExercises
+  val Fetch = Node.NodeFetch
+  val LookupByKey = Node.NodeLookupByKey
+  val Rollback = Node.NodeRollback
+  val KeyWithMaintainers = Node.KeyWithMaintainers
 
-  def apply(): TransactionBuilder =
-    TransactionBuilder(TransactionVersion.StableVersions.min)
-
-  def apply(txVersion: TransactionVersion): TransactionBuilder =
-    new TransactionBuilder(_ => txVersion)
-
-  def apply(pkgLangVersion: Ref.PackageId => language.LanguageVersion): TransactionBuilder = {
+  def apply(
+      pkgLangVersion: Ref.PackageId => LanguageVersion = _ => LanguageVersion.StableVersions.max
+  ): TransactionBuilder =
     new TransactionBuilder(pkgId => TransactionVersion.assignNodeVersion(pkgLangVersion(pkgId)))
+
+  private val newHash: () => crypto.Hash = {
+    val bytes = Array.ofDim[Byte](crypto.Hash.underlyingHashLength)
+    scala.util.Random.nextBytes(bytes)
+    crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(bytes))
   }
 
   def record(fields: (String, String)*): Value =
-    LfValue.ValueRecord(
+    Value.ValueRecord(
       tycon = None,
       fields = fields.view
         .map { case (name, value) =>
-          (Some(Ref.Name.assertFromString(name)), LfValue.ValueText(value))
+          (Some(Ref.Name.assertFromString(name)), Value.ValueText(value))
         }
         .to(ImmArray),
     )
 
-  def keyWithMaintainers(maintainers: Seq[String], key: Value): KeyWithMaintainers =
-    KeyWithMaintainers(
-      key = key,
-      maintainers = maintainers.map(Ref.Party.assertFromString).toSet,
-    )
+  def newV1Cid: ContractId.V1 = ContractId.V1(newHash())
+
+  def newCid: ContractId = newV1Cid
 
   def just(node: Node, nodes: Node*): Tx.Transaction = {
     val builder = TransactionBuilder()
@@ -290,7 +264,7 @@ object TransactionBuilder {
         currentVersion: TransactionVersion,
         values0: FrontStack[Value],
     ): Either[String, TransactionVersion] = {
-      import LfValue._
+      import Value._
       if (currentVersion >= supportedVersions.max) {
         Right(currentVersion)
       } else {
@@ -340,7 +314,7 @@ object TransactionBuilder {
       value: Value,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
   ): Either[String, TxValue] =
-    assignVersion(value, supportedVersions).map(VersionedValue(_, value))
+    assignVersion(value, supportedVersions).map(Value.VersionedValue(_, value))
 
   @throws[IllegalArgumentException]
   def assertAsVersionedValue(
@@ -348,5 +322,47 @@ object TransactionBuilder {
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
   ): TxValue =
     data.assertRight(asVersionedValue(value, supportedVersions))
+
+  object Implicits {
+
+    implicit val defaultPackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkgId")
+
+    implicit def toContractId(s: String): ContractId =
+      ContractId.assertFromString(s)
+
+    implicit def toParty(s: String): Ref.Party =
+      Ref.Party.assertFromString(s)
+
+    implicit def toParties(s: Iterable[String]): Set[Ref.IdString.Party] =
+      s.iterator.map(Ref.Party.assertFromString).toSet
+
+    implicit def toName(s: String): Ref.Name =
+      Ref.Name.assertFromString(s)
+
+    implicit def toPackageId(s: String): Ref.PackageId =
+      Ref.PackageId.assertFromString(s)
+
+    implicit def toQualifiedName(s: String): Ref.QualifiedName =
+      Ref.QualifiedName.assertFromString(s)
+
+    implicit def toIdentifier(s: String)(implicit defaultPackageId: Ref.PackageId): Ref.Identifier =
+      Ref.Identifier(defaultPackageId, s)
+
+    implicit def toTimestamp(s: String): Time.Timestamp =
+      Time.Timestamp.assertFromString(s)
+
+    implicit def toDate(s: String): Time.Date =
+      Time.Date.assertFromString(s)
+
+    implicit def toNumeric(s: String): Numeric =
+      Numeric.assertFromString(s)
+
+    implicit def toOption[X](s: String)(implicit toX: String => X): Option[X] =
+      if (s.isEmpty) None else Some(toX(s))
+
+    implicit def toFields(list: ImmArray[(String, Value)]): ImmArray[(Option[Ref.Name], Value)] =
+      list.map { case (name, value) => toOption(name)(toName) -> value }
+
+  }
 
 }

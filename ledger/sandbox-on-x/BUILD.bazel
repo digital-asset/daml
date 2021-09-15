@@ -139,46 +139,21 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
+        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ClosedWorldIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",
+        "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
         "--exclude=RaceConditionIT",
         "--exclude=ExceptionRaceConditionIT",
         "--exclude=ExceptionsIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-participant-pruning",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-multi-party-submission",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
     ],
 )
 

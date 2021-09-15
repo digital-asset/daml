@@ -20,8 +20,20 @@ import waitOn from "wait-on";
 
 import Ledger from "@daml/ledger";
 import { User } from "@daml.js/create-daml-app";
-import { computeCredentials } from "./Credentials";
 import semver from "semver";
+
+/* API has changed; depending on version loaded, only one of these two imports
+ * will work, but invalid imports result in undefined variables, not failure,
+ * so we can work around that.
+ */
+import { authConfig } from './config';
+import { computeCredentials } from "./Credentials";
+
+const getToken: (party: string) => string =
+    authConfig
+  ? (party) => authConfig.makeToken(party)
+  : (party) => computeCredentials(party).token;
+
 
 const DAR_PATH = process.env.DAR_PATH;
 const SANDBOX_LEDGER_ID = "create-daml-app-sandbox";
@@ -188,8 +200,8 @@ afterAll(async () => {
 }, 60_000);
 
 test("create and look up user using ledger library", async () => {
-  const partyName = getParty();
-  const { party, token } = computeCredentials(partyName);
+  const party = getParty();
+  const token = getToken(party);
   const ledger = new Ledger({ token });
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
@@ -279,7 +291,7 @@ test("log in as a new user, log out and log back in", async () => {
   await login(page, partyName);
 
   // Check that the ledger contains the new User contract.
-  const { token } = computeCredentials(partyName);
+  const token = getToken(partyName);
   const ledger = new Ledger({ token });
   const users = await ledger.query(User.User);
   expect(users).toHaveLength(1);

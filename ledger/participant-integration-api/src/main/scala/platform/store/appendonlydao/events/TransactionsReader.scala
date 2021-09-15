@@ -58,7 +58,7 @@ private[appendonlydao] final class TransactionsReader(
 
   private val dbMetrics = metrics.daml.index.db
   private val eventSeqIdReader =
-    new EventsRange.EventSeqIdReader(storageBackend.maxEventSeqIdForOffset)
+    new EventsRange.EventSeqIdReader(storageBackend.maxEventSequentialIdOfAnObservableEvent)
   private val getTransactions =
     new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend)
   private val getActiveContracts =

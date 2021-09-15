@@ -9,9 +9,16 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
-# Range of test-tool versions version and then a nested list of ranges
-# of platform versions and their corresponding exclusions.
-# Note that before 1.3 the granularity for disabling tests
+# Each exclusion in the list above is an object with a range of ledger API test tool versions
+# described by `start` and `end` and a list of platform (ledger) ranges. Each platform range
+# is again described by `start` and `end` as well as the actual list of --exclude flags that
+# should be passed to the ledger API test tool.
+# Start and end are always inclusive and can be omitted if you only need an upper or lower bound.
+# Usually, you'll want to set the latest release from the `LATEST` file to one of the boundaries
+# and use the next version in another one. For example, `1.17.0-snapshot.20210910.7786.0.976ca400`
+# could be the end, while `1.17.0-snapshot.20210910.7786.1` would be the next version.
+# Note that 0.0.0, i.e., current HEAD is considered to come after all other versions.
+# Also, note that before 1.3 the granularity for disabling tests
 # was sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
 # for details.
@@ -381,6 +388,49 @@ excluded_test_tool_tests = [
                 "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
                 "exclusions": [
                     "CommandServiceIT:CSRefuseBadParameter",
+                ],
+            },
+        ],
+    },
+    {
+        # gRPC errors from transaction-related services have been enriched with definite answer details
+        # and a new assertion has been added.
+        # See: https://github.com/digital-asset/daml/pull/10832/files#diff-e0fa328a58650c48e8770804e35a1464c81cc80a51547860a01e9197a8fb9c71R49
+        "start": "1.17.0-snapshot.20210910.7786.1",
+        "platform_ranges": [
+            {
+                "end": "1.17.0-snapshot.20210910.7786.0.976ca400",
+                "exclusions": [
+                    "WronglyTypedContractIdIT:WTExerciseFails",
+                    "WronglyTypedContractIdIT:WTFetchFails",
+                    "WronglyTypedContractIdIT:WTMultipleExerciseFails",
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                    "ContractKeysIT:CKTransients",
+                    "ContractKeysIT:CKExerciseByKey",
+                    "ContractKeysIT:CKLocalKeyVisibility",
+                    "ClosedWorldIT:ClosedWorldObserver",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorMissingAuth",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "CommandServiceIT",
+                    "ExceptionsIT",
+                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                    "CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId",
+                    "CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",
+                    "SemanticTests:SemanticDoubleSpendSameTx",
+                    "SemanticTests:SemanticPartialSignatories",
+                    "SemanticTests:SemanticAcceptOnBehalf",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.17.0-snapshot.20210910.7786.1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210811.7565.0.f1a55aa4",
+                "end": "1.17.0-snapshot.20210910.7786.0.976ca400 ",
+                "exclusions": [
+                    "CommandDeduplicationIT",
                 ],
             },
         ],

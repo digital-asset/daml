@@ -29,6 +29,7 @@ data Context
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
+  | ContextDefInterface !Module !DefInterface
 
 data TemplatePart
   = TPWhole
@@ -128,6 +129,15 @@ data Error
   | EForbiddenNameCollision !T.Text ![T.Text]
   | ESynAppWrongArity       !DefTypeSyn ![Type]
   | ENatKindRightOfArrow    !Kind
+  | EInterfaceTypeWithParams
+  | EMissingInterfaceDefinition !TypeConName
+  | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
+  | EUnknownInterface !TypeConName
+  | EMissingInterfaceChoice !ChoiceName
+  | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
+  | EBadInterfaceChoiceImplArgType !ChoiceName !Type !Type
+  | EBadInterfaceChoiceImplRetType !ChoiceName !Type !Type
+  | EForeignInterfaceImplementation !(Qualified TypeConName)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -137,6 +147,7 @@ contextLocation = \case
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
   ContextDefException _ e -> exnLocation e
+  ContextDefInterface _ i -> intLocation i
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -156,6 +167,8 @@ instance Show Context where
       "value " <> show (moduleName m) <> "." <> show (fst $ dvalBinder v)
     ContextDefException m e ->
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
+    ContextDefInterface m i ->
+      "interface " <> show (moduleName m) <> "." <> show (intName i)
 
 instance Show TemplatePart where
   show = \case
@@ -224,6 +237,7 @@ instance Pretty Error where
     EDuplicateModule mname -> "duplicate module: " <> pretty mname
     EDuplicateScenario name -> "duplicate scenario: " <> pretty name
     EEnumTypeWithParams -> "enum type with type parameters"
+    EInterfaceTypeWithParams -> "interface type with type parameters"
     EExpectedRecordType tapp ->
       vcat [ "expected record type:", "* found: ", nest 4 $ string (show tapp) ]
     EFieldMismatch tapp rexpr ->
@@ -362,6 +376,34 @@ instance Pretty Error where
         [ "Kind is invalid: " <> pretty k
         , "Nat kind is not allowed on the right side of kind arrow."
         ]
+    EMissingInterfaceDefinition iface ->
+      "Missing interface definition for interface type: " <> pretty iface
+    EDuplicateInterfaceChoiceName iface choice ->
+      "Duplicate choice name '" <> pretty choice <> "' in interface definition for " <> pretty iface
+    EUnknownInterface tcon -> "Unknown interface: " <> pretty tcon
+    EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
+    EBadInterfaceChoiceImplConsuming ch ifaceConsuming tplConsuming ->
+      vcat
+      [ "Choice implementation and interface definition for " <> pretty ch <> " differ in consuming/non-consuming behaviour."
+      , "Expected: " <> prettyConsuming ifaceConsuming
+      , "But got: " <> prettyConsuming tplConsuming
+      ]
+    EBadInterfaceChoiceImplArgType ch ifaceArgType tplArgType ->
+      vcat
+      [ "Choice implementation and interface definition for " <> pretty ch <> " differ in argument type."
+      , "Expected: " <> pretty ifaceArgType
+      , "But got: " <> pretty tplArgType
+      ]
+    EBadInterfaceChoiceImplRetType ch ifaceRetType tplRetType ->
+      vcat
+      [ "Choice implementation and interface definition for " <> pretty ch <> " differ in return type."
+      , "Expected: " <> pretty ifaceRetType
+      , "But got: " <> pretty tplRetType
+      ]
+    EForeignInterfaceImplementation tcon -> "The definition and implementation for the interface " <> pretty tcon <> " need to be in the same module."
+
+prettyConsuming :: Bool -> Doc ann
+prettyConsuming consuming = if consuming then "consuming" else "non-consuming"
 
 instance Pretty Context where
   pPrint = \case
@@ -377,6 +419,8 @@ instance Pretty Context where
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
     ContextDefException m e ->
       hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
+    ContextDefInterface m i ->
+      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i)]
 
 toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
 toDiagnostic sev err = Diagnostic

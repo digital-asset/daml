@@ -66,7 +66,7 @@ final class NonRepudiationProxyConformance
     implicit val context: ResourceContext = ResourceContext(executionContext)
     val config = SandboxConfig.defaultConfig.copy(
       port = Port.Dynamic,
-      maxDeduplicationDuration = Some(Duration.ofSeconds(10)),
+      maxDeduplicationDuration = Some(Duration.ofSeconds(5)),
     )
 
     val proxyName = InProcessServerBuilder.generateName()

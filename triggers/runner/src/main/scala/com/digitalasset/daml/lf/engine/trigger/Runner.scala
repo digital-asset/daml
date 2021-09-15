@@ -3,9 +3,6 @@
 
 package com.daml.lf.engine.trigger
 
-import java.time.Instant
-import java.util.UUID
-
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl._
@@ -42,6 +39,7 @@ import com.daml.script.converter.ConverterException
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
+import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import scalaz.std.option._
 import scalaz.syntax.bifunctor._
@@ -51,6 +49,8 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{-\/, Functor, \/, \/-}
 
+import java.time.Instant
+import java.util.UUID
 import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
@@ -573,7 +573,7 @@ class Runner(
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.map(_ => None).recover {
-        case s: StatusRuntimeException if s.getStatus != io.grpc.Status.UNAUTHENTICATED =>
+        case s: StatusRuntimeException if s.getStatus.getCode != Code.UNAUTHENTICATED =>
           // Do not capture UNAUTHENTICATED errors.
           // The access token may be expired, let the trigger runner handle token refresh.
           Some(SingleCommandFailure(req.getCommands.commandId, s))

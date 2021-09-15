@@ -11,3 +11,4 @@ Operating Daml Connect
    :maxdepth: 3
 
    logs-and-metrics
+   auth0

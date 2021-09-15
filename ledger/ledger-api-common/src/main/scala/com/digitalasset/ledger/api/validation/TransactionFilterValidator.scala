@@ -19,7 +19,7 @@ object TransactionFilterValidator {
       txFilter: TransactionFilter
   ): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
-      Left(ErrorFactories.invalidArgument("filtersByParty cannot be empty"))
+      Left(ErrorFactories.invalidArgument(None)("filtersByParty cannot be empty"))
     } else {
       val convertedFilters =
         txFilter.filtersByParty.toList.traverse { case (k, v) =>
