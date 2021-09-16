@@ -48,6 +48,8 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
         )
       )
     runTestWithSubmission[SubmitRequest](
+      ledger,
+      party,
       request,
       submitRequestAndGetStatusCode(ledger)(_, party),
     )
@@ -66,35 +68,46 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
         _.commands.deduplicationDuration := deduplicationDuration.asProtobuf
       )
     runTestWithSubmission[SubmitAndWaitRequest](
+      ledger,
+      party,
       request,
       submitAndWaitRequestAndGetStatusCode(ledger)(_, party),
     )
   })
 
-  private def runTestWithSubmission[T](request: T, submitRequestAndGetStatus: T => Future[Code])(
-      implicit ec: ExecutionContext
+  private def runTestWithSubmission[T](
+      ledger: ParticipantTestContext,
+      party: Party,
+      request: T,
+      submitRequestAndGetStatus: T => Future[Code],
+  )(implicit
+      ec: ExecutionContext
   ) = {
     val numberOfParallelRequests = 10
-    Future
-      .traverse(Seq.fill(numberOfParallelRequests)(request))(request => {
-        submitRequestAndGetStatus(request)
-      })
-      .map(_.groupBy(identity).view.mapValues(_.size).toMap)
-      .map(responses => {
-        val expectedDuplicateResponses = numberOfParallelRequests - 1
-        val okResponses = responses.getOrElse(Code.OK, 0)
-        val alreadyExistsResponses = responses.getOrElse(Code.ALREADY_EXISTS, 0)
-        // Participant-based command de-duplication can currently also reject duplicates via a SQL exception
-        val internalResponses = responses.getOrElse(Code.INTERNAL, 0)
-        // Canton can return ABORTED for duplicate submissions
-        val abortedResponses = responses.getOrElse(Code.ABORTED, 0)
-        val duplicateResponses =
-          alreadyExistsResponses + internalResponses + abortedResponses
-        assert(
-          okResponses == 1 && duplicateResponses == numberOfParallelRequests - 1,
-          s"Expected $expectedDuplicateResponses duplicate responses and one accepted, got $responses",
-        )
-      })
+    for {
+      responses <- Future
+        .traverse(Seq.fill(numberOfParallelRequests)(request))(request => {
+          submitRequestAndGetStatus(request)
+        })
+        .map(_.groupBy(identity).view.mapValues(_.size).toMap)
+      activeContracts <- ledger.activeContracts(party)
+    } yield {
+      val expectedDuplicateResponses = numberOfParallelRequests - 1
+      val okResponses = responses.getOrElse(Code.OK, 0)
+      val alreadyExistsResponses = responses.getOrElse(Code.ALREADY_EXISTS, 0)
+      // Participant-based command de-duplication can currently also reject duplicates via a SQL exception when using the CommandSubmissionService
+      val internalResponses = responses.getOrElse(Code.INTERNAL, 0)
+      // Canton can return ABORTED for duplicate submissions
+      // Participant based command de-duplication can currently also return ABORTED when using the CommandService
+      val abortedResponses = responses.getOrElse(Code.ABORTED, 0)
+      val duplicateResponses =
+        alreadyExistsResponses + internalResponses + abortedResponses
+      assert(
+        okResponses == 1 && duplicateResponses == numberOfParallelRequests - 1,
+        s"Expected $expectedDuplicateResponses duplicate responses and one accepted, got $responses",
+      )
+      assert(activeContracts.size == 1)
+    }
   }
 
   private def submitAndWaitRequestAndGetStatusCode(

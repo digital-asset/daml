@@ -317,12 +317,12 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -340,16 +340,17 @@ conformance_test(
         "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
         "--max-deduplication-duration=PT5S",
+        "--tracker-retention-period=PT5S", # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -366,16 +367,17 @@ conformance_test(
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--max-deduplication-duration=PT5S",
+        "--tracker-retention-period=PT5S", # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -418,12 +420,12 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -441,16 +443,17 @@ conformance_test(
         "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
         "--max-deduplication-duration=PT5S",
+        "--tracker-retention-period=PT5S", # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
