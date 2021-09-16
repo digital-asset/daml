@@ -164,8 +164,8 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     "enrich transaction as expected" in {
 
       val inputKey = ValueRecord(
-        None,
-        ImmArray[(String, Value)](
+        "",
+        ImmArray(
           "" -> ValueParty("Alice"),
           "" -> Value.ValueInt64(0),
         ),
@@ -173,8 +173,8 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
       val inputContract =
         ValueRecord(
-          None,
-          ImmArray[(String, Value)](
+          "",
+          ImmArray(
             "" -> inputKey,
             "" -> Value.ValueNil,
           ),
@@ -190,8 +190,8 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       )
 
       val outputKey = ValueRecord(
-        Some("Mod:Key"),
-        ImmArray[(String, Value)](
+        "Mod:Key",
+        ImmArray(
           "party" -> ValueParty("Alice"),
           "idx" -> Value.ValueInt64(0),
         ),
@@ -199,15 +199,15 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
       val outputContract =
         ValueRecord(
-          Some("Mod:Contract"),
-          ImmArray[(String, Value)](
+          "Mod:Contract",
+          ImmArray(
             "key" -> outputKey,
             "cids" -> Value.ValueNil,
           ),
         )
 
       val outputRecord =
-        ValueRecord(Some("Mod:Record"), ImmArray[(String, Value)]("field" -> ValueInt64(33)))
+        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33)))
 
       val outputTransaction = buildTransaction(
         outputContract,

@@ -8,6 +8,7 @@ package test
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -180,7 +181,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
 object TransactionBuilder {
 
-  type Value = value.Value
   type TxValue = value.Value.VersionedValue
   type Node = Node.GenNode[NodeId]
   type TxNode = Node.GenNode[NodeId]
@@ -197,7 +197,6 @@ object TransactionBuilder {
   type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
   type TxRollBack = Node.NodeRollback[NodeId]
 
-  val Value = value.Value
   val Create = Node.NodeCreate
   val Exercise = Node.NodeExercises
   val Fetch = Node.NodeFetch
@@ -357,12 +356,25 @@ object TransactionBuilder {
     implicit def toNumeric(s: String): Numeric =
       Numeric.assertFromString(s)
 
-    implicit def toOption[X](s: String)(implicit toX: String => X): Option[X] =
+    private def toOption[X](s: String)(implicit toX: String => X): Option[X] =
       if (s.isEmpty) None else Some(toX(s))
 
-    implicit def toFields(list: ImmArray[(String, Value)]): ImmArray[(Option[Ref.Name], Value)] =
-      list.map { case (name, value) => toOption(name)(toName) -> value }
+    private def toTuple[X1, Y1, X2, Y2](
+        tuple: (X1, Y1)
+    )(implicit toX2: X1 => X2, toY2: Y1 => Y2): (X2, Y2) =
+      (toX2(tuple._1), toY2(tuple._2))
+
+    implicit def toOptionIdentifier(s: String)(implicit
+        defaultPackageId: Ref.PackageId
+    ): Option[Ref.Identifier] = toOption(s)
+
+    implicit def toOptionName(s: String): Option[Ref.Name] = toOption(s)
+
+    implicit def toField(t: (String, Value)): (Option[Ref.Name], Value) = toTuple(t)
 
   }
+
+  def valueRecord(id: Option[Ref.Identifier], fields: (Option[Ref.Name], Value)*) =
+    Value.ValueRecord(id, fields.to(ImmArray))
 
 }

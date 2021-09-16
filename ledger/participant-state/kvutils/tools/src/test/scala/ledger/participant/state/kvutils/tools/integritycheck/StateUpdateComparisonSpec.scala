@@ -16,6 +16,7 @@ import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, NodeId}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -133,7 +134,7 @@ final class StateUpdateComparisonSpec
   private def create(
       contractId: ContractId,
       signatories: Set[Ref.Party] = Set(aKeyMaintainer),
-      argument: TransactionBuilder.Value = aDummyValue,
+      argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some("key" -> aKeyMaintainer),
   ): TransactionBuilder.Create =
     TransactionBuilder().create(
