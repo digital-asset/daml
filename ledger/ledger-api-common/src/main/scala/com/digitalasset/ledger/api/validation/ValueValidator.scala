@@ -34,7 +34,7 @@ object ValueValidator {
       })
       .map(_.toImmArray)
 
-  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord[ContractId]] =
+  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
     for {
       recId <- validateOptionalIdentifier(rec.recordId)
       fields <- validateRecordFields(rec.fields)

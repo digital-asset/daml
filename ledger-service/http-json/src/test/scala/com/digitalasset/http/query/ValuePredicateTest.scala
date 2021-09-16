@@ -12,15 +12,16 @@ import com.daml.http.dbbackend.SurrogateTemplateIdCache
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, RNil, ValueAddend => VA}
+import com.daml.lf.value.test.ValueGenerators.cidV0Gen
 import com.daml.metrics.Metrics
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Arbitrary
 import org.scalactic.source
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.{\/, Order}
+import scalaz.\/
 import spray.json._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -32,13 +33,7 @@ class ValuePredicateTest
     with TableDrivenPropertyChecks {
   import ValuePredicateTest._
   type Cid = V.ContractId
-  private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(
-    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t))
-  )
-  // only V0 supported in this test atm
-  private[this] implicit val ordCid: Order[Cid] = Order[V.ContractId.V0] contramap (inside(_) {
-    case a0 @ V.ContractId.V0(_) => a0
-  })
+  private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(cidV0Gen)
 
   import Ref.QualifiedName.{assertFromString => qn}
 
@@ -70,9 +65,9 @@ class ValuePredicateTest
   private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
   private[this] val (eitherId, (eitherDDT, eitherVA)) = eitherT
   private[this] def valueAndTypeInObject(
-      v: V[Cid],
+      v: V,
       ty: iface.Type,
-  ): (V[Cid], ValuePredicate.TypeLookup) =
+  ): (V, ValuePredicate.TypeLookup) =
     (V.ValueRecord(Some(dummyId), ImmArray((Some(dummyFieldName), v))), typeInObject(ty))
   private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
     Map(
@@ -83,7 +78,7 @@ class ValuePredicateTest
     ).lift
 
   "fromJsObject" should {
-    def c[M](query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: M)(implicit
+    def c[M](query: String, ty: VA)(expected: ty.Inj, shouldMatch: M)(implicit
         pos: source.Position
     ) =
       (pos.lineNumber, query.parseJson, ty, ty.inj(expected), shouldMatch)
@@ -235,8 +230,8 @@ class ValuePredicateTest
       minSuccessful(100),
     ) { va =>
       import va.injshrink
-      implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb
-      forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
+      implicit val arbInj: Arbitrary[va.Inj] = va.injarb
+      forAll(minSuccessful(20)) { v: va.Inj =>
         val expected = va.inj(v)
         val (wrappedExpected, defs) = valueAndTypeInObject(expected, va.t)
         val query = apiValueToJsValue(expected)

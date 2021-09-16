@@ -457,7 +457,7 @@ final class JsonApiIt
           inputValue = Some(
             JsArray(
               JsArray(JsString(party0), JsString(party1)),
-              ApiCodecCompressed.apiValueToJsValue(cids.toUnnormalizedValue.mapContractId(_.coid)),
+              ApiCodecCompressed.apiValueToJsValue(cids.toUnnormalizedValue),
             )
           ),
         )
@@ -475,18 +475,14 @@ final class JsonApiIt
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),
           inputValue = Some(JsString(party1)),
         )
-          .map(v =>
-            ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue.mapContractId(_.coid))
-          )
+          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue))
         clientsBoth <- getMultiPartyClients(List(party1, party2))
         cidBoth <- run(
           clientsBoth,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreate"),
           inputValue = Some(JsArray(JsString(party1), JsString(party2))),
         )
-          .map(v =>
-            ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue.mapContractId(_.coid))
-          )
+          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue))
         clients2 <- getMultiPartyClients(List(party2), List(party1))
         r <- run(
           clients2,

@@ -59,7 +59,7 @@ object ApiCodecVerbose {
       JsObject(propType -> JsString(tagNumeric), propValue -> JsString(v.toUnscaledString))
     case V.ValueBool(v) => JsObject(propType -> JsString(tagBool), propValue -> JsBoolean(v))
     case V.ValueContractId(v) =>
-      JsObject(propType -> JsString(tagContractId), propValue -> JsString(v))
+      JsObject(propType -> JsString(tagContractId), propValue -> JsString(v.coid))
     case v: V.ValueTimestamp =>
       JsObject(propType -> JsString(tagTimestamp), propValue -> JsString(v.toIso8601))
     case v: V.ValueDate =>
@@ -145,7 +145,10 @@ object ApiCodecVerbose {
       case `tagNumeric` =>
         V.ValueNumeric(assertDE(LfDecimal fromString strField(value, propValue, "ApiNumeric")))
       case `tagBool` => V.ValueBool(boolField(value, propValue, "ApiBool"))
-      case `tagContractId` => V.ValueContractId(strField(value, propValue, "ApiContractId"))
+      case `tagContractId` =>
+        V.ValueContractId(
+          assertDE(V.ContractId.fromString(strField(value, propValue, "ApiContractId")))
+        )
       case `tagTimestamp` =>
         V.ValueTimestamp.fromIso8601(strField(value, propValue, "ApiTimestamp"))
       case `tagDate` => V.ValueDate.fromIso8601(strField(value, propValue, "ApiDate"))

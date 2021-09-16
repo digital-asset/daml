@@ -27,7 +27,7 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
   )
 
   private[this] def complexValue = {
-    val builder = ImmArray.newBuilder[(Option[Name], Value[Nothing])]
+    val builder = ImmArray.newBuilder[(Option[Name], Value)]
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
@@ -343,7 +343,7 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
     "stable " in {
 
-      type Value = lf.value.Value[ContractId]
+      type Value = lf.value.Value
 
       val pkgId = Ref.PackageId.assertFromString("pkgId")
 

@@ -491,11 +491,11 @@ object Engine {
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
         case _: NodeRollback[_] => "rollback"
-        case create: NodeCreate[_] => makeDesc("create", create.coinst.template, None)
-        case exercise: NodeExercises[_, _] =>
+        case create: NodeCreate => makeDesc("create", create.coinst.template, None)
+        case exercise: NodeExercises[_] =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
-        case fetch: NodeFetch[_] => makeDesc("fetch", fetch.templateId, None)
-        case lookup: NodeLookupByKey[_] => makeDesc("lookup", lookup.templateId, None)
+        case fetch: NodeFetch => makeDesc("fetch", fetch.templateId, None)
+        case lookup: NodeLookupByKey => makeDesc("lookup", lookup.templateId, None)
       }
     } else {
       s"compound:${tx.roots.length}"

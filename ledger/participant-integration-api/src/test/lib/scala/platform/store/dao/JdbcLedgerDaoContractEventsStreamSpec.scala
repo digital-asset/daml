@@ -152,7 +152,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement {
       .runWith(Sink.seq)
       .map(_.map(_._2))
 
-  private def contract(cid: ContractId, contractArgument: LfValue[ContractId]): Contract =
+  private def contract(cid: ContractId, contractArgument: LfValue): Contract =
     createNode(cid, Set.empty, Set.empty, contractArgument = contractArgument)
       .copy(agreementText = "")
       .versionedCoinst

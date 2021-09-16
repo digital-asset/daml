@@ -69,7 +69,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
+  ): Future[Option[ContractInst[Value.VersionedValue]]]
 
   def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]

@@ -180,7 +180,7 @@ object Hash {
     // with another data representing uniquely the type of `value`.
     // See for instance hash : Node.GlobalKey => SHA256Hash
     @throws[HashingError]
-    final def addTypedValue(value: Value[Value.ContractId]): this.type =
+    final def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
           add(0.toByte)
@@ -302,18 +302,18 @@ object Hash {
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
   @throws[HashingError]
-  def assertHashContractKey(templateId: Ref.Identifier, key: Value[Value.ContractId]): Hash =
+  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash =
     builder(Purpose.ContractKey, noCid2String)
       .addIdentifier(templateId)
       .addTypedValue(key)
       .build
 
-  def safeHashContractKey(templateId: Ref.Identifier, key: Value[Nothing]): Hash =
+  def safeHashContractKey(templateId: Ref.Identifier, key: Value): Hash =
     assertHashContractKey(templateId, key)
 
   def hashContractKey(
       templateId: Ref.Identifier,
-      key: Value[Value.ContractId],
+      key: Value,
   ): Either[String, Hash] =
     handleError(assertHashContractKey(templateId, key))
 
@@ -322,7 +322,7 @@ object Hash {
   // 2 - `arg` is a value of type τ
   // The hash is not stable under suffixing of contract IDs
   @throws[HashingError]
-  def assertHashContractInstance(templateId: Ref.Identifier, arg: Value[Value.ContractId]): Hash =
+  def assertHashContractInstance(templateId: Ref.Identifier, arg: Value): Hash =
     builder(Purpose.ContractInstance, aCid2Bytes)
       .addIdentifier(templateId)
       .addTypedValue(arg)
@@ -330,7 +330,7 @@ object Hash {
 
   def hashContractInstnce(
       templateId: Ref.Identifier,
-      arg: Value[Value.ContractId],
+      arg: Value,
   ): Either[String, Hash] =
     handleError(assertHashContractInstance(templateId, arg))
 

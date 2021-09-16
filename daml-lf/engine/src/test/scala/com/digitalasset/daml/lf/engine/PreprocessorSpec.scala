@@ -99,7 +99,7 @@ class PreprocessorSpec
     )
     import valueTranslator.unsafeTranslateValue
 
-    val testCases = Table[Ast.Type, Value[ContractId], speedy.SValue](
+    val testCases = Table[Ast.Type, Value, speedy.SValue](
       ("type", "value", "svalue"),
       (TUnit, ValueUnit, SValue.Unit),
       (TBool, ValueTrue, SValue.True),
@@ -181,7 +181,7 @@ class PreprocessorSpec
     "fails on too deep values" in {
 
       def mkMyList(n: Int) =
-        Iterator.range(0, n).foldLeft[Value[Nothing]](ValueVariant(None, myNilCons, ValueUnit)) {
+        Iterator.range(0, n).foldLeft[Value](ValueVariant(None, myNilCons, ValueUnit)) {
           case (v, n) =>
             ValueVariant(
               None,
@@ -199,7 +199,7 @@ class PreprocessorSpec
 
     def testCasesForCid(culprit: ContractId) = {
       val cid = ValueContractId(culprit)
-      Table[Ast.Type, Value[ContractId]](
+      Table[Ast.Type, Value](
         ("type" -> "value"),
         t"ContractId Mod:Record" -> cid,
         TList(typ) -> ValueList(FrontStack(cid)),

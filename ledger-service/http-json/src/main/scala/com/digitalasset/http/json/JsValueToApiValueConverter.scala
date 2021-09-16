@@ -20,7 +20,7 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
   def jsValueToLfValue(
       lfId: lf.data.Ref.Identifier,
       jsValue: JsValue,
-  ): JsonError \/ lf.value.Value[lf.value.Value.ContractId] =
+  ): JsonError \/ lf.value.Value =
     \/.attempt(
       LfValueCodec.jsValueToApiValue(jsValue, lfId, lfTypeLookup)
     )(identity).liftErr(JsonError)
@@ -28,7 +28,7 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
   def jsValueToLfValue(
       lfType: iface.Type,
       jsValue: JsValue,
-  ): JsonError \/ lf.value.Value[lf.value.Value.ContractId] =
+  ): JsonError \/ lf.value.Value =
     \/.attempt(
       LfValueCodec.jsValueToApiValue(jsValue, lfType, lfTypeLookup)
     )(identity).liftErr(JsonError)

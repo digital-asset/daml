@@ -4,7 +4,6 @@
 package com.daml.lf.kv
 
 import com.daml.lf.transaction._
-import com.daml.lf.value.Value.ContractId
 
 object TransactionNormalizer {
 
@@ -21,9 +20,9 @@ object TransactionNormalizer {
         (acc, _, _) => (acc, false),
         (acc, nid, node) =>
           node match {
-            case _: Node.NodeCreate[_] => acc + nid
-            case _: Node.NodeFetch[_] => acc
-            case _: Node.NodeLookupByKey[_] => acc
+            case _: Node.NodeCreate => acc + nid
+            case _: Node.NodeFetch => acc
+            case _: Node.NodeLookupByKey => acc
           },
         (acc, _, _) => acc,
         (acc, _, _) => acc,
@@ -32,7 +31,7 @@ object TransactionNormalizer {
       tx.nodes
         .filter { case (nid, _) => keepNids.contains(nid) }
         .transform {
-          case (_, node: Node.NodeExercises[NodeId, ContractId]) =>
+          case (_, node: Node.NodeExercises[NodeId]) =>
             node.copy(children = node.children.filter(keepNids.contains))
           case (_, node: Node.NodeRollback[NodeId]) =>
             node.copy(children = node.children.filter(keepNids.contains))

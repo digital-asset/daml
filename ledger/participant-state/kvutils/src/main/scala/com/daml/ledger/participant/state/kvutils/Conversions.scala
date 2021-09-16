@@ -70,7 +70,7 @@ private[state] object Conversions {
       .build
   }
 
-  def encodeContractKey(tmplId: Ref.Identifier, key: Value[ContractId]): DamlContractKey =
+  def encodeContractKey(tmplId: Ref.Identifier, key: Value): DamlContractKey =
     encodeGlobalKey(
       GlobalKey
         .build(tmplId, key)
@@ -83,7 +83,7 @@ private[state] object Conversions {
   def globalKeyToStateKey(key: GlobalKey): DamlStateKey =
     DamlStateKey.newBuilder.setContractKey(encodeGlobalKey(key)).build
 
-  def contractKeyToStateKey(templateId: Ref.Identifier, key: Value[ContractId]): DamlStateKey =
+  def contractKeyToStateKey(templateId: Ref.Identifier, key: Value): DamlStateKey =
     DamlStateKey.newBuilder.setContractKey(encodeContractKey(templateId, key)).build
 
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
@@ -250,7 +250,7 @@ private[state] object Conversions {
         ),
     )
 
-  def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue[ContractId] =
+  def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue =
     assertDecode(
       "ContractInstance",
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, protoValue),
@@ -258,7 +258,7 @@ private[state] object Conversions {
 
   def decodeContractInstance(
       coinst: TransactionOuterClass.ContractInstance
-  ): Value.ContractInst[VersionedValue[ContractId]] =
+  ): Value.ContractInst[VersionedValue] =
     assertDecode(
       "ContractInstance",
       TransactionCoder
@@ -266,7 +266,7 @@ private[state] object Conversions {
     )
 
   def encodeContractInstance(
-      coinst: Value.ContractInst[VersionedValue[Value.ContractId]]
+      coinst: Value.ContractInst[VersionedValue]
   ): TransactionOuterClass.ContractInstance =
     assertEncode(
       "ContractInstance",
@@ -330,14 +330,14 @@ private[state] object Conversions {
 
   def extractDivulgedContracts(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): Either[Seq[String], Map[ContractId, Value.ContractInst[VersionedValue[ContractId]]]] = {
+  ): Either[Seq[String], Map[ContractId, Value.ContractInst[VersionedValue]]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
       val resultAccumulator: Either[Seq[String], mutable.Builder[
-        (ContractId, Value.ContractInst[VersionedValue[ContractId]]),
-        Map[ContractId, Value.ContractInst[VersionedValue[ContractId]]],
+        (ContractId, Value.ContractInst[VersionedValue]),
+        Map[ContractId, Value.ContractInst[VersionedValue]],
       ]] = Right(Map.newBuilder)
       divulgences
         .foldLeft(resultAccumulator) {

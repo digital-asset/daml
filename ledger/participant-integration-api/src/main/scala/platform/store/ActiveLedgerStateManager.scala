@@ -131,13 +131,13 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
     def handleLeaf(
         state: AddTransactionState,
         nodeId: NodeId,
-        node: N.LeafOnlyActionNode[ContractId],
+        node: N.LeafOnlyActionNode,
     ): AddTransactionState =
       state.currentState.als match {
         case None => state
         case Some(als) =>
           node match {
-            case nf: N.NodeFetch[ContractId] =>
+            case nf: N.NodeFetch =>
               val nodeParties = nf.signatories
                 .union(nf.stakeholders)
                 .union(nf.actingParties)
@@ -145,7 +145,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 errs = contractCheck(als, nf.coid).fold(state.errs)(state.errs + _),
                 parties = state.parties.union(nodeParties),
               )
-            case nc: N.NodeCreate[ContractId] =>
+            case nc: N.NodeCreate =>
               val nodeParties = nc.signatories
                 .union(nc.stakeholders)
                 .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
@@ -193,7 +193,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                     )
                   }
               }
-            case nlkup: N.NodeLookupByKey[ContractId] =>
+            case nlkup: N.NodeLookupByKey =>
               // Check that the stored lookup result matches the current result
               val key = nlkup.key.key.ensureNoCid.fold(
                 coid => throw new IllegalStateException(s"Contract ID $coid found in contract key"),

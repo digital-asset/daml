@@ -49,7 +49,7 @@ object ScenarioLedger {
     * transaction node in the node identifier, where here the identifier
     * is an eventId.
     */
-  type Node = GenNode[NodeId, ContractId]
+  type Node = GenNode[NodeId]
 
   /** A transaction as it is committed to the ledger.
     *
@@ -202,7 +202,7 @@ object ScenarioLedger {
 
   final case class LookupOk(
       coid: ContractId,
-      coinst: ContractInst[Value.VersionedValue[ContractId]],
+      coinst: ContractInst[Value.VersionedValue],
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -306,15 +306,15 @@ object ScenarioLedger {
   // Enriching transactions with disclosure information
   //----------------------------------------------------------------------------
 
-  def collectCoids(value: VersionedValue[ContractId]): Set[ContractId] =
+  def collectCoids(value: VersionedValue): Set[ContractId] =
     collectCoids(value.value)
 
   /** Collect all contract ids appearing in a value
     */
-  def collectCoids(value: Value[ContractId]): Set[ContractId] = {
+  def collectCoids(value: Value): Set[ContractId] = {
     val coids =
       implicitly[Factory[ContractId, Set[ContractId]]].newBuilder
-    def collect(v: Value[ContractId]): Unit =
+    def collect(v: Value): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>
           fs.foreach { case (_, v) =>
@@ -473,7 +473,7 @@ object ScenarioLedger {
                         ) :: idsToProcess,
                       )
 
-                    case nc: NodeCreate[ContractId] =>
+                    case nc: NodeCreate =>
                       val newCache1 =
                         newCache
                           .markAsActive(nc.coid)
@@ -497,7 +497,7 @@ object ScenarioLedger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises[NodeId, ContractId] =>
+                    case ex: NodeExercises[NodeId] =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
                           info.copy(
@@ -515,7 +515,7 @@ object ScenarioLedger {
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
-                            .asInstanceOf[NodeCreate[ContractId]]
+                            .asInstanceOf[NodeCreate]
                           nc.key match {
                             case None => newCache0_1
                             case Some(keyWithMaintainers) =>
@@ -530,7 +530,7 @@ object ScenarioLedger {
                         ProcessingNode(Some(nodeId), ex.children.toList, None) :: idsToProcess,
                       )
 
-                    case nlkup: NodeLookupByKey[ContractId] =>
+                    case nlkup: NodeLookupByKey =>
                       nlkup.result match {
                         case None =>
                           processNodes(Right(newCache), idsToProcess)
@@ -652,7 +652,7 @@ case class ScenarioLedger(
       case None => LookupContractNotFound(coid)
       case Some(info) =>
         info.node match {
-          case create: NodeCreate[ContractId] =>
+          case create: NodeCreate =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
             else if (info.consumedBy.nonEmpty)
@@ -671,8 +671,7 @@ case class ScenarioLedger(
             else
               LookupOk(coid, create.versionedCoinst, create.stakeholders)
 
-          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] |
-              _: NodeRollback[_] =>
+          case _: NodeExercises[_] | _: NodeFetch | _: NodeLookupByKey | _: NodeRollback[_] =>
             LookupContractNotFound(coid)
         }
     }
