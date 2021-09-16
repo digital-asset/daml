@@ -346,6 +346,18 @@ object ErrorCategory {
       )
       with ErrorCategory
 
+  @Deprecated
+  object IsAbortShouldBePrecondition
+      extends ErrorCategoryImpl(
+        grpcCode = Some(Code.ABORTED),
+        logLevel = Level.INFO,
+        retryable = None,
+        securitySensitive = false,
+        asInt = 14,
+        rank = 3,
+      )
+      with ErrorCategory
+
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 
 }
