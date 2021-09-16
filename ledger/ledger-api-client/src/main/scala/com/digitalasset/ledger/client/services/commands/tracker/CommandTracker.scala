@@ -3,8 +3,6 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
-import java.time.{Duration, Instant}
-
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
@@ -15,6 +13,7 @@ import com.daml.ledger.client.services.commands.tracker.CommandTracker._
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
+  NotOkResponse,
 }
 import com.daml.ledger.client.services.commands.{
   CommandSubmission,
@@ -27,6 +26,7 @@ import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 
+import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
@@ -57,17 +57,20 @@ private[commands] class CommandTracker[Context](
     timeoutDetectionPeriod: FiniteDuration,
 ) extends GraphStageWithMaterializedValue[
       CommandTrackerShape[Context],
-      Future[Map[String, Context]],
+      Future[Map[TrackedCommandKey, Context]],
     ] {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getName)
 
   val submitRequestIn: Inlet[Ctx[Context, CommandSubmission]] =
     Inlet[Ctx[Context, CommandSubmission]]("submitRequestIn")
-  val submitRequestOut: Outlet[Ctx[(Context, String), CommandSubmission]] =
-    Outlet[Ctx[(Context, String), CommandSubmission]]("submitRequestOut")
-  val commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]] =
-    Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]]("commandResultIn")
+  val submitRequestOut: Outlet[Ctx[(Context, TrackedCommandKey), CommandSubmission]] =
+    Outlet[Ctx[(Context, TrackedCommandKey), CommandSubmission]]("submitRequestOut")
+  val commandResultIn
+      : Inlet[Either[Ctx[(Context, TrackedCommandKey), Try[Empty]], CompletionStreamElement]] =
+    Inlet[Either[Ctx[(Context, TrackedCommandKey), Try[Empty]], CompletionStreamElement]](
+      "commandResultIn"
+    )
   val resultOut: Outlet[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] =
     Outlet[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]]("resultOut")
   val offsetOut: Outlet[LedgerOffset] =
@@ -75,9 +78,9 @@ private[commands] class CommandTracker[Context](
 
   override def createLogicAndMaterializedValue(
       inheritedAttributes: Attributes
-  ): (GraphStageLogic, Future[Map[String, Context]]) = {
+  ): (GraphStageLogic, Future[Map[TrackedCommandKey, Context]]) = {
 
-    val promise = Promise[immutable.Map[String, Context]]()
+    val promise = Promise[immutable.Map[TrackedCommandKey, Context]]()
 
     val logic: TimerGraphStageLogic = new TimerGraphStageLogic(shape) {
 
@@ -91,12 +94,12 @@ private[commands] class CommandTracker[Context](
         timerKey match {
           case `timeout_detection` =>
             val timeouts = getOutputForTimeout(Instant.now)
-            if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts)
+            if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts.to(immutable.Iterable))
           case _ => // unknown timer, nothing to do
         }
       }
 
-      private val pendingCommands = new mutable.HashMap[String, TrackingData[Context]]()
+      private val pendingCommands = new mutable.HashMap[TrackedCommandKey, TrackingData[Context]]()
 
       setHandler(
         submitRequestOut,
@@ -116,11 +119,16 @@ private[commands] class CommandTracker[Context](
           override def onPush(): Unit = {
             val submitRequest = grab(submitRequestIn)
             registerSubmission(submitRequest)
-            logger.trace(
-              "Submitted command {}",
-              submitRequest.value.commands.commandId,
+            val commands = submitRequest.value.commands
+            val submissionId = commands.submissionId
+            val commandId = commands.commandId
+            logger.trace(s"Submitted command $commandId in submission $submissionId.")
+            push(
+              submitRequestOut,
+              submitRequest.enrich((context, _) =>
+                context -> TrackedCommandKey(submissionId, commandId)
+              ),
             )
-            push(submitRequestOut, submitRequest.enrich(_ -> _.commands.commandId))
           }
 
           override def onUpstreamFinish(): Unit = {
@@ -177,7 +185,7 @@ private[commands] class CommandTracker[Context](
       )
 
       private def pushResultOrPullCommandResultIn(
-          compl: Option[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]]
+          compl: Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]]
       ): Unit = {
         // The command tracker detects timeouts outside the regular pull/push
         // mechanism of the input/output ports. Basically the timeout
@@ -186,7 +194,10 @@ private[commands] class CommandTracker[Context](
         // even though it hasn't been pulled again in the meantime. Using `emit`
         // instead of `push` when a completion arrives makes akka take care of
         // handling the signaling properly.
-        compl.fold(if (!hasBeenPulled(commandResultIn)) pull(commandResultIn))(emit(resultOut, _))
+        if (compl.isEmpty && !hasBeenPulled(commandResultIn)) {
+          pull(commandResultIn)
+        }
+        emitMultiple(resultOut, compl.to(immutable.Iterable))
       }
 
       private def completeStageIfTerminal(): Unit = {
@@ -197,33 +208,38 @@ private[commands] class CommandTracker[Context](
 
       import CommandTracker.nonTerminalCodes
 
-      private def handleSubmitResponse(submitResponse: Ctx[(Context, String), Try[Empty]]) = {
-        val Ctx((_, commandId), value, _) = submitResponse
+      private def handleSubmitResponse(
+          submitResponse: Ctx[(Context, TrackedCommandKey), Try[Empty]]
+      ): Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
+        val Ctx((_, commandKey), value, _) = submitResponse
         value match {
           case Failure(GrpcException(status @ GrpcStatus(code, _), metadata))
               if !nonTerminalCodes(code) =>
-            getOutputForTerminalStatusCode(commandId, GrpcStatus.toProto(status, metadata))
+            getOutputForTerminalStatusCode(commandKey, GrpcStatus.toProto(status, metadata))
           case Failure(throwable) =>
             logger.warn(
               s"Service responded with error for submitting command with context ${submitResponse.context}. Status of command is unknown. watching for completion...",
               throwable,
             )
-            None
+            Seq.empty
           case Success(_) =>
-            logger.trace("Received confirmation that command {} was accepted.", commandId)
-            None
+            logger.trace(
+              s"Received confirmation that command ${commandKey.commandId} from submission ${commandKey.submissionId} was accepted."
+            )
+            Seq.empty
         }
       }
 
       @nowarn("msg=deprecated")
       private def registerSubmission(submission: Ctx[Context, CommandSubmission]): Unit = {
         val commands = submission.value.commands
+        val submissionId = commands.submissionId
         val commandId = commands.commandId
-        logger.trace("Begin tracking of command {}", commandId)
-        if (pendingCommands.contains(commandId)) {
+        logger.trace(s"Begin tracking of command $commandId for submission $submissionId.")
+        if (pendingCommands.contains(TrackedCommandKey(submissionId, commandId))) {
           // TODO return an error identical to the server side duplicate command error once that's defined.
           throw new IllegalStateException(
-            s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
+            s"A command $commandId from a submission $submissionId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
           ) with NoStackTrace
         }
         val commandTimeout = submission.value.timeout match {
@@ -249,65 +265,117 @@ private[commands] class CommandTracker[Context](
           commandTimeout = Instant.now().plus(commandTimeout),
           context = submission.context,
         )
-        pendingCommands += commandId -> trackingData
+        pendingCommands += TrackedCommandKey(submissionId, commandId) -> trackingData
         ()
       }
 
       private def getOutputForTimeout(instant: Instant) = {
         logger.trace("Checking timeouts at {}", instant)
-        pendingCommands.view
-          .flatMap { case (commandId, trackingData) =>
-            if (trackingData.commandTimeout.isBefore(instant)) {
-              pendingCommands -= commandId
-              logger.info(
-                s"Command {} (command timeout {}) timed out at checkpoint {}.",
-                commandId,
-                trackingData.commandTimeout,
-                instant,
+        pendingCommands.view.flatMap { case (commandKey, trackingData) =>
+          if (trackingData.commandTimeout.isBefore(instant)) {
+            pendingCommands -= commandKey
+            logger.info(
+              s"Command {} from submission {} (command timeout {}) timed out at checkpoint {}.",
+              commandKey.commandId,
+              commandKey.submissionId,
+              trackingData.commandTimeout,
+              instant,
+            )
+            List(
+              Ctx(
+                trackingData.context,
+                Left(CompletionResponse.TimeoutResponse(commandId = trackingData.commandId)),
               )
-              List(
-                Ctx(
-                  trackingData.context,
-                  Left(CompletionResponse.TimeoutResponse(commandId = trackingData.commandId)),
+            )
+          } else {
+            Nil
+          }
+        }.toSeq
+      }
+
+      private def getOutputForCompletion(
+          completion: Completion
+      ): Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
+        val completionDescription = completion.status match {
+          case Some(StatusProto(code, _, _, _)) if code == Status.Code.OK.value =>
+            "successful completion of command"
+          case _ => "failed completion of command"
+        }
+
+        val commandId = completion.commandId
+        logger.trace(
+          "Handling {} {} from submission {}.",
+          completionDescription,
+          commandId,
+          completion.submissionId,
+        )
+
+        val maybeSubmissionId = Option(completion.submissionId).collect {
+          case id if id.nonEmpty => id
+        }
+        val value = pendingCommandKeys(maybeSubmissionId, commandId)
+        val trackedCommands =
+          value.flatMap(pendingCommands.remove(_).toList)
+
+        if (trackedCommands.size > 1) {
+          trackedCommands.map { trackingData =>
+            Ctx(
+              trackingData.context,
+              Left(
+                NotOkResponse(
+                  commandId,
+                  StatusProto.of(
+                    Status.Code.INTERNAL.value(),
+                    s"There are multiple pending commands for the id $commandId. This can only happen for the mutating schema.",
+                    Seq.empty,
+                  ),
                 )
-              )
-            } else {
-              Nil
-            }
+              ),
+            )
           }
-          .to(immutable.Seq)
-      }
-
-      private def getOutputForCompletion(completion: Completion) = {
-        val (commandId, errorText) = {
-          completion.status match {
-            case Some(StatusProto(code, _, _, _)) if code == Status.Code.OK.value =>
-              completion.commandId -> "successful completion of command"
-            case _ =>
-              completion.commandId -> "failed completion of command"
-          }
-        }
-
-        logger.trace("Handling {} {}", errorText, completion.commandId: Any)
-        pendingCommands.remove(commandId).map { t =>
-          Ctx(t.context, tracker.CompletionResponse(completion))
+        } else {
+          trackedCommands.map(trackingData =>
+            Ctx(trackingData.context, tracker.CompletionResponse(completion))
+          )
         }
       }
+
+      private def pendingCommandKeys(
+          submissionId: Option[String],
+          commandId: String,
+      ): Seq[TrackedCommandKey] =
+        submissionId.map(id => Seq(TrackedCommandKey(id, commandId))).getOrElse {
+          pendingCommands.keys.filter(_.commandId == commandId).toList
+        }
 
       private def getOutputForTerminalStatusCode(
-          commandId: String,
+          commandKey: TrackedCommandKey,
           status: StatusProto,
-      ): Option[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
-        logger.trace("Handling failure of command {}", commandId)
+      ): Seq[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]] = {
+        logger.trace(
+          s"Handling failure of command ${commandKey.commandId} from submission ${commandKey.submissionId}."
+        )
         pendingCommands
-          .remove(commandId)
+          .remove(commandKey)
           .map { t =>
-            Ctx(t.context, tracker.CompletionResponse(Completion(commandId, Some(status))))
+            Ctx(
+              t.context,
+              tracker.CompletionResponse(
+                Completion(
+                  commandKey.commandId,
+                  Some(status),
+                  submissionId = commandKey.submissionId,
+                )
+              ),
+            )
           }
           .orElse {
-            logger.trace("Platform signaled failure for unknown command {}", commandId)
+            logger.trace(
+              s"Platform signaled failure for unknown command ${commandKey.commandId} from submission ${commandKey.submissionId}."
+            )
             None
           }
+          .toList
       }
 
       override def postStop(): Unit = {

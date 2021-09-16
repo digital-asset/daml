@@ -219,6 +219,7 @@ conformance_test(
         "--additional=ParticipantPruningIT",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
         # The following two tests don't actually care about multi-participant but they do need append-only.
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
