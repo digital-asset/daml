@@ -32,7 +32,12 @@ final case class Config(
     partyAllocation: PartyAllocationConfiguration,
     ledgerClockGranularity: FiniteDuration,
     uploadDars: Boolean,
-)
+) {
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config = {
+    val base = tlsConfig.getOrElse(TlsConfiguration.Empty)
+    copy(tlsConfig = Some(modify(base)))
+  }
+}
 
 object Config {
   val default: Config = Config(

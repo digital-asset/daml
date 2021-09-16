@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.testtool.tests.Tests
-import com.daml.ledger.api.tls.TlsConfiguration
 import scopt.{OptionParser, Read}
 
 import java.io.File
@@ -17,9 +16,11 @@ import scala.util.Try
 
 object Cli {
 
-  private def reportUsageOfDeprecatedOption[B](
-      option: String
-  ) = { (_: Any, config: B) =>
+  private val Name = "ledger-api-test-tool"
+
+  private[this] implicit val tlsVersionRead: Read[File] = Read.reads(Paths.get(_).toFile)
+
+  private def reportUsageOfDeprecatedOption[B](option: String) = { (_: Any, config: B) =>
     System.err.println(
       s"WARNING: $option has been deprecated and will be removed in a future version"
     )
@@ -42,29 +43,6 @@ object Cli {
       case n: Int => (s.slice(0, n), s.slice(n + 1, s.length))
     }
 
-  private val Name = "ledger-api-test-tool"
-
-  private val pemConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None))
-      )(c => Some(c.copy(keyFile = Some(new File(path)))))
-    )
-
-  private val crtConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None))
-      )(c => Some(c.copy(keyCertChainFile = Some(new File(path)))))
-    )
-
-  private val cacrtConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path))))
-      )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path)))))
-    )
-
   private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
   private val argParser: OptionParser[Config] = new scopt.OptionParser[Config](Name) {
@@ -73,7 +51,7 @@ object Cli {
 
     head(
       """The Ledger API Test Tool is a command line tool for testing the correctness of
-            |ledger implementations based on Daml and Ledger API.""".stripMargin
+        |ledger implementations based on Daml and Ledger API.""".stripMargin
     )
 
     arg[(String, Int)]("[endpoints...]")(endpointRead)
@@ -96,32 +74,38 @@ object Cli {
       .action(reportUsageOfDeprecatedOption("--target-port"))
       .hidden()
 
-    opt[String]("pem")
+    opt[File]("pem")
       .optional()
       .text("TLS: The pem file to be used as the private key. Applied to all endpoints.")
-      .action(pemConfig)
+      .action { (path: File, config: Config) =>
+        config.withTlsConfig(_.copy(keyFile = Some(path)))
+      }
 
-    opt[String]("crt")
+    opt[File]("crt")
       .optional()
       .text(
         """TLS: The crt file to be used as the cert chain.
-              |Required if any other TLS parameters are set. Applied to all endpoints.""".stripMargin
+          |Required if any other TLS parameters are set. Applied to all endpoints.""".stripMargin
       )
-      .action(crtConfig)
+      .action { (path: File, config: Config) =>
+        config.withTlsConfig(_.copy(keyCertChainFile = Some(path)))
+      }
 
-    opt[String]("cacrt")
+    opt[File]("cacrt")
       .optional()
       .text("TLS: The crt file to be used as the trusted root CA. Applied to all endpoints.")
-      .action(cacrtConfig)
+      .action { (path: File, config: Config) =>
+        config.withTlsConfig(_.copy(trustCertCollectionFile = Some(path)))
+      }
 
     opt[Double](name = "timeout-scale-factor")
       .optional()
       .action((v, c) => c.copy(timeoutScaleFactor = v))
       .text(
         """Scale factor for timeouts used in all test suites. Useful to tune timeouts
-              |depending on the environment and the Ledger implementation under test.
-              |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
-              |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin
+          |depending on the environment and the Ledger implementation under test.
+          |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
+          |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin
       )
 
     opt[String](name = "load-scale-factor")
@@ -144,16 +128,16 @@ object Cli {
       .action((_, c) => c.copy(mustFail = true))
       .text(
         """Reverse success status logic of the tool. Use this flag if you expect one or
-              |more or the scenario tests to fail. If enabled, the tool will succeed when at
-              |least one test fails, and it will fail when all tests succeed. Defaults to
-              |false.""".stripMargin
+          |more or the scenario tests to fail. If enabled, the tool will succeed when at
+          |least one test fails, and it will fail when all tests succeed. Defaults to
+          |false.""".stripMargin
       )
 
     opt[Unit]('x', "extract")
       .action((_, c) => c.copy(extract = true))
       .text(
         """Extract a DAR necessary to test a Daml ledger and exit without running tests.
-              |The DAR needs to be manually loaded into a Daml ledger for the tool to work.""".stripMargin
+          |The DAR needs to be manually loaded into a Daml ledger for the tool to work.""".stripMargin
       )
 
     opt[Seq[String]]("exclude")
@@ -161,8 +145,8 @@ object Cli {
       .unbounded()
       .text(
         """A comma-separated list of exclusion prefixes. Tests whose name start with
-              |any of the given prefixes will be skipped. Can be specified multiple times,
-              |i.e. `--exclude=a,b` is the same as `--exclude=a --exclude=b`.""".stripMargin
+          |any of the given prefixes will be skipped. Can be specified multiple times,
+          |i.e. `--exclude=a,b` is the same as `--exclude=a --exclude=b`.""".stripMargin
       )
 
     opt[Seq[String]]("include")
@@ -170,10 +154,10 @@ object Cli {
       .unbounded()
       .text(
         """A comma-separated list of inclusion prefixes. If not specified,
-              |all default tests are included. If specified, only tests that match at least one
-              |of the given inclusion prefixes (and none of the given exclusion prefixes) will be run.
-              |Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.
-              |Mutually exclusive with `--additional`.""".stripMargin
+          |all default tests are included. If specified, only tests that match at least one
+          |of the given inclusion prefixes (and none of the given exclusion prefixes) will be run.
+          |Can be specified multiple times, i.e. `--include=a,b` is the same as `--include=a --include=b`.
+          |Mutually exclusive with `--additional`.""".stripMargin
       )
 
     opt[Seq[String]]("additional")
@@ -182,9 +166,9 @@ object Cli {
       .unbounded()
       .text(
         """A comma-separated list of additional prefixes. If specified, also tests that match at least one
-              |of the given inclusion prefixes (and none of the given exclusion prefixes) will be run.
-              |Can be specified multiple times, i.e. `--additional=a,b` is the same as `--additional=a --additional=b`.
-              |Mutually exclusive with `--include`.""".stripMargin
+          |of the given inclusion prefixes (and none of the given exclusion prefixes) will be run.
+          |Can be specified multiple times, i.e. `--additional=a,b` is the same as `--additional=a --additional=b`.
+          |Mutually exclusive with `--include`.""".stripMargin
       )
 
     opt[Seq[String]]("perf-tests")
@@ -209,7 +193,7 @@ object Cli {
       .action((_, c) => c.copy(shuffleParticipants = true))
       .text(
         """Shuffle the list of participants used in a test.
-              |By default participants are used in the order they're given.""".stripMargin
+          |By default participants are used in the order they're given.""".stripMargin
       )
 
     opt[Unit]("no-wait-for-parties")
@@ -221,16 +205,16 @@ object Cli {
       .action((_, c) => c.copy(partyAllocation = PartyAllocationConfiguration.OpenWorld))
       .text(
         """Do not allocate parties explicitly.
-              |Instead, expect the ledger to allocate parties dynamically.
-              |Party names must be their hints.""".stripMargin
+          |Instead, expect the ledger to allocate parties dynamically.
+          |Party names must be their hints.""".stripMargin
       )
 
     opt[Unit]("list")
       .action((_, c) => c.copy(listTestSuites = true))
       .text(
         """Lists all available test suites that can be used in the include and exclude options.
-              |Test names always start with their suite name, so using the suite name as a prefix
-              |matches all tests in a given suite.""".stripMargin
+          |Test names always start with their suite name, so using the suite name as a prefix
+          |matches all tests in a given suite.""".stripMargin
       )
 
     opt[Unit]("list-all")
@@ -252,7 +236,7 @@ object Cli {
       .action((x, c) => c.copy(ledgerClockGranularity = x))
       .text(
         """Specify the largest interval that you will see between clock ticks
-              |on the ledger under test. The default is \"1s\" (1 second).""".stripMargin
+          |on the ledger under test. The default is \"1s\" (1 second).""".stripMargin
       )
 
     opt[Unit]("skip-dar-upload")
