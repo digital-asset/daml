@@ -205,13 +205,13 @@ final class BuffersUpdaterSpec
       val createdLedgerEffectiveTime = Instant.ofEpochMilli(987654321L)
       val createdTemplateId = Ref.Identifier.assertFromString("create:template:id")
       val createdContractKey =
-        VersionedValue[ContractId](TransactionVersion.VDev, ValueInt64(1337L))
+        VersionedValue(TransactionVersion.VDev, ValueInt64(1337L))
       val createdFlatEventWitnesses = Set("alice", "charlie")
       val createArgument = VersionedValue(TransactionVersion.VDev, ValueText("arg"))
       val createAgreement = "agreement"
 
       val exercisedCid = ContractId.assertFromString("#exercisedCid")
-      val exercisedKey = VersionedValue[ContractId](TransactionVersion.VDev, ValueInt64(8974L))
+      val exercisedKey = VersionedValue(TransactionVersion.VDev, ValueInt64(8974L))
       val exercisedTemplateId = Ref.Identifier.assertFromString("exercised:template:id")
       val exercisedFlatEventWitnesses = Set("bob", "dan")
       val exercisedOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)

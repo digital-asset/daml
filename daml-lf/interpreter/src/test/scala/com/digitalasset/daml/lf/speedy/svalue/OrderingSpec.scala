@@ -78,10 +78,9 @@ class OrderingSpec
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
     import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-    implicit val ordNo: Order[Nothing] =
-      Order order [Nothing] ((_: Any, _: Any) => sys.error("impossible"))
-    def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =
-      (name, va.injarb[Nothing].arbitrary map sv)
+    implicit val cidArb: Arbitrary[Value.ContractId] = Arbitrary(Gen.fail[Value.ContractId])
+    def r(name: String, va: VA)(sv: va.Inj => SValue) =
+      (name, va.injarb.arbitrary map sv)
     Table(
       ("comparable value subset", "generator"),
       Seq(
@@ -120,8 +119,8 @@ class OrderingSpec
 
     "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.{injarb, injshrink}
-      implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
-      forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+      implicit val valueOrd: Order[Value] = Tag unsubst Value.orderInstance(EmptyScope)
+      forAll(minSuccessful(20)) { (a: va.Inj, b: va.Inj) =>
         import va.injord
         val ta = va.inj(a)
         val tb = va.inj(b)
@@ -181,7 +180,7 @@ class OrderingSpec
     }
   }
 
-  private def translatePrimValue(typ: iface.Type, v: Value[Value.ContractId]) = {
+  private def translatePrimValue(typ: iface.Type, v: Value) = {
     val seed = crypto.Hash.hashPrivateKey("OrderingSpec")
     val machine = Speedy.Machine.fromUpdateSExpr(
       PureCompiledPackages.Empty,

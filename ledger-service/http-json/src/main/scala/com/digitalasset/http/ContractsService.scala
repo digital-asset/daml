@@ -569,7 +569,7 @@ class ContractsService(
 object ContractsService {
   private type ApiValue = api.value.Value
 
-  private type LfValue = lf.value.Value[lf.value.Value.ContractId]
+  private type LfValue = lf.value.Value
 
   private final case class SearchValueFormat[-T](encode: T => (Error \/ JsValue))
 

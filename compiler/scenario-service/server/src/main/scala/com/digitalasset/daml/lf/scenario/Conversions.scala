@@ -34,7 +34,7 @@ final class Conversions(
   private val ptxCoidToNodeId = incomplete
     .map(_.transaction.nodes)
     .getOrElse(Map.empty)
-    .collect { case (nodeId, node: N.NodeCreate[V.ContractId]) =>
+    .collect { case (nodeId, node: N.NodeCreate) =>
       node.coid -> ledger.ptxEventId(nodeId)
     }
 
@@ -486,7 +486,7 @@ final class Conversions(
             rollback.children.map(convertNodeId(eventId.transactionId, _)).toSeq.asJava
           )
         builder.setRollback(rollbackBuilder.build)
-      case create: N.NodeCreate[V.ContractId] =>
+      case create: N.NodeCreate =>
         val createBuilder =
           proto.Node.Create.newBuilder
             .setContractInstance(
@@ -500,7 +500,7 @@ final class Conversions(
 
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch[V.ContractId] =>
+      case fetch: N.NodeFetch =>
         builder.setFetch(
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
@@ -509,7 +509,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises[NodeId, V.ContractId] =>
+      case ex: N.NodeExercises[NodeId] =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         val exerciseBuilder =
           proto.Node.Exercise.newBuilder
@@ -534,7 +534,7 @@ final class Conversions(
 
         builder.setExercise(exerciseBuilder.build)
 
-      case lbk: N.NodeLookupByKey[V.ContractId] =>
+      case lbk: N.NodeLookupByKey =>
         nodeInfo.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = proto.Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
@@ -547,7 +547,7 @@ final class Conversions(
   }
 
   def convertKeyWithMaintainers(
-      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]]
+      key: N.KeyWithMaintainers[V.VersionedValue]
   ): proto.KeyWithMaintainers = {
     proto.KeyWithMaintainers
       .newBuilder()
@@ -558,7 +558,7 @@ final class Conversions(
 
   def convertIncompleteTransactionNode(
       locationInfo: Map[NodeId, Ref.Location]
-  )(nodeWithId: (NodeId, N.GenNode[NodeId, V.ContractId])): proto.Node = {
+  )(nodeWithId: (NodeId, N.GenNode[NodeId])): proto.Node = {
     val (nodeId, node) = nodeWithId
     val optLocation = locationInfo.get(nodeId)
     val builder = proto.Node.newBuilder
@@ -576,7 +576,7 @@ final class Conversions(
                 .asJava
             )
         builder.setRollback(rollbackBuilder.build)
-      case create: N.NodeCreate[V.ContractId] =>
+      case create: N.NodeCreate =>
         val createBuilder =
           proto.Node.Create.newBuilder
             .setContractInstance(
@@ -592,7 +592,7 @@ final class Conversions(
         )
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch[V.ContractId] =>
+      case fetch: N.NodeFetch =>
         builder.setFetch(
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
@@ -601,7 +601,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises[NodeId, V.ContractId] =>
+      case ex: N.NodeExercises[NodeId] =>
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           proto.Node.Exercise.newBuilder
@@ -622,7 +622,7 @@ final class Conversions(
             .build
         )
 
-      case lookup: N.NodeLookupByKey[V.ContractId] =>
+      case lookup: N.NodeLookupByKey =>
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = proto.Node.LookupByKey.newBuilder
@@ -662,10 +662,10 @@ final class Conversions(
 
   }
 
-  private def convertVersionedValue(value: V.VersionedValue[V.ContractId]): proto.Value =
+  private def convertVersionedValue(value: V.VersionedValue): proto.Value =
     convertValue(value.value)
 
-  def convertValue(value: V[V.ContractId]): proto.Value = {
+  def convertValue(value: V): proto.Value = {
     val builder = proto.Value.newBuilder
     value match {
       case V.ValueRecord(tycon, fields) =>

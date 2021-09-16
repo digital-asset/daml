@@ -481,8 +481,15 @@ object Ast {
   final case class UpdateBlock(bindings: ImmArray[Binding], body: Expr) extends Update
   final case class UpdateCreate(templateId: TypeConName, arg: Expr) extends Update
   final case class UpdateFetch(templateId: TypeConName, contractId: Expr) extends Update
+  final case class UpdateFetchInterface(interface: TypeConName, contractId: Expr) extends Update
   final case class UpdateExercise(
       templateId: TypeConName,
+      choice: ChoiceName,
+      cidE: Expr,
+      argE: Expr,
+  ) extends Update
+  final case class UpdateExerciseInterface(
+      interface: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,

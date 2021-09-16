@@ -175,6 +175,8 @@ data Env = Env
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
+    ,envImplements :: MS.Map TypeConName [GHC.Type]
+    ,envInterfaces :: S.Set TypeConName
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
@@ -408,18 +410,21 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
+interfaceNames :: LF.Version -> [TyThing] -> S.Set TypeConName
+interfaceNames lfVersion tyThings
+    | lfVersion `supports` featureInterfaces =
+      S.fromList [ mkTypeCon [getOccText t] | ATyCon t <- tyThings, hasDamlInterfaceCtx t ]
+    | otherwise = S.empty
+
 convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
-convertInterfaces env tyThings
-  | envLfVersion env `supports` featureInterfaces = interfaceClasses
-  | otherwise = pure []
+convertInterfaces env tyThings = interfaceClasses
   where
-    interfaceCons = S.fromList [ getOccText t | ATyCon t <- tyThings, hasDamlInterfaceCtx t ]
     interfaceClasses = sequence
         [ DInterface <$> convertInterface interface cls
         | ATyCon t <- tyThings
         , Just cls <- [tyConClass_maybe t]
         , Just interface <- [T.stripPrefix "Is" (getOccText t)]
-        , interface `S.member` interfaceCons
+        , TypeConName [interface] `S.member` (envInterfaces env)
         ]
     convertInterface :: T.Text -> Class -> ConvertM DefInterface
     convertInterface name cls = do
@@ -475,6 +480,13 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
                 | otherwise -> [(name, body)]
               Rec binds -> binds
           ]
+        interfaceCons = interfaceNames lfVersion (eltsUFM (cm_types x))
+        tplImplements = MS.fromListWith (++)
+           [ (mkTypeCon [getOccText tplTy], [ifaceTy])
+           | (name, _) <- binds
+           , "_implements_" `T.isPrefixOf` getOccText name
+           , TypeCon _ [TypeCon tplTy [], ifaceTy] <- [varType name]
+           ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
@@ -496,8 +508,10 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
           , envPkgMap = pkgMap
           , envStablePackages = stablePackages
           , envLfVersion = lfVersion
+          , envInterfaces = interfaceCons
           , envTemplateBinds = templateBinds
           , envExceptionBinds = exceptionBinds
+          , envImplements = tplImplements
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -518,9 +532,9 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` internalTypes
     -> pure []
     | NameIn DA_Internal_Prelude "Optional" <- t -> pure []
-    -- Consumption marker types used to transfer information from template desugaring to LF conversion.
+    -- Types used only for desugaring are dropped during the LF conversion.
     | NameIn DA_Internal_Desugar n <- t
-    , n `elementOfUniqSet` consumingTypes
+    , n `elementOfUniqSet` desugarTypes
     -> pure []
 
     | hasDamlInterfaceCtx t && envLfVersion env `supports` featureInterfaces
@@ -743,8 +757,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        let tplImplements = []
+        tplImplements <- convertImplements env tplTypeCon
         pure Template {..}
 
     | otherwise =
@@ -814,6 +827,16 @@ useSingleMethodDict env (Cast ghcExpr _) f = do
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
+convertImplements :: Env -> LF.TypeConName -> ConvertM [Qualified TypeConName]
+convertImplements env tplTypeCon =
+    mapM convertInterfaceCon (MS.findWithDefault [] tplTypeCon (envImplements env))
+  where
+    convertInterfaceCon ty = do
+        ty' <- convertType env ty
+        case ty' of
+            TCon con -> pure con
+            _ -> unhandled "interface type" ty
+
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =
     NM.fromList <$> traverse (convertChoice env tbinds)
@@ -828,7 +851,7 @@ convertChoice env tbinds (ChoiceData ty expr)
               , (_, action)
               , _
               , (_, optObservers)
-              ] <- convertExpr env expr
+              ] <- removeLocations <$> convertExpr env expr
 
     mbObservers <-
       case optObservers of
@@ -876,10 +899,20 @@ convertBind env (name, x)
     | "_choice_" `T.isPrefixOf` getOccText name
     = pure []
 
+    -- These are only used as markers for the LF conversion.
+    | "_implements_" `T.isPrefixOf` getOccText name
+    = pure []
+
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
+
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    -- Reconsider once we have a constructor for existential interfaces
+    -- in LF.
+    | Just iface <- T.stripPrefix "$W" (getOccText name)
+    , mkTypeCon [iface] `S.member` (envInterfaces env) = pure []
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -963,8 +996,8 @@ internalTypes = mkUniqSet
     , "Experimental"
     ]
 
-consumingTypes :: UniqSet FastString
-consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
+desugarTypes :: UniqSet FastString
+desugarTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming", "Implements"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)

@@ -41,7 +41,7 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 
   def consume(
-      pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
+      pcs: ContractId => Option[ContractInst[VersionedValue]],
       packages: PackageId => Option[Package],
       keys: GlobalKeyWithMaintainers => Option[ContractId],
   ): Either[Error, A] = {
@@ -86,7 +86,7 @@ object ResultError {
   */
 final case class ResultNeedContract[A](
     acoid: ContractId,
-    resume: Option[ContractInst[VersionedValue[ContractId]]] => Result[A],
+    resume: Option[ContractInst[VersionedValue]] => Result[A],
 ) extends Result[A]
 
 /** Intermediate result indicating that a [[Package]] is required to complete the computation.
@@ -121,7 +121,7 @@ object Result {
 
   private[lf] def needContract[A](
       acoid: ContractId,
-      resume: ContractInst[VersionedValue[ContractId]] => Result[A],
+      resume: ContractInst[VersionedValue] => Result[A],
   ) =
     ResultNeedContract(
       acoid,

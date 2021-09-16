@@ -103,7 +103,7 @@ private[lf] object Speedy {
       value: SValue,
       signatories: Set[Party],
       observers: Set[Party],
-      key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[V]],
   ) {
     private[lf] val stakeholders: Set[Party] = signatories union observers;
   }
@@ -354,7 +354,7 @@ private[lf] object Speedy {
         arg: SValue,
         signatories: Set[Party],
         observers: Set[Party],
-        key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+        key: Option[Node.KeyWithMaintainers[V]],
     ) =
       withOnLedger("addLocalContract") { onLedger =>
         onLedger.cachedContracts = onLedger.cachedContracts.updated(
@@ -609,7 +609,7 @@ private[lf] object Speedy {
     // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-    private[speedy] def importValue(typ0: Type, value0: V[V.ContractId]): Unit = {
+    private[speedy] def importValue(typ0: Type, value0: V): Unit = {
 
       def assertRight[X](x: Either[LookupError, X]) =
         x match {
@@ -617,7 +617,7 @@ private[lf] object Speedy {
           case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
         }
 
-      def go(ty: Type, value: V[V.ContractId]): SValue = {
+      def go(ty: Type, value: V): SValue = {
         def typeMismatch = throw SErrorCrash(
           NameOf.qualifiedNameOfCurrentFunc,
           s"mismatching type: $ty and value: $value",

@@ -14,18 +14,16 @@ import com.daml.lf.transaction.Node.{
   NodeLookupByKey,
   LeafOnlyActionNode,
 }
-import com.daml.lf.value.Value
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
   private[this] type Nid = NodeId
-  private[this] type Cid = Value.ContractId
-  private[this] type TX = GenTransaction[Nid, Cid]
-  private[this] type Node = GenNode[Nid, Cid]
-  private[this] type LeafNode = LeafOnlyActionNode[Cid]
-  private[this] type ExeNode = NodeExercises[Nid, Cid]
+  private[this] type TX = GenTransaction[Nid]
+  private[this] type Node = GenNode[Nid]
+  private[this] type LeafNode = LeafOnlyActionNode
+  private[this] type ExeNode = NodeExercises[Nid]
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -70,12 +68,12 @@ private[lf] object NormalizeRollbacks {
                   makeRoll(norms)(k)
                 }
 
-              case exe: NodeExercises[_, _] =>
+              case exe: NodeExercises[_] =>
                 traverseNids(exe.children.toList) { norms =>
                   k(Vector(Norm.Exe(exe, norms.toList)))
                 }
 
-              case leaf: LeafOnlyActionNode[_] =>
+              case leaf: LeafOnlyActionNode =>
                 k(Vector(Norm.Leaf(leaf)))
             }
           }
@@ -172,11 +170,11 @@ private[lf] object NormalizeRollbacks {
         x match {
           case Norm.Leaf(node) =>
             node match {
-              case _: NodeCreate[_] =>
+              case _: NodeCreate =>
                 s.pushSeedId(me) { s =>
                   s.push(me, node)(k)
                 }
-              case _: NodeFetch[_] | _: NodeLookupByKey[_] =>
+              case _: NodeFetch | _: NodeLookupByKey =>
                 s.push(me, node)(k)
             }
           case Norm.Exe(exe, subs) =>

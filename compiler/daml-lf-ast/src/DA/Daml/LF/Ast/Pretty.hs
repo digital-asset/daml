@@ -377,6 +377,9 @@ pPrintTmArg lvl = pPrintPrec lvl (succ precEApp)
 tplArg :: Qualified TypeConName -> Arg
 tplArg tpl = TyArg (TCon tpl)
 
+interfaceArg :: Qualified TypeConName -> Arg
+interfaceArg tpl = TyArg (TCon tpl)
+
 instance Pretty Arg where
   pPrintPrec lvl _prec = \case
     TmArg e -> pPrintTmArg lvl e
@@ -406,11 +409,17 @@ instance Pretty Update where
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
+    UExerciseInterface interface choice cid arg ->
+      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      pPrintAppKeyword lvl prec "exercise_interface"
+      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
     UFetch tpl cid ->
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
+    UFetchInterface interface cid ->
+      pPrintAppKeyword lvl prec "fetch_interface" [interfaceArg interface, TmArg cid]
     UGetTime ->
       keyword_ "get_time"
     UEmbedExpr typ e ->
@@ -590,11 +599,11 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
 
 pPrintTemplate ::
   PrettyLevel -> ModuleName -> Template -> Doc ann
-pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey _implements) = -- TODO interfaces
+pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey implements) =
   withSourceLoc lvl mbLoc $
     keyword_ "template" <-> pPrint tpl <-> pPrint param
     <-> keyword_ "where"
-    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ mbKeyDoc ++ choiceDocs))
+    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ mbImplementsDoc ++ mbKeyDoc ++ choiceDocs))
     where
       signatoriesDoc = keyword_ "signatory" <-> pPrintPrec lvl 0 signatories
       observersDoc = keyword_ "observer" <-> pPrintPrec lvl 0 observers
@@ -608,6 +617,10 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
           , nest 2 (keyword_ "body" <-> pPrintPrec lvl 0 (tplKeyBody key))
           , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
+      mbImplementsDoc
+        | null implements = []
+        | otherwise = [keyword_ "implements" <-> hsep (map (pPrintPrec lvl 0) implements)]
+
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags flags

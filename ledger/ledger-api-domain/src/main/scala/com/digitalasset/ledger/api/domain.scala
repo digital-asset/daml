@@ -89,7 +89,7 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: Lf.ValueRecord[ContractId],
+        createArguments: Lf.ValueRecord,
         witnessParties: immutable.Set[Ref.Party],
         signatories: immutable.Set[Ref.Party],
         observers: immutable.Set[Ref.Party],
@@ -213,7 +213,7 @@ object domain {
     final case class InvalidLedgerTime(description: String) extends RejectionReason
   }
 
-  type Value = Lf[Lf.ContractId]
+  type Value = Lf
 
   final case class RecordField(label: Option[Label], value: Value)
 

@@ -66,7 +66,7 @@ object BlindingTransaction {
         nodeId: NodeId,
     ): BlindState =
       tx.nodes.get(nodeId) match {
-        case Some(action: Node.GenActionNode[NodeId, ContractId]) =>
+        case Some(action: Node.GenActionNode[NodeId]) =>
           val witnesses = parentExerciseWitnesses union action.informeesOfNode
 
           // actions of every type are disclosed to their witnesses
@@ -74,16 +74,16 @@ object BlindingTransaction {
 
           action match {
 
-            case _: Node.NodeCreate[ContractId] => state
-            case _: Node.NodeLookupByKey[ContractId] => state
+            case _: Node.NodeCreate => state
+            case _: Node.NodeLookupByKey => state
 
             // fetch & exercise nodes cause divulgence
 
-            case fetch: Node.NodeFetch[ContractId] =>
+            case fetch: Node.NodeFetch =>
               state
                 .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
 
-            case ex: Node.NodeExercises[NodeId, ContractId] =>
+            case ex: Node.NodeExercises[NodeId] =>
               val state1 =
                 state.divulgeCoidTo(
                   (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,

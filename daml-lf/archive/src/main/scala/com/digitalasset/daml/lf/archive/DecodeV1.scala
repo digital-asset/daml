@@ -394,6 +394,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       )
     }
 
+    private[this] def handleInternedName(
+        internedString: => Int
+    ) =
+      toName(internedStrings(internedString))
+
     private[this] def handleInternedName[Case](
         actualCase: Case,
         stringCase: Case,
@@ -1240,6 +1245,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             argE = decodeExpr(exercise.getArg, definition),
           )
 
+        case PLF.Update.SumCase.EXERCISE_INTERFACE =>
+          assertSince(LV.Features.interfaces, "exerciseInterface")
+          val exercise = lfUpdate.getExerciseInterface
+          UpdateExerciseInterface(
+            interface = decodeTypeConName(exercise.getInterface),
+            choice = handleInternedName(exercise.getChoiceInternedStr),
+            cidE = decodeExpr(exercise.getCid, definition),
+            argE = decodeExpr(exercise.getArg, definition),
+          )
+
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
           val exerciseByKey = lfUpdate.getExerciseByKey
@@ -1260,6 +1275,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val fetch = lfUpdate.getFetch
           UpdateFetch(
             templateId = decodeTypeConName(fetch.getTemplate),
+            contractId = decodeExpr(fetch.getCid, definition),
+          )
+
+        case PLF.Update.SumCase.FETCH_INTERFACE =>
+          assertSince(LV.Features.interfaces, "fetchInterface")
+          val fetch = lfUpdate.getFetchInterface
+          UpdateFetchInterface(
+            interface = decodeTypeConName(fetch.getInterface),
             contractId = decodeExpr(fetch.getCid, definition),
           )
 

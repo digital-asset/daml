@@ -8,7 +8,6 @@ import java.time.Instant
 import com.daml.lf.data.Ref
 import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.iface
-import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
 import com.daml.ledger.api.{v1 => V1}
 import com.daml.ledger.api.refinements.ApiTypes
@@ -23,8 +22,6 @@ import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.std.either._
 import scalaz.std.option._
-
-import scala.util.control.NoStackTrace
 
 case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
@@ -261,7 +258,7 @@ case object LedgerApiV1 {
   ): Result[Model.ApiRecord] =
     for {
       lfr <- validateRecord(value).leftMap(sre => GenericConversionError(sre.getMessage))
-      cidMapped <- lfr mapContractId (_.coid) match {
+      cidMapped <- lfr match {
         case r: Model.ApiRecord => Right(r)
         case v => Left(GenericConversionError(s"validating record produced non-record $v"))
       }
@@ -412,7 +409,7 @@ case object LedgerApiV1 {
   ): Result[Model.ApiValue] =
     validateValue(value)
       .leftMap(sre => GenericConversionError(sre.getMessage))
-      .flatMap(vv => fillInTypeInfo(vv.mapContractId(_.coid), typ, ctx))
+      .flatMap(vv => fillInTypeInfo(vv, typ, ctx))
 
   /** Add `tycon`s and record field names where absent. */
   private def fillInTypeInfo(
@@ -422,7 +419,7 @@ case object LedgerApiV1 {
   ): Result[Model.ApiValue] =
     value match {
       case v: V.ValueEnum => fillInEnumTI(v, typ)
-      case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
+      case _: V.ValueCidlessLeaf | _: V.ValueContractId => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInTextMapTI(v, typ, ctx)
       case v: Model.ApiGenMap => fillInGenMapTI(v, typ, ctx)
@@ -436,28 +433,10 @@ case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
 
   def writeArgument(value: Model.ApiValue): Result[V1.value.Value] =
-    wrapContractId(value) flatMap (vac =>
-      lfValueToApiValue(verbose = true, vac) leftMap GenericConversionError
-    )
+    lfValueToApiValue(verbose = true, value) leftMap GenericConversionError
 
   def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] =
-    wrapContractId(value) flatMap (vac =>
-      lfValueToApiRecord(verbose = true, vac) leftMap GenericConversionError
-    )
-
-  private[this] def wrapContractId(value: Model.ApiValue): Result[V[V.ContractId]] = {
-    final class NotACoid(message: String) extends RuntimeException(message) with NoStackTrace
-    // this is 100% cheating as Value should have Traverse instead
-    try Right(value mapContractId { coid =>
-      ContractId
-        .fromString(coid)
-        .fold(
-          e => throw new NotACoid(e),
-          identity,
-        )
-    })
-    catch { case e: NotACoid => Left(GenericConversionError(e.getMessage)) }
-  }
+    lfValueToApiRecord(verbose = true, value) leftMap GenericConversionError
 
   /** Write a composite command consisting of just the given command */
   def writeCommands(

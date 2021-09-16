@@ -173,8 +173,8 @@ object NormalizeRollbackSpec {
 
   type Nid = NodeId
   type Cid = V.ContractId
-  type TX = GenTransaction[Nid, Cid]
-  type Node = GenNode[Nid, Cid]
+  type TX = GenTransaction[Nid]
+  type Node = GenNode[Nid]
   type RB = NodeRollback[Nid]
 
   def preOrderNidsOfTxIsIncreasingFromZero(tx: TX): Boolean = {
@@ -202,7 +202,7 @@ object NormalizeRollbackSpec {
     def fromNode(acc: List[Int], node: Node): List[Int] = {
       node match {
         case _: LeafNode => acc
-        case node: NodeExercises[_, _] => fromNids(acc, node.children.toList)
+        case node: NodeExercises[_] => fromNids(acc, node.children.toList)
         case node: NodeRollback[_] => fromNids(acc, node.children.toList)
       }
     }
@@ -278,13 +278,13 @@ object NormalizeRollbackSpec {
     def ofTransaction(tx: TX): Top = {
       def ofNid(nid: NodeId): Shape = {
         tx.nodes(nid) match {
-          case create: NodeCreate[_] =>
+          case create: NodeCreate =>
             create.arg match {
               case V.ValueInt64(n) => Create(n)
               case _ => sys.error(s"unexpected create.arg: ${create.arg}")
             }
           case leaf: LeafNode => sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
-          case node: NodeExercises[_, _] => Exercise(node.children.toList.map(ofNid))
+          case node: NodeExercises[_] => Exercise(node.children.toList.map(ofNid))
           case node: NodeRollback[_] => Rollback(node.children.toList.map(ofNid))
         }
       }
@@ -295,7 +295,7 @@ object NormalizeRollbackSpec {
   private def toCid(s: String): V.ContractId.V1 =
     V.ContractId.V1(crypto.Hash.hashPrivateKey(s))
 
-  private def dummyCreateNode(n: Long): NodeCreate[V.ContractId] =
+  private def dummyCreateNode(n: Long): NodeCreate =
     NodeCreate(
       coid = toCid("dummyCid"),
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
@@ -309,7 +309,7 @@ object NormalizeRollbackSpec {
 
   private def dummyExerciseNode(
       children: ImmArray[NodeId]
-  ): NodeExercises[NodeId, V.ContractId] =
+  ): NodeExercises[NodeId] =
     NodeExercises(
       targetCoid = toCid("dummyTargetCoid"),
       templateId = Ref.Identifier(

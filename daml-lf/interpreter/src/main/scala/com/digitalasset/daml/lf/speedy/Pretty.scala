@@ -112,16 +112,16 @@ private[lf] object Pretty {
     node match {
       case NodeRollback(_) =>
         text("rollback")
-      case create: NodeCreate[Value.ContractId] =>
+      case create: NodeCreate =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch: NodeFetch[Value.ContractId] =>
+      case fetch: NodeFetch =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises[NodeId, Value.ContractId] =>
+      case ex: NodeExercises[NodeId] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyValue(false)(ex.chosenValue)
-      case lbk: NodeLookupByKey[Value.ContractId] =>
+      case lbk: NodeLookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -190,11 +190,11 @@ private[lf] object Pretty {
           prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value[ContractId]]): Doc =
+  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key)
 
-  def prettyVersionedKeyWithMaintainers(key: KeyWithMaintainers[Tx.Value[ContractId]]): Doc =
+  def prettyVersionedKeyWithMaintainers(key: KeyWithMaintainers[Tx.Value]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key.value)
 
@@ -206,15 +206,15 @@ private[lf] object Pretty {
     val ppNode = ni.node match {
       case NodeRollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
-      case create: NodeCreate[ContractId] =>
+      case create: NodeCreate =>
         val d = "create" &: prettyVersionedContractInst(create.versionedCoinst)
         create.versionedKey match {
           case None => d
           case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
         }
-      case ea: NodeFetch[ContractId] =>
+      case ea: NodeFetch =>
         "ensure active" &: prettyContractId(ea.coid)
-      case ex: NodeExercises[NodeId, ContractId] =>
+      case ex: NodeExercises[NodeId] =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
@@ -225,7 +225,7 @@ private[lf] object Pretty {
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
             .nested(4)
-      case lbk: NodeLookupByKey[ContractId] =>
+      case lbk: NodeLookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyVersionedKeyWithMaintainers(lbk.versionedKey) /
           (lbk.result match {
@@ -284,11 +284,11 @@ private[lf] object Pretty {
   def prettyEventId(n: EventId): Doc =
     text(n.toLedgerString)
 
-  def prettyContractInst(coinst: ContractInst[Value[ContractId]]): Doc =
+  def prettyContractInst(coinst: ContractInst[Value]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyValue(false)(coinst.arg)).nested(4)
 
-  def prettyVersionedContractInst(coinst: ContractInst[Tx.Value[ContractId]]): Doc =
+  def prettyVersionedContractInst(coinst: ContractInst[Tx.Value]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyValue(false)(coinst.arg.value)).nested(4)
 
@@ -312,12 +312,12 @@ private[lf] object Pretty {
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
-  def prettyVersionedValue(verbose: Boolean)(v: Tx.Value[ContractId]): Doc =
+  def prettyVersionedValue(verbose: Boolean)(v: Tx.Value): Doc =
     prettyValue(verbose)(v.value)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.
-  def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
+  def prettyValue(verbose: Boolean)(v: Value): Doc =
     v match {
       case ValueInt64(i) => str(i)
       case ValueNumeric(d) => text(data.Numeric.toString(d))

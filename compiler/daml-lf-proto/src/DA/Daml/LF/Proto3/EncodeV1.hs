@@ -729,6 +729,12 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseCid <- encodeExpr exeContractId
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
+    UExerciseInterface{..} -> do
+        update_ExerciseInterfaceInterface <- encodeQualTypeConName exeInterface
+        update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
+        update_ExerciseInterfaceCid <- encodeExpr exeContractId
+        update_ExerciseInterfaceArg <- encodeExpr exeArg
+        pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseByKeyChoiceInternedStr <-
@@ -741,6 +747,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetch P.Update_Fetch{..}
+    UFetchInterface{..} -> do
+        update_FetchInterfaceInterface <- encodeQualTypeConName fetInterface
+        update_FetchInterfaceCid <- encodeExpr fetContractId
+        pure $ P.UpdateSumFetchInterface P.Update_FetchInterface{..}
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
     UEmbedExpr typ e -> do
         update_EmbedExprType <- encodeType typ

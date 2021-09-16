@@ -41,7 +41,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait LfValueSerialization {
   def serialize(
       contractId: ContractId,
-      contractArgument: VersionedValue[ContractId],
+      contractArgument: VersionedValue,
   ): Array[Byte]
 
   /** Returns (contract argument, contract key) */
@@ -90,7 +90,7 @@ final class LfValueTranslation(
 
   private def serializeCreateArgOrThrow(
       contractId: ContractId,
-      arg: VersionedValue[ContractId],
+      arg: VersionedValue,
   ): Array[Byte] =
     ValueSerializer.serializeValue(
       value = arg,
@@ -133,7 +133,7 @@ final class LfValueTranslation(
 
   override def serialize(
       contractId: ContractId,
-      contractArgument: VersionedValue[ContractId],
+      contractArgument: VersionedValue,
   ): Array[Byte] = {
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(contractId),
@@ -197,7 +197,7 @@ final class LfValueTranslation(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value[ContractId]],
+      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -222,7 +222,7 @@ final class LfValueTranslation(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value[ContractId]],
+      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,

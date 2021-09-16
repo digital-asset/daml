@@ -76,14 +76,14 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     jsonFormat2(domain.AllocatePartyRequest)
 
   object LfValueCodec
-      extends ApiCodecCompressed[ContractId](
+      extends ApiCodecCompressed(
         encodeDecimalAsString = true,
         encodeInt64AsString = true,
       )
 
   // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
-      extends ApiCodecCompressed[ContractId](
+      extends ApiCodecCompressed(
         encodeDecimalAsString = false,
         encodeInt64AsString = false,
       ) {

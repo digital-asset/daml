@@ -15,8 +15,8 @@ package object v29_fix_participant_events {
   import com.daml.lf.{transaction => lftx}
   private[migration] type NodeId = lftx.NodeId
   private[migration] type Transaction = lftx.Transaction.Transaction
-  private[migration] type Create = lftx.Node.NodeCreate[ContractId]
-  private[migration] type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
+  private[migration] type Create = lftx.Node.NodeCreate
+  private[migration] type Exercise = lftx.Node.NodeExercises[NodeId]
 
   import com.daml.lf.{data => lfdata}
   private[migration] type Party = lfdata.Ref.Party

@@ -309,7 +309,7 @@ private[sandbox] final class InMemoryLedger(
       forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue]]] =
     Future.successful(this.synchronized {
       acs.activeContracts
         .get(contractId)

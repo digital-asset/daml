@@ -30,7 +30,7 @@ sealed trait SValue {
   /** Convert a speedy-value to a value which may not be correctly normalized.
     * And so the resulting value should not be serialized.
     */
-  def toUnnormalizedValue: V[V.ContractId] = {
+  def toUnnormalizedValue: V = {
     toValue(
       normalize = false
     )
@@ -38,7 +38,7 @@ sealed trait SValue {
 
   /** Convert a speedy-value to a value normalized according to the LF version.
     */
-  def toNormalizedValue(version: TransactionVersion): V[V.ContractId] = {
+  def toNormalizedValue(version: TransactionVersion): V = {
     import Ordering.Implicits.infixOrderingOps
     toValue(
       normalize = version >= TransactionVersion.minTypeErasure
@@ -47,7 +47,7 @@ sealed trait SValue {
 
   private def toValue(
       normalize: Boolean
-  ): V[V.ContractId] = {
+  ): V = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
       if (normalize) {
@@ -56,7 +56,7 @@ sealed trait SValue {
         Some(x)
       }
 
-    def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V[V.ContractId] = {
+    def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
       if (maxNesting < 0)
         throw SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting)
       val nextMaxNesting = maxNesting - 1

@@ -66,7 +66,7 @@ class CollectAuthorityState {
   // The maps are indexed by step number.
   private var cachedParty: Map[Int, Party] = Map()
   private var cachedCommit: Map[Int, SValue] = Map()
-  private var cachedContract: Map[Int, ContractInst[Value.VersionedValue[ContractId]]] = Map()
+  private var cachedContract: Map[Int, ContractInst[Value.VersionedValue]] = Map()
 
   // This is function that we benchmark
   def run(): Unit = {
@@ -157,12 +157,12 @@ class CollectAuthorityState {
 class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
     extends ScenarioRunner.ScenarioLedgerApi(ledger) {
   var step = initStep
-  var cachedContract: Map[Int, ContractInst[Value.VersionedValue[ContractId]]] = Map()
+  var cachedContract: Map[Int, ContractInst[Value.VersionedValue]] = Map()
   override def lookupContract(
       coid: ContractId,
       actAs: Set[Party],
       readAs: Set[Party],
-      callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+      callback: ContractInst[Value.VersionedValue] => Unit,
   ): Either[scenario.Error, Unit] = {
     step += 1
     super.lookupContract(
@@ -176,14 +176,14 @@ class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
 
 class CannedLedgerApi(
     initStep: Int,
-    cachedContract: Map[Int, ContractInst[Value.VersionedValue[ContractId]]],
+    cachedContract: Map[Int, ContractInst[Value.VersionedValue]],
 ) extends ScenarioRunner.LedgerApi[Unit] {
   var step = initStep
   override def lookupContract(
       coid: ContractId,
       actAs: Set[Party],
       readAs: Set[Party],
-      callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+      callback: ContractInst[Value.VersionedValue] => Unit,
   ): Either[scenario.Error, Unit] = {
     step += 1
     val coinst = cachedContract(step)

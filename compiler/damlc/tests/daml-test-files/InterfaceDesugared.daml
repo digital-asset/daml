@@ -23,12 +23,83 @@ class
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 
 instance HasExercise Token Split (ContractId Token, ContractId Token) where
-  exercise = GHC.Types.primitive @"UExercise"
+  exercise = error "unimplemented"
+  -- TODO https://github.com/digital-asset/daml/issues/10810
+  -- Switch to this once the Haskell typechecker is fixed
+  -- GHC.Types.primitive @"UExerciseInterface"
 
 instance HasExercise Token Transfer (ContractId Token) where
-  exercise = GHC.Types.primitive @"UExercise"
+  exercise = error "unimplemented"
+  -- TODO https://github.com/digital-asset/daml/issues/10810
+  -- Switch to this once the Haskell typechecker is fixed
+  -- GHC.Types.primitive @"UExerciseInterface"
 
 instance IsToken Token where
 -- TODO https://github.com/digital-asset/daml/issues/10810
 -- enable once we support pure functions
 --  getAmount = primitivInterface @"getAmount"
+
+data Asset = Asset { amount : Decimal, issuer : Party, owner : Party }
+  deriving (Eq, Show)
+
+instance IsToken Asset where
+-- TODO https://github.com/digital-asset/daml/issues/10810
+-- enable once we support pure functions
+--  getAmount Asset{..} = amount
+
+_implements_AssetToken : DA.Internal.Desugar.Implements Asset Token
+_implements_AssetToken = DA.Internal.Desugar.Implements
+
+instance HasCreate Asset where
+  create = GHC.Types.primitive @"UCreate"
+
+instance HasSignatory Asset where
+  signatory = error "unimplemented"
+
+instance HasEnsure Asset where
+  ensure = error "unimplemented"
+
+instance HasAgreement Asset where
+  agreement = error "agreement"
+
+instance HasObserver Asset where
+  observer = error "unimplemented"
+
+instance HasExercise Asset Transfer (ContractId Token) where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasExercise Asset Archive () where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasExercise Asset Split (ContractId Token, ContractId Token) where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasArchive Asset where
+  archive cid = exercise cid Archive
+
+_choice_AssetTransfer :
+  ( Asset -> Transfer -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Asset -> Asset -> Transfer -> DA.Internal.Desugar.Update (ContractId Token)
+  , DA.Internal.Desugar.Consuming Asset
+  , DA.Internal.Desugar.Optional (Asset -> Transfer -> [DA.Internal.Desugar.Party])
+  )
+_choice_AssetTransfer =
+  (error "abc", error "abc", error "abc", DA.Internal.Desugar.None)
+
+_choice_AssetArchive :
+  ( Asset -> Archive -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Asset -> Asset -> Archive -> DA.Internal.Desugar.Update ()
+  , DA.Internal.Desugar.Consuming Asset
+  , DA.Internal.Desugar.Optional (Asset -> Archive -> [DA.Internal.Desugar.Party])
+  )
+_choice_AssetArchive =
+  (error "abc", error "abc", error "abc", DA.Internal.Desugar.None)
+
+_choice_AssetSplit :
+  ( Asset -> Split -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Asset -> Asset -> Split -> DA.Internal.Desugar.Update (ContractId Token, ContractId Token)
+  , DA.Internal.Desugar.Consuming Asset
+  , DA.Internal.Desugar.Optional (Asset -> Split -> [DA.Internal.Desugar.Party])
+  )
+_choice_AssetSplit =
+  (error "abc", error "abc", error "abc", DA.Internal.Desugar.None)

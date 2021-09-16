@@ -867,10 +867,16 @@ private[validation] object Typing {
         typeOfCreate(tpl, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
+      case UpdateExerciseInterface(_, _, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/10810
+        sys.error("Interface not supported")
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>
         typeOfFetch(tpl, cid)
+      case UpdateFetchInterface(_, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/10810
+        sys.error("Interface not supported")
       case UpdateGetTime =>
         TUpdate(TTimestamp)
       case UpdateEmbedExpr(typ, exp) =>

@@ -6,7 +6,6 @@ package com.daml.platform.store.dao
 import com.daml.ledger.offset.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.NodeCreate
-import com.daml.lf.value.Value.ContractId
 import com.daml.platform.ApiOffset
 import com.daml.platform.indexer.CurrentOffset
 import com.daml.platform.store.entries.LedgerEntry
@@ -44,7 +43,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          val (nodeId, createNode: NodeCreate[ContractId]) =
+          val (nodeId, createNode: NodeCreate) =
             tx.transaction.nodes.head
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs: _*)

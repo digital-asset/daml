@@ -68,15 +68,15 @@ object LfValueTranslationCache {
 
     object Value {
       final case class Create(
-          argument: VersionedValue[ContractId],
-          key: Option[VersionedValue[ContractId]],
+          argument: VersionedValue,
+          key: Option[VersionedValue],
       ) extends Value {
         override def assertCreate(): Create = this
         override def assertExercise(): Exercise = throw new UnexpectedTypeException(this)
       }
       final case class Exercise(
-          argument: VersionedValue[ContractId],
-          result: Option[VersionedValue[ContractId]],
+          argument: VersionedValue,
+          result: Option[VersionedValue],
       ) extends Value {
         override def assertCreate(): Create = throw new UnexpectedTypeException(this)
         override def assertExercise(): Exercise = this
@@ -101,6 +101,6 @@ object LfValueTranslationCache {
 
     final case class Key(contractId: ContractId)
 
-    final case class Value(argument: VersionedValue[ContractId])
+    final case class Value(argument: VersionedValue)
   }
 }

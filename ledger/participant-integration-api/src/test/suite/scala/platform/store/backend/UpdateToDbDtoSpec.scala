@@ -265,8 +265,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = Some(StatusDetails.of(status.details).toByteArray),
           submission_id = Some(someSubmissionId),
           deduplication_offset = None,
-          deduplication_time_seconds = None,
-          deduplication_time_nanos = None,
+          deduplication_duration_seconds = None,
+          deduplication_duration_nanos = None,
           deduplication_start = None,
         ),
         DbDto.CommandDeduplication(
@@ -342,8 +342,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = Some(someSubmissionId),
           deduplication_offset = None,
-          deduplication_time_seconds = None,
-          deduplication_time_nanos = None,
+          deduplication_duration_seconds = None,
+          deduplication_duration_nanos = None,
           deduplication_start = None,
         ),
       )
@@ -415,8 +415,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -500,8 +500,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -585,8 +585,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -753,8 +753,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -855,8 +855,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -981,8 +981,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -1084,8 +1084,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -1164,8 +1164,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           rejection_status_details = None,
           submission_id = completionInfo.submissionId,
           deduplication_offset = None,
-          deduplication_time_nanos = None,
-          deduplication_time_seconds = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
       )
@@ -1231,8 +1231,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       (
         "Deduplication period",
         "Expected deduplication offset",
-        "Expected deduplication time seconds",
-        "Expected deduplication time nanos",
+        "Expected deduplication duration seconds",
+        "Expected deduplication duration nanos",
       ),
       (None, None, None, None),
       (
@@ -1255,8 +1255,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         case (
               deduplicationPeriod,
               expectedDeduplicationOffset,
-              expectedDeduplicationTimeSeconds,
-              expectedDeduplicationTimeNanos,
+              expectedDeduplicationDurationSeconds,
+              expectedDeduplicationDurationNanos,
             ) =>
           val completionInfo = someCompletionInfo.copy(optDeduplicationPeriod = deduplicationPeriod)
           val update = state.Update.CommandRejected(
@@ -1281,8 +1281,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               rejection_status_details = Some(StatusDetails.of(status.details).toByteArray),
               submission_id = Some(someSubmissionId),
               deduplication_offset = expectedDeduplicationOffset,
-              deduplication_time_seconds = expectedDeduplicationTimeSeconds,
-              deduplication_time_nanos = expectedDeduplicationTimeNanos,
+              deduplication_duration_seconds = expectedDeduplicationDurationSeconds,
+              deduplication_duration_nanos = expectedDeduplicationDurationNanos,
               deduplication_start = None,
             ),
             DbDto.CommandDeduplication(
@@ -1313,8 +1313,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         case (
               deduplicationPeriod,
               expectedDeduplicationOffset,
-              expectedDeduplicationTimeSeconds,
-              expectedDeduplicationTimeNanos,
+              expectedDeduplicationDurationSeconds,
+              expectedDeduplicationDurationNanos,
             ) =>
           val completionInfo = someCompletionInfo.copy(optDeduplicationPeriod = deduplicationPeriod)
           val update = state.Update.TransactionAccepted(
@@ -1367,8 +1367,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               rejection_status_details = None,
               submission_id = Some(someSubmissionId),
               deduplication_offset = expectedDeduplicationOffset,
-              deduplication_time_seconds = expectedDeduplicationTimeSeconds,
-              deduplication_time_nanos = expectedDeduplicationTimeNanos,
+              deduplication_duration_seconds = expectedDeduplicationDurationSeconds,
+              deduplication_duration_nanos = expectedDeduplicationDurationNanos,
               deduplication_start = None,
             ),
           )
@@ -1385,7 +1385,7 @@ object UpdateToDbDtoSpec {
   private val valueSerialization = new LfValueSerialization {
     override def serialize(
         contractId: ContractId,
-        contractArgument: Value.VersionedValue[ContractId],
+        contractArgument: Value.VersionedValue,
     ): Array[Byte] = emptyArray
 
     /** Returns (contract argument, contract key) */
