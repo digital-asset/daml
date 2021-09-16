@@ -465,6 +465,11 @@ object SExpr {
   final case class KeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
+
+  /** ImplementsDefRef(ref=templateId, ifaceId) points to a function that converts a
+    * template value to an interface value. (This is currently an identity function.)
+    * The existence of this definition signals that the template implements the interface.
+    */
   final case class ImplementsDefRef(ref: DefinitionRef, ifaceId: TypeConName) extends SDefinitionRef
 
   //
