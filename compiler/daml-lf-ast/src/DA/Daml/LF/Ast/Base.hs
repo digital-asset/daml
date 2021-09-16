@@ -642,7 +642,7 @@ data Update
   -- | Exercise choice on a contract of an interface given a contract ID.
   | UExerciseInterface
     { exeInterface   :: !(Qualified TypeConName)
-      -- ^ Qualified type constructor corresponding to the contract template.
+      -- ^ Qualified type constructor corresponding to the interface.
     , exeChoice     :: !ChoiceName
       -- ^ Choice to exercise.
     , exeContractId :: !Expr
