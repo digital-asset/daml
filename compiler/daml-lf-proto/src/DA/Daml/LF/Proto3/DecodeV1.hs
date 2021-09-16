@@ -659,6 +659,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
+  LF1.UpdateSumExerciseInterface LF1.Update_ExerciseInterface{..} ->
+    fmap EUpdate $ UExerciseInterface
+      <$> mayDecode "update_ExerciseInterfaceInterface" update_ExerciseInterfaceInterface decodeTypeConName
+      <*> decodeNameId ChoiceName update_ExerciseInterfaceChoiceInternedStr
+      <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
+      <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName
@@ -669,6 +675,10 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
+  LF1.UpdateSumFetchInterface LF1.Update_FetchInterface{..} ->
+    fmap EUpdate $ UFetchInterface
+      <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName
+      <*> mayDecode "update_FetchInterfaceCid" update_FetchInterfaceCid decodeExpr
   LF1.UpdateSumGetTime LF1.Unit ->
     pure (EUpdate UGetTime)
   LF1.UpdateSumEmbedExpr LF1.Update_EmbedExpr{..} ->

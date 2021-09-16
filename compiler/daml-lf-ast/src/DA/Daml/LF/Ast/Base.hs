@@ -639,6 +639,17 @@ data Update
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }
+  -- | Exercise choice on a contract of an interface given a contract ID.
+  | UExerciseInterface
+    { exeInterface   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the interface.
+    , exeChoice     :: !ChoiceName
+      -- ^ Choice to exercise.
+    , exeContractId :: !Expr
+      -- ^ Contract id of the contract template instance to exercise choice on.
+    , exeArg        :: !Expr
+      -- ^ Argument for the choice.
+    }
   -- | Exercise a choice on a contract by key.
   | UExerciseByKey
     { exeTemplate   :: !(Qualified TypeConName)
@@ -654,6 +665,14 @@ data Update
   | UFetch
     { fetTemplate   :: !(Qualified TypeConName)
       -- ^ Qualified type constructor corresponding to the contract template.
+    , fetContractId :: !Expr
+      -- ^ Contract id of the contract template instance whose argument shall be
+      -- retrieved.
+    }
+  -- | Retrieve the argument of an existing contract interface instance.
+  | UFetchInterface
+    { fetInterface   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the interface.
     , fetContractId :: !Expr
       -- ^ Contract id of the contract template instance whose argument shall be
       -- retrieved.

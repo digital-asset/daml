@@ -137,8 +137,14 @@ startFromUpdate seen world update = case update of
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
     LF.UCreate tpl _ -> Set.singleton (ACreate tpl)
     LF.UExercise tpl choice _ _ -> Set.singleton (AExercise tpl choice)
+    LF.UExerciseInterface{} ->
+      -- TODO https://github.com/digital-asset/daml/issues/10810
+      error "Interfaces are not supported"
     LF.UExerciseByKey tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UFetch{} -> Set.empty
+    LF.UFetchInterface{} ->
+      -- TODO https://github.com/digital-asset/daml/issues/10810
+      error "Interfaces are not supported"
     LF.ULookupByKey{} -> Set.empty
     LF.UFetchByKey{} -> Set.empty
     LF.UTryCatch _ e1 _ e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
