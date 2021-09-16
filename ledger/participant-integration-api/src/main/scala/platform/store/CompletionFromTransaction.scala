@@ -30,8 +30,8 @@ private[platform] object CompletionFromTransaction {
       applicationId: String,
       maybeSubmissionId: Option[String] = None,
       maybeDeduplicationOffset: Option[String] = None,
-      maybeDeduplicationTimeSeconds: Option[Long] = None,
-      maybeDeduplicationTimeNanos: Option[Int] = None,
+      maybeDeduplicationDurationSeconds: Option[Long] = None,
+      maybeDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
@@ -43,8 +43,8 @@ private[platform] object CompletionFromTransaction {
           maybeStatus = Some(OkStatus),
           maybeSubmissionId = maybeSubmissionId,
           maybeDeduplicationOffset = maybeDeduplicationOffset,
-          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
-          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
+          maybeDeduplicationDurationSeconds = maybeDeduplicationDurationSeconds,
+          maybeDeduplicationDurationNanos = maybeDeduplicationDurationNanos,
         )
       ),
     )
@@ -57,8 +57,8 @@ private[platform] object CompletionFromTransaction {
       applicationId: String,
       maybeSubmissionId: Option[String] = None,
       maybeDeduplicationOffset: Option[String] = None,
-      maybeDeduplicationTimeSeconds: Option[Long] = None,
-      maybeDeduplicationTimeNanos: Option[Int] = None,
+      maybeDeduplicationDurationSeconds: Option[Long] = None,
+      maybeDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
@@ -70,8 +70,8 @@ private[platform] object CompletionFromTransaction {
           maybeStatus = Some(status),
           maybeSubmissionId = maybeSubmissionId,
           maybeDeduplicationOffset = maybeDeduplicationOffset,
-          maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
-          maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
+          maybeDeduplicationDurationSeconds = maybeDeduplicationDurationSeconds,
+          maybeDeduplicationDurationNanos = maybeDeduplicationDurationNanos,
         )
       ),
     )
@@ -89,8 +89,8 @@ private[platform] object CompletionFromTransaction {
       maybeStatus: Option[StatusProto],
       maybeSubmissionId: Option[String],
       maybeDeduplicationOffset: Option[String],
-      maybeDeduplicationTimeSeconds: Option[Long],
-      maybeDeduplicationTimeNanos: Option[Int],
+      maybeDeduplicationDurationSeconds: Option[Long],
+      maybeDeduplicationDurationNanos: Option[Int],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
       commandId = commandId,
@@ -100,8 +100,8 @@ private[platform] object CompletionFromTransaction {
     )
     val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
       maybeDeduplicationOffset = maybeDeduplicationOffset,
-      maybeDeduplicationTimeSeconds = maybeDeduplicationTimeSeconds,
-      maybeDeduplicationTimeNanos = maybeDeduplicationTimeNanos,
+      maybeDeduplicationDurationSeconds = maybeDeduplicationDurationSeconds,
+      maybeDeduplicationDurationNanos = maybeDeduplicationDurationNanos,
     )
     (maybeSubmissionId, maybeDeduplicationPeriod) match {
       case (Some(submissionId), Some(deduplicationPeriod)) =>
@@ -124,27 +124,30 @@ private[platform] object CompletionFromTransaction {
 
   private def toApiDeduplicationPeriod(
       maybeDeduplicationOffset: Option[String],
-      maybeDeduplicationTimeSeconds: Option[Long],
-      maybeDeduplicationTimeNanos: Option[Int],
+      maybeDeduplicationDurationSeconds: Option[Long],
+      maybeDeduplicationDurationNanos: Option[Int],
   ): Option[Completion.DeduplicationPeriod] =
     // The only invariant that should hold, considering legacy data, is that either
-    // the deduplication time seconds and nanos are both populated, or neither is.
-    (maybeDeduplicationOffset, (maybeDeduplicationTimeSeconds, maybeDeduplicationTimeNanos)) match {
+    // the deduplication duration seconds and nanos are both populated, or neither is.
+    (
+      maybeDeduplicationOffset,
+      (maybeDeduplicationDurationSeconds, maybeDeduplicationDurationNanos),
+    ) match {
       case (None, (None, None)) => None
       case (Some(offset), _) =>
         Some(Completion.DeduplicationPeriod.DeduplicationOffset(offset))
-      case (_, (Some(deduplicationTimeSeconds), Some(deduplicationTimeNanos))) =>
+      case (_, (Some(deduplicationDurationSeconds), Some(deduplicationDurationNanos))) =>
         Some(
-          Completion.DeduplicationPeriod.DeduplicationTime(
+          Completion.DeduplicationPeriod.DeduplicationDuration(
             new Duration(
-              seconds = deduplicationTimeSeconds,
-              nanos = deduplicationTimeNanos,
+              seconds = deduplicationDurationSeconds,
+              nanos = deduplicationDurationNanos,
             )
           )
         )
       case _ =>
         throw new IllegalArgumentException(
-          "One of deduplication time seconds and nanos has been provided " +
+          "One of deduplication duration seconds and nanos has been provided " +
             "but they must be either both provided or both absent"
         )
     }

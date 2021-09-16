@@ -79,7 +79,7 @@ abstract class KVCommandDeduplicationBase(
           // The [[Completion.deduplicationPeriod]] is set only for append-only ledgers
           if (deduplicationFeatures.appendOnlySchema) {
             val expectedCompletionDeduplicationPeriod =
-              Completion.DeduplicationPeriod.DeduplicationTime(
+              Completion.DeduplicationPeriod.DeduplicationDuration(
                 maxDeduplicationDuration.asProtobuf
               )
             assert(

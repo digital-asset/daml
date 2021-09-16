@@ -217,8 +217,8 @@ private[backend] object StorageBackendTestValues {
       applicationId: String = someApplicationId,
       submissionId: Option[String] = Some(UUID.randomUUID().toString),
       deduplicationOffset: Option[String] = None,
-      deduplicationTimeSeconds: Option[Long] = None,
-      deduplicationTimeNanos: Option[Int] = None,
+      deduplicationDurationSeconds: Option[Long] = None,
+      deduplicationDurationNanos: Option[Int] = None,
       deduplicationStart: Option[Timestamp] = None,
   ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
@@ -233,8 +233,8 @@ private[backend] object StorageBackendTestValues {
       rejection_status_details = None,
       submission_id = submissionId,
       deduplication_offset = deduplicationOffset,
-      deduplication_time_seconds = deduplicationTimeSeconds,
-      deduplication_time_nanos = deduplicationTimeNanos,
+      deduplication_duration_seconds = deduplicationDurationSeconds,
+      deduplication_duration_nanos = deduplicationDurationNanos,
       deduplication_start = deduplicationStart.map(_.micros),
     )
 
