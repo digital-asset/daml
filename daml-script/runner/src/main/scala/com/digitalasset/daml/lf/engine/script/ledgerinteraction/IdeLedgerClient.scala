@@ -106,7 +106,7 @@ class IdeLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+      translateKey: (Identifier, Value) => Either[String, SValue],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -173,14 +173,14 @@ class IdeLedgerClient(
             throw new IllegalArgumentException(s"Unknown root node id $id"),
           )
           node match {
-            case create: NodeCreate[ContractId] => ScriptLedgerClient.CreateResult(create.coid)
-            case exercise: NodeExercises[NodeId, ContractId] =>
+            case create: NodeCreate => ScriptLedgerClient.CreateResult(create.coid)
+            case exercise: NodeExercises[NodeId] =>
               ScriptLedgerClient.ExerciseResult(
                 exercise.templateId,
                 exercise.choiceId,
                 exercise.exerciseResult.get,
               )
-            case _: NodeFetch[_] | _: NodeLookupByKey[_] | _: NodeRollback[_] =>
+            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback[_] =>
               throw new IllegalArgumentException(s"Invalid root node: $node")
           }
         }
@@ -232,9 +232,9 @@ class IdeLedgerClient(
         val transaction = result.richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
-            case create: NodeCreate[ContractId] =>
+            case create: NodeCreate =>
               Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
-            case exercise: NodeExercises[NodeId, ContractId] =>
+            case exercise: NodeExercises[NodeId] =>
               Some(
                 ScriptLedgerClient.Exercised(
                   exercise.templateId,
@@ -244,7 +244,7 @@ class IdeLedgerClient(
                   exercise.children.collect(Function.unlift(convEvent(_))).toList,
                 )
               )
-            case _: NodeFetch[_] | _: NodeLookupByKey[_] | _: NodeRollback[_] => None
+            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback[_] => None
           }
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList

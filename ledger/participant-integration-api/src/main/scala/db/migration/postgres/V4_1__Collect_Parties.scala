@@ -17,7 +17,6 @@ import com.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey,
 }
-import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
@@ -108,21 +107,21 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
       .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
         node match {
           case _: NodeRollback[_] => Set.empty
-          case nf: NodeFetch[ContractId] =>
+          case nf: NodeFetch =>
             parties
               .union(nf.signatories)
               .union(nf.stakeholders)
               .union(nf.actingParties)
-          case nc: NodeCreate[ContractId] =>
+          case nc: NodeCreate =>
             parties
               .union(nc.signatories)
               .union(nc.stakeholders)
-          case ne: NodeExercises[_, ContractId] =>
+          case ne: NodeExercises[_] =>
             parties
               .union(ne.signatories)
               .union(ne.stakeholders)
               .union(ne.actingParties)
-          case _: NodeLookupByKey[ContractId] =>
+          case _: NodeLookupByKey =>
             parties
         }
       }

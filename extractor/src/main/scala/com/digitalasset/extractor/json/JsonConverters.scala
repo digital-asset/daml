@@ -7,18 +7,17 @@ import com.daml.lf.data.{ImmArray, SortedLookupList}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.extractor.ledger.types.{Identifier, LedgerValue}
-import com.daml.extractor.ledger.types.LedgerValue._
 import com.daml.extractor.writers.postgresql.DataFormatState.MultiTableState
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
 import io.circe.syntax._
-import scalaz.std.string._
 
 object JsonConverters {
-  import ApiCodecCompressed.JsonImplicits.StringJsonFormat
+
+  import ApiCodecCompressed.JsonImplicits.ContractIdFormat
   private[this] object LfValueSprayEnc
-      extends ApiCodecCompressed[String](
+      extends ApiCodecCompressed(
         encodeDecimalAsString = true,
         encodeInt64AsString = false,
       )
@@ -39,12 +38,12 @@ object JsonConverters {
   def toJsonString[A: Encoder](a: A): String =
     a.asJson.noSpaces
 
-  implicit val recordEncoder: Encoder[OfCid[V.ValueRecord]] = valueEncoder
+  implicit val recordEncoder: Encoder[V.ValueRecord] = valueEncoder
 
   implicit def valueEncoder[T <: LedgerValue]: Encoder[T] =
     t => sprayToCirce(LfValueSprayEnc.apiValueToJsValue(t))
 
-  implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = valueEncoder
+  implicit val variantEncoder: Encoder[V.ValueVariant] = valueEncoder
 
   implicit val textMapEncoder: Encoder[SortedLookupList[LedgerValue]] =
     valueEncoder.contramap(V.ValueTextMap(_))

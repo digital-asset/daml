@@ -6,5 +6,5 @@ package com.daml.extractor.ledger
 import com.daml.lf.value.Value
 
 package object types {
-  type LedgerValue = Value[String]
+  type LedgerValue = Value
 }

@@ -48,7 +48,7 @@ object domain {
     }
   }
 
-  type LfValue = lf.value.Value[lf.value.Value.ContractId]
+  type LfValue = lf.value.Value
 
   private def oneAndSet[A](p: A, sp: Set[A]) =
     OneAnd(p, sp - p)

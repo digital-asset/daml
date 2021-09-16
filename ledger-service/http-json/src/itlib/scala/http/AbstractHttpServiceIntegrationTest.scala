@@ -246,7 +246,6 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     tmplId.copy(packageId = None)
 
   import com.daml.lf.data.{Numeric => LfNumeric}
-  import com.daml.lf.value.Value.{ContractId => LfContractId}
   import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
   import shapeless.HList, shapeless.record.{Record => ShRecord}
 
@@ -265,7 +264,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     v.RecordField(n, Some(v.Value(vs)))
   })
 
-  private[this] def argToApi(va: VA)(arg: va.Inj[LfContractId]): v.Record =
+  private[this] def argToApi(va: VA)(arg: va.Inj): v.Record =
     lfToApi(va.inj(arg)) match {
       case v.Value(v.Value.Sum.Record(r)) => removeRecordId(r)
       case _ => fail(s"${va.t} isn't a record type")

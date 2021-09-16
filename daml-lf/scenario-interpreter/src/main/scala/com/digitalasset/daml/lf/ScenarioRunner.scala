@@ -223,7 +223,7 @@ object ScenarioRunner {
         coid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+        cbPresent: ContractInst[Value.VersionedValue] => Unit,
     ): Either[Error, Unit]
     def lookupKey(
         machine: Speedy.Machine,
@@ -249,7 +249,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+        callback: ContractInst[Value.VersionedValue] => Unit,
     ): Either[Error, Unit] =
       handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, callback))
 
@@ -257,7 +257,7 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+        callback: ContractInst[Value.VersionedValue] => Unit,
     ) = {
 
       val effectiveAt = ledger.currentTime

@@ -64,7 +64,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   private def queryWithKey(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value[ContractId]])]] = {
+  ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
     val filter = transactionFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
@@ -77,7 +77,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
             case Left(err) => throw new ConverterException(err.toString)
             case Right(argument) => argument
           }
-          val key: Option[Value[ContractId]] = createdEvent.contractKey.map { key =>
+          val key: Option[Value] = createdEvent.contractKey.map { key =>
             ValueValidator.validateValue(key) match {
               case Left(err) => throw new ConverterException(err.toString)
               case Right(argument) => argument
@@ -116,7 +116,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+      translateKey: (Identifier, Value) => Either[String, SValue],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,

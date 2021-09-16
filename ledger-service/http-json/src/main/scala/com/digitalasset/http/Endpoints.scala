@@ -745,7 +745,7 @@ object Endpoints {
   private type ApiRecord = lav1.value.Record
   private type ApiValue = lav1.value.Value
 
-  private type LfValue = lf.value.Value[lf.value.Value.ContractId]
+  private type LfValue = lf.value.Value
 
   private final class IntoServerError[-A](val run: A => Error) extends AnyVal
   private object IntoServerError extends IntoServerErrorLow {

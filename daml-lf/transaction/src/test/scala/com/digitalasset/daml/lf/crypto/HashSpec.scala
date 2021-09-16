@@ -20,8 +20,6 @@ import scala.language.implicitConversions
 class HashSpec extends AnyWordSpec with Matchers {
 
   @nowarn("msg=dead code following this construct")
-  private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion
-
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   private val complexRecordT =
@@ -59,7 +57,7 @@ class HashSpec extends AnyWordSpec with Matchers {
         :: RNil,
     )._2
 
-  private val complexRecordV: complexRecordT.Inj[Nothing] =
+  private val complexRecordV: complexRecordT.Inj =
     HRecord(
       fInt0 = 0L,
       fInt1 = 123456L,
@@ -162,8 +160,8 @@ class HashSpec extends AnyWordSpec with Matchers {
           defRef(name = "Variant"),
           Symbol("A") ->> VA.unit :: Symbol("B") ->> VA.unit :: RNil,
         )._2
-      val value1 = variantT.inj(HSum[variantT.Inj[Nothing]](Symbol("A") ->> (())))
-      val value2 = variantT.inj(HSum[variantT.Inj[Nothing]](Symbol("B") ->> (())))
+      val value1 = variantT.inj(HSum[variantT.Inj](Symbol("A") ->> (())))
+      val value2 = variantT.inj(HSum[variantT.Inj](Symbol("B") ->> (())))
 
       val tid = defRef("module", "name")
 
@@ -336,7 +334,7 @@ class HashSpec extends AnyWordSpec with Matchers {
 
     "stable " in {
 
-      type V = Value[ContractId]
+      type V = Value
 
       val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -419,10 +417,10 @@ class HashSpec extends AnyWordSpec with Matchers {
         ._2
 
       val variants = List(
-        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> false)),
-        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> true)),
-        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Right") ->> false)),
-        variantT2.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> false)),
+        variantT1.inj(HSum[variantT1.Inj](Symbol("Left") ->> false)),
+        variantT1.inj(HSum[variantT1.Inj](Symbol("Left") ->> true)),
+        variantT1.inj(HSum[variantT1.Inj](Symbol("Right") ->> false)),
+        variantT2.inj(HSum[variantT1.Inj](Symbol("Left") ->> false)),
       )
 
       def list(elements: Boolean*) = VA.list(VA.bool).inj(elements.toVector)

@@ -83,7 +83,7 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
 
-    def translateValue(ty: Ast.Type, value: Value[ContractId]): Either[String, SValue] =
+    def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }
@@ -262,7 +262,7 @@ object ScriptF {
 
     private def translateKey(
         env: Env
-    )(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
+    )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
         translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.message)

@@ -7,8 +7,8 @@ import java.io.InputStream
 
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.transaction.{CommittedTransaction, TransactionCoder, TransactionOuterClass}
-import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.daml.lf.value.ValueCoder
 
 private[migration] trait TransactionSerializer {
 

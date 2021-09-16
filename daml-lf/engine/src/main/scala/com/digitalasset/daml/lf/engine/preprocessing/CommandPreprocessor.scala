@@ -30,7 +30,7 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreate(
       templateId: Ref.Identifier,
-      argument: Value[Value.ContractId],
+      argument: Value,
   ): speedy.Command.Create = {
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
     speedy.Command.Create(templateId, arg)
@@ -41,7 +41,7 @@ private[lf] final class CommandPreprocessor(
       templateId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
-      argument: Value[Value.ContractId],
+      argument: Value,
   ): speedy.Command.Exercise = {
     val cid = valueTranslator.unsafeTranslateCid(contractId)
     val choice = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
@@ -52,9 +52,9 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessExerciseByKey(
       templateId: Ref.Identifier,
-      contractKey: Value[Value.ContractId],
+      contractKey: Value,
       choiceId: Ref.ChoiceName,
-      argument: Value[Value.ContractId],
+      argument: Value,
   ): speedy.Command.ExerciseByKey = {
     val choiceArgType = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
     val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
@@ -66,9 +66,9 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreateAndExercise(
       templateId: Ref.ValueRef,
-      createArgument: Value[Value.ContractId],
+      createArgument: Value,
       choiceId: Ref.ChoiceName,
-      choiceArgument: Value[Value.ContractId],
+      choiceArgument: Value,
   ): speedy.Command.CreateAndExercise = {
     val createArg =
       valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), createArgument)
@@ -87,7 +87,7 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafePreprocessLookupByKey(
       templateId: Ref.ValueRef,
-      contractKey: Value[Nothing],
+      contractKey: Value,
   ): speedy.Command.LookupByKey = {
     val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
     val key = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)

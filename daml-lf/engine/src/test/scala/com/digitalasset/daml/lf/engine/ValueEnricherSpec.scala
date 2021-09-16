@@ -76,7 +76,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
   "enrichValue" should {
 
-    val testCases = Table[Type, Value[ContractId], Value[ContractId]](
+    val testCases = Table[Type, Value, Value](
       ("type", "input", "expected output"),
       (TUnit, ValueUnit, ValueUnit),
       (TBool, ValueTrue, ValueTrue),
@@ -133,9 +133,9 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
   "enrichTransaction" should {
 
     def buildTransaction(
-        contract: Value[ContractId],
-        key: Value[ContractId],
-        record: Value[ContractId],
+        contract: Value,
+        key: Value,
+        record: Value,
     ) = {
       val builder = new TransactionBuilder(_ => TransactionVersion.minTypeErasure)
       val create =
@@ -165,7 +165,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
       val inputKey = ValueRecord(
         None,
-        ImmArray(
+        ImmArray[(String, Value)](
           "" -> ValueParty("Alice"),
           "" -> Value.ValueInt64(0),
         ),
@@ -174,7 +174,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       val inputContract =
         ValueRecord(
           None,
-          ImmArray(
+          ImmArray[(String, Value)](
             "" -> inputKey,
             "" -> Value.ValueNil,
           ),
@@ -191,7 +191,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
       val outputKey = ValueRecord(
         Some("Mod:Key"),
-        ImmArray(
+        ImmArray[(String, Value)](
           "party" -> ValueParty("Alice"),
           "idx" -> Value.ValueInt64(0),
         ),
@@ -200,14 +200,14 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       val outputContract =
         ValueRecord(
           Some("Mod:Contract"),
-          ImmArray(
+          ImmArray[(String, Value)](
             "key" -> outputKey,
             "cids" -> Value.ValueNil,
           ),
         )
 
       val outputRecord =
-        ValueRecord(Some("Mod:Record"), ImmArray("field" -> ValueInt64(33)))
+        ValueRecord(Some("Mod:Record"), ImmArray[(String, Value)]("field" -> ValueInt64(33)))
 
       val outputTransaction = buildTransaction(
         outputContract,

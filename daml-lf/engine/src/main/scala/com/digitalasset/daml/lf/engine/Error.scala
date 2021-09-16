@@ -96,11 +96,11 @@ object Error {
 
     final case class TypeMismatch(
         typ: Ast.Type,
-        value: Value[Value.ContractId],
+        value: Value,
         override val message: String,
     ) extends Error
 
-    final case class ValueNesting(culprit: Value[Value.ContractId]) extends Error {
+    final case class ValueNesting(culprit: Value) extends Error {
       override def message: String =
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
@@ -175,7 +175,7 @@ object Error {
     }
 
     final case class ReplayMismatch(
-        mismatch: transaction.ReplayMismatch[transaction.NodeId, Value.ContractId]
+        mismatch: transaction.ReplayMismatch[transaction.NodeId]
     ) extends Error {
       override def message: String = mismatch.message
     }

@@ -65,7 +65,7 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
+object LfValueCodec extends ApiCodecCompressed(false, false)
 
 case class Participant(participant: String)
 case class ApiParameters(

@@ -96,7 +96,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue[Value.ContractId]]
+            Value.ContractInst[Value.VersionedValue]
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
@@ -201,7 +201,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue[Value.ContractId]]
+            Value.ContractInst[Value.VersionedValue]
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],

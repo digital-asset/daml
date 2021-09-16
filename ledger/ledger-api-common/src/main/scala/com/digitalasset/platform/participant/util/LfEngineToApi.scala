@@ -30,7 +30,7 @@ import com.google.protobuf.timestamp.Timestamp
   */
 object LfEngineToApi {
 
-  private[this] type LfValue[+Cid] = Lf[Cid]
+  private[this] type LfValue = Lf
 
   def toApiIdentifier(identifier: Identifier): api.Identifier = {
     api.Identifier(
@@ -46,13 +46,13 @@ object LfEngineToApi {
 
   def lfVersionedValueToApiRecord(
       verbose: Boolean,
-      recordValue: Lf.VersionedValue[Lf.ContractId],
+      recordValue: Lf.VersionedValue,
   ): Either[String, api.Record] =
     lfValueToApiRecord(verbose, recordValue.value)
 
   def lfValueToApiRecord(
       verbose: Boolean,
-      recordValue: LfValue[Lf.ContractId],
+      recordValue: LfValue,
   ): Either[String, api.Record] = {
     recordValue match {
       case Lf.ValueRecord(tycon, fields) =>
@@ -78,7 +78,7 @@ object LfEngineToApi {
 
   def lfVersionedValueToApiValue(
       verbose: Boolean,
-      lf: Option[Lf.VersionedValue[Lf.ContractId]],
+      lf: Option[Lf.VersionedValue],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfVersionedValueToApiValue(verbose, _).map(Some(_))
@@ -86,13 +86,13 @@ object LfEngineToApi {
 
   def lfVersionedValueToApiValue(
       verbose: Boolean,
-      value: Lf.VersionedValue[Lf.ContractId],
+      value: Lf.VersionedValue,
   ): Either[String, api.Value] =
     lfValueToApiValue(verbose, value.value)
 
   def lfValueToApiValue(
       verbose: Boolean,
-      value0: LfValue[Lf.ContractId],
+      value0: LfValue,
   ): Either[String, api.Value] =
     value0 match {
       case Lf.ValueUnit => Right(api.Value(api.Value.Sum.Unit(Empty())))
@@ -187,13 +187,13 @@ object LfEngineToApi {
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: KeyWithMaintainers[Lf.VersionedValue[Lf.ContractId]],
+      lf: KeyWithMaintainers[Lf.VersionedValue],
   ): Either[String, api.Value] =
     lfVersionedValueToApiValue(verbose, lf.key)
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Option[KeyWithMaintainers[Lf.VersionedValue[Lf.ContractId]]],
+      lf: Option[KeyWithMaintainers[Lf.VersionedValue]],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfContractKeyToApiValue(verbose, _).map(Some(_))
@@ -203,7 +203,7 @@ object LfEngineToApi {
       verbose: Boolean,
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeCreate[Lf.ContractId],
+      node: NodeCreate,
   ): Either[String, Event] =
     for {
       arg <- lfValueToApiRecord(verbose, node.coinst.arg)
@@ -227,7 +227,7 @@ object LfEngineToApi {
   def lfNodeExercisesToEvent(
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeExercises[NodeId, Lf.ContractId],
+      node: NodeExercises[NodeId],
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
@@ -248,7 +248,7 @@ object LfEngineToApi {
       verbose: Boolean,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeCreate[Lf.ContractId],
+      node: NodeCreate,
   ): Either[String, TreeEvent] =
     for {
       arg <- lfValueToApiRecord(verbose, node.coinst.arg)
@@ -274,7 +274,7 @@ object LfEngineToApi {
       trId: Ref.LedgerString,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises[NodeId, Lf.ContractId],
+      node: NodeExercises[NodeId],
       filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {

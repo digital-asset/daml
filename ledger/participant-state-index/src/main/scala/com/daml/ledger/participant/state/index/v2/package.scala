@@ -20,10 +20,10 @@ package v2 {
         eventId: EventId,
         contractId: Value.ContractId,
         templateId: Ref.Identifier,
-        argument: Value.VersionedValue[Value.ContractId],
+        argument: Value.VersionedValue,
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
-        contractKey: Option[Value.VersionedValue[Value.ContractId]],
+        contractKey: Option[Value.VersionedValue],
         signatories: Set[Ref.Party],
         observers: Set[Ref.Party],
         agreementText: String,

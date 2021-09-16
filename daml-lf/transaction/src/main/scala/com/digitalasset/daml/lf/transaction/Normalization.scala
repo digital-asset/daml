@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.{Value => Val}
 
 import com.daml.lf.transaction.Node.{
   KeyWithMaintainers,
@@ -16,7 +16,7 @@ import com.daml.lf.transaction.Node.{
   NodeRollback,
 }
 
-class Normalization[Nid, Cid] {
+class Normalization[Nid] {
 
   /** This class provides methods to normalize a transaction and embedded values.
     *
@@ -38,10 +38,9 @@ class Normalization[Nid, Cid] {
     * longer need this separate normalization pass.
     */
 
-  private type Val = V[Cid]
   private type KWM = KeyWithMaintainers[Val]
-  private type Node = GenNode[Nid, Cid]
-  private type VTX = VersionedTransaction[Nid, Cid]
+  private type Node = GenNode[Nid]
+  private type VTX = VersionedTransaction[Nid]
 
   def normalizeTx(vtx: VTX): VTX = {
     vtx match {
@@ -62,12 +61,12 @@ class Normalization[Nid, Cid] {
     import scala.Ordering.Implicits.infixOrderingOps
     node match {
 
-      case old: NodeCreate[_] =>
+      case old: NodeCreate =>
         old
           .copy(arg = normValue(old.version)(old.arg))
           .copy(key = old.key.map(normKWM(old.version)))
 
-      case old: NodeFetch[_] =>
+      case old: NodeFetch =>
         (if (old.version >= TransactionVersion.minByKey) {
            old
          } else {
@@ -77,7 +76,7 @@ class Normalization[Nid, Cid] {
             key = old.key.map(normKWM(old.version))
           )
 
-      case old: NodeExercises[_, _] =>
+      case old: NodeExercises[_] =>
         (if (old.version >= TransactionVersion.minByKey) {
            old
          } else {
@@ -89,7 +88,7 @@ class Normalization[Nid, Cid] {
             key = old.key.map(normKWM(old.version)),
           )
 
-      case old: NodeLookupByKey[_] =>
+      case old: NodeLookupByKey =>
         old.copy(
           key = normKWM(old.version)(old.key)
         )
@@ -113,7 +112,7 @@ class Normalization[Nid, Cid] {
 }
 
 object Normalization {
-  def normalizeTx[Nid, Cid](tx: VersionedTransaction[Nid, Cid]): VersionedTransaction[Nid, Cid] = {
+  def normalizeTx[Nid](tx: VersionedTransaction[Nid]): VersionedTransaction[Nid] = {
     new Normalization().normalizeTx(tx)
   }
 }

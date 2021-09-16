@@ -26,7 +26,7 @@ private[lf] object CheckAuthorization {
 
   private[lf] def authorizeCreate(
       optLocation: Option[Location],
-      create: NodeCreate[_],
+      create: NodeCreate,
   )(
       auth: Authorize
   ): List[FailedAuthorization] = {
@@ -61,7 +61,7 @@ private[lf] object CheckAuthorization {
 
   private[lf] def authorizeFetch(
       optLocation: Option[Location],
-      fetch: NodeFetch[_],
+      fetch: NodeFetch,
   )(
       auth: Authorize
   ): List[FailedAuthorization] = {
@@ -78,7 +78,7 @@ private[lf] object CheckAuthorization {
 
   private[lf] def authorizeLookupByKey(
       optLocation: Option[Location],
-      lbk: NodeLookupByKey[_],
+      lbk: NodeLookupByKey,
   )(
       auth: Authorize
   ): List[FailedAuthorization] = {

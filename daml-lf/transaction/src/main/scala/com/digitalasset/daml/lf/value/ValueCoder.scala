@@ -42,30 +42,30 @@ object ValueCoder {
       EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
-  abstract class EncodeCid[-Cid] private[lf] {
-    private[lf] def encode(contractId: Cid): proto.ContractId
+  abstract class EncodeCid private[lf] {
+    private[lf] def encode(contractId: ContractId): proto.ContractId
   }
 
-  object CidEncoder extends EncodeCid[ContractId] {
+  object CidEncoder extends EncodeCid {
     private[lf] def encode(cid: ContractId): proto.ContractId =
       proto.ContractId.newBuilder.setContractId(cid.coid).build
   }
 
-  abstract class DecodeCid[Cid] private[lf] {
+  abstract class DecodeCid private[lf] {
     def decodeOptional(
         structForm: proto.ContractId
-    ): Either[DecodeError, Option[Cid]]
+    ): Either[DecodeError, Option[Value.ContractId]]
 
     final def decode(
         structForm: proto.ContractId
-    ): Either[DecodeError, Cid] =
+    ): Either[DecodeError, Value.ContractId] =
       decodeOptional(structForm).flatMap {
         case Some(cid) => Right(cid)
         case None => Left(DecodeError("Missing required field contract_id"))
       }
   }
 
-  val CidDecoder: DecodeCid[ContractId] = new DecodeCid[ContractId] {
+  val CidDecoder: DecodeCid = new DecodeCid {
 
     private def stringToCidString(s: String): Either[DecodeError, Value.ContractId] =
       Value.ContractId
@@ -84,7 +84,7 @@ object ValueCoder {
         stringToCidString(structForm.getContractId).map(Some(_))
   }
 
-  val NoCidDecoder: DecodeCid[Nothing] = new DecodeCid {
+  val NoCidDecoder: DecodeCid = new DecodeCid {
     override def decodeOptional(structForm: ValueOuterClass.ContractId) = Right(None)
   }
 
@@ -149,10 +149,10 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return either error or [VersionedValue]
     */
-  def decodeVersionedValue[Cid](
-      decodeCid: DecodeCid[Cid],
+  def decodeVersionedValue(
+      decodeCid: DecodeCid,
       protoValue0: proto.VersionedValue,
-  ): Either[DecodeError, VersionedValue[Cid]] =
+  ): Either[DecodeError, VersionedValue] =
     for {
       version <- decodeValueVersion(protoValue0.getVersion)
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
@@ -164,10 +164,10 @@ object ValueCoder {
   // Note the number of recursions is one less than the number of nested messages.
   private[this] val MAXIMUM_PROTO_RECURSION_LIMIT = 3 * MAXIMUM_NESTING + 1
 
-  def decodeValue[Cid](
-      decodeCid: DecodeCid[Cid],
+  def decodeValue(
+      decodeCid: DecodeCid,
       protoValue0: proto.VersionedValue,
-  ): Either[DecodeError, Value[Cid]] =
+  ): Either[DecodeError, Value] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
 
   private[this] def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
@@ -184,11 +184,11 @@ object ValueCoder {
         Right(value)
     }
 
-  def decodeValue[Cid](
-      decodeCid: DecodeCid[Cid],
+  def decodeValue(
+      decodeCid: DecodeCid,
       version: TransactionVersion,
       bytes: ByteString,
-  ): Either[DecodeError, Value[Cid]] =
+  ): Either[DecodeError, Value] =
     parseValue(bytes).flatMap(decodeValue(decodeCid, version, _))
 
   /** Method to read a serialized protobuf value
@@ -199,11 +199,11 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return either error or Value
     */
-  private[this] def decodeValue[Cid](
-      decodeCid: DecodeCid[Cid],
+  private[this] def decodeValue(
+      decodeCid: DecodeCid,
       version: TransactionVersion,
       protoValue0: proto.Value,
-  ): Either[DecodeError, Value[Cid]] = {
+  ): Either[DecodeError, Value] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def identifier(s: String): Name =
@@ -222,7 +222,7 @@ object ValueCoder {
       if (version >= minVersion)
         throw Err(s"$description is not supported by transaction version $version")
 
-    def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
+    def go(nesting: Int, protoValue: proto.Value): Value = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
           s"Provided proto value to decode exceeds maximum nesting level of $MAXIMUM_NESTING"
@@ -370,16 +370,16 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
-  def encodeVersionedValue[Cid](
-      encodeCid: EncodeCid[Cid],
-      versionedValue: VersionedValue[Cid],
+  def encodeVersionedValue(
+      encodeCid: EncodeCid,
+      versionedValue: VersionedValue,
   ): Either[EncodeError, proto.VersionedValue] =
     encodeVersionedValue(encodeCid, versionedValue.version, versionedValue.value)
 
-  def encodeVersionedValue[Cid](
-      encodeCid: EncodeCid[Cid],
+  def encodeVersionedValue(
+      encodeCid: EncodeCid,
       version: TransactionVersion,
-      value: Value[Cid],
+      value: Value,
   ): Either[EncodeError, proto.VersionedValue] =
     for {
       protoValue <- encodeValue(encodeCid, version, value)
@@ -396,10 +396,10 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
-  def encodeValue[Cid](
-      encodeCid: EncodeCid[Cid],
+  def encodeValue(
+      encodeCid: EncodeCid,
       valueVersion: TransactionVersion,
-      v0: Value[Cid],
+      v0: Value,
   ): Either[EncodeError, ByteString] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
@@ -407,7 +407,7 @@ object ValueCoder {
       if (valueVersion < minVersion)
         throw Err(s"$description is not supported by value version $valueVersion")
 
-    def go(nesting: Int, v: Value[Cid]): proto.Value = {
+    def go(nesting: Int, v: Value): proto.Value = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
           s"Provided Daml-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING"
@@ -515,10 +515,10 @@ object ValueCoder {
     }
   }
 
-  private[value] def valueFromBytes[Cid](
-      decodeCid: DecodeCid[Cid],
+  private[value] def valueFromBytes(
+      decodeCid: DecodeCid,
       bytes: Array[Byte],
-  ): Either[DecodeError, Value[Cid]] = {
+  ): Either[DecodeError, Value] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
 }

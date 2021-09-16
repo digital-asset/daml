@@ -5,9 +5,11 @@ package com.daml.lf
 package value.json
 
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.value.Value.ContractId
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
 import value.test.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
+import value.test.ValueGenerators.coidGen
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.daml.ledger.service.MetadataReader
 import org.scalactic.source
@@ -15,12 +17,10 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Arbitrary
 import shapeless.{Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
 import spray.json._
-import scalaz.Order
-import scalaz.std.string._
 import scalaz.syntax.show._
 
 import scala.util.{Success, Try}
@@ -33,6 +33,8 @@ class ApiCodecCompressedSpec
     with Inside {
 
   import C.typeLookup
+
+  private[this] implicit val cidArb: Arbitrary[ContractId] = Arbitrary(coidGen)
 
   private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
   require(dar.exists())
@@ -59,7 +61,7 @@ class ApiCodecCompressedSpec
     } yield parsed
   }
 
-  private def roundtrip(va: VA)(v: va.Inj[Cid]): Option[va.Inj[Cid]] =
+  private def roundtrip(va: VA)(v: va.Inj): Option[va.Inj] =
     va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
 
   private object C /* based on navigator DamlConstants */ {
@@ -77,12 +79,12 @@ class ApiCodecCompressedSpec
     val simpleRecordVariantSpec = Symbol("fA") ->> VA.text :: Symbol("fB") ->> VA.int64 :: RNil
     val (simpleRecordDDT, simpleRecordT) =
       VA.record(simpleRecordId, simpleRecordVariantSpec)
-    val simpleRecordV: simpleRecordT.Inj[Cid] = HRecord(fA = "foo", fB = 100L)
+    val simpleRecordV: simpleRecordT.Inj = HRecord(fA = "foo", fB = 100L)
 
     val simpleVariantId = defRef("SimpleVariant")
     val (simpleVariantDDT, simpleVariantT) =
       VA.variant(simpleVariantId, simpleRecordVariantSpec)
-    val simpleVariantV = HSum[simpleVariantT.Inj[Cid]](Symbol("fA") ->> "foo")
+    val simpleVariantV = HSum[simpleVariantT.Inj](Symbol("fA") ->> "foo")
 
     val complexRecordId = defRef("ComplexRecord")
     val (complexRecordDDT, complexRecordT) =
@@ -107,7 +109,7 @@ class ApiCodecCompressedSpec
           :: Symbol("fRecord") ->> simpleRecordT
           :: RNil,
       )
-    val complexRecordV: complexRecordT.Inj[Cid] =
+    val complexRecordV: complexRecordT.Inj =
       HRecord(
         fText = "foo",
         fBool = true,
@@ -115,7 +117,7 @@ class ApiCodecCompressedSpec
         fUnit = (),
         fInt64 = 100L,
         fParty = Ref.Party assertFromString "BANK1",
-        fContractId = "C0",
+        fContractId = ContractId.assertFromString("#C0"),
         fListOfText = Vector("foo", "bar"),
         fListOfUnit = Vector((), ()),
         fDate = Time.Date assertFromString "2019-01-28",
@@ -142,15 +144,12 @@ class ApiCodecCompressedSpec
       ).lift
   }
 
-  type Cid = String
-  private val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map { case (h, t) => h +: t }
-
   "API compressed JSON codec" when {
 
     "serializing and parsing a value" should {
 
       "work for arbitrary reference-free types" in forAll(
-        genTypeAndValue(genCid),
+        genTypeAndValue(coidGen),
         minSuccessful(100),
       ) { case (typ, value) =>
         serializeAndParse(value, typ) shouldBe Success(value)
@@ -158,8 +157,8 @@ class ApiCodecCompressedSpec
 
       "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
-        forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
+        implicit val arbInj: Arbitrary[va.Inj] = va.injarb
+        forAll(minSuccessful(20)) { v: va.Inj =>
           roundtrip(va)(v) should ===(Some(v))
         }
       }
@@ -180,8 +179,8 @@ class ApiCodecCompressedSpec
       "handle lists of optionals" in {
         val va = VA.optional(VA.optional(VA.list(VA.optional(VA.optional(VA.int64)))))
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
-        forAll(minSuccessful(1000)) { v: va.Inj[Cid] =>
+        implicit val arbInj: Arbitrary[va.Inj] = va.injarb
+        forAll(minSuccessful(1000)) { v: va.Inj =>
           roundtrip(va)(v) should ===(Some(v))
         }
       }
@@ -189,8 +188,7 @@ class ApiCodecCompressedSpec
       "ignore order in maps" in forAll(genAddend, minSuccessful(20)) { kva =>
         val mapVa = VA.genMap(kva, VA.int64)
         import mapVa.{injarb, injshrink}
-        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
-        forAll(minSuccessful(50)) { map: mapVa.Inj[Cid] =>
+        forAll(minSuccessful(50)) { map: mapVa.Inj =>
           val canonical = mapVa.inj(map)
           val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
             elements
@@ -201,9 +199,8 @@ class ApiCodecCompressedSpec
 
       "fail on map duplicate keys" in forAll(genAddend, minSuccessful(20)) { kva =>
         val mapVa = VA.genMap(kva, VA.int64)
-        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
         import kva.{injarb, injshrink}, mapVa.{injarb => maparb, injshrink => mapshrink}
-        forAll(minSuccessful(50)) { (k: kva.Inj[Cid], v: VA.int64.Inj[Cid], map: mapVa.Inj[Cid]) =>
+        forAll(minSuccessful(50)) { (k: kva.Inj, v: VA.int64.Inj, map: mapVa.Inj) =>
           val canonical = mapVa.inj(map.updated(k, v))
           val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
             elements
@@ -218,7 +215,7 @@ class ApiCodecCompressedSpec
         }
       }
 
-      def cr(typ: VA)(v: typ.Inj[Cid]) =
+      def cr(typ: VA)(v: typ.Inj) =
         (typ, v: Any, typ.inj(v))
 
       val roundtrips = Table(
@@ -244,12 +241,12 @@ class ApiCodecCompressedSpec
     }
 
     def cn(canonical: String, numerically: String, typ: VA)(
-        expected: typ.Inj[Cid],
+        expected: typ.Inj,
         alternates: String*
     )(implicit pos: source.Position) =
       (pos.lineNumber, canonical, numerically, typ, expected, alternates)
 
-    def c(canonical: String, typ: VA)(expected: typ.Inj[Cid], alternates: String*)(implicit
+    def c(canonical: String, typ: VA)(expected: typ.Inj, alternates: String*)(implicit
         pos: source.Position
     ) =
       cn(canonical, canonical, typ)(expected, alternates: _*)(pos)
@@ -263,7 +260,7 @@ class ApiCodecCompressedSpec
 
     val successes = Table(
       ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
-      c("\"123\"", VA.contractId)("123"),
+      c("\"#123\"", VA.contractId)(ContractId.assertFromString("#123")),
       cn("\"42.0\"", "42.0", VA.numeric(Decimal.scale))(
         Decimal assertFromString "42",
         "\"42\"",
@@ -395,18 +392,18 @@ class ApiCodecCompressedSpec
       )
     )._1
 
-    val bazRecord = LfValue.ValueRecord[String](
+    val bazRecord = LfValue.ValueRecord(
       None,
       ImmArray(Some(Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc")),
     )
 
-    val bazVariant = LfValue.ValueVariant[String](
+    val bazVariant = LfValue.ValueVariant(
       None,
       Ref.Name.assertFromString("Baz"),
       bazRecord,
     )
 
-    val quxVariant = LfValue.ValueVariant[String](
+    val quxVariant = LfValue.ValueVariant(
       None,
       Ref.Name.assertFromString("Qux"),
       LfValue.ValueUnit,
@@ -452,27 +449,27 @@ class ApiCodecCompressedSpec
 
     "dealing with LF Variant" should {
       "encode Foo/Baz to JSON" in {
-        val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
+        val writer = implicitly[spray.json.JsonWriter[LfValue]]
         (writer.write(
           bazVariant
         ): JsValue) shouldBe ("""{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson: JsValue)
       }
 
       "decode Foo/Baz from JSON" in {
-        val actualValue: LfValue[String] = jsValueToApiValue(
+        val actualValue: LfValue = jsValueToApiValue(
           """{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson,
           fooId,
           darTypeLookup,
         )
 
-        val expectedValueWithIds: LfValue.ValueVariant[String] =
+        val expectedValueWithIds: LfValue.ValueVariant =
           bazVariant.copy(tycon = Some(fooId), value = bazRecord.copy(tycon = Some(bazRecordId)))
 
         actualValue shouldBe expectedValueWithIds
       }
 
       "encode Foo/Qux to JSON" in {
-        val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
+        val writer = implicitly[spray.json.JsonWriter[LfValue]]
         (writer.write(
           quxVariant
         ): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
@@ -489,13 +486,13 @@ class ApiCodecCompressedSpec
       }
 
       "decode Foo/Qux (empty value) from JSON" in {
-        val actualValue: LfValue[String] = jsValueToApiValue(
+        val actualValue: LfValue = jsValueToApiValue(
           """{"tag":"Qux", "value":{}}""".parseJson,
           fooId,
           darTypeLookup,
         )
 
-        val expectedValueWithIds: LfValue.ValueVariant[String] =
+        val expectedValueWithIds: LfValue.ValueVariant =
           quxVariant.copy(tycon = Some(fooId))
 
         actualValue shouldBe expectedValueWithIds
@@ -512,7 +509,7 @@ class ApiCodecCompressedSpec
         )._2
 
         val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
-        val expectedValue: LfValue[String] = LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
+        val expectedValue: LfValue = LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
 
         jsValueToApiValue(JsString("Alice"), keyType, darTypeLookup) shouldBe expectedValue
       }
@@ -530,7 +527,7 @@ class ApiCodecCompressedSpec
 
         val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
 
-        val expectedValue: LfValue[String] = LfValue.ValueRecord(
+        val expectedValue: LfValue = LfValue.ValueRecord(
           Some(Ref.Identifier(daTypesPackageId, tuple2Name)),
           ImmArray(
             Some(Ref.Name.assertFromString("_1")) -> LfValue.ValueParty(
@@ -556,7 +553,7 @@ class ApiCodecCompressedSpec
 
         val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
 
-        val actual: LfValue[String] = jsValueToApiValue(
+        val actual: LfValue = jsValueToApiValue(
           """["Alice", [11, {"tag": "Bar", "value": 123}, {"baz": "baz text"}]]""".parseJson,
           keyType,
           darTypeLookup,

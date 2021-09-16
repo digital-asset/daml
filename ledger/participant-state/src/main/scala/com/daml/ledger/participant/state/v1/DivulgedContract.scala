@@ -16,5 +16,5 @@ import com.daml.lf.value.Value
   */
 final case class DivulgedContract(
     contractId: Value.ContractId,
-    contractInst: Value.ContractInst[Value.VersionedValue[Value.ContractId]],
+    contractInst: Value.ContractInst[Value.VersionedValue],
 )

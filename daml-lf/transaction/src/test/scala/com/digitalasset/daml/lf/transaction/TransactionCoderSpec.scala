@@ -223,7 +223,7 @@ class TransactionCoderSpec
 
     "do tx with a lot of root nodes" in {
       val node =
-        NodeCreate[ContractId](
+        NodeCreate(
           coid = absCid("#test-cid"),
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = ValueParty(Party.assertFromString("francesco")),
@@ -271,7 +271,7 @@ class TransactionCoderSpec
         val shouldFail = node.choiceObservers.nonEmpty
 
         val normalized = normalizeNode(node) match {
-          case exe: NodeExercises[NodeId, ContractId] =>
+          case exe: NodeExercises[NodeId] =>
             exe.copy(
               choiceObservers = node.choiceObservers,
               exerciseResult = Some(Value.ValueText("not-missing")),
@@ -836,43 +836,43 @@ class TransactionCoderSpec
     }
   }
 
-  def withoutExerciseResult[Nid, Cid](gn: GenNode[Nid, Cid]): GenNode[Nid, Cid] =
+  def withoutExerciseResult[Nid](gn: GenNode[Nid]): GenNode[Nid] =
     gn match {
-      case ne: NodeExercises[Nid, Cid] => ne copy (exerciseResult = None)
+      case ne: NodeExercises[Nid] => ne copy (exerciseResult = None)
       case _ => gn
     }
-  def withoutContractKeyInExercise[Nid, Cid](gn: GenNode[Nid, Cid]): GenNode[Nid, Cid] =
+  def withoutContractKeyInExercise[Nid](gn: GenNode[Nid]): GenNode[Nid] =
     gn match {
-      case ne: NodeExercises[Nid, Cid] => ne copy (key = None)
+      case ne: NodeExercises[Nid] => ne copy (key = None)
       case _ => gn
     }
-  def withoutMaintainersInExercise[Nid, Cid](gn: GenNode[Nid, Cid]): GenNode[Nid, Cid] =
+  def withoutMaintainersInExercise[Nid](gn: GenNode[Nid]): GenNode[Nid] =
     gn match {
-      case ne: NodeExercises[Nid, Cid] =>
+      case ne: NodeExercises[Nid] =>
         ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
       case _ => gn
     }
 
-  def withoutChoiceObservers[Nid, Cid](gn: GenNode[Nid, Cid]): GenNode[Nid, Cid] =
+  def withoutChoiceObservers[Nid](gn: GenNode[Nid]): GenNode[Nid] =
     gn match {
-      case ne: NodeExercises[Nid, Cid] =>
+      case ne: NodeExercises[Nid] =>
         ne.copy(choiceObservers = Set.empty)
       case _ => gn
     }
 
-  def hasChoiceObserves(tx: GenTransaction[_, _]): Boolean =
+  def hasChoiceObserves(tx: GenTransaction[_]): Boolean =
     tx.nodes.values.exists {
-      case ne: NodeExercises[_, _] => ne.choiceObservers.nonEmpty
+      case ne: NodeExercises[_] => ne.choiceObservers.nonEmpty
       case _ => false
     }
 
   private def absCid(s: String): ContractId =
     ContractId.assertFromString(s)
 
-  def versionNodes[Nid, Cid](
+  def versionNodes[Nid](
       version: TransactionVersion,
-      nodes: Map[Nid, GenNode[Nid, Cid]],
-  ): Map[Nid, GenNode[Nid, Cid]] =
+      nodes: Map[Nid, GenNode[Nid]],
+  ): Map[Nid, GenNode[Nid]] =
     nodes.view.mapValues(updateVersion(_, version)).toMap
 
   private def versionInIncreasingOrder(
@@ -891,25 +891,25 @@ class TransactionCoderSpec
       v2 <- Gen.oneOf(versions.filter(_ > v1))
     } yield (v1, v2)
 
-  private[this] def normalizeNode[Nid](node: Node.GenNode[Nid, ContractId]) =
+  private[this] def normalizeNode[Nid](node: Node.GenNode[Nid]) =
     node match {
       case rb: NodeRollback[Nid] => rb //nothing to normalize
-      case exe: NodeExercises[Nid, ContractId] => normalizeExe(exe)
-      case fetch: NodeFetch[ContractId] => normalizeFetch(fetch)
-      case create: NodeCreate[ContractId] => normalizeCreate(create)
-      case lookup: NodeLookupByKey[ContractId] => lookup
+      case exe: NodeExercises[Nid] => normalizeExe(exe)
+      case fetch: NodeFetch => normalizeFetch(fetch)
+      case create: NodeCreate => normalizeCreate(create)
+      case lookup: NodeLookupByKey => lookup
     }
 
   private[this] def normalizeCreate(
-      create: Node.NodeCreate[ContractId]
-  ): Node.NodeCreate[ContractId] = {
+      create: Node.NodeCreate
+  ): Node.NodeCreate = {
     create.copy(
       arg = normalize(create.arg, create.version),
       key = create.key.map(normalizeKey(_, create.version)),
     )
   }
 
-  private[this] def normalizeFetch(fetch: Node.NodeFetch[ContractId]) =
+  private[this] def normalizeFetch(fetch: Node.NodeFetch) =
     fetch.copy(
       key = fetch.key.map(normalizeKey(_, fetch.version)),
       byKey =
@@ -918,7 +918,7 @@ class TransactionCoderSpec
         else false,
     )
 
-  private[this] def normalizeExe[Nid](exe: Node.NodeExercises[Nid, ContractId]) =
+  private[this] def normalizeExe[Nid](exe: Node.NodeExercises[Nid]) =
     exe.copy(
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult match {
@@ -941,33 +941,33 @@ class TransactionCoderSpec
     )
 
   private[this] def normalizeKey(
-      key: KeyWithMaintainers[Value[ContractId]],
+      key: KeyWithMaintainers[Value],
       version: TransactionVersion,
   ) = {
     key.copy(key = normalize(key.key, version))
   }
 
   private[this] def normalizeContract(
-      contract: ContractInst[Value.VersionedValue[Value.ContractId]]
+      contract: ContractInst[Value.VersionedValue]
   ) = {
     contract.copy(arg = normalizeValue(contract.arg))
   }
 
-  private[this] def normalizeValue(versionedValue: Value.VersionedValue[Value.ContractId]) = {
+  private[this] def normalizeValue(versionedValue: Value.VersionedValue) = {
     val Value.VersionedValue(version, value) = versionedValue
     Value.VersionedValue(version, normalize(value, version))
   }
 
   private[this] def normalize(
-      value0: Value[ContractId],
+      value0: Value,
       version: TransactionVersion,
-  ): Value[ContractId] = Util.assertNormalizeValue(value0, version)
+  ): Value = Util.assertNormalizeValue(value0, version)
 
-  private def updateVersion[Nid, Cid](
-      node: GenNode[Nid, Cid],
+  private def updateVersion[Nid](
+      node: GenNode[Nid],
       version: TransactionVersion,
-  ): GenNode[Nid, Cid] = node match {
-    case node: GenActionNode[_, _] => node.updateVersion(version)
+  ): GenNode[Nid] = node match {
+    case node: GenActionNode[_] => node.updateVersion(version)
     case node: Node.NodeRollback[_] => node
   }
 

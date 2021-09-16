@@ -65,15 +65,14 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfEnum = iface.Enum
   val DamlLfEnum = iface.Enum
 
-  type OfCid[F[_]] = F[Cid]
-  type ApiValue = OfCid[V]
+  type ApiValue = V
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
-  type ApiRecord = OfCid[V.ValueRecord]
-  type ApiVariant = OfCid[V.ValueVariant]
-  type ApiList = OfCid[V.ValueList]
-  type ApiOptional = OfCid[V.ValueOptional]
-  type ApiMap = OfCid[V.ValueTextMap]
-  type ApiGenMap = OfCid[V.ValueGenMap]
+  type ApiRecord = V.ValueRecord
+  type ApiVariant = V.ValueVariant
+  type ApiList = V.ValueList
+  type ApiOptional = V.ValueOptional
+  type ApiMap = V.ValueTextMap
+  type ApiGenMap = V.ValueGenMap
 }
 
 object NavigatorModelAliases extends NavigatorModelAliases[String]
