@@ -18,8 +18,8 @@ import scala.util.Try
 object Cli {
 
   private def reportUsageOfDeprecatedOption[B](
-                                                option: String
-                                              ) = { (_: Any, config: B) =>
+      option: String
+  ) = { (_: Any, config: B) =>
     System.err.println(
       s"WARNING: $option has been deprecated and will be removed in a future version"
     )
@@ -77,7 +77,9 @@ object Cli {
     )
 
     arg[(String, Int)]("[endpoints...]")(endpointRead)
-      .action((address, config) => config.copy(participants = config.participants :+ address))
+      .action((address, config) =>
+        config.copy(participantsEndpoints = config.participantsEndpoints :+ address)
+      )
       .unbounded()
       .optional()
       .text("Addresses of the participants to test, specified as `<host>:<port>`.")
