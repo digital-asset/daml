@@ -15,11 +15,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.v1.admin.config_management_service.{
-  GetTimeModelRequest,
-  SetTimeModelRequest,
-  TimeModel,
-}
+import com.daml.ledger.api.v1.admin.config_management_service.{GetTimeModelRequest, SetTimeModelRequest, TimeModel}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.v2.{SubmissionResult, WriteConfigService}
@@ -38,7 +34,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.immutable
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.util.{Failure, Success}
 
 class ApiConfigManagementServiceSpec
@@ -321,16 +318,19 @@ object ApiConfigManagementServiceSpec {
     val currentConfiguration =
       new AtomicReference[Option[(LedgerOffset.Absolute, Configuration)]](None)
 
-    val indexService = new IndexConfigManagementService {
+    val indexService: IndexConfigManagementService = new IndexConfigManagementService {
+      private val atLeastOneConfig = Promise[Unit]()
       private val source = configurationSource
         .map { case (offset, submissionId, configuration) =>
           val ledgerOffset =
             LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString))
           currentConfiguration.set(Some(ledgerOffset -> configuration))
+          atLeastOneConfig.trySuccess(())
           val entry = ConfigurationEntry.Accepted(submissionId, configuration)
           ledgerOffset -> entry
         }
         .preMaterialize()
+      Await.result(atLeastOneConfig.future, ScalaDuration.Inf)
 
       override def lookupConfiguration()(implicit
           loggingContext: LoggingContext
