@@ -6,8 +6,6 @@ package com.daml.ledger.api.testtool
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.testtool.tests.Tests
-import com.daml.ledger.api.tls.TlsVersion
-import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import scopt.{OptionParser, Read}
 
 import java.io.File
@@ -44,13 +42,6 @@ object Cli {
     }
 
   private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
-
-  private[this] implicit val tlsVersionRead: Read[TlsVersion] = Read.reads {
-    case "1" => TlsVersion.V1
-    case "1.1" => TlsVersion.V1_1
-    case "1.2" => TlsVersion.V1_2
-    case "1.3" => TlsVersion.V1_3
-  }
 
   private val argParser: OptionParser[Config] = new scopt.OptionParser[Config](Name) {
     private def invalidPerformanceTestName[A](name: String): Either[String, Unit] =
@@ -105,13 +96,6 @@ object Cli {
       .text("TLS: The crt file to be used as the trusted root CA. Applied to all endpoints.")
       .action { (path: String, config: Config) =>
         config.withTlsConfig(_.copy(trustCertCollectionFile = Some(new File(path))))
-      }
-
-    opt[TlsVersion]("tls-version")
-      .optional()
-      .text("TLS: TLS version to enable.")
-      .action { (tlsVersion: TlsVersion, config: Config) =>
-        config.withTlsConfig(_.copy(clientProtocolVersion = Some(tlsVersion)))
       }
 
     opt[Double](name = "timeout-scale-factor")

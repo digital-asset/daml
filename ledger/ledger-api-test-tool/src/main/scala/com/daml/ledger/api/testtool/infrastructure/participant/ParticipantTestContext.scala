@@ -8,6 +8,7 @@ import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{
+  Endpoint,
   Identification,
   LedgerServices,
   PartyAllocationConfiguration,
@@ -105,8 +106,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     referenceOffset: LedgerOffset,
     services: LedgerServices,
     partyAllocation: PartyAllocationConfiguration,
-    val ledgerHostname: String,
-    val ledgerPort: Int,
+    val ledgerEndpoint: Endpoint,
     val clientTlsConfiguration: Option[TlsConfiguration],
 )(implicit ec: ExecutionContext) {
 

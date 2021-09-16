@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{NoParties, allocate}
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.{Endpoint, LedgerTestSuite}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
@@ -36,7 +36,7 @@ final class TLSOnePointThreeIT extends LedgerTestSuite {
       else
         ("reject", assertFailedlConnection)
 
-    test2(
+    testGivenAllParticipants(
       s"ConnectionOnTLSv13FromClientOn${clientTls.version.replace(".", "")}",
       s"A ledger API server  should ${what} a ${clientTls} connection",
       allocate(NoParties),
@@ -48,6 +48,10 @@ final class TLSOnePointThreeIT extends LedgerTestSuite {
           firstTextContext.clientTlsConfiguration.isDefined,
           "This test case requires TLS configuration!",
         )
+        assume(
+          firstTextContext.ledgerEndpoint.isInstanceOf[Endpoint.Remote]
+        )
+        val Endpoint.Remote(ledgerHostname, ledgerPort) = firstTextContext.ledgerEndpoint
         val tlsConfiguration = firstTextContext.clientTlsConfiguration.get
 
         val concurrency = Concurrency(
@@ -57,9 +61,10 @@ final class TLSOnePointThreeIT extends LedgerTestSuite {
           maxQueueLength = 1000,
         )
 
+        // TODO PBATKO
         val ledger = Ledger(
-          hostname = firstTextContext.ledgerHostname,
-          port = firstTextContext.ledgerPort,
+          hostname = ledgerHostname,
+          port = ledgerPort,
         )
 
         val resources: ResourceOwner[LedgerIdentityServiceBlockingStub] = for {

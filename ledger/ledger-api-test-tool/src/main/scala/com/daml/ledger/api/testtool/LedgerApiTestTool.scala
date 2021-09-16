@@ -224,11 +224,10 @@ object LedgerApiTestTool {
       config.participantsEndpoints,
       config.tlsConfig,
     ).asFuture
-      .map((participants: Vector[(Channel, String, Int)]) =>
+      .map((participants: Vector[ChannelEndpoint]) =>
         new LedgerTestCasesRunner(
           testCases = cases,
-          participants =
-            participants.map((x: (Channel, String, Int)) => (ChannelEndpoint.apply _).tupled(x)),
+          participants = participants,
           maxConnectionAttempts = config.maxConnectionAttempts,
           partyAllocation = config.partyAllocation,
           shuffleParticipants = config.shuffleParticipants,
@@ -262,19 +261,16 @@ object LedgerApiTestTool {
   private def initializeParticipantChannels(
       participants: Vector[(String, Int)],
       tlsConfig: Option[TlsConfiguration],
-  )(implicit executionContext: ExecutionContext): Resource[Vector[(Channel, String, Int)]] = {
-    // TODO BATKO: Use more descriptive types for hostname and port than plain string and int
-    val participantChannelOwners: Seq[(ResourceOwner[Channel], String, Int)] =
+  )(implicit executionContext: ExecutionContext): Resource[Vector[ChannelEndpoint]] = {
+    val channelResources: Seq[Resource[ChannelEndpoint]] =
       for ((host, port) <- participants) yield {
         val channelOwner: ResourceOwner[Channel] =
           initializeParticipantChannel(host, port, tlsConfig)
-        (channelOwner, host, port)
-      }
-    val channelResources: Seq[Resource[(Channel, String, Int)]] = participantChannelOwners
-      .map { case (channelOwner, host, port) =>
         channelOwner
           .acquire()
-          .map(channel => (channel, host, port))
+          .map(channel =>
+            ChannelEndpoint.forRemote(channel = channel, hostname = host, port = port)
+          )
       }
     Resource.sequence(channelResources)
   }

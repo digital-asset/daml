@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.testtool.infrastructure.{
   ChannelEndpoint,
+  Endpoint,
   Errors,
   LedgerServices,
   PartyAllocationConfiguration,
@@ -29,8 +30,7 @@ private[infrastructure] final class ParticipantSession private (
     // The test tool is designed to run tests in an isolated environment but changing the
     // global state of the ledger breaks this assumption, no matter what.
     ledgerId: String,
-    ledgerHostname: String,
-    ledgerPort: Int,
+    ledgerEndpoint: Endpoint,
 )(implicit val executionContext: ExecutionContext) {
 
   private[testtool] def createInitContext(
@@ -61,8 +61,7 @@ private[infrastructure] final class ParticipantSession private (
       referenceOffset = end,
       services = services,
       partyAllocation = partyAllocation,
-      ledgerHostname = ledgerHostname,
-      ledgerPort = ledgerPort,
+      ledgerEndpoint = ledgerEndpoint,
       clientTlsConfiguration = clientTlsConfiguration,
     )
 }
@@ -70,7 +69,7 @@ private[infrastructure] final class ParticipantSession private (
 object ParticipantSession {
   private val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
 
-  def createSessions(
+  def apply(
       partyAllocation: PartyAllocationConfiguration,
       participants: Vector[ChannelEndpoint],
       maxConnectionAttempts: Int,
@@ -99,8 +98,7 @@ object ParticipantSession {
         partyAllocation = partyAllocation,
         services = services,
         ledgerId = ledgerId,
-        ledgerHostname = participant.hostname,
-        ledgerPort = participant.port,
+        ledgerEndpoint = participant.endpoint,
       )
     }
 

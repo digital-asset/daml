@@ -167,7 +167,6 @@ private[daml] object ApiServices {
         optTimeServiceBackend.map(tsb =>
           new TimeServiceAuthorization(ApiTimeService.create(ledgerId, tsb), authorizer)
         )
-
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,

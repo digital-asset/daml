@@ -12,7 +12,7 @@ import scala.util.Random
 private[infrastructure] final class LedgerSession private (
     participantSessions: Vector[(String, ParticipantSession)],
     shuffleParticipants: Boolean,
-    tlsConfiguration: Option[TlsConfiguration],
+    clientTlsConfiguration: Option[TlsConfiguration],
 )(implicit val executionContext: ExecutionContext) {
   private[infrastructure] def createTestContext(
       applicationId: String,
@@ -27,7 +27,7 @@ private[infrastructure] final class LedgerSession private (
           endpointId,
           applicationId,
           identifierSuffix,
-          tlsConfiguration,
+          clientTlsConfiguration,
         )
       }
       .map(new LedgerTestContext(_))

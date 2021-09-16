@@ -109,13 +109,11 @@ final class NonRepudiationProxyConformance
     proxy.use { _ =>
       val runner = new LedgerTestCasesRunner(
         testCases = conformanceTestCases,
-        // TODO PBATKO
-        participants =
-          Vector(infrastructure.ChannelEndpoint(proxyChannel, "TODO dummy hostname", 12345)),
+        participants = Vector(infrastructure.ChannelEndpoint.forInProcess(proxyChannel)),
         commandInterceptors = Seq(
           SigningInterceptor.signCommands(key, certificate)
         ),
-        clientTlsConfiguration = None,
+        clientTlsConfiguration = config.tlsConfig,
       )
 
       runner.runTests.map { summaries =>

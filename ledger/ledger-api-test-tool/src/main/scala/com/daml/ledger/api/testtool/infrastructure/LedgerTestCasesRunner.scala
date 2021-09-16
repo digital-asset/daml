@@ -199,8 +199,7 @@ final class LedgerTestCasesRunner(
       executionContext: ExecutionContext,
   ): Future[Vector[LedgerTestSummary]] = {
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
-    ParticipantSession
-      .createSessions(partyAllocation, participants, maxConnectionAttempts, commandInterceptors)
+    ParticipantSession(partyAllocation, participants, maxConnectionAttempts, commandInterceptors)
       .flatMap { sessions: Vector[ParticipantSession] =>
         val ledgerSession = LedgerSession(
           sessions,
