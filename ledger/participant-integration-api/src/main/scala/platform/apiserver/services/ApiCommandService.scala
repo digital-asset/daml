@@ -23,12 +23,12 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionResponse,
 }
 import com.daml.ledger.api.validation.CommandsValidator
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
   TrackedCompletionFailure,
 }
+import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
 import com.daml.ledger.client.services.commands.{
   CommandCompletionSource,
   CommandSubmission,
@@ -79,6 +79,7 @@ private[apiserver] final class ApiCommandService private[services] (
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     val commands = request.getCommands
     withEnrichedLoggingContext(
+      logging.submissionId(commands.submissionId),
       logging.commandId(commands.commandId),
       logging.partyString(commands.party),
       logging.actAsStrings(commands.actAs),
@@ -160,8 +161,11 @@ private[apiserver] object ApiCommandService {
   private val trackerCleanupInterval = 30.seconds
 
   type SubmissionFlow = Flow[
-    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), CommandSubmission],
-    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), Try[Empty]],
+    Ctx[
+      (Promise[Either[CompletionFailure, CompletionSuccess]], TrackedCommandKey),
+      CommandSubmission,
+    ],
+    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], TrackedCommandKey), Try[Empty]],
     NotUsed,
   ]
 

@@ -590,11 +590,11 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
 
 pPrintTemplate ::
   PrettyLevel -> ModuleName -> Template -> Doc ann
-pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey _implements) = -- TODO interfaces
+pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey implements) =
   withSourceLoc lvl mbLoc $
     keyword_ "template" <-> pPrint tpl <-> pPrint param
     <-> keyword_ "where"
-    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ mbKeyDoc ++ choiceDocs))
+    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ mbImplementsDoc ++ mbKeyDoc ++ choiceDocs))
     where
       signatoriesDoc = keyword_ "signatory" <-> pPrintPrec lvl 0 signatories
       observersDoc = keyword_ "observer" <-> pPrintPrec lvl 0 observers
@@ -608,6 +608,10 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
           , nest 2 (keyword_ "body" <-> pPrintPrec lvl 0 (tplKeyBody key))
           , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
+      mbImplementsDoc
+        | null implements = []
+        | otherwise = [keyword_ "implements" <-> hsep (map (pPrintPrec lvl 0) implements)]
+
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags flags

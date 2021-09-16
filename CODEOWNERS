@@ -33,7 +33,7 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /daml-lf/kv-transaction-support/ @digital-asset/kv-committer
 /daml-lf/transaction-test-lib/ @S11001001
 
-/ledger-service/    @S11001001 @cocreature @stefanobaghino-da
+/ledger-service/    @S11001001 @stefanobaghino-da
 
 # KV Participant
 /ledger/      @digital-asset/kv-participant
@@ -69,17 +69,17 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/participant-state/kvutils/src/main/protobuf  @meiersi-da @digital-asset/kv-committer
 
 
-/runtime-components/    @stefanobaghino-da @cocreature
+/runtime-components/    @stefanobaghino-da
 
 # Ecosystems
-/language-support/hs/       @nickchapman-da
-/language-support/java/     @cocreature @stefanobaghino-da
-/language-support/scala/    @S11001001 @cocreature @stefanobaghino-da
-/language-support/ts/        @robin-da @cocreature @garyverhaegen-da @stefanobaghino-da
+/language-support/hs/       @nickchapman-da @cocreature
+/language-support/java/     @stefanobaghino-da
+/language-support/scala/    @S11001001 @stefanobaghino-da
+/language-support/ts/        @robin-da @garyverhaegen-da @stefanobaghino-da
 
 # Tools
 /extractor/         @S11001001 @stefanobaghino-da
-/navigator/         @cocreature @stefanobaghino-da
+/navigator/         @stefanobaghino-da
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
