@@ -55,7 +55,10 @@ final class TLSOnePointThreeIT extends LedgerTestSuite {
           "Missing required TLS configuration!",
         )
         val tlsConfiguration = firstTextContext.clientTlsConfiguration.get
-        assume(tlsConfiguration.enabled, "TLS configuration is disabled but expected to be enabled!")
+        assume(
+          tlsConfiguration.enabled,
+          "TLS configuration is disabled but expected to be enabled!",
+        )
         assume(
           firstTextContext.ledgerEndpoint.isInstanceOf[Endpoint.Remote],
           "Expected a remote (i.e. with a hostname and port) ledger endpoint!",
