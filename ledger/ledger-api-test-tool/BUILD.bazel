@@ -252,6 +252,7 @@ conformance_test(
         # Retired tests will be eventually removed.
         "--additional=LotsOfPartiesIT",
         "--additional=TransactionScaleIT",
+        "--additional=TLSOnePointThreeIT",
         "--exclude=CommandDeduplicationIT",
         # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken.
         # This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
@@ -260,36 +261,6 @@ conformance_test(
         "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
         "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
         "--all-tests",
-    ],
-)
-
-# TODO PBATKO: Merge with the above "conformance-test" ?
-conformance_test(
-    name = "TLSv1.3-only-server",
-    extra_data = [
-        "//ledger/test-common/test-certificates:client.crt",
-        "//ledger/test-common/test-certificates:client.pem",
-        "//ledger/test-common/test-certificates:server.crt",
-        "//ledger/test-common/test-certificates:server.pem",
-        "//ledger/test-common/test-certificates:server.pem.enc",
-        "//ledger/test-common/test-certificates:ca.crt",
-    ],
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ssl-test,port=6865",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
-        "--tls-secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
-        "--min-tls-version 1.3",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=TLSOnePointThreeIT",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
     ],
 )
 
