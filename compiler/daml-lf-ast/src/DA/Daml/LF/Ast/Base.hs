@@ -672,7 +672,7 @@ data Update
   -- | Retrieve the argument of an existing contract interface instance.
   | UFetchInterface
     { fetInterface   :: !(Qualified TypeConName)
-      -- ^ Qualified type constructor corresponding to the contract template.
+      -- ^ Qualified type constructor corresponding to the interface.
     , fetContractId :: !Expr
       -- ^ Contract id of the contract template instance whose argument shall be
       -- retrieved.
