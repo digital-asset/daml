@@ -4,13 +4,12 @@
 package com.daml.platform.indexer.ha
 
 import java.sql.Connection
+import java.util.Timer
 
-import akka.actor.Scheduler
 import akka.stream.KillSwitch
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.DBLockStorageBackend.{Lock, LockId, LockMode}
 import com.daml.platform.store.backend.DBLockStorageBackend
-import javax.sql.DataSource
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -55,9 +54,9 @@ trait HaCoordinator {
 }
 
 case class HaConfig(
-    mainLockAquireRetryMillis: Long = 500,
-    workerLockAquireRetryMillis: Long = 500,
-    workerLockAquireMaxRetry: Long = 1000,
+    mainLockAcquireRetryMillis: Long = 500,
+    workerLockAcquireRetryMillis: Long = 500,
+    workerLockAcquireMaxRetry: Long = 1000,
     mainLockCheckerPeriodMillis: Long = 1000,
     indexerLockId: Int = 0x646d6c00, // note 0x646d6c equals ASCII encoded "dml"
     indexerWorkerLockId: Int = 0x646d6c01,
@@ -75,22 +74,22 @@ object HaCoordinator {
     * - provides a ConnectionInitializer function which is mandatory to execute on all worker connections during execution
     * - will spawn a polling-daemon to observe continuous presence of the main lock
     *
-    * @param dataSource to spawn the main connection which keeps the Indexer Main Lock
+    * @param connectionFactory to spawn the main connection which keeps the Indexer Main Lock
     * @param storageBackend is the database-independent abstraction of session/connection level database locking
     * @param executionContext which is use to execute initialisation, will do blocking/IO work, so dedicated execution context is recommended
     */
   def databaseLockBasedHaCoordinator(
-      dataSource: DataSource,
+      connectionFactory: () => Connection,
       storageBackend: DBLockStorageBackend,
       executionContext: ExecutionContext,
-      scheduler: Scheduler,
+      timer: Timer,
       haConfig: HaConfig,
   )(implicit loggingContext: LoggingContext): HaCoordinator = {
     implicit val ec: ExecutionContext = executionContext
 
     val indexerLockId = storageBackend.lock(haConfig.indexerLockId)
     val indexerWorkerLockId = storageBackend.lock(haConfig.indexerWorkerLockId)
-    val preemptableSequence = PreemptableSequence(scheduler)
+    val preemptableSequence = PreemptableSequence(timer)
 
     new HaCoordinator {
       override def protectedExecution(
@@ -114,18 +113,18 @@ object HaCoordinator {
           import sequenceHelper._
           logger.info("Starting databaseLockBasedHaCoordinator")
           for {
-            mainConnection <- go[Connection](dataSource.getConnection)
+            mainConnection <- go[Connection](connectionFactory())
             _ = logger.info("Step 1: creating main-connection - DONE")
             _ = registerRelease {
               logger.info("Releasing main connection...")
               mainConnection.close()
               logger.info("Released main connection")
             }
-            _ <- retry(haConfig.mainLockAquireRetryMillis)(acquireMainLock(mainConnection))
+            _ <- retry(haConfig.mainLockAcquireRetryMillis)(acquireMainLock(mainConnection))
             _ = logger.info("Step 2: acquire exclusive Indexer Main Lock on main-connection - DONE")
             exclusiveWorkerLock <- retry[Lock](
-              haConfig.workerLockAquireRetryMillis,
-              haConfig.workerLockAquireMaxRetry,
+              haConfig.workerLockAcquireRetryMillis,
+              haConfig.workerLockAcquireMaxRetry,
             )(
               acquireLock(mainConnection, indexerWorkerLockId, LockMode.Exclusive)
             )

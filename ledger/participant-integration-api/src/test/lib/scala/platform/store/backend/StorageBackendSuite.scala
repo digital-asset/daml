@@ -6,14 +6,13 @@ package com.daml.platform.store.backend
 import org.scalatest.flatspec.AsyncFlatSpec
 
 trait StorageBackendSuite
-    extends StorageBackendSpec
-    with StorageBackendTestsInitialization
+    extends StorageBackendTestsInitialization
     with StorageBackendTestsInitializeIngestion
     with StorageBackendTestsIngestion
     with StorageBackendTestsCompletions
     with StorageBackendTestsReset
     with StorageBackendTestsPruning
-    with StorageBackendTestsDBLock
+    with StorageBackendTestsDBLockForSuite
     with StorageBackendTestsTimestamps {
   this: AsyncFlatSpec =>
 }
