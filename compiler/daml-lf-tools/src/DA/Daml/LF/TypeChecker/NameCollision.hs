@@ -70,7 +70,7 @@ displayName = \case
     NChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
         T.concat ["choice ", dot m, ":", dot t, ".", c]
     NInterface (ModuleName m) (TypeConName t) ->
-        T.concat ["interface", dot m, ":", dot t]
+        T.concat ["interface ", dot m, ":", dot t]
   where
     dot = T.intercalate "."
 
