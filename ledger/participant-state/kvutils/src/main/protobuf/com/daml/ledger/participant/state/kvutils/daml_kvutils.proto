@@ -253,6 +253,13 @@ message DamlPackageUploadEntry {
 
   // Uploading participant's id.
   string participant_id = 4;
+
+  // Set if the package upload is private and the uploaded package 
+  // should not be broadcast to all participant nodes.
+  // 
+  // By default, package uploads are considered public and the package is shared
+  // with all participant nodes.
+  bool is_private_package_upload = 5;
 }
 
 // A message indicating that package upload was unsuccessful.
@@ -381,6 +388,8 @@ message DamlOutOfTimeBoundsEntry {
 message DamlStateKey {
   oneof key {
     string package_id = 1;
+    // The DamlPackageMetadata for a specific package_id
+    string package_metadata = 8;
     string contract_id = 2;
     DamlCommandDedupKey command_dedup = 3;
     string party = 4;
@@ -395,6 +404,7 @@ message DamlStateKey {
 message DamlStateValue {
   oneof value {
     daml_lf_dev.Archive archive = 1;
+    DamlPackageMetadata package_metadata = 8;
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
     DamlPartyAllocation party = 4;
@@ -402,6 +412,15 @@ message DamlStateValue {
     DamlConfigurationEntry configuration_entry = 6;
     DamlSubmissionDedupValue submission_dedup = 7;
   }
+}
+
+message DamlPackageMetadata {
+  // Access-control-list for packages.
+  // The list is empty for packages that are publicly shared with all participant nodes.
+  // A non-empty list implies that the package is only visible to the participant nodes
+  // whose identifiers are in the list.
+  // The list must contain each value at most once.
+  repeated string restricted_to_participants = 1;
 }
 
 message DamlCommandDedupKey {
