@@ -416,15 +416,6 @@ final case class EModuleVersionDependencies(
 
   override def context: Context = NoContext
 }
-final case class EForeignInterfaceImplementation(
-    context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-) extends ValidationError {
-
-  override protected def prettyInternal: String =
-    s"The template $template and the implementation for the interface $iface need to be in the same module."
-}
 
 final case class EBadInterfaceChoiceImplConsuming(
     context: Context,

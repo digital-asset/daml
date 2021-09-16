@@ -137,7 +137,6 @@ data Error
   | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
   | EBadInterfaceChoiceImplArgType !ChoiceName !Type !Type
   | EBadInterfaceChoiceImplRetType !ChoiceName !Type !Type
-  | EForeignInterfaceImplementation !(Qualified TypeConName)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -400,7 +399,6 @@ instance Pretty Error where
       , "Expected: " <> pretty ifaceRetType
       , "But got: " <> pretty tplRetType
       ]
-    EForeignInterfaceImplementation tcon -> "The definition and implementation for the interface " <> pretty tcon <> " need to be in the same module."
 
 prettyConsuming :: Bool -> Doc ann
 prettyConsuming consuming = if consuming then "consuming" else "non-consuming"

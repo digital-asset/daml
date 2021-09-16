@@ -846,21 +846,18 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation ::
-     MonadGamma m
-  => Qualified TypeConName
-  -> Qualified TypeConName
-  -> m ()
-checkIfaceImplementation tplTcon ifTcon
-  | qualPackage tplTcon == qualPackage ifTcon
-    && qualModule tplTcon == qualModule tplTcon = do
-    DefInterface {intChoices} <- inWorld $ lookupInterface ifTcon
-    forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
-      TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <- inWorld $ lookupChoice (tplTcon, ifcName)
-      unless (chcConsuming == ifcConsuming) $ throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
-      unless (alphaType (snd chcArgBinder) ifcArgType) $ throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
-      unless (alphaType chcReturnType ifcRetType) $ throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
-  | otherwise = throwWithContext $ EForeignInterfaceImplementation ifTcon
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
+checkIfaceImplementation tplTcon ifTcon = do
+  DefInterface {intChoices} <- inWorld $ lookupInterface ifTcon
+  forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
+    TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
+      inWorld $ lookupChoice (tplTcon, ifcName)
+    unless (chcConsuming == ifcConsuming) $
+      throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
+    unless (alphaType (snd chcArgBinder) ifcArgType) $
+      throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
+    unless (alphaType chcReturnType ifcRetType) $
+      throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
 
 _checkFeature :: MonadGamma m => Feature -> m ()
 _checkFeature feature = do

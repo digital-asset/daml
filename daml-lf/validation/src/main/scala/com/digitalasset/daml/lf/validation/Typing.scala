@@ -463,9 +463,6 @@ private[validation] object Typing {
     }
 
     def checkIfaceImplementation(tplTcon: TypeConName, ifaceTcon: TypeConName): Unit = {
-      if (
-        !(tplTcon.packageId == ifaceTcon.packageId && tplTcon.qualifiedName.module == ifaceTcon.qualifiedName.module)
-      ) throw EForeignInterfaceImplementation(ctx, ifaceTcon, tplTcon)
       val DefInterface(choices) = handleLookup(ctx, interface.lookupInterface(ifaceTcon))
       choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
