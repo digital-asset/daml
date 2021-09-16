@@ -150,6 +150,9 @@ object RejectionGenerators {
     }
   }
 
+  // TODO error codes: This converter is deprecated and should be removed
+  //                   Instead of using this, construct proper validation errors in callers of this method
+  //                   and only convert to StatusRuntimeExceptions when dispatched (e.g. in ApiSubmissionService)
   def validationFailure(reject: StatusRuntimeException)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,

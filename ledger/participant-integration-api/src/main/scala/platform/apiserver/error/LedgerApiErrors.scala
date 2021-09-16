@@ -19,6 +19,8 @@ import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.Trans
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
   // the authorization checks are here only for documentation purpose.
+  // TODO error codes: Extract these errors in ledger-api-auth and use them in [[com.daml.ledger.api.auth.Authorizer]]
+  //                   (i.e. in lieu of ErrorFactories.permissionDenied() and ErrorFactories.unauthenticated())
   object AuthorizationChecks extends ErrorGroup() {
 
     @Explanation(
@@ -129,7 +131,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     @Explanation("Command deduplication")
     @Resolution("Celebrate, as your command has already been delivered")
-    // TODO error codes: unify with com.digitalasset.canton.participant.sync.CommandDeduplicationError.CommandAlreadyExists
     object DuplicateCommand
         extends ErrorCode(
           id = "DUPLICATE_COMMAND",
@@ -273,7 +274,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         extends ErrorCode(
           id = "DAML_INTERPRETATION_ERROR",
           // TODO error codes: this is a bad error message and needs to be fixed by also adjusting the expected ledger-api conformance tests
-          ErrorCategory.InvalidIndependentOfSystemState, // (is ILLEGAL_ARGUMENT, should be PRECONDITION_FAILED)
+          ErrorCategory.InvalidIndependentOfSystemState, // (is INVALID_ARGUMENT, should be PRECONDITION_FAILED)
         ) {
 
       case class Error(override val cause: String)(implicit
@@ -334,6 +335,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
+          // TODO error codes: Reconsider the transport format for the contract key.
+          //                   If the key is big, it can force chunking other resources.
           (ErrorResource.ContractKey, _key.toString())
         )
       }

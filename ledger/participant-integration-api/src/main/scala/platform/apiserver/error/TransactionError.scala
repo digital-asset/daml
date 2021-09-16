@@ -48,7 +48,6 @@ trait TransactionError extends BaseError {
     val definiteAnswerKey =
       "definite_answer" // TODO error codes: Can we use a constant from some upstream class?
 
-    // TODO error codes: ensure we don't exceed HTTP header size limits
     val metadata = if (code.category.securitySensitive) Map.empty[String, String] else contextMap
     val errorInfo = com.google.rpc.error_details.ErrorInfo(
       reason = code.id,

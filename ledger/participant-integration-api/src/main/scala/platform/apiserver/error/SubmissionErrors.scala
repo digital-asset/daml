@@ -19,7 +19,6 @@ object SubmissionErrors extends SubmissionErrorGroup {
 
     // TODO error codes: properly set `definiteAnswer` where appropriate when sub-categories are created
     case class Error(message: String) extends TransactionErrorImpl(cause = "Malformed request")
-//        with TransactionSubmissionError // TODO error codes: Validate if mixin of this trait is needed
   }
 
   @Explanation(
@@ -55,6 +54,5 @@ object SubmissionErrors extends SubmissionErrorGroup {
         ErrorCategory.ContentionOnSharedResources,
       ) {
     case class Rejection() extends TransactionErrorImpl(cause = "Command rejected due to shutdown.")
-//        with TransactionSubmissionError // TODO error codes: Validate if mixin of this trait is needed
   }
 }

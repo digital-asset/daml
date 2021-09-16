@@ -133,15 +133,6 @@ object PackageServiceError extends PackageServiceErrorGroup {
         id = "PACKAGE_SERVICE_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-    final case class DamleNotSet()(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
-    ) extends BaseError.Impl(
-          cause = "Package service is not initialised (misses damle).",
-          correlationId = correlationId.id,
-        )
-        with PackageServiceError
     final case class Validation(nameOfFunc: String, msg: String, detailMsg: String = "")(implicit
         val logger: ContextualizedLogger,
         val loggingContext: LoggingContext,
@@ -195,7 +186,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
 
   object Validation {
 
-    def fromUpstreamError(err: Either[Error.Package.Error, Unit])(implicit
+    def fromDamlLfEnginePackageError(err: Either[Error.Package.Error, Unit])(implicit
         logger: ContextualizedLogger,
         loggingContext: LoggingContext,
         correlationId: CorrelationId,
