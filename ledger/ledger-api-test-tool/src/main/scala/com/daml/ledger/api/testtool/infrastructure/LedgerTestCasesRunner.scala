@@ -151,7 +151,8 @@ final class LedgerTestCasesRunner(
   }
 
   private def uploadDarsIfRequired(
-      sessions: Vector[ParticipantSession]
+      sessions: Vector[ParticipantSession],
+      clientTlsConfiguration: Option[TlsConfiguration],
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     if (uploadDars) {
       Future
@@ -160,7 +161,7 @@ final class LedgerTestCasesRunner(
             context <- session.createInitContext(
               applicationId = "upload-dars",
               identifierSuffix = identifierSuffix,
-              clientTlsConfiguration = None,
+              clientTlsConfiguration = clientTlsConfiguration,
             )
             _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
           } yield ()
@@ -208,7 +209,7 @@ final class LedgerTestCasesRunner(
         )
         val testResults =
           for {
-            _ <- uploadDarsIfRequired(sessions)
+            _ <- uploadDarsIfRequired(sessions, clientTlsConfiguration)
             concurrentTestResults <- runTestCases(
               ledgerSession,
               concurrentTestCases,
