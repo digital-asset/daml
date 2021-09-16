@@ -258,9 +258,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
             if (submissionDelay.isNegative)
               submitTransaction(transactionInfo)
             else {
-              logger.debug(
-                s"Delaying submission of ${transactionInfo.submitterInfo.commandId} by $submissionDelay"
-              )
+              logger.info(s"Delaying submission by $submissionDelay")
               metrics.daml.commands.delayedSubmissions.mark()
               val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
               Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
