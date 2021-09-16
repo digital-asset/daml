@@ -149,14 +149,14 @@ private[backend] trait StorageBackendTestsCompletions
       dtoCompletion(
         offset(2),
         submitter = party,
-        deduplicationTimeSeconds = Some(seconds),
-        deduplicationTimeNanos = Some(nanos),
+        deduplicationDurationSeconds = Some(seconds),
+        deduplicationDurationNanos = Some(nanos),
       ),
       dtoCompletion(
         offset(3),
         submitter = party,
-        deduplicationTimeSeconds = None,
-        deduplicationTimeNanos = None,
+        deduplicationDurationSeconds = None,
+        deduplicationDurationNanos = None,
       ),
     )
 
@@ -172,11 +172,11 @@ private[backend] trait StorageBackendTestsCompletions
       val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
         completions
       completionWithDeduplicationOffset.completions should have length 1
-      completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationTime should be(
+      completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
         Some(expectedDuration)
       )
       completionWithoutDeduplicationOffset.completions should have length 1
-      completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationTime should not be defined
+      completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should not be defined
     }
   }
 
@@ -186,7 +186,7 @@ private[backend] trait StorageBackendTestsCompletions
     val nanos = 10
 
     val expectedErrorMessage =
-      "One of deduplication time seconds and nanos has been provided " +
+      "One of deduplication duration seconds and nanos has been provided " +
         "but they must be either both provided or both absent"
 
     val dtos1 = Vector(
@@ -194,8 +194,8 @@ private[backend] trait StorageBackendTestsCompletions
       dtoCompletion(
         offset(2),
         submitter = party,
-        deduplicationTimeSeconds = Some(seconds),
-        deduplicationTimeNanos = None,
+        deduplicationDurationSeconds = Some(seconds),
+        deduplicationDurationNanos = None,
       ),
     )
 
@@ -215,8 +215,8 @@ private[backend] trait StorageBackendTestsCompletions
       dtoCompletion(
         offset(3),
         submitter = party,
-        deduplicationTimeSeconds = None,
-        deduplicationTimeNanos = Some(nanos),
+        deduplicationDurationSeconds = None,
+        deduplicationDurationNanos = Some(nanos),
       )
     )
 

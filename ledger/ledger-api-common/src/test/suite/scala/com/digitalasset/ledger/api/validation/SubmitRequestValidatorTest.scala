@@ -39,7 +39,7 @@ class SubmitRequestValidatorTest
     val label = "label"
     val constructor = "constructor"
     val submitter = "party"
-    val deduplicationTime = new Duration().withSeconds(10)
+    val deduplicationDuration = new Duration().withSeconds(10)
     val command = Command.of(
       Command.Command.Create(
         CreateCommand.of(
@@ -62,7 +62,7 @@ class SubmitRequestValidatorTest
       commandId = commandId.unwrap,
       party = submitter,
       commands = Seq(command),
-      deduplicationPeriod = DeduplicationPeriodProto.DeduplicationTime(deduplicationTime),
+      deduplicationPeriod = DeduplicationPeriodProto.DeduplicationTime(deduplicationDuration),
       minLedgerTimeAbs = None,
       minLedgerTimeRel = None,
     )
@@ -74,8 +74,8 @@ class SubmitRequestValidatorTest
     val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationDuration = java.time.Duration.ofDays(1)
     val deduplicationDuration = java.time.Duration.ofSeconds(
-      api.deduplicationTime.seconds,
-      api.deduplicationTime.nanos.toLong,
+      api.deduplicationDuration.seconds,
+      api.deduplicationDuration.nanos.toLong,
     )
 
     val emptyCommands = ApiCommands(
@@ -335,7 +335,7 @@ class SubmitRequestValidatorTest
         }
       }
 
-      "not allow negative deduplication time" in {
+      "not allow negative deduplication duration" in {
         forAll(
           Table(
             "deduplication period",
@@ -357,7 +357,7 @@ class SubmitRequestValidatorTest
         }
       }
 
-      "not allow deduplication time exceeding maximum deduplication time" in {
+      "not allow deduplication time exceeding maximum deduplication duration" in {
         val durationSecondsExceedingMax =
           internal.maxDeduplicationDuration.plusSeconds(1).getSeconds
         forAll(
@@ -379,7 +379,7 @@ class SubmitRequestValidatorTest
               Some(internal.maxDeduplicationDuration),
             ),
             INVALID_ARGUMENT,
-            s"Invalid field deduplication_period: The given deduplication time of ${java.time.Duration
+            s"Invalid field deduplication_period: The given deduplication duration of ${java.time.Duration
               .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
           )
         }

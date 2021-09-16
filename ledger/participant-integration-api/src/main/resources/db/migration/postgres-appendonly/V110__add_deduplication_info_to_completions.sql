@@ -15,6 +15,6 @@ ALTER TABLE participant_command_completions
     -- 2. an initial timestamp
     -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
     ADD COLUMN deduplication_offset text,
-    ADD COLUMN deduplication_time_seconds bigint,
-    ADD COLUMN deduplication_time_nanos integer,
+    ADD COLUMN deduplication_duration_seconds bigint,
+    ADD COLUMN deduplication_duration_nanos integer,
     ADD COLUMN deduplication_start timestamp;

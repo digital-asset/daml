@@ -120,8 +120,8 @@ CREATE TABLE participant_command_completions (
     -- 2. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
     -- 3. an initial timestamp
     deduplication_offset VARCHAR,
-    deduplication_time_seconds BIGINT,
-    deduplication_time_nanos INT,
+    deduplication_duration_seconds BIGINT,
+    deduplication_duration_nanos INT,
     deduplication_start BIGINT,
     -- The three columns below are `NULL` if the completion is for an accepted transaction.
     -- The `rejection_status_details` column contains a Protocol-Buffers-serialized message of type
