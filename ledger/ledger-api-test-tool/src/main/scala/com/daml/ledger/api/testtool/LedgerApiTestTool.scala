@@ -12,6 +12,7 @@ import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
+import scala.collection.compat._
 import java.io.File
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.Executors
