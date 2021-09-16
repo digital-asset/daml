@@ -467,11 +467,32 @@ private[validation] object Typing {
       choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
         if (tplChoice.consuming != consuming)
-          throw EBadInterfaceChoiceImplConsuming(ctx, ifaceTcon, tplTcon, name, consuming, tplChoice.consuming)
+          throw EBadInterfaceChoiceImplConsuming(
+            ctx,
+            ifaceTcon,
+            tplTcon,
+            name,
+            consuming,
+            tplChoice.consuming,
+          )
         if (!alphaEquiv(tplChoice.argBinder._2, argType))
-          throw EBadInterfaceChoiceImplArgType(ctx, ifaceTcon, tplTcon, name, argType, tplChoice.argBinder._2)
+          throw EBadInterfaceChoiceImplArgType(
+            ctx,
+            ifaceTcon,
+            tplTcon,
+            name,
+            argType,
+            tplChoice.argBinder._2,
+          )
         if (!alphaEquiv(tplChoice.returnType, returnType))
-          throw EBadInterfaceChoiceImplRetType(ctx, ifaceTcon, tplTcon, name, returnType, tplChoice.returnType)
+          throw EBadInterfaceChoiceImplRetType(
+            ctx,
+            ifaceTcon,
+            tplTcon,
+            name,
+            returnType,
+            tplChoice.returnType,
+          )
       }
     }
 
