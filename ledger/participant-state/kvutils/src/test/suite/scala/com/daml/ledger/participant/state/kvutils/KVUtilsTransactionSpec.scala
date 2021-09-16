@@ -548,7 +548,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           submitter = alice,
           transaction = transaction,
           submissionSeed = seed,
-          deduplicationTime = Duration.ofHours(1),
+          deduplicationDuration = Duration.ofHours(1),
         ).map(_._2)
       } yield {
         preExecutionResult.successfulLogEntry.getTransactionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe Conversions

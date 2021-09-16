@@ -227,7 +227,7 @@ object KVTest {
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: Ref.CommandId = randomLedgerString,
-      deduplicationTime: Duration = Duration.ofDays(1),
+      deduplicationDuration: Duration = Duration.ofDays(1),
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     prepareTransactionSubmission(
       submitter,
@@ -235,7 +235,7 @@ object KVTest {
       submissionSeed,
       letDelta,
       commandId,
-      deduplicationTime,
+      deduplicationDuration,
     ).flatMap(submit)
 
   def preExecuteTransaction(
@@ -244,7 +244,7 @@ object KVTest {
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: Ref.CommandId = randomLedgerString,
-      deduplicationTime: Duration = Duration.ofDays(1),
+      deduplicationDuration: Duration = Duration.ofDays(1),
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     prepareTransactionSubmission(
       submitter,
@@ -252,7 +252,7 @@ object KVTest {
       submissionSeed,
       letDelta,
       commandId,
-      deduplicationTime,
+      deduplicationDuration,
     ).flatMap(preExecute)
 
   def prepareTransactionSubmission(
@@ -261,13 +261,13 @@ object KVTest {
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: Ref.CommandId = randomLedgerString,
-      deduplicationTime: Duration = Duration.ofDays(1),
+      deduplicationDuration: Duration = Duration.ofDays(1),
   ): KVTest[DamlSubmission] = KVReader { testState =>
     val (tx, txMetaData) = transaction
     val submitterInfo = createSubmitterInfo(
       submitter,
       commandId,
-      deduplicationTime,
+      deduplicationDuration,
       randomLedgerString,
     )
     testState.keyValueSubmission.transactionToSubmission(
@@ -430,14 +430,14 @@ object KVTest {
   private def createSubmitterInfo(
       submitter: Ref.Party,
       commandId: Ref.CommandId,
-      deduplicationTime: Duration,
+      deduplicationDuration: Duration,
       submissionId: Ref.SubmissionId,
   ): SubmitterInfo = {
     SubmitterInfo(
       actAs = List(submitter),
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,
-      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationTime),
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
       submissionId = submissionId,
       ledgerConfiguration =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
