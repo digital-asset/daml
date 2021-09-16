@@ -340,7 +340,7 @@ conformance_test(
         "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
         "--max-deduplication-duration=PT5S",
-        "--tracker-retention-period=PT5S", # lower the command timeout duration, this is a workaround DPP-609
+        "--tracker-retention-period=PT5S",  # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [],
     test_tool_args = [
@@ -367,7 +367,7 @@ conformance_test(
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--max-deduplication-duration=PT5S",
-        "--tracker-retention-period=PT5S", # lower the command timeout duration, this is a workaround DPP-609
+        "--tracker-retention-period=PT5S",  # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
@@ -443,7 +443,7 @@ conformance_test(
         "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
         "--max-deduplication-duration=PT5S",
-        "--tracker-retention-period=PT5S", # lower the command timeout duration, this is a workaround DPP-609
+        "--tracker-retention-period=PT5S",  # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
