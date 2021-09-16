@@ -782,9 +782,8 @@ private[lf] final class Compiler(
         compileBlock(bindings, body)
       case UpdateFetch(tmplId, coidE) =>
         FetchDefRef(tmplId)(compile(coidE))
-      case UpdateFetchInterface(_, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/10810
-        sys.error("Interfaces not supported")
+      case UpdateFetchInterface(ifaceId, coidE) =>
+        FetchDefRef(ifaceId)(compile(coidE))
       case UpdateEmbedExpr(_, e) =>
         compileEmbedExpr(e)
       case UpdateCreate(tmplId, arg) =>
@@ -796,9 +795,8 @@ private[lf] final class Compiler(
           choiceId = chId,
           argument = compile(argE),
         )
-      case UpdateExerciseInterface(_, _, _, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/10810
-        sys.error("Interfaces not supported")
+      case UpdateExerciseInterface(ifaceId, chId, cidE, argE) =>
+        ChoiceDefRef(ifaceId, chId)(compile(cidE), compile(argE))
       case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
         compileExerciseByKey(tmplId, compile(keyE), chId, compile(argE))
       case UpdateGetTime =>
