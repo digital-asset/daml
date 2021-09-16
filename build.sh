@@ -28,4 +28,4 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-bazel test --runs_per_test=50 //daml-assistant/integration-tests:create-daml-app-tests-proj-name
+bazel test --runs_per_test=200 //daml-assistant/integration-tests:create-daml-app-tests-proj-name
