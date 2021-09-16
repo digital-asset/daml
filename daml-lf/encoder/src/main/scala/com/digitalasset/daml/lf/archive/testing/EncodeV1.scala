@@ -365,6 +365,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setCreate(PLF.Update.Create.newBuilder().setTemplate(templateId).setExpr(arg))
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
+        case UpdateFetchInterface(interface, contractId) =>
+          builder.setFetchInterface(
+            PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)
+          )
         case UpdateExercise(templateId, choice, cid, arg) =>
           val b = PLF.Update.Exercise.newBuilder()
           b.setTemplate(templateId)
@@ -372,6 +376,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
+        case UpdateExerciseInterface(interface, choice, cid, arg) =>
+          val b = PLF.Update.ExerciseInterface.newBuilder()
+          b.setInterface(interface)
+          setInternedString(choice, b.setChoiceInternedStr)
+          b.setCid(cid)
+          b.setArg(arg)
+          builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
           val b = PLF.Update.ExerciseByKey.newBuilder()
@@ -794,6 +805,11 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         setDirect(s)
       else
         setThroughTable(stringsTable.insert(s))
+      ()
+    }
+
+    private def setInternedString[X](s: String, setThroughTable: Int => X) = {
+      setThroughTable(stringsTable.insert(s))
       ()
     }
 

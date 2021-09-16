@@ -624,8 +624,14 @@ typeOfUpdate = \case
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
+  UExerciseInterface{} ->
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    error "Interfaces not supported"
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
+  UFetchInterface{} ->
+    -- TODO https://github.com/digital-asset/daml/issues/10810
+    error "Interfaces not supported"
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)

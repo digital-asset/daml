@@ -377,6 +377,9 @@ pPrintTmArg lvl = pPrintPrec lvl (succ precEApp)
 tplArg :: Qualified TypeConName -> Arg
 tplArg tpl = TyArg (TCon tpl)
 
+interfaceArg :: Qualified TypeConName -> Arg
+interfaceArg tpl = TyArg (TCon tpl)
+
 instance Pretty Arg where
   pPrintPrec lvl _prec = \case
     TmArg e -> pPrintTmArg lvl e
@@ -406,11 +409,17 @@ instance Pretty Update where
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
+    UExerciseInterface interface choice cid arg ->
+      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      pPrintAppKeyword lvl prec "exercise_interface"
+      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
     UFetch tpl cid ->
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
+    UFetchInterface interface cid ->
+      pPrintAppKeyword lvl prec "fetch_interface" [interfaceArg interface, TmArg cid]
     UGetTime ->
       keyword_ "get_time"
     UEmbedExpr typ e ->

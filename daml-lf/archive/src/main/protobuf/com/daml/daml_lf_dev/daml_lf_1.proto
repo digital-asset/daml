@@ -1176,6 +1176,21 @@ message Update {
     Expr arg = 5;
   }
 
+  // Interface Exercise Update
+  message ExerciseInterface {
+    // Interface type
+    TypeConName interface = 1;
+
+    // name of the exercised template choice
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+  }
+
  // ExerciseByKey Update
   message ExerciseByKey {
     // Template type
@@ -1195,6 +1210,14 @@ message Update {
     // contract id
     Expr cid = 2;
     reserved 3; // was actor, we thought we'd need this, but we don't
+  }
+
+  // Interface Fetch Update
+  message FetchInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // contract id
+    Expr cid = 2;
   }
 
   // Embedded Expression Update
@@ -1235,6 +1258,8 @@ message Update {
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
+    ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.dev*
+    FetchInterface fetch_interface = 13; // *Available in versions >= 1.dev*
   }
 }
 
