@@ -139,7 +139,7 @@ final class ValueEnricher(
         ResultNone
     }
 
-  def enrichNode[Nid](node: GenNode[Nid]): Result[GenNode[Nid]] =
+  def enrichNode(node: GenNode): Result[GenNode] =
     node match {
       case rb @ Node.NodeRollback(_) =>
         ResultDone(rb)
@@ -156,7 +156,7 @@ final class ValueEnricher(
         for {
           key <- enrichContractKey(lookup.templateId, lookup.key)
         } yield lookup.copy(key = key)
-      case exe: Node.NodeExercises[Nid] =>
+      case exe: Node.NodeExercises =>
         for {
           choiceArg <- enrichChoiceArgument(exe.templateId, exe.choiceId, exe.chosenValue)
           result <- exe.exerciseResult match {
@@ -169,10 +169,10 @@ final class ValueEnricher(
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, key = key)
     }
 
-  def enrichTransaction(tx: VersionedTransaction[NodeId]): Result[VersionedTransaction[NodeId]] = {
+  def enrichTransaction(tx: VersionedTransaction): Result[VersionedTransaction] = {
     for {
       normalizedNodes <-
-        tx.nodes.foldLeft[Result[Map[NodeId, GenNode[NodeId]]]](ResultDone(Map.empty)) {
+        tx.nodes.foldLeft[Result[Map[NodeId, GenNode]]](ResultDone(Map.empty)) {
           case (acc, (nid, node)) =>
             for {
               nodes <- acc

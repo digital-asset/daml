@@ -65,8 +65,8 @@ object TransactionVersion {
   }
 
   private[lf] def asVersionedTransaction(
-      tx: GenTransaction[NodeId]
-  ): VersionedTransaction[NodeId] = {
+      tx: GenTransaction
+  ): VersionedTransaction = {
     import scala.Ordering.Implicits.infixOrderingOps
 
     tx match {

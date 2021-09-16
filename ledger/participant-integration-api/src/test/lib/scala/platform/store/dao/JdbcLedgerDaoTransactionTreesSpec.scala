@@ -89,7 +89,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, exerciseNode: NodeExercises[NodeId]) =
+        val (nodeId, exerciseNode: NodeExercises) =
           exercise.transaction.nodes.head
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -125,7 +125,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             nodeId -> node
           }.get
         val (exerciseNodeId, exerciseNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeExercises[NodeId]) =>
+          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeExercises) =>
             nodeId -> node
           }.get
 
