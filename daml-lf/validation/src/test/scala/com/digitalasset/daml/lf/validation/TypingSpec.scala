@@ -322,6 +322,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
+    //TODO add a check for exerciseInterface/checkInterface.
     "infers proper type for Update" in {
       val testCases = Table(
         "expression" ->
@@ -799,6 +800,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
+    //TODO add check for interface definitions.
+    //TODO add check for interface implementations.
     "reject ill formed template definition" in {
 
       val pkg =

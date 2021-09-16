@@ -15,6 +15,7 @@ class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   def check(pkg: Package): Unit =
     Collision.checkPackage(defaultPackageId, pkg)
 
+  // TODO add check for collision of interface names.
   "Collision validation" should {
 
     "detect collisions of record fields" in {

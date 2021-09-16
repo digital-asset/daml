@@ -842,26 +842,22 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   whenJust mbKey $ checkTemplateKey param tcon
-  forM_ implements $ checkIfaceImplementation (moduleName m) tcon
+  forM_ implements $ checkIfaceImplementation tcon
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation ::
-     MonadGamma m
-  => ModuleName
-  -> Qualified TypeConName
-  -> Qualified TypeConName
-  -> m ()
-checkIfaceImplementation modName tplTcon ifTcon
-  | Qualified PRSelf m _tconName <- ifTcon
-  , m == modName = do
-    DefInterface {intChoices} <- inWorld $ lookupInterface ifTcon
-    forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
-      TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <- inWorld $ lookupChoice (tplTcon, ifcName)
-      unless (chcConsuming == ifcConsuming) $ throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
-      unless (alphaType (snd chcArgBinder) ifcArgType) $ throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
-      unless (alphaType chcReturnType ifcRetType) $ throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
-  | otherwise = throwWithContext $ EForeignInterfaceImplementation ifTcon
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
+checkIfaceImplementation tplTcon ifTcon = do
+  DefInterface {intChoices} <- inWorld $ lookupInterface ifTcon
+  forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
+    TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
+      inWorld $ lookupChoice (tplTcon, ifcName)
+    unless (chcConsuming == ifcConsuming) $
+      throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
+    unless (alphaType (snd chcArgBinder) ifcArgType) $
+      throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
+    unless (alphaType chcReturnType ifcRetType) $
+      throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
 
 _checkFeature :: MonadGamma m => Feature -> m ()
 _checkFeature feature = do
