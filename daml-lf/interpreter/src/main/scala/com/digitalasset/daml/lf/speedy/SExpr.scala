@@ -465,6 +465,7 @@ object SExpr {
   final case class KeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ImplementsDefRef(ref: DefinitionRef, ifaceId: TypeConName) extends SDefinitionRef
 
   //
   // List builtins (equalList) are implemented as recursive

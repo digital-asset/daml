@@ -317,6 +317,7 @@ private[lf] final class Compiler(
       builder += compileKey(identifier, tmpl)
       builder += compileSignatories(identifier, tmpl)
       builder += compileObservers(identifier, tmpl)
+      tmpl.implements.foreach(builder += compileImplements(identifier, _))
 
       tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
 
@@ -1018,11 +1019,18 @@ private[lf] final class Compiler(
       ifaceId: TypeConName,
       choice: InterfaceChoice,
   ): (SDefinitionRef, SDefinition) =
-    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) { case List(cidPos, choiceArgPos, _) =>
-      SBUChoiceInterface(ifaceId, choice.name)(
-        svar(cidPos),
-        svar(choiceArgPos),
-      )
+    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 2) { case List(cidPos, choiceArgPos, _) =>
+      withEnv { _ =>
+        let (
+          SBUPreFetchInterface(ifaceId)(svar(cidPos))
+        ) { tmplArgPos =>
+          SBUChoiceInterface(ifaceId, choice.name) (
+            svar(cidPos),
+            svar(choiceArgPos),
+            svar(tmplArgPos)
+          )
+        }
+      }
     }
 
   private[this] def compileChoice(
@@ -1420,7 +1428,16 @@ private[lf] final class Compiler(
       ifaceId: Identifier
   ): (SDefinitionRef, SDefinition) =
     topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, _) =>
-      SBUFetchInterface(ifaceId)(svar(cidPos))
+      withEnv { _ =>
+        let (
+          SBUPreFetchInterface(ifaceId)(svar(cidPos))
+        ) { tmplArgPos =>
+          SBUFetchInterface(ifaceId) (
+            svar(cidPos),
+            svar(tmplArgPos)
+          )
+        }
+      }
     }
 
   private[this] def compileKey(
@@ -1448,6 +1465,18 @@ private[lf] final class Compiler(
     topLevelFunction(ObserversDefRef(tmplId), 1) { case List(tmplArgPos) =>
       addExprVar(tmpl.param, tmplArgPos)
       compile(tmpl.observers)
+    }
+
+  // Turn a template value into an interface value. Since interfaces have a
+  // toll-free representation (for now), this is just the identity function.
+  // But the existence of ImplementsDefRef implies that the template implements
+  // the interface, which is useful in itself.
+  private[this] def compileImplements(
+    tmplId: Identifier,
+    ifaceId: Identifier
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ImplementsDefRef(tmplId, ifaceId), 1) { case List(tmplPos) =>
+      svar(tmplPos)
     }
 
   private[this] def compileCreate(
