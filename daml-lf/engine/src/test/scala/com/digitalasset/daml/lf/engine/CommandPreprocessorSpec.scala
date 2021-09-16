@@ -7,14 +7,21 @@ package preprocessing
 
 import com.daml.lf.command._
 import com.daml.lf.data._
+import com.daml.lf.transaction.test.TransactionBuilder.newCid
 import com.daml.lf.value.Value._
+import org.scalatest.matchers.dsl.ResultOfATypeInvocation
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Failure, Success, Try}
 
-class CommandPreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class CommandPreprocessorSpec
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with Inside {
 
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
@@ -24,25 +31,38 @@ class CommandPreprocessorSpec extends AnyWordSpec with Matchers with TableDriven
     p"""
         module Mod {
 
-          record @serializable Record = { field : Int64 };
+          record @serializable Box a = { content: a };
 
-          record @serializable RecordRef = { owner: Party, cid: (ContractId Mod:Record) };
+          record @serializable Record = { owners: List Party, data : Int64 };
 
-          val @noPartyLiterals toParties: Mod:RecordRef -> List Party =
-            \ (ref: Mod:RecordRef) -> Cons @Party [Mod:RecordRef {owner} ref] (Nil @Party);
+          template (this : Record) = {
+            precondition True,
+            signatories Mod:Record {owners} this,
+            observers Mod:Record {owners} this,
+            agreement "Agreement",
+            choices {
+              choice Transfer (self) (box: Mod:Box (List Party)) : ContractId Mod:Record,
+                  controllers Mod:Record {owners} this,
+                  observers Nil @Party
+                to create @Mod:Record Mod:Record { owners = Mod:Box @(List Party) {content} box, data = Mod:Record {data} this }
+            },
+            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties)
+          };
+
+          record @serializable RecordRef = { owners: List Party, cid: (ContractId Mod:Record) };
 
           template (this : RecordRef) = {
             precondition True,
-            signatories Mod:toParties this,
-            observers Mod:toParties this,
+            signatories Mod:RecordRef {owners} this,
+            observers Mod:RecordRef {owners} this,
             agreement "Agreement",
             choices {
               choice Change (self) (newCid: ContractId Mod:Record) : ContractId Mod:RecordRef,
-                  controllers Mod:toParties this,
+                  controllers Mod:RecordRef {owners} this,
                   observers Nil @Party
-                to create @Mod:RecordRef Mod:RecordRef { owner = Mod:RecordRef {owner} this, cid = newCid }
+                to create @Mod:RecordRef Mod:RecordRef { owners = Mod:RecordRef {owners} this, cid = newCid }
             },
-            key @Party (Mod:RecordRef {owner} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
+            key @(List Party) (Mod:RecordRef {owners} this) (\ (parties: List Party) -> parties)
           };
 
         }
@@ -51,13 +71,120 @@ class CommandPreprocessorSpec extends AnyWordSpec with Matchers with TableDriven
   private[this] val compiledPackage = ConcurrentCompiledPackages()
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 
+  val valueParties = ValueList(FrontStack(ValueParty("Alice")))
+
   "preprocessCommand" should {
+
+    val defaultPreprocessor = new CommandPreprocessor(compiledPackage.interface, true, false)
+
+    "reject improperly typed commands" in {
+
+      val validCreate = CreateCommand(
+        "Mod:Record",
+        ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
+      )
+      val validExe = ExerciseCommand(
+        "Mod:Record",
+        newCid,
+        "Transfer",
+        ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
+      )
+      val validExeByKey = ExerciseByKeyCommand(
+        "Mod:Record",
+        valueParties,
+        "Transfer",
+        ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
+      )
+      val validCreateAndExe = CreateAndExerciseCommand(
+        "Mod:Record",
+        ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
+        "Transfer",
+        ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
+      )
+      val validFetch = FetchCommand(
+        "Mod:Record",
+        newCid,
+      )
+      val validFetchByKey = FetchByKeyCommand(
+        "Mod:Record",
+        valueParties,
+      )
+      val validLookup = LookupByKeyCommand(
+        "Mod:Record",
+        valueParties,
+      )
+      val noErrorTestCases = Table[Command](
+        "command",
+        validCreate,
+        validExe,
+        validExeByKey,
+        validCreateAndExe,
+        validFetch,
+        validFetchByKey,
+        validLookup,
+      )
+
+      val errorTestCases = Table[Command, ResultOfATypeInvocation[_]](
+        ("command", "error"),
+        validCreate.copy(templateId = "Mod:Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
+          a[Error.Preprocessing.TypeMismatch],
+        validExe.copy(templateId = "Mod:Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validExe.copy(choiceId = "Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validExe.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
+          a[Error.Preprocessing.TypeMismatch],
+        validExeByKey.copy(templateId = "Mod:Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validExeByKey.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
+          a[Error.Preprocessing.TypeMismatch],
+        validExeByKey.copy(choiceId = "Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validExeByKey.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
+          a[Error.Preprocessing.TypeMismatch],
+        validCreateAndExe.copy(templateId = "Mod:Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validCreateAndExe.copy(createArgument =
+          ValueRecord("", ImmArray("content" -> ValueInt64(42)))
+        ) ->
+          a[Error.Preprocessing.TypeMismatch],
+        validCreateAndExe.copy(choiceId = "Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validCreateAndExe.copy(choiceArgument =
+          ValueRecord("", ImmArray("content" -> ValueInt64(42)))
+        ) ->
+          a[Error.Preprocessing.TypeMismatch],
+        validFetch.copy(templateId = "Mod:Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validFetchByKey.copy(templateId = "Mod:Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validFetchByKey.copy(key = ValueList(FrontStack(ValueInt64(42)))) ->
+          a[Error.Preprocessing.TypeMismatch],
+        validLookup.copy(templateId = "Mod:Undefined") ->
+          a[Error.Preprocessing.Lookup],
+        validLookup.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
+          a[Error.Preprocessing.TypeMismatch],
+      )
+
+      forEvery(noErrorTestCases) { command =>
+        Try(defaultPreprocessor.unsafePreprocessCommand(command)) shouldBe a[Success[_]]
+      }
+
+      forEvery(errorTestCases) { (command, typ) =>
+        inside(Try(defaultPreprocessor.unsafePreprocessCommand(command))) {
+          case Failure(error: Error.Preprocessing.Error) =>
+            error shouldBe typ
+        }
+      }
+    }
 
     def contractIdTestCases(culpritCid: ContractId, innocentCid: ContractId) = Table[ApiCommand](
       "command",
       CreateCommand(
         "Mod:RecordRef",
-        ValueRecord("", ImmArray("" -> ValueParty("Alice"), "" -> ValueContractId(culpritCid))),
+        ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
       ),
       ExerciseCommand(
         "Mod:RecordRef",
@@ -73,19 +200,19 @@ class CommandPreprocessorSpec extends AnyWordSpec with Matchers with TableDriven
       ),
       CreateAndExerciseCommand(
         "Mod:RecordRef",
-        ValueRecord("", ImmArray("" -> ValueParty("Alice"), "" -> ValueContractId(culpritCid))),
+        ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
         "Change",
         ValueContractId(innocentCid),
       ),
       CreateAndExerciseCommand(
         "Mod:RecordRef",
-        ValueRecord("", ImmArray("" -> ValueParty("Alice"), "" -> ValueContractId(innocentCid))),
+        ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(innocentCid))),
         "Change",
         ValueContractId(culpritCid),
       ),
       ExerciseByKeyCommand(
         "Mod:RecordRef",
-        ValueParty("Alice"),
+        valueParties,
         "Change",
         ValueContractId(culpritCid),
       ),

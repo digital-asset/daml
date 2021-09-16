@@ -119,6 +119,7 @@ private[lf] final class CommandPreprocessor(
           choiceArgument,
         )
       case command.FetchCommand(templateId, coid) =>
+        handleLookup(interface.lookupTemplate(templateId))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.Fetch(templateId, cid)
       case command.FetchByKeyCommand(templateId, key) =>
