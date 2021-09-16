@@ -1,13 +1,13 @@
 {
     "homepage": "http://nsis.sourceforge.net/",
     "license": "Zlib",
-    "version": "3.04",
-    "url": "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.04/nsis-3.04.zip",
+    "version": "3.07",
+    "url": "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.07/nsis-3.07.zip",
     "bin": [
         "makensis.exe"
     ],
-    "hash": "sha1:ed241f7384f4e59d84b9a62c71d1f6955b6a719a",
-    "extract_dir": "nsis-3.04",
+    "hash": "sha256:04dde28896ae9ab36ea3035ff3a294e78053f00048064f6d22a6f1c02bcb6ec0",
+    "extract_dir": "nsis-3.07",
     "env_set": {
         "NSISDIR": "$dir"
     },

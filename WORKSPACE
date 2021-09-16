@@ -624,7 +624,7 @@ dev_env_tool(
         "stubs",
     ],
     win_paths = ["bin/makensis.exe"],
-    win_tool = "nsis-3.04",
+    win_tool = "nsis-3.07",
 ) if is_windows else None
 
 # Scaladoc
