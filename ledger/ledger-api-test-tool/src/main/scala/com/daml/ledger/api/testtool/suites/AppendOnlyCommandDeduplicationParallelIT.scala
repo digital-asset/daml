@@ -24,7 +24,6 @@ import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation}
 import io.grpc.Status
 import io.grpc.Status.Code
-import org.slf4j.LoggerFactory
 
 import scala.collection.compat._
 import scala.concurrent.duration._
