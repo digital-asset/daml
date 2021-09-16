@@ -7,10 +7,10 @@ Production Setup
 The vast majority of the prior documentation focuses on ease of testing and running
 the service in a dev environment. From a production perspective given the wide
 variety of use-cases there is far less of an established framework for deploying
-the *JSON API*. In this document we would try to list some recommendations for
+the *HTTP-JSON API* server. In this document we would try to list some recommendations for
 production deployments.
 
-The *JSON API service* is a JVM application that by default uses an in-memory backend.
+The *HTTP-JSON API* server is a JVM application that by default uses an in-memory backend.
 This in-memory backend setup is inefficient for larger datasets as for every query it
 ends up fetching the entire active contract set for the templates referenced in that query.
 For this reason for production setups at a minimum we recommend to use a database
@@ -21,63 +21,59 @@ Query Store
 ***********
 
 Query store can be described as a cached search index and is useful for use-cases
-where we need to query large active contract sets. The *JSON API* can be configured
+where we need to query large active contract sets. The *HTTP-JSON API* server can be configured
 with PostgreSQL/Oracle(Enterprise Edition only) as the query-store backend.
 
-For e.g to enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
-
-.. note:: When you use the Query Store you'll want your first run to specify ``start-mode=create-only`` so that all the necessary tables are created. After the first run make sure ``start-mode=start-only`` so that it doesn't attempt to create the tables again.
+For example to enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, as shown below.
 
 .. code-block:: shell
 
     daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
     --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=start-only"
 
+For using the Query Store you'll want your first run to specify ``start-mode=create-only``
+so that all the necessary tables are created. After the first run make
+sure its set to ``start-mode=start-only`` so that it doesn't attempt to create
+the tables again.
 
 If you are not familiar with JDBC URLs, we recommend reading the `PostgreSQL JDBC documentation <https://jdbc.postgresql.org/documentation/head/connect.html>`__
 for more information.
 
-
-Service Configuration
-*********************
-
-.. note:: The full list of configuration flags supported by the JSON API can be seen by running ``daml json-api --help``.
-
-Following are the list of recommended configs for a production deployment ? //TODO
+.. note:: The full list of query store configuration flags supported can be seen by running ``daml json-api --help``.
 
 
 Security and privacy
-***************************
+********************
 
-In *JSON API service*, all data is maintained by the operator of the deployment.
+For an *HTTP-JSON API* server, all data is maintained by the operator of the deployment.
 Thus, it is their responsibility to ensure that the data abides by the necessary
 regulations and confidentiality expectations.
 
 It is recommended to use the tools documented by PostgreSQL to protect data at
-rest and using a secure communication channel between the *JSON API* server and the PostgreSQL server.
+rest and using a secure communication channel between the *HTTP-JSON API* server and the PostgreSQL server.
 
-To protect data in transit and over untrusted networks, the JSON API provides
+To protect data in transit and over untrusted networks, the *HTTP-JSON API* server provides
 TLS support, to enable TLS you need to specify the private key for your server and the
 certificate chain via ``daml json-api --pem server.pem --crt server.crt``. You can also
 set a custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``
 
 
 Architecture
-***************************
+************
 
 Components
 ----------
 
-A production setup of the *JSON API* service will involve the following components:
+A production setup of the *HTTP-JSON API* will involve the following components:
 
-- the *JSON API* server
+- the *HTTP-JSON API* server
 - the query store backend database server
-- a ledger
+- the ledger
 
-*JSON API* exposes a RESTFul API to interact with the Ledger and it uses JDBC to interact
+*HTTP-JSON API* server exposes an API to interact with the Ledger and it uses JDBC to interact
 with its underlying query store for caching and serving data efficiently.
 
-The *JSON API* is regularly tested with OpenJDK 8 on a 64-bit x86 architecture,
+The *HTTP-JSON API* server releases are regularly tested with OpenJDK 8 on a 64-bit x86 architecture,
 with Ubuntu 20.04, macOS 11.5.2 and Windows Server 2016.
 
 In production, we recommend running on a 64-bit x86 architecture in a Linux
@@ -88,30 +84,29 @@ been done with servers running version > 10.
 
 
 Scaling and Redundancy
-***************************
+**********************
 
-.. note:: This section of the document only talks about scaling and redundancy setup for the JSON API. In all of the recommendations suggested below we assume that the JSON API always interacts with a single participant on the ledger.
+.. note:: This section of the document only talks about scaling and redundancy setup for the *HTTP-JSON API* server. In all of the recommendations suggested below we assume that the JSON API always interacts with a single participant on the ledger.
 
-We advise that the *JSON API server* and *query store* components to have dedicated
+We advise that the *HTTP-JSON API* server and *query store* components to have dedicated
 computation and memory resources available to them. This can be achieved via
 containerization or setting them up on independent physical servers. Ensure that the two
 components are **physically co-located** to reduce network latency for
-communication between the *JSON API* and the *database server*
-The scaling and availability aspects heavily rely on the interactions between
+communication. The scaling and availability aspects heavily rely on the interactions between
 the core components listed above.
 
-With respect to scaling we recommend to follow the general advise in trying to
+With respect to scaling we recommend to follow the general advice in trying to
 understand the bottlenecks and see if adding additional processing power/memory
 i.e vertical scaling is beneficial.
 
 In general for horizontal scaling purposes , we recommend to treat the
-*JSON API* and the *query store database server* as a single unit of scaling.
-While a setup with multiple *JSON API* services running against a single backend
+*HTTP-JSON API* and the *query store database server* as a single unit for scaling.
+While a setup with multiple *HTTP-JSON API* services running against a single backend
 database server is feasible, it maybe a futile exercise if the database server
 itself is the bottleneck.
 
-We can achieve redundancy for the JSON-API by using a load-balancer like nginx with some
-acceptable routing mechanism and then and having multiple *JSON API* services sit behind it
+We can run a redundant setup for the *HTTP-JSON API* by using a reverse proxy server with some
+acceptable routing mechanism and then and having multiple *HTTP-JSON API* servers sit behind it
 each with their own backend database servers and dedicated computation and memory resources.
 
 Users may consider running PostgreSQL backend in a `high availability configuration <https://www.postgresql.org/docs/current/high-availability.html>`__.
@@ -121,21 +116,22 @@ smaller active contract datasets, where re-initializing the cache is cheap and f
 Finally we recommend using app orchestration utilities which monitor the health of the service
 and perform subsequent operations to ensure availability. These utilities can use the
 `healthcheck endpoints <https://docs.daml.com/json-api/index.html#healthcheck-endpoints>`__
-provided by the JSON API. This can also be tied into supporting arbitrary autoscaling implementation
-to ensure minimum number of *JSON API* services on failures or rolling upgrades.
+provided by the *HTTP-JSON API* server. This can also be tied into supporting arbitrary
+autoscaling implementation to ensure minimum number of *HTTP-JSON API* servers on
+failures.
 
 
 Logging
-***************************
+*******
 
-*JSON API* uses the industry-standard Logback for logging. You can
+*HTTP-JSON API* server uses the industry-standard Logback for logging. You can
 read more about that in the `Logback documentation <http://logback.qos.ch/>`__.
 
 The logging infrastructure leverages structured logging as implemented by the
 `Logstash Logback Encoder <https://github.com/logstash/logstash-logback-encoder/blob/logstash-logback-encoder-6.3/README.md>`__.
 
 Logged events should carry information about the request being served by the
-*JSON API* service. When using a traditional logging target (e.g. standard output
+*HTTP-JSON API* server. When using a traditional logging target (e.g. standard output
 or rotating files) this information will be part of the log description.
 Using a logging target compatible with the Logstash Logback Encoder allows to have rich
 logs with structured information about the event being logged.
@@ -143,7 +139,7 @@ logs with structured information about the event being logged.
 
 
 Metrics
-***************************
+*******
 
 Enable and configure reporting
 ------------------------------

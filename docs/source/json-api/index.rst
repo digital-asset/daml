@@ -92,8 +92,8 @@ using.
 With Query Store
 ------------------
 
-You can configure the JSON API to use a PostgreSQL/Oracle(Enterprise Edition Only)
-backend as a cache. The in-memory backend will call the
+In production setups, you should configure the JSON API to use a
+PostgreSQL backend as a cache. The in-memory backend will call the
 ledger to fetch the entire active contract set for the templates in
 your query every time so it is generally not recommended to rely on
 this in production. Note that the PostgreSQL backend acts purely as a
@@ -101,7 +101,7 @@ cache. It is safe to reinitialize the database at any time.
 
 To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
 
-.. note:: For development purposes we suggest to use  ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
+.. note:: When you use the Query Store you'll want to use ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
 
 
 .. code-block:: shell
