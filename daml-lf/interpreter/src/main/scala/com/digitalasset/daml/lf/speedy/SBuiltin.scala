@@ -1091,17 +1091,17 @@ private[lf] object SBuiltin {
               ifaceId, // not actually used, maybe this param should be dropped from SResultNeedContract
               onLedger.committers,
               { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
-                  val keyExpr = SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1)))
-                  machine.pushKont(KCacheContract(machine, actualTmplId, coid))
-                  machine.ctrl = SELet1(
-                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                    cachedContractStruct(
-                      SELocS(1),
-                      SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
-                      SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
-                      keyExpr,
-                    ),
-                  )
+                val keyExpr = SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1)))
+                machine.pushKont(KCacheContract(machine, actualTmplId, coid))
+                machine.ctrl = SELet1(
+                  SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                  cachedContractStruct(
+                    SELocS(1),
+                    SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
+                    SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
+                    keyExpr,
+                  ),
+                )
               },
             )
           )
@@ -1133,11 +1133,10 @@ private[lf] object SBuiltin {
       // implements the interface.
       machine.compiledPackages.getDefinition(ImplementsDefRef(tmplId, ifaceId)) match {
         case Some(_) =>
-          machine.ctrl =
-            FetchDefRef(tmplId) (
-              SEValue(SContractId(coid)),
-              SEValue(SToken),
-            )
+          machine.ctrl = FetchDefRef(tmplId)(
+            SEValue(SContractId(coid)),
+            SEValue(SToken),
+          )
         case None =>
           machine.ctrl = SEDamlException(
             IE.WronglyTypedContract(coid, ifaceId, tmplId)
@@ -1157,7 +1156,7 @@ private[lf] object SBuiltin {
   ) extends SBuiltin(2) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
-        machine: Machine
+        machine: Machine,
     ): Unit = {
       val coid = getSContractId(args, 0)
       val choiceArg = args.get(1)
@@ -1167,22 +1166,20 @@ private[lf] object SBuiltin {
       // implements the interface.
       machine.compiledPackages.getDefinition(ImplementsDefRef(tmplId, ifaceId)) match {
         case Some(_) =>
-          machine.ctrl =
-            ChoiceDefRef(tmplId, choiceName) (
-              SEValue(SContractId(coid)),
-              SEValue(choiceArg),
-              SEValue(SToken)
-            )
+          machine.ctrl = ChoiceDefRef(tmplId, choiceName)(
+            SEValue(SContractId(coid)),
+            SEValue(choiceArg),
+            SEValue(SToken),
+          )
         case None =>
           machine.ctrl = SEDamlException(
             IE.WronglyTypedContract(coid, ifaceId, tmplId)
             // TODO https://github.com/digital-asset/daml/issues/10810:
             //   Maybe create a more specific exception.
           )
+      }
     }
   }
-}
-
 
   /** $insertFetch[tid]
     *    :: ContractId a

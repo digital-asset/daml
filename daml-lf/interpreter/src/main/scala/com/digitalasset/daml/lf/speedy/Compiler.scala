@@ -1021,13 +1021,13 @@ private[lf] final class Compiler(
   ): (SDefinitionRef, SDefinition) =
     topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 2) { case List(cidPos, choiceArgPos, _) =>
       withEnv { _ =>
-        let (
+        let(
           SBUPreFetchInterface(ifaceId)(svar(cidPos))
         ) { tmplArgPos =>
-          SBUChoiceInterface(ifaceId, choice.name) (
+          SBUChoiceInterface(ifaceId, choice.name)(
             svar(cidPos),
             svar(choiceArgPos),
-            svar(tmplArgPos)
+            svar(tmplArgPos),
           )
         }
       }
@@ -1429,12 +1429,12 @@ private[lf] final class Compiler(
   ): (SDefinitionRef, SDefinition) =
     topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, _) =>
       withEnv { _ =>
-        let (
+        let(
           SBUPreFetchInterface(ifaceId)(svar(cidPos))
         ) { tmplArgPos =>
-          SBUFetchInterface(ifaceId) (
+          SBUFetchInterface(ifaceId)(
             svar(cidPos),
-            svar(tmplArgPos)
+            svar(tmplArgPos),
           )
         }
       }
@@ -1472,8 +1472,8 @@ private[lf] final class Compiler(
   // But the existence of ImplementsDefRef implies that the template implements
   // the interface, which is useful in itself.
   private[this] def compileImplements(
-    tmplId: Identifier,
-    ifaceId: Identifier
+      tmplId: Identifier,
+      ifaceId: Identifier,
   ): (SDefinitionRef, SDefinition) =
     topLevelFunction(ImplementsDefRef(tmplId, ifaceId), 1) { case List(tmplPos) =>
       svar(tmplPos)

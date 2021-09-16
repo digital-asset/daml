@@ -261,7 +261,8 @@ object Profile {
           case KeyDefRef(tmplRef) => s"keyAndMaintainers @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
-          case ImplementsDefRef(tmplRef, ifaceId) => s"implements @${tmplRef.qualifiedName} @${ifaceId.qualifiedName}"
+          case ImplementsDefRef(tmplRef, ifaceId) =>
+            s"implements @${tmplRef.qualifiedName} @${ifaceId.qualifiedName}"
           case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
           case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
