@@ -1072,6 +1072,115 @@ private[lf] object SBuiltin {
     }
   }
 
+  // Similar to SBUFetch but doesn't perform any checks on the template id, and is never "by key".
+  final case class SBUPreFetchInterface(ifaceId: TypeConName) extends OnLedgerBuiltin(1) {
+    override protected def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Unit = {
+      val coid = getSContractId(args, 0)
+      onLedger.cachedContracts.get(coid) match {
+        case Some(cached) => {
+          machine.returnValue = cached.value
+        }
+        case None => {
+          throw SpeedyHungry(
+            SResultNeedContract(
+              coid,
+              ifaceId, // not actually used, maybe this param should be dropped from SResultNeedContract
+              onLedger.committers,
+              { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
+                val keyExpr = SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1)))
+                machine.pushKont(KCacheContract(machine, actualTmplId, coid))
+                machine.ctrl = SELet1(
+                  SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                  cachedContractStruct(
+                    SELocS(1),
+                    SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
+                    SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
+                    keyExpr,
+                  ),
+                )
+              },
+            )
+          )
+        }
+      }
+    }
+  }
+
+  // SBUFetchInterface uses the contract payload obtained from SBUPreFetchInterface
+  // to call the proper FetchDefRef with the actual template id, and performs an
+  // implements check.
+  //
+  // Interfaces have a "toll-free" representation with the underlying template,
+  // since the template's SRecord already includes the type constructor (templateId)
+  // of its template, we shouldn't need to wrap or change the fetched template value
+  // in any way. (Unless we later need to enforce the distinction between templates
+  // and interfaces at the speedy value level.)
+  final case class SBUFetchInterface(
+      ifaceId: TypeConName
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      val coid = getSContractId(args, 0)
+      val SRecord(tmplId, _, _) = getSRecord(args, 1)
+      // After SBUPreFetchInterface, the template's package should already be loaded
+      // in compiledPackages, so SImplementsDefRef will be defined if the template
+      // implements the interface.
+      machine.compiledPackages.getDefinition(ImplementsDefRef(tmplId, ifaceId)) match {
+        case Some(_) =>
+          machine.ctrl = FetchDefRef(tmplId)(
+            SEValue(SContractId(coid)),
+            SEValue(SToken),
+          )
+        case None =>
+          machine.ctrl = SEDamlException(
+            IE.WronglyTypedContract(coid, ifaceId, tmplId)
+            // TODO https://github.com/digital-asset/daml/issues/10810:
+            //   Maybe create a more specific exception.
+          )
+      }
+    }
+  }
+
+  // Very similar to SBUFetchInterface. We use the payload from SBUPreFetchInterface
+  // to call the appropriate ChoiceDefRef with the actual template id, and performs
+  // an implements check.
+  final case class SBUChoiceInterface(
+      ifaceId: TypeConName,
+      choiceName: ChoiceName,
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      val coid = getSContractId(args, 0)
+      val choiceArg = args.get(1)
+      val SRecord(tmplId, _, _) = getSRecord(args, 2)
+      // After SBUPreFetchInterface, the template's package should already be loaded
+      // in compiledPackages, so SImplementsDefRef will be defined if the template
+      // implements the interface.
+      machine.compiledPackages.getDefinition(ImplementsDefRef(tmplId, ifaceId)) match {
+        case Some(_) =>
+          machine.ctrl = ChoiceDefRef(tmplId, choiceName)(
+            SEValue(SContractId(coid)),
+            SEValue(choiceArg),
+            SEValue(SToken),
+          )
+        case None =>
+          machine.ctrl = SEDamlException(
+            IE.WronglyTypedContract(coid, ifaceId, tmplId)
+            // TODO https://github.com/digital-asset/daml/issues/10810:
+            //   Maybe create a more specific exception.
+          )
+      }
+    }
+  }
+
   /** $insertFetch[tid]
     *    :: ContractId a
     *    -> List Party    (signatories)

@@ -317,6 +317,7 @@ private[lf] final class Compiler(
       builder += compileKey(identifier, tmpl)
       builder += compileSignatories(identifier, tmpl)
       builder += compileObservers(identifier, tmpl)
+      tmpl.implements.foreach(builder += compileImplements(identifier, _))
 
       tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
 
@@ -328,6 +329,14 @@ private[lf] final class Compiler(
             compileChoiceByKey(identifier, tmpl, tmplKey, _)
         )
       }
+    }
+
+    module.interfaces.foreach { case (ifaceName, iface) =>
+      val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
+      builder += compileFetchInterface(identifier)
+      iface.choices.values.foreach(
+        builder += compileChoiceInterface(identifier, _)
+      )
     }
 
     builder.result()
@@ -773,9 +782,8 @@ private[lf] final class Compiler(
         compileBlock(bindings, body)
       case UpdateFetch(tmplId, coidE) =>
         FetchDefRef(tmplId)(compile(coidE))
-      case UpdateFetchInterface(_, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/10810
-        sys.error("Interfaces not supported")
+      case UpdateFetchInterface(ifaceId, coidE) =>
+        FetchDefRef(ifaceId)(compile(coidE))
       case UpdateEmbedExpr(_, e) =>
         compileEmbedExpr(e)
       case UpdateCreate(tmplId, arg) =>
@@ -787,9 +795,8 @@ private[lf] final class Compiler(
           choiceId = chId,
           argument = compile(argE),
         )
-      case UpdateExerciseInterface(_, _, _, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/10810
-        sys.error("Interfaces not supported")
+      case UpdateExerciseInterface(ifaceId, chId, cidE, argE) =>
+        ChoiceDefRef(ifaceId, chId)(compile(cidE), compile(argE))
       case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
         compileExerciseByKey(tmplId, compile(keyE), chId, compile(argE))
       case UpdateGetTime =>
@@ -1005,6 +1012,24 @@ private[lf] final class Compiler(
       }
     }
   }
+
+  private[this] def compileChoiceInterface(
+      ifaceId: TypeConName,
+      choice: InterfaceChoice,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 2) { case List(cidPos, choiceArgPos, _) =>
+      withEnv { _ =>
+        let(
+          SBUPreFetchInterface(ifaceId)(svar(cidPos))
+        ) { tmplArgPos =>
+          SBUChoiceInterface(ifaceId, choice.name)(
+            svar(cidPos),
+            svar(choiceArgPos),
+            svar(tmplArgPos),
+          )
+        }
+      }
+    }
 
   private[this] def compileChoice(
       tmplId: TypeConName,
@@ -1397,6 +1422,22 @@ private[lf] final class Compiler(
       compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
+  private[this] def compileFetchInterface(
+      ifaceId: Identifier
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, _) =>
+      withEnv { _ =>
+        let(
+          SBUPreFetchInterface(ifaceId)(svar(cidPos))
+        ) { tmplArgPos =>
+          SBUFetchInterface(ifaceId)(
+            svar(cidPos),
+            svar(tmplArgPos),
+          )
+        }
+      }
+    }
+
   private[this] def compileKey(
       tmplId: Identifier,
       tmpl: Template,
@@ -1422,6 +1463,18 @@ private[lf] final class Compiler(
     topLevelFunction(ObserversDefRef(tmplId), 1) { case List(tmplArgPos) =>
       addExprVar(tmpl.param, tmplArgPos)
       compile(tmpl.observers)
+    }
+
+  // Turn a template value into an interface value. Since interfaces have a
+  // toll-free representation (for now), this is just the identity function.
+  // But the existence of ImplementsDefRef implies that the template implements
+  // the interface, which is useful in itself.
+  private[this] def compileImplements(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ImplementsDefRef(tmplId, ifaceId), 1) { case List(tmplPos) =>
+      svar(tmplPos)
     }
 
   private[this] def compileCreate(
