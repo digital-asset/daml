@@ -4,8 +4,9 @@
 
 module NonEmpty where
 
-import DA.NonEmpty
+import Prelude hiding (cons)
 import DA.Assert
+import DA.NonEmpty
 
 testApplicative = scenario do
   let l = NonEmpty 1 [2, 3, 4]
@@ -22,3 +23,6 @@ testOrd = scenario do
   compare (NonEmpty 1 []) (NonEmpty 1 [0]) === LT
   compare (NonEmpty 1 [0]) (NonEmpty 1 [0]) === EQ
   compare (NonEmpty 1 [0]) (NonEmpty 1 [1]) === LT
+
+testCons = scenario do
+  cons "a" (NonEmpty "b" []) === NonEmpty "a" ["b"]

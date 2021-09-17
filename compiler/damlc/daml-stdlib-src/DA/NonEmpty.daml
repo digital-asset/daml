@@ -13,6 +13,7 @@
 -- ```
 module DA.NonEmpty
   ( NonEmpty(..)
+  , cons
   , append
   , map
   , nonEmpty
@@ -29,7 +30,7 @@ module DA.NonEmpty
   , foldl1A
   ) where
 
-import Prelude hiding (reverse, foldr, foldl, one, map)
+import Prelude hiding (cons, reverse, foldr, foldl, one, map)
 import Prelude qualified as P
 import DA.Foldable qualified as F
 import DA.NonEmpty.Types
@@ -72,6 +73,10 @@ instance F.Foldable NonEmpty where
 
 instance T.Traversable NonEmpty where
   mapA f l = liftA2 NonEmpty (f l.hd) (T.mapA f l.tl)
+
+-- | Prepend an element to a non-empty list.
+cons : a -> NonEmpty a -> NonEmpty a
+cons a ne = NonEmpty a (ne.hd :: ne.tl)
 
 -- | Append or concatenate two non-empty lists.
 append : NonEmpty a -> NonEmpty a -> NonEmpty a
