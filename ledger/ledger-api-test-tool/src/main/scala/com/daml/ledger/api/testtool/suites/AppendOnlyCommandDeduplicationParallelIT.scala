@@ -28,6 +28,8 @@ import io.grpc.Status.Code
 import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
 
 /** Should be enabled for ledgers that fill the submission ID in the completions,
   * as we need to use the submission id to find completions for parallel submissions
@@ -134,17 +136,25 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
       ec: ExecutionContext
   ) = {
     submitResult
-      .flatMap(_ => ledger.findCompletion(parties: _*)(_.submissionId == submissionId))
-      .map {
-        case Some(completion) =>
-          completion.getStatus.code
-        case None => fail(s"Did not find completion for request with submission id $submissionId")
+      .transformWith {
+        case Failure(exception) =>
+          exception match {
+            case GrpcException(status, _) =>
+              Future.successful(status.getCode)
+            case NonFatal(otherException) =>
+              fail(s"Not a GRPC exception $otherException", otherException)
+          }
+        case Success(_) =>
+          ledger
+            .findCompletion(parties: _*)(completion => {
+              completion.submissionId == submissionId
+            })
+            .map {
+              case Some(completion) =>
+                Status.fromCodeValue(completion.getStatus.code).getCode
+              case None =>
+                fail(s"Did not find completion for request with submission id $submissionId")
+            }
       }
-      .recover {
-        case GrpcException(status, _) =>
-          status.getCode.value()
-        case otherException => fail("Not a GRPC exception", otherException)
-      }
-      .map(codeValue => Status.fromCodeValue(codeValue).getCode)
   }
 }
