@@ -11,39 +11,47 @@ import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class ValueTranslatorSpec
+    extends AnyWordSpec
+    with Inside
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   import Preprocessor.ArrayList
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
-  private implicit val defaultPackageId = defaultParserParameters.defaultPackageId
+  private[this] implicit val defaultPackageId: Ref.PackageId =
+    defaultParserParameters.defaultPackageId
 
-  val aCid =
+  private[this] val aCid =
     ContractId.V1.assertBuild(
       crypto.Hash.hashPrivateKey("a Contract ID"),
       Bytes.assertFromString("00"),
     )
 
-  lazy val pkg =
+  private[this] val pkg =
     p"""
         module Mod {
-
+          
+          record @serializable Tuple (a: *) (b: *) = { x: a, y: b };
           record @serializable Record = { field : Int64 };
           variant @serializable Either (a: *) (b: *) = Left : a | Right : b;
-          enum Enum = value1 | value2;
+          enum Color = red | green | blue;
 
           record Tricky (b: * -> *) = { x : b Unit };
 
           record MyCons = { head : Int64, tail: Mod:MyList };
           variant MyList = MyNil : Unit | MyCons: Mod:MyCons ;
 
-          record @serializable RecordRef = { owner: Party, cid: (ContractId Mod:Record) };
+          record @serializable Template = { field : Int64 };
+          record @serializable TemplateRef = { owner: Party, cid: (ContractId Mod:Template) };
 
         }
     """
@@ -85,7 +93,7 @@ class ValueTranslatorSpec extends AnyWordSpec with Matchers with TableDrivenProp
 //        ValueNumeric(Numeric.assertFromString("9.000000000")),
       (TParty, ValueParty("Alice"), SParty("Alice")),
       (
-        TContractId(t"Mod:Record"),
+        TContractId(t"Mod:Template"),
         ValueContractId(aCid),
         SContractId(aCid),
       ),
@@ -106,16 +114,16 @@ class ValueTranslatorSpec extends AnyWordSpec with Matchers with TableDrivenProp
       ),
       (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
       (
-        t"Mod:Record",
-        ValueRecord("", ImmArray("field" -> ValueInt64(33))),
-        SRecord("Mod:Record", ImmArray("field"), ArrayList(SInt64(33))),
+        t"Mod:Tuple Int64 Text",
+        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a"))),
       ),
       (
-        t"Mod:Either Text Int64",
-        ValueVariant("", "Left", ValueText("some test")),
-        SVariant("Mod:Either", "Left", 0, SText("some test")),
+        t"Mod:Either Int64 Text",
+        ValueVariant("", "Right", ValueText("some test")),
+        SVariant("Mod:Either", "Right", 1, SText("some test")),
       ),
-      (Ast.TTyCon("Mod:Enum"), ValueEnum("", "value1"), SEnum("Mod:Enum", "value1", 0)),
+      (Ast.TTyCon("Mod:Color"), ValueEnum("", "blue"), SEnum("Mod:Color", "blue", 2)),
       (
         Ast.TApp(Ast.TTyCon("Mod:Tricky"), Ast.TBuiltin(Ast.BTList)),
         ValueRecord("", ImmArray("" -> ValueNil)),
@@ -125,7 +133,61 @@ class ValueTranslatorSpec extends AnyWordSpec with Matchers with TableDrivenProp
 
     "succeeds on well type values" in {
       forAll(testCases) { (typ, value, svalue) =>
-        unsafeTranslateValue(typ, value) shouldBe svalue
+        Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue)
+      }
+    }
+
+    "handle different representation of the same record" in {
+      val typ = t"Mod:Tuple Int64 Text"
+      val testCases = Table(
+        "record",
+        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
+        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
+      )
+      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
+
+      forEvery(testCases)(testCase =>
+        Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
+      )
+    }
+
+    "handle different representation of the same variant" in {
+      val typ = t"Mod:Either Text Int64"
+      val testCases = Table(
+        "variant",
+        ValueVariant("Mod:Either", "Left", ValueText("some test")),
+        ValueVariant("", "Left", ValueText("some test")),
+      )
+      val svalue = SVariant("Mod:Either", "Left", 0, SText("some test"))
+
+      forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
+    }
+
+    "handle different representation of the same enum" in {
+      val typ = t"Mod:Color"
+      val testCases = Table("enum", ValueEnum("Mod:Color", "green"), ValueEnum("", "green"))
+      val svalue = SEnum("Mod:Color", "green", 1)
+      forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
+    }
+
+    "return proper mismatch error" in {
+      val res = Try(
+        unsafeTranslateValue(
+          t"Mod:Tuple Int64 Text",
+          ValueRecord(
+            "",
+            ImmArray(
+              "x" -> ValueInt64(33),
+              "y" -> ValueParty("Alice"), // Here the field has type Party instead of Text
+            ),
+          ),
+        )
+      )
+      inside(res) { case Failure(Error.Preprocessing.TypeMismatch(typ, value, _)) =>
+        typ shouldBe t"Text"
+        value shouldBe ValueParty("Alice")
       }
     }
 
@@ -161,17 +223,17 @@ class ValueTranslatorSpec extends AnyWordSpec with Matchers with TableDrivenProp
       val cid = ValueContractId(culprit)
       Table[Ast.Type, Value](
         ("type" -> "value"),
-        t"ContractId Mod:Record" -> cid,
-        TList(t"ContractId Mod:Record") -> ValueList(FrontStack(cid)),
-        TTextMap(t"ContractId Mod:Record") -> ValueTextMap(SortedLookupList(Map("0" -> cid))),
-        TGenMap(TInt64, t"ContractId Mod:Record") -> ValueGenMap(ImmArray(ValueInt64(1) -> cid)),
-        TGenMap(t"ContractId Mod:Record", TInt64) -> ValueGenMap(ImmArray(cid -> ValueInt64(0))),
-        TOptional(t"ContractId Mod:Record") -> ValueOptional(Some(cid)),
-        Ast.TTyCon("Mod:RecordRef") -> ValueRecord(
+        t"ContractId Mod:Template" -> cid,
+        TList(t"ContractId Mod:Template") -> ValueList(FrontStack(cid)),
+        TTextMap(t"ContractId Mod:Template") -> ValueTextMap(SortedLookupList(Map("0" -> cid))),
+        TGenMap(TInt64, t"ContractId Mod:Template") -> ValueGenMap(ImmArray(ValueInt64(1) -> cid)),
+        TGenMap(t"ContractId Mod:Template", TInt64) -> ValueGenMap(ImmArray(cid -> ValueInt64(0))),
+        TOptional(t"ContractId Mod:Template") -> ValueOptional(Some(cid)),
+        t"Mod:TemplateRef" -> ValueRecord(
           "",
           ImmArray("" -> ValueParty("Alice"), "" -> cid),
         ),
-        TTyConApp("Mod:Either", ImmArray(t"ContractId Mod:Record", TInt64)) -> ValueVariant(
+        TTyConApp("Mod:Either", ImmArray(t"ContractId Mod:Template", TInt64)) -> ValueVariant(
           "",
           "Left",
           cid,
