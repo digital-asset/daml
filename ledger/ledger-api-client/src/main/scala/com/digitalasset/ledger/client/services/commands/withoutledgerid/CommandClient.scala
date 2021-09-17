@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.codahale.metrics.Counter
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -63,6 +64,8 @@ private[daml] final class CommandClient(
         Context,
       ],
     ]
+
+  private val submissionIdGenerator: SubmissionIdGenerator = SubmissionIdGenerator.Random
 
   /** Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
     * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
@@ -198,10 +201,15 @@ private[daml] final class CommandClient(
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerIdToUse)"
           )
-        else if (commands.applicationId != applicationId)
+        if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)"
           )
+        val nonEmptySubmissionId = if (commands.submissionId.isEmpty) {
+          submissionIdGenerator.generate()
+        } else {
+          commands.submissionId
+        }
         val updatedDeduplicationPeriod = commands.deduplicationPeriod match {
           case DeduplicationPeriod.Empty =>
             DeduplicationPeriod.DeduplicationTime(
@@ -213,7 +221,12 @@ private[daml] final class CommandClient(
             )
           case existing => existing
         }
-        submission.copy(commands = commands.copy(deduplicationPeriod = updatedDeduplicationPeriod))
+        submission.copy(commands =
+          commands.copy(
+            submissionId = nonEmptySubmissionId,
+            deduplicationPeriod = updatedDeduplicationPeriod,
+          )
+        )
       })
 
   def submissionFlow[Context](
