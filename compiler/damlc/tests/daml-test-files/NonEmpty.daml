@@ -4,7 +4,7 @@
 
 module NonEmpty where
 
-import Prelude hiding (cons)
+import Prelude hiding (cons, find)
 import DA.Assert
 import DA.NonEmpty
 
@@ -26,3 +26,12 @@ testOrd = scenario do
 
 testCons = scenario do
   cons "a" (NonEmpty "b" []) === NonEmpty "a" ["b"]
+
+testFind = scenario do
+  find (== 1) (NonEmpty 0 []) === None
+  find (== 1) (NonEmpty 1 []) === Some 1
+  find (== 1) (NonEmpty 0 [1]) === Some 1
+  find (== 1) (NonEmpty 0 [0]) === None
+  find (== 1) (NonEmpty 0 [1, 2]) === Some 1
+  find (== 1) (NonEmpty 0 [2, 1]) === Some 1
+  find (== 1) (NonEmpty 0 [1, 2, 1]) === Some 1

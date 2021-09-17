@@ -20,6 +20,7 @@ module DA.NonEmpty
   , singleton
   , toList
   , reverse
+  , find
   , foldl1
   , foldr1
   , foldr
@@ -30,7 +31,7 @@ module DA.NonEmpty
   , foldl1A
   ) where
 
-import Prelude hiding (cons, reverse, foldr, foldl, one, map)
+import Prelude hiding (cons, reverse, find, foldr, foldl, one, map)
 import Prelude qualified as P
 import DA.Foldable qualified as F
 import DA.NonEmpty.Types
@@ -103,6 +104,12 @@ toList (NonEmpty head tail) = head :: tail
 -- | Reverse a non-empty list.
 reverse : NonEmpty a -> NonEmpty  a
 reverse l = let hd::tl = L.reverse $ toList l in NonEmpty with hd; tl
+
+-- | Find an element in a non-empty list.
+find : (a -> Bool) -> NonEmpty a -> Optional a
+find p (NonEmpty head tail)
+  | p head = Some head
+  | otherwise = L.find p tail
 
 -- | Apply a function repeatedly to pairs of elements from a non-empty list,
 -- from the left. For example, `foldl1 (+) (NonEmpty 1 [2,3,4]) = ((1 + 2) + 3) + 4`.
