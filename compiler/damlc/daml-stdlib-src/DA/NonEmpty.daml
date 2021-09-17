@@ -21,6 +21,7 @@ module DA.NonEmpty
   , toList
   , reverse
   , find
+  , delete
   , foldl1
   , foldr1
   , foldr
@@ -110,6 +111,22 @@ find : (a -> Bool) -> NonEmpty a -> Optional a
 find p (NonEmpty head tail)
   | p head = Some head
   | otherwise = L.find p tail
+
+-- | The 'deleteBy' function behaves like 'delete', but takes a
+-- user-supplied equality predicate.
+deleteBy : (a -> a -> Bool) -> a -> NonEmpty a -> Optional (NonEmpty a)
+deleteBy eq a n@(NonEmpty head [])
+  | head `eq` a = None
+  | otherwise   = Some n
+deleteBy eq a (NonEmpty head (t::ts))
+  | head `eq` a = Some $ NonEmpty t ts
+  | t `eq` a    = Some $ NonEmpty head ts
+  | otherwise   = Some $ NonEmpty head $ t :: L.deleteBy eq a ts
+
+-- | Remove the first occurence of x from the non-empty list, potentially
+-- removing all elements.
+delete : Eq a => a -> NonEmpty a -> Optional (NonEmpty a)
+delete = deleteBy (==)
 
 -- | Apply a function repeatedly to pairs of elements from a non-empty list,
 -- from the left. For example, `foldl1 (+) (NonEmpty 1 [2,3,4]) = ((1 + 2) + 3) + 4`.
