@@ -628,7 +628,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.nonEmpty)
-      .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
+      .map(_.completions.toVector)
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest()(parties: _*))
@@ -639,7 +639,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.exists(p))
-      .map(_.flatMap(_.completions.find(p)))
+      .map(_.completions.find(p))
 
   def findCompletion(parties: Party*)(p: Completion => Boolean): Future[Option[Completion]] =
     findCompletion(completionStreamRequest()(parties: _*))(p)
