@@ -402,6 +402,23 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     )(connection)
   }
 
+  override def maxEventSequentialIdOfAnObservableEvent(
+      offset: Offset
+  )(connection: Connection): Option[Long] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    SQL"""
+SELECT max_esi FROM (
+  (SELECT max(event_sequential_id) AS max_esi FROM participant_events_consuming_exercise WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW ONLY)
+  UNION ALL
+  (SELECT max(event_sequential_id) AS max_esi FROM participant_events_non_consuming_exercise WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW ONLY)
+  UNION ALL
+  (SELECT max(event_sequential_id) AS max_esi FROM participant_events_create WHERE event_offset <= $offset GROUP BY event_offset ORDER BY event_offset DESC FETCH NEXT 1 ROW ONLY)
+) t
+ORDER BY max_esi DESC
+FETCH NEXT 1 ROW ONLY
+       """.as(long(1).singleOpt)(connection)
+  }
+
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,

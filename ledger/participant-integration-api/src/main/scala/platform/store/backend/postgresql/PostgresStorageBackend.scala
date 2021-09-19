@@ -212,18 +212,6 @@ private[backend] object PostgresStorageBackend
 
   override def eventStrategy: common.EventStrategy = PostgresEventStrategy
 
-  // TODO FIXME: Use tables directly instead of the participant_events view.
-  override def maxEventSequentialIdOfAnObservableEvent(
-      offset: Offset
-  )(connection: Connection): Option[Long] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
-    // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
-    // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-    SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc limit 1"
-      .as(get[Long](1).singleOpt)(connection)
-  }
-
   override def createDataSource(
       jdbcUrl: String,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
