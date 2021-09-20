@@ -233,19 +233,17 @@ FETCH NEXT 1 ROW ONLY""".as(instantFromMicros("ledger_effective_time").?.singleO
   ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""  WITH archival_event AS (
-               SELECT participant_events.*
-                 FROM participant_events, parameters
+               SELECT 1
+                 FROM participant_events_consuming_exercise, parameters
                 WHERE contract_id = $contractId
-                  AND event_kind = 20  -- consuming exercise
                   AND event_sequential_id <= parameters.ledger_end_sequential_id
                   AND $treeEventWitnessesClause  -- only use visible archivals
                 FETCH NEXT 1 ROW ONLY
              ),
              create_event AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events, parameters
+                 FROM participant_events_create, parameters
                 WHERE contract_id = $contractId
-                  AND event_kind = 10  -- create
                   AND event_sequential_id <= parameters.ledger_end_sequential_id
                   AND $treeEventWitnessesClause
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
@@ -253,9 +251,8 @@ FETCH NEXT 1 ROW ONLY""".as(instantFromMicros("ledger_effective_time").?.singleO
              -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
              create_event_unrestricted AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events, parameters
+                 FROM participant_events_create, parameters
                 WHERE contract_id = $contractId
-                  AND event_kind = 10  -- create
                   AND event_sequential_id <= parameters.ledger_end_sequential_id
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
@@ -267,10 +264,9 @@ FETCH NEXT 1 ROW ONLY""".as(instantFromMicros("ledger_effective_time").?.singleO
                       -- therefore only communicates the change in visibility to the IndexDB, but
                       -- does not include a full divulgence event.
                       #$coalescedColumns
-                 FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
+                 FROM participant_events_divulgence divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
                       parameters
                 WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-                  AND divulgence_events.event_kind = 0 -- divulgence
                   AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
                   AND $treeEventWitnessesClause
                 ORDER BY divulgence_events.event_sequential_id
