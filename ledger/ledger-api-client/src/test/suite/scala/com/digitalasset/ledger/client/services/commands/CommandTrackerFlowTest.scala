@@ -5,7 +5,6 @@ package com.daml.ledger.client.services.commands
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Keep, Source, SourceQueueWithComplete}
 import akka.stream.testkit.javadsl.TestSink
@@ -22,7 +21,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse
+import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -32,8 +31,8 @@ import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
-import com.google.rpc.status.Status
-import io.grpc.StatusRuntimeException
+import com.google.rpc.status.{Status => StatusProto}
+import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
@@ -53,10 +52,12 @@ class CommandTrackerFlowTest
     with AkkaBeforeAndAfterAll
     with ScalaFutures {
 
-  type C[Value] = Ctx[(Int, String), Value]
+  type C[Value] = Ctx[(Int, TrackedCommandKey), Value]
 
-  private val allSubmissionsSuccessful
-      : Flow[Ctx[(Int, String), CommandSubmission], Ctx[(Int, String), Try[Empty]], NotUsed] =
+  private val allSubmissionsSuccessful: Flow[Ctx[(Int, TrackedCommandKey), CommandSubmission], Ctx[
+    (Int, TrackedCommandKey),
+    Try[Empty],
+  ], NotUsed] =
     Flow[C[CommandSubmission]].map {
       _.map(_ => Success(Empty.defaultInstance))
     }
@@ -68,23 +69,32 @@ class CommandTrackerFlowTest
     TestSink.probe[Ctx[Int, Either[CompletionFailure, CompletionSuccess]]](system)
 
   private val mrt = Instant.EPOCH.plus(shortDuration)
+  private val submissionId = "submissionId"
   private val commandId = "commandId"
   private val abortedCompletion =
     Completion(
       commandId,
-      Some(Status(Code.ABORTED.value)),
+      Some(StatusProto(Code.ABORTED.value)),
+      submissionId = submissionId,
     )
-  private val successStatus = Status(Code.OK.value)
+  private val successStatus = StatusProto(Code.OK.value)
   private val context = 1
-  private val submission = newSubmission(commandId)
+  private val submission = newSubmission(submissionId, commandId)
 
-  private def newSubmission(commandId: String, timeout: Option[Duration] = None) =
-    Ctx(context, CommandSubmission(Commands(commandId = commandId), timeout))
+  private def newSubmission(
+      submissionId: String,
+      commandId: String,
+      timeout: Option[Duration] = None,
+  ) =
+    Ctx(
+      context,
+      CommandSubmission(Commands(commandId = commandId, submissionId = submissionId), timeout),
+    )
 
   private case class Handle(
       submissions: TestPublisher.Probe[Ctx[Int, CommandSubmission]],
       completions: TestSubscriber.Probe[Ctx[Int, Either[CompletionFailure, CompletionSuccess]]],
-      whatever: Future[Map[String, Int]],
+      whatever: Future[Map[TrackedCommandKey, Int]],
       completionsStreamMock: CompletionStreamMock,
   )
 
@@ -142,6 +152,20 @@ class CommandTrackerFlowTest
       }
     }
 
+    "a command is submitted without a submission id" should {
+
+      "throw an exception" in {
+        val Handle(submissions, results, _, _) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        submissions.sendNext(newSubmission("", commandId))
+
+        val actualException = results.expectError()
+        actualException shouldBe an[IllegalArgumentException]
+        actualException.getMessage shouldBe s"The submission id for the command $commandId is empty. This should not happen."
+      }
+    }
+
     "the stream fails" should {
 
       "expose internal state as materialized value" in {
@@ -155,7 +179,7 @@ class CommandTrackerFlowTest
         whenReady(unhandledF) { unhandled =>
           unhandled should have size 1
           unhandled should contain(
-            submission.value.commands.commandId -> submission.context
+            TrackedCommandKey(submissionId, commandId) -> submission.context
           )
         }
       }
@@ -167,14 +191,17 @@ class CommandTrackerFlowTest
 
         val Handle(submissions, results, unhandledF, _) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
-        val otherCommandId = "otherId"
+        val otherSubmissionId = "otherSubmissionId"
+        val otherCommandId = "otherCommandId"
 
-        submissions.sendNext(newSubmission(otherCommandId))
+        submissions.sendNext(newSubmission(otherSubmissionId, otherCommandId))
 
         results.cancel()
         whenReady(unhandledF) { unhandled =>
           unhandled should have size 1
-          unhandled should contain(otherCommandId -> submission.context)
+          unhandled should contain(
+            TrackedCommandKey(otherSubmissionId, otherCommandId) -> submission.context
+          )
         }
       }
     }
@@ -216,7 +243,10 @@ class CommandTrackerFlowTest
 
         val failureCompletion =
           Left(
-            NotOkResponse(commandId = commandId, grpcStatus = Status(Code.RESOURCE_EXHAUSTED.value))
+            NotOkResponse(
+              commandId = commandId,
+              grpcStatus = StatusProto(Code.RESOURCE_EXHAUSTED.value),
+            )
           )
 
         results.expectNext(Ctx(context, failureCompletion))
@@ -236,7 +266,7 @@ class CommandTrackerFlowTest
 
         completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
         results.requestNext().value shouldEqual Left(
-          NotOkResponse(commandId, Status(Code.ABORTED.value))
+          NotOkResponse(commandId, StatusProto(Code.ABORTED.value))
         )
       }
 
@@ -251,7 +281,7 @@ class CommandTrackerFlowTest
 
         completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
         results.requestNext().value shouldEqual Left(
-          NotOkResponse(commandId, Status(Code.ABORTED.value))
+          NotOkResponse(commandId, StatusProto(Code.ABORTED.value))
         )
       }
 
@@ -276,7 +306,9 @@ class CommandTrackerFlowTest
       "timeout the command when the timeout passes" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(newSubmission(commandId, timeout = Some(Duration.ofMillis(100))))
+        submissions.sendNext(
+          newSubmission(submissionId, commandId, timeout = Some(Duration.ofMillis(100)))
+        )
 
         results.expectNext(
           500.milliseconds,
@@ -310,6 +342,7 @@ class CommandTrackerFlowTest
             CommandSubmission(
               Commands(
                 commandId = commandId,
+                submissionId = submissionId,
                 deduplicationPeriod =
                   Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTime),
               )
@@ -330,7 +363,9 @@ class CommandTrackerFlowTest
           maximumCommandTimeout = Duration.ofMillis(100),
         )
 
-        submissions.sendNext(newSubmission(commandId, timeout = Some(Duration.ofSeconds(10))))
+        submissions.sendNext(
+          newSubmission(submissionId, commandId, timeout = Some(Duration.ofSeconds(10)))
+        )
 
         results.expectNext(
           500.millis,
@@ -348,7 +383,7 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submission)
 
-        completionStreamMock.send(successfulCompletion(commandId))
+        completionStreamMock.send(successfulCompletion(submissionId, commandId))
 
         results.expectNext(
           Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
@@ -359,9 +394,12 @@ class CommandTrackerFlowTest
       "after the timeout" in {
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
+        val timedOutSubmissionId = "timedOutSubmissionId"
         val timedOutCommandId = "timedOutCommandId"
 
-        submissions.sendNext(newSubmission(timedOutCommandId, timeout = Some(shortDuration)))
+        submissions.sendNext(
+          newSubmission(timedOutSubmissionId, timedOutCommandId, timeout = Some(shortDuration))
+        )
 
         results.expectNext(
           shortDuration.getSeconds.seconds * 3,
@@ -369,7 +407,7 @@ class CommandTrackerFlowTest
         )
 
         // since the command timed out before, the tracker shouldn't send the completion through
-        completionStreamMock.send(successfulCompletion(timedOutCommandId))
+        completionStreamMock.send(successfulCompletion(timedOutSubmissionId, timedOutCommandId))
         results.request(1)
         results.expectNoMessage()
         succeed
@@ -378,9 +416,10 @@ class CommandTrackerFlowTest
       "after another command has timed out" in {
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
+        val timedOutSubmissionId = "timedOutSubmissionId"
         val timedOutCommandId = "timedOutCommandId"
         val submitRequestShortDedupTime =
-          newSubmission(timedOutCommandId, timeout = Some(shortDuration))
+          newSubmission(timedOutSubmissionId, timedOutCommandId, timeout = Some(shortDuration))
 
         // we send 2 requests
         submissions.sendNext(submitRequestShortDedupTime)
@@ -392,7 +431,7 @@ class CommandTrackerFlowTest
           Ctx(context, Left(CompletionResponse.TimeoutResponse(timedOutCommandId))),
         )
         // we now receive a completion
-        completionStreamMock.send(successfulCompletion(commandId))
+        completionStreamMock.send(successfulCompletion(submissionId, commandId))
         // because the out-of-band timeout completion consumed the previous pull on `results`,
         // we don't expect a message until we request one.
         // The order below is important to reproduce the issue described in DPP-285.
@@ -415,8 +454,8 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submission)
 
-        completionStreamMock.send(successfulCompletion(commandId))
-        completionStreamMock.send(successfulCompletion(commandId))
+        completionStreamMock.send(successfulCompletion(submissionId, commandId))
+        completionStreamMock.send(successfulCompletion(submissionId, commandId))
 
         results.expectNext(
           Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
@@ -435,11 +474,12 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submission)
 
-        val status = Status(Code.INVALID_ARGUMENT.value)
+        val status = StatusProto(Code.INVALID_ARGUMENT.value)
         val failureCompletion =
           Completion(
             commandId,
             Some(status),
+            submissionId = submissionId,
           )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(failureCompletion))
 
@@ -453,27 +493,86 @@ class CommandTrackerFlowTest
       }
     }
 
+    "a completion without the submission id arrives" should {
+      "output a failure if there are multiple pending commands with the same command id" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        submissions.sendNext(newSubmission("submissionId", "commandId"))
+        submissions.sendNext(newSubmission("anotherSubmissionId", "commandId"))
+
+        val completionWithoutSubmissionId =
+          Completion(
+            commandId,
+            Some(successStatus),
+            submissionId = "",
+          )
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(completionWithoutSubmissionId)
+        )
+
+        results.expectNext(
+          Ctx(
+            context,
+            Left(
+              CompletionResponse.NotOkResponse(
+                commandId = commandId,
+                grpcStatus = StatusProto.of(
+                  Status.Code.INTERNAL.value(),
+                  s"There are multiple pending commands for the id $commandId. This can only happen for the mutating schema.",
+                  Seq.empty,
+                ),
+              )
+            ),
+          )
+        )
+        succeed
+      }
+
+      "output a successful completion" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        submissions.sendNext(submission)
+
+        val completionWithoutSubmissionId =
+          Completion(
+            commandId,
+            Some(successStatus),
+            submissionId = "",
+          )
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(completionWithoutSubmissionId)
+        )
+
+        results.expectNext(
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        )
+        succeed
+      }
+    }
+
     "a multitude of successful completions arrive for submitted commands" should {
 
       "output all expected values" in {
-
         val cmdCount = 1000
 
-        val commandIds = 1.to(cmdCount).map(_.toString)
+        val identifiers =
+          1.to(cmdCount).map(_.toString).map(id => s"submission-$id" -> s"command-$id")
 
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
         results.request(cmdCount.toLong - 1)
 
-        commandIds.foreach { commandId =>
-          submissions.sendNext(submission.copy(value = commandWithId(commandId)))
+        identifiers.foreach { case (submissionId, commandId) =>
+          submissions.sendNext(submission.copy(value = commandWithIds(submissionId, commandId)))
         }
-        commandIds.foreach { commandId =>
-          completionStreamMock.send(successfulCompletion(commandId))
+        identifiers.foreach { case (submissionId, commandId) =>
+          completionStreamMock.send(successfulCompletion(submissionId, commandId))
         }
 
-        results.expectNextUnorderedN(commandIds.map { commandId =>
+        results.expectNextUnorderedN(identifiers.map { case (_, commandId) =>
           val successCompletion =
             Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus))
           Ctx(context, successCompletion)
@@ -498,10 +597,10 @@ class CommandTrackerFlowTest
               else Future.unit
           } yield ()
 
-        def sendCommand(commandId: String) = {
-          submissions.sendNext(submission.copy(value = commandWithId(commandId)))
+        def sendCommand(submissionId: String, commandId: String) = {
+          submissions.sendNext(submission.copy(value = commandWithIds(submissionId, commandId)))
           for {
-            _ <- completionStreamMock.send(successfulCompletion(commandId))
+            _ <- completionStreamMock.send(successfulCompletion(submissionId, commandId))
             _ = results.request(1)
             _ = results.expectNext(
               Ctx(
@@ -525,12 +624,12 @@ class CommandTrackerFlowTest
 
         for {
           _ <- checkOffset(LedgerOffset(Boundary(LEDGER_BEGIN)))
-          _ <- sendCommand("1")
+          _ <- sendCommand("submission-1", "command-1")
           _ <- sendCheckPoint(checkPointOffset)
           _ <- checkOffset(LedgerOffset(Boundary(LEDGER_BEGIN)))
           _ <- breakUntilOffsetArrives()
           _ <- checkOffset(checkPointOffset)
-          _ <- sendCommand("2")
+          _ <- sendCommand("submission-2", "command-2")
         } yield {
           succeed
         }
@@ -540,13 +639,17 @@ class CommandTrackerFlowTest
 
   }
 
-  private def commandWithId(commandId: String) = {
+  private def commandWithIds(submissionId: String, commandId: String) = {
     val request = submission.value
-    request.copy(commands = request.commands.copy(commandId = commandId))
+    request.copy(commands =
+      request.commands.copy(commandId = commandId, submissionId = submissionId)
+    )
   }
 
-  private def successfulCompletion(commandId: String) =
-    CompletionStreamElement.CompletionElement(Completion(commandId, Some(successStatus)))
+  private def successfulCompletion(submissionId: String, commandId: String) =
+    CompletionStreamElement.CompletionElement(
+      Completion(commandId, Some(successStatus), submissionId = submissionId)
+    )
 
   private def checkPoint(ledgerOffset: LedgerOffset) =
     CompletionStreamElement.CheckpointElement(
@@ -558,8 +661,8 @@ class CommandTrackerFlowTest
 
   private def runCommandTrackingFlow(
       submissionFlow: Flow[
-        Ctx[(Int, String), CommandSubmission],
-        Ctx[(Int, String), Try[Empty]],
+        Ctx[(Int, TrackedCommandKey), CommandSubmission],
+        Ctx[(Int, TrackedCommandKey), Try[Empty]],
         NotUsed,
       ],
       maximumCommandTimeout: Duration = Duration.ofSeconds(10),
