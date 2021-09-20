@@ -18,7 +18,7 @@ object Cli {
 
   private val Name = "ledger-api-test-tool"
 
-  private[this] implicit val tlsVersionRead: Read[File] = Read.reads(Paths.get(_).toFile)
+  private[this] implicit val fileRead: Read[File] = Read.reads(Paths.get(_).toFile)
 
   private def reportUsageOfDeprecatedOption[B](option: String) = { (_: Any, config: B) =>
     System.err.println(
