@@ -546,6 +546,18 @@ data Expr
     , throwExceptionType :: !Type
     , throwExceptionValue :: !Expr
     }
+  -- | Convert template payload to interface type.
+  | EToInterface
+    { toInterfaceInterface :: !(Qualified TypeConName)
+    , toInterfaceTemplate :: !(Qualified TypeConName)
+    , toInterfaceExpr :: !Expr
+    }
+  -- | Convert interface type to template payload when possible.
+  | EFromInterface
+    { fromInterfaceInterface :: !(Qualified TypeConName)
+    , fromInterfaceTemplate :: !(Qualified TypeConName)
+    , fromInterfaceExpr :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.

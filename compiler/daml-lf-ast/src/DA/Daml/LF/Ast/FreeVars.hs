@@ -104,6 +104,8 @@ freeVarsStep = \case
     EToAnyExceptionF t e -> freeVarsInType t <> e
     EFromAnyExceptionF t e -> freeVarsInType t <> e
     EThrowF t1 t2 e -> freeVarsInType t1 <> freeVarsInType t2 <> e
+    EToInterfaceF _ _ e -> e
+    EFromInterfaceF _ _ e -> e
     EExperimentalF _ t -> freeVarsInType t
 
   where
