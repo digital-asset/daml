@@ -321,7 +321,7 @@ final class SandboxServer(
             timeProvider = timeProvider,
             ledgerEntries = ledgerEntries,
             startMode = startMode,
-            queueDepth = config.commandConfig.maxParallelSubmissions,
+            queueDepth = config.maxParallelSubmissions,
             transactionCommitter = transactionCommitter,
             templateStore = packageStore,
             eventsPageSize = config.eventsPageSize,

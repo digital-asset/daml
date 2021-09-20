@@ -140,6 +140,8 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
         "--max-deduplication-duration=PT5S",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",
@@ -151,7 +153,9 @@ conformance_test(
         "--exclude=SemanticTests",
         "--exclude=RaceConditionIT",
         "--exclude=ExceptionRaceConditionIT",
-        "--exclude=ExceptionsIT",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -164,6 +168,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",

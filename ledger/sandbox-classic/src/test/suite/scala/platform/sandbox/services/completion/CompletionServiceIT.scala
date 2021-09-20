@@ -152,9 +152,9 @@ sealed trait CompletionServiceITBase
     super.config.copy(
       commandConfig = super.config.commandConfig.copy(
         inputBufferSize = 1,
-        maxParallelSubmissions = 2,
         maxCommandsInFlight = 2,
-      )
+      ),
+      maxParallelSubmissions = 2,
     )
 
 }

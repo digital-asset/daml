@@ -32,6 +32,7 @@ private[testtool] abstract class LedgerTestSuite {
       repeated,
     )((ec: ExecutionContext) => (_: Seq[ParticipantTestContext]) => testCase(ec))
   }
+
   protected final def testGivenAllParticipants(
       shortIdentifier: String,
       description: String,

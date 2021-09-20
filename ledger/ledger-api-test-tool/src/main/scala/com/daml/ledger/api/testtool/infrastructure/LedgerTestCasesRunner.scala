@@ -3,9 +3,6 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util.concurrent.{ExecutionException, TimeoutException}
-import java.util.{Timer, TimerTask}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -16,9 +13,12 @@ import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSession,
   ParticipantTestContext,
 }
-import io.grpc.{Channel, ClientInterceptor}
+import com.daml.ledger.api.tls.TlsConfiguration
+import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.{ExecutionException, TimeoutException}
+import java.util.{Timer, TimerTask}
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -41,7 +41,7 @@ object LedgerTestCasesRunner {
 
 final class LedgerTestCasesRunner(
     testCases: Vector[LedgerTestCase],
-    participants: Vector[Channel],
+    participants: Vector[ChannelEndpoint],
     maxConnectionAttempts: Int = 10,
     partyAllocation: PartyAllocationConfiguration = ClosedWorldWaitingForAllParticipants,
     shuffleParticipants: Boolean = false,
@@ -50,6 +50,7 @@ final class LedgerTestCasesRunner(
     uploadDars: Boolean = true,
     identifierSuffix: String = "test",
     commandInterceptors: Seq[ClientInterceptor] = Seq.empty,
+    clientTlsConfiguration: Option[TlsConfiguration],
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
@@ -150,13 +151,18 @@ final class LedgerTestCasesRunner(
   }
 
   private def uploadDarsIfRequired(
-      sessions: Vector[ParticipantSession]
+      sessions: Vector[ParticipantSession],
+      clientTlsConfiguration: Option[TlsConfiguration],
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     if (uploadDars) {
       Future
         .sequence(sessions.map { session =>
           for {
-            context <- session.createInitContext("upload-dars", identifierSuffix)
+            context <- session.createInitContext(
+              applicationId = "upload-dars",
+              identifierSuffix = identifierSuffix,
+              clientTlsConfiguration = clientTlsConfiguration,
+            )
             _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
           } yield ()
         })
@@ -188,18 +194,22 @@ final class LedgerTestCasesRunner(
   }
 
   private def run(
-      participants: Vector[Channel]
+      participants: Vector[ChannelEndpoint]
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): Future[Vector[LedgerTestSummary]] = {
     val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
     ParticipantSession(partyAllocation, participants, maxConnectionAttempts, commandInterceptors)
-      .flatMap { sessions =>
-        val ledgerSession = LedgerSession(sessions, shuffleParticipants)
+      .flatMap { sessions: Vector[ParticipantSession] =>
+        val ledgerSession = LedgerSession(
+          sessions,
+          shuffleParticipants,
+          clientTlsConfiguration = clientTlsConfiguration,
+        )
         val testResults =
           for {
-            _ <- uploadDarsIfRequired(sessions)
+            _ <- uploadDarsIfRequired(sessions, clientTlsConfiguration)
             concurrentTestResults <- runTestCases(
               ledgerSession,
               concurrentTestCases,

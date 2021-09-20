@@ -3,9 +3,8 @@
 
 package com.daml.nonrepudiation.postgresql
 
-import java.time.{Clock, Duration}
-
 import com.daml.doobie.logging.Slf4jLogHandler
+import com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCase,
   LedgerTestCasesRunner,
@@ -34,6 +33,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
 
+import java.time.{Clock, Duration}
 import scala.concurrent.duration.DurationInt
 
 final class NonRepudiationProxyConformance
@@ -109,10 +109,11 @@ final class NonRepudiationProxyConformance
     proxy.use { _ =>
       val runner = new LedgerTestCasesRunner(
         testCases = conformanceTestCases,
-        participants = Vector(proxyChannel),
+        participants = Vector(infrastructure.ChannelEndpoint.forInProcess(proxyChannel)),
         commandInterceptors = Seq(
           SigningInterceptor.signCommands(key, certificate)
         ),
+        clientTlsConfiguration = config.tlsConfig,
       )
 
       runner.runTests.map { summaries =>

@@ -27,7 +27,7 @@ class CommandPreprocessorSpec
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
   private implicit val defaultPackageId = defaultParserParameters.defaultPackageId
 
-  lazy val pkg =
+  private[this] val pkg =
     p"""
         module Mod {
 
@@ -71,7 +71,7 @@ class CommandPreprocessorSpec
   private[this] val compiledPackage = ConcurrentCompiledPackages()
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 
-  val valueParties = ValueList(FrontStack(ValueParty("Alice")))
+  private[this] val valueParties = ValueList(FrontStack(ValueParty("Alice")))
 
   "preprocessCommand" should {
 

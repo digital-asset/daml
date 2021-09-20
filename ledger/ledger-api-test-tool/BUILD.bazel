@@ -91,6 +91,7 @@ da_scala_binary(
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
                 "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+                "//ledger/ledger-api-common",
                 "//libs-scala/build-info",
                 "//libs-scala/grpc-utils",
                 "//libs-scala/resources",
@@ -124,6 +125,10 @@ da_scala_binary(
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
                 "//ledger/ledger-api-common",
+                "//ledger/ledger-resources",
+                "//libs-scala/resources",
+                "//libs-scala/resources-akka",
+                "//libs-scala/resources-grpc",
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:package_management-tests-%s.scala" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
@@ -134,6 +139,8 @@ da_scala_binary(
                 "//libs-scala/timer-utils",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
+                "@maven//:io_grpc_grpc_netty",
+                "@maven//:io_netty_netty_handler",
                 "@maven//:org_slf4j_slf4j_api",
             ],
         ),
@@ -245,6 +252,7 @@ conformance_test(
         # Retired tests will be eventually removed.
         "--additional=LotsOfPartiesIT",
         "--additional=TransactionScaleIT",
+        "--additional=TLSOnePointThreeIT",
         "--exclude=CommandDeduplicationIT",
         # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken.
         # This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
