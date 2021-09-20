@@ -40,6 +40,13 @@ private[sandbox] object Cli extends SandboxCli {
       )
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
     parser
+      .opt[Int]("max-parallel-submissions")
+      .optional()
+      .action((value, config) => config.copy(maxParallelSubmissions = value))
+      .text(
+        s"Maximum number of successfully interpreted commands waiting to be sequenced. The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a `RESOURCE_EXHAUSTED` error code. Default is ${defaultConfig.maxParallelSubmissions}."
+      )
+    parser
   }
 
 }
