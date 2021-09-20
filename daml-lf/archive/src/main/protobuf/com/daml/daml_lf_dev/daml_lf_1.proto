@@ -911,6 +911,22 @@ message Expr {
     Expr exception_expr = 3;
   }
 
+  // Convert a template payload to an interface.
+  // *Available in versions >= 1.dev*
+  message ToInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr template_expr = 3;
+  }
+
+  // Convert an interface back to a template payload if possible.
+  // *Available in versions >= 1.dev*
+  message FromInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr interface_expr = 3;
+  }
+
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -1023,6 +1039,11 @@ message Expr {
     // Throw an exception ('ExpThrow').
     // *Available in versions >= 1.14*
     Throw throw = 35;
+
+    // Convert to/from interface payloads.
+    // *Available in versions >= 1.dev*
+    ToInterface to_interface = 36;
+    FromInterface from_interface = 37;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
