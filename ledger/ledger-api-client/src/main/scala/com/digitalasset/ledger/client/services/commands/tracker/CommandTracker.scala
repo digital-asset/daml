@@ -236,6 +236,11 @@ private[commands] class CommandTracker[Context](
         val submissionId = commands.submissionId
         val commandId = commands.commandId
         logger.trace(s"Begin tracking of command $commandId for submission $submissionId.")
+        if (commands.submissionId.isEmpty) {
+          throw new IllegalArgumentException(
+            s"The submission id for the command $commandId is empty. This should not happen."
+          )
+        }
         if (pendingCommands.contains(TrackedCommandKey(submissionId, commandId))) {
           // TODO return an error identical to the server side duplicate command error once that's defined.
           throw new IllegalStateException(

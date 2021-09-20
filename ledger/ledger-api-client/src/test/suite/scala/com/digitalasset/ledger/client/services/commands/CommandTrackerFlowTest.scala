@@ -152,6 +152,20 @@ class CommandTrackerFlowTest
       }
     }
 
+    "a command is submitted without a submission id" should {
+
+      "throw an exception" in {
+        val Handle(submissions, results, _, _) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        submissions.sendNext(newSubmission("", commandId))
+
+        val actualException = results.expectError()
+        actualException shouldBe an[IllegalArgumentException]
+        actualException.getMessage shouldBe s"The submission id for the command $commandId is empty. This should not happen."
+      }
+    }
+
     "the stream fails" should {
 
       "expose internal state as materialized value" in {
@@ -328,6 +342,7 @@ class CommandTrackerFlowTest
             CommandSubmission(
               Commands(
                 commandId = commandId,
+                submissionId = submissionId,
                 deduplicationPeriod =
                   Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTime),
               )
