@@ -3,10 +3,6 @@
 
 package com.daml.ledger.api.testtool
 
-import java.io.File
-import java.nio.file.{Files, Paths, StandardCopyOption}
-import java.util.concurrent.Executors
-
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.Result.Excluded
 import com.daml.ledger.api.testtool.infrastructure._
@@ -17,6 +13,9 @@ import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
 import scala.collection.compat._
+import java.io.File
+import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.util.concurrent.Executors
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -57,6 +56,7 @@ object LedgerApiTestTool {
     println()
     Tests.PerformanceTestsKeys.foreach(println(_))
   }
+
   private def printAvailableTestSuites(testSuites: Vector[LedgerTestSuite]): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
     printListOfTests(testSuites)(_.name)
@@ -126,7 +126,7 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    if (config.participants.isEmpty) {
+    if (config.participantsEndpoints.isEmpty) {
       println("No participant to test, exiting.")
       sys.exit(0)
     }
@@ -220,8 +220,11 @@ object LedgerApiTestTool {
       cases: Vector[LedgerTestCase],
       concurrentTestRuns: Int,
   )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] = {
-    initializeParticipantChannels(config.participants, config.tlsConfig).asFuture.map(
-      participants =>
+    initializeParticipantChannels(
+      config.participantsEndpoints,
+      config.tlsConfig,
+    ).asFuture
+      .map((participants: Vector[ChannelEndpoint]) =>
         new LedgerTestCasesRunner(
           testCases = cases,
           participants = participants,
@@ -232,8 +235,9 @@ object LedgerApiTestTool {
           concurrentTestRuns = concurrentTestRuns,
           uploadDars = config.uploadDars,
           identifierSuffix = identifierSuffix,
+          clientTlsConfiguration = config.tlsConfig,
         )
-    )
+      )
   }
 
   private def initializeParticipantChannel(
@@ -257,12 +261,18 @@ object LedgerApiTestTool {
   private def initializeParticipantChannels(
       participants: Vector[(String, Int)],
       tlsConfig: Option[TlsConfiguration],
-  )(implicit executionContext: ExecutionContext): Resource[Vector[Channel]] = {
-    val participantChannelOwners =
+  )(implicit executionContext: ExecutionContext): Resource[Vector[ChannelEndpoint]] = {
+    val channelResources: Seq[Resource[ChannelEndpoint]] =
       for ((host, port) <- participants) yield {
-        initializeParticipantChannel(host, port, tlsConfig)
+        val channelOwner: ResourceOwner[Channel] =
+          initializeParticipantChannel(host, port, tlsConfig)
+        channelOwner
+          .acquire()
+          .map(channel =>
+            ChannelEndpoint.forRemote(channel = channel, hostname = host, port = port)
+          )
       }
-    Resource.sequence(participantChannelOwners.map(_.acquire()))
+    Resource.sequence(channelResources)
   }
 
 }
