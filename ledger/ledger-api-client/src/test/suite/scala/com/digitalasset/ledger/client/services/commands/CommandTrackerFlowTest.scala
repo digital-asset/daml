@@ -494,12 +494,13 @@ class CommandTrackerFlowTest
     }
 
     "a completion without the submission id arrives" should {
+
       "output a failure if there are multiple pending commands with the same command id" in {
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(allSubmissionsSuccessful)
 
-        submissions.sendNext(newSubmission("submissionId", "commandId"))
-        submissions.sendNext(newSubmission("anotherSubmissionId", "commandId"))
+        submissions.sendNext(newSubmission("submissionId", commandId))
+        submissions.sendNext(newSubmission("anotherSubmissionId", commandId))
 
         val completionWithoutSubmissionId =
           Completion(
@@ -581,7 +582,29 @@ class CommandTrackerFlowTest
       }
     }
 
+    "successful completions arrive for the same command submitted twice with different submission IDs" should {
+
+      "output two successful responses" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+
+        results.request(2)
+
+        submissions.sendNext(newSubmission("submissionId", commandId))
+        submissions.sendNext(newSubmission("anotherSubmissionId", commandId))
+
+        completionStreamMock.send(successfulCompletion("submissionId", commandId))
+        completionStreamMock.send(successfulCompletion("anotherSubmissionId", commandId))
+
+        val successfulResult =
+          Ctx(context, Right(CompletionResponse.CompletionSuccess(commandId, "", successStatus)))
+        results.expectNextUnordered(successfulResult, successfulResult)
+        succeed
+      }
+    }
+
     "completion stream disconnects" should {
+
       "keep run and recover the completion subscription from a recent offset" in {
         val checkPointOffset = LedgerOffset(Absolute("checkpoint"))
 
