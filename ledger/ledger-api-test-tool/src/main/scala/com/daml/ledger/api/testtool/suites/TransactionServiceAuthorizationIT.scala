@@ -93,7 +93,12 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               .exercise(giver, triProposal.exerciseTriProposalAccept)
               .mustFail("exercising with missing authorizers")
           } yield {
-            assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+            assertGrpcError(
+              failure,
+              Status.Code.INVALID_ARGUMENT,
+              Some("requires authorizers"),
+              checkDefiniteAnswerMetadata = true,
+            )
           }
         }
       } yield {
@@ -126,7 +131,12 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
               .mustFail("exercising with failing assertion")
           } yield {
-            assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
+            assertGrpcError(
+              failure,
+              Status.Code.INVALID_ARGUMENT,
+              Some("Assertion failed"),
+              checkDefiniteAnswerMetadata = true,
+            )
           }
         }
       } yield {

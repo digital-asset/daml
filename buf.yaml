@@ -30,6 +30,3 @@ lint:
 breaking:
   use:
     - WIRE_JSON
-  ignore_only:
-    FIELD_SAME_ONEOF: # ignore field_same_oneof to not trigger an error from moving an existing field into a new oneof
-      - com/daml/ledger/api/v1/commands.proto

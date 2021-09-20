@@ -12,9 +12,17 @@ cd "$(dirname "$0")"
 eval "$(dev-env/bin/dade-assist)"
 
 # Location of reference image used for buf breaking check.
-# In case breaking changes have been introduced, running './fmt.sh --rebuild-buf-image' will
-# overwrite this image.
-buf_image="buf_image.bin"
+#
+# It should be re-built by running './fmt.sh --rebuild-buf-image' and then committed:
+#
+# 1. as part of a commit also containing breaking proto changes (that have been agreed to), and/or
+# 2. as part of a subsequent commit (e.g. in the same PR, in a later PR or as part of the SDK release process),
+#    when already committed proto changes become stable.
+#
+# Proto changes that are part of an SDK release (especially RC and stable ones) should also be included in
+# the buf image.
+
+buf_image="buf-stable-protos-image.bin"
 
 ## Config ##
 is_test=

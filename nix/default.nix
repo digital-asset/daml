@@ -168,6 +168,7 @@ in rec {
     lsof = pkgs.lsof;
 
     patch = pkgs.patch;
+    timeout = pkgs.coreutils;
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 

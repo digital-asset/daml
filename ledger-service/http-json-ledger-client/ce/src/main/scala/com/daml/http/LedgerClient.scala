@@ -9,7 +9,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerClient extends LedgerClientBase {
 
-  protected def channelBuilder(
+  def channelBuilder(
       ledgerHost: String,
       ledgerPort: Int,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,

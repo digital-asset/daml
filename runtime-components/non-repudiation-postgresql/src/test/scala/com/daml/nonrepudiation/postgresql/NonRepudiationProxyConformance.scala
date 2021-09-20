@@ -3,33 +3,37 @@
 
 package com.daml.nonrepudiation.postgresql
 
-import java.time.Clock
-
 import com.daml.doobie.logging.Slf4jLogHandler
+import com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerTestCase,
   LedgerTestCasesRunner,
   LedgerTestSummary,
   Result,
 }
-import com.daml.ledger.api.testtool.suites.ClosedWorldIT
+import com.daml.ledger.api.testtool.suites.{
+  ClosedWorldIT,
+  CommandDeduplicationIT,
+  KVCommandDeduplicationIT,
+}
 import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.nonrepudiation.client.SigningInterceptor
+import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{MetricsReporterOwner, NonRepudiationProxy}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.{Runner => Sandbox}
 import com.daml.ports.Port
-import com.daml.nonrepudiation.testing._
 import com.daml.testing.postgresql.PostgresAroundAll
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.NettyChannelBuilder
-import org.scalatest.{Inside, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Inside, OptionValues}
 
+import java.time.{Clock, Duration}
 import scala.concurrent.duration.DurationInt
 
 final class NonRepudiationProxyConformance
@@ -41,18 +45,29 @@ final class NonRepudiationProxyConformance
 
   behavior of "NonRepudiationProxy"
 
-  val ConformanceTestCases: Vector[LedgerTestCase] =
-    Tests
-      .default()
-      .filter {
-        case _: ClosedWorldIT => false
-        case _ => true
-      }
+  private val defaultTestsToRun = Tests
+    .default()
+    .filter {
+      case _: ClosedWorldIT => false
+      case _: CommandDeduplicationIT => false
+      case _ => true
+    }
+
+  private val optionalTestsToRun = Tests.optional().filter {
+    case _: KVCommandDeduplicationIT => true
+    case _ => false
+  }
+
+  private val conformanceTestCases: Vector[LedgerTestCase] =
+    (defaultTestsToRun ++ optionalTestsToRun)
       .flatMap(_.tests)
 
   it should "pass all conformance tests" in {
     implicit val context: ResourceContext = ResourceContext(executionContext)
-    val config = SandboxConfig.defaultConfig.copy(port = Port.Dynamic)
+    val config = SandboxConfig.defaultConfig.copy(
+      port = Port.Dynamic,
+      maxDeduplicationDuration = Some(Duration.ofSeconds(5)),
+    )
 
     val proxyName = InProcessServerBuilder.generateName()
     val proxyBuilder = InProcessServerBuilder.forName(proxyName)
@@ -93,11 +108,12 @@ final class NonRepudiationProxyConformance
 
     proxy.use { _ =>
       val runner = new LedgerTestCasesRunner(
-        testCases = ConformanceTestCases,
-        participants = Vector(proxyChannel),
+        testCases = conformanceTestCases,
+        participants = Vector(infrastructure.ChannelEndpoint.forInProcess(proxyChannel)),
         commandInterceptors = Seq(
           SigningInterceptor.signCommands(key, certificate)
         ),
+        clientTlsConfiguration = config.tlsConfig,
       )
 
       runner.runTests.map { summaries =>

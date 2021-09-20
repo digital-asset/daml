@@ -118,6 +118,8 @@ let shared = rec {
     propagatedBuildInputs = attrs.propagatedBuildInputs ++ [sphinx-copybutton];
   });
 
+  sysctl = pkgs.unixtools.sysctl;
+
   # Custom combination of latex packages for our latex needs
   texlive = pkgs.texlive.combine {
     inherit (pkgs.texlive)

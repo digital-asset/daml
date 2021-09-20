@@ -33,11 +33,11 @@ private[lf] object PartialTransaction {
   }
 
   type NodeIdx = Value.NodeIdx
-  type Node = Node.GenNode[NodeId, Value.ContractId]
-  type LeafNode = Node.LeafOnlyActionNode[Value.ContractId]
+  type Node = Node.GenNode[NodeId]
+  type LeafNode = Node.LeafOnlyActionNode
 
-  private type TX = GenTransaction[NodeId, Value.ContractId]
-  private type ExerciseNode = Node.NodeExercises[NodeId, Value.ContractId]
+  private type TX = GenTransaction[NodeId]
+  private type ExerciseNode = Node.NodeExercises[NodeId]
 
   private final case class IncompleteTxImpl(
       val transaction: TX,
@@ -149,11 +149,11 @@ private[lf] object PartialTransaction {
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
       templateId: TypeConName,
-      contractKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+      contractKey: Option[Node.KeyWithMaintainers[Value]],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
-      chosenValue: Value[Value.ContractId],
+      chosenValue: Value,
       signatories: Set[Party],
       stakeholders: Set[Party],
       choiceObservers: Set[Party],
@@ -327,13 +327,13 @@ private[lf] case class PartialTransaction(
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
           case rb: Node.NodeRollback[NodeId] => rb.children.toSeq
-          case _: Node.LeafOnlyActionNode[_] => Nil
-          case ex: Node.NodeExercises[NodeId, _] => ex.children.toSeq
+          case _: Node.LeafOnlyActionNode => Nil
+          case ex: Node.NodeExercises[NodeId] => ex.children.toSeq
         }.toSet
 
         nodes.keySet diff allChildNodeIds
       }
-      val tx = GenTransaction(nodes, ImmArray(rootNodes))
+      val tx = GenTransaction(nodes, rootNodes.to(ImmArray))
 
       tx.foreach { (nid, node) =>
         val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
@@ -354,7 +354,7 @@ private[lf] case class PartialTransaction(
     * unless 'transactionNormalization=false',
     * suitable for a transaction node of 'version' determined by 'templateId'
     */
-  def normValue(templateId: TypeConName, svalue: SValue): Value[Value.ContractId] = {
+  def normValue(templateId: TypeConName, svalue: SValue): Value = {
     val version = packageToTransactionVersion(templateId.packageId)
     if (transactionNormalization) {
       svalue.toNormalizedValue(version)
@@ -398,22 +398,13 @@ private[lf] case class PartialTransaction(
 
   // construct an IncompleteTransaction from the partial-transaction
   def finishIncomplete: transaction.IncompleteTransaction = {
-    @tailrec
-    def unwindToExercise( //TODO: remove as never called
-        contextInfo: PartialTransaction.ContextInfo
-    ): Option[PartialTransaction.ExercisesContextInfo] = contextInfo match {
-      case ctx: PartialTransaction.ExercisesContextInfo => Some(ctx)
-      case ctx: PartialTransaction.TryContextInfo =>
-        unwindToExercise(ctx.parent.info)
-      case _: PartialTransaction.RootContextInfo => None
-    }
 
     val ptx = unwind()
 
     IncompleteTxImpl(
       GenTransaction(
         ptx.nodes,
-        ImmArray(ptx.context.children.toImmArray.toSeq.sortBy(_.index)),
+        ptx.context.children.toImmArray.toSeq.sortBy(_.index).toImmArray,
       ),
       ptx.locationInfo(),
     )
@@ -425,12 +416,12 @@ private[lf] case class PartialTransaction(
   def insertCreate(
       auth: Authorize,
       templateId: Ref.Identifier,
-      arg: Value[Value.ContractId],
+      arg: Value,
       agreementText: String,
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[Value]],
   ): (Value.ContractId, PartialTransaction) = {
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
@@ -521,7 +512,7 @@ private[lf] case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+      key: Option[Node.KeyWithMaintainers[Value]],
       byKey: Boolean,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -547,7 +538,7 @@ private[lf] case class PartialTransaction(
       auth: Authorize,
       templateId: TypeConName,
       optLocation: Option[Location],
-      key: Node.KeyWithMaintainers[Value[Nothing]],
+      key: Node.KeyWithMaintainers[Value],
       result: Option[Value.ContractId],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -576,9 +567,9 @@ private[lf] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       choiceObservers: Set[Party],
-      mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
+      mbKey: Option[Node.KeyWithMaintainers[Value]],
       byKey: Boolean,
-      chosenValue: Value[Value.ContractId],
+      chosenValue: Value,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -630,7 +621,7 @@ private[lf] case class PartialTransaction(
   /** Close normally an exercise context.
     * Must match a `beginExercises`.
     */
-  def endExercises(value: Value[Value.ContractId]): PartialTransaction =
+  def endExercises(value: Value): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
         val exerciseNode =
@@ -673,7 +664,7 @@ private[lf] case class PartialTransaction(
 
   private[this] def makeExNode(ec: ExercisesContextInfo): ExerciseNode = {
     val version = packageToTransactionVersion(ec.templateId.packageId)
-    Node.NodeExercises[NodeId, Value.ContractId](
+    Node.NodeExercises[NodeId](
       targetCoid = ec.targetId,
       templateId = ec.templateId,
       choiceId = ec.choiceId,
@@ -683,7 +674,7 @@ private[lf] case class PartialTransaction(
       stakeholders = ec.stakeholders,
       signatories = ec.signatories,
       choiceObservers = ec.choiceObservers,
-      children = ImmArray(Nil),
+      children = ImmArray.Empty,
       exerciseResult = None,
       key = ec.contractKey,
       byKey = normByKey(version, ec.byKey),

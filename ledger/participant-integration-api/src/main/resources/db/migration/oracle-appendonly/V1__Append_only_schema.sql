@@ -21,7 +21,7 @@ CREATE TABLE packages
     -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
     package_size       NUMBER                     not null,
     -- The time when the package was added
-    known_since        TIMESTAMP                  not null,
+    known_since        NUMBER                     not null,
     -- The ledger end at the time when the package was added
     ledger_offset      VARCHAR2(4000)             not null,
     -- The DAML-LF archive, serialized using the protobuf message `daml_lf.Archive`.
@@ -35,7 +35,7 @@ CREATE INDEX packages_ledger_offset_idx ON packages(ledger_offset);
 CREATE TABLE configuration_entries
 (
     ledger_offset    VARCHAR2(4000)  not null primary key,
-    recorded_at      TIMESTAMP       not null,
+    recorded_at      NUMBER          not null,
     submission_id    NVARCHAR2(1000) not null,
     -- The type of entry, one of 'accept' or 'reject'.
     typ              NVARCHAR2(1000) not null,
@@ -60,7 +60,7 @@ CREATE INDEX idx_configuration_submission ON configuration_entries (submission_i
 CREATE TABLE package_entries
 (
     ledger_offset    VARCHAR2(4000)  not null primary key,
-    recorded_at      TIMESTAMP       not null,
+    recorded_at      NUMBER          not null,
     -- SubmissionId for package to be uploaded
     submission_id    NVARCHAR2(1000),
     -- The type of entry, one of 'accept' or 'reject'
@@ -84,7 +84,7 @@ CREATE TABLE party_entries
     -- The ledger end at the time when the party allocation was added
     -- cannot BLOB add as primary key with oracle
     ledger_offset    VARCHAR2(4000)  primary key not null,
-    recorded_at      TIMESTAMP       not null,
+    recorded_at      NUMBER          not null,
     -- SubmissionId for the party allocation
     submission_id    NVARCHAR2(1000),
     -- party
@@ -111,7 +111,7 @@ CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, l
 CREATE TABLE participant_command_completions
 (
     completion_offset           VARCHAR2(4000)  NOT NULL,
-    record_time                 TIMESTAMP       NOT NULL,
+    record_time                 NUMBER          NOT NULL,
     application_id              NVARCHAR2(1000) NOT NULL,
 
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
@@ -123,10 +123,10 @@ CREATE TABLE participant_command_completions
     -- 1. an initial offset
     -- 2. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
     -- 3. an initial timestamp
-    deduplication_offset        VARCHAR2(4000),
-    deduplication_time_seconds  NUMBER,
-    deduplication_time_nanos    NUMBER,
-    deduplication_start         TIMESTAMP,
+    deduplication_offset            VARCHAR2(4000),
+    deduplication_duration_seconds  NUMBER,
+    deduplication_duration_nanos    NUMBER,
+    deduplication_start             NUMBER,
 
     submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
     command_id                  NVARCHAR2(1000) NOT NULL,
@@ -144,7 +144,7 @@ CREATE TABLE participant_command_submissions
     -- The deduplication key
     deduplication_key NVARCHAR2(1000) primary key not null,
     -- The time the command will stop being deduplicated
-    deduplicate_until TIMESTAMP                   not null
+    deduplicate_until NUMBER                      not null
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -188,7 +188,7 @@ CREATE INDEX participant_events_divulgence_template_id_idx ON participant_events
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
--- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
+CREATE SEARCH INDEX participant_events_divulgence_tree_event_witnesses_idx ON participant_events_divulgence (tree_event_witnesses) FOR JSON;
 
 -- lookup divulgance events, in order of ingestion
 CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence(contract_id, event_sequential_id);
@@ -202,7 +202,7 @@ CREATE TABLE participant_events_create (
     event_sequential_id NUMBER NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
-    ledger_effective_time TIMESTAMP NOT NULL,
+    ledger_effective_time NUMBER NOT NULL,
     node_index INTEGER NOT NULL,
     event_offset VARCHAR2(4000) NOT NULL,
 
@@ -256,7 +256,8 @@ CREATE INDEX participant_events_create_template_id_idx ON participant_events_cre
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
--- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
+CREATE SEARCH INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create (flat_event_witnesses) FOR JSON;
+CREATE SEARCH INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create (tree_event_witnesses) FOR JSON;
 
 -- lookup by contract id
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(contract_id);
@@ -277,7 +278,7 @@ CREATE TABLE participant_events_consuming_exercise (
 
     -- * transaction metadata
     transaction_id VARCHAR2(4000) NOT NULL,
-    ledger_effective_time TIMESTAMP NOT NULL,
+    ledger_effective_time NUMBER NOT NULL,
     command_id VARCHAR2(4000),
     workflow_id VARCHAR2(4000),
     application_id VARCHAR2(4000),
@@ -326,9 +327,8 @@ CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participan
 
 -- filtering by witnesses (visibility) for some queries used in the implementation of
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
--- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
+CREATE SEARCH INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise (flat_event_witnesses) FOR JSON;
+CREATE SEARCH INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (tree_event_witnesses) FOR JSON;
 
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
@@ -342,7 +342,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
-    ledger_effective_time TIMESTAMP NOT NULL,
+    ledger_effective_time NUMBER NOT NULL,
     node_index INTEGER NOT NULL,
     event_offset VARCHAR2(4000) NOT NULL,
 
@@ -396,15 +396,15 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 -- filtering by witnesses (visibility) for some queries used in the implementation of
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- There is no equivalent to GIN index for oracle, but we explicitly mark as a JSON column for indexing
--- NOTE: index name truncated because the full name exceeds the 63 characters length limit
--- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit - add back once all are on oracle 19.11 or above
+CREATE SEARCH INDEX participant_events_non_consuming_exercise_flat_event_witness_idx ON participant_events_non_consuming_exercise (flat_event_witnesses) FOR JSON;
+CREATE SEARCH INDEX participant_events_non_consuming_exercise_tree_event_witness_idx ON participant_events_non_consuming_exercise (tree_event_witnesses) FOR JSON;
 
 CREATE VIEW participant_events AS
 SELECT cast(0 as SMALLINT)          AS event_kind,
        participant_events_divulgence.event_sequential_id,
        cast(NULL as VARCHAR2(4000)) AS event_offset,
        cast(NULL as VARCHAR2(4000)) AS transaction_id,
-       cast(NULL as TIMESTAMP)      AS ledger_effective_time,
+       cast(NULL as NUMBER)         AS ledger_effective_time,
        participant_events_divulgence.command_id,
        participant_events_divulgence.workflow_id,
        participant_events_divulgence.application_id,

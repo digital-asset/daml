@@ -9,7 +9,7 @@ import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.{value => v}
-import com.daml.lf.data.Ref.{LedgerString, Party}
+import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -21,8 +21,10 @@ import org.scalatest.wordspec.AnyWordSpec
 
 final class TransactionConversionSpec extends AnyWordSpec with Matchers {
 
-  private val contractId1 = Value.ContractId.assertFromString("#contractId")
-  private val contractId2 = Value.ContractId.assertFromString("#contractId2")
+  import TransactionBuilder.Implicits._
+
+  private val List(contractId1, contractId2) = List.fill(2)(TransactionBuilder.newCid)
+
   private def create(contractId: Value.ContractId): Event =
     Event.of(
       Event.Event.Created(
@@ -58,27 +60,26 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
     }
   }
   "ledgerEntryToTransactionTree" should {
-    val partyStr = "Alice"
-    val party = Party.assertFromString(partyStr)
+    val party = "Alice"
     val offset = LedgerOffset.Absolute(LedgerString.assertFromString("offset"))
 
-    def create(builder: TransactionBuilder, id: String) =
+    def create(builder: TransactionBuilder, id: Value.ContractId) =
       builder.create(
         id = id,
-        template = "pkgid:M:T",
-        argument = Value.ValueRecord(None, ImmArray.empty),
-        signatories = Seq(partyStr),
-        observers = Seq(),
+        templateId = "M:T",
+        argument = Value.ValueRecord(None, ImmArray.Empty),
+        signatories = Set(party),
+        observers = Set.empty,
         key = None,
       )
 
-    def exercise(builder: TransactionBuilder, id: String) = {
+    def exercise(builder: TransactionBuilder, id: Value.ContractId) = {
       builder.exercise(
         contract = create(builder, id),
         choice = "C",
         consuming = true,
-        actingParties = Set(partyStr),
-        argument = Value.ValueRecord(None, ImmArray.empty),
+        actingParties = Set(party),
+        argument = Value.ValueRecord(None, ImmArray.Empty),
       )
     }
 
@@ -88,10 +89,10 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
           CreatedEvent(
             eventId = s"#transactionId:$evId",
             contractId = contractId,
-            templateId = Some(v.Identifier("pkgid", "M", "T")),
+            templateId = Some(v.Identifier(defaultPackageId, "M", "T")),
             createArguments = Some(v.Record(None, Vector())),
-            witnessParties = Vector(partyStr),
-            signatories = Vector(partyStr),
+            witnessParties = Vector(party),
+            signatories = Vector(party),
             agreementText = Some(""),
           )
         )
@@ -103,12 +104,12 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
           ExercisedEvent(
             eventId = s"#transactionId:$evId",
             contractId = contractId,
-            templateId = Some(v.Identifier("pkgid", "M", "T")),
+            templateId = Some(v.Identifier(defaultPackageId, "M", "T")),
             choice = "C",
             choiceArgument = Some(v.Value(v.Value.Sum.Record(v.Record(None, Vector())))),
-            actingParties = Vector(partyStr),
+            actingParties = Vector(party),
             consuming = true,
-            witnessParties = Vector(partyStr),
+            witnessParties = Vector(party),
             childEventIds = children.map(c => s"#transactionId:$c"),
           )
         )

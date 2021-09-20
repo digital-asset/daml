@@ -14,7 +14,7 @@ import akka.testkit.TestKit
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.Update
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Time
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -85,7 +85,7 @@ object StateUpdateExporterSpec extends MockitoSugar {
   private val aReadService = new ReplayingReadService {
     override def updateCount(): Long = 1
 
-    override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
       Source.empty
 
     override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =

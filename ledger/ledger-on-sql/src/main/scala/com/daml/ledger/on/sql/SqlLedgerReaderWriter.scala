@@ -24,7 +24,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerWriter,
 }
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref

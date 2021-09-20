@@ -8,20 +8,30 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
-import anorm.{RowParser, ~}
+import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{identifier, instant, offset}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.store.Conversions.{
+  contractId,
+  eventId,
+  identifier,
+  instantFromMicros,
+  offset,
+}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{EventsTable, Identifier, Raw}
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 
 import scala.collection.compat.immutable.ArraySeq
 
 trait EventStorageBackendTemplate extends EventStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
+
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   def eventStrategy: EventStrategy
   def queryStrategy: QueryStrategy
@@ -57,7 +67,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       long("event_sequential_id") ~
       str("event_id") ~
       str("contract_id") ~
-      instant("ledger_effective_time") ~
+      instantFromMicros("ledger_effective_time") ~
       identifier("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
@@ -392,6 +402,222 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     )(connection)
   }
 
+  override def pruneEvents(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+
+    if (pruneAllDivulgedContracts) {
+      pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events
+          delete from participant_events_divulgence delete_events
+          where delete_events.event_offset <= $pruneUpToInclusive
+            or delete_events.event_offset is null
+          """
+      }(connection, loggingContext)
+    } else {
+      pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
+        SQL"""
+          -- Retroactive divulgence events (only for contracts archived before the specified offset)
+          delete from participant_events_divulgence delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive
+            and exists (
+              select 1 from participant_events_consuming_exercise archive_events
+              where
+                archive_events.event_offset <= $pruneUpToInclusive and
+                archive_events.contract_id = delete_events.contract_id
+            )"""
+      }(connection, loggingContext)
+    }
+
+    pruneWithLogging(queryDescription = "Create events pruning") {
+      SQL"""
+          -- Create events (only for contracts archived before the specified offset)
+          delete from participant_events_create delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive and
+            exists (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive AND
+                archive_events.contract_id = delete_events.contract_id
+            )"""
+    }(connection, loggingContext)
+
+    if (pruneAllDivulgedContracts) {
+      val pruneAfterClause = {
+        // We need to distinguish between the two cases since lexicographical comparison
+        // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
+        participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
+          case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
+          case None => cSQL""
+        }
+      }
+
+      pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
+        SQL"""
+            -- Immediate divulgence pruning
+            delete from participant_events_create c
+            where event_offset <= $pruneUpToInclusive
+            -- Only prune create events which did not have a locally hosted party before their creation offset
+            and not exists (
+              select 1
+              from party_entries p
+              where p.typ = 'accept'
+              and p.ledger_offset <= c.event_offset
+              and #${queryStrategy.isTrue("p.is_local")}
+              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party")}
+            )
+            $pruneAfterClause
+         """
+      }(connection, loggingContext)
+    }
+
+    pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
+      SQL"""
+          -- Exercise events (consuming)
+          delete from participant_events_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
+      SQL"""
+          -- Exercise events (non-consuming)
+          delete from participant_events_non_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+  }
+
+  private def participantAllDivulgedContractsPrunedUpToInclusive(
+      connection: Connection
+  ): Option[Offset] =
+    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
+      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+        connection
+      )
+
+  private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit = {
+    val deletedRows = query.executeUpdate()(connection)
+    logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(loggingContext)
+  }
+
+  private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {
+    import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
+    (int("event_kind") ~
+      str("transaction_id") ~
+      int("node_index") ~
+      str("command_id").? ~
+      str("workflow_id").? ~
+      eventId("event_id") ~
+      contractId("contract_id") ~
+      identifier("template_id").? ~
+      instantFromMicros("ledger_effective_time").? ~
+      array[String]("create_signatories").? ~
+      array[String]("create_observers").? ~
+      str("create_agreement_text").? ~
+      binaryStream("create_key_value").? ~
+      int("create_key_value_compression").? ~
+      binaryStream("create_argument").? ~
+      int("create_argument_compression").? ~
+      array[String]("tree_event_witnesses") ~
+      array[String]("flat_event_witnesses") ~
+      array[String]("submitters").? ~
+      str("exercise_choice").? ~
+      binaryStream("exercise_argument").? ~
+      int("exercise_argument_compression").? ~
+      binaryStream("exercise_result").? ~
+      int("exercise_result_compression").? ~
+      array[String]("exercise_actors").? ~
+      array[String]("exercise_child_event_ids").? ~
+      long("event_sequential_id") ~
+      offset("event_offset")).map {
+      case eventKind ~ transactionId ~ nodeIndex ~ commandId ~ workflowId ~ eventId ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createSignatories ~
+          createObservers ~ createAgreementText ~ createKeyValue ~ createKeyCompression ~
+          createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
+          exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
+          exerciseChildEventIds ~ eventSequentialId ~ offset =>
+        RawTransactionEvent(
+          eventKind,
+          transactionId,
+          nodeIndex,
+          commandId,
+          workflowId,
+          eventId,
+          contractId,
+          templateId,
+          ledgerEffectiveTime,
+          createSignatories,
+          createObservers,
+          createAgreementText,
+          createKeyValue,
+          createKeyCompression,
+          createArgument,
+          createArgumentCompression,
+          treeEventWitnesses.toSet,
+          flatEventWitnesses.toSet,
+          submitters.map(_.toSet).getOrElse(Set.empty),
+          exerciseChoice,
+          exerciseArgument,
+          exerciseArgumentCompression,
+          exerciseResult,
+          exerciseResultCompression,
+          exerciseActors,
+          exerciseChildEventIds,
+          eventSequentialId,
+          offset,
+        )
+    }
+  }
+
+  override def rawEvents(startExclusive: Long, endInclusive: Long)(
+      connection: Connection
+  ): Vector[RawTransactionEvent] =
+    SQL"""
+       SELECT
+           event_kind,
+           transaction_id,
+           node_index,
+           command_id,
+           workflow_id,
+           event_id,
+           contract_id,
+           template_id,
+           ledger_effective_time,
+           create_signatories,
+           create_observers,
+           create_agreement_text,
+           create_key_value,
+           create_key_value_compression,
+           create_argument,
+           create_argument_compression,
+           tree_event_witnesses,
+           flat_event_witnesses,
+           submitters,
+           exercise_choice,
+           exercise_argument,
+           exercise_argument_compression,
+           exercise_result,
+           exercise_result_compression,
+           exercise_actors,
+           exercise_child_event_ids,
+           event_sequential_id,
+           event_offset
+       FROM
+           participant_events
+       WHERE
+           event_sequential_id > $startExclusive
+           and event_sequential_id <= $endInclusive
+           and event_kind != 0
+       ORDER BY event_sequential_id ASC"""
+      .asVectorOf(rawTransactionEventParser)(connection)
 }
 
 /** This encapsulates the moving part as composing various Events queries.

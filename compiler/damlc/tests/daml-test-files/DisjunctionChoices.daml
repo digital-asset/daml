@@ -20,16 +20,17 @@ template FeatureSuggestion with
     signatory employee
     observer founders
 
-    choice AcceptFeature: ContractId FeatureAssignment with
+    choice AcceptFeature: ContractId FeatureAssignment
+      with
         sponsor: Party
       controller sponsor
       do
         assert $ elem sponsor founders
         create FeatureAssignment with employee, description, sponsor
 
-    controller employee can
-      Revoke: ()
-        do pure ()
+    choice Revoke: ()
+      controller employee
+      do pure ()
 
 
 test = scenario do

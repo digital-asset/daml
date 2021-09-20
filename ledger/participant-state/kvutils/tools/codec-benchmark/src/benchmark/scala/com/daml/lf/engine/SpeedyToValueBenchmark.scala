@@ -7,7 +7,6 @@ import com.daml.lf.benchmark.{BenchmarkWithLedgerExport, assertDecode}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 import org.openjdk.jmh.annotations.{Benchmark, Setup}
 
 class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
@@ -28,7 +27,7 @@ class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
   }
 
   @Benchmark
-  def run(): Vector[Value[ContractId]] =
+  def run(): Vector[Value] =
     speedyValues.map(_.toUnnormalizedValue)
 
 }

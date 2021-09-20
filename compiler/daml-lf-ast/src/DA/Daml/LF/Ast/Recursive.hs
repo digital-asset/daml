@@ -61,8 +61,10 @@ data UpdateF expr
   | UBindF     !(BindingF expr) !expr
   | UCreateF   !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
+  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
+  | UFetchInterfaceF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
@@ -107,8 +109,10 @@ projectUpdate = \case
   UBind a b -> UBindF (projectBinding a) b
   UCreate a b -> UCreateF a b
   UExercise a b c d -> UExerciseF a b c d
+  UExerciseInterface a b c d -> UExerciseInterfaceF a b c d
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
+  UFetchInterface a b -> UFetchInterfaceF a b
   UGetTime -> UGetTimeF
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
@@ -124,8 +128,10 @@ embedUpdate = \case
   UBindF a b -> UBind (embedBinding a) b
   UCreateF a b -> UCreate a b
   UExerciseF a b c d -> UExercise a b c d
+  UExerciseInterfaceF a b c d -> UExerciseInterface a b c d
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
+  UFetchInterfaceF a b -> UFetchInterface a b
   UGetTimeF -> UGetTime
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)

@@ -82,7 +82,7 @@ object Main {
     applicationId = "script-export",
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = config.tlsConfig.client,
+    sslContext = config.tlsConfig.client(),
     token = config.accessToken.flatMap(_.token),
   )
 }

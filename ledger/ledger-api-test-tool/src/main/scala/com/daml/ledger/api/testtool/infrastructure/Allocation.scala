@@ -30,7 +30,9 @@ private[testtool] object Allocation {
 
   final case class Parties(override val count: Int) extends PartyCount
 
-  final case class Participants private[infrastructure] (participants: Participant*)
+  final case class Participants private[infrastructure] (
+      allocatedParticipants: Participant*
+  )
 
   final case class Participant private[infrastructure] (
       ledger: ParticipantTestContext,

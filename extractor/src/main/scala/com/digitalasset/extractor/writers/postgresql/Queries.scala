@@ -292,7 +292,7 @@ object Queries {
           fr0"${constructor: String}"
         case o @ V.ValueOptional(_) =>
           fr0"${toJsonString(o)}::jsonb"
-        case V.ValueContractId(value) => fr0"${value}"
+        case V.ValueContractId(value) => fr0"${value.coid}"
         case l @ V.ValueList(_) =>
           fr0"${toJsonString(l)}::jsonb"
         case V.ValueInt64(value) =>

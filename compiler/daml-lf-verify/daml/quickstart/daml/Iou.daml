@@ -20,49 +20,52 @@ template Iou
 
     observer observers
 
-    controller owner can
+    -- Split the IOU by dividing the amount.
+    choice Iou_Split : (IouCid, IouCid)
+      with
+        splitAmount: Decimal
+      controller owner
+      do
+        let restAmount = amount - splitAmount
+        splitCid <- create this with amount = splitAmount
+        restCid <- create this with amount = restAmount
+        return (splitCid, restCid)
 
-      -- Split the IOU by dividing the amount.
-      Iou_Split : (IouCid, IouCid)
-         with
-          splitAmount: Decimal
-        do
-          let restAmount = amount - splitAmount
-          splitCid <- create this with amount = splitAmount
-          restCid <- create this with amount = restAmount
-          return (splitCid, restCid)
+    -- Merge two IOUs by aggregating their amounts.
+    choice Iou_Merge : IouCid
+      with
+        otherCid: IouCid
+      controller owner
+      do
+        otherIou <- fetch otherCid
+        -- Check the two IOU's are compatible
+        assert (
+          currency == otherIou.currency &&
+          owner == otherIou.owner &&
+          issuer == otherIou.issuer
+          )
+        -- Retire the old Iou
+        archive otherCid
+        -- Return the merged Iou
+        create this with amount = amount + otherIou.amount
 
-      -- Merge two IOUs by aggregating their amounts.
-      Iou_Merge : IouCid
-        with
-          otherCid: IouCid
-        do
-          otherIou <- fetch otherCid
-          -- Check the two IOU's are compatible
-          assert (
-            currency == otherIou.currency &&
-            owner == otherIou.owner &&
-            issuer == otherIou.issuer
-            )
-          -- Retire the old Iou
-          archive otherCid
-          -- Return the merged Iou
-          create this with amount = amount + otherIou.amount
+    choice Iou_Transfer : ContractId IouTransfer
+      with
+        newOwner : Party
+      controller owner
+      do create IouTransfer with iou = this; newOwner
 
-      Iou_Transfer : ContractId IouTransfer
-        with
-          newOwner : Party
-        do create IouTransfer with iou = this; newOwner
+    choice Iou_AddObserver : IouCid
+      with
+        newObserver : Party
+      controller owner
+      do create this with observers = newObserver :: observers
 
-      Iou_AddObserver : IouCid
-        with
-          newObserver : Party
-        do create this with observers = newObserver :: observers
-
-      Iou_RemoveObserver : IouCid
-        with
-          oldObserver : Party
-        do create this with observers = filter (/= oldObserver) observers
+    choice Iou_RemoveObserver : IouCid
+      with
+        oldObserver : Party
+      controller owner
+      do create this with observers = filter (/= oldObserver) observers
 
 template IouTransfer
   with
@@ -71,16 +74,16 @@ template IouTransfer
   where
     signatory iou.issuer, iou.owner
 
-    controller iou.owner can
-      IouTransfer_Cancel : IouCid
-        do create iou
+    choice IouTransfer_Cancel : IouCid
+      controller iou.owner
+      do create iou
 
-    controller newOwner can
-      IouTransfer_Reject : IouCid
-        do create iou
+    choice IouTransfer_Reject : IouCid
+      controller newOwner
+      do create iou
 
-      IouTransfer_Accept : IouCid
-        do
-          create iou with
-            owner = newOwner
-            observers = []
+    choice IouTransfer_Accept : IouCid
+      controller newOwner
+      do create iou with
+           owner = newOwner
+           observers = []

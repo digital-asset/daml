@@ -11,9 +11,14 @@ template Person
     name   : Text
   where
     signatory person
-    controller person can
-      Sleep : () do return ()
-      nonconsuming Nap : Int with i : Int  do return i
+    choice Sleep : ()
+      controller person
+      do return ()
+
+    nonconsuming choice Nap : Int
+      with i : Int
+      controller person
+      do return i
 
 main = scenario do
     alice <- getParty "alice"

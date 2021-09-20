@@ -911,6 +911,22 @@ message Expr {
     Expr exception_expr = 3;
   }
 
+  // Convert a template payload to an interface.
+  // *Available in versions >= 1.dev*
+  message ToInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr template_expr = 3;
+  }
+
+  // Convert an interface back to a template payload if possible.
+  // *Available in versions >= 1.dev*
+  message FromInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr interface_expr = 3;
+  }
+
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -1023,6 +1039,11 @@ message Expr {
     // Throw an exception ('ExpThrow').
     // *Available in versions >= 1.14*
     Throw throw = 35;
+
+    // Convert to/from interface payloads.
+    // *Available in versions >= 1.dev*
+    ToInterface to_interface = 36;
+    FromInterface from_interface = 37;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1176,6 +1197,21 @@ message Update {
     Expr arg = 5;
   }
 
+  // Interface Exercise Update
+  message ExerciseInterface {
+    // Interface type
+    TypeConName interface = 1;
+
+    // name of the exercised template choice
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+  }
+
  // ExerciseByKey Update
   message ExerciseByKey {
     // Template type
@@ -1195,6 +1231,14 @@ message Update {
     // contract id
     Expr cid = 2;
     reserved 3; // was actor, we thought we'd need this, but we don't
+  }
+
+  // Interface Fetch Update
+  message FetchInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // contract id
+    Expr cid = 2;
   }
 
   // Embedded Expression Update
@@ -1235,6 +1279,8 @@ message Update {
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
+    ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.dev*
+    FetchInterface fetch_interface = 13; // *Available in versions >= 1.dev*
   }
 }
 
@@ -1321,6 +1367,15 @@ message TemplateChoice {
 
   Location location = 8;
 }
+
+message InterfaceChoice {
+  Location location = 1;
+  int32 name_interned_string = 2;
+  bool consuming = 3;
+  Type arg_type = 4;
+  Type ret_type = 5;
+}
+
 
 // we restrict key expressions to records of projections, much like SQL
 message KeyExpr {
@@ -1427,6 +1482,15 @@ message DefTemplate {
 
   // They key definition for the template, if present
   DefKey key = 10; // optional
+
+  // Interfaces that this template implements.
+  repeated TypeConName implements = 13; // *Available in versions >= 1.dev*
+}
+
+message DefInterface {
+  Location location = 1;
+  int32 tycon_interned_dname = 2;
+  repeated InterfaceChoice choices = 3;
 }
 
 // Exception definition
@@ -1469,6 +1533,7 @@ message DefDataType {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
     EnumConstructors enum = 7;
+    Unit interface = 9; // Interfaces are special, they can't be represented as records or variants.
   }
 
   // If true, this data type preserves serializability in the sense that when
@@ -1559,6 +1624,7 @@ message Module {
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
   repeated DefException exceptions = 10; // *Available in versions >= 1.14*
+  repeated DefInterface interfaces = 11; // *Available in versions >= 1.dev*
 }
 
 message InternedDottedName {

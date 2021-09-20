@@ -3,16 +3,15 @@
 
 package com.daml.ledger.api.testtool
 
-import java.io.File
-import java.nio.file.Path
-
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
 
+import java.io.File
+import java.nio.file.Path
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config(
-    participants: Vector[(String, Int)],
+    participantsEndpoints: Vector[(String, Int)],
     maxConnectionAttempts: Int,
     darPackages: List[File],
     mustFail: Boolean,
@@ -23,6 +22,7 @@ final case class Config(
     tlsConfig: Option[TlsConfiguration],
     excluded: Set[String],
     included: Set[String],
+    additional: Set[String],
     performanceTests: Set[String],
     performanceTestsReport: Option[Path],
     listTests: Boolean,
@@ -31,11 +31,16 @@ final case class Config(
     partyAllocation: PartyAllocationConfiguration,
     ledgerClockGranularity: FiniteDuration,
     uploadDars: Boolean,
-)
+) {
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config = {
+    val base = tlsConfig.getOrElse(TlsConfiguration.Empty)
+    copy(tlsConfig = Some(modify(base)))
+  }
+}
 
 object Config {
   val default: Config = Config(
-    participants = Vector.empty,
+    participantsEndpoints = Vector.empty,
     maxConnectionAttempts = 10,
     darPackages = Nil,
     mustFail = false,
@@ -46,6 +51,7 @@ object Config {
     tlsConfig = None,
     excluded = Set.empty,
     included = Set.empty,
+    additional = Set.empty,
     performanceTests = Set.empty,
     performanceTestsReport = None,
     listTests = false,

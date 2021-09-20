@@ -159,7 +159,7 @@ trait AuthMiddlewareFixture
       .get
     jwt.value
   }
-  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
+  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri, authMiddlewareUri)
   protected def authClock: AdjustableClock = resource.value._1
   protected def authServer: OAuthServer = resource.value._2
 
@@ -504,11 +504,10 @@ trait TriggerServiceFixture
               minRestartInterval,
               ServiceConfig.DefaultMaxRestartInterval,
             )
-            val lock = LockedFreePort.find()
             for {
               r <- ServiceMain.startServer(
                 host.getHostName,
-                lock.port.value,
+                Port.Dynamic.value,
                 ServiceConfig.DefaultMaxAuthCallbacks,
                 ServiceConfig.DefaultAuthCallbackTimeout,
                 ServiceConfig.DefaultMaxHttpEntityUploadSize,
@@ -522,7 +521,6 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 logTriggerStatus,
               )
-              _ = lock.unlock()
             } yield r
           } { case (_, system) =>
             system ! Server.Stop

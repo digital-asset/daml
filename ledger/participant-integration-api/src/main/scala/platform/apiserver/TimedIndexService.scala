@@ -142,7 +142,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       contractId: Value.ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
+  ): Future[Option[Value.ContractInst[Value.VersionedValue]]] =
     Timed.future(
       metrics.daml.services.index.lookupActiveContract,
       delegate.lookupActiveContract(readers, contractId),

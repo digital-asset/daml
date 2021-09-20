@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.codahale.metrics.Counter
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -23,6 +24,7 @@ import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -34,6 +36,7 @@ import com.google.protobuf.empty.Empty
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
 
@@ -62,6 +65,8 @@ private[daml] final class CommandClient(
       ],
     ]
 
+  private val submissionIdGenerator: SubmissionIdGenerator = SubmissionIdGenerator.Random
+
   /** Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
     * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
     */
@@ -86,8 +91,8 @@ private[daml] final class CommandClient(
     */
   def trackSingleCommand(
       submitRequest: SubmitRequest,
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   )(implicit
       mat: Materializer
   ): Future[Either[CompletionFailure, CompletionSuccess]] = {
@@ -95,7 +100,7 @@ private[daml] final class CommandClient(
     val commands = submitRequest.getCommands
     val effectiveActAs = CommandsValidator.effectiveSubmitters(commands).actAs
     for {
-      tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, token, ledgerIdToUse)
+      tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, ledgerIdToUse, token)
       result <- Source
         .single(Ctx.unit(CommandSubmission(commands)))
         .via(tracker)
@@ -114,13 +119,13 @@ private[daml] final class CommandClient(
     */
   def trackCommands[Context](
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   )(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] = {
     for {
-      tracker <- trackCommandsUnbounded[Context](parties, token, ledgerIdToUse)
+      tracker <- trackCommandsUnbounded[Context](parties, ledgerIdToUse, token)
     } yield {
       // The counters are ignored on the client
       MaxInFlight(config.maxCommandsInFlight, new Counter, new Counter)
@@ -136,24 +141,24 @@ private[daml] final class CommandClient(
     */
   def trackCommandsUnbounded[Context](
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   )(implicit
       ec: ExecutionContext
   ): Future[TrackCommandFlow[Context]] =
     for {
-      ledgerEnd <- getCompletionEnd(token, ledgerIdToUse)
+      ledgerEnd <- getCompletionEnd(ledgerIdToUse, token)
     } yield {
       partyFilter(parties.toSet)
         .via(commandUpdaterFlow[Context](ledgerIdToUse))
         .viaMat(
           CommandTrackerFlow[Context, NotUsed](
-            commandSubmissionFlow = CommandSubmissionFlow[(Context, String)](
+            commandSubmissionFlow = CommandSubmissionFlow[(Context, TrackedCommandKey)](
               submit(token),
               config.maxParallelSubmissions,
             ),
             createCommandCompletionSource =
-              offset => completionSource(parties, offset, token, ledgerIdToUse),
+              offset => completionSource(parties, offset, ledgerIdToUse, token),
             startingOffset = ledgerEnd.getOffset,
             maximumCommandTimeout = config.defaultDeduplicationTime,
           )
@@ -174,8 +179,8 @@ private[daml] final class CommandClient(
   def completionSource(
       parties: Seq[String],
       offset: LedgerOffset,
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Source[CompletionStreamElement, NotUsed] = {
     logger.debug(
       "Connecting to completion service with parties '{}' from offset: '{}'",
@@ -188,6 +193,7 @@ private[daml] final class CommandClient(
     )
   }
 
+  @nowarn("msg=deprecated")
   private def commandUpdaterFlow[Context](ledgerIdToUse: LedgerId) =
     Flow[Ctx[Context, CommandSubmission]]
       .map(_.map { case submission @ CommandSubmission(commands, _) =>
@@ -195,10 +201,15 @@ private[daml] final class CommandClient(
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerIdToUse)"
           )
-        else if (commands.applicationId != applicationId)
+        if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)"
           )
+        val nonEmptySubmissionId = if (commands.submissionId.isEmpty) {
+          submissionIdGenerator.generate()
+        } else {
+          commands.submissionId
+        }
         val updatedDeduplicationPeriod = commands.deduplicationPeriod match {
           case DeduplicationPeriod.Empty =>
             DeduplicationPeriod.DeduplicationTime(
@@ -210,12 +221,17 @@ private[daml] final class CommandClient(
             )
           case existing => existing
         }
-        submission.copy(commands = commands.copy(deduplicationPeriod = updatedDeduplicationPeriod))
+        submission.copy(commands =
+          commands.copy(
+            submissionId = nonEmptySubmissionId,
+            deduplicationPeriod = updatedDeduplicationPeriod,
+          )
+        )
       })
 
   def submissionFlow[Context](
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, CommandSubmission]]
       .via(commandUpdaterFlow(ledgerIdToUse))
@@ -223,8 +239,8 @@ private[daml] final class CommandClient(
   }
 
   def getCompletionEnd(
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[CompletionEndResponse] =
     LedgerClient
       .stub(commandCompletionService, token)

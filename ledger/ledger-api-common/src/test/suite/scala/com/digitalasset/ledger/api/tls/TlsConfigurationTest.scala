@@ -3,16 +3,19 @@
 
 package com.daml.ledger.api.tls
 
-import java.io.InputStream
-import java.net.ConnectException
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.security.Security
-
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
+import io.netty.handler.ssl.{OpenSslServerContext, SslContext}
 import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import java.io.{File, InputStream}
+import java.net.ConnectException
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.security.Security
 
 class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfterEach {
 
@@ -21,6 +24,21 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
   private val Enabled = "true"
   private val Disabled = "false"
+
+  private val List(
+    certChainFilePath,
+    privateKeyFilePath,
+    trustCertCollectionFilePath,
+    clientCertChainFilePath,
+    clientPrivateKeyFilePath,
+  ) = {
+    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
+      new File(rlocation("ledger/test-common/test-certificates/" + src))
+    }
+  }
+
+  println(clientCertChainFilePath)
+  println(clientPrivateKeyFilePath)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -46,6 +64,29 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
   }
 
   "TlsConfiguration" should {
+
+    "configure server with TLS protocol versions" which {
+      "is 1.3" in {
+        getServerEnabledProtocols(Some(TlsVersion.V1_3)) shouldBe Seq("SSLv2Hello", "TLSv1.3")
+      }
+      "is 1.2" in {
+        getServerEnabledProtocols(Some(TlsVersion.V1_2)) shouldBe Seq(
+          "SSLv2Hello",
+          "TLSv1.2",
+          "TLSv1.3",
+        )
+      }
+      "is default" in {
+        getServerEnabledProtocols(None) shouldBe Seq(
+          "SSLv2Hello",
+          "TLSv1",
+          "TLSv1.1",
+          "TLSv1.2",
+          "TLSv1.3",
+        )
+      }
+    }
+
     "set OCSP JVM properties" in {
       disableChecks()
       verifyOcsp(Disabled)
@@ -90,11 +131,10 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
       // then
       e.getCause shouldBe a[IllegalStateException]
-      e.getCause.getMessage shouldBe "Unable to convert TlsConfiguration(true,None,None,None,None,REQUIRE,false,List()) to SSL Context: cannot decrypt keyFile without secretsUrl."
+      e.getCause.getMessage should endWith("cannot decrypt keyFile without secretsUrl.")
     }
 
-    // TODO DPP-578: Enable this test once flakiness related to Mockito plugin is sorted
-    "attempt to decrypt private key using by fetching decryption params from an url" ignore {
+    "attempt to decrypt private key using by fetching decryption params from an url" in {
       // given
       val keyFilePath = Files.createTempFile("private-key", ".enc")
       Files.write(keyFilePath, "private-key-123".getBytes())
@@ -114,6 +154,23 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       e.getCause shouldBe a[ConnectException]
       e.getCause.getMessage shouldBe "Mocked url 123"
     }
+  }
+
+  private def configWithProtocols(minTls: Option[TlsVersion]): TlsConfiguration = {
+    TlsConfiguration(
+      enabled = true,
+      keyCertChainFile = Some(certChainFilePath),
+      keyFile = Some(privateKeyFilePath),
+      trustCertCollectionFile = Some(trustCertCollectionFilePath),
+      minimumServerProtocolVersion = minTls,
+    )
+  }
+
+  private def getServerEnabledProtocols(minTls: Option[TlsVersion]): Seq[String] = {
+    val sslContext: Option[SslContext] = configWithProtocols(minTls).server
+    assume(sslContext.isDefined)
+    assume(sslContext.get.isInstanceOf[OpenSslServerContext])
+    TlsInfo.fromSslContext(sslContext.get).enabledProtocols
   }
 
   private def disableChecks(): Unit = {

@@ -26,6 +26,7 @@ private[daml] class AstRewriter(
       definitions = module.definitions.transform((_, x) => apply(x)),
       templates = module.templates.transform((_, x) => apply(x)),
       exceptions = module.exceptions.transform((_, x) => apply(x)),
+      interfaces = module.interfaces.transform((_, x) => apply(x)),
       featureFlags = module.featureFlags,
     )
 
@@ -153,8 +154,12 @@ private[daml] class AstRewriter(
         UpdateCreate(apply(templateId), apply(arg))
       case UpdateFetch(templateId, contractId) =>
         UpdateFetch(apply(templateId), apply(contractId))
+      case UpdateFetchInterface(interface, contractId) =>
+        UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, cid, apply(arg))
+      case UpdateExerciseInterface(interface, choice, cid, arg) =>
+        UpdateExerciseInterface(apply(interface), choice, cid, apply(arg))
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x
@@ -205,6 +210,8 @@ private[daml] class AstRewriter(
         DDataType(serializable, params, DataVariant(variants.map(apply)))
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
         x
+      case DDataType(serializable @ _, params @ _, DataInterface) =>
+        x
       case DValue(typ, noPartyLiterals, body, isTest) =>
         DValue(apply(typ), noPartyLiterals, apply(body), isTest)
 
@@ -214,7 +221,16 @@ private[daml] class AstRewriter(
 
   def apply(x: Template): Template =
     x match {
-      case Template(param, precond, signatories, agreementText, choices, observers, key) =>
+      case Template(
+            param,
+            precond,
+            signatories,
+            agreementText,
+            choices,
+            observers,
+            key,
+            implements,
+          ) =>
         Template(
           param,
           apply(precond),
@@ -225,6 +241,7 @@ private[daml] class AstRewriter(
           },
           apply(observers),
           key.map(apply),
+          implements.map(apply),
         )
     }
 
@@ -261,6 +278,17 @@ private[daml] class AstRewriter(
   def apply(x: DefException): DefException =
     x match {
       case DefException(message) => DefException(apply(message))
+    }
+
+  def apply(x: InterfaceChoice): InterfaceChoice =
+    x match {
+      case InterfaceChoice(name, consuming, argType, returnType) =>
+        InterfaceChoice(name, consuming, apply(argType), returnType = apply(returnType))
+    }
+
+  def apply(x: DefInterface): DefInterface =
+    x match {
+      case DefInterface(choices) => DefInterface(choices.transform((_, x) => apply(x)))
     }
 }
 

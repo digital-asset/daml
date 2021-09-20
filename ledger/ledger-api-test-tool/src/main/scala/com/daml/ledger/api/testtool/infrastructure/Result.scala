@@ -12,6 +12,7 @@ private[daml] object Result {
 
   final case class Succeeded(duration: Duration) extends Success
   case object Retired extends RuntimeException with NoStackTrace with Success
+  case object Excluded extends RuntimeException with NoStackTrace with Success
 
   sealed trait Failure
 

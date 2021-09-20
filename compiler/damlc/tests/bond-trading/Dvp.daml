@@ -19,21 +19,20 @@ template DvpProposal
     c : DvpTerms
   where
     signatory c.buyer
+    observer c.seller
     ensure isValidDvp c
 
-    controller c.seller can
-      Accept : DvpId
-        do
-          create Dvp with c  = c
+    choice Accept : DvpId
+      controller c.seller
+      do create Dvp with c  = c
 
-      Reject : ()
-        do
-          return ()
+    choice Reject : ()
+      controller c.seller
+      do return ()
 
-    controller c.buyer can
-      Withdraw : ()
-        do
-          return ()
+    choice Withdraw : ()
+      controller c.buyer
+      do return ()
 
 type DvpId = ContractId Dvp
 
@@ -44,19 +43,18 @@ template Dvp
     ensure isValidDvp c
     signatory c.buyer, c.seller
 
-    controller c.buyer can
-      Allocate : (DvpAllocatedId, CashId)
-        with cashCid : CashId
-        do
-          cash <- fetch cashCid
-          assert $ not $ isLocked cash
-          assert $ cash.amount == c.cashAmount
-          assert $ cash.issuer == c.cashIssuer
-          assert $ cash.currency == c.cashCurrency
-          lid <- create LockPoA with locker = c.seller; issuer = cash.issuer; owner = cash.owner
-          cashCid <- exercise cashCid Lock with lid; _lockMaturity = c.settleTime
-          alloc <- create DvpAllocated with c=c; cashCid
-          return (alloc, cashCid)
+    choice Allocate : (DvpAllocatedId, CashId)
+      with cashCid : CashId
+      controller c.buyer
+      do cash <- fetch cashCid
+         assert $ not $ isLocked cash
+         assert $ cash.amount == c.cashAmount
+         assert $ cash.issuer == c.cashIssuer
+         assert $ cash.currency == c.cashCurrency
+         lid <- create LockPoA with locker = c.seller; issuer = cash.issuer; owner = cash.owner
+         cashCid <- exercise cashCid Lock with lid; _lockMaturity = c.settleTime
+         alloc <- create DvpAllocated with c=c; cashCid
+         return (alloc, cashCid)
 
 type DvpAllocatedId = ContractId DvpAllocated
 
@@ -69,31 +67,30 @@ template DvpAllocated
 
     signatory c.buyer, c.seller
 
-    controller c.seller can
-      Settle : SettleResult
-        with bondCid : BondId
-        do
-          assertAfter c.settleTime
+    choice Settle : SettleResult
+      with bondCid : BondId
+      controller c.seller
+      do assertAfter c.settleTime
 
-          bond <- fetch bondCid
-          assert $ bond.amount == c.bondAmount
-          assert $ bond.issuer == c.bondIssuer
-          assert $ bond.isin == c.bondIsin
-          assert $ bond.owner == c.seller
-          _ <- create DvpAllocated with c; cashCid
-          bondCid <- exercise bondCid Bond.Transfer with newOwner = c.buyer
-          bondCid <- exercise bondCid Bond.Accept
+         bond <- fetch bondCid
+         assert $ bond.amount == c.bondAmount
+         assert $ bond.issuer == c.bondIssuer
+         assert $ bond.isin == c.bondIsin
+         assert $ bond.owner == c.seller
+         _ <- create DvpAllocated with c; cashCid
+         bondCid <- exercise bondCid Bond.Transfer with newOwner = c.buyer
+         bondCid <- exercise bondCid Bond.Accept
 
-          cash <- fetch cashCid
-          assert $ isLocked cash
-          assert $ cash.amount == c.cashAmount
-          assert $ cash.issuer == c.cashIssuer
-          assert $ cash.currency == c.cashCurrency
-          assert $ cash.owner == c.buyer
-          cashCid <- exercise cashCid Cash.TransferToLocker
+         cash <- fetch cashCid
+         assert $ isLocked cash
+         assert $ cash.amount == c.cashAmount
+         assert $ cash.issuer == c.cashIssuer
+         assert $ cash.currency == c.cashCurrency
+         assert $ cash.owner == c.buyer
+         cashCid <- exercise cashCid Cash.TransferToLocker
 
-          notificationCid <- create DvpNotification with c = c
-          return SettleResult with ..
+         notificationCid <- create DvpNotification with c = c
+         return SettleResult with ..
 
 data SettleResult = SettleResult
   with

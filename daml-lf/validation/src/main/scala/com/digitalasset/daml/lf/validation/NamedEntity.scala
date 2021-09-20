@@ -3,6 +3,7 @@
 
 package com.daml.lf.validation
 
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, ModuleName, Name}
 import com.daml.lf.language.Ast
 import com.daml.lf.validation.Util._
@@ -27,22 +28,6 @@ object NamedEntity {
     override def toString = s"NModDef($name)"
 
     def pretty: String = s"module $name"
-  }
-
-  final case class NValDef(
-      module: NModDef,
-      name: DottedName,
-      dfn: Ast.DValue,
-  ) extends NamedEntity {
-
-    def modName: ModuleName = module.name
-
-    val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ name.toUpperCase
-
-    override def toString: String = s"NValDef($modName:$name)"
-
-    def pretty: String = s"value $modName:$name"
   }
 
   final case class NRecDef(
@@ -91,6 +76,20 @@ object NamedEntity {
     override def toString: String = s"NEnumDef($modName:$name)"
 
     def pretty: String = s"enum $modName:$name"
+  }
+
+  final case class NSynDef(
+      module: NModDef,
+      name: DottedName,
+  ) extends NamedEntity {
+    override def modName: ModuleName = module.name
+
+    override def fullyResolvedName: Ref.ModuleName =
+      module.fullyResolvedName ++ name.toUpperCase
+
+    override def toString: String = s"NSynDef($modName:$name)"
+
+    override def pretty: String = s"type synonym $modName:$name"
   }
 
   final case class NVarCon(
@@ -144,4 +143,19 @@ object NamedEntity {
     def pretty: String = s"variant constructor $modName:${dfn.name}:$name"
   }
 
+  final case class NInterface(
+      module: NModDef,
+      name: DottedName,
+      dfn: Ast.DDataType,
+  ) extends NamedEntity {
+
+    def modName: ModuleName = module.name
+
+    val fullyResolvedName: DottedName =
+      module.fullyResolvedName ++ name.toUpperCase
+
+    override def toString: String = s"NInterface($modName:$name)"
+
+    def pretty: String = s"interface $modName:$name"
+  }
 }

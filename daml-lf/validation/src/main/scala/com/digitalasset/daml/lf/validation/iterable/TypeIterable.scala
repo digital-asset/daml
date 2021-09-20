@@ -98,8 +98,15 @@ private[validation] object TypeIterable {
       case UpdateFetch(templateId, contractId) =>
         Iterator(TTyCon(templateId)) ++
           iterator(contractId)
+      case UpdateFetchInterface(interface, contractId) =>
+        Iterator(TTyCon(interface)) ++
+          iterator(contractId)
       case UpdateExercise(templateId, choice @ _, cid, arg) =>
         Iterator(TTyCon(templateId)) ++
+          iterator(cid) ++
+          iterator(arg)
+      case UpdateExerciseInterface(interface, choice @ _, cid, arg) =>
+        Iterator(TTyCon(interface)) ++
           iterator(cid) ++
           iterator(arg)
       case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
@@ -155,19 +162,32 @@ private[validation] object TypeIterable {
         variants.values
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
         Iterator.empty
+      case DDataType(serializable @ _, params @ _, DataInterface) =>
+        Iterator.empty
       case DValue(typ, noPartyLiterals @ _, body, isTest @ _) =>
         Iterator(typ) ++ iterator(body)
+
     }
 
   private[validation] def iterator(x: Template): Iterator[Type] =
     x match {
-      case Template(param @ _, precond, signatories, agreementText, choices, observers, key) =>
+      case Template(
+            param @ _,
+            precond,
+            signatories,
+            agreementText,
+            choices,
+            observers,
+            key,
+            implements,
+          ) =>
         iterator(precond) ++
           iterator(signatories) ++
           iterator(agreementText) ++
           choices.values.flatMap(iterator(_)) ++
           iterator(observers) ++
-          key.iterator.flatMap(iterator(_))
+          key.iterator.flatMap(iterator(_)) ++
+          implements.iterator.map(TTyCon(_))
     }
 
   private[validation] def iterator(choice: TemplateChoice): Iterator[Type] =

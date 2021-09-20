@@ -26,14 +26,21 @@ import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.functor._
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
+import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Metrics
 import doobie.free.connection
 
-sealed abstract class Queries(tablePrefix: String) {
+sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
+    metrics: Metrics
+) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
   val schemaVersion = 2
+
+  private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 
   protected[this] def dropIfExists(drop: Droppable): Fragment
 
@@ -161,7 +168,24 @@ sealed abstract class Queries(tablePrefix: String) {
   protected[http] def version()(implicit log: LogHandler): ConnectionIO[Option[Int]]
 
   final def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
-      log: LogHandler
+      log: LogHandler,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[SurrogateTpId] = {
+    surrogateTpIdCache
+      .getCacheValue(packageId, moduleName, entityName)
+      .map { tpId =>
+        Applicative[ConnectionIO].pure(tpId)
+      }
+      .getOrElse {
+        surrogateTemplateIdFromDb(packageId, moduleName, entityName).map { tpId =>
+          surrogateTpIdCache.setCacheValue(packageId, moduleName, entityName, tpId)
+          tpId
+        }
+      }
+  }
+
+  private def surrogateTemplateIdFromDb(packageId: String, moduleName: String, entityName: String)(
+      implicit log: LogHandler
   ): ConnectionIO[SurrogateTpId] =
     sql"""SELECT tpid FROM $templateIdTableName
           WHERE (package_id = $packageId AND template_module_name = $moduleName
@@ -617,9 +641,10 @@ object Queries {
   }
 }
 
-private final class PostgresQueries(tablePrefix: String)(implicit
-    ipol: Queries.SqlInterpolation.StringArray
-) extends Queries(tablePrefix) {
+private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
+    ipol: Queries.SqlInterpolation.StringArray,
+    metrics: Metrics,
+) extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
 
@@ -749,7 +774,9 @@ import OracleQueries.DisableContractPayloadIndexing
 private final class OracleQueries(
     tablePrefix: String,
     disableContractPayloadIndexing: DisableContractPayloadIndexing,
-) extends Queries(tablePrefix) {
+    tpIdCacheMaxEntries: Long,
+)(implicit metrics: Metrics)
+    extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, InitDdl._
   import Implicits._
 

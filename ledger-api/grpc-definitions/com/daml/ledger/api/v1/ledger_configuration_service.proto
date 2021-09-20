@@ -43,8 +43,10 @@ message LedgerConfiguration {
   reserved 1; // was min_ttl
   reserved 2; // was max_ttl
 
-  // The maximum value for the ``deduplication_time`` parameter of command submissions
-  // (as described in ``commands.proto``). This defines the maximum time window during which
-  // commands can be deduplicated.
+  // If a command submission specifies a deduplication period of length up to ``max_deduplication_time``,
+  // the submission SHOULD not be rejected with ``NOT_FOUND`` because the deduplication period start is too early.
+  // The deduplication period is measured on a local clock of the participant or Daml ledger,
+  // and therefore subject to clock skews and clock drifts.
+  // Command submissions with longer periods MAY get accepted though.
   google.protobuf.Duration max_deduplication_time = 3;
 }

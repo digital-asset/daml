@@ -9,7 +9,9 @@ import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.SubmissionResult
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -112,10 +114,26 @@ case class DefaultBatchingQueue(
           .offer(submission)
           .map {
             case QueueOfferResult.Enqueued => SubmissionResult.Acknowledged
-            case QueueOfferResult.Dropped => SubmissionResult.Overloaded
-            case f: QueueOfferResult.Failure => SubmissionResult.InternalError(f.toString)
+            case QueueOfferResult.Dropped =>
+              SubmissionResult.SynchronousError(
+                Status(
+                  Code.RESOURCE_EXHAUSTED.value
+                )
+              )
+            case f: QueueOfferResult.Failure =>
+              SubmissionResult.SynchronousError(
+                Status(
+                  Code.INTERNAL.value,
+                  f.toString,
+                )
+              )
             case QueueOfferResult.QueueClosed =>
-              SubmissionResult.InternalError("DefaultBatchingQueue.queue is closed")
+              SubmissionResult.SynchronousError(
+                Status(
+                  Code.INTERNAL.value,
+                  "DefaultBatchingQueue.queue is closed",
+                )
+              )
           }(materializer.executionContext)
       }
 

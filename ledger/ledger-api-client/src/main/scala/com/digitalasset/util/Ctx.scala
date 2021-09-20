@@ -25,10 +25,6 @@ final case class Ctx[+Context, +Value](
 
 object Ctx {
 
-  def fromPair[Context, Value](pair: (Context, Value)) = Ctx(pair._1, pair._2)
-
   def unit[T](item: T): Ctx[Unit, T] = Ctx((), item)
-
-  def derive[T, U](transform: T => U)(item: T) = Ctx(transform(item), item)
 
 }

@@ -124,6 +124,7 @@ def install_java_deps():
             "io.grpc:grpc-services:{}".format(grpc_version),
             "io.grpc:grpc-stub:{}".format(grpc_version),
             # netty
+            "io.netty:netty-buffer:{}".format(netty_version),
             "io.netty:netty-codec-http2:{}".format(netty_version),
             "io.netty:netty-handler:{}".format(netty_version),
             "io.netty:netty-handler-proxy:{}".format(netty_version),
@@ -166,6 +167,7 @@ def install_java_deps():
             "org.postgresql:postgresql:42.2.18",
             "org.reactivestreams:reactive-streams:1.0.2",
             "org.reactivestreams:reactive-streams-tck:1.0.2",
+            "org.reflections:reflections:0.9.12",
             "org.sangria-graphql:sangria_{}:2.0.1".format(scala_major_version),
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
             "org.scalacheck:scalacheck_{}:1.15.4".format(scala_major_version),

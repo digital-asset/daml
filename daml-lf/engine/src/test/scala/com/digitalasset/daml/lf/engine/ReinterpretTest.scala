@@ -50,7 +50,7 @@ class ReinterpretTest
     "daml-lf/tests/ReinterpretTests.dar"
   )
 
-  private val defaultContracts: Map[ContractId, ContractInst[VersionedValue[ContractId]]] =
+  private val defaultContracts: Map[ContractId, ContractInst[VersionedValue]] =
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
         ContractInst(
@@ -114,7 +114,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
@@ -126,7 +126,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
@@ -138,7 +138,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Left(err) = reinterpretCommand(theCommand)
       assert(err.message.contains("Error: functions are not comparable"))
@@ -150,7 +150,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
@@ -162,7 +162,7 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
 
       val Left(err) = reinterpretCommand(theCommand)
@@ -193,12 +193,12 @@ object ReinterpretTest {
     final case class Rollback(x: List[Shape]) extends Shape
     final case class Create() extends Shape
 
-    def ofTransaction(tx: GenTransaction[NodeId, ContractId]): Top = {
+    def ofTransaction(tx: GenTransaction[NodeId]): Top = {
       def ofNid(nid: NodeId): Shape = {
         tx.nodes(nid) match {
-          case node: NodeExercises[_, _] => Exercise(node.children.toList.map(ofNid))
+          case node: NodeExercises[_] => Exercise(node.children.toList.map(ofNid))
           case node: NodeRollback[_] => Rollback(node.children.toList.map(ofNid))
-          case _: NodeCreate[_] => Create()
+          case _: NodeCreate => Create()
           case _ => sys.error(s"Shape.ofTransaction, unexpected tx node")
         }
       }

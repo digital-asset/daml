@@ -50,6 +50,7 @@ trait TestFixture
   protected val maxMiddlewareLogins: Int = Config.DefaultMaxLoginRequests
   protected val maxClientAuthCallbacks: Int = 1000
   protected val middlewareCallbackUri: Option[Uri] = None
+  protected val middlewareClientCallbackPath: Uri.Path = Uri.Path./("cb")
   protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Yes
   lazy protected val clock: AdjustableClock = suiteResource.value.clock
   lazy protected val server: OAuthServer = suiteResource.value.authServer
@@ -65,8 +66,10 @@ trait TestFixture
     Uri()
       .withScheme("http")
       .withAuthority("localhost", host.getPort)
-      .withPath(Uri.Path./("cb"))
+      .withPath(middlewareClientCallbackPath)
   }
+  lazy protected val middlewareClientRoutes: Client.Routes =
+    middlewareClient.routes(middlewareClientCallbackUri)
   override protected lazy val suiteResource: Resource[TestResources] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, TestResources](
@@ -115,19 +118,16 @@ trait TestFixture
             ),
           )
         )
-        middlewareClientPort <- Resources.port()
+        authUri = Uri()
+          .withScheme("http")
+          .withAuthority(
+            middlewareBinding.localAddress.getHostName,
+            middlewareBinding.localAddress.getPort,
+          )
         middlewareClientConfig = Client.Config(
-          authMiddlewareUri = Uri()
-            .withScheme("http")
-            .withAuthority(
-              middlewareBinding.localAddress.getHostName,
-              middlewareBinding.localAddress.getPort,
-            ),
+          authMiddlewareInternalUri = authUri,
+          authMiddlewareExternalUri = authUri,
           redirectToLogin = redirectToLogin,
-          callbackUri = Uri()
-            .withScheme("http")
-            .withAuthority("localhost", middlewareClientPort.value)
-            .withPath(Uri.Path./("cb")),
           maxAuthCallbacks = maxClientAuthCallbacks,
           authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
           maxHttpEntityUploadSize = 4194304,
@@ -135,7 +135,7 @@ trait TestFixture
         )
         middlewareClient = Client(middlewareClientConfig)
         middlewareClientBinding <- Resources
-          .authMiddlewareClientBinding(middlewareClientConfig, middlewareClient)
+          .authMiddlewareClientBinding(middlewareClient, middlewareClientCallbackPath)
       } yield TestResources(
         clock = clock,
         authServer = server,

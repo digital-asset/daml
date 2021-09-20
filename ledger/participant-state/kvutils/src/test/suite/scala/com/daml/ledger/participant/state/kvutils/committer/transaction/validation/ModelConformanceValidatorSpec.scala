@@ -4,19 +4,9 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import java.time.{Instant, ZoneOffset, ZonedDateTime}
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlContractState,
-  DamlLogEntry,
-  DamlStateKey,
-  DamlStateValue,
-  DamlSubmitterInfo,
-  DamlTransactionEntry,
-  DamlTransactionRejectionEntry,
-  InvalidLedgerTime,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, lfTuple}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
@@ -34,15 +24,10 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.lf.transaction.TransactionOuterClass.ContractInstance
+import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  ReplayMismatch,
-  SubmittedTransaction,
-  TransactionVersion,
-}
-import com.daml.lf.value.Value.{ValueRecord, ValueText}
+import com.daml.lf.transaction.test.TransactionBuilder.Implicits._
+import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
 import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -111,7 +96,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue[Value.ContractId]]
+            Value.ContractInst[Value.VersionedValue]
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
@@ -175,7 +160,7 @@ class ModelConformanceValidatorSpec
           aTransactionEntry,
         )
       inside(step) { case StepStop(logEntry) =>
-        logEntry.getTransactionRejectionEntry.hasDisputed shouldBe true
+        logEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE
       }
     }
 
@@ -188,10 +173,7 @@ class ModelConformanceValidatorSpec
           aTransactionEntry,
         )
       inside(step) { case StepStop(logEntry) =>
-        logEntry.getTransactionRejectionEntry.hasInconsistent shouldBe true
-        logEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
-          "Missing input state for key contract_id: \"#inputContractId\""
-        )
+        logEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.MISSING_INPUT_STATE
       }
     }
 
@@ -205,8 +187,8 @@ class ModelConformanceValidatorSpec
           aTransactionEntry,
         )
       inside(step) { case StepStop(logEntry) =>
-        logEntry.getTransactionRejectionEntry.hasDisputed shouldBe true
-        logEntry.getTransactionRejectionEntry.getDisputed.getDetails should be(
+        logEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.INVALID_PARTICIPANT_STATE
+        logEntry.getTransactionRejectionEntry.getInvalidParticipantState.getDetails should be(
           "Decoding of Daml-LF archive aPackage failed: 'test message'"
         )
       }
@@ -219,7 +201,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue[Value.ContractId]]
+            Value.ContractInst[Value.VersionedValue]
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
@@ -368,8 +350,8 @@ class ModelConformanceValidatorSpec
         .setTransactionRejectionEntry(
           DamlTransactionRejectionEntry.newBuilder
             .setSubmitterInfo(DamlSubmitterInfo.getDefaultInstance)
-            .setInvalidLedgerTime(
-              InvalidLedgerTime.newBuilder.setDetails("Causal monotonicity violated")
+            .setCausalMonotonicityViolated(
+              CausalMonotonicityViolated.newBuilder
             )
         )
         .build()
@@ -388,23 +370,24 @@ class ModelConformanceValidatorSpec
   }
 
   private def create(
-      contractId: String,
-      signatories: Seq[String] = Seq(aKeyMaintainer),
-      argument: TransactionBuilder.Value = aDummyValue,
+      contractId: ContractId,
+      signatories: Set[Ref.Party] = Set(aKeyMaintainer),
+      argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
   ): TransactionBuilder.Create = {
     txBuilder.create(
       id = contractId,
-      template = aTemplateId,
+      templateId = aTemplateId,
       argument = argument,
       signatories = signatories,
-      observers = Seq.empty,
+      observers = Set.empty,
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
   }
 }
 
 object ModelConformanceValidatorSpec {
+
   private val inputContractId = "#inputContractId"
   private val inputContractIdStateKey = makeContractIdStateKey(inputContractId)
   private val aContractId = "#someContractId"
@@ -414,12 +397,13 @@ object ModelConformanceValidatorSpec {
   private val aKey = "key"
   private val aKeyMaintainer = "maintainer"
   private val aDummyValue = TransactionBuilder.record("field" -> "value")
-  private val aTemplateId = "dummyPackage:DummyModule:DummyTemplate"
-  private val aPackageId = Ref.PackageId.assertFromString("aPackage")
+  private val aTemplateId = "DummyModule:DummyTemplate"
+  private val aPackageId = "aPackage"
 
   private val aSubmissionSeed = ByteString.copyFromUtf8("a" * 32)
   private val ledgerEffectiveTime =
     ZonedDateTime.of(2021, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
+  private val txVersion = TransactionVersion.StableVersions.max
 
   private val aContractIdStateValue = {
     makeContractIdStateValue().toBuilder
@@ -432,14 +416,14 @@ object ModelConformanceValidatorSpec {
               .setTemplateId(
                 ValueOuterClass.Identifier
                   .newBuilder()
-                  .setPackageId("dummyPackage")
+                  .setPackageId(defaultPackageId)
                   .addModuleName("DummyModule")
                   .addName("DummyTemplate")
               )
               .setArgVersioned(
                 ValueOuterClass.VersionedValue
                   .newBuilder()
-                  .setVersion(TransactionVersion.VDev.protoValue)
+                  .setVersion(txVersion.protoValue)
                   .setValue(
                     ValueOuterClass.Value.newBuilder().setText("dummyValue").build().toByteString
                   )
@@ -451,8 +435,8 @@ object ModelConformanceValidatorSpec {
   }
 
   private val aContractInst = Value.ContractInst(
-    Ref.TypeConName.assertFromString(aTemplateId),
-    Value.VersionedValue(TransactionVersion.VDev, ValueText("dummyValue")),
+    aTemplateId,
+    Value.VersionedValue(txVersion, ValueText("dummyValue")),
     "",
   )
 
@@ -474,11 +458,11 @@ object ModelConformanceValidatorSpec {
     )
   }
 
-  private def txBuilder = TransactionBuilder(TransactionVersion.VDev)
+  private def txBuilder = TransactionBuilder()
 
   private def aGlobalKeyWithMaintainers(key: String, maintainer: String) = GlobalKeyWithMaintainers(
     GlobalKey.assertBuild(
-      Ref.TypeConName.assertFromString(aTemplateId),
+      aTemplateId,
       ValueRecord(
         None,
         ImmArray(

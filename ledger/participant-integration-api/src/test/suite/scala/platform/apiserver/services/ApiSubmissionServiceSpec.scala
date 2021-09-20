@@ -58,6 +58,9 @@ class ApiSubmissionServiceSpec
     with ArgumentMatchersSugar
     with AkkaBeforeAndAfterAll
     with TestResourceContext {
+
+  import TransactionBuilder.Implicits._
+
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
@@ -75,7 +78,7 @@ class ApiSubmissionServiceSpec
     builder.add(
       builder.create(
         s"#contractId$i",
-        "template:test:test",
+        "test:test",
         Value.ValueNil,
         signatories.toSeq,
         observers.toSeq,
@@ -202,7 +205,7 @@ class ApiSubmissionServiceSpec
     builder.add(
       builder.create(
         s"#contractId1",
-        "template:test:test",
+        "test:test",
         Value.ValueNil,
         Seq(party),
         Seq.empty,
@@ -230,14 +233,12 @@ class ApiSubmissionServiceSpec
     val partyManagementService = mock[IndexPartyManagementService]
     val writeService = mock[state.WriteService]
 
-    val tmplId = Ref.Identifier.assertFromString("pkgId:M:T")
+    val tmplId = toIdentifier("M:T")
 
     val errorsToStatuses = List(
       ErrorCause.DamlLf(
         LfError.Interpretation(
-          LfError.Interpretation.DamlException(
-            LfInterpretationError.ContractNotFound(Value.ContractId.assertFromString("#cid"))
-          ),
+          LfError.Interpretation.DamlException(LfInterpretationError.ContractNotFound("#cid")),
           None,
         )
       ) -> Status.ABORTED,
@@ -260,8 +261,8 @@ class ApiSubmissionServiceSpec
         LfError.Preprocessing(
           LfError.Preprocessing.Lookup(
             LookupError(
-              Reference.Package(Ref.PackageId.assertFromString("-pkgId")),
-              Reference.Package(Ref.PackageId.assertFromString("-pkgId")),
+              Reference.Package(defaultPackageId),
+              Reference.Package(defaultPackageId),
             )
           )
         )
@@ -419,7 +420,7 @@ object ApiSubmissionServiceSpec {
         readAs = Set.empty,
         submittedAt = Instant.MIN,
         deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
-        commands = LfCommands(ImmArray.empty, Timestamp.MinValue, ""),
+        commands = LfCommands(ImmArray.Empty, Timestamp.MinValue, ""),
       )
     )
   }

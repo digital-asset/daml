@@ -216,7 +216,7 @@ decodeScenarioModule minorText protoPkg = do
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
-decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptions) =
+decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptions interfaces) =
   Module
     <$> decodeDottedName ModuleName name
     <*> pure Nothing
@@ -226,6 +226,23 @@ decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptio
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
     <*> decodeNM DuplicateException decodeDefException exceptions
+    <*> decodeNM DuplicateInterface decodeDefInterface interfaces
+
+decodeDefInterface :: LF1.DefInterface -> Decode DefInterface
+decodeDefInterface LF1.DefInterface {..} =
+  DefInterface
+    <$> traverse decodeLocation defInterfaceLocation
+    <*> decodeDottedNameId TypeConName defInterfaceTyconInternedDname
+    <*> decodeNM DuplicateChoice decodeInterfaceChoice defInterfaceChoices
+
+decodeInterfaceChoice :: LF1.InterfaceChoice -> Decode InterfaceChoice
+decodeInterfaceChoice LF1.InterfaceChoice {..} =
+  InterfaceChoice
+    <$> traverse decodeLocation interfaceChoiceLocation
+    <*> decodeNameId ChoiceName interfaceChoiceNameInternedString
+    <*> pure interfaceChoiceConsuming
+    <*> mayDecode "interfaceChoiceArgType" interfaceChoiceArgType decodeType
+    <*> mayDecode "interfaceChoiceRetType" interfaceChoiceRetType decodeType
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -272,6 +289,7 @@ decodeDataCons = \case
       | V.null cs -> mapM (fmap snd . lookupString) (V.toList cIds)
       | otherwise -> throwError $ ParseError "strings and interned string ids both set for enum constructor"
     DataEnum <$> mapM (decodeNameString VariantConName) unmangledOrErr
+  LF1.DefDataTypeDataConsInterface LF1.Unit -> pure DataInterface
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
@@ -300,7 +318,7 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mayDecode "defTemplateAgreement" defTemplateAgreement decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
-
+    <*> traverse decodeTypeConName (V.toList defTemplateImplements)
 
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do
@@ -618,6 +636,10 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_ThrowReturnType" expr_ThrowReturnType decodeType
     <*> mayDecode "expr_ThrowExceptionType" expr_ThrowExceptionType decodeType
     <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
+  LF1.ExprSumToInterface _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
+    error "to_interface not yet implemented"
+  LF1.ExprSumFromInterface _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
+    error "from_interface not yet implemented"
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty
@@ -641,6 +663,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
+  LF1.UpdateSumExerciseInterface LF1.Update_ExerciseInterface{..} ->
+    fmap EUpdate $ UExerciseInterface
+      <$> mayDecode "update_ExerciseInterfaceInterface" update_ExerciseInterfaceInterface decodeTypeConName
+      <*> decodeNameId ChoiceName update_ExerciseInterfaceChoiceInternedStr
+      <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
+      <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName
@@ -651,6 +679,10 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
+  LF1.UpdateSumFetchInterface LF1.Update_FetchInterface{..} ->
+    fmap EUpdate $ UFetchInterface
+      <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName
+      <*> mayDecode "update_FetchInterfaceCid" update_FetchInterfaceCid decodeExpr
   LF1.UpdateSumGetTime LF1.Unit ->
     pure (EUpdate UGetTime)
   LF1.UpdateSumEmbedExpr LF1.Update_EmbedExpr{..} ->

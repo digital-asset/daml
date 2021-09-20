@@ -11,7 +11,7 @@ import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -93,15 +93,20 @@ trait ConfigProvider[ExtraConfig] {
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default
 
-  def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration =
+  def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration = {
     InitialLedgerConfiguration(
-      configuration = Configuration.reasonableInitialConfiguration,
+      configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationTime =
+        config.maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        )
+      ),
       // If a new index database is added to an already existing ledger,
       // a zero delay will likely produce a "configuration rejected" ledger entry,
       // because at startup the indexer hasn't ingested any configuration change yet.
       // Override this setting for distributed ledgers where you want to avoid these superfluous entries.
       delayBeforeSubmitting = Duration.ZERO,
     )
+  }
 
   def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 

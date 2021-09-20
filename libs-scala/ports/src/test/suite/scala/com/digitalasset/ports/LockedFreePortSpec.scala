@@ -17,6 +17,16 @@ class LockedFreePortSpec extends AnyWordSpec with Matchers {
       }
     }
 
+    "not collide with OS dynamic ports" in {
+      val lockedPort = LockedFreePort.find()
+      val (dynMin, dynMax) = FreePort.dynamicRange
+      try {
+        lockedPort.port.value should (be < dynMin or be > dynMax)
+      } finally {
+        lockedPort.unlock()
+      }
+    }
+
     "lock, to prevent race conditions" in {
       val lockedPort = LockedFreePort.find()
       try {

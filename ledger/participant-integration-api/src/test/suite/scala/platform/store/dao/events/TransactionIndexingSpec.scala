@@ -15,6 +15,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
+
+  import TransactionBuilder.Implicits._
+
   private val anOffset = Offset.fromByteArray(Array.emptyByteArray)
   private val aTransactionId = Ref.TransactionId.assertFromString("0")
   private val anInstant = Instant.EPOCH
@@ -53,8 +56,8 @@ final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
       def create(builder: TransactionBuilder, id: String) =
         builder.create(
           id = id,
-          template = "pkgid:M:T",
-          argument = V.ValueRecord(None, ImmArray.empty),
+          templateId = "M:T",
+          argument = V.ValueRecord(None, ImmArray.Empty),
           signatories = Seq(partyStr),
           observers = Seq(),
           key = None,
@@ -70,7 +73,7 @@ final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
           choice = "C",
           consuming = true,
           actingParties = parties,
-          argument = V.ValueRecord(None, ImmArray.empty),
+          argument = V.ValueRecord(None, ImmArray.Empty),
         )
       }
 

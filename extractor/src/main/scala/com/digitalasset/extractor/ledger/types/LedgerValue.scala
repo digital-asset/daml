@@ -19,8 +19,6 @@ import com.daml.lf.value.{Value => V}
 
 object LedgerValue {
 
-  type OfCid[F[+_]] = F[String]
-
   private val variantValueLens =
     ReqFieldLens.create[api.value.Variant, api.value.Value](Symbol("value"))
 
@@ -29,7 +27,7 @@ object LedgerValue {
   }
 
   final implicit class ApiRecordOps(val apiRecord: api.value.Record) extends AnyVal {
-    def convert: String \/ OfCid[V.ValueRecord] = convertRecord(apiRecord)
+    def convert: String \/ V.ValueRecord = convertRecord(apiRecord)
   }
 
   final implicit class ApiValueSumOps(val apiValueSum: api.value.Value.Sum) extends AnyVal {
@@ -42,7 +40,8 @@ object LedgerValue {
       case Sum.Map(map) => convertTextMap(map).widen
       case Sum.GenMap(entries) => convertGenMap(entries).widen
       case Sum.Bool(value) => V.ValueBool(value).right
-      case Sum.ContractId(value) => V.ValueContractId(value).right
+      case Sum.ContractId(value) =>
+        \/.fromEither(V.ContractId.fromString(value).map(V.ValueContractId))
       case Sum.Int64(value) => V.ValueInt64(value).right
       case Sum.Numeric(value) =>
         lfdata.Numeric
@@ -61,7 +60,7 @@ object LedgerValue {
   private def convertList(apiList: api.value.List) = {
     for {
       values <- apiList.elements.toList.traverse(_.convert)
-    } yield V.ValueList(FrontStack(values))
+    } yield V.ValueList(values.to(FrontStack))
   }
 
   private def convertVariant(apiVariant: api.value.Variant) = {
@@ -82,35 +81,35 @@ object LedgerValue {
   private def convertRecord(apiRecord: api.value.Record) = {
     for {
       tycon <- apiRecord.recordId traverse convertIdentifier map (_.flatten)
-      fields <- ImmArray(apiRecord.fields).traverse(_.convert)
+      fields <- apiRecord.fields.to(ImmArray).traverse(_.convert)
     } yield V.ValueRecord(tycon, fields)
   }
 
   private def convertOptional(apiOptional: api.value.Optional) =
     apiOptional.value traverse (_.convert) map (V.ValueOptional(_))
 
-  private def convertTextMap(apiMap: api.value.Map): String \/ OfCid[V.ValueTextMap] =
+  private def convertTextMap(apiMap: api.value.Map): String \/ V.ValueTextMap =
     for {
       entries <- apiMap.entries.toList.traverse {
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
         case api.value.Map.Entry(_, None) => -\/("value field of Map.Entry must be defined")
       }
-      map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
+      map <- SortedLookupList.fromImmArray(entries.to(ImmArray)).disjunction
     } yield V.ValueTextMap(map)
 
-  private def convertGenMap(apiMap: api.value.GenMap): String \/ OfCid[V.ValueGenMap] =
+  private def convertGenMap(apiMap: api.value.GenMap): String \/ V.ValueGenMap =
     apiMap.entries.toList
       .traverse { entry =>
         for {
-          k <- entry.key.fold[String \/ OfCid[V]](-\/("key field of GenMap.Entry must be defined"))(
+          k <- entry.key.fold[String \/ V](-\/("key field of GenMap.Entry must be defined"))(
             _.convert
           )
-          v <- entry.value.fold[String \/ OfCid[V]](
+          v <- entry.value.fold[String \/ V](
             -\/("value field of GenMap.Entry must be defined")
           )(_.convert)
         } yield k -> v
       }
-      .map(entries => V.ValueGenMap(ImmArray(entries)))
+      .map(entries => V.ValueGenMap(entries.to(ImmArray)))
 
   private def convertIdentifier(
       apiIdentifier: api.value.Identifier

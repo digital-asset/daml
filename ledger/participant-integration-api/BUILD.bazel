@@ -39,10 +39,12 @@ compile_deps = [
     "//daml-lf/transaction",
     "//daml-lf/transaction:transaction_proto_java",
     "//daml-lf/transaction:value_proto_java",
+    "//daml-lf/validation",
     "//language-support/scala/bindings",
     "//ledger-api/rs-grpc-akka",
     "//ledger-api/rs-grpc-bridge",
     "//ledger/caching",
+    "//ledger/error:error",
     "//ledger/ledger-api-akka",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-client",
@@ -66,6 +68,7 @@ compile_deps = [
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
     "//libs-scala/nameof",
+    "@maven//:com_google_api_grpc_proto_google_common_protos",
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
@@ -84,6 +87,7 @@ compile_deps = [
 
 scala_compile_deps = [
     "@maven//:com_github_scopt_scopt",
+    "@maven//:org_typelevel_cats_core",
     "@maven//:com_typesafe_akka_akka_actor",
     "@maven//:com_typesafe_akka_akka_stream",
     "@maven//:org_playframework_anorm_anorm",

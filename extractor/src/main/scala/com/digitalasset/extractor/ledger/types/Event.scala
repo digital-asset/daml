@@ -18,7 +18,7 @@ final case class CreatedEvent(
     eventId: String,
     contractId: String,
     templateId: Identifier,
-    createArguments: OfCid[V.ValueRecord],
+    createArguments: V.ValueRecord,
     stakeholders: Set[String],
 ) extends Event
 

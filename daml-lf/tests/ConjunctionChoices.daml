@@ -36,10 +36,11 @@ template PaintHouseProposal
     price   : Decimal
   where
     signatory owner
+    observer [painter, cleaner]
 
-    controller [painter, cleaner] can
-      PaintHouseProposal_Accept : ContractId PaintHouse
-        do create PaintHouse with owner; painter; cleaner; price
+    choice PaintHouseProposal_Accept : ContractId PaintHouse
+      controller [painter, cleaner]
+      do create PaintHouse with owner; painter; cleaner; price
 
 
 template PainterCleanerRelationship
@@ -51,15 +52,14 @@ template PainterCleanerRelationship
     signatory painter
     signatory cleaner
 
-    controller painter can
-      nonconsuming AcceptPaintHouse : ContractId PaintHouse
-        with cid : ContractId PaintHouseProposal
-        do
-          paintHouseProposal <- fetch cid
-          assert (paintHouseProposal.painter == painter)
-          assert (paintHouseProposal.cleaner == cleaner)
-          assert (paintHouseProposal.price >= threshold)
-          exercise cid PaintHouseProposal_Accept
+    nonconsuming choice AcceptPaintHouse : ContractId PaintHouse
+      with cid : ContractId PaintHouseProposal
+      controller painter
+      do paintHouseProposal <- fetch cid
+         assert (paintHouseProposal.painter == painter)
+         assert (paintHouseProposal.cleaner == cleaner)
+         assert (paintHouseProposal.price >= threshold)
+         exercise cid PaintHouseProposal_Accept
 
 
 template PainterCleanerProposal
@@ -69,10 +69,11 @@ template PainterCleanerProposal
     threshold : Decimal
   where
     signatory painter
+    observer cleaner
 
-    controller cleaner can
-      PainterCleanerProposal_Accept : ContractId PainterCleanerRelationship
-        do create PainterCleanerRelationship with painter; cleaner; threshold
+    choice PainterCleanerProposal_Accept : ContractId PainterCleanerRelationship
+      controller cleaner
+      do create PainterCleanerRelationship with painter; cleaner; threshold
 
 
 demo = scenario do

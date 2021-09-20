@@ -12,18 +12,17 @@ template Self2
   where
     signatory p
 
-    controller p can
-      nonconsuming Foo : Text
-        do
-          exercise self Bar
+    nonconsuming choice Foo : Text
+      controller p
+      do exercise self Bar
 
-      Bar : Text
-        do
-          return "ok"
+    choice Bar : Text
+      controller p
+      do return "ok"
 
-      Baz : Text
-        do
-          exercise self Bar
+    choice Baz : Text
+      controller p
+      do exercise self Bar
 
 main = scenario do
   alice <- getParty "Alice"

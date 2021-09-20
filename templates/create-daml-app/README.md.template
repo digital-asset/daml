@@ -72,3 +72,42 @@ of `npm run-script build`).
 
 Once both files are uploaded, you need to tell Daml Hub to deploy them. A few
 seconds later, your website should be up and running.
+
+## Auth0 Authentication
+
+This template comes with out-of-the-box support for Auth0 authentication. You
+can still test your app locally with no authentication, using the default
+configuration. You can run just the UI server locally, against a deployed,
+authenticated JSON API server running on a remote host, by starting the
+development server with:
+
+```bash
+REACT_APP_AUTH=auth0 \
+REACT_APP_AUTH0_DOMAIN=$YOUR_AUTH0_DOMAIN \
+REACT_APP_AUTH0_CLIENT_ID=$YOUR_AUTH0_CLIENT_ID \
+REACT_APP_HTTP_JSON=$JSON_API_ADDRESS \
+npm start
+```
+
+where:
+
+- `REACT_APP_AUTH` explicitly activates the Auth0 login screen.
+- `REACT_APP_AUTH0_DOMAIN` is the domain corresponding to your Auth0 tenant.
+  You can find it as the `Domain` field on the Settings tab of your Auth0
+  application.
+- `REACT_APP_AUTH0_CLIENT_ID` is the Client ID of your Auth0 "single page
+  applications" application.
+- `REACT_APP_HTTP_JSON` is the base URL of the JSON API, including scheme
+  (always) and port (if different from default: 80 for http and 443 for https).
+
+For this setup to work, you need a properly setup Auth0 tenant where
+`localhost:3000` is listed as a valid callback URL in the application settings.
+
+To build your application with Auth0 enabled, run:
+
+```bash
+REACT_APP_AUTH=auth0 \
+REACT_APP_AUTH0_DOMAIN=$YOUR_AUTH0_DOMAIN \
+REACT_APP_AUTH0_CLIENT_ID=$YOUR_AUTH0_CLIENT_ID \
+npm start
+```

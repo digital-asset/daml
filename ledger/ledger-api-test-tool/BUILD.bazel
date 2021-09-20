@@ -73,6 +73,9 @@ da_scala_binary(
         da_scala_library(
             name = "ledger-api-test-tool-%s-lib" % lf_version,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
+            plugins = [
+                silencer_plugin,
+            ],
             scala_deps = [
                 "@maven//:com_typesafe_akka_akka_actor",
                 "@maven//:com_typesafe_akka_akka_stream",
@@ -87,12 +90,15 @@ da_scala_binary(
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+                "//ledger/ledger-api-common",
                 "//libs-scala/build-info",
                 "//libs-scala/grpc-utils",
                 "//libs-scala/resources",
                 "//libs-scala/resources-akka",
                 "//libs-scala/resources-grpc",
                 "//libs-scala/timer-utils",
+                "@maven//:com_google_api_grpc_proto_google_common_protos",
                 "@maven//:com_typesafe_config",
                 "@maven//:io_netty_netty_common",
                 "@maven//:io_netty_netty_transport",
@@ -119,6 +125,10 @@ da_scala_binary(
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
                 "//ledger/ledger-api-common",
+                "//ledger/ledger-resources",
+                "//libs-scala/resources",
+                "//libs-scala/resources-akka",
+                "//libs-scala/resources-grpc",
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:package_management-tests-%s.scala" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
@@ -129,6 +139,8 @@ da_scala_binary(
                 "//libs-scala/timer-utils",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
+                "@maven//:io_grpc_grpc_netty",
+                "@maven//:io_netty_netty_handler",
                 "@maven//:org_slf4j_slf4j_api",
             ],
         ),
@@ -139,6 +151,7 @@ da_scala_binary(
             deps = [
                 "//daml-lf/language",
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
                 ":ledger-api-test-tool-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-test-suites" % lf_version,
             ],
@@ -207,7 +220,7 @@ da_scala_test_suite(
 )
 
 conformance_test(
-    name = "ssl-test",
+    name = "conformance-test",
     extra_data = [
         "//ledger/test-common/test-certificates:client.crt",
         "//ledger/test-common/test-certificates:client.pem",
@@ -216,83 +229,39 @@ conformance_test(
         "//ledger/test-common/test-certificates:server.pem.enc",
         "//ledger/test-common/test-certificates:ca.crt",
     ],
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ssl-test,port=6865",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
-        "--secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=SemanticTests",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-    ],
-)
-
-# Explicitly include retired tests here to make sure existing CI pipelines are not broken
-# Retired tests will be eventually removed
-conformance_test(
-    name = "retired-tests",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ssl-test,port=6865",
-    ],
-    test_tool_args = [
-        "--include=LotsOfPartiesIT",
-        "--include=TransactionScaleIT",
-    ],
-)
-
-# Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken
-# This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
-# exclusively for backwards-compatibility
-# Deprecated CLI options will be eventually removed
-conformance_test(
-    name = "deprecated-cli-options",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=ssl-test,port=6865",
-    ],
-    test_tool_args = [
-        "--include=IdentityIT",
-        "--all-tests",
-        "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
-        "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
-    ],
-)
-
-# Test that both --include ContractKeysIT as well as --include ContractKeysIT:CKFetchOrLookup
-# are supported.
-conformance_test(
-    name = "test-name-syntax",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=test-name,port=6865",
-    ],
-    test_tool_args = [
-        "--include=IdentityIT",
-        "--include=IdentityIT:IdNotEmpty",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test",
     lf_versions = lf_version_configuration_versions,
     ports = [6865],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
+        "--tls-secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
+        "--min-tls-version 1.3",
     ],
-    test_tool_args = ["--verbose"],
+    test_tool_args = [
+        "--verbose",
+        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
+        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
+        "--additional=IdentityIT",
+        "--additional=IdentityIT:IdNotEmpty",
+        # Explicitly include retired tests here to make sure existing CI pipelines are not broken.
+        # Retired tests will be eventually removed.
+        "--additional=LotsOfPartiesIT",
+        "--additional=TransactionScaleIT",
+        "--additional=TLSOnePointThreeIT",
+        "--exclude=CommandDeduplicationIT",
+        # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken.
+        # This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
+        # exclusively for backwards-compatibility.
+        # Deprecated CLI options will be eventually removed.
+        "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+        "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
+        "--all-tests",
+    ],
 )
 
 # This deliberately uses the deploy.jar since that’s what we ship

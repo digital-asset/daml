@@ -23,6 +23,7 @@ module GHC.Types (
         ifThenElse,
         primitive, magic, external,
         DamlEnum,
+        DamlInterface,
 
 #ifdef DAML_NUMERIC
         Nat, Numeric,
@@ -164,6 +165,9 @@ data Text =
 -- | HIDE Used to tag single-constructor enum types.
 class DamlEnum
 instance DamlEnum
+
+class DamlInterface
+instance DamlInterface
 
 #ifdef DAML_NUMERIC
 

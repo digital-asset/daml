@@ -17,7 +17,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // A composite command that groups multiple commands together.
 message Commands {
-
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
@@ -34,9 +33,10 @@ message Commands {
   // Required
   string application_id = 3;
 
-  // Uniquely identified the command. This identifier should be unique for each new command within an
-  // application domain, i.e., the triple (application_id, party, command_id) must be unique.
-  // It can be used for matching the requests with their respective completions.
+  // Uniquely identifies the command.
+  // The triple (application_id, party + act_as, command_id) constitutes the change ID for the intended ledger change,
+  // where party + act_as is interpreted as a set of party names.
+  // The change ID can be used for matching the intended ledger changes with all their completions.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string command_id = 4;
@@ -57,23 +57,21 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
+  // Specifies the deduplication period for the change ID.
+  // If omitted, the participant will assume the configured maximum deduplication time (see
+  // ``ledger_configuration_service.proto``).
   oneof deduplication_period {
+    // Specifies the length of the deduplication period.
+    // Same semantics apply as for `deduplication_duration`.
+    //
+    // Must be non-negative.
+    google.protobuf.Duration deduplication_time = 9 [deprecated = true];
 
-      // Same semantics as deduplication_duration
-      //
-      // DEPRECATED
-      google.protobuf.Duration deduplication_time = 9;
-
-      // Specifies the start of the deduplication period by a completion stream offset.
-      //
-      // Must be a valid LedgerString (as described in ``value.proto``).
-      string deduplication_offset = 15;
-
-      // Specifies the length of the deduplication period.
-      // It is interpreted relative to the local clock at some point during the submission's processing.
-      //
-      // Must be non-negative.
-      google.protobuf.Duration deduplication_duration = 16;
+    // Specifies the length of the deduplication period.
+    // It is interpreted relative to the local clock at some point during the submission's processing.
+    //
+    // Must be non-negative.
+    google.protobuf.Duration deduplication_duration = 15;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.
@@ -131,7 +129,6 @@ message Command {
 
 // Create a new contract instance based on a template.
 message CreateCommand {
-
   // The template of contract the client wants to create.
   // Required
   Identifier template_id = 1;
@@ -143,7 +140,6 @@ message CreateCommand {
 
 // Exercise a choice on an existing contract.
 message ExerciseCommand {
-
   // The template of contract the client wants to exercise.
   // Required
   Identifier template_id = 1;
@@ -165,7 +161,6 @@ message ExerciseCommand {
 
 // Exercise a choice on an existing contract specified by its key.
 message ExerciseByKeyCommand {
-
   // The template of contract the client wants to exercise.
   // Required
   Identifier template_id = 1;

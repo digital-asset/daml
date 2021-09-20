@@ -37,13 +37,13 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     allowNonHttps: Boolean = false,
-    accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = 10 seconds,
+    surrogateTpIdCacheMaxEntries: Option[Long] = None,
 ) extends StartSettings
 
 private[http] object Config {

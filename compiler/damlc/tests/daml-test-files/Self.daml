@@ -11,10 +11,10 @@ template Self with
   where
   signatory p
 
-  controller p can
-    Same : ()
-      with other: ContractId Self
-      do self === other
+  choice Same : ()
+    with other: ContractId Self
+    controller p
+    do self === other
 
 main = scenario do
   alice <- getParty "Alice"

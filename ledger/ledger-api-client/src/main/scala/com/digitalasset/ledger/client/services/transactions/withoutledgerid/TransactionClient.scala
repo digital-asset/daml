@@ -26,9 +26,9 @@ private[daml] final class TransactionClient(service: TransactionServiceStub)(imp
       start: LedgerOffset,
       end: Option[LedgerOffset],
       transactionFilter: TransactionFilter,
+      ledgerIdToUse: LedgerId,
       verbose: Boolean = false,
       token: Option[String] = None,
-      ledgerIdToUse: LedgerId,
   ): Source[TransactionTree, NotUsed] =
     TransactionSource.trees(
       LedgerClient.stub(service, token).getTransactionTrees,
@@ -45,9 +45,9 @@ private[daml] final class TransactionClient(service: TransactionServiceStub)(imp
       start: LedgerOffset,
       end: Option[LedgerOffset],
       transactionFilter: TransactionFilter,
+      ledgerIdToUse: LedgerId,
       verbose: Boolean = false,
       token: Option[String] = None,
-      ledgerIdToUse: LedgerId,
   ): Source[Transaction, NotUsed] =
     TransactionSource.flat(
       LedgerClient.stub(service, token).getTransactions,
@@ -63,8 +63,8 @@ private[daml] final class TransactionClient(service: TransactionServiceStub)(imp
   def getTransactionById(
       transactionId: String,
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[GetTransactionResponse] =
     LedgerClient
       .stub(service, token)
@@ -79,8 +79,8 @@ private[daml] final class TransactionClient(service: TransactionServiceStub)(imp
   def getTransactionByEventId(
       eventId: String,
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[GetTransactionResponse] =
     LedgerClient
       .stub(service, token)
@@ -95,8 +95,8 @@ private[daml] final class TransactionClient(service: TransactionServiceStub)(imp
   def getFlatTransactionById(
       transactionId: String,
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
     LedgerClient
       .stub(service, token)
@@ -111,8 +111,8 @@ private[daml] final class TransactionClient(service: TransactionServiceStub)(imp
   def getFlatTransactionByEventId(
       eventId: String,
       parties: Seq[String],
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[GetFlatTransactionResponse] =
     LedgerClient
       .stub(service, token)
@@ -125,8 +125,8 @@ private[daml] final class TransactionClient(service: TransactionServiceStub)(imp
       )
 
   def getLedgerEnd(
-      token: Option[String] = None,
       ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
   ): Future[GetLedgerEndResponse] =
     LedgerClient
       .stub(service, token)

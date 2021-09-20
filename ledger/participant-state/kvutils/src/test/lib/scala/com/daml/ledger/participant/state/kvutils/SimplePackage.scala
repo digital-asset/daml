@@ -42,7 +42,7 @@ class SimplePackage(testDar: TestDar) {
       .next()
   }
 
-  def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.ContractId]): CreateCommand =
+  def createCmd(templateId: Ref.Identifier, templateArg: Value): CreateCommand =
     CreateCommand(templateId, templateArg)
 
   def exerciseCmd(
@@ -71,7 +71,7 @@ class SimplePackage(testDar: TestDar) {
 
   def createAndExerciseCmd(
       templateId: Ref.Identifier,
-      templateArg: Value[Value.ContractId],
+      templateArg: Value,
       choiceName: Ref.ChoiceName,
   ): CreateAndExerciseCommand =
     CreateAndExerciseCommand(
@@ -81,7 +81,7 @@ class SimplePackage(testDar: TestDar) {
       choiceArgument,
     )
 
-  private val choiceArgument = ValueRecord(None, ImmArray.empty)
+  private val choiceArgument = ValueRecord(None, ImmArray.Empty)
 
   private val simpleTemplateId: Ref.Identifier =
     Ref.Identifier(
@@ -107,14 +107,14 @@ class SimplePackage(testDar: TestDar) {
   private val simpleReplaceChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Replace")
 
-  def simpleCreateCmd(templateArg: Value[Value.ContractId]): CreateCommand =
+  def simpleCreateCmd(templateArg: Value): CreateCommand =
     createCmd(simpleTemplateId, templateArg)
 
   def simpleExerciseArchiveCmd(contractId: Value.ContractId): ExerciseCommand =
     exerciseCmd(contractId, simpleTemplateId, simpleArchiveChoiceName)
 
   def simpleCreateAndExerciseArchiveCmd(
-      templateArg: Value[Value.ContractId]
+      templateArg: Value
   ): CreateAndExerciseCommand =
     createAndExerciseCmd(simpleTemplateId, templateArg, simpleArchiveChoiceName)
 
@@ -124,8 +124,8 @@ class SimplePackage(testDar: TestDar) {
   def mkSimpleTemplateArg(
       owner: String,
       observer: String,
-      additionalContractValue: Value[Value.ContractId],
-  ): Value[Value.ContractId] =
+      additionalContractValue: Value,
+  ): Value =
     Value.ValueRecord(
       Some(simpleTemplateId),
       ImmArray(
@@ -142,13 +142,13 @@ class SimplePackage(testDar: TestDar) {
   private val simpleHolderReplaceHeldByKeyChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("ReplaceHeldByKey")
 
-  def simpleHolderCreateCmd(arg: Value[Value.ContractId]): CreateCommand =
+  def simpleHolderCreateCmd(arg: Value): CreateCommand =
     createCmd(simpleHolderTemplateId, arg)
 
   def simpleHolderExerciseReplaceHeldByKeyCmd(contractId: Value.ContractId): ExerciseCommand =
     exerciseCmd(contractId, simpleHolderTemplateId, simpleHolderReplaceHeldByKeyChoiceName)
 
-  def mkSimpleHolderTemplateArg(owner: Ref.Party): Value[Value.ContractId] =
+  def mkSimpleHolderTemplateArg(owner: Ref.Party): Value =
     Value.ValueRecord(
       Some(simpleHolderTemplateId),
       ImmArray(Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(owner)),

@@ -40,7 +40,7 @@ object LedgerOffsetValidator {
       case LedgerOffset.Value.Boundary(value) =>
         convertLedgerBoundary(fieldName, value)
       case LedgerOffset.Value.Empty =>
-        Left(missingField(fieldName + ".(" + boundary + "|value)"))
+        Left(missingField(fieldName + ".(" + boundary + "|value)", None))
     }
   }
 
@@ -72,7 +72,7 @@ object LedgerOffsetValidator {
     value match {
       case LedgerBoundary.Unrecognized(invalid) =>
         Left(
-          invalidArgument(
+          invalidArgument(None)(
             s"Unknown ledger $boundary value '$invalid' in field $fieldName.$boundary"
           )
         )

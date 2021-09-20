@@ -31,9 +31,9 @@ template Pong
       signatory initiator, responder
       observer observers
 
-      controller initiator can
-        Ack : ()
-          do return ()
+      choice Ack : ()
+        controller initiator
+        do return ()
 
 main = scenario do
     [alice, bob] <- mapA getParty ["Alice", "Bob"]

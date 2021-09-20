@@ -1,6 +1,9 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// Copyright
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Instant
@@ -73,6 +76,7 @@ private[kvutils] class TransactionCommitter(
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
+    "overwrite_deduplication_period" -> overwriteDeduplicationPeriodWithMaxDuration,
     "deduplicate" -> deduplicateCommand,
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
@@ -81,6 +85,19 @@ private[kvutils] class TransactionCommitter(
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,
   )
+
+  private[transaction] def overwriteDeduplicationPeriodWithMaxDuration: Step = new Step {
+    override def apply(context: CommitContext, input: DamlTransactionEntrySummary)(implicit
+        loggingContext: LoggingContext
+    ): StepResult[DamlTransactionEntrySummary] = {
+      val (_, currentConfig) = getCurrentConfiguration(defaultConfig, context)
+      val submission = input.submission.toBuilder
+      submission.getSubmitterInfoBuilder.setDeduplicationDuration(
+        buildDuration(currentConfig.maxDeduplicationTime)
+      )
+      StepContinue(input.copyPreservingDecodedTransaction(submission.build()))
+    }
+  }
 
   /** Reject duplicate commands
     */
@@ -101,6 +118,8 @@ private[kvutils] class TransactionCommitter(
             rejections.reject(
               DamlTransactionRejectionEntry.newBuilder
                 .setSubmitterInfo(transactionEntry.submitterInfo)
+                // No duplicate rejection is a definite answer as the deduplication entry will eventually expire.
+                .setDefiniteAnswer(false)
                 .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
               "the command is a duplicate",
               commitContext.recordTime,
@@ -302,21 +321,33 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  private def setDedupEntry(
+  private[transaction] def setDedupEntry(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
-  ): Unit =
+  )(implicit loggingContext: LoggingContext): Unit = {
+    val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
+    // Deduplication duration must be explicitly overwritten in a previous step
+    //  (see [[TransactionCommitter.overwriteDeduplicationPeriodWithMaxDuration]]) and set to ``config.maxDeduplicationTime``.
+    if (!transactionEntry.submitterInfo.hasDeduplicationDuration) {
+      throw Err.InvalidSubmission("Deduplication duration is not set.")
+    }
+    val commandDedupBuilder = DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(
+      Conversions.buildTimestamp(
+        transactionEntry.submissionTime
+          .add(parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration))
+          .add(config.timeModel.minSkew)
+      )
+    )
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
       DamlStateValue.newBuilder
         .setCommandDedup(
-          DamlCommandDedupValue.newBuilder
-            .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
-            .build
+          commandDedupBuilder.build
         )
         .build,
     )
+  }
 
   private def updateContractStateAndFetchDivulgedContracts(
       transactionEntry: DamlTransactionEntrySummary,
@@ -423,6 +454,7 @@ private[kvutils] object TransactionCommitter {
       val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
         .setTransactionRejectionEntry(
           DamlTransactionRejectionEntry.newBuilder
+            .setDefiniteAnswer(false)
             .setSubmitterInfo(transactionEntry.submitterInfo)
         )
         .build

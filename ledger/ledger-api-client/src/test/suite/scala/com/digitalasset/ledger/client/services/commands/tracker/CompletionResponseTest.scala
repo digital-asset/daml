@@ -7,15 +7,17 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.ledger.grpc.GrpcStatuses
 import com.google.protobuf.any.Any
-import com.google.rpc.error_details.ErrorInfo
-import com.google.rpc.{ErrorInfo => JavaErrorInfo}
+import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
 import com.google.rpc.status.Status
+import com.google.rpc.{ErrorInfo => JavaErrorInfo, RequestInfo => JavaRequestInfo}
 import io.grpc
 import io.grpc.Status.Code
 import io.grpc.Status.Code.OK
 import io.grpc.protobuf
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import scala.jdk.CollectionConverters._
 
 class CompletionResponseTest extends AnyWordSpec with Matchers {
 
@@ -81,6 +83,23 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         exception.getStatus.getCode shouldBe Code.RESOURCE_EXHAUSTED
       }
 
+      "include default metadata for status not ok" in {
+        val exception = CompletionResponse.toException(
+          QueueCompletionFailure(
+            NotOkResponse(
+              commandId,
+              Status(
+                Code.CANCELLED.value(),
+                details = Seq.empty,
+              ),
+            )
+          )
+        )
+        val status = protobuf.StatusProto.fromThrowable(exception)
+        val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
+        packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "false"
+      }
+
       "include metadata for status not ok" in {
         val errorInfo = ErrorInfo(
           metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
@@ -105,6 +124,41 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "true"
       }
 
+      "merge metadata for status not ok" in {
+        val errorInfo = ErrorInfo(
+          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
+        )
+        val requestInfo = RequestInfo(requestId = "aRequestId")
+        val exception = CompletionResponse.toException(
+          QueueCompletionFailure(
+            NotOkResponse(
+              commandId,
+              Status(
+                Code.INTERNAL.value(),
+                details = Seq(
+                  Any.pack(errorInfo),
+                  Any.pack(requestInfo),
+                ),
+              ),
+            )
+          )
+        )
+
+        val status = protobuf.StatusProto.fromThrowable(exception)
+        status.getCode shouldBe Code.INTERNAL.value()
+        val details = status.getDetailsList.asScala
+        details.size shouldBe 2
+        details.exists { detail =>
+          detail.is(classOf[JavaErrorInfo]) && detail
+            .unpack(classOf[JavaErrorInfo])
+            .getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) == "true"
+        } shouldEqual true
+        details.exists { detail =>
+          detail.is(classOf[JavaRequestInfo]) && detail
+            .unpack(classOf[JavaRequestInfo])
+            .getRequestId == "aRequestId"
+        } shouldEqual true
+      }
     }
   }
 }

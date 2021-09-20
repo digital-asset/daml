@@ -243,6 +243,11 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
+    UExerciseInterface interface choiceName e1 e2 -> UExerciseInterface
+        interface
+        choiceName
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     UExerciseByKey templateName choiceName e1 e2 -> UExerciseByKey
         templateName
         choiceName
@@ -250,6 +255,9 @@ applySubstInUpdate subst = \case
         (applySubstInExpr subst e2)
     UFetch templateName e -> UFetch
         templateName
+        (applySubstInExpr subst e)
+    UFetchInterface interface e -> UFetchInterface
+        interface
         (applySubstInExpr subst e)
     e@UGetTime -> e
     UEmbedExpr t e -> UEmbedExpr

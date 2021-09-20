@@ -9,6 +9,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
+import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.{Client, Request, Response}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
@@ -21,13 +22,20 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
 import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
 import scala.collection.immutable
+import scala.collection.immutable.Seq
+import scala.concurrent.duration
+import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.{Failure, Success}
 
-class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
+class TestMiddleware
+    extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll
+    with Matchers {
   private def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
@@ -93,12 +101,42 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
     }
     "return unauthorized on insufficient party claims" in {
       val claims = Request.Claims(actAs = List(Party("Bob")))
-      val token = makeToken(Request.Claims(actAs = List(Party("Alice"))))
-      val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
+      def r(actAs: String*)(readAs: String*) =
+        middlewareClient
+          .requestAuth(
+            claims,
+            Seq(
+              Cookie(
+                "daml-ledger-token",
+                makeToken(
+                  Request.Claims(
+                    actAs = actAs.map(Party(_)).toList,
+                    readAs = readAs.map(Party(_)).toList,
+                  )
+                ).toCookieValue,
+              )
+            ),
+          )
       for {
-        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
+        aliceA <- r("Alice")()
+        nothing <- r()()
+        aliceA_bobA <- r("Alice", "Bob")()
+        aliceA_bobR <- r("Alice")("Bob")
+        aliceR_bobA <- r("Bob")("Alice")
+        aliceR_bobR <- r()("Alice", "Bob")
+        bobA <- r("Bob")()
+        bobR <- r()("Bob")
+        bobAR <- r("Bob")("Bob")
       } yield {
-        assert(result == None)
+        aliceA shouldBe empty
+        nothing shouldBe empty
+        aliceA_bobA should not be empty
+        aliceA_bobR shouldBe empty
+        aliceR_bobA should not be empty
+        aliceR_bobR shouldBe empty
+        bobA should not be empty
+        bobR shouldBe empty
+        bobAR should not be empty
       }
     }
     "return unauthorized on insufficient app id claims" in {
@@ -144,7 +182,7 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
   "the /login endpoint" should {
     "redirect and set cookie" in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
-      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
+      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -172,7 +210,7 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
     }
     "return OK and set cookie without redirectUri" in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
-      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None, redirect = false))
+      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None, redirect = false))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -200,7 +238,7 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
     "not authorize unauthorized parties" in {
       server.revokeParty(Party("Eve"))
       val claims = Request.Claims(actAs = List(Party("Eve")))
-      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
+      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -229,7 +267,7 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
     "not authorize disallowed admin claims" in {
       server.revokeAdmin()
       val claims = Request.Claims(admin = true)
-      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
+      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -259,7 +297,7 @@ class TestMiddleware extends AsyncWordSpec with TestFixture with SuiteResourceMa
   "the /refresh endpoint" should {
     "return a new access token" in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
-      val loginReq = HttpRequest(uri = middlewareClient.loginUri(claims, None))
+      val loginReq = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(loginReq)
         // Redirect to /authorize on authorization server
@@ -312,7 +350,7 @@ class TestMiddlewareCallbackUriOverride
   "the /login endpoint" should {
     "redirect to the configured middleware callback URI" in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
-      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
+      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -339,7 +377,7 @@ class TestMiddlewareLimitedCallbackStore
     "refuse requests when max capacity is reached" in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
-        val uri = middlewareClient.loginUri(claims, None)
+        val uri = middlewareClientRoutes.loginUri(claims, None)
         val req = HttpRequest(uri = uri)
         Http().singleRequest(req)
       }
@@ -474,7 +512,7 @@ class TestMiddlewareClientNoRedirectToLogin
       } yield {
         assert(headerChallenge.auth == middlewareClient.authUri(claims))
         assert(
-          headerChallenge.login.withQuery(Uri.Query.Empty) == middlewareClient
+          headerChallenge.login.withQuery(Uri.Query.Empty) == middlewareClientRoutes
             .loginUri(claims)
             .withQuery(Uri.Query.Empty)
         )
@@ -508,7 +546,7 @@ class TestMiddlewareClientYesRedirectToLogin
         assert(resp.status == StatusCodes.Found)
         val loginUri = resp.header[headers.Location].value.uri
         assert(
-          loginUri.withQuery(Uri.Query.Empty) == middlewareClient
+          loginUri.withQuery(Uri.Query.Empty) == middlewareClientRoutes
             .loginUri(claims)
             .withQuery(Uri.Query.Empty)
         )
@@ -556,6 +594,71 @@ class TestMiddlewareClientAutoRedirectToLogin
       } yield {
         // Unauthorized with WWW-Authenticate header
         assert(resp.status == StatusCodes.Unauthorized)
+      }
+    }
+  }
+}
+
+class TestMiddlewareClientLoginCallbackUri
+    extends AnyWordSpec
+    with Matchers
+    with ScalatestRouteTest {
+  private val client = Client(
+    Client.Config(
+      authMiddlewareInternalUri = Uri("http://auth.internal"),
+      authMiddlewareExternalUri = Uri("http://auth.external"),
+      redirectToLogin = Client.RedirectToLogin.Yes,
+      maxAuthCallbacks = 1000,
+      authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
+      maxHttpEntityUploadSize = 4194304,
+      httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES),
+    )
+  )
+  "fixed callback URI" should {
+    "be absolute" in {
+      an[AssertionError] should be thrownBy client.routes(Uri().withPath(Uri.Path./("cb")))
+    }
+    "be used in login URI" in {
+      val routes = client.routes(Uri("http://client.domain/cb"))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      routes.loginUri(claims = claims) shouldBe
+        Uri(
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
+        )
+    }
+  }
+  "callback URI from request" should {
+    "be used in login URI" in {
+      val routes = client.routesFromRequestAuthority(Uri.Path./("cb"))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      import akka.http.scaladsl.server.directives.RouteDirectives._
+      Get("http://client.domain") ~> routes { routes =>
+        complete(routes.loginUri(claims).toString)
+      } ~> check {
+        responseAs[String] shouldEqual
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
+      }
+    }
+  }
+  "automatic callback URI" should {
+    "be fixed when absolute" in {
+      val routes = client.routesAuto(Uri("http://client.domain/cb"))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      import akka.http.scaladsl.server.directives.RouteDirectives._
+      Get() ~> routes { routes => complete(routes.loginUri(claims).toString) } ~> check {
+        responseAs[String] shouldEqual
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
+      }
+    }
+    "be from request when relative" in {
+      val routes = client.routesAuto(Uri().withPath(Uri.Path./("cb")))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      import akka.http.scaladsl.server.directives.RouteDirectives._
+      Get("http://client.domain") ~> routes { routes =>
+        complete(routes.loginUri(claims).toString)
+      } ~> check {
+        responseAs[String] shouldEqual
+          s"http://auth.external/login?claims=${claims.toQueryString()}&redirect_uri=http://client.domain/cb"
       }
     }
   }

@@ -8,8 +8,8 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-
 import com.daml.caching
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.VersionRange
@@ -39,6 +39,7 @@ final case class Config[Extra](
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
     configurationLoadTimeout: Duration,
+    maxDeduplicationDuration: Option[Duration],
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
@@ -87,6 +88,7 @@ object Config {
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
       enableHa = false,
+      maxDeduplicationDuration = None,
       extra = extra,
     )
 
@@ -321,7 +323,7 @@ object Config {
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
 
-        opt[String]("secrets-url")
+        opt[String]("tls-secrets-url")
           .optional()
           .text(
             "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
@@ -377,6 +379,15 @@ object Config {
             config.withTlsConfig(c => c.copy(clientAuth = clientAuth))
           )
 
+        opt[TlsVersion]("min-tls-version")
+          .optional()
+          .text(
+            "TLS: Indicates the minimum TLS version to enable. If specified must be either '1.2' or '1.3'."
+          )
+          .action((tlsVersion, config) =>
+            config.withTlsConfig(c => c.copy(minimumServerProtocolVersion = Some(tlsVersion)))
+          )
+
         opt[Int]("max-commands-in-flight")
           .optional()
           .action((value, config) =>
@@ -425,6 +436,17 @@ object Config {
           )
           .text(
             "Disable participant-side command deduplication."
+          )
+
+        opt[Duration]("max-deduplication-duration")
+          .optional()
+          .hidden()
+          .action((maxDeduplicationDuration, config) =>
+            config
+              .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+          )
+          .text(
+            "Maximum command deduplication duration."
           )
 
         opt[Int]("max-inbound-message-size")

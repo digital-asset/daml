@@ -14,17 +14,17 @@ package object events {
   import com.daml.lf.value.{Value => lfval}
   type ContractId = lfval.ContractId
   val ContractId = com.daml.lf.value.Value.ContractId
-  type Value = lfval.VersionedValue[ContractId]
+  type Value = lfval.VersionedValue
   type Contract = lfval.ContractInst[Value]
   val Contract = lfval.ContractInst
 
   import com.daml.lf.{transaction => lftx}
   type NodeId = lftx.NodeId
-  type Node = lftx.Node.GenNode[NodeId, ContractId]
-  type Create = lftx.Node.NodeCreate[ContractId]
-  type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
-  type Fetch = lftx.Node.NodeFetch[ContractId]
-  type LookupByKey = lftx.Node.NodeLookupByKey[ContractId]
+  type Node = lftx.Node.GenNode[NodeId]
+  type Create = lftx.Node.NodeCreate
+  type Exercise = lftx.Node.NodeExercises[NodeId]
+  type Fetch = lftx.Node.NodeFetch
+  type LookupByKey = lftx.Node.NodeLookupByKey
   type Key = lftx.GlobalKey
   val Key = lftx.GlobalKey
 
@@ -89,7 +89,7 @@ package object events {
 
   def convertLfValueKey(
       template: Identifier,
-      key: KeyWithMaintainers[lfval[ContractId]],
+      key: KeyWithMaintainers[lfval],
   ) =
     Key.assertBuild(template, key.key)
 

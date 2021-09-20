@@ -17,14 +17,20 @@ import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
-  CommonStorageBackend,
   CompletionStorageBackendTemplate,
+  ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
+  DataSourceStorageBackendTemplate,
+  DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
+  IngestionStorageBackendTemplate,
   InitHookDataSourceProxy,
+  PackageStorageBackendTemplate,
+  ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -36,11 +42,14 @@ import com.daml.platform.store.backend.{
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
 
-import scala.util.Using
-
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
-    with CommonStorageBackend[AppendOnlySchema.Batch]
+    with DataSourceStorageBackendTemplate
+    with IngestionStorageBackendTemplate[AppendOnlySchema.Batch]
+    with ParameterStorageBackendTemplate
+    with ConfigurationStorageBackendTemplate
+    with PackageStorageBackendTemplate
+    with DeduplicationStorageBackendTemplate
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
@@ -73,8 +82,8 @@ private[backend] object PostgresStorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
-        "deduplicateUntil" -> deduplicateUntil,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 
@@ -111,43 +120,6 @@ private[backend] object PostgresStorageBackend
     ()
   }
 
-  def getPostgresVersion(
-      connection: Connection
-  )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
-    val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
-    logger.debug(s"Found Postgres version $version")
-    parsePostgresVersion(version)
-  }
-
-  def parsePostgresVersion(version: String): Option[(Int, Int)] = {
-    val versionPattern = """(\d+)[.](\d+).*""".r
-    version match {
-      case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
-      case _ => None
-    }
-  }
-
-  private def checkCompatibility(
-      connection: Connection
-  )(implicit loggingContext: LoggingContext): Unit = {
-    getPostgresVersion(connection) match {
-      case Some((major, minor)) =>
-        if (major < 10) {
-          logger.error(
-            "Deprecated Postgres version. " +
-              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
-              "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
-              "Please upgrade your Postgres database to version 10 or later to fix this issue."
-          )
-        }
-      case None =>
-        logger.warn(
-          s"Could not determine the version of the Postgres database. Please verify that this application is compatible with this Postgres version."
-        )
-    }
-    ()
-  }
-
   /** If `pruneAllDivulgedContracts` is set, validate that the pruning offset is after
     * the last ingested event offset (if exists) before the migration to append-only schema
     * (see [[com.daml.platform.store.appendonlydao.JdbcLedgerDao.prune]])
@@ -171,7 +143,7 @@ private[backend] object PostgresStorageBackend
        """
         .as(int("result").singleOpt)(connection)
         .foreach(_ =>
-          throw ErrorFactories.invalidArgument(
+          throw ErrorFactories.invalidArgument(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
           )
         )
@@ -240,7 +212,10 @@ private[backend] object PostgresStorageBackend
 
   override def eventStrategy: common.EventStrategy = PostgresEventStrategy
 
-  override def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {
+  // TODO FIXME: Use tables directly instead of the participant_events view.
+  override def maxEventSequentialIdOfAnObservableEvent(
+      offset: Offset
+  )(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
@@ -257,14 +232,49 @@ private[backend] object PostgresStorageBackend
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(jdbcUrl)
 
-    Using.resource(pgSimpleDataSource.getConnection())(checkCompatibility)
-
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
         .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
       connectionInitHook.toList,
     ).flatten
     InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions)
+  }
+
+  override def checkCompatibility(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Unit = {
+    getPostgresVersion(connection) match {
+      case Some((major, minor)) =>
+        if (major < 10) {
+          logger.error(
+            "Deprecated Postgres version. " +
+              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
+              "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
+              "Please upgrade your Postgres database to version 10 or later to fix this issue."
+          )
+        }
+      case None =>
+        logger.warn(
+          s"Could not determine the version of the Postgres database. Please verify that this application is compatible with this Postgres version."
+        )
+    }
+    ()
+  }
+
+  private[backend] def getPostgresVersion(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Option[(Int, Int)] = {
+    val version = SQL"SHOW server_version".as(get[String](1).single)(connection)
+    logger.debug(s"Found Postgres version $version")
+    parsePostgresVersion(version)
+  }
+
+  private[backend] def parsePostgresVersion(version: String): Option[(Int, Int)] = {
+    val versionPattern = """(\d+)[.](\d+).*""".r
+    version match {
+      case versionPattern(major, minor) => Some((major.toInt, minor.toInt))
+      case _ => None
+    }
   }
 
   override def tryAcquire(

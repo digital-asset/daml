@@ -10,21 +10,15 @@ import akka.Done
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.{LedgerId, LedgerTimeModel}
+import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
-import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1.{
-  ReadService,
-  RejectionReasonV0,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.v2.Update._
+import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.Decode
@@ -39,6 +33,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.testing.TestDarReader
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.google.rpc.code.Code
 import org.scalatest.Inside._
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
@@ -106,7 +101,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       newParticipantState(ledgerId = ledgerId).use { ps =>
         for {
           conditions <- ps
-            .getLedgerInitialConditions()
+            .ledgerInitialConditions()
             .runWith(Sink.head)
         } yield {
           conditions.ledgerId should be(ledgerId)
@@ -328,41 +323,42 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       }
 
       "reject duplicate commands" in participantState.use { ps =>
-        val commandIds = ("X1", "X2")
-
+        val firstCommandId = "X1"
+        val secondCommandId = "X2"
         for {
           result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
-              submitterInfo(alice, commandIds._1),
+              submitterInfo(alice, firstCommandId),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
             .toScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
-          // Below submission is a duplicate, should get dropped.
+          // Below submission is a duplicate.
           result3 <- ps
             .submitTransaction(
-              submitterInfo(alice, commandIds._1),
-              transactionMeta(rt),
-              TransactionBuilder.EmptySubmitted,
-              DefaultInterpretationCost,
-            )
-            .toScala
-          result4 <- ps
-            .submitTransaction(
-              submitterInfo(alice, commandIds._2),
+              submitterInfo(alice, firstCommandId),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
             .toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
+          result4 <- ps
+            .submitTransaction(
+              submitterInfo(alice, secondCommandId),
+              transactionMeta(rt),
+              TransactionBuilder.EmptySubmitted,
+              DefaultInterpretationCost,
+            )
+            .toScala
+          (offset4, update4) <- waitForNextUpdate(ps, Some(offset3))
           results = Seq(result1, result2, result3, result4)
           _ = all(results) should be(SubmissionResult.Acknowledged)
-          updates = Seq(update1, update2, update3)
+          updates = Seq(update1, update2, update3, update4)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
 
@@ -370,10 +366,15 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           update1 should be(a[PartyAddedToParticipant])
 
           offset2 should be(toOffset(2))
-          matchTransaction(update2, commandIds._1)
+          matchTransaction(update2, firstCommandId)
 
-          offset3 should be(toOffset(4))
-          matchTransaction(update3, commandIds._2)
+          offset3 should be(toOffset(3))
+          inside(update3) { case CommandRejected(_, _, FinalReason(status)) =>
+            status.code should be(Code.ALREADY_EXISTS.value)
+          }
+
+          offset4 should be(toOffset(4))
+          matchTransaction(update4, secondCommandId)
         }
       }
 
@@ -413,7 +414,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       "correctly implement transaction submission authorization" in participantState.use { ps =>
         val unallocatedParty = Ref.Party.assertFromString("nobody")
         for {
-          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+          lic <- ps.ledgerInitialConditions().runWith(Sink.head)
           _ <- ps
             .submitConfiguration(
               maxRecordTime = inTheFuture(10.seconds),
@@ -471,8 +472,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           update1 should be(a[ConfigurationChanged])
 
           offset2 should be(toOffset(2))
-          inside(update2) { case CommandRejected(_, _, reason) =>
-            reason should be(a[RejectionReasonV0.PartyNotKnownOnLedger])
+          inside(update2) { case CommandRejected(_, _, FinalReason(status)) =>
+            status.code should be(Code.INVALID_ARGUMENT.value)
           }
 
           offset3 should be(toOffset(3))
@@ -487,7 +488,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
     "submitConfiguration" should {
       "allow an administrator to submit a new configuration" in participantState.use { ps =>
         for {
-          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+          lic <- ps.ledgerInitialConditions().runWith(Sink.head)
 
           // Submit an initial configuration change
           _ <- ps
@@ -531,7 +532,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       "reject a duplicate submission" in participantState.use { ps =>
         val submissionIds = (newSubmissionId(), newSubmissionId())
         for {
-          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+          lic <- ps.ledgerInitialConditions().runWith(Sink.head)
 
           // Submit an initial configuration change
           result1 <- ps
@@ -637,10 +638,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val ledgerId = newLedgerId()
         for {
           retrievedLedgerId1 <- newParticipantState(ledgerId = ledgerId).use { ps =>
-            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+            ps.ledgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
           retrievedLedgerId2 <- newParticipantState(ledgerId = ledgerId).use { ps =>
-            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+            ps.ledgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
         } yield {
           retrievedLedgerId1 should be(ledgerId)
@@ -702,7 +703,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      deduplicateUntil = inTheFuture(10.seconds).toInstant,
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(10)),
+      submissionId = Ref.LedgerString.assertFromString("submissionId"),
+      ledgerConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )
 
   private def inTheFuture(duration: FiniteDuration): Timestamp =
@@ -778,7 +782,15 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _, _) =>
+      case TransactionAccepted(
+            Some(CompletionInfo(_, _, actualCommandId, _, _)),
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+          ) =>
         actualCommandId should be(expectedCommandId)
     }
 }

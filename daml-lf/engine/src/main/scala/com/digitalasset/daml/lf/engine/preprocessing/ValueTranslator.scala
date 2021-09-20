@@ -25,13 +25,13 @@ private[engine] final class ValueTranslator(
 
   @throws[Error.Preprocessing.Error]
   private def labeledRecordToMap(
-      fields: ImmArray[(Option[String], Value[ContractId])]
-  ): Option[Map[String, Value[ContractId]]] = {
+      fields: ImmArray[(Option[String], Value)]
+  ): Option[Map[String, Value]] = {
     @tailrec
     def go(
-        fields: ImmArray[(Option[String], Value[ContractId])],
-        map: Map[String, Value[ContractId]],
-    ): Option[Map[String, Value[ContractId]]] = {
+        fields: ImmArray[(Option[String], Value)],
+        map: Map[String, Value],
+    ): Option[Map[String, Value]] = {
       fields match {
         case ImmArray() => Some(map)
         case ImmArrayCons((None, _), _) => None
@@ -71,16 +71,16 @@ private[engine] final class ValueTranslator(
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
-      value: Value[ContractId],
+      value: Value,
   ): SValue = {
 
-    def go(ty0: Type, value0: Value[ContractId], nesting: Int = 0): SValue =
+    def go(ty0: Type, value0: Value, nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         throw Error.Preprocessing.ValueNesting(value)
       } else {
         val newNesting = nesting + 1
-        def typeError(msg: String = s"mismatching type: $ty and value: $value0") =
-          throw Error.Preprocessing.TypeMismatch(ty, value0, msg)
+        def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
+          throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
           case TBuiltin(bt) =>
@@ -210,7 +210,7 @@ private[engine] final class ValueTranslator(
                       mbLbl.foreach(lbl_ =>
                         if (lbl_ != lbl)
                           typeError(
-                            s"Mismatching record label $lbl_ (expecting $lbl) for record $tyCon"
+                            s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
                           )
                       )
                       val replacedTyp = AstUtil.substitute(typ, subst)
@@ -220,7 +220,7 @@ private[engine] final class ValueTranslator(
                     recordFlds.map { case (lbl, typ) =>
                       labeledRecords
                         .get(lbl)
-                        .fold(typeError(s"Missing record label $lbl for record $tyCon")) { v =>
+                        .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) { v =>
                           val replacedTyp = AstUtil.substitute(typ, subst)
                           lbl -> go(replacedTyp, v, newNesting)
                         }
@@ -255,7 +255,7 @@ private[engine] final class ValueTranslator(
   // This does not try to pull missing packages, return an error instead.
   def translateValue(
       ty: Type,
-      value: Value[ContractId],
+      value: Value,
   ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(unsafeTranslateValue(ty, value))
 

@@ -3,9 +3,6 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.{Duration, Instant}
-import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
@@ -26,12 +23,12 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionResponse,
 }
 import com.daml.ledger.api.validation.CommandsValidator
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
   TrackedCompletionFailure,
 }
+import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
 import com.daml.ledger.client.services.commands.{
   CommandCompletionSource,
   CommandSubmission,
@@ -44,14 +41,16 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
-import com.daml.platform.server.api.ApiException
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
-import io.grpc.{Context, Status}
+import io.grpc.Context
 import scalaz.syntax.tag._
 
+import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -80,6 +79,7 @@ private[apiserver] final class ApiCommandService private[services] (
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
     val commands = request.getCommands
     withEnrichedLoggingContext(
+      logging.submissionId(commands.submissionId),
       logging.commandId(commands.commandId),
       logging.partyString(commands.party),
       logging.actAsStrings(commands.actAs),
@@ -91,7 +91,7 @@ private[apiserver] final class ApiCommandService private[services] (
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         Future.failed(
-          new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
+          ErrorFactories.serviceNotRunning(definiteAnswer = Some(false))
         )
       }.andThen(logger.logErrorsOnCall[Completion])
     }
@@ -161,8 +161,11 @@ private[apiserver] object ApiCommandService {
   private val trackerCleanupInterval = 30.seconds
 
   type SubmissionFlow = Flow[
-    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), CommandSubmission],
-    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], String), Try[Empty]],
+    Ctx[
+      (Promise[Either[CompletionFailure, CompletionSuccess]], TrackedCommandKey),
+      CommandSubmission,
+    ],
+    Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], TrackedCommandKey), Try[Empty]],
     NotUsed,
   ]
 

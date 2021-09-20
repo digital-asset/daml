@@ -44,7 +44,7 @@ final class ApiParticipantPruningService private (
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
       .left
-      .map(err => ErrorFactories.invalidArgument(s"submission_id $err"))
+      .map(err => ErrorFactories.invalidArgument(None)(s"submission_id $err"))
 
     submissionIdOrErr.fold(
       t => Future.failed(ValidationLogger.logFailure(request, t)(logger.withoutContext)),
@@ -97,7 +97,7 @@ final class ApiParticipantPruningService private (
     FutureConverters
       .toScala(writeBackend.prune(pruneUpTo, submissionId, pruneAllDivulgedContracts))
       .flatMap {
-        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case NotPruned(status) => Future.failed(status.asRuntimeException())
         case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
@@ -121,7 +121,7 @@ final class ApiParticipantPruningService private (
     Either.cond(
       offset.nonEmpty,
       offset,
-      ErrorFactories.invalidArgument("prune_up_to not specified"),
+      ErrorFactories.invalidArgument(None)("prune_up_to not specified"),
     )
 
   private def checkOffsetIsHexadecimal(
@@ -132,7 +132,7 @@ final class ApiParticipantPruningService private (
       .toEither
       .left
       .map(t =>
-        ErrorFactories.invalidArgument(
+        ErrorFactories.invalidArgument(None)(
           s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}"
         )
       )
@@ -147,7 +147,7 @@ final class ApiParticipantPruningService private (
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            ErrorFactories.invalidArgument(
+            ErrorFactories.invalidArgument(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )
           )

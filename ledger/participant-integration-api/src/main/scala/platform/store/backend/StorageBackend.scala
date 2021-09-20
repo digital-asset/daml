@@ -28,6 +28,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
 import javax.sql.DataSource
 
+import scala.annotation.unused
 import scala.util.Try
 
 /** Encapsulates the interface which hides database technology specific implementations.
@@ -83,14 +84,15 @@ trait IngestionStorageBackend[DB_BATCH] {
     */
   def insertBatch(connection: Connection, batch: DB_BATCH): Unit
 
-  /** Custom initialization code before the start of an ingestion.
-    * This method is responsible for the recovery after a possibly non-graceful stop of previous indexing.
+  /** Deletes all partially ingested data, written during a non-graceful stop of previous indexing.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
-    * @param connection to be used when initializing
-    * @return the LedgerEnd, which should be the basis for further indexing.
+    * @param ledgerEnd the current ledger end, or None if no ledger end exists
+    * @param connection to be used when inserting the batch
     */
-  def initializeIngestion(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
+  def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
+      connection: Connection
+  ): Unit
 }
 
 trait ParameterStorageBackend {
@@ -267,7 +269,9 @@ trait EventStorageBackend {
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
-  def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long]
+
+  /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
+  def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[RawTransactionEvent]
@@ -294,6 +298,12 @@ trait DataSourceStorageBackend {
         DataSourceStorageBackend.DataSourceConfig(),
       connectionInitHook: Option[Connection => Unit] = None,
   )(implicit loggingContext: LoggingContext): DataSource
+
+  def checkCompatibility(@unused connection: Connection)(implicit
+      @unused loggingContext: LoggingContext
+  ): Unit = ()
+
+  def checkDatabaseAvailable(connection: Connection): Unit
 }
 
 object DataSourceStorageBackend {

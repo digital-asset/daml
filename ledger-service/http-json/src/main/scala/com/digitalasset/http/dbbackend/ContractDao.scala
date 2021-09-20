@@ -10,7 +10,10 @@ import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
+import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Metrics
 import com.daml.scalautil.nonempty.{+-:, NonEmpty, NonEmptyF}
 import domain.Offset.`Offset ordering`
 import doobie.LogHandler
@@ -72,7 +75,7 @@ class ContractDao private (
 }
 
 object ContractDao {
-  import ConnectionPool.PoolSize
+  import ConnectionPool.PoolSize, SurrogateTemplateIdCache.MaxEntries
   private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
@@ -81,8 +84,13 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(cfg: JdbcConfig, poolSize: PoolSize = PoolSize.Production)(implicit
-      ec: ExecutionContext
+  def apply(
+      cfg: JdbcConfig,
+      tpIdCacheMaxEntries: Option[Long] = None,
+      poolSize: PoolSize = PoolSize.Production,
+  )(implicit
+      ec: ExecutionContext,
+      metrics: Metrics,
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     val setup = for {
@@ -91,7 +99,7 @@ object ContractDao {
         .toRight(
           s"JDBC driver ${cfg.baseConfig.driver} is not one of ${supportedJdbcDrivers.keySet}"
         )
-      sjdc <- configureJdbc(cfg, sjda)
+      sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MaxEntries))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       //pool for connections awaiting database access
@@ -107,8 +115,18 @@ object ContractDao {
   // will require moving selection and setup of a driver into a hook that the
   // cmdline parser can use while constructing JdbcConfig.  That's a good idea
   // anyway, and is significantly easier with the `Conf` separation
-  private[this] def configureJdbc(cfg: JdbcConfig, driver: SupportedJdbcDriver.Available) =
-    driver.configure(tablePrefix = cfg.tablePrefix, extraConf = cfg.backendSpecificConf)
+  private[this] def configureJdbc(
+      cfg: JdbcConfig,
+      driver: SupportedJdbcDriver.Available,
+      tpIdCacheMaxEntries: Long,
+  )(implicit
+      metrics: Metrics
+  ) =
+    driver.configure(
+      tablePrefix = cfg.tablePrefix,
+      extraConf = cfg.backendSpecificConf,
+      tpIdCacheMaxEntries,
+    )
 
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
     sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase
@@ -117,6 +135,7 @@ object ContractDao {
       implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Map[domain.Party, domain.Offset]] = {
     import sjd.q.queries
     for {
@@ -204,7 +223,11 @@ object ContractDao {
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
-  )(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] = {
+  )(implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[Unit] = {
     import cats.implicits._
     import sjd.q.queries
     import scalaz.OneAnd._
@@ -236,6 +259,7 @@ object ContractDao {
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
     import sjd.q.queries
     for {
@@ -255,6 +279,7 @@ object ContractDao {
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
     import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
@@ -308,6 +333,7 @@ object ContractDao {
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
     import sjd.q._
     for {
@@ -327,6 +353,7 @@ object ContractDao {
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
     import sjd.q._
     for {
@@ -338,6 +365,7 @@ object ContractDao {
   private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
   ) =
     sjd.q.queries.surrogateTemplateId(
       templateId.packageId,

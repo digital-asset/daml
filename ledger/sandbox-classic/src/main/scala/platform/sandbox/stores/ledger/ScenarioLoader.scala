@@ -78,7 +78,7 @@ private[sandbox] object ScenarioLoader {
 
       def bumps(entryTxId: ScenarioLedger.TransactionId, nextTxId: ScenarioLedger.TransactionId) =
         if ((nextTxId.index - entryTxId.index) == 1)
-          ImmArray.empty
+          ImmArray.Empty
         else
           ImmArray(LedgerEntryOrBump.Bump((nextTxId.index - entryTxId.index - 1)))
 
@@ -105,7 +105,7 @@ private[sandbox] object ScenarioLoader {
           decorateWithIncrement(newProcessed, entries)
       }
     }
-    (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
+    (acs, decorateWithIncrement(BackStack.empty, ledgerEntries.to(ImmArray)), time.toInstant)
   }
 
   private[this] def buildScenarioLedger(

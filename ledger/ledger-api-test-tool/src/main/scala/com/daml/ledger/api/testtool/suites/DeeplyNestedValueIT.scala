@@ -60,7 +60,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
             ParticipantTestContext,
             Party,
         ) => Future[Either[Throwable, T]]
-    ) =
+    ): Unit =
       super.test(
         result + camlCase(description) + nesting.toString,
         s"${result.toLowerCase}s $description with a nesting of $nesting",
@@ -69,7 +69,12 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         update(ec)(alpha, party).map {
           case Right(_) if accepted => ()
           case Left(err: Throwable) if !accepted =>
-            assertGrpcError(err, Status.Code.INVALID_ARGUMENT, None)
+            assertGrpcError(
+              err,
+              Status.Code.INVALID_ARGUMENT,
+              None,
+              checkDefiniteAnswerMetadata = true,
+            )
           case otherwise =>
             fail("Unexpected " + otherwise.fold(err => s"failure: $err", _ => "success"))
         }

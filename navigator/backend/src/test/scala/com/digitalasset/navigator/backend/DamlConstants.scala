@@ -76,7 +76,7 @@ case object DamlConstants {
   val emptyRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), emptyRecordGD)
   val emptyRecordTC = DamlLfTypeCon(DamlLfTypeConName(emptyRecordId), DamlLfImmArraySeq())
   val emptyRecordT = emptyRecordTC.instantiate(emptyRecordGC).asInstanceOf[DamlLfRecord]
-  val emptyRecordV = V.ValueRecord(Some(emptyRecordId), ImmArray.empty)
+  val emptyRecordV = V.ValueRecord(Some(emptyRecordId), ImmArray.Empty)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Daml-LF: simple record (data SimpleRecord a b = {fA: a, fB: b})
@@ -240,7 +240,7 @@ case object DamlConstants {
       ("fUnit", V.ValueUnit),
       ("fInt64", simpleInt64V),
       ("fParty", V.ValueParty(DamlLfRef.Party assertFromString "BANK1")),
-      ("fContractId", V.ValueContractId("C0")),
+      ("fContractId", V.ValueContractId(V.ContractId.assertFromString("#C0"))),
       ("fListOfText", V.ValueList(FrontStack(V.ValueText("foo"), V.ValueText("bar")))),
       ("fListOfUnit", V.ValueList(FrontStack(V.ValueUnit, V.ValueUnit))),
       ("fDate", simpleDateV),

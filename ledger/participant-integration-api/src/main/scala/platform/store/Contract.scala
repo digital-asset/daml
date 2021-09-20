@@ -17,7 +17,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
 private[platform] sealed abstract class Contract {
   def id: ContractId
 
-  def contract: ContractInst[VersionedValue[ContractId]]
+  def contract: ContractInst[VersionedValue]
 
   /** For each party, the transaction id at which the contract was divulged */
   def divulgences: Map[Ref.Party, Ref.TransactionId]
@@ -39,7 +39,7 @@ private[platform] object Contract {
     */
   final case class DivulgedContract(
       id: Value.ContractId,
-      contract: ContractInst[VersionedValue[ContractId]],
+      contract: ContractInst[VersionedValue],
       divulgences: Map[Ref.Party, Ref.TransactionId],
   ) extends Contract
 
@@ -51,13 +51,13 @@ private[platform] object Contract {
       transactionId: Ref.TransactionId, // transaction id where the contract originates
       nodeId: NodeId,
       workflowId: Option[Ref.WorkflowId], // workflow id from where the contract originates
-      contract: ContractInst[VersionedValue[ContractId]],
+      contract: ContractInst[VersionedValue],
       witnesses: Set[Ref.Party],
       divulgences: Map[
         Ref.Party,
         Ref.TransactionId,
       ], // for each party, the transaction id at which the contract was divulged
-      key: Option[KeyWithMaintainers[VersionedValue[Nothing]]],
+      key: Option[KeyWithMaintainers[VersionedValue]],
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
       agreementText: String,

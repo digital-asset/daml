@@ -63,7 +63,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(Struct.assertFromSeq(fs)))
 
   private lazy val tTypeSynApp: Parser[Type] =
-    `|` ~> fullIdentifier ~ rep(typ0) <~ `|` ^^ { case id ~ tys => TSynApp(id, ImmArray(tys)) }
+    `|` ~> fullIdentifier ~ rep(typ0) <~ `|` ^^ { case id ~ tys => TSynApp(id, tys.to(ImmArray)) }
 
   lazy val typ0: Parser[Type] =
     `(` ~> typ <~ `)` |

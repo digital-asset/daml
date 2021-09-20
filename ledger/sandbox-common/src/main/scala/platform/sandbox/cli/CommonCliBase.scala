@@ -5,11 +5,11 @@ package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
-
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
@@ -122,7 +122,7 @@ class CommonCliBase(name: LedgerName) {
           )
         )
 
-      opt[String]("secrets-url")
+      opt[String]("tls-secrets-url")
         .optional()
         .text(
           "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
@@ -193,6 +193,15 @@ class CommonCliBase(name: LedgerName) {
                 )
               )(c => Some(c.copy(clientAuth = clientAuth)))
           )
+        )
+
+      opt[TlsVersion]("min-tls-version")
+        .optional()
+        .text(
+          "TLS: Indicates the minimum TLS version to enable. If specified must be either '1.2' or '1.3'."
+        )
+        .action((tlsVersion, config) =>
+          config.withTlsConfig(c => c.copy(minimumServerProtocolVersion = Some(tlsVersion)))
         )
 
       opt[Boolean]("cert-revocation-checking")
@@ -340,6 +349,17 @@ class CommonCliBase(name: LedgerName) {
         .text(
           s"Enables application-side compression of Daml-LF values stored in the database using the append-only schema." +
             " By default, compression is disabled."
+        )
+
+      opt[Duration]("max-deduplication-duration")
+        .optional()
+        .hidden()
+        .action((maxDeduplicationDuration, config) =>
+          config
+            .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+        )
+        .text(
+          "Maximum command deduplication duration."
         )
 
       checkConfig(c => {

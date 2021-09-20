@@ -8,12 +8,13 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._
 import scalaz.{@@, Equal, Order, Tag}
-import scalaz.std.string._
+
 import scalaz.syntax.equal._
 import scalaz.syntax.std.string._
 
@@ -29,21 +30,20 @@ import scalaz.syntax.std.string._
   * @param encodeDecimalAsString Not used yet.
   * @param encodeInt64AsString Not used yet.
   */
-class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt64AsString: Boolean)(
+class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsString: Boolean)(
     implicit
-    readCid: JsonReader[Cid],
-    writeCid: JsonWriter[Cid],
-    orderCid: Order[Cid],
+    readCid: JsonReader[ContractId],
+    writeCid: JsonWriter[ContractId],
 ) { self =>
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
   // ------------------------------------------------------------------------------------------------------------------
-  def apiValueToJsValue(value: V[Cid]): JsValue = value match {
-    case v: V.ValueRecord[Cid] => apiRecordToJsValue(v)
-    case v: V.ValueVariant[Cid] => apiVariantToJsValue(v)
+  def apiValueToJsValue(value: V): JsValue = value match {
+    case v: V.ValueRecord => apiRecordToJsValue(v)
+    case v: V.ValueVariant => apiVariantToJsValue(v)
     case v: V.ValueEnum => apiEnumToJsValue(v)
-    case v: V.ValueList[Cid] => apiListToJsValue(v)
+    case v: V.ValueList => apiListToJsValue(v)
     case V.ValueText(v) => JsString(v)
     case V.ValueInt64(v) => if (encodeInt64AsString) JsString((v: Long).toString) else JsNumber(v)
     case V.ValueNumeric(v) =>
@@ -61,25 +61,25 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
         case V.ValueOptional(Some(_)) => JsArray(apiValueToJsValue(v))
         case _ => apiValueToJsValue(v)
       }
-    case textMap: V.ValueTextMap[Cid] =>
+    case textMap: V.ValueTextMap =>
       apiMapToJsValue(textMap)
-    case genMap: V.ValueGenMap[Cid] =>
+    case genMap: V.ValueGenMap =>
       apiGenMapToJsValue(genMap)
   }
 
   @throws[SerializationException]
-  private[this] final def apiContractIdToJsValue(v: Cid): JsValue = v.toJson
+  private[this] final def apiContractIdToJsValue(v: ContractId): JsValue = v.toJson
 
-  private[this] def apiListToJsValue(value: V.ValueList[Cid]): JsValue =
+  private[this] def apiListToJsValue(value: V.ValueList): JsValue =
     JsArray(value.values.map(apiValueToJsValue(_)).toImmArray.toSeq: _*)
 
-  private[this] def apiVariantToJsValue(value: V.ValueVariant[Cid]): JsValue =
+  private[this] def apiVariantToJsValue(value: V.ValueVariant): JsValue =
     JsonVariant(value.variant, apiValueToJsValue(value.value))
 
   private[this] def apiEnumToJsValue(value: V.ValueEnum): JsValue =
     JsString(value.value)
 
-  private[ApiCodecCompressed] def apiRecordToJsValue(value: V.ValueRecord[Cid]): JsValue = {
+  private[ApiCodecCompressed] def apiRecordToJsValue(value: V.ValueRecord): JsValue = {
     val namedOrNoneFields = value.fields.toSeq collect {
       case (Some(k), v) => Some((k, v))
       case (_, V.ValueOptional(None)) => None
@@ -94,14 +94,14 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       }: _*)
   }
 
-  private[this] def apiMapToJsValue(value: V.ValueTextMap[Cid]): JsValue =
+  private[this] def apiMapToJsValue(value: V.ValueTextMap): JsValue =
     JsObject(
       value.value
         .mapValue(apiValueToJsValue)
         .toHashMap
     )
 
-  private[this] def apiGenMapToJsValue(value: V.ValueGenMap[Cid]): JsValue =
+  private[this] def apiGenMapToJsValue(value: V.ValueGenMap): JsValue =
     JsArray(
       value.entries.map { case (key, value) =>
         JsArray(apiValueToJsValue(key), apiValueToJsValue(value))
@@ -113,13 +113,14 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
   // ------------------------------------------------------------------------------------------------------------------
 
   @throws[DeserializationException]
-  private[this] final def jsValueToApiContractId(value: JsValue): Cid = value.convertTo[Cid]
+  private[this] final def jsValueToApiContractId(value: JsValue): ContractId =
+    value.convertTo[ContractId]
 
   private[this] def jsValueToApiPrimitive(
       value: JsValue,
       prim: Model.DamlLfTypePrim,
       defs: Model.DamlLfTypeLookup,
-  ): V[Cid] = {
+  ): V = {
     (prim.typ, value).match2 {
       case Model.DamlLfPrimType.Int64 => {
         case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
@@ -172,11 +173,11 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       case Model.DamlLfPrimType.GenMap =>
         val Seq(kType, vType) = prim.typArgs;
         { case JsArray(entries) =>
-          implicit val keySort: Order[V[Cid] @@ defs.type] = decodedOrder(defs)
-          implicit val keySSort: math.Ordering[V[Cid] @@ defs.type] = keySort.toScalaOrdering
-          type OK[K] = Vector[(K, V[Cid])]
-          val decEntries: Vector[(V[Cid] @@ defs.type, V[Cid])] = Tag
-            .subst[V[Cid], OK, defs.type](entries.map {
+          implicit val keySort: Order[V @@ defs.type] = decodedOrder(defs)
+          implicit val keySSort: math.Ordering[V @@ defs.type] = keySort.toScalaOrdering
+          type OK[K] = Vector[(K, V)]
+          val decEntries: Vector[(V @@ defs.type, V)] = Tag
+            .subst[V, OK, defs.type](entries.map {
               case JsArray(Vector(key, value)) =>
                 jsValueToApiValue(key, kType, defs) ->
                   jsValueToApiValue(value, vType, defs)
@@ -185,7 +186,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
             })
             .sortBy(_._1)
           checkDups(decEntries)
-          V.ValueGenMap(ImmArray(Tag.unsubst[V[Cid], OK, defs.type](decEntries)))
+          V.ValueGenMap(Tag.unsubst[V, OK, defs.type](decEntries).to(ImmArray))
         }
 
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
@@ -197,13 +198,13 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       case _ => false
     }
 
-  private[this] def decodedOrder(defs: Model.DamlLfTypeLookup): Order[V[Cid] @@ defs.type] = {
+  private[this] def decodedOrder(defs: Model.DamlLfTypeLookup): Order[V @@ defs.type] = {
     val scope: V.LookupVariantEnum = defs andThen (_ flatMap (_.dataType match {
       case iface.Variant(fields) => Some(fields.toImmArray map (_._1))
       case iface.Enum(ctors) => Some(ctors.toImmArray)
       case iface.Record(_) => None
     }))
-    Tag subst (Tag unsubst V.orderInstance[Cid](scope))
+    Tag subst (Tag unsubst V.orderInstance(scope))
   }
 
   @throws[DeserializationException]
@@ -222,7 +223,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       id: DamlLfIdentifier,
       dt: Model.DamlLfDataType,
       defs: Model.DamlLfTypeLookup,
-  ): V[Cid] = {
+  ): V = {
     (dt, value).match2 {
       case Model.DamlLfRecord(fields) => {
         case JsObject(v) =>
@@ -298,7 +299,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       value: JsValue,
       typ: Model.DamlLfType,
       defs: Model.DamlLfTypeLookup,
-  ): V[Cid] = {
+  ): V = {
     typ match {
       case prim: Model.DamlLfTypePrim =>
         jsValueToApiPrimitive(value, prim, defs)
@@ -327,22 +328,22 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       value: JsValue,
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup,
-  ): V[Cid] = {
+  ): V = {
     val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConName(id), ImmArraySeq())
     val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
     jsValueToApiDataType(value, id, dt, defs)
   }
 
   /** Creates a JsonReader for Values with the relevant type information */
-  def apiValueJsonReader(typ: DamlLfType, defs: DamlLfTypeLookup): JsonReader[V[Cid]] =
+  def apiValueJsonReader(typ: DamlLfType, defs: DamlLfTypeLookup): JsonReader[V] =
     jsValueToApiValue(_, typ, defs)
 
   /** Creates a JsonReader for Values with the relevant type information */
-  def apiValueJsonReader(typ: DamlLfIdentifier, defs: DamlLfTypeLookup): JsonReader[V[Cid]] =
+  def apiValueJsonReader(typ: DamlLfIdentifier, defs: DamlLfTypeLookup): JsonReader[V] =
     jsValueToApiValue(_, typ, defs)
 
   /** Same as jsValueToApiType, but with unparsed input */
-  def stringToApiType(value: String, typ: Model.DamlLfType, defs: Model.DamlLfTypeLookup): V[Cid] =
+  def stringToApiType(value: String, typ: Model.DamlLfType, defs: Model.DamlLfTypeLookup): V =
     jsValueToApiValue(value.parseJson, typ, defs)
 
   /** Same as jsValueToApiType, but with unparsed input */
@@ -350,7 +351,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       value: String,
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup,
-  ): V[Cid] =
+  ): V =
     jsValueToApiValue(value.parseJson, id, defs)
 
   private[this] def assertDE[A](ea: Either[String, A]): A =
@@ -359,17 +360,29 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
   private[json] def copy(
       encodeDecimalAsString: Boolean = this.encodeDecimalAsString,
       encodeInt64AsString: Boolean = this.encodeInt64AsString,
-  ): ApiCodecCompressed[Cid] =
-    new ApiCodecCompressed[Cid](
+  ): ApiCodecCompressed =
+    new ApiCodecCompressed(
       encodeDecimalAsString = encodeDecimalAsString,
       encodeInt64AsString = encodeInt64AsString,
     )
 }
 
-import DefaultJsonProtocol.StringJsonFormat
+private[json] object JsonContractIdFormat {
+  implicit val ContractIdFormat: JsonFormat[ContractId] =
+    new JsonFormat[ContractId] {
+      override def write(obj: ContractId) =
+        JsString(obj.coid)
+      override def read(json: JsValue) = json match {
+        case JsString(s) =>
+          ContractId.fromString(s).fold(deserializationError(_), identity)
+        case _ => deserializationError("ContractId must be a string")
+      }
+    }
+}
+import JsonContractIdFormat._
 
 object ApiCodecCompressed
-    extends ApiCodecCompressed[String](encodeDecimalAsString = true, encodeInt64AsString = true) {
+    extends ApiCodecCompressed(encodeDecimalAsString = true, encodeInt64AsString = true) {
   // ------------------------------------------------------------------------------------------------------------------
   // Implicits that can be imported to write JSON
   // ------------------------------------------------------------------------------------------------------------------
@@ -380,5 +393,6 @@ object ApiCodecCompressed
     implicit object ApiRecordJsonFormat extends RootJsonWriter[Model.ApiRecord] {
       def write(v: Model.ApiRecord): JsValue = apiRecordToJsValue(v)
     }
+    implicit val ContractIdFormat = JsonContractIdFormat.ContractIdFormat
   }
 }

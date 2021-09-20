@@ -624,6 +624,8 @@ genSerializableDef curPkgId conName mod def =
                  , serEncode = EncodeRecord $ zip fieldNames fieldTypes
                  , serNested = []
                  }
+        -- TODO https://github.com/digital-asset/daml/issues/10810
+        DataInterface -> error "interafces are not implemented"
   where
     paramNames = map (unTypeVarName . fst) (dataParams def)
     genDecBranch (VariantConName cons, t) =
@@ -659,7 +661,8 @@ genTypeDef conName mod def =
                 conName
                 paramNames
                 [ (n, TypeRef (moduleName mod) ty) | (FieldName n, ty) <- fields ]
-
+        -- TODO https://github.com/digital-asset/daml/issues/10810
+        DataInterface -> error "interafces are not implemented"
   where
     paramNames = map (unTypeVarName . fst) (dataParams def)
 
@@ -720,6 +723,8 @@ genDefDataType curPkgId conName mod tpls def =
                         refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
                     in
                     ([DeclTypeDef typeDesc, DeclTemplateDef dict, DeclTemplateNamespace associatedTypes, DeclTemplateRegistration registrations], refs)
+        -- TODO https://github.com/digital-asset/daml/issues/10810
+        DataInterface -> error "interafces are not implemented"
 
 infixr 6 <.> -- This is the same fixity as '<>'.
 (<.>) :: T.Text -> T.Text -> T.Text

@@ -46,7 +46,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       stakeholders = stakeholders,
       signatories = signatories,
       choiceObservers = Set.empty,
-      children = ImmArray.empty,
+      children = ImmArray.Empty,
       exerciseResult = None,
       key = None,
       byKey = false,

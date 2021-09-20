@@ -32,48 +32,84 @@ class GrpcCommandService(
 
   protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
-  private[this] val validator =
-    new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId, generateSubmissionId))
+  private[this] val validator = new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId))
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
+    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(
-        t => Future.failed(ValidationLogger.logFailure(request, t)),
-        _ => service.submitAndWait(request),
+      .validate(
+        requestWithSubmissionId,
+        currentLedgerTime(),
+        currentUtcTime(),
+        maxDeduplicationTime(),
       )
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        _ => service.submitAndWait(requestWithSubmissionId),
+      )
+  }
 
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionIdResponse] =
+  ): Future[SubmitAndWaitForTransactionIdResponse] = {
+    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(
-        t => Future.failed(ValidationLogger.logFailure(request, t)),
-        _ => service.submitAndWaitForTransactionId(request),
+      .validate(
+        requestWithSubmissionId,
+        currentLedgerTime(),
+        currentUtcTime(),
+        maxDeduplicationTime(),
       )
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        _ => service.submitAndWaitForTransactionId(requestWithSubmissionId),
+      )
+  }
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionResponse] =
+  ): Future[SubmitAndWaitForTransactionResponse] = {
+    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(
-        t => Future.failed(ValidationLogger.logFailure(request, t)),
-        _ => service.submitAndWaitForTransaction(request),
+      .validate(
+        requestWithSubmissionId,
+        currentLedgerTime(),
+        currentUtcTime(),
+        maxDeduplicationTime(),
       )
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        _ => service.submitAndWaitForTransaction(requestWithSubmissionId),
+      )
+  }
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionTreeResponse] =
+  ): Future[SubmitAndWaitForTransactionTreeResponse] = {
+    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
-      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(
-        t => Future.failed(ValidationLogger.logFailure(request, t)),
-        _ => service.submitAndWaitForTransactionTree(request),
+      .validate(
+        requestWithSubmissionId,
+        currentLedgerTime(),
+        currentUtcTime(),
+        maxDeduplicationTime(),
       )
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        _ => service.submitAndWaitForTransactionTree(requestWithSubmissionId),
+      )
+  }
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, executionContext)
 
+  private def generateSubmissionIdIfEmpty(request: SubmitAndWaitRequest): SubmitAndWaitRequest = {
+    if (request.commands.exists(_.submissionId.isEmpty)) {
+      val commandsWithSubmissionId =
+        request.commands.map(_.copy(submissionId = generateSubmissionId.generate()))
+      request.copy(commands = commandsWithSubmissionId)
+    } else {
+      request
+    }
+  }
 }

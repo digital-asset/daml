@@ -1,13 +1,13 @@
 transactions:
-mustFailAt actAs: {'Alice'} readAs: {} [Test:88]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:91]
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:92]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:95]
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:96]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:99]
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:100]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:103]
 
-TX #4 1970-01-01T00:00:00Z [Test:108] version: 14
+TX #4 1970-01-01T00:00:00Z [Test:111] version: 14
 #4:0 version: 14
 │   known to (since): Alice (#4), Bob (#4)
 └─> create Test:X@XXXXXXXX
@@ -15,19 +15,19 @@ TX #4 1970-01-01T00:00:00Z [Test:108] version: 14
 
 pass -100000000
 
-mustFailAt actAs: {'Bob'} readAs: {} [Test:110]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:113]
 
-TX #7 1969-12-31T23:58:20Z [Test:115] version: 14
+TX #7 1969-12-31T23:58:20Z [Test:118] version: 14
 #7:0 version: 14
 │   known to (since): Alice (#7)
 └─> create Test:TwoParties@XXXXXXXX
     with: { p = 'Alice', p2 = 'Alice' }
 
-mustFailAt actAs: {'Bob'} readAs: {} [Test:116]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:119]
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:123]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:126]
 
-TX #10 1969-12-31T23:58:20Z [Test:128] version: 14
+TX #10 1969-12-31T23:58:20Z [Test:131] version: 14
 #10:0 version: 14
 │   archived by #11:0
 │   referenced by #11:0
@@ -35,7 +35,7 @@ TX #10 1969-12-31T23:58:20Z [Test:128] version: 14
 └─> create Test:ToTwoParties@XXXXXXXX
     with: { p = 'Alice', p2 = 'Bob' }
 
-TX #11 1969-12-31T23:58:20Z [Test:129] version: 14
+TX #11 1969-12-31T23:58:20Z [Test:132] version: 14
 #11:0 version: 14
 │   known to (since): Alice (#11), Bob (#11)
 └─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on 00059653cdb8e866d69fac4d5bd0f62bbdaba4c36b01c438b86351fbdbf2cab8b0
@@ -46,43 +46,43 @@ TX #11 1969-12-31T23:58:20Z [Test:129] version: 14
     └─> create Test:TwoParties@XXXXXXXX
         with: { p = 'Alice', p2 = 'Bob' }
 
-mustFailAt actAs: {'Bob'} readAs: {} [Test:130]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:133]
 
-TX #13 1969-12-31T23:58:20Z [Test:134] version: 14
+TX #13 1969-12-31T23:58:20Z [Test:137] version: 14
 #13:0 version: 14
 │   known to (since): Alice (#13)
 └─> create Test:NoCtrls@XXXXXXXX
     with: { p = 'Alice', xs = [] }
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:135]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:138]
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:139]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:142]
 
-TX #16 1969-12-31T23:58:20Z [Test:144] version: 14
+TX #16 1969-12-31T23:58:20Z [Test:147] version: 14
 #16:0 version: 14
 │   known to (since): Alice (#16), Bob (#16)
 └─> create Test:X@XXXXXXXX
     with: { p = 'Alice', p2 = 'Bob' }
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:145]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:148]
 
-TX #18 1969-12-31T23:58:20Z [Test:151] version: 14
+TX #18 1969-12-31T23:58:20Z [Test:154] version: 14
 #18:0 version: 14
 │   known to (since): Alice (#18)
 └─> create Test:Recursive@XXXXXXXX
     with: { p = 'Alice' }
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:154]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:157]
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:340]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:346]
 
-TX #21 1969-12-31T23:58:20Z [Test:345] version: 14
+TX #21 1969-12-31T23:58:20Z [Test:351] version: 14
 #21:0 version: 14
 │   known to (since): Alice (#21)
 └─> create Test:NestingLimitExercise@XXXXXXXX
     with: { p = 'Alice' }
 
-mustFailAt actAs: {'Alice'} readAs: {} [Test:346]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:352]
 
 active contracts:
    00049c3d61768cf931aa2b97a7ac28002d7673c3f8b996798d87227106e178286e, 00067f889bdf49aa670596cab1a5907d75596d971df3477087c88ca86f281cee85, 00154fe9827fdb40afae4ba484f3f51159d99a27c1463928ec761043c28353b76c, 007e5c9342585588fff0855b297c6e06bfb6a3d62578a28da860af02a98048bd68, 00945c0656f04cdd9f6a85cb466acb0edcd75ea0f618362e83b92164c4cee523e9, 00bf46b75494167be56ef270a63cbc740370b75c98fb517457d9859d55796f7fbf, 00e52b332d66bbf5ac835144e35bf339a7ab319e505e005d1ddd9aed313764dd51

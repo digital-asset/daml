@@ -79,7 +79,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
       failure <- ledger.flatTransactions(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {
-      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
+      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, Some("is after ledger end"))
     }
   })
 
@@ -95,7 +95,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
       failure <- ledger.transactionTrees(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {
-      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
+      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, Some("is after ledger end"))
     }
   })
 

@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.util.regex.Pattern
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -13,6 +11,7 @@ import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 
+import java.util.regex.Pattern
 import scala.concurrent.duration.DurationInt
 
 final class CommandSubmissionCompletionIT extends LedgerTestSuite {
@@ -70,7 +69,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
         .firstCompletions(invalidRequest)
         .mustFail("subscribing to completions past the ledger end")
     } yield {
-      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, "is after ledger end")
+      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, Some("is after ledger end"))
     }
   })
 
@@ -102,7 +101,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       wrongRequest = ledger.submitRequest(party, wrongExercise)
       failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(
@@ -110,6 +109,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
             "(unknown|Couldn't find requested) choice " + badChoice
           )
         ),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -128,7 +128,8 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     } yield assertGrpcError(
       failure,
       Status.Code.NOT_FOUND,
-      s"Ledger ID '$invalidLedgerId' not found.",
+      Some(s"Ledger ID '$invalidLedgerId' not found."),
+      checkDefiniteAnswerMetadata = true,
     )
   })
 
@@ -141,7 +142,12 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     for {
       failure <- ledger.submit(emptyRequest).mustFail("submitting an empty command")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        Some("Missing field: commands"),
+        checkDefiniteAnswerMetadata = true,
+      )
     }
   })
 
@@ -163,5 +169,4 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       // Nothing to do, if the two completions are found the test is passed
     }
   })
-
 }

@@ -130,7 +130,7 @@ testConnection damlc scriptDar testDar ledgerPort mbTokenFile mbCaCrt = do
         [ "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
         , "debug =<< query @T alice"
         ]
-    let regexString = "^daml> daml>.*: \\[\\]\ndaml> Goodbye.\n$" :: String
+    let regexString = "^(Client TLS.*\\.\n)?daml> daml>.*: \\[\\]\ndaml> Goodbye.\n$" :: String
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")

@@ -8,14 +8,20 @@ import anorm.SQL
 import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
-  CommonStorageBackend,
   CompletionStorageBackendTemplate,
+  ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
+  DataSourceStorageBackendTemplate,
+  DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
+  IngestionStorageBackendTemplate,
   InitHookDataSourceProxy,
+  PackageStorageBackendTemplate,
+  ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -35,7 +41,12 @@ import javax.sql.DataSource
 
 private[backend] object OracleStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
-    with CommonStorageBackend[AppendOnlySchema.Batch]
+    with DataSourceStorageBackendTemplate
+    with IngestionStorageBackendTemplate[AppendOnlySchema.Batch]
+    with ParameterStorageBackendTemplate
+    with ConfigurationStorageBackendTemplate
+    with PackageStorageBackendTemplate
+    with DeduplicationStorageBackendTemplate
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
@@ -81,7 +92,7 @@ private[backend] object OracleStorageBackend
       | insert (pcs.deduplication_key, pcs.deduplicate_until)
       |  values ({deduplicationKey}, {deduplicateUntil})""".stripMargin
 
-  def upsertDeduplicationEntry(
+  override def upsertDeduplicationEntry(
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
@@ -89,8 +100,8 @@ private[backend] object OracleStorageBackend
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
-        "submittedAt" -> submittedAt,
-        "deduplicateUntil" -> deduplicateUntil,
+        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
       )
       .executeUpdate()(connection)
 
@@ -169,8 +180,10 @@ private[backend] object OracleStorageBackend
 
   override def eventStrategy: common.EventStrategy = OracleEventStrategy
 
-  // TODO FIXME: confirm this works for oracle
-  def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {
+  // TODO FIXME: Use tables directly instead of the participant_events view.
+  def maxEventSequentialIdOfAnObservableEvent(
+      offset: Offset
+  )(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
@@ -189,6 +202,9 @@ private[backend] object OracleStorageBackend
     oracleDataSource.setURL(jdbcUrl)
     InitHookDataSourceProxy(oracleDataSource, connectionInitHook.toList)
   }
+
+  override def checkDatabaseAvailable(connection: Connection): Unit =
+    assert(SQL"SELECT 1 FROM DUAL".as(get[Int](1).single)(connection) == 1)
 
   override def tryAcquire(
       lockId: DBLockStorageBackend.LockId,
@@ -224,7 +240,7 @@ private[backend] object OracleStorageBackend
       .as(get[Int](1).single)(connection) match {
       case 0 => true
       case 3 => throw new Exception("DBMS_LOCK.RELEASE Error 3: Parameter error as releasing lock")
-      case 4 => throw new Exception("DBMS_LOCK.RELEASE Error 4: Trying to release not-owned lock")
+      case 4 => false
       case 5 =>
         throw new Exception("DBMS_LOCK.RELEASE Error 5: Illegal lock handle as releasing lock")
       case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.RELEASE: $unknown")

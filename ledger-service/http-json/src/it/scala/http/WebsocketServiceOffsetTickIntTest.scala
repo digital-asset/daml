@@ -34,7 +34,7 @@ class WebsocketServiceOffsetTickIntTest
 
   import WebsocketTestFixture._
 
-  "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _) =>
+  "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _, _) =>
     for {
       msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
         .take(10)
@@ -48,7 +48,7 @@ class WebsocketServiceOffsetTickIntTest
   }
 
   "Given non-empty ACS, JSON API should emit ACS block and after it only absolute offset ticks" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
       for {
         _ <- initialIouCreate(uri)
 
@@ -65,9 +65,11 @@ class WebsocketServiceOffsetTickIntTest
       }
   }
   "Given an offset to resume at, we should immediately start emitting ticks" in withHttpServiceAndClient {
-    (uri, _, _, client) =>
+    (uri, _, _, client, ledgerId) =>
       for {
-        ledgerOffset <- client.transactionClient.getLedgerEnd().map(domain.Offset.fromLedgerApi(_))
+        ledgerOffset <- client.transactionClient
+          .getLedgerEnd(ledgerId)
+          .map(domain.Offset.fromLedgerApi(_))
         _ = println(ledgerOffset)
         msgs <- singleClientQueryStream(
           jwt,

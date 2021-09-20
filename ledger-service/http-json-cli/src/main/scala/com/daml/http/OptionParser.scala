@@ -3,8 +3,6 @@
 
 package com.daml.http
 
-import java.nio.file.Paths
-
 import com.daml.dbutils.DBConfig.JdbcConfigDefaults
 import dbbackend.JdbcConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
@@ -98,6 +96,14 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
         s" Defaults to the `max-inbound-message-size` setting."
     )
 
+  opt[Long]("max-template-id-cache-entries")
+    .action((x, c) => c.copy(surrogateTpIdCacheMaxEntries = Some(x)))
+    .optional()
+    .text(
+      s"Optional max cache size in entries for storing surrogate template id mappings." +
+        s" Defaults to ${Config.Empty.surrogateTpIdCacheMaxEntries}"
+    )
+
   opt[Int]("max-inbound-message-size")
     .action((x, c) => c.copy(maxInboundMessageSize = x))
     .optional()
@@ -143,10 +149,14 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
     )
 
   opt[String]("access-token-file")
-    .text(
-      s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+    .foreach(_ =>
+      logger.warn(
+        s"The '--access-token-file' command line option is deprecated and has no effect. The authorization for the retrieval of packages required to serve a request is performed with the JWT in the request itself."
+      )
     )
-    .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+    .text(
+      s"DEPRECATED. Provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+    )
     .optional()
 
   opt[WebsocketConfig]("websocket-config")

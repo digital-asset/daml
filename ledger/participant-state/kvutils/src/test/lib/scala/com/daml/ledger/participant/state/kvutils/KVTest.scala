@@ -7,11 +7,12 @@ import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.test.SimplePackagePartyTestDar
 import com.daml.lf.command.{ApiCommand, Commands}
 import com.daml.lf.crypto
@@ -267,7 +268,7 @@ object KVTest {
       submitter,
       commandId,
       deduplicationTime,
-      testState.recordTime,
+      randomLedgerString,
     )
     testState.keyValueSubmission.transactionToSubmission(
       submitterInfo = submitterInfo,
@@ -430,14 +431,18 @@ object KVTest {
       submitter: Ref.Party,
       commandId: Ref.CommandId,
       deduplicationTime: Duration,
-      recordTime: Timestamp,
-  ): SubmitterInfo =
+      submissionId: Ref.SubmissionId,
+  ): SubmitterInfo = {
     SubmitterInfo(
       actAs = List(submitter),
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,
-      deduplicateUntil = recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationTime),
+      submissionId = submissionId,
+      ledgerConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )
+  }
 
   private[this] def createPartySubmission(
       subId: String,

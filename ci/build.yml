@@ -315,11 +315,7 @@ jobs:
           //triggers/service:test-oracle \
           //ledger/participant-integration-api:participant-integration-api-tests-oracle \
           //ledger/ledger-on-sql:conformance-test-oracle \
-          //ledger/ledger-on-sql:conformance-test-append-only-oracle \
-          //ledger/ledger-on-sql:conformance-test-append-only-pruning-oracle \
-          //ledger/ledger-on-sql:conformance-test-pruning-oracle \
-          //ledger/ledger-on-sql:conformance-test-append-only-multi-party-submission-oracle \
-          //ledger/ledger-on-sql:conformance-test-multi-party-submission-oracle
+          //ledger/ledger-on-sql:conformance-test-append-only-oracle
       env:
         DOCKER_LOGIN: $(DOCKER_LOGIN)
         DOCKER_PASSWORD: $(DOCKER_PASSWORD)

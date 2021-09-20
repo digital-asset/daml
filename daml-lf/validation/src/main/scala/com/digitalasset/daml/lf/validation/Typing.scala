@@ -272,6 +272,8 @@ private[validation] object Typing {
             env.checkVariantType(fields)
           case DataEnum(values) =>
             env.checkEnumType(tyConName, params, values)
+          case DataInterface =>
+            env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
         Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
@@ -301,6 +303,12 @@ private[validation] object Typing {
         case _ =>
           throw EExpectedExceptionableType(env.ctx, tyConName)
       }
+    }
+    mod.interfaces.foreach { case (ifaceName, defInterface) =>
+      // uniquess of choice names is already checked on construction of the choice map.
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
+      val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
+      defInterface.choices.values.foreach { env.checkIfaceChoice(_) }
     }
   }
 
@@ -367,6 +375,14 @@ private[validation] object Typing {
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
     }
 
+    def checkInterfaceType[X](
+        tyConName: => TypeConName,
+        params: ImmArray[X],
+    ): Unit = {
+      if (params.nonEmpty) throw EIllegalHigherInterfaceType(ctx, tyConName)
+      val _ = handleLookup(ctx, interface.lookupInterface(tyConName))
+    }
+
     def checkDValue(dfn: DValue): Unit = dfn match {
       case DValue(typ, _, body, isTest) =>
         checkType(typ, KStar)
@@ -415,7 +431,16 @@ private[validation] object Typing {
       }
 
     def checkTemplate(tplName: TypeConName, template: Template): Unit = {
-      val Template(param, precond, signatories, agreementText, choices, observers, mbKey) =
+      val Template(
+        param,
+        precond,
+        signatories,
+        agreementText,
+        choices,
+        observers,
+        mbKey,
+        implementations,
+      ) =
         template
       val env = introExprVar(param, TTyCon(tplName))
       env.checkExpr(precond, TBool)
@@ -428,6 +453,46 @@ private[validation] object Typing {
         env.checkExpr(key.body, key.typ)
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
+      }
+      implementations.foreach(env.checkIfaceImplementation(tplName, _))
+    }
+
+    def checkIfaceChoice(choice: InterfaceChoice): Unit = {
+      checkType(choice.argType, KStar)
+      checkType(choice.returnType, KStar)
+    }
+
+    def checkIfaceImplementation(tplTcon: TypeConName, ifaceTcon: TypeConName): Unit = {
+      val DefInterface(choices) = handleLookup(ctx, interface.lookupInterface(ifaceTcon))
+      choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
+        val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
+        if (tplChoice.consuming != consuming)
+          throw EBadInterfaceChoiceImplConsuming(
+            ctx,
+            ifaceTcon,
+            tplTcon,
+            name,
+            consuming,
+            tplChoice.consuming,
+          )
+        if (!alphaEquiv(tplChoice.argBinder._2, argType))
+          throw EBadInterfaceChoiceImplArgType(
+            ctx,
+            ifaceTcon,
+            tplTcon,
+            name,
+            argType,
+            tplChoice.argBinder._2,
+          )
+        if (!alphaEquiv(tplChoice.returnType, returnType))
+          throw EBadInterfaceChoiceImplRetType(
+            ctx,
+            ifaceTcon,
+            tplTcon,
+            name,
+            returnType,
+            tplChoice.returnType,
+          )
       }
     }
 
@@ -733,6 +798,8 @@ private[validation] object Typing {
                     enumExpectedPatterns(scrutTCon, cons),
                     introPatternEnum(scrutTCon, cons),
                   )
+                case DataInterface =>
+                  (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
               }
           }
         case TUnit =>
@@ -828,6 +895,18 @@ private[validation] object Typing {
       TUpdate(choice.returnType)
     }
 
+    private def typeOfExerciseInterface(
+        tpl: TypeConName,
+        chName: ChoiceName,
+        cid: Expr,
+        arg: Expr,
+    ): Type = {
+      val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
+      checkExpr(cid, TContractId(TTyCon(tpl)))
+      checkExpr(arg, choice.argType)
+      TUpdate(choice.returnType)
+    }
+
     private def typeOfExerciseByKey(
         tmplId: TypeConName,
         chName: ChoiceName,
@@ -842,6 +921,12 @@ private[validation] object Typing {
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
       handleLookup(ctx, interface.lookupTemplate(tpl))
+      checkExpr(cid, TContractId(TTyCon(tpl)))
+      TUpdate(TTyCon(tpl))
+    }
+
+    private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Type = {
+      handleLookup(ctx, interface.lookupInterface(tpl))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
@@ -862,10 +947,14 @@ private[validation] object Typing {
         typeOfCreate(tpl, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
+      case UpdateExerciseInterface(tpl, choice, cid, arg) =>
+        typeOfExerciseInterface(tpl, choice, cid, arg)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>
         typeOfFetch(tpl, cid)
+      case UpdateFetchInterface(tpl, cid) =>
+        typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>
         TUpdate(TTimestamp)
       case UpdateEmbedExpr(typ, exp) =>

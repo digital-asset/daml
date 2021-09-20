@@ -135,7 +135,7 @@ object Converter {
   private def fromAnyTemplate(
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
-      argument: Value[ContractId],
+      argument: Value,
   ): Either[String, SValue] = {
     val anyTemplateTy = daInternalAny("AnyTemplate")
     for {
@@ -166,7 +166,7 @@ object Converter {
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       choiceName: ChoiceName,
-      argument: Value[ContractId],
+      argument: Value,
   ): Either[String, SValue] = {
     val contractIdTy = daInternalAny("AnyChoice")
     for {
@@ -408,7 +408,7 @@ object Converter {
             ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
             ("choice", SText(choiceName)),
             ("argument", anyChoice),
-            ("childEvents", SList(FrontStack(evs))),
+            ("childEvents", SList(evs.to(FrontStack))),
           ),
         )
     }
@@ -416,7 +416,7 @@ object Converter {
       events <- tree.rootEvents.traverse(translateTreeEvent(_)): Either[String, List[SValue]]
     } yield record(
       scriptIds.damlScript("SubmitFailure"),
-      ("rootEvents", SList(FrontStack(events))),
+      ("rootEvents", SList(events.to(FrontStack))),
     )
   }
 
@@ -668,7 +668,7 @@ object Converter {
       lfValue <-
         try {
           Right(
-            jsValue.convertTo[Value[ContractId]](
+            jsValue.convertTo[Value](
               LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))
             )
           )

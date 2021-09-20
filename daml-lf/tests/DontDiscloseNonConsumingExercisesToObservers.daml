@@ -12,9 +12,9 @@ template NonObservable with
     signatory p
     observer obs
 
-    controller p can
-      nonconsuming CreateEvent : ContractId Event
-        do create $ Event p
+    nonconsuming choice CreateEvent : ContractId Event
+      controller p
+      do create $ Event p
 
 template Event with
     p : Party

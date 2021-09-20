@@ -616,7 +616,13 @@ private class JdbcLedgerDao(
                 applicationId <- tx.applicationId
                 commandId <- tx.commandId
                 submissionId <- tx.submissionId
-              } yield state.CompletionInfo(actAs, applicationId, commandId, None, submissionId)
+              } yield state.CompletionInfo(
+                actAs,
+                applicationId,
+                commandId,
+                None,
+                Some(submissionId),
+              )
 
               prepareTransactionInsert(
                 completionInfo = completionInfo,
@@ -642,7 +648,7 @@ private class JdbcLedgerDao(
               queries
                 .prepareRejectionInsert(
                   completionInfo =
-                    state.CompletionInfo(actAs, applicationId, commandId, None, submissionId),
+                    state.CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId)),
                   offset = offset,
                   recordTime = recordTime,
                   reason = reason.toParticipantStateRejectionReason,

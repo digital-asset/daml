@@ -209,28 +209,6 @@ final class SqlLedgerSpec
       }
     }
 
-    /** Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
-      * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
-      *
-      * NOTE: This is needed for ensuring durability guarantees of Daml-on-SQL.
-      */
-    "does not use async commit when building JdbcLedgerDao" in {
-      for {
-        _ <- createSqlLedger(
-          ledgerId = None,
-          participantId = None,
-          packages = List.empty,
-          enableAppendOnlySchema = false,
-        )
-      } yield {
-        val hikariDataSourceLogs =
-          LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
-        hikariDataSourceLogs should contain(
-          Level.INFO -> "Creating Hikari connections with synchronous commit ON"
-        )
-      }
-    }
-
     "not allow insertion of subsequent parties with the same identifier: operations should succeed without effect" in {
       for {
         sqlLedger <- createSqlLedger()
@@ -410,8 +388,6 @@ final class SqlLedgerSpec
         inside(completion._2.completions) {
           case Seq(Completion(`commandId1`, Some(status), _, _, _, _, _)) =>
             status.code should be(Status.Code.ABORTED.value)
-            val lowerBound = nowInstant.minus(minSkew)
-            val upperBound = nowInstant.plus(maxSkew)
             status.message should be(
               s"Ledger time 2021-09-01T18:05:00Z outside of range [2021-09-01T17:59:50Z, 2021-09-01T18:00:30Z]"
             )
@@ -423,8 +399,8 @@ final class SqlLedgerSpec
                     domain = "com.daml.on.sql",
                     metadata = Map(
                       "ledgerTime" -> transactionLedgerEffectiveTime.toInstant.toString,
-                      "lowerBound" -> lowerBound.toString,
-                      "upperBound" -> upperBound.toString,
+                      "lowerBound" -> nowInstant.minus(minSkew).toString,
+                      "upperBound" -> nowInstant.plus(maxSkew).toString,
                     ),
                   )
                 )
@@ -465,7 +441,6 @@ final class SqlLedgerSpec
       participantId: Option[ParticipantId],
       packages: List[DamlLf.Archive],
       timeProvider: TimeProvider = TimeProvider.UTC,
-      enableAppendOnlySchema: Boolean = true,
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     val ledger =
@@ -481,7 +456,7 @@ final class SqlLedgerSpec
         packages = InMemoryPackageStore.empty
           .withPackages(Instant.EPOCH, None, packages)
           .fold(sys.error, identity),
-        initialLedgerEntries = ImmArray.empty,
+        initialLedgerEntries = ImmArray.Empty,
         queueDepth = queueDepth,
         transactionCommitter = LegacyTransactionCommitter,
         startMode = SqlStartMode.MigrateAndStart,
@@ -492,7 +467,7 @@ final class SqlLedgerSpec
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         engine = new Engine(),
         validatePartyAllocation = false,
-        enableAppendOnlySchema = enableAppendOnlySchema,
+        enableAppendOnlySchema = true,
         enableCompression = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger

@@ -26,9 +26,9 @@ class NamesSpec extends AnyWordSpec with Matchers {
       all(allTestIdentifiers) should fullyMatch regex """[A-Za-z][A-Za-z0-9]*""".r
     }
 
-    "not be a prefix of any other name, so that each test can be included independently" in {
-      allTestIdentifiers.foreach { testIdentifier =>
-        all(allTestIdentifiers.toSet - testIdentifier) should not startWith testIdentifier
+    "not be a prefix of or equal to any other name, so that each test can be included independently" in {
+      allTestIdentifiers.zipWithIndex.foreach { case (testIdentifier, i) =>
+        all(allTestIdentifiers.drop(i + 1)) should not startWith testIdentifier
       }
     }
   }
@@ -43,7 +43,7 @@ class NamesSpec extends AnyWordSpec with Matchers {
 }
 
 object NamesSpec {
-  private val allTestSuites = Tests.default() ++ Tests.optional ++ Tests.retired
+  private val allTestSuites = Tests.default() ++ Tests.optional() ++ Tests.retired
   private val allTestSuiteNames = allTestSuites.map(_.name).sorted
 
   private val allTests = allTestSuites.flatMap(_.tests)

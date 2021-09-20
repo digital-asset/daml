@@ -21,11 +21,11 @@ template KeyOps
 
   where
     signatory signatories
+    observer counterParty
 
-    controller counterParty can
-      Accept: ContractId (KeyOps)
-        do
-          create this with signatories = S.insert counterParty signatories
+    choice Accept: ContractId (KeyOps)
+      controller counterParty
+      do create this with signatories = S.insert counterParty signatories
 
     nonconsuming choice
       LookupGivenKey: Optional (ContractId BasicKey)

@@ -83,7 +83,7 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
 
-    def translateValue(ty: Ast.Type, value: Value[ContractId]): Either[String, SValue] =
+    def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }
@@ -219,7 +219,8 @@ object ScriptF {
         )
         acs <- client.query(parties, tplId)
         res <- Converter.toFuture(
-          FrontStack(acs)
+          acs
+            .to(FrontStack)
             .traverse(
               Converter
                 .fromCreated(env.valueTranslator, _)
@@ -261,7 +262,7 @@ object ScriptF {
 
     private def translateKey(
         env: Env
-    )(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
+    )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
         translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.message)
@@ -329,7 +330,7 @@ object ScriptF {
           partyDetails
             .traverse(details => Converter.fromPartyDetails(env.scriptIds, details))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(partyDetails_)))))
+      } yield SEApp(SEValue(continue), Array(SEValue(SList(partyDetails_.to(FrontStack)))))
 
   }
   final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd {

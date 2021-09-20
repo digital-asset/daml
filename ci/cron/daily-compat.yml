@@ -173,6 +173,130 @@ jobs:
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
+  - job: perf_http_json_oracle
+    timeoutInMinutes: 120
+    pool:
+      name: "ubuntu_20_04"
+      demands: assignment -equals default
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel for root workspace'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(dev-env/bin/dade assist)"
+          source $(bash_lib)
+
+          docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
+          IMAGE=$(cat ci/oracle_image)
+          docker pull $IMAGE
+          # Cleanup stray containers that might still be running from
+          # another build that didn’t get shut down cleanly.
+          docker rm -f oracle || true
+          # Oracle does not like if you connect to it via localhost if it’s running in the container.
+          # Interestingly it works if you use the external IP of the host so the issue is
+          # not the host it is listening on (it claims for that to be 0.0.0.0).
+          # --network host is a cheap escape hatch for this.
+          docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+          function cleanup() {
+              docker rm -f oracle
+          }
+          trap cleanup EXIT
+          testConnection() {
+              docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
+          }
+
+          # dont want to wait forever to test connection , 15m is more than sufficient here.
+          declare -xf testConnection
+          timeout 15m bash -c 'until testConnection; do echo "Could not connect to Oracle, trying again..." ; sleep 1 ; done'
+
+          # Actually run some tests
+
+          bazel build //ledger-service/http-json-perf/...
+          DAR="${PWD}/bazel-bin/ledger-service/http-json-perf/LargeAcs.dar"
+
+          # {
+          #  "https://daml.com/ledger-api": {
+          #    "ledgerId": "MyLedger",
+          #    "applicationId": "foobar",
+          #    "actAs": [
+          #      "Alice"
+          #    ]
+          #  }
+          # }
+          JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
+
+          TEST_CASES="\
+           populateCache \
+           fetchByKey \
+           fetchByQuery \
+          "
+
+          METADATA=$(git log -n1 --format=%cd --date=format:%Y%m%d).$(git rev-list --count HEAD).$(Build.BuildId).$(git log -n1 --format=%h --abbrev=8)
+          REPORT_ID="http_json_perf_oracle_results_${METADATA}"
+          OUT="$(Build.StagingDirectory)/${REPORT_ID}"
+          LOG_DIR="$(Build.StagingDirectory)/log"
+
+          mkdir -p $LOG_DIR
+
+          # Overall we want to populate the test cache , run some fetch by key queries and then some index queries
+
+          export NUM_RECORDS=100000 # 100k ACS for a single template
+          export NUM_QUERIES=10000 # 10k queries in total
+          export NUM_READERS=100 # 100 users in parallel.
+
+          for CASE in $TEST_CASES; do
+            RUN_MODE=${CASE} \
+            USE_DEFAULT_USER=true \
+            RETAIN_DATA=true \
+            bazel run //ledger-service/http-json-perf:http-json-perf-binary-ee -- \
+              --scenario=com.daml.http.perf.scenario.OracleMultiUserQueryScenario \
+              --dars=${DAR} \
+              --reports-dir=${OUT}/${CASE} \
+              --jwt=${JWT} \
+              --query-store-index=oracle > "${LOG_DIR}/${CASE}_log.out"
+          done
+
+          READ_PERF_KEYS="\
+           fetchByKey \
+           fetchByQuery \
+          "
+          RES=""
+          for KEY in $READ_PERF_KEYS; do
+            # capture the avg, stddev, p90, p99, requests_per_second numbers from gatling summary csv
+            perf=$(cat ${OUT}/${KEY}/*/summary.csv | tail -n 1 | awk -F, '{printf "%.1f, %.1f, %.1f, %.1f, %.1f", $11, $12, $6, $8, $13 }')
+            RES="${RES}json_oracle/${KEY}: $perf\n"
+          done
+
+          RES=${RES%"\n"}
+          setvar oracle_perf_results "$RES"
+
+          GZIP=-9 tar -zcf ${OUT}.tgz ${OUT}
+
+          gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json-oracle/${REPORT_ID}.tgz"
+
+        displayName: http-json-oracle perf
+        name: out
+        env:
+          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          DOCKER_LOGIN: $(DOCKER_LOGIN)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/log
+          artifactName: perf_http_json_oracle
+
+
+
   - job: check_releases
     timeoutInMinutes: 360
     pool:
@@ -313,7 +437,7 @@ jobs:
 
   - job: report
     dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
-                perf_speedy, perf_http_json, check_releases,
+                perf_speedy, perf_http_json, perf_http_json_oracle, check_releases,
                 blackduck_scan, run_notices_pr_build]
     condition: and(succeededOrFailed(),
                    eq(variables['Build.SourceBranchName'], 'main'))
@@ -327,6 +451,8 @@ jobs:
       perf_speedy: $[ dependencies.perf_speedy.result ]
       speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
       perf_http_json: $[ dependencies.perf_http_json.result ]
+      perf_http_json_oracle: $[ dependencies.perf_http_json_oracle.result ]
+      oracle_perf_results: $[ dependencies.perf_http_json_oracle.outputs['out.oracle_perf_results'] ]
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
       run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
@@ -348,12 +474,14 @@ jobs:
            && "$(compatibility_windows)" == "Succeeded"
            && "$(perf_speedy)" == "Succeeded"
            && "$(perf_http_json)" == "Succeeded"
+           && "$(perf_http_json_oracle)" == "Succeeded"
            && "$(check_releases)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped") ]]; then
             MSG="Daily tests passed: $COMMIT_LINK"
             REPORT='```
         speedy_perf: $(speedy_perf)
+        $(oracle_perf_results)
         ```
         '
             tell_slack "$(echo -e "$MSG\n$REPORT")" "$(Slack.ci-failures-daml)"

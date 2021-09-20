@@ -144,13 +144,13 @@ private[v2] object AdaptedV1ReadService {
       applicationId = submitterInfo.applicationId,
       commandId = submitterInfo.commandId,
       optDeduplicationPeriod = None, // We cannot infer the deduplication period used.
-      submissionId = Ref.SubmissionId.assertFromString(s"submission-${UUID.randomUUID()}"),
+      submissionId = Some(Ref.SubmissionId.assertFromString(s"submission-${UUID.randomUUID()}")),
     )
 
   private def adaptRejectionReason(reason: v1.RejectionReason): RejectionReasonTemplate = {
     val rpcStatus =
       com.google.rpc.status.Status.of(reason.code.value(), reason.description, Seq.empty)
-    new CommandRejected.FinalReason(rpcStatus)
+    CommandRejected.FinalReason(rpcStatus)
   }
 
   private def adaptDivulgedContract(divulgedContract: v1.DivulgedContract): DivulgedContract =

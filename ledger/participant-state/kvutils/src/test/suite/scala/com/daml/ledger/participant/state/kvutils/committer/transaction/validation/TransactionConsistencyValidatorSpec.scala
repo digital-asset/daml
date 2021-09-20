@@ -7,13 +7,7 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlContractKey,
-  DamlContractKeyState,
-  DamlContractState,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createTransactionEntry,
@@ -31,7 +25,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   StepStop,
 }
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
@@ -46,6 +40,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
   import TransactionConsistencyValidatorSpec._
+  import TransactionBuilder.Implicits._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -90,8 +85,10 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
           result shouldBe a[StepStop]
 
           val rejectionReason =
-            getTransactionRejectionReason(result).getInconsistent.getDetails
-          rejectionReason should startWith("InconsistentKeys")
+            getTransactionRejectionReason(result).getReasonCase
+          rejectionReason should be(
+            DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
+          )
       }
     }
 
@@ -106,8 +103,8 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result shouldBe a[StepStop]
 
       val rejectionReason =
-        getTransactionRejectionReason(result).getInconsistent.getDetails
-      rejectionReason should startWith("DuplicateKeys")
+        getTransactionRejectionReason(result).getReasonCase
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "return DuplicateKeys when a local contract conflicts with a global contract" in {
@@ -118,8 +115,8 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       val result = validate(context, transaction)
       result shouldBe a[StepStop]
       val rejectionReason =
-        getTransactionRejectionReason(result).getInconsistent.getDetails
-      rejectionReason should startWith("DuplicateKeys")
+        getTransactionRejectionReason(result).getReasonCase
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "succeeds when a global contract gets archived before a local contract gets created" in {
@@ -164,8 +161,8 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result shouldBe a[StepStop]
 
       val rejectionReason =
-        getTransactionRejectionReason(result).getInconsistent.getDetails
-      rejectionReason should startWith("DuplicateKeys")
+        getTransactionRejectionReason(result).getReasonCase
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "not return DuplicateKeys between local contracts if first create is rolled back" in {
@@ -193,8 +190,8 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result shouldBe a[StepStop]
 
       val rejectionReason =
-        getTransactionRejectionReason(result).getInconsistent.getDetails
-      rejectionReason should startWith("DuplicateKeys")
+        getTransactionRejectionReason(result).getReasonCase
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "return DuplicateKeys between local contracts even if the first one was archived in a rollback" in {
@@ -211,8 +208,8 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result shouldBe a[StepStop]
 
       val rejectionReason =
-        getTransactionRejectionReason(result).getInconsistent.getDetails
-      rejectionReason should startWith("DuplicateKeys")
+        getTransactionRejectionReason(result).getReasonCase
+      rejectionReason should be(DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS)
     }
 
     "return InconsistentKeys on conflict local and global contracts even if global was archived in a rollback" in {
@@ -228,8 +225,10 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result shouldBe a[StepStop]
 
       val rejectionReason =
-        getTransactionRejectionReason(result).getInconsistent.getDetails
-      rejectionReason should startWith("InconsistentKeys")
+        getTransactionRejectionReason(result).getReasonCase
+      rejectionReason should be(
+        DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
+      )
     }
 
     "fail if a contract is not active anymore" in {
@@ -252,7 +251,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       val transaction = builder.buildSubmitted()
       val result = validate(context, transaction)
       inside(result) { case StepStop(logEntry) =>
-        logEntry.getTransactionRejectionEntry.hasInconsistent shouldBe true
+        logEntry.getTransactionRejectionEntry.getReasonCase shouldBe DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS
       }
     }
   }
@@ -274,34 +273,34 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
   }
 
   private def newCreateNodeWithFixedKey(contractId: String): Create =
-    create(contractId, signatories = Seq("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
+    create(contractId, signatories = Set("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
 
   private def create(
-      contractId: String,
-      signatories: Seq[String] = Seq(aKeyMaintainer),
-      argument: TransactionBuilder.Value = aDummyValue,
+      contractId: Value.ContractId,
+      signatories: Set[Ref.Party] = Set(aKeyMaintainer),
+      argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
   ): TransactionBuilder.Create =
     txBuilder.create(
       id = contractId,
-      template = "dummyPackage:DummyModule:DummyTemplate",
+      templateId = "DummyModule:DummyTemplate",
       argument = argument,
       signatories = signatories,
-      observers = Seq.empty,
+      observers = Set.empty,
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
-  private def archive(create: Create, actingParties: Set[String]): Exercise =
+  private def archive(create: Create, actingParties: Set[Ref.Party]): Exercise =
     txBuilder.exercise(
       create,
       choice = "Archive",
       consuming = true,
       actingParties = actingParties,
-      argument = Value.ValueRecord(None, ImmArray.empty),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
       result = Some(Value.ValueUnit),
     )
 
-  private def archive(contractId: String, actingParties: Set[String]): Exercise =
+  private def archive(contractId: Value.ContractId, actingParties: Set[Ref.Party]): Exercise =
     archive(create(contractId), actingParties)
 
   private def validate(

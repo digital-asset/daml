@@ -105,6 +105,9 @@ private[engine] final class Preprocessor(
                       variants.foldRight(typesToProcess0)(_._2 :: _)
                     case Ast.DataEnum(_) =>
                       typesToProcess0
+                    case Ast.DataInterface =>
+                      // TODO https://github.com/digital-asset/daml/issues/10810
+                      sys.error("Interface not supported")
                   }
                   go(
                     typesToProcess,
@@ -156,7 +159,7 @@ private[engine] final class Preprocessor(
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
     */
-  def translateValue(ty0: Ast.Type, v0: Value[Value.ContractId]): Result[SValue] =
+  def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
     safelyRun(getDependencies(List(ty0), List.empty)) {
       commandPreprocessor.valueTranslator.unsafeTranslateValue(ty0, v0)
     }

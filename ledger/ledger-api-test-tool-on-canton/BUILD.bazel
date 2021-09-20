@@ -86,7 +86,9 @@ conformance_test(
         ",RaceConditionIT:RWArchiveVsLookupByKey,RaceConditionIT:RWArchiveVsNonConsumingChoice,RaceConditionIT:RWArchiveVsFetch,RaceConditionIT:WWDoubleArchive" +
         ",ExceptionsIT,ExceptionRaceConditionIT" +  # need UCK mode - added below
         ",DeeplyNestedValueIT" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
-        ",CommandServiceIT:CSReturnStackTrace",  # FIXME: Ensure canton returns stack trace
+        ",CommandServiceIT:CSReturnStackTrace" +  # FIXME: Ensure canton returns stack trace
+        ",CommandServiceIT:CSsubmitAndWaitForTransactionIdInvalidLedgerId,CommandServiceIT:CSsubmitAndWaitForTransactionInvalidLedgerId,CommandServiceIT:CSsubmitAndWaitForTransactionTreeInvalidLedgerId" +  # FIXME: return definite_answer in gRPC errors
+        ",CommandSubmissionCompletionIT:CSCRefuseBadChoice,CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId,CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",  # FIXME: return definite_answer in gRPC errors
     ],
 ) if not is_windows else None
 

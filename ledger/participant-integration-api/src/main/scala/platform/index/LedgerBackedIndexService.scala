@@ -143,7 +143,7 @@ private[platform] final class LedgerBackedIndexService(
             Source.empty
           case Some(end) if begin > end =>
             Source.failed(
-              ErrorFactories.invalidArgument(
+              ErrorFactories.invalidArgument(None)(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
               )
             )
@@ -214,7 +214,7 @@ private[platform] final class LedgerBackedIndexService(
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue]]] =
     ledger.lookupContract(contractId, readers)
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit

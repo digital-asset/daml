@@ -4,15 +4,16 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{
+  Endpoint,
   Identification,
   LedgerServices,
   PartyAllocationConfiguration,
 }
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
@@ -105,6 +106,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     referenceOffset: LedgerOffset,
     services: LedgerServices,
     partyAllocation: PartyAllocationConfiguration,
+    val ledgerEndpoint: Endpoint,
+    val clientTlsConfiguration: Option[TlsConfiguration],
 )(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
@@ -628,7 +631,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.nonEmpty)
-      .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
+      .map(_.completions.toVector)
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest()(parties: _*))
@@ -639,7 +642,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.exists(p))
-      .map(_.flatMap(_.completions.find(p)))
+      .map(_.completions.find(p))
 
   def findCompletion(parties: Party*)(p: Completion => Boolean): Future[Option[Completion]] =
     findCompletion(completionStreamRequest()(parties: _*))(p)

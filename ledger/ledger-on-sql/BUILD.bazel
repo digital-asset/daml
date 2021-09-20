@@ -234,28 +234,6 @@ da_scala_test_suite(
 )
 
 [
-    conformance_test(
-        name = "conformance-test-{}".format(db["name"]),
-        lf_versions = [
-            "default",
-            "latest",
-            "preview",
-        ],
-        ports = [6865],
-        server = ":conformance-test-{}-bin".format(db["name"]),
-        server_args = [
-            "--contract-id-seeding=testing-weak",
-            "--participant participant-id=conformance-test,port=6865",
-        ] + db.get("conformance_test_server_args", []),
-        tags = db.get("conformance_test_tags", []),
-        test_tool_args = db.get("conformance_test_tool_args", []) + [
-            "--verbose",
-        ],
-    )
-    for db in supported_databases
-]
-
-[
     (
         da_scala_binary(
             name = "conformance-test-{}-bin".format(db["name"]),
@@ -268,33 +246,28 @@ da_scala_test_suite(
             ],
         ),
         conformance_test(
-            name = "conformance-test-participant-pruning-{}".format(db["name"]),
-            ports = [6865],
-            server = ":conformance-test-{}-bin".format(db["name"]),
-            server_args = [
-                "--contract-id-seeding=testing-weak",
-                "--participant participant-id=conformance-test,port=6865",
-            ] + db.get("conformance_test_server_args", []),
-            tags = db.get("conformance_test_tags", []),
-            test_tool_args = db.get("conformance_test_tool_args", []) + [
-                "--verbose",
-                "--include=ParticipantPruningIT",
-                # Disable tests targeting only append-only schema functionality
-                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
+            name = "conformance-test-{}".format(db["name"]),
+            lf_versions = [
+                "default",
+                "latest",
+                "preview",
             ],
-        ),
-        conformance_test(
-            name = "conformance-test-multi-party-submission-{}".format(db["name"]),
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = [
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
+                "--max-deduplication-duration=PT5S",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
-                "--include=MultiPartySubmissionIT",
+                "--additional=ParticipantPruningIT",
+                "--additional=MultiPartySubmissionIT",
+                "--additional=KVCommandDeduplicationIT",
+                "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+                # Disable tests targeting only append-only schema functionality
+                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
             ],
         ),
         conformance_test(
@@ -339,10 +312,20 @@ conformance_test(
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
+        "--max-deduplication-duration=PT5S",
     ],
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -356,10 +339,21 @@ conformance_test(
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+        "--max-deduplication-duration=PT5S",
+        "--tracker-retention-period=PT5S",  # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -372,10 +366,21 @@ conformance_test(
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
+        "--max-deduplication-duration=PT5S",
+        "--tracker-retention-period=PT5S",  # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -386,10 +391,17 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--max-deduplication-duration=PT5S",
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -403,10 +415,20 @@ conformance_test(
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
+        "--max-deduplication-duration=PT5S",
     ],
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -420,154 +442,21 @@ conformance_test(
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
+        "--max-deduplication-duration=PT5S",
+        "--tracker-retention-period=PT5S",  # lower the command timeout duration, this is a workaround DPP-609
     ],
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-pruning-postgres",
-    ports = [6865],
-    server = ":conformance-test-postgresql-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-    ],
-    tags = [],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-pruning-h2",
-    ports = [6865],
-    server = ":conformance-test-h2-memory-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
-    ],
-    tags = [],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-pruning-oracle",
-    ports = [6865],
-    server = ":conformance-test-oracle-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--buffered-ledger-api-streams-unsafe",
-    ],
-    tags = [] if oracle_testing else ["manual"],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-pruning-oracle",
-    ports = [6865],
-    server = ":conformance-test-oracle-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-    ],
-    tags = [] if oracle_testing else ["manual"],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRDisclosureAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-multi-party-submission-postgres",
-    ports = [6865],
-    server = ":conformance-test-postgresql-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-    ],
-    tags = [],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-multi-party-submission-h2",
-    ports = [6865],
-    server = ":conformance-test-h2-memory-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
-    ],
-    tags = [],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-multi-party-submission-oracle",
-    ports = [6865],
-    server = ":conformance-test-oracle-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema",
-        "--mutable-contract-state-cache",
-        "--buffered-ledger-api-streams-unsafe",
-    ],
-    tags = [] if oracle_testing else ["manual"],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-multi-party-submission-oracle",
-    ports = [6865],
-    server = ":conformance-test-oracle-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-    ],
-    tags = [] if oracle_testing else ["manual"],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 

@@ -3,11 +3,12 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.grpc.GrpcStatuses
-import com.google.protobuf.Any
-import com.google.rpc
+import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.status.{Status => StatusProto}
+import com.google.rpc.{ErrorInfo, Status => StatusJavaProto}
 import io.grpc.Status.Code
 import io.grpc.{Status, StatusException, protobuf}
 
@@ -17,12 +18,10 @@ object CompletionResponse {
 
   /** Represents failures from executing submissions through gRPC.
     */
-  sealed trait CompletionFailure {
-    def metadata: Map[String, String] = Map.empty
-  }
+  sealed trait CompletionFailure
   final case class NotOkResponse(commandId: String, grpcStatus: StatusProto)
       extends CompletionFailure {
-    override def metadata: Map[String, String] = Map(
+    def metadata: Map[String, String] = Map(
       GrpcStatuses.DefiniteAnswerKey -> GrpcStatuses.isDefiniteAnswer(grpcStatus).toString
     )
   }
@@ -92,41 +91,56 @@ object CompletionResponse {
   private[daml] def toException(response: TrackedCompletionFailure): StatusException =
     response match {
       case QueueCompletionFailure(failure) =>
-        toException(failure)
+        val metadata = extractMetadata(failure)
+        val statusBuilder = extractStatus(failure)
+        buildException(metadata, statusBuilder)
       case QueueSubmitFailure(status) =>
-        val protoStatus =
-          rpc.Status
-            .newBuilder()
-            .setCode(status.getCode.value())
-            .setMessage(Option(status.getDescription).getOrElse("Failed to submit request"))
-        buildException(Map.empty[String, String], protoStatus)
+        val statusBuilder = GrpcStatus.toJavaBuilder(status)
+        buildException(Map.empty, statusBuilder)
     }
 
-  def toException(response: CompletionResponse.CompletionFailure): StatusException = {
-    val metadata = response.metadata
-    val status = extractStatus(response)
-    buildException(metadata, status)
+  private def extractMetadata(response: CompletionFailure): Map[String, String] = response match {
+    case notOkResponse: CompletionResponse.NotOkResponse => notOkResponse.metadata
+    case _ => Map.empty
   }
 
-  private def buildException(metadata: Map[String, String], status: rpc.Status.Builder) = {
-    val errorInfo = rpc.ErrorInfo.newBuilder().putAllMetadata(metadata.asJava).build()
-    val details = Any.pack(errorInfo)
+  private def extractStatus(response: CompletionFailure): StatusJavaProto.Builder = response match {
+    case CompletionResponse.NotOkResponse(_, grpcStatus) => GrpcStatus.toJavaBuilder(grpcStatus)
+    case CompletionResponse.TimeoutResponse(_) =>
+      GrpcStatus.toJavaBuilder(Code.ABORTED.value(), Some("Timeout"), Iterable.empty)
+    case CompletionResponse.NoStatusInResponse(_) =>
+      GrpcStatus.toJavaBuilder(
+        Code.INTERNAL.value(),
+        Some("Missing status in completion response."),
+        Iterable.empty,
+      )
+  }
+
+  private def buildException(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
+    val details = mergeDetails(metadata, status)
     protobuf.StatusProto.toStatusException(
       status
-        .addDetails(details)
+        .clearDetails()
+        .addAllDetails(details.asJava)
         .build()
     )
   }
 
-  private def extractStatus(response: CompletionFailure) = response match {
-    case CompletionResponse.NotOkResponse(_, grpcStatus) =>
-      rpc.Status.newBuilder().setCode(grpcStatus.code).setMessage(grpcStatus.message)
-    case CompletionResponse.TimeoutResponse(_) =>
-      rpc.Status.newBuilder().setCode(Code.ABORTED.value()).setMessage("Timeout")
-    case CompletionResponse.NoStatusInResponse(_) =>
-      rpc.Status
-        .newBuilder()
-        .setCode(Code.INTERNAL.value())
-        .setMessage("Missing status in completion response.")
+  private def mergeDetails(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
+    val previousDetails = status.getDetailsList.asScala
+    val newDetails = if (previousDetails.exists(_.is(classOf[ErrorInfo]))) {
+      previousDetails.map {
+        case detail if detail.is(classOf[ErrorInfo]) =>
+          val previousErrorInfo: ErrorInfo = detail.unpack(classOf[ErrorInfo])
+          val newErrorInfo = previousErrorInfo.toBuilder.putAllMetadata(metadata.asJava).build()
+          AnyProto.pack(newErrorInfo)
+        case otherDetail => otherDetail
+      }
+    } else {
+      previousDetails :+ AnyProto.pack(
+        ErrorInfo.newBuilder().putAllMetadata(metadata.asJava).build()
+      )
+    }
+    newDetails
   }
 }

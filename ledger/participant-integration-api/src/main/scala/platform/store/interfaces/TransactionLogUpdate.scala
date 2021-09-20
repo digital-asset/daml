@@ -9,7 +9,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.ledger.EventId
-import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 
@@ -79,11 +78,11 @@ object TransactionLogUpdate {
       templateId: Identifier,
       commandId: String,
       workflowId: String,
-      contractKey: Option[LfValue.VersionedValue[events.ContractId]],
+      contractKey: Option[LfValue.VersionedValue],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
       submitters: Set[String],
-      createArgument: LfValue.VersionedValue[events.ContractId],
+      createArgument: LfValue.VersionedValue,
       createSignatories: Set[String],
       createObservers: Set[String],
       createAgreementText: Option[String],
@@ -100,15 +99,15 @@ object TransactionLogUpdate {
       templateId: Identifier,
       commandId: String,
       workflowId: String,
-      contractKey: Option[LfValue.VersionedValue[events.ContractId]],
+      contractKey: Option[LfValue.VersionedValue],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
       submitters: Set[String],
       choice: String,
       actingParties: Set[IdString.Party],
       children: Seq[String],
-      exerciseArgument: LfValue.VersionedValue[ContractId],
-      exerciseResult: Option[LfValue.VersionedValue[ContractId]],
+      exerciseArgument: LfValue.VersionedValue,
+      exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,
   ) extends Event
 }

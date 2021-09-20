@@ -81,7 +81,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+  ): Future[Option[ContractInst[Value.VersionedValue]]] =
     Timed.future(metrics.daml.index.lookupContract, ledger.lookupContract(contractId, forParties))
 
   override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit

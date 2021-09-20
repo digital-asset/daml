@@ -5,7 +5,6 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.value.Value
 
 sealed abstract class TransactionVersion private (val protoValue: String, private val index: Int)
     extends Product
@@ -66,8 +65,8 @@ object TransactionVersion {
   }
 
   private[lf] def asVersionedTransaction(
-      tx: GenTransaction[NodeId, Value.ContractId]
-  ): VersionedTransaction[NodeId, Value.ContractId] = {
+      tx: GenTransaction[NodeId]
+  ): VersionedTransaction[NodeId] = {
     import scala.Ordering.Implicits.infixOrderingOps
 
     tx match {
@@ -83,7 +82,7 @@ object TransactionVersion {
     }
   }
 
-  private[lf] val StableVersions: VersionRange[TransactionVersion] =
+  val StableVersions: VersionRange[TransactionVersion] =
     LanguageVersion.StableVersions.map(assignNodeVersion)
 
   private[lf] val EarlyAccessVersions: VersionRange[TransactionVersion] =

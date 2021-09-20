@@ -18,8 +18,10 @@ import scala.util.Try
 
 private[tracker] final case class CommandTrackerShape[Context](
     submitRequestIn: Inlet[Ctx[Context, CommandSubmission]],
-    submitRequestOut: Outlet[Ctx[(Context, String), CommandSubmission]],
-    commandResultIn: Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]],
+    submitRequestOut: Outlet[Ctx[(Context, TrackedCommandKey), CommandSubmission]],
+    commandResultIn: Inlet[
+      Either[Ctx[(Context, TrackedCommandKey), Try[Empty]], CompletionStreamElement]
+    ],
     resultOut: Outlet[Ctx[Context, Either[CompletionFailure, CompletionSuccess]]],
     offsetOut: Outlet[LedgerOffset],
 ) extends Shape {

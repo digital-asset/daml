@@ -71,6 +71,10 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           newTimeModel = oldTimeModel,
         )
         .mustFail("setting a time model with an expired MRT")
+
+      // Above operation finished on a timeout, but may still succeed asynchronously.
+      // Stabilize the ledger state before leaving the test case.
+      _ <- stabilize(ledger)
     } yield {
       assert(
         response1.configurationGeneration < response2.configurationGeneration,
@@ -86,7 +90,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         "Restoring the original time model failed",
       )
 
-      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, "")
+      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, exceptionMessageSubstring = None)
     }
   })
 
@@ -126,7 +130,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("setting Time Model with an outdated generation")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "")
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
     }
   })
 
@@ -187,7 +191,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionId",
+    "CMDuplicateSubmissionId",
     "Duplicate submission ids are accepted when config changed twice",
     allocate(NoParties, NoParties),
     runConcurrently = false,
@@ -234,10 +238,17 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       case Success(value: SetTimeModelResponse) =>
         Success(Some(value))
       case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-          if (notAuthorizedPattern.matcher(msg).find()) =>
+          if notAuthorizedPattern.matcher(msg).find() =>
         Success(None)
       case Failure(failure) =>
         Failure(failure)
 
     }
+
+  // Stabilize the ledger by writing a new element and observing it in the indexDb.
+  // The allocateParty method fits the bill.
+  private def stabilize(ledger: ParticipantTestContext)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] =
+    ledger.allocateParty().map(_ => ())
 }
