@@ -30,7 +30,8 @@ The *Query Store* is built by saving the state of the ACS up to the current ledg
 offset. This allows the *HTTP-JSON API* to only request the delta on subsequent queries,
 making it much faster than having to request the entire ACS every time.
 
-Given the cache like semantics of the *Query Store* it is safe to drop and re-initialize the store at any point
+Given the cache like semantics of the *Query Store* it is safe to drop and re-initialize the store at any point,
+though there may be a temporary performance impact while the *Query Store* is being rebuilt.
 
 For example to enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, as shown below.
 
