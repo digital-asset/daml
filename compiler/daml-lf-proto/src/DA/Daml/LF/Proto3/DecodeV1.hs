@@ -638,7 +638,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
   LF1.ExprSumToInterface _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
     error "to_interface not yet implemented"
-  LF1.ExprSomFromInterface _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
+  LF1.ExprSumFromInterface _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
     error "from_interface not yet implemented"
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
