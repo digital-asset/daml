@@ -36,6 +36,13 @@ version_specific = {
 }
 
 netty_version = "4.1.68.Final"
+# ** Upgrading tcnative in sync with main netty version **
+# Look for "tcnative.version" in top-level pom.xml.
+# For example for netty version netty-4.1.68.Final look here https://github.com/netty/netty/blob/netty-4.1.68.Final/pom.xml#L511:
+# ```
+# <tcnative.version>2.0.42.Final</tcnative.version>
+# ```
+netty_tcnative_version = "2.0.42.Final"
 grpc_version = "1.35.0"
 akka_version = "2.6.13"
 
@@ -129,7 +136,7 @@ def install_java_deps():
             "io.netty:netty-handler:{}".format(netty_version),
             "io.netty:netty-handler-proxy:{}".format(netty_version),
             "io.netty:netty-resolver:{}".format(netty_version),
-            "io.netty:netty-tcnative-boringssl-static:2.0.36.Final",
+            "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
             # protobuf
             "com.google.protobuf:protobuf-java:3.17.1",
             #scalapb
