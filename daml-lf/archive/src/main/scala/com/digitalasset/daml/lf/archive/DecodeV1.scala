@@ -288,11 +288,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         }
       }
 
-      val interfaceDataTypes = interfaces.view.map { case (k, _) => k -> DDataType.Interface }
-
       Module(
         moduleName,
-        interfaceDataTypes ++ defs,
+        defs,
         templates,
         exceptions,
         interfaces,

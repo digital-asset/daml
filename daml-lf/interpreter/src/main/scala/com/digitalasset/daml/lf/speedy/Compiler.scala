@@ -1017,7 +1017,7 @@ private[lf] final class Compiler(
       ifaceId: TypeConName,
       choice: InterfaceChoice,
   ): (SDefinitionRef, SDefinition) =
-    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 2) { case List(cidPos, choiceArgPos, _) =>
+    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) { case List(cidPos, choiceArgPos, _) =>
       withEnv { _ =>
         let(
           SBUPreFetchInterface(ifaceId)(svar(cidPos))

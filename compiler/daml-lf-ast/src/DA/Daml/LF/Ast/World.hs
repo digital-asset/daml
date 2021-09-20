@@ -18,9 +18,10 @@ module DA.Daml.LF.Ast.World(
     lookupTypeSyn,
     lookupDataType,
     lookupChoice,
+    lookupInterfaceChoice,
     lookupValue,
     lookupModule,
-    lookupInterface
+    lookupInterface,
     ) where
 
 import DA.Pretty
@@ -148,6 +149,14 @@ lookupChoice :: (Qualified TypeConName, ChoiceName) -> World -> Either LookupErr
 lookupChoice (tplRef, chName) world = do
   tpl <- lookupTemplate tplRef world
   case NM.lookup chName (tplChoices tpl) of
+    Nothing -> Left (LEChoice tplRef chName)
+    Just choice -> Right choice
+
+lookupInterfaceChoice ::
+     (Qualified TypeConName, ChoiceName) -> World -> Either LookupError InterfaceChoice
+lookupInterfaceChoice (tplRef, chName) world = do
+  iface <- lookupInterface tplRef world
+  case NM.lookup chName (intChoices iface) of
     Nothing -> Left (LEChoice tplRef chName)
     Just choice -> Right choice
 

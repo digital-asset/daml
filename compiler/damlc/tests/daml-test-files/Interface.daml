@@ -3,7 +3,6 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @WARN Modules compiled with the DatatypeContexts language extension
--- @ERROR Interfaces not supported
 {-# LANGUAGE DatatypeContexts #-}
 
 module Interface where

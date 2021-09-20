@@ -38,6 +38,7 @@ data Name
     | NEnumCon ModuleName TypeConName VariantConName
     | NField ModuleName TypeConName FieldName
     | NChoice ModuleName TypeConName ChoiceName
+    | NInterface ModuleName TypeConName
 
 -- | Helper method so we can turn collisions with virtual modules into warnings
 -- instead of errors for now.
@@ -68,6 +69,8 @@ displayName = \case
         T.concat ["field ", dot m, ":", dot t, ".", f]
     NChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
         T.concat ["choice ", dot m, ":", dot t, ".", c]
+    NInterface (ModuleName m) (TypeConName t) ->
+        T.concat ["interface ", dot m, ":", dot t]
   where
     dot = T.intercalate "."
 
@@ -122,6 +125,8 @@ fullyResolve = FRName . map T.toLower . \case
         m ++ t ++ [f]
     NChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
         m ++ t ++ [c]
+    NInterface (ModuleName m) (TypeConName t) ->
+        m ++ t
 
 -- | State of the name collision checker. This is a
 -- map from fully resolved names within a package to their
@@ -188,8 +193,7 @@ checkDataType moduleName DefDataType{..} =
             forM_ constrs $ \vconName -> do
                 checkName (NEnumCon moduleName dataTypeCon vconName)
 
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        DataInterface -> error "interfaces are not implemented"
+        DataInterface -> checkName (NInterface moduleName dataTypeCon)
 
 checkTemplate :: ModuleName -> Template -> NCMonad ()
 checkTemplate moduleName Template{..} = do
