@@ -21,9 +21,11 @@ final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
   /** Filters the items coming via the observer and takes the first N.
     */
   def filterTake(predicate: A => Boolean)(sizeCap: Int): Future[Vector[A]] = {
-    val observer = new FiniteStreamObserver[A]
-    attach(new SizeBoundObserver(sizeCap)(new ObserverFilter(predicate)(observer)))
-    observer.result
+    val finiteObserver = new FiniteStreamObserver[A]
+    val sizeBoundObserver = new SizeBoundObserver(sizeCap)(finiteObserver)
+    val filteringObserver = new ObserverFilter(predicate)(sizeBoundObserver)
+    attach(filteringObserver)
+    finiteObserver.result
   }
 
   def take(sizeCap: Int): Future[Vector[A]] = {
@@ -32,8 +34,8 @@ final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
     observer.result
   }
 
-  def find(predicate: A => Boolean)(implicit ec: ExecutionContext): Future[Option[A]] =
-    filterTake(predicate)(sizeCap = 1).map(_.headOption)
+  def find(predicate: A => Boolean)(implicit ec: ExecutionContext): Future[A] =
+    filterTake(predicate)(sizeCap = 1).map(_.head)
 
   def first()(implicit ec: ExecutionContext): Future[Option[A]] =
     take(1).map(_.headOption)
