@@ -99,7 +99,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
         val invalidPackages = unloadModules ++ newPackages.keys
         val newExtSignature = extSignatures -- unloadPackages ++ AstUtil.toSignatures(newPackages)
-        val interface = new language.Interface(newExtSignature)
+        val interface = new language.PackageInterface(newExtSignature)
         val newExtDefns = extDefns.view.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
           assertRight(Compiler.compilePackages(interface, newPackages, compilerConfig))
         // we update only if we manage to compile the new packages
@@ -112,7 +112,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         newModules
       }
 
-    val interface = new language.Interface(this.allSignatures)
+    val interface = new language.PackageInterface(this.allSignatures)
     val compiler = new Compiler(interface, compilerConfig)
 
     modulesToCompile.foreach { mod =>

@@ -6,7 +6,7 @@ package com.daml.lf.validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, Interface}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 
 private[validation] object Serializability {
 
@@ -14,7 +14,7 @@ private[validation] object Serializability {
 
   case class Env(
       languageVersion: LanguageVersion,
-      interface: Interface,
+      interface: PackageInterface,
       ctx: Context,
       requirement: SerializabilityRequirement,
       typeToSerialize: Type,
@@ -99,7 +99,7 @@ private[validation] object Serializability {
 
   def checkDataType(
       version: LanguageVersion,
-      interface: Interface,
+      interface: PackageInterface,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
       dataCons: DataCons,
@@ -126,7 +126,7 @@ private[validation] object Serializability {
   // in particular choice argument types and choice return types are of kind KStar
   def checkTemplate(
       version: LanguageVersion,
-      interface: Interface,
+      interface: PackageInterface,
       tyCon: TTyCon,
       template: Template,
   ): Unit = {
@@ -141,14 +141,14 @@ private[validation] object Serializability {
 
   def checkException(
       version: LanguageVersion,
-      interface: Interface,
+      interface: PackageInterface,
       tyCon: TTyCon,
   ): Unit = {
     val context = ContextDefException(tyCon.tycon)
     Env(version, interface, context, SRExceptionArg, tyCon).checkType()
   }
 
-  def checkModule(interface: Interface, pkgId: PackageId, module: Module): Unit = {
+  def checkModule(interface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
     val version = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>

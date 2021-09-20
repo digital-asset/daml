@@ -9,7 +9,7 @@ import java.nio.file.Paths
 import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, Interface, LanguageVersion}
+import com.daml.lf.language.{Ast, PackageInterface, LanguageVersion}
 import com.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.daml.lf.validation.Validation
 import com.daml.SdkVersion
@@ -71,7 +71,7 @@ private[daml] object DamlLfEncoder extends App {
 
     val pkg =
       Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
-    val pkgs = Interface(Map(pkgId -> pkg))
+    val pkgs = PackageInterface(Map(pkgId -> pkg))
 
     Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
 
