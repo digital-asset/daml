@@ -9,7 +9,7 @@ object TestConfiguration {
 
   lazy val timeoutInSeconds: Long = {
     val key: String = "JAVA_BINDINGS_API_TESTS_TIMEOUT_SECONDS"
-    val default: Long = 5
+    val default: Long = 10
     sys.env.get(key).fold(default)(value => Try(value.toLong).getOrElse(default))
   }
 
