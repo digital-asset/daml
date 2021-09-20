@@ -84,14 +84,15 @@ trait IngestionStorageBackend[DB_BATCH] {
     */
   def insertBatch(connection: Connection, batch: DB_BATCH): Unit
 
-  /** Custom initialization code before the start of an ingestion.
-    * This method is responsible for the recovery after a possibly non-graceful stop of previous indexing.
+  /** Deletes all partially ingested data, written during a non-graceful stop of previous indexing.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
-    * @param connection to be used when initializing
-    * @return the LedgerEnd, which should be the basis for further indexing.
+    * @param ledgerEnd the current ledger end, or None if no ledger end exists
+    * @param connection to be used when inserting the batch
     */
-  def initializeIngestion(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
+  def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
+      connection: Connection
+  ): Unit
 }
 
 trait ParameterStorageBackend {

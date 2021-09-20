@@ -8,19 +8,23 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.{binaryStream, int, long, str}
-import anorm.{~, RowParser}
+import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Conversions.{instantFromMicros, offset}
 import com.daml.platform.store.backend.CompletionStorageBackend
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.google.protobuf.any
 import com.google.rpc.status.{Status => StatusProto}
 
 trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
+
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   def queryStrategy: QueryStrategy
 
@@ -150,4 +154,21 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
     rejectionStatusDetails
       .map(stream => StatusDetails.parseFrom(stream).details)
       .getOrElse(Seq.empty)
+
+  def pruneCompletions(
+      pruneUpToInclusive: Offset
+  )(connection: Connection, loggingContext: LoggingContext): Unit = {
+    pruneWithLogging(queryDescription = "Command completions pruning") {
+      import com.daml.platform.store.Conversions.OffsetToStatement
+      SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
+    }(connection, loggingContext)
+  }
+
+  private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit = {
+    val deletedRows = query.executeUpdate()(connection)
+    logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(loggingContext)
+  }
 }

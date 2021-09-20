@@ -15,12 +15,17 @@ import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
-  CommonStorageBackend,
   CompletionStorageBackendTemplate,
+  ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
+  DataSourceStorageBackendTemplate,
+  DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
+  IngestionStorageBackendTemplate,
   InitHookDataSourceProxy,
+  PackageStorageBackendTemplate,
+  ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
   Timestamp,
@@ -37,7 +42,12 @@ import javax.sql.DataSource
 
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
-    with CommonStorageBackend[AppendOnlySchema.Batch]
+    with DataSourceStorageBackendTemplate
+    with IngestionStorageBackendTemplate[AppendOnlySchema.Batch]
+    with ParameterStorageBackendTemplate
+    with ConfigurationStorageBackendTemplate
+    with PackageStorageBackendTemplate
+    with DeduplicationStorageBackendTemplate
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
