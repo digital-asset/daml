@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 package explore
 
-import com.daml.lf.language.Interface
+import com.daml.lf.language.PackageInterface
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
@@ -25,7 +25,7 @@ object PlaySpeedy {
 
   def main(args0: List[String]) = {
     val config: Config = parseArgs(args0)
-    val compiler: Compiler = new Compiler(Interface.Empty, compilerConfig)
+    val compiler: Compiler = new Compiler(PackageInterface.Empty, compilerConfig)
 
     val names: List[String] = config.names match {
       case Nil => examples.toList.map(_._1)

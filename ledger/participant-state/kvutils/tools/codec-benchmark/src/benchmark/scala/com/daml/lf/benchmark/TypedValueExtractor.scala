@@ -13,7 +13,7 @@ import com.google.protobuf.ByteString
 import scala.jdk.CollectionConverters._
 import scala.Ordering.Implicits._
 
-final class TypedValueExtractor(interface: language.Interface) {
+final class TypedValueExtractor(interface: language.PackageInterface) {
 
   private[this] def handleLookup[X](lookup: => Either[language.LookupError, X]) =
     lookup match {

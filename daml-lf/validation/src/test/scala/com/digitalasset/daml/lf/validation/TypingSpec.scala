@@ -5,7 +5,7 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Interface, LookupError, Reference, LanguageVersion => LV}
+import com.daml.lf.language.{PackageInterface, LookupError, Reference, LanguageVersion => LV}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.{defaultLanguageVersion, defaultPackageId}
 import com.daml.lf.validation.SpecUtil._
@@ -1045,7 +1045,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        Interface(Map(defaultPackageId -> pkg)),
+        PackageInterface(Map(defaultPackageId -> pkg)),
         defaultPackageId,
         pkg.modules(DottedName.assertFromString(modName)),
       )
@@ -1115,7 +1115,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       """
 
     def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-      Interface(Map(defaultPackageId -> pkg)),
+      PackageInterface(Map(defaultPackageId -> pkg)),
       defaultPackageId,
       pkg.modules(DottedName.assertFromString(modName)),
     )
@@ -1144,7 +1144,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       """
 
     val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
-    Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+    Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
   }
 
   "expand type synonyms correctly" in {
@@ -1208,7 +1208,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
     def checkModule(mod: Module) = {
       val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
-      Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
     val negativeTestCases = Table(
@@ -1230,7 +1230,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
     def checkModule(mod: Module) = {
       val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
-      Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
     val negativeTestCases = Table(
@@ -1252,7 +1252,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
     def checkModule(mod: Module) = {
       val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
-      Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
     val negativeTestCases = Table(
@@ -1324,6 +1324,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
      """
 
   private val env =
-    Typing.Env(LV.default, Interface(Map(defaultPackageId -> pkg)), NoContext)
+    Typing.Env(LV.default, PackageInterface(Map(defaultPackageId -> pkg)), NoContext)
 
 }

@@ -5,7 +5,7 @@ package com.daml.lf
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.{Package, PackageSignature}
-import com.daml.lf.language.{Interface, Util}
+import com.daml.lf.language.{PackageInterface, Util}
 import com.daml.lf.speedy.SExpr.SDefinitionRef
 import com.daml.lf.speedy.{Compiler, SDefinition}
 
@@ -17,7 +17,7 @@ private[lf] abstract class CompiledPackages(
 ) {
   def getDefinition(dref: SDefinitionRef): Option[SDefinition]
   def packageIds: scala.collection.Set[PackageId]
-  def interface: Interface
+  def interface: PackageInterface
   def definitions: PartialFunction[SDefinitionRef, SDefinition] =
     Function.unlift(this.getDefinition)
 
@@ -29,7 +29,7 @@ private[lf] abstract class CompiledPackages(
   */
 private[lf] final class PureCompiledPackages(
     val packageIds: Set[PackageId],
-    val interface: Interface,
+    val interface: PackageInterface,
     val defns: Map[SDefinitionRef, SDefinition],
     compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
@@ -46,14 +46,14 @@ private[lf] object PureCompiledPackages {
       defns: Map[SDefinitionRef, SDefinition],
       compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
-    new PureCompiledPackages(packages.keySet, new Interface(packages), defns, compilerConfig)
+    new PureCompiledPackages(packages.keySet, new PackageInterface(packages), defns, compilerConfig)
 
   def build(
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config = Compiler.Config.Default,
   ): Either[String, PureCompiledPackages] = {
     Compiler
-      .compilePackages(Interface(packages), packages, compilerConfig)
+      .compilePackages(PackageInterface(packages), packages, compilerConfig)
       .map(apply(Util.toSignatures(packages), _, compilerConfig))
   }
 

@@ -105,7 +105,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     import defaultParserParameters.defaultPackageId
     val rawPkgs = Map(defaultPackageId -> pkg)
     Validation.checkPackage(
-      language.Interface(rawPkgs),
+      language.PackageInterface(rawPkgs),
       defaultParserParameters.defaultPackageId,
       pkg,
     )

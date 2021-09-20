@@ -7,7 +7,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, Interface}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
@@ -256,7 +256,7 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(interface: Interface, pkgId: PackageId, mod: Module): Unit = {
+  def checkModule(interface: PackageInterface, pkgId: PackageId, mod: Module): Unit = {
     val langVersion = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
@@ -314,7 +314,7 @@ private[validation] object Typing {
 
   case class Env(
       languageVersion: LanguageVersion,
-      interface: Interface,
+      interface: PackageInterface,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
       eVars: Map[ExprVarName, Type] = Map.empty,

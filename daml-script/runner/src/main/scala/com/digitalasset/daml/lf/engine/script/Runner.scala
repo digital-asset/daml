@@ -30,7 +30,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.language.{PackageInterface, LanguageVersion}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
@@ -352,7 +352,7 @@ private[lf] class Runner(
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
-      override def interface: Interface = compiledPackages.interface
+      override def interface: PackageInterface = compiledPackages.interface
       override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SDefinition] =

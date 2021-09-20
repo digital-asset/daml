@@ -15,7 +15,7 @@ import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import java.nio.file.Files
 
-import com.daml.lf.language.{Interface, LanguageVersion, LookupError, StablePackages}
+import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
 import com.daml.lf.validation.Validation
 import com.daml.nameof.NameOf
 
@@ -456,7 +456,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       pkgIds = pkgs.keySet
       missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
       _ <- Either.cond(missingDeps.isEmpty, (), Error.Package.SelfConsistency(pkgIds, missingDeps))
-      interface = Interface(pkgs)
+      interface = PackageInterface(pkgs)
       _ <- {
         pkgs.iterator
           // we trust already loaded packages

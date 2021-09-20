@@ -517,7 +517,7 @@ object SpeedyTest {
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     import defaultParserParameters.defaultPackageId
     val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(language.Interface(rawPkgs), defaultPackageId, pkg)
+    Validation.checkPackage(language.PackageInterface(rawPkgs), defaultPackageId, pkg)
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = FullStackTrace)
     PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }

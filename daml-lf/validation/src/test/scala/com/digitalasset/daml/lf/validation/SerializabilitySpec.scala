@@ -348,7 +348,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
      """
 
   private val defaultInterface = interface(defaultPkg)
-  private def interface(pkg: Package) = language.Interface(Map(defaultPackageId -> pkg))
+  private def interface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
 
   private def check(pkg: Package, modName: String): Unit = {
     val w = interface(pkg)

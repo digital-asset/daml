@@ -15,7 +15,7 @@ import com.daml.lf.value.Value._
 import scala.annotation.tailrec
 
 private[engine] final class ValueTranslator(
-    interface: language.Interface,
+    interface: language.PackageInterface,
     // See Preprocessor scala doc for more details about the following flags.
     forbidV0ContractId: Boolean,
     requireV1ContractIdSuffix: Boolean,

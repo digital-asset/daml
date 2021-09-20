@@ -71,13 +71,13 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
 
     forEvery(negativeTestCases) { pkgs =>
       pkgs.foreach { case (pkgId, pkg) =>
-        DependencyVersion.checkPackage(language.Interface(pkgs), pkgId, pkg)
+        DependencyVersion.checkPackage(language.PackageInterface(pkgs), pkgId, pkg)
       }
     }
 
     forEvery(postiveTestCase) { case ((pkgdId, _), pkgs) =>
       an[EModuleVersionDependencies] should be thrownBy
-        DependencyVersion.checkPackage(language.Interface(pkgs), pkgdId, pkgs(pkgdId))
+        DependencyVersion.checkPackage(language.PackageInterface(pkgs), pkgdId, pkgs(pkgdId))
     }
 
   }

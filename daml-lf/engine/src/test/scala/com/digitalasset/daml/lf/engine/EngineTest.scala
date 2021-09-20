@@ -69,7 +69,7 @@ class EngineTest
     "daml-lf/tests/BasicTests.dar"
   )
 
-  val basicTestsSignatures = language.Interface(Map(basicTestsPkgId -> basicTestsPkg))
+  val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
@@ -561,7 +561,7 @@ class EngineTest
     }
 
     val let = Time.Timestamp.now()
-    val submissionSeed = hash("multi-party create command")
+    val submissionSeed = hash("multi-party create command2")
 
     def interpretResult(
         templateId: String,
