@@ -158,7 +158,7 @@ You can see all the active milestones [here](https://github.com/digital-asset/da
 
 Please hold discussions that are relevant to Daml development and not confidential in GitHub issues. That way, anyone who wants to contribute or follow along can do so. If you have private discussions, please summarise them in an issue or comment to an issue.
 
-You can also participate in the discussion at the following link: [discuss.daml.com](https://discuss.daml.com/).
+You can also participate in the discussions at the following link: [discuss.daml.com](https://discuss.daml.com/).
 
 # Thank you!
 
