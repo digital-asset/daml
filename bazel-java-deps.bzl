@@ -35,7 +35,7 @@ version_specific = {
     ],
 }
 
-netty_version = "4.1.58.Final"
+netty_version = "4.1.68.Final"
 grpc_version = "1.35.0"
 akka_version = "2.6.13"
 
