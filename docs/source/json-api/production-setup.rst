@@ -20,9 +20,13 @@ query performance. Details for enabling a query store are highlighted below.
 Query Store
 ***********
 
+.. note:: The Community Edition of Daml Connect only supports PostgreSQL backends for the *HTTP JSON API* server, but the Enterprise Edition also supports Oracle backends.
+
 Query store can be described as a cached search index and is useful for use-cases
-where we need to query large active contract sets. The *HTTP-JSON API* server can be configured
-with PostgreSQL/Oracle(Enterprise Edition only) as the query-store backend.
+where we need to query large active contract sets. The *HTTP-JSON API* server can be
+configured with PostgreSQL/Oracle(Enterprise Edition only) as the query-store backend.
+
+.. note:: Given the cache like semantics of the query store it is safe to drop and re-initialize the database at any point
 
 For example to enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, as shown below.
 
@@ -31,13 +35,19 @@ For example to enable the PostgreSQL backend you can use the ``--query-store-jdb
     daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
     --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=start-only"
 
-For using the Query Store you'll want your first run to specify ``start-mode=create-only``
-so that all the necessary tables are created. After the first run make
-sure its set to ``start-mode=start-only`` so that it doesn't attempt to create
-the tables again.
-
 If you are not familiar with JDBC URLs, we recommend reading the `PostgreSQL JDBC documentation <https://jdbc.postgresql.org/documentation/head/connect.html>`__
 for more information.
+
+The ``start-mode`` above simplifies re-initializing the database as well as allowing
+for usage of separate credentials.
+For example you can run the *HTTP-JSON API* server with ``start-mode=create-only``
+so that all the necessary tables are created using one set of credentials, you can
+then start the server with ``start-mode=start-only`` to use these tables.
+
+Alternatively using ``start-mode=create-if-needed-and-start`` will create the
+tables if missing on startup, whereas using ``start-mode=create-and-start``
+will re-initialize the database on startup.
+
 
 .. note:: The full list of query store configuration flags supported can be seen by running ``daml json-api --help``.
 
@@ -57,6 +67,8 @@ TLS support, to enable TLS you need to specify the private key for your server a
 certificate chain via ``daml json-api --pem server.pem --crt server.crt``. You can also
 set a custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``
 
+For more details on secure DAML infrastructure setup please refer to this `reference implementation <https://github.com/digital-asset/ex-secure-daml-infra>`__
+
 
 Architecture
 ************
@@ -73,10 +85,10 @@ A production setup of the *HTTP-JSON API* will involve the following components:
 *HTTP-JSON API* server exposes an API to interact with the Ledger and it uses JDBC to interact
 with its underlying query store for caching and serving data efficiently.
 
-The *HTTP-JSON API* server releases are regularly tested with OpenJDK 8 on a 64-bit x86 architecture,
+The *HTTP-JSON API* server releases are regularly tested with OpenJDK 8 on a x86_64 architecture,
 with Ubuntu 20.04, macOS 11.5.2 and Windows Server 2016.
 
-In production, we recommend running on a 64-bit x86 architecture in a Linux
+In production, we recommend running on a x86_64 architecture in a Linux
 environment. This environment should have a Java SE Runtime Environment such
 as OpenJDK JRE and must be compatible with OpenJDK version 1.8.0_202 or later.
 We recommend using PostgreSQL server as query-store, most of our tests have
@@ -95,18 +107,18 @@ components are **physically co-located** to reduce network latency for
 communication. The scaling and availability aspects heavily rely on the interactions between
 the core components listed above.
 
-With respect to scaling we recommend to follow the general advice in trying to
+With respect to vertical scaling we recommend to follow the general advice in trying to
 understand the bottlenecks and see if adding additional processing power/memory
 i.e vertical scaling is beneficial.
 
-In general for horizontal scaling purposes , we recommend to treat the
+In general, for horizontal scaling purposes , we recommend to treat the
 *HTTP-JSON API* and the *query store database server* as a single unit for scaling.
 While a setup with multiple *HTTP-JSON API* services running against a single backend
 database server is feasible, it maybe a futile exercise if the database server
 itself is the bottleneck.
 
 We can run a redundant setup for the *HTTP-JSON API* by using a reverse proxy server with some
-acceptable routing mechanism and then and having multiple *HTTP-JSON API* servers sit behind it
+acceptable routing mechanism and having multiple *HTTP-JSON API* servers sit behind it
 each with their own backend database servers and dedicated computation and memory resources.
 
 Users may consider running PostgreSQL backend in a `high availability configuration <https://www.postgresql.org/docs/current/high-availability.html>`__.
@@ -131,10 +143,14 @@ The logging infrastructure leverages structured logging as implemented by the
 `Logstash Logback Encoder <https://github.com/logstash/logstash-logback-encoder/blob/logstash-logback-encoder-6.3/README.md>`__.
 
 Logged events should carry information about the request being served by the
-*HTTP-JSON API* server. When using a traditional logging target (e.g. standard output
+*HTTP-JSON API* server. This includes the details of the commands being submitted, the endpoints
+being hit and response received highlighting details of failures if any.
+When using a traditional logging target (e.g. standard output
 or rotating files) this information will be part of the log description.
 Using a logging target compatible with the Logstash Logback Encoder allows to have rich
 logs with structured information about the event being logged.
+
+The default log encoder used is the plaintext one for traditional logging targets.
 
 
 
@@ -162,9 +178,9 @@ To enable metrics and configure reporting, you can use the two following CLI opt
     is omitted, the default value ``55001`` will be used. The metrics will be
     available under the address ``http://<server_host>:<server_port>/metrics``.
 
-- ``--metrics-reporting-interval``: metrics are pre-aggregated on the sandbox and sent to
+- ``--metrics-reporting-interval``: metrics are pre-aggregated on the *HTTP-JSON API* and sent to
   the reporter, this option allows the user to set the interval. The formats accepted are based
-  on the ISO-8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
+  on the ISO 8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
   The default interval is 10 seconds.
 
 Types of metrics
@@ -193,7 +209,7 @@ points are kept and reported by any meter.
 Timers
 ------
 
-A timer records all metrics registered by a meter and by an histogram, where
+A timer records all metrics registered by a meter and by a histogram, where
 the histogram records the time necessary to execute a given operation (unless
 otherwise specified, the precision is nanoseconds and the unit of measurement
 is milliseconds).
@@ -201,78 +217,73 @@ is milliseconds).
 List of metrics
 ===============
 
-The following is an exhaustive list of selected metrics
-that can be particularly important to track.
+The following is a list of selected metrics that can be particularly
+important to track.
 
 ``daml.http_json_api.command_submission_timing``
 ------------------------------------------------
 
-A timer. Meters how long processing of a command submission request takes
+A timer. Measures latency for processing of a command submission request.
 
 ``daml.http_json_api.query_all_timing``
 ---------------------------------------
 
-A timer. Meters how long processing of a query GET request takes
+A timer. Measures latency for processing of a query GET request.
 
 ``daml.http_json_api.query_matching_timing``
 --------------------------------------------
 
-A timer. Meters how long processing of a query POST request takes
+A timer. Measures latency for processing of a query POST request.
 
 ``daml.http_json_api.fetch_timing``
 -----------------------------------
 
-A timer. Meters how long processing of a fetch request takes
+A timer. Measures latency for processing of a fetch request.
 
 ``daml.http_json_api.get_party_timing``
 ---------------------------------------
 
-A timer. Meters how long processing of a get party/parties request takes
+A timer. Measures latency for processing of a get party/parties request.
 
 ``daml.http_json_api.allocate_party_timing``
 --------------------------------------------
 
-A timer. Meters how long processing of a party management request takes
+A timer. Measures latency for processing of a party management request.
 
 ``daml.http_json_api.download_package_timing``
 ----------------------------------------------
 
-A timer. Meters how long processing of a package download request takes
+A timer. Measures latency for processing of a package download request.
 
 ``daml.http_json_api.upload_package_timing``
 --------------------------------------------
 
-A timer. Meters how long processing of a package upload request takes
+A timer. Measures latency for processing of a package upload request.
 
 ``daml.http_json_api.incoming_json_parsing_and_validation_timing``
 ------------------------------------------------------------------
 
-A timer. Meters how long parsing and decoding of an incoming json payload takes
+A timer. Measures latency for parsing and decoding of an incoming json payload
 
 ``daml.http_json_api.response_creation_timing``
 -------------------------------------------------------
 
-A timer. Meters how long the construction of the response json payload takes
-
-``daml.http_json_api.response_creation_timing``
--------------------------------------------------------
-
-A timer. Meters how long the construction of the response json payload takes
+A timer. Measures latency for construction of the response json payload.
 
 ``daml.http_json_api.db_find_by_contract_key_timing``
 -----------------------------------------------------
 
-A timer. Meters how long a find by contract key database operation takes
+A timer. Measures latency of the find by contract key database operation.
 
 ``daml.http_json_api.db_find_by_contract_id_timing``
 ----------------------------------------------------
 
-A timer. Meters how long a find by contract id database operation takes
+A timer. Measures latency of the find by contract id database operation.
 
 ``daml.http_json_api.command_submission_ledger_timing``
 -------------------------------------------------------
 
-A timer. Meters how long processing of the command submission request takes on the ledger
+A timer. Measures latency for processing command submission requests on the ledger.
 
 ``daml.http_json_api.http_request_throughput``
 ----------------------------------------------
