@@ -79,8 +79,8 @@ private[engine] final class ValueTranslator(
         throw Error.Preprocessing.ValueNesting(value)
       } else {
         val newNesting = nesting + 1
-        def typeError(msg: String = s"mismatching type: $ty and value: $value0") =
-          throw Error.Preprocessing.TypeMismatch(ty, value0, msg)
+        def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
+          throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
           case TBuiltin(bt) =>
