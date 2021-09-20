@@ -36,6 +36,7 @@ version_specific = {
 }
 
 netty_version = "4.1.68.Final"
+
 # ** Upgrading tcnative in sync with main netty version **
 # Look for "tcnative.version" in top-level pom.xml.
 # For example for netty version netty-4.1.68.Final look here https://github.com/netty/netty/blob/netty-4.1.68.Final/pom.xml#L511:
