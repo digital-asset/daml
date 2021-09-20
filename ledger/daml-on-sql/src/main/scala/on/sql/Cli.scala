@@ -62,6 +62,14 @@ private[sql] final class Cli(
       )
       .action((mode, config) => config.copy(sqlStartMode = PostgresStartupMode.fromString(mode)))
 
+    parser
+      .opt[Int]("max-parallel-submissions")
+      .optional()
+      .action((value, config) => config.copy(maxParallelSubmissions = value))
+      .text(
+        s"Maximum number of successfully interpreted commands waiting to be sequenced. The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a `RESOURCE_EXHAUSTED` error code. Default is ${defaultConfig.maxParallelSubmissions}."
+      )
+
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
     // Even when the value is provided, it still reports that it's missing. Instead, we check the
     // configuration afterwards.

@@ -8,15 +8,8 @@ import java.time.Duration
 /** Reaching either [[inputBufferSize]] or [[maxCommandsInFlight]] will trigger
   * back-pressure by [[com.daml.ledger.client.services.commands.CommandClient]].
   *
-  * Reaching [[maxParallelSubmissions]] will trigger back-pressure
-  * by [[com.daml.platform.sandbox.stores.ledger.sql.SqlLedger]].
-  *
   * @param inputBufferSize
   *        Maximum number of commands waiting to be submitted for each party.
-  * @param maxParallelSubmissions
-  *        Maximum number of commands waiting to be sequenced after being evaluated by the engine.
-  *        This does _not_ apply to on-X ledgers, where sequencing happens after the evaluated
-  *        transaction has been shipped via the WriteService.
   * @param maxCommandsInFlight
   *        Maximum number of submitted commands waiting to be completed for each party.
   * @param trackerRetentionPeriod
@@ -26,7 +19,6 @@ import java.time.Duration
   */
 final case class CommandConfiguration(
     inputBufferSize: Int,
-    maxParallelSubmissions: Int,
     maxCommandsInFlight: Int,
     trackerRetentionPeriod: Duration,
 )
@@ -37,7 +29,6 @@ object CommandConfiguration {
   lazy val default: CommandConfiguration =
     CommandConfiguration(
       inputBufferSize = 512,
-      maxParallelSubmissions = 512,
       maxCommandsInFlight = 256,
       trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
     )
