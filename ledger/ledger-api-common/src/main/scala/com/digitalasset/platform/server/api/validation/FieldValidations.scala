@@ -146,7 +146,7 @@ trait FieldValidations {
         val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
         validateDuration(
           result,
-          s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
+          s"The given deduplication duration of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
         ).map(DeduplicationPeriod.DeduplicationDuration)
       }
 

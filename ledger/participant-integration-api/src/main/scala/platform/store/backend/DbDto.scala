@@ -128,8 +128,8 @@ object DbDto {
       rejection_status_details: Option[Array[Byte]],
       submission_id: Option[String],
       deduplication_offset: Option[String],
-      deduplication_time_seconds: Option[Long],
-      deduplication_time_nanos: Option[Int],
+      deduplication_duration_seconds: Option[Long],
+      deduplication_duration_nanos: Option[Int],
       deduplication_start: Option[Long],
   ) extends DbDto
 
