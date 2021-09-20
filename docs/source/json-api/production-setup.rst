@@ -14,7 +14,7 @@ The *HTTP-JSON API* server is a JVM application that by default uses an in-memor
 This in-memory backend setup is inefficient for larger datasets as for every query it
 ends up fetching the entire active contract set for the templates referenced in that query.
 For this reason for production setups at a minimum we recommend to use a database
-as a query store, this will allow for more efficient caching of the data to improve
+as a *Query Store*, this will allow for more efficient caching of the data to improve
 query performance. Details for enabling a query store are highlighted below.
 
 Query Store
@@ -22,11 +22,15 @@ Query Store
 
 .. note:: The Community Edition of Daml Connect only supports PostgreSQL backends for the *HTTP JSON API* server, but the Enterprise Edition also supports Oracle backends.
 
-Query store can be described as a cached search index and is useful for use-cases
-where we need to query large active contract sets. The *HTTP-JSON API* server can be
+*Query Store* can be described as a cached search index and is useful for use-cases
+where we need to query large active contract sets(ACS). The *HTTP-JSON API* server can be
 configured with PostgreSQL/Oracle(Enterprise Edition only) as the query-store backend.
 
-.. note:: Given the cache like semantics of the query store it is safe to drop and re-initialize the database at any point
+The *Query Store* is built by saving the state of the ACS up to the current ledger
+offset. This allows the *HTTP-JSON API* to only request the delta on subsequent queries,
+making it much faster than having to request the entire ACS every time.
+
+Given the cache like semantics of the *Query Store* it is safe to drop and re-initialize the store at any point
 
 For example to enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, as shown below.
 
@@ -49,7 +53,7 @@ tables if missing on startup, whereas using ``start-mode=create-and-start``
 will re-initialize the database on startup.
 
 
-.. note:: The full list of query store configuration flags supported can be seen by running ``daml json-api --help``.
+.. note:: The full list of *Query Store* configuration flags supported can be seen by running ``daml json-api --help``.
 
 
 Security and privacy
@@ -79,11 +83,11 @@ Components
 A production setup of the *HTTP-JSON API* will involve the following components:
 
 - the *HTTP-JSON API* server
-- the query store backend database server
+- the *Query Store* backend database server
 - the ledger
 
 *HTTP-JSON API* server exposes an API to interact with the Ledger and it uses JDBC to interact
-with its underlying query store for caching and serving data efficiently.
+with its underlying *Query Store* for caching and serving data efficiently.
 
 The *HTTP-JSON API* server releases are regularly tested with OpenJDK 8 on a x86_64 architecture,
 with Ubuntu 20.04, macOS 11.5.2 and Windows Server 2016.
@@ -100,26 +104,30 @@ Scaling and Redundancy
 
 .. note:: This section of the document only talks about scaling and redundancy setup for the *HTTP-JSON API* server. In all of the recommendations suggested below we assume that the JSON API always interacts with a single participant on the ledger.
 
-We advise that the *HTTP-JSON API* server and *query store* components to have dedicated
+We advise that the *HTTP-JSON API* server and *Query Store* components to have dedicated
 computation and memory resources available to them. This can be achieved via
 containerization or setting them up on independent physical servers. Ensure that the two
 components are **physically co-located** to reduce network latency for
 communication. The scaling and availability aspects heavily rely on the interactions between
 the core components listed above.
 
-With respect to vertical scaling we recommend to follow the general advice in trying to
-understand the bottlenecks and see if adding additional processing power/memory
-i.e vertical scaling is beneficial.
+With respect to scaling we recommend to follow the general advice in trying to
+understand the bottlenecks and see if adding additional processing power/memory is beneficial.
 
-In general, for horizontal scaling purposes , we recommend to treat the
-*HTTP-JSON API* and the *query store database server* as a single unit for scaling.
-While a setup with multiple *HTTP-JSON API* services running against a single backend
-database server is feasible, it maybe a futile exercise if the database server
-itself is the bottleneck.
+The *HTTP-JSON API* can be scaled independently of its *Query Store*.
+You can have any number of *HTTP-JSON API* instances talking to the same *Query Store*
+(if, for example, your monitoring indicates that the *HTTP-JSON API* processing time is the bottleneck),
+or have each HTTP JSON API instance talk to its own independent *Query Store*
+(if the database response times are the bottleneck).
 
-We can run a redundant setup for the *HTTP-JSON API* by using a reverse proxy server with some
-acceptable routing mechanism and having multiple *HTTP-JSON API* servers sit behind it
-each with their own backend database servers and dedicated computation and memory resources.
+In the latter case, the Daml privacy model ensures that the *HTTP-JSON API* requests
+are made using the user-provided token, thus the data stored in a given
+*Query Store* will be specific to the set of parties that have made queries through
+that specific *Query Store* instance (for a given template).
+Therefore, if you do run with separate *Query Stores*, it may be useful to route queries
+(using a reverse proxy server) based on requesting party (and possibly queried template),
+which would minimize the amount of data in each *Query Store* as well as the overall
+redundancy of said data.
 
 Users may consider running PostgreSQL backend in a `high availability configuration <https://www.postgresql.org/docs/current/high-availability.html>`__.
 The benefits of this are use-case dependent as this may be more expensive for
@@ -210,9 +218,8 @@ Timers
 ------
 
 A timer records all metrics registered by a meter and by a histogram, where
-the histogram records the time necessary to execute a given operation (unless
-otherwise specified, the precision is nanoseconds and the unit of measurement
-is milliseconds).
+the histogram records the time necessary to execute a given operation (
+in fractional milliseconds).
 
 List of metrics
 ===============
@@ -223,67 +230,67 @@ important to track.
 ``daml.http_json_api.command_submission_timing``
 ------------------------------------------------
 
-A timer. Measures latency for processing of a command submission request.
+A timer. Measures latency (in milliseconds) for processing of a command submission request.
 
 ``daml.http_json_api.query_all_timing``
 ---------------------------------------
 
-A timer. Measures latency for processing of a query GET request.
+A timer. Measures latency (in milliseconds) for processing of a query GET request.
 
 ``daml.http_json_api.query_matching_timing``
 --------------------------------------------
 
-A timer. Measures latency for processing of a query POST request.
+A timer. Measures latency (in milliseconds) for processing of a query POST request.
 
 ``daml.http_json_api.fetch_timing``
 -----------------------------------
 
-A timer. Measures latency for processing of a fetch request.
+A timer. Measures latency (in milliseconds) for processing of a fetch request.
 
 ``daml.http_json_api.get_party_timing``
 ---------------------------------------
 
-A timer. Measures latency for processing of a get party/parties request.
+A timer. Measures latency (in milliseconds) for processing of a get party/parties request.
 
 ``daml.http_json_api.allocate_party_timing``
 --------------------------------------------
 
-A timer. Measures latency for processing of a party management request.
+A timer. Measures latency (in milliseconds) for processing of a party management request.
 
 ``daml.http_json_api.download_package_timing``
 ----------------------------------------------
 
-A timer. Measures latency for processing of a package download request.
+A timer. Measures latency (in milliseconds) for processing of a package download request.
 
 ``daml.http_json_api.upload_package_timing``
 --------------------------------------------
 
-A timer. Measures latency for processing of a package upload request.
+A timer. Measures latency (in milliseconds) for processing of a package upload request.
 
 ``daml.http_json_api.incoming_json_parsing_and_validation_timing``
 ------------------------------------------------------------------
 
-A timer. Measures latency for parsing and decoding of an incoming json payload
+A timer. Measures latency (in milliseconds) for parsing and decoding of an incoming json payload
 
 ``daml.http_json_api.response_creation_timing``
 -------------------------------------------------------
 
-A timer. Measures latency for construction of the response json payload.
+A timer. Measures latency (in milliseconds) for construction of the response json payload.
 
 ``daml.http_json_api.db_find_by_contract_key_timing``
 -----------------------------------------------------
 
-A timer. Measures latency of the find by contract key database operation.
+A timer. Measures latency (in milliseconds) of the find by contract key database operation.
 
 ``daml.http_json_api.db_find_by_contract_id_timing``
 ----------------------------------------------------
 
-A timer. Measures latency of the find by contract id database operation.
+A timer. Measures latency (in milliseconds) of the find by contract id database operation.
 
 ``daml.http_json_api.command_submission_ledger_timing``
 -------------------------------------------------------
 
-A timer. Measures latency for processing command submission requests on the ledger.
+A timer. Measures latency (in milliseconds) for processing the command submission requests on the ledger.
 
 ``daml.http_json_api.http_request_throughput``
 ----------------------------------------------
