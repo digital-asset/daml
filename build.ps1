@@ -8,6 +8,9 @@ Set-StrictMode -Version latest
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
+java -version
+javac -version
+
 if (!(Test-Path .\.bazelrc.local)) {
    Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
 }
