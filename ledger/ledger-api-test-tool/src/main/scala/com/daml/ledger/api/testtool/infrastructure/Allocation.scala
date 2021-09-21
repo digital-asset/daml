@@ -10,7 +10,7 @@ private[testtool] object Allocation {
   def allocate(firstPartyCount: PartyCount, partyCounts: PartyCount*): ParticipantAllocation =
     ParticipantAllocation(firstPartyCount +: partyCounts)
 
-  final case class ParticipantAllocation private (partyCounts: Seq[PartyCount])
+  final case class ParticipantAllocation (partyCounts: Seq[PartyCount])
 
   sealed trait PartyCount {
     val count: Int

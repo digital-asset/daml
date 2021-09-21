@@ -24,7 +24,7 @@ sealed class LedgerTestCase(
     val timeoutScale: Double,
     val runConcurrently: Boolean,
     val repeated: Int = 1,
-    participants: ParticipantAllocation,
+    val participants: ParticipantAllocation,
     runTestCase: ExecutionContext => Seq[ParticipantTestContext] => Participants => Future[Unit],
 ) {
   val name: String = s"${suite.name}:$shortIdentifier"

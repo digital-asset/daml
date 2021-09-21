@@ -64,7 +64,17 @@ object LedgerApiTestTool {
 
   private def printAvailableTests(testSuites: Vector[LedgerTestSuite]): Unit = {
     println("Listing all tests. Run with --list to only see test suites.")
-    printListOfTests(testSuites.flatMap(_.tests))(_.name)
+    for (suite <- testSuites) {
+      for (test <- suite.tests) {
+        println(s"${test.name.replace(':',',')},${test.repeated},${test.runConcurrently},${test.timeoutScale},\"${test.participants.partyCounts.length}\",\"${test.participants.partyCounts}\",false,\"${test.description}\"")
+      };
+    }
+    for ((_,suite) <- Tests.performanceTests(None)) {
+      for (test <- suite.tests) {
+        println(s"${test.name.replace(':',',')},${test.repeated},${test.runConcurrently},${test.timeoutScale},\"${test.participants.partyCounts.length}\",\"${test.participants.partyCounts}\",true,\"${test.description}\"")
+      }
+    }
+//    printListOfTests(testSuites.flatMap(_.tests))(_.name)
   }
 
   private def extractResources(resources: Seq[String]): Unit = {
