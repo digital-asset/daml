@@ -4,9 +4,9 @@
 set -euo pipefail
 
 readonly SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-readonly SRC_DIR="$(dirname "${SCRIPT_DIR}")"
+readonly PROJECT_ROOT="${SCRIPT_DIR}/.."
 
-cd "${SRC_DIR}"
+cd "${PROJECT_ROOT}"
 readonly CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 set_latest_stable() {
@@ -35,13 +35,13 @@ checkout_stable_protos() {
 readonly BUF_IMAGE="buf-stable-protos-image.bin"
 
 create_stable_protos_buf_image() {
-  cp "${SRC_DIR}/buf.yaml" "${SRC_DIR}/buf.lock" "${TMP_STABLE_PROTOS_DIR}"
+  cp "${PROJECT_ROOT}/buf.yaml" "${PROJECT_ROOT}/buf.lock" "${TMP_STABLE_PROTOS_DIR}"
   cd "${TMP_STABLE_PROTOS_DIR}"
   buf build -o "${BUF_IMAGE}"
 }
 
 check_against_stable_protos_buf_image() {
-  cd "${SRC_DIR}"
+  cd "${PROJECT_ROOT}"
   buf breaking --against "${TMP_STABLE_PROTOS_DIR}/${BUF_IMAGE}"
 }
 
