@@ -931,6 +931,14 @@ private[validation] object Typing {
       TUpdate(TTyCon(tpl))
     }
 
+    private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
+      handleLookup(ctx, interface.lookupInterface(iface))
+      val template = handleLookup(ctx, interface.lookupTemplate(tpl))
+      if (!template.implements.contains(iface))
+        throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
+      ()
+    }
+
     private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
       val tmplKey = handleLookup(ctx, interface.lookupTemplateKey(tmplId))
       checkExpr(key, tmplKey.typ)
@@ -1135,6 +1143,14 @@ private[validation] object Typing {
         checkExceptionType(typ)
         checkExpr(value, TAnyException)
         TOptional(typ)
+      case EToInterface(iface, tpl, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(value, TTyCon(tpl))
+        TTyCon(iface)
+      case EFromInterface(iface, tpl, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(value, TTyCon(iface))
+        TOptional(TTyCon(tpl))
       case EExperimental(_, typ) =>
         typ
     }

@@ -64,6 +64,10 @@ private[validation] object ExprIterable {
         Iterator(value)
       case EFromAnyException(typ @ _, value) =>
         Iterator(value)
+      case EToInterface(iface @ _, tpl @ _, value) =>
+        Iterator(value)
+      case EFromInterface(iface @ _, tpl @ _, value) =>
+        Iterator(value)
     }
   }
 
