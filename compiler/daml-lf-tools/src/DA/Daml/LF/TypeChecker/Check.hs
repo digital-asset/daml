@@ -626,7 +626,7 @@ checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConNam
 checkImplements tpl iface = do
   void $ inWorld (lookupInterface iface)
   Template {tplImplements} <- inWorld (lookupTemplate tpl)
-  unless (elem iface tplImplements) $ do
+  unless (iface `elem` tplImplements) $ do
     throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
 
 -- returns the contract id and contract type
