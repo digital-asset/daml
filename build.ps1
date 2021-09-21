@@ -10,7 +10,7 @@ Set-StrictMode -Version latest
 
 java -version
 javac -version
-ech $env::JAVA_HOME
+ech $env:JAVA_HOME
 
 if (!(Test-Path .\.bazelrc.local)) {
    Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
