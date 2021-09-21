@@ -10,7 +10,7 @@ trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
 readonly CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
-readonly SYSTEM_PULLREQUEST_TARGETBRANCH=""
+echo "The current branch is ${CURRENT_BRANCH} and target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 
 # For `main` and PRs targeting `main`, we simply check against the most recent stable tag.
 #
