@@ -11,4 +11,8 @@ object Defaults {
 
   val TimeoutScaleFactor: Double = 1.0
 
+  // Neither ledgers nor participants scale perfectly with the number of processors.
+  // We therefore limit the maximum number of concurrent tests, to avoid overwhelming the ledger.
+  val ConcurrentRuns: Int = List(Runtime.getRuntime.availableProcessors(), 4).min
+
 }
