@@ -15,7 +15,7 @@ echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 # For `main` and PRs targeting `main`, we simply check against the most recent
 # stable tag.
 #
-# For release branches and PRs targeting them, we should really check against
+# For PRs targeting release branches, we should really check against
 # all the most recent stable tags reachable from either the current branch or
 # from previous release branches (say, against both `1.17.1` and `1.16.2`
 # created after the `release/1.17.x` branch).
@@ -26,7 +26,7 @@ echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 # higher ones either through a shared commit or a back-port from `main`.
 readonly RELEASE_BRANCH_REGEX="^release/.*"
 GIT_TAG_SCOPE=""
-if [[ "${CURRENT_BRANCH}" =~ ${RELEASE_BRANCH_REGEX} || "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
+if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
   GIT_TAG_SCOPE="--merged"
 fi
 
