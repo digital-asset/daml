@@ -30,10 +30,6 @@ class CommandSubmissionClientImplTest
 
   val ledgerServices = new LedgerServices("command-submission-service-ledger")
 
-  implicit class JavaOptionalAsScalaOption[A](opt: Optional[A]) {
-    def asScala: Option[A] = if (opt.isPresent) Some(opt.get()) else None
-  }
-
   behavior of "[3.1] CommandSubmissionClientImpl.submit"
 
   it should "timeout should work as expected across calls" in {
@@ -99,19 +95,19 @@ class CommandSubmissionClientImplTest
       receivedCommands.commandId shouldBe commands.getCommandId
       receivedCommands.minLedgerTimeAbs.map(
         _.seconds
-      ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+      ) shouldBe commands.getMinLedgerTimeAbsolute
         .map(_.getEpochSecond)
       receivedCommands.minLedgerTimeAbs.map(
         _.nanos
-      ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+      ) shouldBe commands.getMinLedgerTimeAbsolute
         .map(_.getNano)
       receivedCommands.minLedgerTimeRel.map(
         _.seconds
-      ) shouldBe commands.getMinLedgerTimeRelative.asScala
+      ) shouldBe commands.getMinLedgerTimeRelative
         .map(_.getSeconds)
       receivedCommands.minLedgerTimeRel.map(
         _.nanos
-      ) shouldBe commands.getMinLedgerTimeRelative.asScala
+      ) shouldBe commands.getMinLedgerTimeRelative
         .map(_.getNano)
       receivedCommands.party shouldBe commands.getParty
       receivedCommands.commands.size shouldBe commands.getCommands.size()
