@@ -191,7 +191,15 @@ object LedgerApiTestTool {
         new ColorizedPrintStreamReporter(
           System.out,
           config.verbose,
-        ).report(summaries, excludedTestSummaries, identifierSuffix)
+        ).report(
+          summaries,
+          excludedTestSummaries,
+          Seq(
+            "identifierSuffix" -> identifierSuffix,
+            "concurrentTestRuns" -> config.concurrentTestRuns.toString,
+            "timeoutScaleFactor" -> config.timeoutScaleFactor.toString,
+          ),
+        )
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(exception: Errors.FrameworkException) =>
         logger.error(exception.getMessage)
