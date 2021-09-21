@@ -49,6 +49,5 @@ set_latest_stable
 echo "Checking protos against '${LATEST_STABLE}' (i.e., the most recent stable tag up to '${CURRENT_BRANCH}')"
 
 checkout_stable_protos
-
 create_stable_protos_buf_image
 check_against_stable_protos_buf_image
