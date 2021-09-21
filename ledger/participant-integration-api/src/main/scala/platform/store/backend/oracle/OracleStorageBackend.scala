@@ -116,9 +116,10 @@ private[backend] object OracleStorageBackend
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
-    ): CompositeSql =
-      cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value PATH '$$')) WHERE value IN (${parties
-        .map(_.toString)}))"
+    ): CompositeSql = {
+      val inParties = parties.map(p => s"'$p'").mkString(", ")
+      cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value PATH '$$')) WHERE value IN (#$inParties))"
+    }
 
     override def columnEqualityBoolean(column: String, value: String): String =
       s"""case when ($column = $value) then 1 else 0 end"""
