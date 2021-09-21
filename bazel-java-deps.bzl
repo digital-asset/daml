@@ -35,7 +35,7 @@ version_specific = {
     ],
 }
 
-netty_version = "4.1.68.Final"
+netty_version = "4.1.67.Final"
 
 # ** Upgrading tcnative in sync with main netty version **
 # Look for "tcnative.version" in top-level pom.xml.
