@@ -179,27 +179,6 @@ class EngineTest
     }
   }
 
-  "command translation" should {
-    "returns correct error when resuming" in {
-      val translator =
-        new preprocessing.Preprocessor(
-          ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
-        )
-      val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val wrongRecord =
-        ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
-      val res = translator
-        .translateValue(
-          TTyConApp(id, ImmArray.Empty),
-          wrongRecord,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
-      inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.TypeMismatch]
-      }
-    }
-  }
-
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val let = Time.Timestamp.now()
