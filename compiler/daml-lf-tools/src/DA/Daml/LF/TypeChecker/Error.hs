@@ -137,6 +137,7 @@ data Error
   | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
   | EBadInterfaceChoiceImplArgType !ChoiceName !Type !Type
   | EBadInterfaceChoiceImplRetType !ChoiceName !Type !Type
+  | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -399,6 +400,8 @@ instance Pretty Error where
       , "Expected: " <> pretty ifaceRetType
       , "But got: " <> pretty tplRetType
       ]
+    ETemplateDoesNotImplementInterface tpl iface ->
+      "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
 
 prettyConsuming :: Bool -> Doc ann
 prettyConsuming consuming = if consuming then "consuming" else "non-consuming"
