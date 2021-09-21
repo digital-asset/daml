@@ -9,14 +9,14 @@ readonly PROJECT_ROOT="${SCRIPT_DIR}/.."
 cd "${PROJECT_ROOT}"
 readonly CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
-set_latest_stable() {
+latest_stable() {
   local gitTagSearchSpace
   if [[ "${CURRENT_BRANCH}" == "main" ]]; then
     gitTagSearchSpace="--no-merged"
   else
     gitTagSearchSpace="--merged"
   fi
-  LATEST_STABLE="$(git tag ${gitTagSearchSpace} | grep -v "snapshot" | sort -V | tail -1)"
+  git tag ${gitTagSearchSpace} | grep -v "snapshot" | sort -V | tail -1
 }
 
 cleanup_tmp_files() {
@@ -45,7 +45,7 @@ check_against_stable_protos_buf_image() {
   buf breaking --against "${TMP_STABLE_PROTOS_DIR}/${BUF_IMAGE}"
 }
 
-set_latest_stable
+LATEST_STABLE="$(latest_stable)"
 echo "Checking protos against '${LATEST_STABLE}' (i.e., the most recent stable tag up to '${CURRENT_BRANCH}')"
 
 checkout_stable_protos
