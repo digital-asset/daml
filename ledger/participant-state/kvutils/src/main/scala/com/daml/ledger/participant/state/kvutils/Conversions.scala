@@ -448,19 +448,21 @@ private[state] object Conversions {
   def decodeTransactionRejectionEntry(
       entry: DamlTransactionRejectionEntry
   ): Option[FinalReason] = {
-    def buildStatus(code: Code, message: String) = {
-      Status.of(
-        code.value,
-        message,
-        Seq(
-          AnyProto.pack[ErrorInfo](
-            ErrorInfo(metadata =
-              Map(GrpcStatuses.DefiniteAnswerKey -> entry.getDefiniteAnswer.toString)
-            )
+    def buildStatus(
+        code: Code,
+        message: String,
+        additionalMetadata: Map[String, String] = Map.empty,
+    ) = Status.of(
+      code.value,
+      message,
+      Seq(
+        AnyProto.pack[ErrorInfo](
+          ErrorInfo(metadata =
+            additionalMetadata + (GrpcStatuses.DefiniteAnswerKey -> entry.getDefiniteAnswer.toString)
           )
-        ),
-      )
-    }
+        )
+      ),
+    )
 
     val status = entry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
@@ -469,6 +471,11 @@ private[state] object Conversions {
           buildStatus(
             Code.ABORTED,
             s"Invalid ledger time: ${rejection.getDetails}",
+            Map(
+              "ledger_time" -> rejection.getLedgerTime.toString,
+              "lower_bound" -> rejection.getLowerBound.toString,
+              "upper_bound" -> rejection.getUpperBound.toString,
+            ),
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
@@ -485,6 +492,10 @@ private[state] object Conversions {
           buildStatus(
             Code.PERMISSION_DENIED,
             s"Submitter cannot act via participant: ${rejection.getDetails}",
+            Map(
+              "submitter_party" -> rejection.getSubmitterParty,
+              "participant_id" -> rejection.getParticipantId,
+            ),
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
@@ -567,6 +578,7 @@ private[state] object Conversions {
           buildStatus(
             Code.ABORTED,
             s"Inconsistent: Missing input state for key ${rejection.getKey.toString}",
+            Map("key" -> rejection.getKey.toString),
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.RECORD_TIME_OUT_OF_RANGE =>
@@ -575,6 +587,20 @@ private[state] object Conversions {
           buildStatus(
             Code.ABORTED,
             s"Invalid ledger time: Record time is outside of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
+            Map(
+              "minimum_record_time" -> Instant
+                .ofEpochSecond(
+                  rejection.getMinimumRecordTime.getSeconds,
+                  rejection.getMinimumRecordTime.getNanos.toLong,
+                )
+                .toString,
+              "maximum_record_time" -> Instant
+                .ofEpochSecond(
+                  rejection.getMaximumRecordTime.getSeconds,
+                  rejection.getMaximumRecordTime.getNanos.toLong,
+                )
+                .toString,
+            ),
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.CAUSAL_MONOTONICITY_VIOLATED =>
@@ -590,15 +616,17 @@ private[state] object Conversions {
           buildStatus(
             Code.INVALID_ARGUMENT,
             s"Party not known on ledger: Submitting party '${rejection.getSubmitterParty}' not known",
+            Map("submitter_party" -> rejection.getSubmitterParty),
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartiesNotKnownOnLedger
+        val parties = rejection.getPartiesList.asScala.mkString("[", ",", "]")
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            s"Party not known on ledger: Parties not known on ledger ${rejection.getPartiesList.asScala
-              .mkString("[", ",", "]")}",
+            s"Party not known on ledger: Parties not known on ledger $parties",
+            Map("parties" -> parties),
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_PARTICIPANT_STATE =>
