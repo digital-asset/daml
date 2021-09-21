@@ -3,7 +3,7 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @WARN Modules compiled with the DatatypeContexts language extension
--- @ERROR to_interface not yet implemented
+-- @ERROR EToInterface not yet implemented
 {-# LANGUAGE DatatypeContexts #-}
 
 module InterfaceDesugared where
