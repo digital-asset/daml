@@ -208,7 +208,6 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-      persistCredentials: true
     - bash: ci/check-protobuf-against-stable.sh
 
 - job: compat_versions_pr_trigger_daily
