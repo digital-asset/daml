@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
+eval "$(dev-env/bin/dade assist)"
+
 BUF_IMAGE_TMPDIR="$(mktemp -d)"
 trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
