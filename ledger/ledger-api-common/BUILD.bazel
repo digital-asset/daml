@@ -86,6 +86,7 @@ da_scala_test_suite(
     name = "ledger-api-common-scala-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
+        ":logback-debug.xml",
         "//ledger/test-common/test-certificates",
     ],
     plugins = [

@@ -5,7 +5,8 @@ package com.daml.ledger.api.tls
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
-import io.netty.handler.ssl.{OpenSslServerContext, SslContext}
+import io.netty.handler.ssl.{OpenSslServerContext, SslContext, SslProvider}
+//import io.netty.internal.tcnative.SSL
 import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
@@ -62,8 +63,19 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
     Security.setProperty(OcspProperties.EnableOcspProperty, ocspSecurityProperty.getOrElse("false"))
   }
+//
+//  def setLoggingLevel(level: Nothing): Unit = {
+//    val root = org.slf4j.LoggerFactory.getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME).asInstanceOf[Logger]
+//    root.setLevel(level)
+//  }
 
   "TlsConfiguration" should {
+
+    "SSL OPTS" in {
+//      SSL.SSL_OP_NO_TLSv1_3 shouldNot be(0)
+
+      SslProvider.isTlsv13Supported(SslProvider.JDK) shouldBe true
+    }
 
     "configure server with TLS protocol versions" which {
       "is 1.3" in {
