@@ -202,14 +202,6 @@ jobs:
     parameters:
       trigger_sha: '$(trigger_sha)'
 
-- job: compat_stable_protobuf_pr
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-    - bash: ci/check-protobuf-against-stable.sh
-
 - job: compat_versions_pr_trigger_daily
   dependsOn: compat_versions_pr
   pool:

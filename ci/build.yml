@@ -413,6 +413,14 @@ jobs:
     - template: tell-slack-failed.yml
     - template: report-end.yml
 
+- job: compatibility_stable_protobuf
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+    - bash: ci/check-protobuf-against-stable.sh
+
 - job: check_for_release
   dependsOn:
     - git_sha
