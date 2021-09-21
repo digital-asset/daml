@@ -457,3 +457,12 @@ final case class EBadInterfaceChoiceImplRetType(
   override protected def prettyInternal: String =
     s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the return type.\nExpected: $ifaceRetType\n But got: $tplRetType"
 }
+
+final case class ETemplateDoesNotImplementInterface(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template does not implement interface $iface"
+}

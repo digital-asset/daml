@@ -500,6 +500,10 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case EThrow(_, ty, e) =>
         SBThrow(SBToAny(ty)(compile(e)))
+      case EToInterface(_, _, _) => // TODO https://github.com/digital-asset/daml/issues/10810
+        throw CompilationError("EToInterface not yet implemented in speedy compiler")
+      case EFromInterface(_, _, _) => // TODO https://github.com/digital-asset/daml/issues/10810
+        throw CompilationError("EFromInterface not yet implemented in speedy compiler")
       case EExperimental(name, _) =>
         SBExperimental(name)
 

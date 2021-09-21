@@ -655,6 +655,24 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setFromAnyException(
             PLF.Expr.FromAnyException.newBuilder().setType(ty).setExpr(body)
           )
+        case EToInterface(iface, tpl, value) =>
+          assertSince(LV.Features.interfaces, "Expr.ToInterface")
+          builder.setToInterface(
+            PLF.Expr.ToInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setTemplateExpr(value)
+          )
+        case EFromInterface(iface, tpl, value) =>
+          assertSince(LV.Features.interfaces, "Expr.FromInterface")
+          builder.setFromInterface(
+            PLF.Expr.FromInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setInterfaceExpr(value)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
