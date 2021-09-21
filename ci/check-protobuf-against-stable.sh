@@ -5,14 +5,14 @@ set -euo pipefail
 
 eval "$(dev-env/bin/dade assist)"
 
-BUF_IMAGE_TMPDIR="$(mktemp -d)"
+readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
 trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
-LATEST_STABLE_TAG="$(git tag --no-merged | grep -v "snapshot" | sort -V | tail -1)"
+readonly LATEST_STABLE_TAG="$(git tag --no-merged | grep -v "snapshot" | sort -V | tail -1)"
 echo "Checking protobuf against tag '${LATEST_STABLE_TAG}' (i.e., the most recent stable tag)"
 git checkout "${LATEST_STABLE_TAG}"
 
-BUF_IMAGE="${BUF_IMAGE_TMPDIR}/buf.bin"
+readonly BUF_IMAGE="${BUF_IMAGE_TMPDIR}/buf.bin"
 buf build -o "${BUF_IMAGE}"
 git checkout main
 buf breaking --against "${BUF_IMAGE}"
