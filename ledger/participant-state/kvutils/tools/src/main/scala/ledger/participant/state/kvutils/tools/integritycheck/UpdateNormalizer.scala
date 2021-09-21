@@ -21,7 +21,6 @@ trait UpdateNormalizer {
 object UpdateNormalizer {
   private val MandatoryNormalizers = List(
     RecordTimeNormalizer,
-    RejectionReasonNormalizer,
     ConfigurationChangeRejectionNormalizer,
   )
 
