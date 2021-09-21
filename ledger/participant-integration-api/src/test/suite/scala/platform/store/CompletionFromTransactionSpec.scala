@@ -23,17 +23,22 @@ class CompletionFromTransactionSpec
     "create an accepted completion" in {
       val testCases = Table(
         (
+          "submissionId",
           "deduplicationOffset",
           "deduplicationDurationSeconds",
           "deduplicationDurationNanos",
+          "expectedSubmissionId",
           "expectedDeduplicationPeriod",
         ),
-        (None, None, None, DeduplicationPeriod.Empty),
-        (Some("offset"), None, None, DeduplicationPeriod.DeduplicationOffset("offset")),
+        (Some("submissionId"), None, None, None, "submissionId", DeduplicationPeriod.Empty),
+        (None, None, None, None, "", DeduplicationPeriod.Empty),
+        (None, Some("offset"), None, None, "", DeduplicationPeriod.DeduplicationOffset("offset")),
         (
+          None,
           None,
           Some(1L),
           Some(2),
+          "",
           DeduplicationPeriod
             .DeduplicationDuration(new Duration(1, 2))
             .asInstanceOf[ // otherwise the compilation fails due to an inference warning
@@ -44,9 +49,11 @@ class CompletionFromTransactionSpec
 
       forEvery(testCases) {
         (
+            submissionId,
             deduplicationOffset,
             deduplicationDurationSeconds,
             deduplicationDurationNanos,
+            expectedSubmissionId,
             expectedDeduplicationPeriod,
         ) =>
           val completionStream = CompletionFromTransaction.acceptedCompletion(
@@ -55,7 +62,7 @@ class CompletionFromTransactionSpec
             "commandId",
             "transactionId",
             "applicationId",
-            Some("submissionId"),
+            submissionId,
             deduplicationOffset,
             deduplicationDurationSeconds,
             deduplicationDurationNanos,
@@ -69,7 +76,7 @@ class CompletionFromTransactionSpec
           completion.commandId shouldBe "commandId"
           completion.transactionId shouldBe "transactionId"
           completion.applicationId shouldBe "applicationId"
-          completion.submissionId shouldBe "submissionId"
+          completion.submissionId shouldBe expectedSubmissionId
           completion.deduplicationPeriod shouldBe expectedDeduplicationPeriod
       }
     }
