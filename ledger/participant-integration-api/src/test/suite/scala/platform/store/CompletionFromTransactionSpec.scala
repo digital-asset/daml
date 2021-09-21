@@ -3,39 +3,102 @@
 
 package com.daml.platform.store
 
+import com.daml.ledger.api.v1.completion.Completion.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
+import com.google.protobuf.duration.Duration
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
 
-class CompletionFromTransactionSpec extends AnyWordSpec with Matchers {
+class CompletionFromTransactionSpec
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   "CompletionFromTransaction" should {
-    "acceptedCompletion" in {
-      val completionStream = CompletionFromTransaction.acceptedCompletion(
-        Instant.EPOCH,
-        Offset.beforeBegin,
-        "commandId",
-        "transactionId",
-        "applicationId",
-        Some("submissionId"),
+    "create an accepted completion" in {
+      val testCases = Table(
+        (
+          "deduplicationOffset",
+          "deduplicationDurationSeconds",
+          "deduplicationDurationNanos",
+          "expectedDeduplicationPeriod",
+        ),
+        (None, None, None, DeduplicationPeriod.Empty),
+        (Some("offset"), None, None, DeduplicationPeriod.DeduplicationOffset("offset")),
+        (
+          None,
+          Some(1L),
+          Some(2),
+          DeduplicationPeriod
+            .DeduplicationDuration(new Duration(1, 2))
+            .asInstanceOf[ // otherwise the compilation fails due to an inference warning
+              DeduplicationPeriod
+            ],
+        ),
       )
 
-      val checkpoint = completionStream.checkpoint.get
-      checkpoint.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-      checkpoint.offset shouldBe a[Some[_]]
+      forEvery(testCases) {
+        (
+            deduplicationOffset,
+            deduplicationDurationSeconds,
+            deduplicationDurationNanos,
+            expectedDeduplicationPeriod,
+        ) =>
+          val completionStream = CompletionFromTransaction.acceptedCompletion(
+            Instant.EPOCH,
+            Offset.beforeBegin,
+            "commandId",
+            "transactionId",
+            "applicationId",
+            Some("submissionId"),
+            deduplicationOffset,
+            deduplicationDurationSeconds,
+            deduplicationDurationNanos,
+          )
 
-      val completion = completionStream.completions.head
-      completion.commandId shouldBe "commandId"
-      completion.transactionId shouldBe "transactionId"
-      completion.applicationId shouldBe "applicationId"
-      completion.submissionId shouldBe "submissionId"
+          val checkpoint = completionStream.checkpoint.get
+          checkpoint.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
+          checkpoint.offset shouldBe a[Some[_]]
+
+          val completion = completionStream.completions.head
+          completion.commandId shouldBe "commandId"
+          completion.transactionId shouldBe "transactionId"
+          completion.applicationId shouldBe "applicationId"
+          completion.submissionId shouldBe "submissionId"
+          completion.deduplicationPeriod shouldBe expectedDeduplicationPeriod
+      }
     }
 
-    "rejectedCompletion" in {
+    "fail on an invalid deduplication duration" in {
+      val testCases = Table(
+        ("deduplicationDurationSeconds", "deduplicationDurationNanos"),
+        (Some(1L), None),
+        (None, Some(1)),
+      )
+
+      forEvery(testCases) { (deduplicationDurationSeconds, deduplicationDurationNanos) =>
+        an[IllegalArgumentException] shouldBe thrownBy(
+          CompletionFromTransaction.acceptedCompletion(
+            Instant.EPOCH,
+            Offset.beforeBegin,
+            "commandId",
+            "transactionId",
+            "applicationId",
+            Some("submissionId"),
+            None,
+            deduplicationDurationSeconds,
+            deduplicationDurationNanos,
+          )
+        )
+      }
+    }
+
+    "create a rejected completion" in {
       val status = Status.of(io.grpc.Status.Code.INTERNAL.value(), "message", Seq.empty)
       val completionStream = CompletionFromTransaction.rejectedCompletion(
         Instant.EPOCH,
