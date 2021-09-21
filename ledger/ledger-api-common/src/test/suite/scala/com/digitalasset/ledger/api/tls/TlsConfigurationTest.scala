@@ -65,6 +65,20 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
   "TlsConfiguration" should {
 
+    "java version " in {
+      System.getProperty("java.version") shouldBe "2"
+    }
+
+    "java path" in {
+      val javaHome = System.getProperty("java.home")
+      var f = new File(javaHome)
+      f = new File(f, "bin")
+      f = new File(f, "javaw.exe")
+      val str = s"${f} exists: ${f.exists}"
+      str shouldBe "1"
+      println(str)
+    }
+
     "configure server with TLS protocol versions" which {
       "is 1.3" in {
         getServerEnabledProtocols(Some(TlsVersion.V1_3)) shouldBe Seq("SSLv2Hello", "TLSv1.3")

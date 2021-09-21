@@ -14,10 +14,10 @@ let
     jdk8 =
       if pkgs.stdenv.isDarwin then
         pkgs.jdk8.overrideAttrs(oldAttrs: {
-          name = "zulu1.8.0_282-8.52.0.23";
+          name = "zulu1.8.0_201-8.34.0.1";
           src = pkgs.fetchurl {
-            url = "https://cdn.azul.com/zulu/bin/zulu8.52.0.23-ca-jdk8.0.282-macosx_x64.zip";
-            sha256 = "04azr412azqx3cyj9fda0r025hbzypwbnpb44gi15s683ns63wd2";
+            url = "https://cdn.azul.com/zulu/bin/zulu8.34.0.1-ca-jdk8.0.201-macosx_x64.tar.gz";
+            sha256 = "bd27b8a7870990a1a8418ca2ffc513d5e8164a222ea381033e27871b26ab14fb";
             curlOpts = "-H Referer:https://www.azul.com/downloads/zulu/zulu-linux/";
           };
         })
