@@ -30,3 +30,6 @@ lint:
 breaking:
   use:
     - WIRE_JSON
+    - FIELD_NO_DELETE
+  except:
+    - FIELD_SAME_ONEOF
