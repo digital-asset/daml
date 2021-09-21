@@ -35,7 +35,7 @@ version_specific = {
     ],
 }
 
-netty_version = "4.1.68.Final"
+netty_version = "4.1.67.Final"
 
 # ** Upgrading tcnative in sync with main netty version **
 # Look for "tcnative.version" in top-level pom.xml.
@@ -43,7 +43,7 @@ netty_version = "4.1.68.Final"
 # ```
 # <tcnative.version>2.0.42.Final</tcnative.version>
 # ```
-netty_tcnative_version = "2.0.43.Final"
+netty_tcnative_version = "2.0.40.Final"
 grpc_version = "1.35.0"
 akka_version = "2.6.13"
 
