@@ -420,6 +420,7 @@ jobs:
   steps:
     - checkout: self
     - bash: ci/check-protobuf-against-stable.sh
+    - template: tell-slack-failed.yml
 
 - job: check_for_release
   dependsOn:
