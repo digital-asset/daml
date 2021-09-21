@@ -50,6 +50,8 @@ data ExprF expr
   | EToAnyExceptionF !Type !expr
   | EFromAnyExceptionF !Type !expr
   | EThrowF !Type !Type !expr
+  | EToInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
+  | EFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -198,6 +200,8 @@ instance Recursive Expr where
     EToAnyException a b -> EToAnyExceptionF a b
     EFromAnyException a b -> EFromAnyExceptionF a b
     EThrow a b c -> EThrowF a b c
+    EToInterface a b c -> EToInterfaceF a b c
+    EFromInterface a b c -> EFromInterfaceF a b c
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -232,4 +236,6 @@ instance Corecursive Expr where
     EToAnyExceptionF a b -> EToAnyException a b
     EFromAnyExceptionF a b -> EFromAnyException a b
     EThrowF a b c -> EThrow a b c
+    EToInterfaceF a b c -> EToInterface a b c
+    EFromInterfaceF a b c -> EFromInterface a b c
     EExperimentalF a b -> EExperimental a b

@@ -537,6 +537,10 @@ instance Pretty Expr where
         [TyArg ty, TmArg val]
     EThrow ty1 ty2 val -> pPrintAppKeyword lvl prec "throw"
         [TyArg ty1, TyArg ty2, TmArg val]
+    EToInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "to_interface"
+        [interfaceArg ty1, tplArg ty2, TmArg expr]
+    EFromInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_interface"
+        [interfaceArg ty1, tplArg ty2, TmArg expr]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where

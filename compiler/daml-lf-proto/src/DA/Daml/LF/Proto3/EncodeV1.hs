@@ -699,6 +699,16 @@ encodeExpr' = \case
         expr_ThrowExceptionType <- encodeType ty2
         expr_ThrowExceptionExpr <- encodeExpr val
         pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
+    EToInterface ty1 ty2 val -> do
+        expr_ToInterfaceInterfaceType <- encodeQualTypeConName ty1
+        expr_ToInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_ToInterfaceTemplateExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToInterface P.Expr_ToInterface{..}
+    EFromInterface ty1 ty2 val -> do
+        expr_FromInterfaceInterfaceType <- encodeQualTypeConName ty1
+        expr_FromInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_FromInterfaceInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumFromInterface P.Expr_FromInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty

@@ -732,6 +732,10 @@ typeOf' = \case
     checkExceptionType ty2
     checkExpr val ty2
     pure ty1
+  EToInterface _ _ _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
+    error "EToInterface not yet implemented in type checker"
+  EFromInterface _ _ _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
+    error "EFromInterface not yet implemented in type checker"
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
