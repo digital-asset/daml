@@ -18,6 +18,7 @@ import java.time.Duration
 import java.time.temporal.ChronoUnit
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters.RichOptional
 
 class CommandSubmissionClientImplTest
     extends AnyFlatSpec
@@ -97,18 +98,22 @@ class CommandSubmissionClientImplTest
         _.seconds
       ) shouldBe commands.getMinLedgerTimeAbsolute
         .map(_.getEpochSecond)
+        .toScala
       receivedCommands.minLedgerTimeAbs.map(
         _.nanos
       ) shouldBe commands.getMinLedgerTimeAbsolute
         .map(_.getNano)
+        .toScala
       receivedCommands.minLedgerTimeRel.map(
         _.seconds
       ) shouldBe commands.getMinLedgerTimeRelative
         .map(_.getSeconds)
+        .toScala
       receivedCommands.minLedgerTimeRel.map(
         _.nanos
       ) shouldBe commands.getMinLedgerTimeRelative
         .map(_.getNano)
+        .toScala
       receivedCommands.party shouldBe commands.getParty
       receivedCommands.commands.size shouldBe commands.getCommands.size()
     }
