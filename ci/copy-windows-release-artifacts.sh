@@ -16,7 +16,7 @@ chmod +wx "$INSTALLER"
 chmod +wx "$EE_INSTALLER"
 
 if ! [ -f /C/Users/u/.dotnet/tools/azuresigntool.exe ]; then
-    "/C/Program Files/dotnet/dotnet.exe" tool install --global AzureSignTool
+    "/C/Program Files/dotnet/dotnet.exe" tool install --global AzureSignTool --version 3.0.0
 fi
 
 /C/Users/u/.dotnet/tools/azuresigntool.exe sign \

@@ -13,6 +13,7 @@ locals {
       suffix     = "",
       size       = 6,
       assignment = "default",
+      dotnet     = 2
     },
   ]
 }
@@ -147,7 +148,7 @@ net stop winrm
 sc.exe config winrm start=auto
 net start winrm
 
-& choco install dotnetcore-2.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
+& choco install dotnetcore-${local.w[count.index].dotnet}.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
 
 echo "== Installing the VSTS agent"
 
