@@ -5,13 +5,16 @@ package com.daml.platform.configuration
 
 import java.time.Duration
 
-/** Reaching either [[inputBufferSize]] or [[maxCommandsInFlight]] will trigger
-  * back-pressure by [[com.daml.ledger.client.services.commands.CommandClient]].
+/** Configuration for the Ledger API Command Service.
   *
   * @param inputBufferSize
-  *        Maximum number of commands waiting to be submitted for each party.
+  *        Maximum number of commands waiting to be submitted for each distinct set of parties,
+  *        as specified by the `act_as` property of the command. Reaching this limit will cause the
+  *        server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code.
   * @param maxCommandsInFlight
-  *        Maximum number of submitted commands waiting to be completed for each party.
+  *        Maximum number of submitted commands waiting to be completed in parallel, for each
+  *        distinct set of parties, as specified by the `act_as` property of the command. Reaching
+  *        this limit will cause new submissions to wait in the queue before being submitted.
   * @param trackerRetentionPeriod
   *        The duration that the command service will keep an active command tracker for a given set
   *        of parties. A longer period cuts down on the tracker instantiation cost for a party that

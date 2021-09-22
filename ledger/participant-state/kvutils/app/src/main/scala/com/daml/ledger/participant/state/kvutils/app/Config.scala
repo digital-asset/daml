@@ -394,7 +394,7 @@ object Config {
             config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
           )
           .text(
-            "Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256."
+            s"Maximum number of submitted commands for which the CommandService is waiting to be completed in parallel, for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause new submissions to wait in the queue before being submitted. Default is ${CommandConfiguration.default.maxCommandsInFlight}."
           )
 
         opt[Int]("input-buffer-size")
@@ -403,7 +403,7 @@ object Config {
             config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
           )
           .text(
-            "The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+            s"Maximum number of commands waiting to be submitted for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause the server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code. Default is ${CommandConfiguration.default.inputBufferSize}."
           )
 
         opt[Duration]("tracker-retention-period")
