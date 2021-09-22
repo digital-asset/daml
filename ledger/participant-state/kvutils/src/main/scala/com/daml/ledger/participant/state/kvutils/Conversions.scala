@@ -25,12 +25,14 @@ import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 
+import java.io.StringWriter
 import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -621,12 +623,12 @@ private[state] object Conversions {
         )
       case DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartiesNotKnownOnLedger
-        val parties = rejection.getPartiesList.asScala.mkString("[", ",", "]")
+        val parties = rejection.getPartiesList
         Some(
           buildStatus(
             Code.INVALID_ARGUMENT,
-            s"Party not known on ledger: Parties not known on ledger $parties",
-            Map("parties" -> parties),
+            s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
+            Map("parties" -> objectToJsonString(parties)),
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_PARTICIPANT_STATE =>
@@ -646,6 +648,13 @@ private[state] object Conversions {
         )
     }
     status.map(FinalReason)
+  }
+
+  private def objectToJsonString(obj: Object): String = {
+    val stringWriter = new StringWriter
+    val objectMapper = new ObjectMapper
+    objectMapper.writeValue(stringWriter, obj)
+    stringWriter.toString
   }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =

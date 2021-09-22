@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
-import com.daml.ledger.participant.state.kvutils.Conversions._
+import com.daml.ledger.participant.state.kvutils.Conversions.{partyStateKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
@@ -23,7 +23,8 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.ValueOuterClass
-import com.google.protobuf.Timestamp
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.{TextFormat, Timestamp}
 import com.google.rpc.error_details.ErrorInfo
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
@@ -34,6 +35,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 @nowarn("msg=deprecated")
@@ -194,25 +196,71 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             (
               Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
               Code.INVALID_ARGUMENT,
-              Map("parties" -> s"[$party0,$party1]"),
+              Map("parties" -> s"""[\"$party0\",\"$party1\"]"""),
             ),
           )
         ) { (rejection, expectedCode, expectedAdditionalDetails) =>
-          {
-            val encodedEntry = Conversions
-              .encodeTransactionRejectionEntry(
-                submitterInfo,
-                rejection,
-              )
-              .build()
-            val finalReason = Conversions
-              .decodeTransactionRejectionEntry(encodedEntry)
-              .value
-            finalReason.code shouldBe expectedCode.value()
-            finalReason.definiteAnswer shouldBe false
-            val actualDetails = finalReasonToDetails(finalReason)
-            actualDetails should contain allElementsOf (expectedAdditionalDetails)
-          }
+          val encodedEntry = Conversions
+            .encodeTransactionRejectionEntry(
+              submitterInfo,
+              rejection,
+            )
+            .build()
+          val finalReason = Conversions
+            .decodeTransactionRejectionEntry(encodedEntry)
+            .value
+          finalReason.code shouldBe expectedCode.value()
+          finalReason.definiteAnswer shouldBe false
+          val actualDetails = finalReasonToDetails(finalReason)
+          actualDetails should contain allElementsOf (expectedAdditionalDetails)
+        }
+      }
+
+      "produce metadata that can be easily parsed" in {
+        forAll(
+          Table[Rejection, String, String => Any, Any](
+            ("rejection", "metadataKey", "metadataParser", "expectedParsedMetadata"),
+            (
+              Rejection.MissingInputState(partyStateKey("party")),
+              "key",
+              TextFormat.parse(_, classOf[DamlStateKey]),
+              partyStateKey("party"),
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              "minimum_record_time",
+              Instant.parse(_),
+              Instant.EPOCH,
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              "maximum_record_time",
+              Instant.parse(_),
+              Instant.EPOCH,
+            ),
+            (
+              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
+              "parties",
+              jsonString => {
+                val objectMapper = new ObjectMapper
+                objectMapper.readValue(jsonString, classOf[java.util.List[_]]).asScala
+              },
+              mutable.Buffer(party0, party1),
+            ),
+          )
+        ) { (rejection, metadataKey, metadataParser, expectedParsedMetadata) =>
+          val encodedEntry = Conversions
+            .encodeTransactionRejectionEntry(
+              submitterInfo,
+              rejection,
+            )
+            .build()
+          val finalReason = Conversions
+            .decodeTransactionRejectionEntry(encodedEntry)
+            .value
+          finalReason.definiteAnswer shouldBe false
+          val actualDetails = finalReasonToDetails(finalReason).toMap
+          metadataParser(actualDetails(metadataKey)) shouldBe expectedParsedMetadata
         }
       }
 
@@ -220,52 +268,44 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
         "handle with expected status codes" in {
           forAll(
-            Table(
+            Table[
+              DamlTransactionRejectionEntry.Builder => DamlTransactionRejectionEntry.Builder,
+              Code,
+              Map[String, String],
+            ](
               ("rejection builder", "code", "expectedAdditionalDetails"),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setInconsistent(Inconsistent.newBuilder()),
+                _.setInconsistent(Inconsistent.newBuilder()),
                 Code.ABORTED,
-                Map.empty[String, String],
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setDisputed(Disputed.newBuilder()),
+                _.setDisputed(Disputed.newBuilder()),
                 Code.INVALID_ARGUMENT,
-                Map.empty[String, String],
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setResourcesExhausted(ResourcesExhausted.newBuilder()),
+                _.setResourcesExhausted(ResourcesExhausted.newBuilder()),
                 Code.ABORTED,
-                Map.empty[String, String],
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
+                _.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
                 Code.INVALID_ARGUMENT,
-                Map.empty[String, String],
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setDuplicateCommand(Duplicate.newBuilder()),
+                _.setDuplicateCommand(Duplicate.newBuilder()),
                 Code.ALREADY_EXISTS,
-                Map.empty[String, String],
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setSubmitterCannotActViaParticipant(
-                      SubmitterCannotActViaParticipant
-                        .newBuilder()
-                        .setSubmitterParty("party")
-                        .setParticipantId("id")
-                    ),
+                _.setSubmitterCannotActViaParticipant(
+                  SubmitterCannotActViaParticipant
+                    .newBuilder()
+                    .setSubmitterParty("party")
+                    .setParticipantId("id")
+                ),
                 Code.PERMISSION_DENIED,
                 Map(
                   "submitter_party" -> "party",
@@ -273,15 +313,13 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                 ),
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setInvalidLedgerTime(
-                      InvalidLedgerTime
-                        .newBuilder()
-                        .setLowerBound(Timestamp.newBuilder().setSeconds(1L))
-                        .setLedgerTime(Timestamp.newBuilder().setSeconds(2L))
-                        .setUpperBound(Timestamp.newBuilder().setSeconds(3L))
-                    ),
+                _.setInvalidLedgerTime(
+                  InvalidLedgerTime
+                    .newBuilder()
+                    .setLowerBound(Timestamp.newBuilder().setSeconds(1L))
+                    .setLedgerTime(Timestamp.newBuilder().setSeconds(2L))
+                    .setUpperBound(Timestamp.newBuilder().setSeconds(3L))
+                ),
                 Code.ABORTED,
                 Map(
                   "lower_bound" -> "seconds: 1\n",
