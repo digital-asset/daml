@@ -5,6 +5,7 @@ package com.daml.platform.store.backend.h2
 
 import java.sql.Connection
 import java.time.Instant
+
 import anorm.{Row, SQL, SimpleSql}
 import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
@@ -32,8 +33,9 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
-
 import javax.sql.DataSource
+
+import scala.util.control.NonFatal
 
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -91,14 +93,26 @@ private[backend] object H2StorageBackend
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
-  )(connection: Connection): Int =
-    SQL(SQL_INSERT_COMMAND)
-      .on(
-        "deduplicationKey" -> key,
-        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
-      )
-      .executeUpdate()(connection)
+  )(connection: Connection): Int = {
+    // When a deduplication upsert is performed simultaneously from multiple threads, the query fails with
+    // JdbcSQLIntegrityConstraintViolationException: Unique index or primary key violation
+    // Simple retry helps
+    def retry[T](op: => T): T =
+      try {
+        op
+      } catch {
+        case NonFatal(_) => op
+      }
+    retry(
+      SQL(SQL_INSERT_COMMAND)
+        .on(
+          "deduplicationKey" -> key,
+          "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+          "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
+        )
+        .executeUpdate()(connection)
+    )
+  }
 
   override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
     H2Schema.schema.prepareData(dbDtos)

@@ -34,6 +34,8 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import javax.sql.DataSource
 
+import scala.util.control.NonFatal
+
 private[backend] object OracleStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch]
@@ -86,14 +88,26 @@ private[backend] object OracleStorageBackend
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
-  )(connection: Connection): Int =
-    SQL(SQL_INSERT_COMMAND)
-      .on(
-        "deduplicationKey" -> key,
-        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
-      )
-      .executeUpdate()(connection)
+  )(connection: Connection): Int = {
+    // When a deduplication upsert is performed simultaneously from multiple threads, the query fails with
+    // SQLIntegrityConstraintViolationException: ORA-00001: unique constraint (INDEXDB.SYS_C007590) violated
+    // Simple retry helps
+    def retry[T](op: => T): T =
+      try {
+        op
+      } catch {
+        case NonFatal(_) => op
+      }
+    retry(
+      SQL(SQL_INSERT_COMMAND)
+        .on(
+          "deduplicationKey" -> key,
+          "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+          "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
+        )
+        .executeUpdate()(connection)
+    )
+  }
 
   override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
     OracleSchema.schema.prepareData(dbDtos)
