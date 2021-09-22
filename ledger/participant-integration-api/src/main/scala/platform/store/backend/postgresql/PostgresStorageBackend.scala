@@ -5,7 +5,6 @@ package com.daml.platform.store.backend.postgresql
 
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SQL
 import anorm.SqlParser.{get, int}
 import com.daml.ledger.offset.Offset
@@ -21,6 +20,7 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
+  DebugStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
@@ -39,6 +39,7 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
+
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
 
@@ -53,7 +54,8 @@ private[backend] object PostgresStorageBackend
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
-    with PartyStorageBackendTemplate {
+    with PartyStorageBackendTemplate
+    with DebugStorageBackendTemplate {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 

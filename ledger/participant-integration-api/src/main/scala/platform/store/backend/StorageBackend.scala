@@ -49,7 +49,8 @@ trait StorageBackend[DB_BATCH]
     with ContractStorageBackend
     with EventStorageBackend
     with DataSourceStorageBackend
-    with DBLockStorageBackend {
+    with DBLockStorageBackend
+    with DebugStorageBackend {
 
   /** Truncates all storage backend tables, EXCEPT the packages table.
     * Does not touch other tables, like the Flyway history table.
@@ -338,6 +339,15 @@ object DBLockStorageBackend {
     case object Exclusive extends LockMode
     case object Shared extends LockMode
   }
+}
+
+trait DebugStorageBackend {
+
+  /** Verifies the integrity of the index database, throwing an exception if any issue is found.
+    * This operation is allowed to take some time to finish.
+    * It is not expected that it is used during regular index/indexer operation.
+    */
+  def verifyIntegrity()(connection: Connection): Unit
 }
 
 object StorageBackend {

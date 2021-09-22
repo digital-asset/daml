@@ -12,6 +12,7 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
+  DebugStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
@@ -30,15 +31,15 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
+
 import java.sql.Connection
 import java.time.Instant
-
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import javax.sql.DataSource
 
+import javax.sql.DataSource
 import scala.util.control.NonFatal
 
 private[backend] object OracleStorageBackend
@@ -52,7 +53,8 @@ private[backend] object OracleStorageBackend
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
-    with PartyStorageBackendTemplate {
+    with PartyStorageBackendTemplate
+    with DebugStorageBackendTemplate {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
