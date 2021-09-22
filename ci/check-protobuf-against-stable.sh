@@ -6,8 +6,6 @@ set -euo pipefail
 readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
 trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
-readonly CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-
 echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 
 # For `main` and PRs targeting `main`, we simply check against the most recent
@@ -33,9 +31,4 @@ fi
 
 readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
 echo "Checking protobuf against tag '${LATEST_STABLE_TAG}'"
-git checkout "${LATEST_STABLE_TAG}"
-
-readonly BUF_IMAGE="${BUF_IMAGE_TMPDIR}/buf.bin"
-(eval "$(dev-env/bin/dade assist)" ; buf build -o "${BUF_IMAGE}")
-git checkout "${CURRENT_BRANCH}"
-(eval "$(dev-env/bin/dade assist)" ; buf breaking --against "${BUF_IMAGE}")
+(eval "$(dev-env/bin/dade assist)" ; buf breaking --against ".git#branch=${LATEST_STABLE_TAG}")
