@@ -1,0 +1,14 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: v1beta1
+
+build:
+  roots:
+    - ledger-api/grpc-definitions
+    - ledger-api/3rdparty/grpc-definitions
+
+breaking:
+  use:
+    - WIRE_JSON
+    - FIELD_NO_DELETE

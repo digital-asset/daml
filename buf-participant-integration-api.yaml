@@ -1,0 +1,12 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: v1beta1
+
+build:
+  roots:
+    - ledger/participant-integration-api/src/main/protobuf
+
+breaking:
+  use:
+    - WIRE

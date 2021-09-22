@@ -3,6 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
+readonly RELEASE_BRANCH_REGEX="^release/.*"
+
+declare -a BUF_MODULES=(
+  "buf-kvutils.yaml"
+  "buf-ledger-api.yaml"
+  "buf-participant-integration-api.yaml"
+)
+
 readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
 trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
@@ -23,12 +31,13 @@ echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 # Finally, this check does not need to run on release branch commits because
 # they are built sequentially, so no conflicts are possible and the per-PR
 # check is enough.
-readonly RELEASE_BRANCH_REGEX="^release/.*"
 GIT_TAG_SCOPE=""
 if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
   GIT_TAG_SCOPE="--merged"
 fi
 
 readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
-echo "Checking protobuf against tag '${LATEST_STABLE_TAG}'"
-(eval "$(dev-env/bin/dade assist)" ; buf breaking --against ".git#tag=${LATEST_STABLE_TAG}")
+echo "Checking protobufs against tag '${LATEST_STABLE_TAG}'"
+for buf_module in "${BUF_MODULES[@]}"; do
+  (eval "$(dev-env/bin/dade assist)" ; buf breaking --config "${buf_module}" --against ".git#tag=${LATEST_STABLE_TAG}")
+done

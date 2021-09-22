@@ -3,16 +3,12 @@
 
 version: v1beta1
 
-deps:
-  - buf.build/googleapis/googleapis
-
 build:
   roots:
-    - daml-lf/archive/src/main/protobuf/
-    - daml-lf/transaction/src/main/protobuf/
-    - ledger/ledger-configuration/protobuf/
-    - ledger/participant-state/kvutils/src/main/protobuf/
-    - ledger-api/grpc-definitions
+    - daml-lf/archive/src/main/protobuf
+    - daml-lf/transaction/src/main/protobuf
+    - ledger/ledger-configuration/protobuf
+    - ledger/participant-state/kvutils/src/main/protobuf
   excludes:
     # We have to exclude these to avoid duplicate definitions of e.g. Unit within the same package.
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_11/
@@ -21,15 +17,8 @@ build:
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_14/
     - daml-lf/archive/src/main/protobuf/com/digitalasset/
 
-lint:
-  use:
-    - DEFAULT
-  except:
-    - PACKAGE_VERSION_SUFFIX
-
 breaking:
   use:
-    - WIRE_JSON
-    - FIELD_NO_DELETE
+    - WIRE
   except:
     - FIELD_SAME_ONEOF
