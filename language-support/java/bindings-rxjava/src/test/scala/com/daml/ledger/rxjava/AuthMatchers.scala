@@ -3,33 +3,46 @@
 
 package com.daml.ledger.rxjava
 
-import com.daml.grpc.{GrpcException, GrpcStatus}
+import io.grpc.{Status, StatusException, StatusRuntimeException}
+import org.scalactic.Equality
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.tailrec
+import scala.util.control.NonFatal
+
+private[rxjava] object AuthMatchers {
+
+  private implicit object GrpcExceptionEquality extends Equality[Exception] {
+    @tailrec
+    private def equal(throwable: Throwable, code: Status.Code): Boolean =
+      throwable match {
+        case e: StatusException => e.getStatus.getCode == code
+        case e: StatusRuntimeException => e.getStatus.getCode == code
+        case NonFatal(e) => e.getCause != null && equal(e.getCause, code)
+      }
+    override def areEqual(exception: Exception, anything: Any): Boolean =
+      anything match {
+        case code: Status.Code => equal(exception, code)
+        case _ => false
+      }
+  }
+
+}
+
 private[rxjava] trait AuthMatchers { self: Matchers =>
 
-  private def theCausalChainOf(t: Throwable): Iterator[Throwable] =
-    Iterator.iterate(t)(_.getCause).takeWhile(_ != null)
+  import AuthMatchers.GrpcExceptionEquality
 
-  private def expectError(predicate: Throwable => Boolean)(call: => Any): Assertion =
-    theCausalChainOf(the[RuntimeException] thrownBy call).filter(predicate) should not be empty
+  private def expectError(code: Status.Code)(call: => Any): Assertion =
+    the[Exception] thrownBy call shouldEqual code
 
   def expectUnauthenticated(call: => Any): Assertion =
-    expectError {
-      case GrpcException(GrpcStatus.UNAUTHENTICATED(), _) => true
-      case _ => false
-    }(call)
+    expectError(Status.Code.UNAUTHENTICATED)(call)
 
   def expectPermissionDenied(call: => Any): Assertion =
-    expectError {
-      case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) => true
-      case _ => false
-    }(call)
+    expectError(Status.Code.PERMISSION_DENIED)(call)
 
   def expectDeadlineExceeded(call: => Any): Assertion =
-    expectError {
-      case GrpcException(GrpcStatus.DEADLINE_EXCEEDED(), _) => true
-      case _ => false
-    }(call)
+    expectError(Status.Code.DEADLINE_EXCEEDED)(call)
 }
