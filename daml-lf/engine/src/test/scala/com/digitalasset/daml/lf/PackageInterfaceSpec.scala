@@ -53,18 +53,18 @@ class PackageInterfaceSpec
       description: String,
       lookup: X => Either[LookupError, Y],
       toContext: X => Reference,
-  )(nonErrorCase: X, validateSuccess: PartialFunction[Y, Assertion], errorCases: (X, Reference)*) =
+  )(nonErrorCase: (X, PartialFunction[Y, Assertion]), errorCases: (X, Reference)*) =
     s"Lookup$description" should {
 
       s"succeed on known ${description.toLowerCase()}" in {
-        inside(lookup(nonErrorCase)) { case Right(success) => inside(success)(validateSuccess) }
+        val (successfulInput, validateSuccess) = nonErrorCase
+        inside(lookup(successfulInput)) { case Right(success) => inside(success)(validateSuccess) }
       }
 
       s"fail on unknown ${description.toLowerCase()}" in {
         val table = Table("input" -> "reference", errorCases: _*)
 
         forEvery(table) { (input, expectedNotFound) =>
-          assume(input != nonErrorCase)
           inside(lookup(input)) { case Left(LookupError(notFound, context)) =>
             notFound shouldBe expectedNotFound
             context shouldBe toContext(input)
@@ -73,13 +73,17 @@ class PackageInterfaceSpec
       }
     }
 
-  test("DataRecord", interface.lookupDataRecord, Reference.DataRecord)(
-    "Mod:Tuple",
-    { case DataRecordInfo(dataType, DataRecord(variants)) =>
-      dataType.params shouldBe ImmArray("X" -> KStar, "Y" -> KStar)
-      variants shouldBe ImmArray("fst" -> TVar("X"), "snd" -> TVar("Y"))
-    },
-    Identifier("another package", "Mod:Tuple") ->
+  test(
+    description = "DataRecord",
+    lookup = interface.lookupDataRecord,
+    toContext = Reference.DataRecord,
+  )(
+    nonErrorCase =
+      ("Mod:Tuple": Identifier) -> { case DataRecordInfo(dataType, DataRecord(variants)) =>
+        dataType.params shouldBe ImmArray("X" -> KStar, "Y" -> KStar)
+        variants shouldBe ImmArray("fst" -> TVar("X"), "snd" -> TVar("Y"))
+      },
+    errorCases = Identifier("another package", "Mod:Tuple") ->
       Reference.Package("another package"),
     ("AnotherModule:Tuple": Identifier) ->
       Reference.Module(defaultPackageId, "AnotherModule"),
@@ -91,13 +95,17 @@ class PackageInterfaceSpec
       Reference.DataRecord("Mod:Either"),
   )
 
-  test("DataVariant", interface.lookupDataVariant, Reference.DataVariant)(
-    "Mod:Either",
-    { case DataVariantInfo(dataType, DataVariant(fields)) =>
-      dataType.params shouldBe ImmArray("a" -> KStar, "b" -> KStar)
-      fields shouldBe ImmArray("Left" -> TVar("a"), "Right" -> TVar("b"))
-    },
-    Identifier("another package", "Mod:Either") ->
+  test(
+    description = "DataVariant",
+    lookup = interface.lookupDataVariant,
+    toContext = Reference.DataVariant,
+  )(
+    nonErrorCase =
+      ("Mod:Either": Identifier) -> { case DataVariantInfo(dataType, DataVariant(fields)) =>
+        dataType.params shouldBe ImmArray("a" -> KStar, "b" -> KStar)
+        fields shouldBe ImmArray("Left" -> TVar("a"), "Right" -> TVar("b"))
+      },
+    errorCases = Identifier("another package", "Mod:Either") ->
       Reference.Package("another package"),
     ("AnotherModule:Either": Identifier) ->
       Reference.Module(defaultPackageId, "AnotherModule"),
@@ -109,13 +117,13 @@ class PackageInterfaceSpec
       Reference.DataVariant("Mod:Tuple"),
   )
 
-  test("DataEnum", interface.lookupDataEnum, Reference.DataEnum)(
-    "Mod:Color",
-    { case DataEnumInfo(dataType, DataEnum(constructors)) =>
-      dataType.params shouldBe ImmArray.empty
-      constructors shouldBe ImmArray("Red", "Green", "Blue")
-    },
-    Identifier("another package", "Mod:Color") ->
+  test(description = "DataEnum", lookup = interface.lookupDataEnum, toContext = Reference.DataEnum)(
+    nonErrorCase =
+      ("Mod:Color": Identifier) -> { case DataEnumInfo(dataType, DataEnum(constructors)) =>
+        dataType.params shouldBe ImmArray.empty
+        constructors shouldBe ImmArray("Red", "Green", "Blue")
+      },
+    errorCases = Identifier("another package", "Mod:Color") ->
       Reference.Package("another package"),
     ("AnotherModule:Color": Identifier) ->
       Reference.Module(defaultPackageId, "AnotherModule"),
@@ -127,12 +135,11 @@ class PackageInterfaceSpec
       Reference.DataEnum("Mod:Tuple"),
   )
 
-  test("Template", interface.lookupTemplate, Reference.Template)(
-    "Mod:Contract",
-    { case template =>
+  test(description = "Template", lookup = interface.lookupTemplate, toContext = Reference.Template)(
+    nonErrorCase = ("Mod:Contract": Identifier) -> { case template =>
       template.param shouldBe "this"
     },
-    Identifier("another package", "Mod:Contract") ->
+    errorCases = Identifier("another package", "Mod:Contract") ->
       Reference.Package("another package"),
     ("AnotherModule:Contract": Identifier) ->
       Reference.Module(defaultPackageId, "AnotherModule"),
