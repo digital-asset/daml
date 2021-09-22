@@ -638,6 +638,7 @@ private[state] object Conversions {
           buildStatus(
             Code.INVALID_ARGUMENT,
             s"Disputed: ${rejection.getDetails}",
+            rejection.getMetadataMap.asScala.toMap,
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
