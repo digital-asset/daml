@@ -27,6 +27,7 @@ def _java_home_runtime_impl(ctx):
 java_home_runtime = repository_rule(
     implementation = _java_home_runtime_impl,
     doc = "Define a `java_runtime` pointing to the JAVA_HOME environment variable.",
+    environ = ["JAVA_HOME"],
 )
 
 def da_java_library(
