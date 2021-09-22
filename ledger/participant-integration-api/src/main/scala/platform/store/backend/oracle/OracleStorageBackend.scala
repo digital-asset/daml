@@ -101,7 +101,7 @@ private[backend] object OracleStorageBackend
         op
       } catch {
         case NonFatal(e) =>
-          logger.debug(s"Caught exception while upsering a deduplication entry: $e")
+          logger.debug(s"Caught exception while upserting a deduplication entry: $e")
           op
       }
     retry(
