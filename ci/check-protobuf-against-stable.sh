@@ -31,4 +31,4 @@ fi
 
 readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
 echo "Checking protobuf against tag '${LATEST_STABLE_TAG}'"
-(eval "$(dev-env/bin/dade assist)" ; buf breaking --against ".git#branch=${LATEST_STABLE_TAG}")
+(eval "$(dev-env/bin/dade assist)" ; buf breaking --against ".git#tag=${LATEST_STABLE_TAG}")
