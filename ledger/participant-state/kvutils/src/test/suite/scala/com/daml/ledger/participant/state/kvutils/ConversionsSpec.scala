@@ -108,72 +108,72 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
       "convert rejection to proto models and back to expected grpc code" in {
         forAll(
-          Table(
+          Table[Rejection, Code, Map[String, String]](
             ("rejection", "expected code", "expected additional details"),
             (
               Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
               Code.INVALID_ARGUMENT,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.InternallyInconsistentTransaction.InconsistentKeys,
               Code.INVALID_ARGUMENT,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.InternallyInconsistentTransaction.DuplicateKeys,
               Code.INVALID_ARGUMENT,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
               Code.ABORTED,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
               Code.ABORTED,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
               Code.ABORTED,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
               Code.ABORTED,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.InvalidParticipantState(Err.InternalError("error")),
               Code.INVALID_ARGUMENT,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.RecordTimeOutOfRange(now, now),
               Code.ABORTED,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
               Code.ABORTED,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.CausalMonotonicityViolated,
               Code.ABORTED,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
               Code.INVALID_ARGUMENT,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.PartiesNotKnownOnLedger(Seq.empty),
               Code.INVALID_ARGUMENT,
-              Map.empty[String, String],
+              Map.empty,
             ),
             (
               Rejection.MissingInputState(partyStateKey("party")),
