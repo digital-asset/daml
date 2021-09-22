@@ -68,21 +68,21 @@ private class ContractsFetch(
   /** run `within` repeatedly after fetchAndPersist until the latter is
     * consistent before and after `within`
     */
-  def fetchAndPersistBracket[A, B](
+  def fetchAndPersistBracket[A](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: OneAnd[Set, domain.Party],
       templateIds: List[domain.TemplateId.RequiredPkg],
-  )(within: => ConnectionIO[A])(bookmark: (A, BeginBookmark[Terminates.AtAbsolute]) => B)(implicit
+  )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[B] = for {
+  ): ConnectionIO[A] = for {
     bb <- fetchAndPersist(jwt, ledgerId, parties, templateIds)
-    a <- within
+    a <- within(bb)
     // TODO SC check bb with laggingOffsets and loop
     // import ContractDao.laggingOffsets
-  } yield bookmark(a, bb)
+  } yield a
 
   def fetchAndPersist(
       jwt: Jwt,

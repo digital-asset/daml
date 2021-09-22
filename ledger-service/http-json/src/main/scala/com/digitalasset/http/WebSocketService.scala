@@ -714,16 +714,18 @@ class WebSocketService(
     contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
         val tx = fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.toList) {
-          for {
-            mdContracts <- predicate.dbQuery(parties, dao)
-          } yield
-            if (mdContracts.nonEmpty)
-              Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
-            else
-              Source.empty
-        } { (acs, bookmark) =>
-          val liveMarker = liveBegin(bookmark.map(_.toDomain))
-          acs ++ liveMarker
+          bookmark =>
+            for {
+              mdContracts <- predicate.dbQuery(parties, dao)
+            } yield {
+              val acs =
+                if (mdContracts.nonEmpty)
+                  Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
+                else
+                  Source.empty
+              val liveMarker = liveBegin(bookmark.map(_.toDomain))
+              acs ++ liveMarker
+            }
         }
         dao.transact(tx).unsafeToFuture()
       },
