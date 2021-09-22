@@ -173,6 +173,8 @@ da_haskell_test(
         "zip-archive",
     ],
     main_function = "DA.Daml.Helper.Test.Ledger.main",
+    # Starts Sandbox & JSON-API so needs more resources.
+    tags = ["cpu:3"],
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
@@ -205,6 +207,8 @@ da_haskell_test(
         "zip-archive",
     ],
     main_function = "DA.Daml.Helper.Test.Packages.main",
+    # Starts Sandbox & JSON-API so needs more resources.
+    tags = ["cpu:3"],
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
