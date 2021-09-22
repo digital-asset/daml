@@ -1,0 +1,54 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- | Test interface conversion functions specifically.
+module InterfaceConversions where
+
+import DA.Assert ((===))
+
+interface Iface where
+
+template Template1
+    with
+        owner1: Party
+        value1: Int
+    where
+        signatory owner1
+        implements Iface where
+
+template Template2
+    with
+        owner2: Party
+        value2: Text
+    where
+        signatory owner2
+        implements Iface where
+
+main = scenario do
+    p <- getParty "Alice"
+    let template1 = Template1 p 10
+        template2 = Template2 p "Hi"
+        iface1 = toIface template1
+        iface2 = toIface template2
+    fromIface @Template1 iface1 === Some template1
+    fromIface @Template2 iface1 === None
+    fromIface @Template1 iface2 === None
+    fromIface @Template2 iface2 === Some template2
+
+    p `submit` do
+        templateCid1 <- create template1
+        templateCid2 <- create template2
+        let ifaceCid1 = toIfaceContractId templateCid1
+            ifaceCid2 = toIfaceContractId templateCid2
+
+        x1 <- fromIfaceContractId @Template1 ifaceCid1
+        x2 <- fromIfaceContractId @Template2 ifaceCid1
+        x3 <- fromIfaceContractId @Template1 ifaceCid2
+        x4 <- fromIfaceContractId @Template2 ifaceCid2
+
+        x1 === Some templateCid1
+        x2 === None
+        x3 === None
+        x4 === Some templateCid2
