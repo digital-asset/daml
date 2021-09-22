@@ -17,11 +17,14 @@ echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 # all the most recent stable tags reachable from either the current branch or
 # from previous release branches (say, against both `1.17.1` and `1.16.2`
 # created after the `release/1.17.x` branch).
-#
 # Instead, we approximate by checking only against the most recent stable tag
 # reachable from the current branch, under the assumption that if a lesser
 # release branch contains a protobuf change, then it will also be present in
 # higher ones either through a shared commit or a back-port from `main`.
+#
+# Finally, this check does not need to run on release branch commits because
+# they are built sequentially, so no conflicts are possible and the per-PR
+# check is enough.
 readonly RELEASE_BRANCH_REGEX="^release/.*"
 GIT_TAG_SCOPE=""
 if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
