@@ -150,7 +150,12 @@ object ContractDao {
 
   /** A "lagging offset" is a template-ID/party pair whose stored offset may not reflect
     * the actual contract table state at query time.  Examples of this are described in
-    * <https://github.com/digital-asset/daml/issues/10334> .  It is perfectly fine for
+    * <https://github.com/digital-asset/daml/issues/10334> .
+    *
+    * It is perfectly fine for an offset to be returned but the set of lagging template IDs
+    * be empty; this means they appear to be consistent but not at `expectedOffset`; since
+    * that means the state at query time is indeterminate, the query must be rerun anyway,
+    * but no further DB updates are needed.
     *
     * @param parties The party-set that must not be lagging.  We aren't concerned with
     *          whether ''other'' parties are lagging, in fact we can't correct if they are,
@@ -158,7 +163,7 @@ object ContractDao {
     * @param expectedOffset `fetchAndPersist` should have synchronized every template-ID/party
     *          pair to the same offset, this one.
     * @param templateIds The template IDs we're checking.
-    * @return The template IDs that are lagging, and the offset to catch them up to, if defined;
+    * @return Any template IDs that are lagging, and the offset to catch them up to, if defined;
     *         otherwise everything is fine.
     */
   def laggingOffsets(
@@ -168,7 +173,8 @@ object ContractDao {
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
-  ): ConnectionIO[Option[(domain.Offset, NonEmpty[Set[domain.TemplateId.RequiredPkg]])]] = {
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[Option[(domain.Offset, Set[domain.TemplateId.RequiredPkg])]] = {
     type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
     import scalaz.syntax.traverse._
     import sjd.q.queries.unsyncedOffsets
@@ -189,12 +195,12 @@ object ContractDao {
   }
 
   // postprocess the output of unsyncedOffsets
-  private[this] def minimumViableOffsets[ITpId, OTpId, Party, Off: Order](
+  private[dbbackend] def minimumViableOffsets[ITpId, OTpId, Party, Off: Order](
       queriedParty: Party => Boolean,
       surrogatesToDomains: ITpId => OTpId,
       expectedOffset: Off,
       unsynced: Map[ITpId, Map[Party, Off]],
-  ): Option[(Off, NonEmpty[Set[OTpId]])] = {
+  ): Option[(Off, Set[OTpId])] = {
     import scalaz.syntax.foldable1.{ToFoldableOps => _, _}
     val lagging = unsynced collect Function.unlift { case (surrogateTpId, partyOffs) =>
       import scalaz.std.iterable._
