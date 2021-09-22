@@ -84,14 +84,16 @@ object Node {
     override private[lf] def updateVersion(version: TransactionVersion): NodeCreate =
       copy(version = version)
 
-    final override def mapCid(f: ContractId => ContractId): NodeCreate =
+    override def mapCid(f: ContractId => ContractId): NodeCreate =
       copy(coid = f(coid), arg = arg.mapCid(f), key = key.map(_.mapCid(f)))
+
+    def versionedArg: VersionedValue = versionValue(arg)
 
     def coinst: Value.ContractInst[Value] =
       Value.ContractInst(templateId, arg, agreementText)
 
     def versionedCoinst: Value.ContractInst[Value.VersionedValue] =
-      Value.ContractInst(templateId, versionValue(arg), agreementText)
+      Value.ContractInst(templateId, versionedArg, agreementText)
 
     def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue]] =
       key.map(_.map(versionValue))

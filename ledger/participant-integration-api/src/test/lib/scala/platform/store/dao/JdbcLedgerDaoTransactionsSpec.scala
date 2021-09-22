@@ -71,7 +71,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             tx.transaction.nodes.head
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs: _*)
-          created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+          created.agreementText.getOrElse("") shouldBe createNode.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
           created.signatories should contain theSameElementsAs createNode.signatories

@@ -79,7 +79,7 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
         case create: Create =>
           submitters(i) = submittersValue
           contractIds(i) = create.coid.coid
-          templateIds(i) = create.coinst.template.toString
+          templateIds(i) = create.templateId.toString
           eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
           nodeIndexes(i) = nodeId.index
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
@@ -87,8 +87,8 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           createArguments(i) = compressed.createArguments(nodeId)
           createSignatories(i) = create.signatories.mkString("|")
           createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
-          if (create.coinst.agreementText.nonEmpty) {
-            createAgreementTexts(i) = create.coinst.agreementText
+          if (create.agreementText.nonEmpty) {
+            createAgreementTexts(i) = create.agreementText
           }
           createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
         case exercise: Exercise =>
