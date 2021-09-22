@@ -399,6 +399,7 @@ private[state] object Conversions {
           InvalidParticipantState
             .newBuilder()
             .setDetails(error.getMessage)
+            .putAllMetadata(error.getMetadata.asJava)
         )
       case Rejection.LedgerTimeOutOfRange(outOfRange) =>
         builder.setInvalidLedgerTime(
