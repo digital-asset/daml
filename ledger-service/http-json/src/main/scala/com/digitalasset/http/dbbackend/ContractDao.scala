@@ -208,7 +208,7 @@ object ContractDao {
         .collect {
           case (unsyncedParty, unsyncedOff)
               if (if (queriedParty(unsyncedParty)) unsyncedOff != expectedOffset
-                  else unsyncedOff <= expectedOffset) =>
+                  else unsyncedOff < expectedOffset) =>
             unsyncedOff
         }
         .maximum
