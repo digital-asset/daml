@@ -1153,7 +1153,7 @@ private[lf] object SBuiltin {
   final case class SBUChoiceInterface(
       ifaceId: TypeConName,
       choiceName: ChoiceName,
-  ) extends SBuiltin(2) {
+  ) extends SBuiltin(3) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1177,6 +1177,22 @@ private[lf] object SBuiltin {
             // TODO https://github.com/digital-asset/daml/issues/10810:
             //   Maybe create a more specific exception.
           )
+      }
+    }
+  }
+
+  // Convert an interface to a given template type if possible. Since interfaces have the
+  // same representation as the underlying template, we only need to perform a check
+  // that the record type matches the template type.
+  final case class SBFromInterface(
+      tplId: TypeConName
+  ) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+      val record = getSRecord(args, 0)
+      if (tplId == record.id) {
+        SOptional(Some(record))
+      } else {
+        SOptional(None)
       }
     }
   }
