@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.testtool.tests.Tests
-import com.daml.ledger.api.tls.TlsConfiguration
 import scopt.{OptionParser, Read}
 
 import java.io.File
@@ -17,9 +16,11 @@ import scala.util.Try
 
 object Cli {
 
-  private def reportUsageOfDeprecatedOption[B](
-      option: String
-  ) = { (_: Any, config: B) =>
+  private val Name = "ledger-api-test-tool"
+
+  private[this] implicit val fileRead: Read[File] = Read.reads(Paths.get(_).toFile)
+
+  private def reportUsageOfDeprecatedOption[B](option: String) = { (_: Any, config: B) =>
     System.err.println(
       s"WARNING: $option has been deprecated and will be removed in a future version"
     )
@@ -41,29 +42,6 @@ object Cli {
         throw new IllegalArgumentException("Addresses should be specified as `<host>:<port>`")
       case n: Int => (s.slice(0, n), s.slice(n + 1, s.length))
     }
-
-  private val Name = "ledger-api-test-tool"
-
-  private val pemConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None))
-      )(c => Some(c.copy(keyFile = Some(new File(path)))))
-    )
-
-  private val crtConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None))
-      )(c => Some(c.copy(keyCertChainFile = Some(new File(path)))))
-    )
-
-  private val cacrtConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path))))
-      )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path)))))
-    )
 
   private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
@@ -98,23 +76,29 @@ object Cli {
       .action(reportUsageOfDeprecatedOption("--target-port"))
       .hidden()
 
-    opt[String]("pem")
+    opt[File]("pem")
       .optional()
       .text("TLS: The pem file to be used as the private key. Applied to all endpoints.")
-      .action(pemConfig)
+      .action { (path: File, config: Config) =>
+        config.withTlsConfig(_.copy(keyFile = Some(path)))
+      }
 
-    opt[String]("crt")
+    opt[File]("crt")
       .optional()
       .text(
         """TLS: The crt file to be used as the cert chain.
           |Required if any other TLS parameters are set. Applied to all endpoints.""".stripMargin
       )
-      .action(crtConfig)
+      .action { (path: File, config: Config) =>
+        config.withTlsConfig(_.copy(keyCertChainFile = Some(path)))
+      }
 
-    opt[String]("cacrt")
+    opt[File]("cacrt")
       .optional()
       .text("TLS: The crt file to be used as the trusted root CA. Applied to all endpoints.")
-      .action(cacrtConfig)
+      .action { (path: File, config: Config) =>
+        config.withTlsConfig(_.copy(trustCertCollectionFile = Some(path)))
+      }
 
     opt[Double](name = "timeout-scale-factor")
       .optional()
