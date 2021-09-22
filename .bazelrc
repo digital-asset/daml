@@ -62,6 +62,7 @@ build --copt -DGRPC_BAZEL_BUILD
 # Bazel defaults to JDK9. This makes sure we run Nix provided JDK, and
 # avoid dreaded "Unrecognized VM option 'CompactStrings'" error
 build --host_javabase=@java_home//:javabase
+build --javabase=@java_home//:javabase
 build --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 build --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 
