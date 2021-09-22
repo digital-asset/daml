@@ -30,6 +30,7 @@ import com.daml.http.util.IdentifierConverters.apiIdentifier
 import com.daml.http.util.Logging.{InstanceUUID}
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.daml.scalautil.ExceptionOps._
+import com.daml.scalautil.nonempty.NonEmpty
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
@@ -41,6 +42,7 @@ import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.std.list._
+import scalaz.std.option.none
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
@@ -77,12 +79,29 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[A] = for {
-    bb <- fetchAndPersist(jwt, ledgerId, parties, templateIds)
-    a <- within(bb)
-    // TODO SC check bb with laggingOffsets and loop
-    // import ContractDao.laggingOffsets
-  } yield a
+  ): ConnectionIO[A] = {
+    import ContractDao.laggingOffsets
+    val al = for {
+      bb <- fetchAndPersist(jwt, ledgerId, parties, templateIds)
+      a <- within(bb)
+      lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
+        case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
+          laggingOffsets(parties.toSet, expectedOff, tids)
+        case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
+      }
+    } yield (a, lagging)
+    // trying to put the loop in right-associated tail position
+    // (in free monad terms)
+    al.flatMap { case (a, lagging) =>
+      lagging.cata(
+        { case (newOff @ _, laggingTids @ _) =>
+          // TODO SC loop, at newOff/laggingTids instead of getTermination
+          fconn.pure(a)
+        },
+        fconn.pure(a),
+      )
+    }
+  }
 
   def fetchAndPersist(
       jwt: Jwt,
