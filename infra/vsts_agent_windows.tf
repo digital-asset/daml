@@ -13,7 +13,7 @@ locals {
       suffix     = "",
       size       = 6,
       assignment = "default",
-      dotnet     = 2
+      dotnet     = 3
     },
     {
       suffix     = "-t",
