@@ -15,12 +15,6 @@ locals {
       assignment = "default",
       dotnet     = 3
     },
-    {
-      suffix     = "-t",
-      size       = 6,
-      assignment = "default",
-      dotnet     = 3
-    },
   ]
 }
 
