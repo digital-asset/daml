@@ -324,8 +324,6 @@ object TransactionBuilder {
 
   object Implicits {
 
-    implicit val defaultPackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkgId")
-
     implicit def toContractId(s: String): ContractId =
       ContractId.assertFromString(s)
 
@@ -341,8 +339,13 @@ object TransactionBuilder {
     implicit def toPackageId(s: String): Ref.PackageId =
       Ref.PackageId.assertFromString(s)
 
+    implicit def toDottedName(s: String): Ref.DottedName =
+      Ref.DottedName.assertFromString(s)
+
     implicit def toQualifiedName(s: String): Ref.QualifiedName =
       Ref.QualifiedName.assertFromString(s)
+
+    implicit val defaultPackageId: Ref.PackageId = "default Package ID"
 
     implicit def toIdentifier(s: String)(implicit defaultPackageId: Ref.PackageId): Ref.Identifier =
       Ref.Identifier(defaultPackageId, s)
