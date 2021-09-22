@@ -193,7 +193,7 @@ trait DeduplicationStorageBackend {
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
-  )(connection: Connection): Int
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Int
   def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit
   def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit
 }

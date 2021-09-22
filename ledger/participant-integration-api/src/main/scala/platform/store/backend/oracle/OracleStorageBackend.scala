@@ -30,9 +30,11 @@ import java.time.Instant
 
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import javax.sql.DataSource
+
+import scala.util.control.NonFatal
 
 private[backend] object OracleStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -41,6 +43,8 @@ private[backend] object OracleStorageBackend
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
     with PartyStorageBackendTemplate {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def reset(connection: Connection): Unit =
     List(
@@ -86,14 +90,30 @@ private[backend] object OracleStorageBackend
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
-  )(connection: Connection): Int =
-    SQL(SQL_INSERT_COMMAND)
-      .on(
-        "deduplicationKey" -> key,
-        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
-      )
-      .executeUpdate()(connection)
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Int = {
+
+    // Under the default READ_COMMITTED isolation level used for the indexdb, when a deduplication
+    // upsert is performed simultaneously from multiple threads, the query fails with
+    // SQLIntegrityConstraintViolationException: ORA-00001: unique constraint (INDEXDB.SYS_C007590) violated
+    // Simple retry helps
+    def retry[T](op: => T): T =
+      try {
+        op
+      } catch {
+        case NonFatal(e) =>
+          logger.debug(s"Caught exception while upserting a deduplication entry: $e")
+          op
+      }
+    retry(
+      SQL(SQL_INSERT_COMMAND)
+        .on(
+          "deduplicationKey" -> key,
+          "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+          "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
+        )
+        .executeUpdate()(connection)
+    )
+  }
 
   override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
     OracleSchema.schema.prepareData(dbDtos)
