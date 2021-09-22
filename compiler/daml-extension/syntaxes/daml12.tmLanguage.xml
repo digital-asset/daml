@@ -409,6 +409,8 @@
 			| with
 			| choice
 			| template
+			| interface
+			| implements
 			| key
 			| maintainer
 			| daml
