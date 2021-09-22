@@ -68,7 +68,7 @@ private[backend] object PostgresStorageBackend
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
-  )(connection: Connection): Int =
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Int =
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
