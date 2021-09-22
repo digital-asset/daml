@@ -13,6 +13,6 @@ object Defaults {
 
   // Neither ledgers nor participants scale perfectly with the number of processors.
   // We therefore limit the maximum number of concurrent tests, to avoid overwhelming the ledger.
-  val ConcurrentRuns: Int = List(Runtime.getRuntime.availableProcessors(), 4).min
+  val ConcurrentRuns: Int = sys.runtime.availableProcessors min 4
 
 }
