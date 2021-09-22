@@ -65,6 +65,25 @@ private class ContractsFetch(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
+  /** run `within` repeatedly after fetchAndPersist until the latter is
+    * consistent before and after `within`
+    */
+  def fetchAndPersistBracket[A, B](
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      parties: OneAnd[Set, domain.Party],
+      templateIds: List[domain.TemplateId.RequiredPkg],
+  )(within: => ConnectionIO[A])(bookmark: (A, BeginBookmark[Terminates.AtAbsolute]) => B)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[B] = for {
+    bb <- fetchAndPersist(jwt, ledgerId, parties, templateIds)
+    a <- within
+    // TODO SC check bb with laggingOffsets and loop
+    // import ContractDao.laggingOffsets
+  } yield bookmark(a, bb)
+
   def fetchAndPersist(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,

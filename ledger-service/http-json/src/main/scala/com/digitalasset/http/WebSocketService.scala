@@ -713,16 +713,15 @@ class WebSocketService(
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
     contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
-        val tx = for {
-          bookmark <- fetch.fetchAndPersist(jwt, ledgerId, parties, predicate.resolved.toList)
-          mdContracts <- predicate.dbQuery(parties, dao)
-        } yield {
-          val acs =
-            if (mdContracts.nonEmpty) {
+        val tx = fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.toList) {
+          for {
+            mdContracts <- predicate.dbQuery(parties, dao)
+          } yield
+            if (mdContracts.nonEmpty)
               Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
-            } else {
+            else
               Source.empty
-            }
+        } { (acs, bookmark) =>
           val liveMarker = liveBegin(bookmark.map(_.toDomain))
           acs ++ liveMarker
         }
