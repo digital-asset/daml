@@ -25,7 +25,8 @@ import scala.util.{Failure, Success, Try}
   * - accepts TLSv1.3 connections,
   * - rejects TLSv1.2 (or lower) connections.
   */
-final class TLSOnePointThreeIT extends TlsIT {
+final class TLSOnePointThreeIT
+    extends TlsIT(shortIdentifierPrefix = "ServerOnTLSv13ConnectionFromClientOn") {
   testTlsConnection(clientTlsVersion = TlsVersion.V1_3, assertConnectionOk = true)
   testTlsConnection(clientTlsVersion = TlsVersion.V1_2, assertConnectionOk = false)
   testTlsConnection(clientTlsVersion = TlsVersion.V1_1, assertConnectionOk = false)
@@ -36,7 +37,8 @@ final class TLSOnePointThreeIT extends TlsIT {
   * - accepts either TLSv1.2 or TLSv1.3 connections,
   * - rejects TLSv1.1 (or lower) connections.
   */
-final class TLSAtLeastOnePointTwoIT extends TlsIT {
+final class TLSAtLeastOnePointTwoIT
+    extends TlsIT(shortIdentifierPrefix = "ServerOnTLSConnectionFromClientOn") {
   testTlsConnection(
     clientTlsVersions = Seq[TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3),
     assertConnectionOk = true,
@@ -49,7 +51,7 @@ final class TLSAtLeastOnePointTwoIT extends TlsIT {
   *
   * It works by creating and exercising a series of client service stubs, each over different TLS version.
   */
-abstract class TlsIT extends LedgerTestSuite {
+abstract class TlsIT(shortIdentifierPrefix: String) extends LedgerTestSuite {
 
   def testTlsConnection(clientTlsVersion: TlsVersion, assertConnectionOk: Boolean): Unit = {
     testTlsConnection(
@@ -71,7 +73,7 @@ abstract class TlsIT extends LedgerTestSuite {
       .mkString("and")
 
     testGivenAllParticipants(
-      s"ConnectionOnTLSv13FromClientOn$clientTlsVersionsText",
+      s"$shortIdentifierPrefix$clientTlsVersionsText",
       s"A ledger API server should ${what} a ${clientTlsVersions} connection",
       allocate(NoParties),
     ) { implicit ec => (testContexts: Seq[ParticipantTestContext]) =>
