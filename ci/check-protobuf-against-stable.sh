@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
-eval "$(dev-env/bin/dade assist)"
-
 readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
 trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
@@ -35,6 +33,6 @@ echo "Checking protobuf against tag '${LATEST_STABLE_TAG}'"
 git checkout "${LATEST_STABLE_TAG}"
 
 readonly BUF_IMAGE="${BUF_IMAGE_TMPDIR}/buf.bin"
-buf build -o "${BUF_IMAGE}"
+(eval "$(dev-env/bin/dade assist)" ; buf build -o "${BUF_IMAGE}")
 git checkout "${CURRENT_BRANCH}"
-buf breaking --against "${BUF_IMAGE}"
+(eval "$(dev-env/bin/dade assist)" ; buf breaking --against "${BUF_IMAGE}")
