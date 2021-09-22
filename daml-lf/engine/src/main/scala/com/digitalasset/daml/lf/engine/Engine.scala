@@ -15,7 +15,7 @@ import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import java.nio.file.Files
 
-import com.daml.lf.language.{Interface, LanguageVersion, LookupError, StablePackages}
+import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
 import com.daml.lf.validation.Validation
 import com.daml.nameof.NameOf
 
@@ -456,7 +456,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       pkgIds = pkgs.keySet
       missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
       _ <- Either.cond(missingDeps.isEmpty, (), Error.Package.SelfConsistency(pkgIds, missingDeps))
-      interface = Interface(pkgs)
+      interface = PackageInterface(pkgs)
       _ <- {
         pkgs.iterator
           // we trust already loaded packages
@@ -491,7 +491,7 @@ object Engine {
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
         case _: NodeRollback[_] => "rollback"
-        case create: NodeCreate => makeDesc("create", create.coinst.template, None)
+        case create: NodeCreate => makeDesc("create", create.templateId, None)
         case exercise: NodeExercises[_] =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
         case fetch: NodeFetch => makeDesc("fetch", fetch.templateId, None)

@@ -3,7 +3,6 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @WARN Modules compiled with the DatatypeContexts language extension
--- @ERROR interfaces are not implemented
 {-# LANGUAGE DatatypeContexts #-}
 
 module InterfaceDesugared where
@@ -19,25 +18,27 @@ class
 -- TODO https://github.com/digital-asset/daml/issues/10810
 -- enable once we support pure functions
 --  getAmount : t -> Decimal
+  toToken : t -> Token
+  fromToken : Token -> Optional t
+  toTokenContractId : ContractId t -> ContractId Token
+  fromTokenContractId : ContractId Token -> Update (Optional (ContractId t))
 
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 
 instance HasExercise Token Split (ContractId Token, ContractId Token) where
-  exercise = error "unimplemented"
-  -- TODO https://github.com/digital-asset/daml/issues/10810
-  -- Switch to this once the Haskell typechecker is fixed
-  -- GHC.Types.primitive @"UExerciseInterface"
+  exercise = GHC.Types.primitive @"UExerciseInterface"
 
 instance HasExercise Token Transfer (ContractId Token) where
-  exercise = error "unimplemented"
-  -- TODO https://github.com/digital-asset/daml/issues/10810
-  -- Switch to this once the Haskell typechecker is fixed
-  -- GHC.Types.primitive @"UExerciseInterface"
+  exercise = GHC.Types.primitive @"UExerciseInterface"
 
 instance IsToken Token where
 -- TODO https://github.com/digital-asset/daml/issues/10810
 -- enable once we support pure functions
 --  getAmount = primitivInterface @"getAmount"
+  toToken = GHC.Types.primitive @"EToInterface"
+  fromToken = GHC.Types.primitive @"EFromInterface"
+  toTokenContractId = GHC.Types.primitive @"EToInterfaceContractId"
+  fromTokenContractId = GHC.Types.primitive @"UFromInterfaceContractId"
 
 data Asset = Asset { amount : Decimal, issuer : Party, owner : Party }
   deriving (Eq, Show)
@@ -46,6 +47,10 @@ instance IsToken Asset where
 -- TODO https://github.com/digital-asset/daml/issues/10810
 -- enable once we support pure functions
 --  getAmount Asset{..} = amount
+  toToken = GHC.Types.primitive @"EToInterface"
+  fromToken = GHC.Types.primitive @"EFromInterface"
+  toTokenContractId = GHC.Types.primitive @"EToInterfaceContractId"
+  fromTokenContractId = GHC.Types.primitive @"UFromInterfaceContractId"
 
 _implements_AssetToken : DA.Internal.Desugar.Implements Asset Token
 _implements_AssetToken = DA.Internal.Desugar.Implements

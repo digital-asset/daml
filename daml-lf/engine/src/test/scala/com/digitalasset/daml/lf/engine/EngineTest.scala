@@ -69,7 +69,7 @@ class EngineTest
     "daml-lf/tests/BasicTests.dar"
   )
 
-  val basicTestsSignatures = language.Interface(Map(basicTestsPkgId -> basicTestsPkg))
+  val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
@@ -151,54 +151,6 @@ class EngineTest
     new preprocessing.Preprocessor(
       ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
     )
-
-  "valid data variant identifier" should {
-    "found and return the argument types" in {
-      val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
-      val Right(lookupResult) = basicTestsSignatures.lookupDataVariant(id)
-      val params = lookupResult.dataType.params
-      val variants = lookupResult.dataVariant.variants
-      params should have length 1
-      variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
-    }
-  }
-
-  "valid data record identifier" should {
-    "found and return the argument types" in {
-      val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
-      lookupResult.dataRecord.fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
-    }
-  }
-
-  "valid template Identifier" should {
-    "return the right argument type" in {
-      val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
-      lookupResult.dataRecord.fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
-    }
-  }
-
-  "command translation" should {
-    "returns correct error when resuming" in {
-      val translator =
-        new preprocessing.Preprocessor(
-          ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
-        )
-      val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val wrongRecord =
-        ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
-      val res = translator
-        .translateValue(
-          TTyConApp(id, ImmArray.Empty),
-          wrongRecord,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
-      inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.TypeMismatch]
-      }
-    }
-  }
 
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
@@ -289,7 +241,7 @@ class EngineTest
     }
 
     val let = Time.Timestamp.now()
-    val submissionSeed = hash("multi-party create command")
+    val submissionSeed = hash("multi-party create command2")
 
     def interpretResult(
         templateId: String,

@@ -13,7 +13,7 @@ trait Reporter[A] {
   def report(
       results: Vector[LedgerTestSummary],
       skippedTests: Vector[LedgerTestSummary],
-      identifierSuffix: String,
+      runInfo: Seq[(String, String)],
   ): A
 }
 
@@ -112,7 +112,7 @@ object Reporter {
     override def report(
         results: Vector[LedgerTestSummary],
         excludedTests: Vector[LedgerTestSummary],
-        identifierSuffix: String,
+        runInfo: Seq[(String, String)],
     ): Unit = {
       s.println()
       s.println(blue("#" * 80))
@@ -124,7 +124,7 @@ object Reporter {
       s.println()
       s.println(yellow("### RUN INFORMATION"))
       s.println()
-      s.println(cyan(s"identifierSuffix = $identifierSuffix"))
+      runInfo.foreach { case (label, value) => s.println(cyan(s"$label = $value")) }
 
       val (successes, failures) = results.partition(_.result.isRight)
 

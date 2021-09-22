@@ -145,7 +145,7 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
         "PositiveTestCase8",
       )
 
-      val interface = language.Interface(Map(defaultPackageId -> pkg))
+      val interface = language.PackageInterface(Map(defaultPackageId -> pkg))
 
       checkModule(
         interface,

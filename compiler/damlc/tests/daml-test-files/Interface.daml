@@ -2,11 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @WARN Modules compiled with the DatatypeContexts language extension
--- @ERROR Interfaces not supported
-{-# LANGUAGE DatatypeContexts #-}
 
 module Interface where
+
+import DA.Assert ((===))
 
 interface Token where
 --  getAmount : Decimal
@@ -22,7 +21,7 @@ template Asset
   with
     issuer : Party
     owner : Party
-    amount : Decimal
+    amount : Int
   where
     signatory issuer, owner
     implements Token where
@@ -30,9 +29,37 @@ template Asset
         with
           splitAmount : Int
         controller owner
-        do error "not implemented"
+        do
+          assert (splitAmount < amount)
+          cid1 <- create this with amount = splitAmount
+          cid2 <- create this with amount = amount - splitAmount
+          pure (toTokenContractId cid1, toTokenContractId cid2)
+
       choice Transfer : ContractId Token
         with
           newOwner : Party
         controller owner, newOwner
-        do error "not implemented"
+        do
+          cid <- create this with owner = newOwner
+          pure (toTokenContractId cid)
+
+main = scenario do
+  p <- getParty "Alice"
+  p `submit` do
+    cidAsset1 <- create Asset with
+      issuer = p
+      owner = p
+      amount = 15
+    let cidToken1 = toTokenContractId cidAsset1
+    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
+    token2 <- fetch cidToken2
+    case fromToken token2 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 10
+    token3 <- fetch cidToken3
+    case fromToken token3 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 5
+    pure ()

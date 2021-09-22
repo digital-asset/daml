@@ -212,6 +212,18 @@ alphaExpr' env = \case
             && alphaType' env t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
+    EToInterface t1a t1b e1 -> \case
+        EToInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
+    EFromInterface t1a t1b e1 -> \case
+        EFromInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2
         _ -> False

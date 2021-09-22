@@ -127,7 +127,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     Exercise(
       choiceObservers = choiceObservers,
       targetCoid = contract.coid,
-      templateId = contract.coinst.template,
+      templateId = contract.templateId,
       choiceId = choice,
       consuming = consuming,
       actingParties = actingParties,
@@ -138,7 +138,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       exerciseResult = result,
       key = contract.key,
       byKey = byKey,
-      version = pkgTxVersion(contract.coinst.template.packageId),
+      version = pkgTxVersion(contract.templateId.packageId),
     )
 
   def exerciseByKey(
@@ -153,13 +153,13 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def fetch(contract: Create, byKey: Boolean = false): Fetch =
     Fetch(
       coid = contract.coid,
-      templateId = contract.coinst.template,
+      templateId = contract.templateId,
       actingParties = contract.signatories.map(Ref.Party.assertFromString),
       signatories = contract.signatories,
       stakeholders = contract.stakeholders,
       key = contract.key,
       byKey = byKey,
-      version = pkgTxVersion(contract.coinst.template.packageId),
+      version = pkgTxVersion(contract.templateId.packageId),
     )
 
   def fetchByKey(contract: Create): Fetch =
@@ -167,10 +167,10 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   def lookupByKey(contract: Create, found: Boolean): LookupByKey =
     LookupByKey(
-      templateId = contract.coinst.template,
+      templateId = contract.templateId,
       key = contract.key.get,
       result = if (found) Some(contract.coid) else None,
-      version = pkgTxVersion(contract.coinst.template.packageId),
+      version = pkgTxVersion(contract.templateId.packageId),
     )
 
   def rollback(): Rollback =
@@ -324,8 +324,6 @@ object TransactionBuilder {
 
   object Implicits {
 
-    implicit val defaultPackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkgId")
-
     implicit def toContractId(s: String): ContractId =
       ContractId.assertFromString(s)
 
@@ -341,8 +339,13 @@ object TransactionBuilder {
     implicit def toPackageId(s: String): Ref.PackageId =
       Ref.PackageId.assertFromString(s)
 
+    implicit def toDottedName(s: String): Ref.DottedName =
+      Ref.DottedName.assertFromString(s)
+
     implicit def toQualifiedName(s: String): Ref.QualifiedName =
       Ref.QualifiedName.assertFromString(s)
+
+    implicit val defaultPackageId: Ref.PackageId = "default Package ID"
 
     implicit def toIdentifier(s: String)(implicit defaultPackageId: Ref.PackageId): Ref.Identifier =
       Ref.Identifier(defaultPackageId, s)

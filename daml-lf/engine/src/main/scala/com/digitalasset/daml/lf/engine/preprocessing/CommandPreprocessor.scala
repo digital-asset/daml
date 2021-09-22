@@ -12,7 +12,7 @@ import com.daml.lf.value.Value
 import scala.annotation.tailrec
 
 private[lf] final class CommandPreprocessor(
-    interface: language.Interface,
+    interface: language.PackageInterface,
     // See Preprocessor scala doc for more details about the following flags.
     forbidV0ContractId: Boolean,
     requireV1ContractIdSuffix: Boolean,

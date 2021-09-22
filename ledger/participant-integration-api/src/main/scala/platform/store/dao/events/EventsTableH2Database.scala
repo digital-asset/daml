@@ -127,12 +127,12 @@ object EventsTableH2Database extends EventsTable {
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
       "contract_id" -> event.coid.coid,
-      "template_id" -> event.coinst.template,
+      "template_id" -> event.templateId,
       "create_argument" -> argument,
       "create_argument_compression" -> argumentCompression,
       "create_signatories" -> event.signatories.toArray[String],
       "create_observers" -> event.stakeholders.diff(event.signatories).toArray[String],
-      "create_agreement_text" -> event.coinst.agreementText,
+      "create_agreement_text" -> event.agreementText,
       "create_key_value" -> key,
       "create_key_value_compression" -> keyCompression,
     ) ++ emptyExerciseFields

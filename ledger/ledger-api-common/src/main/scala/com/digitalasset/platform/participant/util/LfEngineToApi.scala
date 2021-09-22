@@ -206,20 +206,20 @@ object LfEngineToApi {
       node: NodeCreate,
   ): Either[String, Event] =
     for {
-      arg <- lfValueToApiRecord(verbose, node.coinst.arg)
+      arg <- lfValueToApiRecord(verbose, node.arg)
       key <- lfContractKeyToApiValue(verbose, node.versionedKey)
     } yield Event(
       Event.Event.Created(
         CreatedEvent(
           eventId = EventId(trId, nodeId).toLedgerString,
           contractId = node.coid.coid,
-          templateId = Some(toApiIdentifier(node.coinst.template)),
+          templateId = Some(toApiIdentifier(node.templateId)),
           contractKey = key,
           createArguments = Some(arg),
           witnessParties = node.stakeholders.toSeq,
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
-          agreementText = Some(node.coinst.agreementText),
+          agreementText = Some(node.agreementText),
         )
       )
     )
@@ -251,20 +251,20 @@ object LfEngineToApi {
       node: NodeCreate,
   ): Either[String, TreeEvent] =
     for {
-      arg <- lfValueToApiRecord(verbose, node.coinst.arg)
+      arg <- lfValueToApiRecord(verbose, node.arg)
       key <- lfContractKeyToApiValue(verbose, node.versionedKey)
     } yield TreeEvent(
       TreeEvent.Kind.Created(
         CreatedEvent(
           eventId = eventId.toLedgerString,
           contractId = node.coid.coid,
-          templateId = Some(toApiIdentifier(node.coinst.template)),
+          templateId = Some(toApiIdentifier(node.templateId)),
           contractKey = key,
           createArguments = Some(arg),
           witnessParties = witnessParties.toSeq,
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
-          agreementText = Some(node.coinst.agreementText),
+          agreementText = Some(node.agreementText),
         )
       )
     )

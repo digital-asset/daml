@@ -7,9 +7,9 @@ package language
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
-private[lf] class Interface(signatures: PartialFunction[PackageId, PackageSignature]) {
+private[lf] class PackageInterface(signatures: PartialFunction[PackageId, PackageSignature]) {
 
-  import Interface._
+  import PackageInterface._
 
   private[this] def lookupPackage(
       pkgId: PackageId,
@@ -263,12 +263,12 @@ private[lf] class Interface(signatures: PartialFunction[PackageId, PackageSignat
 
 }
 
-object Interface {
+object PackageInterface {
 
-  val Empty = new Interface(PartialFunction.empty)
+  val Empty = new PackageInterface(PartialFunction.empty)
 
-  def apply(packages: Map[PackageId, Package]): Interface =
-    new Interface(Util.toSignatures(packages))
+  def apply(packages: Map[PackageId, Package]): PackageInterface =
+    new PackageInterface(Util.toSignatures(packages))
 
   case class DataRecordInfo(
       dataType: DDataType,

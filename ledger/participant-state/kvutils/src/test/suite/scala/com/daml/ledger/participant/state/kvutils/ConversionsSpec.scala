@@ -3,17 +3,16 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.{Duration, Instant}
-
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
-import com.daml.ledger.participant.state.kvutils.Conversions._
+import com.daml.ledger.participant.state.kvutils.Conversions.{partyStateKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
+import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
@@ -24,14 +23,19 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.ValueOuterClass
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.{TextFormat, Timestamp}
+import com.google.rpc.error_details.ErrorInfo
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 @nowarn("msg=deprecated")
@@ -104,82 +108,159 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
       "convert rejection to proto models and back to expected grpc code" in {
         forAll(
-          Table(
-            ("rejection", "expected code"),
+          Table[Rejection, Code, Map[String, String]](
+            ("rejection", "expected code", "expected additional details"),
             (
               Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
               Code.INVALID_ARGUMENT,
+              Map.empty,
             ),
             (
               Rejection.InternallyInconsistentTransaction.InconsistentKeys,
               Code.INVALID_ARGUMENT,
+              Map.empty,
             ),
             (
               Rejection.InternallyInconsistentTransaction.DuplicateKeys,
               Code.INVALID_ARGUMENT,
+              Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
               Code.ABORTED,
+              Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
               Code.ABORTED,
+              Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
               Code.ABORTED,
+              Map.empty,
             ),
             (
               Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
               Code.ABORTED,
+              Map.empty,
             ),
             (
               Rejection.InvalidParticipantState(Err.InternalError("error")),
               Code.INVALID_ARGUMENT,
+              Map.empty,
             ),
             (
               Rejection.RecordTimeOutOfRange(now, now),
               Code.ABORTED,
+              Map.empty,
             ),
             (
               Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
               Code.ABORTED,
+              Map.empty,
             ),
             (
               Rejection.CausalMonotonicityViolated,
               Code.ABORTED,
+              Map.empty,
             ),
             (
               Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
               Code.INVALID_ARGUMENT,
+              Map.empty,
             ),
             (
               Rejection.PartiesNotKnownOnLedger(Seq.empty),
               Code.INVALID_ARGUMENT,
+              Map.empty,
             ),
             (
-              Rejection.SubmitterCannotActViaParticipant(
-                Ref.Party.assertFromString("party"),
-                Ref.ParticipantId.assertFromString("id"),
+              Rejection.MissingInputState(partyStateKey("party")),
+              Code.ABORTED,
+              Map("key" -> "party: \"party\"\n"),
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              Code.ABORTED,
+              Map(
+                "minimum_record_time" -> Instant.EPOCH.toString,
+                "maximum_record_time" -> Instant.EPOCH.toString,
               ),
-              Code.PERMISSION_DENIED,
+            ),
+            (
+              Rejection.SubmittingPartyNotKnownOnLedger(party0),
+              Code.INVALID_ARGUMENT,
+              Map("submitter_party" -> party0),
+            ),
+            (
+              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
+              Code.INVALID_ARGUMENT,
+              Map("parties" -> s"""[\"$party0\",\"$party1\"]"""),
             ),
           )
-        ) { (rejection, expectedCode) =>
-          {
-            val encodedEntry = Conversions
-              .encodeTransactionRejectionEntry(
-                submitterInfo,
-                rejection,
-              )
-              .build()
-            val finalReason = Conversions
-              .decodeTransactionRejectionEntry(encodedEntry)
-              .value
-            finalReason.code shouldBe expectedCode.value()
-            finalReason.definiteAnswer shouldBe false
-          }
+        ) { (rejection, expectedCode, expectedAdditionalDetails) =>
+          val encodedEntry = Conversions
+            .encodeTransactionRejectionEntry(
+              submitterInfo,
+              rejection,
+            )
+            .build()
+          val finalReason = Conversions
+            .decodeTransactionRejectionEntry(encodedEntry)
+            .value
+          finalReason.code shouldBe expectedCode.value()
+          finalReason.definiteAnswer shouldBe false
+          val actualDetails = finalReasonToDetails(finalReason)
+          actualDetails should contain allElementsOf (expectedAdditionalDetails)
+        }
+      }
+
+      "produce metadata that can be easily parsed" in {
+        forAll(
+          Table[Rejection, String, String => Any, Any](
+            ("rejection", "metadataKey", "metadataParser", "expectedParsedMetadata"),
+            (
+              Rejection.MissingInputState(partyStateKey("party")),
+              "key",
+              TextFormat.parse(_, classOf[DamlStateKey]),
+              partyStateKey("party"),
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              "minimum_record_time",
+              Instant.parse(_),
+              Instant.EPOCH,
+            ),
+            (
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              "maximum_record_time",
+              Instant.parse(_),
+              Instant.EPOCH,
+            ),
+            (
+              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
+              "parties",
+              jsonString => {
+                val objectMapper = new ObjectMapper
+                objectMapper.readValue(jsonString, classOf[java.util.List[_]]).asScala
+              },
+              mutable.Buffer(party0, party1),
+            ),
+          )
+        ) { (rejection, metadataKey, metadataParser, expectedParsedMetadata) =>
+          val encodedEntry = Conversions
+            .encodeTransactionRejectionEntry(
+              submitterInfo,
+              rejection,
+            )
+            .build()
+          val finalReason = Conversions
+            .decodeTransactionRejectionEntry(encodedEntry)
+            .value
+          finalReason.definiteAnswer shouldBe false
+          val actualDetails = finalReasonToDetails(finalReason).toMap
+          metadataParser(actualDetails(metadataKey)) shouldBe expectedParsedMetadata
         }
       }
 
@@ -187,40 +268,67 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
         "handle with expected status codes" in {
           forAll(
-            Table(
-              ("rejection builder", "code"),
+            Table[
+              DamlTransactionRejectionEntry.Builder => DamlTransactionRejectionEntry.Builder,
+              Code,
+              Map[String, String],
+            ](
+              ("rejection builder", "code", "expectedAdditionalDetails"),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setInconsistent(Inconsistent.newBuilder()),
+                _.setInconsistent(Inconsistent.newBuilder()),
                 Code.ABORTED,
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setDisputed(Disputed.newBuilder()),
+                _.setDisputed(Disputed.newBuilder()),
                 Code.INVALID_ARGUMENT,
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setResourcesExhausted(ResourcesExhausted.newBuilder()),
+                _.setResourcesExhausted(ResourcesExhausted.newBuilder()),
                 Code.ABORTED,
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
+                _.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
                 Code.INVALID_ARGUMENT,
+                Map.empty,
               ),
               (
-                (builder: DamlTransactionRejectionEntry.Builder) =>
-                  builder
-                    .setDuplicateCommand(Duplicate.newBuilder()),
+                _.setDuplicateCommand(Duplicate.newBuilder()),
                 Code.ALREADY_EXISTS,
+                Map.empty,
+              ),
+              (
+                _.setSubmitterCannotActViaParticipant(
+                  SubmitterCannotActViaParticipant
+                    .newBuilder()
+                    .setSubmitterParty("party")
+                    .setParticipantId("id")
+                ),
+                Code.PERMISSION_DENIED,
+                Map(
+                  "submitter_party" -> "party",
+                  "participant_id" -> "id",
+                ),
+              ),
+              (
+                _.setInvalidLedgerTime(
+                  InvalidLedgerTime
+                    .newBuilder()
+                    .setLowerBound(Timestamp.newBuilder().setSeconds(1L))
+                    .setLedgerTime(Timestamp.newBuilder().setSeconds(2L))
+                    .setUpperBound(Timestamp.newBuilder().setSeconds(3L))
+                ),
+                Code.ABORTED,
+                Map(
+                  "lower_bound" -> "seconds: 1\n",
+                  "ledger_time" -> "seconds: 2\n",
+                  "upper_bound" -> "seconds: 3\n",
+                ),
               ),
             )
-          ) { (rejectionBuilder, code) =>
+          ) { (rejectionBuilder, code, expectedAdditionalDetails) =>
             {
               val finalReason = Conversions
                 .decodeTransactionRejectionEntry(
@@ -230,6 +338,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                 .value
               finalReason.code shouldBe code.value()
               finalReason.definiteAnswer shouldBe false
+              val actualDetails = finalReasonToDetails(finalReason)
+              actualDetails should contain allElementsOf (expectedAdditionalDetails)
             }
           }
         }
@@ -390,4 +500,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         "",
       )
     )
+
+  private def finalReasonToDetails(
+      finalReason: CommandRejected.FinalReason
+  ): Seq[(String, String)] = finalReason.status.details.flatMap(_.unpack[ErrorInfo].metadata)
 }

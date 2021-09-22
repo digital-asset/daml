@@ -636,10 +636,14 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_ThrowReturnType" expr_ThrowReturnType decodeType
     <*> mayDecode "expr_ThrowExceptionType" expr_ThrowExceptionType decodeType
     <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
-  LF1.ExprSumToInterface _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
-    error "to_interface not yet implemented"
-  LF1.ExprSumFromInterface _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
-    error "from_interface not yet implemented"
+  LF1.ExprSumToInterface LF1.Expr_ToInterface {..} -> EToInterface
+    <$> mayDecode "expr_ToInterfaceInterfaceType" expr_ToInterfaceInterfaceType decodeTypeConName
+    <*> mayDecode "expr_ToInterfaceTemplateType" expr_ToInterfaceTemplateType decodeTypeConName
+    <*> mayDecode "expr_ToInterfaceTemplateExpr" expr_ToInterfaceTemplateExpr decodeExpr
+  LF1.ExprSumFromInterface LF1.Expr_FromInterface {..} -> EFromInterface
+    <$> mayDecode "expr_FromInterfaceInterfaceType" expr_FromInterfaceInterfaceType decodeTypeConName
+    <*> mayDecode "expr_FromInterfaceTemplateType" expr_FromInterfaceTemplateType decodeTypeConName
+    <*> mayDecode "expr_FromInterfaceInterfaceExpr" expr_FromInterfaceInterfaceExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

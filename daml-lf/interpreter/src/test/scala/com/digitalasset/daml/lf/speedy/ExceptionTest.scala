@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, Interface}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.SErrorDamlException
@@ -539,7 +539,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     import defaultParserParameters.defaultPackageId
     val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(Interface(rawPkgs), defaultPackageId, pkg)
+    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
     val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
     PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }

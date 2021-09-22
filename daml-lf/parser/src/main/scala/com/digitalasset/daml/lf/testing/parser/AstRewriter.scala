@@ -125,6 +125,10 @@ private[daml] class AstRewriter(
           EFromAnyException(apply(ty), apply(body))
         case EToAnyException(typ, body) =>
           EToAnyException(apply(typ), apply(body))
+        case EToInterface(iface, tpl, value) =>
+          EToInterface(apply(iface), apply(tpl), apply(value))
+        case EFromInterface(iface, tpl, value) =>
+          EFromInterface(apply(iface), apply(tpl), apply(value))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

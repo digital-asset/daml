@@ -16,7 +16,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
-import com.daml.lf.language.{Interface, LanguageVersion => LV}
+import com.daml.lf.language.{PackageInterface, LanguageVersion => LV}
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
@@ -156,7 +156,7 @@ object Repl {
 
   def cmdValidate(state: State): (Boolean, State) = {
     val (validationResults, validationTime) = time(state.packages.map { case (pkgId, pkg) =>
-      Validation.checkPackage(Interface(state.packages), pkgId, pkg)
+      Validation.checkPackage(PackageInterface(state.packages), pkgId, pkg)
     })
     System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
     validationResults collectFirst { case Left(e) =>
@@ -428,7 +428,7 @@ object Repl {
   def speedyCompile(state: State, args: Seq[String]): Unit = {
     val defs = assertRight(
       Compiler.compilePackages(
-        Interface(state.packages),
+        PackageInterface(state.packages),
         state.packages,
         state.scenarioRunner.compilerConfig,
       )

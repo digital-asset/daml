@@ -54,6 +54,7 @@ final case class SandboxConfig(
     seeding: Option[Seeding],
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: FiniteDuration,
+    maxParallelSubmissions: Int, // only used by Sandbox Classic
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
@@ -115,6 +116,7 @@ object SandboxConfig {
       damlPackages = Nil,
       timeProviderType = None,
       configurationLoadTimeout = Duration.ofSeconds(10),
+      maxDeduplicationDuration = None,
       delayBeforeSubmittingLedgerConfiguration = Duration.ofSeconds(1),
       timeModel = LedgerTimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
@@ -132,6 +134,7 @@ object SandboxConfig {
       seeding = Some(Seeding.Strong),
       metricsReporter = None,
       metricsReportingInterval = 10.seconds,
+      maxParallelSubmissions = 512,
       eventsPageSize = DefaultEventsPageSize,
       eventsProcessingParallelism = DefaultEventsProcessingParallelism,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
@@ -143,7 +146,6 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableAppendOnlySchema = false,
       enableCompression = false,
-      maxDeduplicationDuration = None,
     )
 
   sealed abstract class EngineMode extends Product with Serializable

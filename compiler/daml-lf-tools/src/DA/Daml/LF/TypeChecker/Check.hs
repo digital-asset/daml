@@ -591,6 +591,14 @@ typeOfExercise tpl chName cid arg = do
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 
+typeOfExerciseInterface :: MonadGamma m =>
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
+typeOfExerciseInterface tpl chName cid arg = do
+  choice <- inWorld (lookupInterfaceChoice (tpl, chName))
+  checkExpr cid (TContractId (TCon tpl))
+  checkExpr arg (ifcArgType choice)
+  pure (TUpdate (ifcRetType choice))
+
 typeOfExerciseByKey :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
 typeOfExerciseByKey tplId chName key arg = do
@@ -608,6 +616,19 @@ checkFetch tpl cid = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr cid (TContractId (TCon tpl))
 
+checkFetchInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkFetchInterface tpl cid = do
+  void $ inWorld (lookupInterface tpl)
+  checkExpr cid (TContractId (TCon tpl))
+
+-- | Check that a template implements a given interface.
+checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
+checkImplements tpl iface = do
+  void $ inWorld (lookupInterface iface)
+  Template {tplImplements} <- inWorld (lookupTemplate tpl)
+  unless (iface `elem` tplImplements) $ do
+    throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
+
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
@@ -624,14 +645,10 @@ typeOfUpdate = \case
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
-  UExerciseInterface{} ->
-    -- TODO https://github.com/digital-asset/daml/issues/10810
-    error "Interfaces not supported"
+  UExerciseInterface tpl choice cid arg -> typeOfExerciseInterface tpl choice cid arg
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
-  UFetchInterface{} ->
-    -- TODO https://github.com/digital-asset/daml/issues/10810
-    error "Interfaces not supported"
+  UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)
@@ -723,6 +740,14 @@ typeOf' = \case
     checkExceptionType ty2
     checkExpr val ty2
     pure ty1
+  EToInterface iface tpl val -> do
+    checkImplements tpl iface
+    checkExpr val (TCon tpl)
+    pure (TCon iface)
+  EFromInterface iface tpl val -> do
+    checkImplements tpl iface
+    checkExpr val (TCon iface)
+    pure (TOptional (TCon tpl))
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr

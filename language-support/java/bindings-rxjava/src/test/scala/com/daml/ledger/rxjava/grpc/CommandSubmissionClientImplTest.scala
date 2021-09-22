@@ -38,9 +38,9 @@ class CommandSubmissionClientImplTest
 
   it should "timeout should work as expected across calls" in {
     ledgerServices.withCommandSubmissionClient(
-      sequence(stuck, success, stuck),
-      timeout = Optional.of(Duration.of(1, ChronoUnit.SECONDS)),
-    ) { (client, serviceImpl) =>
+      sequence(stuck, success),
+      timeout = Optional.of(Duration.of(5, ChronoUnit.SECONDS)),
+    ) { (client, _) =>
       val commands = genCommands(List.empty)
 
       withClue("The first command should be stuck") {
@@ -56,25 +56,10 @@ class CommandSubmissionClientImplTest
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingGet()
         )
-        serviceImpl.getSubmittedRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
       }
 
       withClue("The second command should go through") {
-        client
-          .submit(
-            commands.getWorkflowId,
-            commands.getApplicationId,
-            commands.getCommandId,
-            commands.getParty,
-            commands.getCommands,
-          )
-          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingGet()
-        serviceImpl.getSubmittedRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
-      }
-
-      withClue("The third command should be stuck") {
-        expectDeadlineExceeded(
+        val res = Option(
           client
             .submit(
               commands.getWorkflowId,
@@ -86,7 +71,7 @@ class CommandSubmissionClientImplTest
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingGet()
         )
-        serviceImpl.getSubmittedRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
+        res.isDefined shouldBe true
       }
     }
   }

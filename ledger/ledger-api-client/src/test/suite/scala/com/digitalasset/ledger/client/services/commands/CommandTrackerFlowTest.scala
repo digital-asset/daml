@@ -162,7 +162,7 @@ class CommandTrackerFlowTest
 
         val actualException = results.expectError()
         actualException shouldBe an[IllegalArgumentException]
-        actualException.getMessage shouldBe s"The submission id for the command $commandId is empty. This should not happen."
+        actualException.getMessage shouldBe s"The submission ID for the command ID $commandId is empty. This should not happen."
       }
     }
 
@@ -520,7 +520,7 @@ class CommandTrackerFlowTest
                 commandId = commandId,
                 grpcStatus = StatusProto.of(
                   Status.Code.INTERNAL.value(),
-                  s"There are multiple pending commands for the id $commandId. This can only happen for the mutating schema.",
+                  s"There are multiple pending commands with ID: $commandId for submission ID: None. This can only happen for the mutating schema that shouldn't be used anymore, as it doesn't fully support command deduplication.",
                   Seq.empty,
                 ),
               )

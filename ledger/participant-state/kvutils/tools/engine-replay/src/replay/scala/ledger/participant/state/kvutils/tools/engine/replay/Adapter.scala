@@ -16,7 +16,7 @@ private[replay] final class Adapter(
     pkgLangVersion: Ref.PackageId => LanguageVersion,
 ) {
 
-  private val interface = com.daml.lf.language.Interface(packages)
+  private val interface = com.daml.lf.language.PackageInterface(packages)
 
   def adapt(tx: Tx.Transaction): SubmittedTransaction =
     tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(

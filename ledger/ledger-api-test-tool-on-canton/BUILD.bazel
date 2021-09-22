@@ -76,29 +76,37 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        # The following three contract key tests require uniqueness
-        "--exclude=ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
+        "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
+        "--exclude=ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
         ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
-        ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
         ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
         # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
         ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
         ",RaceConditionIT:RWArchiveVsLookupByKey,RaceConditionIT:RWArchiveVsNonConsumingChoice,RaceConditionIT:RWArchiveVsFetch,RaceConditionIT:WWDoubleArchive" +
+        # The following three contract key tests require uniqueness
+        ",ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
         ",ExceptionsIT,ExceptionRaceConditionIT" +  # need UCK mode - added below
         ",DeeplyNestedValueIT" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
         ",CommandServiceIT:CSReturnStackTrace" +  # FIXME: Ensure canton returns stack trace
-        ",CommandServiceIT:CSsubmitAndWaitForTransactionIdInvalidLedgerId,CommandServiceIT:CSsubmitAndWaitForTransactionInvalidLedgerId,CommandServiceIT:CSsubmitAndWaitForTransactionTreeInvalidLedgerId" +  # FIXME: return definite_answer in gRPC errors
-        ",CommandSubmissionCompletionIT:CSCRefuseBadChoice,CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId,CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",  # FIXME: return definite_answer in gRPC errors
+        ",CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic,CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateSubmitterBasic" +  # sync vs async error (part of canton #6301)
+        # Also exclude "optional tests" - which are run separately below
+        ",AppendOnlyCompletionDeduplicationInfoITCommandService" +
+        ",AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService" +
+        ",AppendOnlyCommandDeduplicationParallelIT" +
+        ",ContractIdIT" +
+        ",MultiPartySubmissionIT" +
+        ",ParticipantPruningIT" +
+        ",KVCommandDeduplicationIT",  # only for KV-utils
     ],
 ) if not is_windows else None
 
 conformance_test(
-    name = "conformance-test-contract-keys",
+    name = "conformance-test-contract-keys-and-exceptions",
     extra_data = [
         ":bootstrap.canton",
         ":canton_deploy.jar",
         ":canton.conf",
-        ":unique-contract-keys.conf",  # needed to pass all contract keys conformance tests
+        ":unique-contract-keys.conf",  # needed to pass all contract keys and some exceptions conformance tests
         ":logback-debug.xml",
         "@coreutils_nix//:bin/base64",
         "@curl_nix//:bin/curl",
@@ -129,7 +137,7 @@ conformance_test(
 ) if not is_windows else None
 
 conformance_test(
-    name = "conformance-test-contract-ids",
+    name = "conformance-test-optional",
     extra_data = [
         ":bootstrap.canton",
         ":canton_deploy.jar",
@@ -151,11 +159,15 @@ conformance_test(
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
         "--verbose",
-        "--include=ContractIdIT:RejectV0,ContractIdIT:RejectNonSuffixedV1Cid,ContractIdIT:AcceptSuffixedV1Cid",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:RejectNonSuffixedV1Cid,ContractIdIT:AcceptSuffixedV1Cid" +
+        ",MultiPartySubmissionIT" +
+        # ",AppendOnlyCommandDeduplicationParallelIT" +  # FIXME: Deduplication test not yet passing on canton - canton-#6301
+        ",AppendOnlyCompletionDeduplicationInfoITCommandService,AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--exclude=MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible" +  # Enable once error parsing more permissive
+        ",MultiPartySubmissionIT:MPSCreateInsufficientAuthorization" +  # canton returns INTERNAL instead of INVALID_ARGUMENT
+        ",ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
     ],
-    # TODO https://github.com/digital-asset/daml/issues/10504
-    #   replace `False` by `not is_windows` once canton rejects non suffix CIDs
-) if False else None
+) if not is_windows else None
 
 conformance_test(
     name = "conformance-test-participant-pruning",
@@ -189,6 +201,7 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+        "--timeout-scale-factor=4",  # increased to match setting in canton repo
         "--include=ParticipantPruningIT",
     ],
 ) if not is_windows else None

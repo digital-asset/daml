@@ -147,6 +147,8 @@ to specify just the ``Message`` template, one would write:
    ...
 
 This is mainly useful for performance reasons if your DAR contains many templates that are not relevant for your trigger.
+Note that providing an explicit list of templates also filters the result of querying the ACS using the Trigger API:
+contracts of the excluded templates cannot be queried.
 
 Finally, you can specify an optional heartbeat interval at which the trigger
 will be sent a ``MHeartbeat`` message. This is useful if you want to ensure
