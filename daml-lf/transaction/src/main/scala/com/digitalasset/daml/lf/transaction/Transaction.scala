@@ -211,7 +211,7 @@ final case class GenTransaction[Nid](
           errs
         case _: Node.NodeFetch => errs
         case nc: Node.NodeCreate =>
-          errs :++ f(nc.coinst.arg) :++ (nc.key match {
+          errs :++ f(nc.arg) :++ (nc.key match {
             case None => ImmArray.Empty
             case Some(key) => f(key.key)
           })

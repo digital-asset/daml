@@ -21,7 +21,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
 
   private def serializeCreateArgOrThrow(node: Create): Array[Byte] =
     serialize(
-      value = node.versionedCoinst.arg,
+      value = node.versionedArg,
       errorContext = cantSerialize(attribute = "create argument", forContract = node.coid),
     )
 
@@ -91,7 +91,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       "transaction_id" -> transactionId,
       "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_id" -> create.coinst.template,
+      "template_id" -> create.templateId,
       "node_index" -> nodeId.index,
       "command_id" -> commandId,
       "application_id" -> applicationId,
@@ -99,7 +99,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       "create_argument" -> serializeCreateArgOrThrow(create),
       "create_signatories" -> create.signatories.toArray[String],
       "create_observers" -> create.stakeholders.diff(create.signatories).toArray[String],
-      "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
+      "create_agreement_text" -> Some(create.agreementText).filter(_.nonEmpty),
       "create_key_value" -> serializeNullableKeyOrThrow(create),
     )
 

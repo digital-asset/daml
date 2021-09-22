@@ -481,7 +481,7 @@ object ScenarioLedger {
                       val mbNewCache2 = nc.key match {
                         case None => Right(newCache1)
                         case Some(keyWithMaintainers) =>
-                          val gk = GlobalKey.assertBuild(nc.coinst.template, keyWithMaintainers.key)
+                          val gk = GlobalKey.assertBuild(nc.templateId, keyWithMaintainers.key)
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
                             case Some(_) => Left(UniqueKeyViolation(gk))
@@ -654,17 +654,17 @@ case class ScenarioLedger(
         info.node match {
           case create: NodeCreate =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
-              LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
+              LookupContractNotEffective(coid, create.templateId, info.effectiveAt)
             else if (info.consumedBy.nonEmpty)
               LookupContractNotActive(
                 coid,
-                create.coinst.template,
+                create.templateId,
                 info.consumedBy.getOrElse(crash("IMPOSSIBLE")),
               )
             else if (!info.visibleIn(view))
               LookupContractNotVisible(
                 coid,
-                create.coinst.template,
+                create.templateId,
                 info.disclosures.keys.toSet,
                 create.stakeholders,
               )

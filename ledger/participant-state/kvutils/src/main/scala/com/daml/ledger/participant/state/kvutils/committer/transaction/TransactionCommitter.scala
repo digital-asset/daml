@@ -370,7 +370,7 @@ private[kvutils] class TransactionCommitter(
       )
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
-          Conversions.encodeContractKey(createNode.coinst.template, keyWithMaintainers.key)
+          Conversions.encodeContractKey(createNode.templateId, keyWithMaintainers.key)
         )
       }
       commitContext.set(

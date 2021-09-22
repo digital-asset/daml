@@ -153,7 +153,7 @@ private[appendonlydao] object PostCommitValidation {
     )(implicit connection: Connection): Result =
       node match {
         case c: Create =>
-          state.validateCreate(c.versionedKey.map(convert(c.versionedCoinst.template, _)), c.coid)
+          state.validateCreate(c.versionedKey.map(convert(c.templateId, _)), c.coid)
         case l: LookupByKey =>
           state.validateLookupByKey(convert(l.templateId, l.versionedKey), l.result)
         case e: Exercise if e.consuming =>

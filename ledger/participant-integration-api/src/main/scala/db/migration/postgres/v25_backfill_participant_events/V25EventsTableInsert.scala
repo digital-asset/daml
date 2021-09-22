@@ -21,7 +21,7 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
 
   private def serializeCreateArgOrThrow(node: Create): Array[Byte] =
     serialize(
-      value = node.versionedCoinst.arg,
+      value = node.versionedArg,
       errorContext = cantSerialize(attribute = "create argument", forContract = node.coid),
     )
 
@@ -94,8 +94,8 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "transaction_id" -> transactionId,
       "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> create.coinst.template.packageId,
-      "template_name" -> create.coinst.template.qualifiedName,
+      "template_package_id" -> create.templateId.packageId,
+      "template_name" -> create.templateId.qualifiedName,
       "node_index" -> nodeId.index,
       "is_root" -> roots(nodeId),
       "command_id" -> commandId,
@@ -104,7 +104,7 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       "create_argument" -> serializeCreateArgOrThrow(create),
       "create_signatories" -> create.signatories.toArray[String],
       "create_observers" -> create.stakeholders.diff(create.signatories).toArray[String],
-      "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
+      "create_agreement_text" -> Some(create.agreementText).filter(_.nonEmpty),
       "create_key_value" -> serializeNullableKeyOrThrow(create),
     )
 
