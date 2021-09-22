@@ -15,6 +15,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -328,9 +329,12 @@ object ScenarioRunner {
           ) match {
             case ScenarioLedger.LookupOk(_, _, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
-                // We should always be able to continue with a SKeyLookupResult.Found.
-                // Run to get side effects and assert result.
-                assert(callback(Some(acoid)))
+                // Note that even with a successful global lookup
+                // the callback can return false. This happens for a fetch-by-key
+                // if the contract got archived in the meantime.
+                // We discard the result here and rely on fetch-by-key
+                // setting up the state such that continuing interpretation fails.
+                discard(callback(Some(acoid)))
               else
                 throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
             case ScenarioLedger.LookupContractNotFound(coid) =>
