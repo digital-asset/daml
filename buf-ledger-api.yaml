@@ -14,4 +14,4 @@ breaking:
     # discussed with Engineering and Product Leadership.
     - FILE
   except:
-    - FILE_NO_DELETE # Avoids errors due caused by refactored buf modules.
+    - FILE_NO_DELETE # Avoids errors due to refactored `buf` modules.
