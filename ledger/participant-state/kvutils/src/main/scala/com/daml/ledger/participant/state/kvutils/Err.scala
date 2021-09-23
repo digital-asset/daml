@@ -33,7 +33,7 @@ object Err {
   final case class ArchiveDecodingFailed(packageId: Ref.PackageId, reason: String) extends Err {
     override def getMessage: String = s"Decoding of Daml-LF archive $packageId failed: $reason"
 
-    override def getMetadata: Map[String, String] = Map("packageId" -> packageId)
+    override def getMetadata: Map[String, String] = Map("package_id" -> packageId)
   }
 
   final case class DecodeError(kind: String, message: String) extends Err {
@@ -58,6 +58,6 @@ object Err {
     override def getMessage: String =
       s"Missing divulged contract instance for contract id $contractId"
 
-    override def getMetadata: Map[String, String] = Map("contractId" -> contractId)
+    override def getMetadata: Map[String, String] = Map("contract_id" -> contractId)
   }
 }
