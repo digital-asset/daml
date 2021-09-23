@@ -26,8 +26,8 @@ lint:
 
 breaking:
   use:
-    # WIRE is enough here as KVUtils data is internal and will be transmitted
-    # and stored in binary protobuf format for the foreseeable future.
+    # WIRE is enough here as KVUtils only needs to be able to read data persisted
+    # by previous versions of the code.
     - WIRE
   except:
     # Moving an individual field into a new `one_of` retains binary backwards
