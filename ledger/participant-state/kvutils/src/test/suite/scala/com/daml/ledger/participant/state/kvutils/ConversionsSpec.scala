@@ -231,7 +231,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       "produce metadata that can be easily parsed" in {
         forAll(
           Table[Rejection, String, String => Any, Any](
-            ("rejection", "metadataKey", "metadataParser", "expectedParsedMetadata"),
+            ("rejection", "metadata key", "metadata parser", "expected parsed metadata"),
             (
               Rejection.MissingInputState(partyStateKey("party")),
               "key",
@@ -285,7 +285,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               Code,
               Map[String, String],
             ](
-              ("rejection builder", "code", "expectedAdditionalDetails"),
+              ("rejection builder", "code", "expected additional details"),
               (
                 _.setInconsistent(Inconsistent.newBuilder()),
                 Code.ABORTED,
