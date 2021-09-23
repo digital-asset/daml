@@ -151,6 +151,18 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               Map.empty,
             ),
             (
+              Rejection.InvalidParticipantState(
+                Err.ArchiveDecodingFailed(Ref.PackageId.assertFromString("id"), "reason")
+              ),
+              Code.INVALID_ARGUMENT,
+              Map("package_id" -> "id"),
+            ),
+            (
+              Rejection.InvalidParticipantState(Err.MissingDivulgedContractInstance("id")),
+              Code.INVALID_ARGUMENT,
+              Map("contract_id" -> "id"),
+            ),
+            (
               Rejection.RecordTimeOutOfRange(now, now),
               Code.ABORTED,
               Map.empty,
