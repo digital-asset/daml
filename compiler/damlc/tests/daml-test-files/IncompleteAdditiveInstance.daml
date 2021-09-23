@@ -1,0 +1,17 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=14:10-14:23; • No explicit implementation for; either ‘-’ or ‘negate’; • In the instance declaration for ‘Additive Expr’
+
+module IncompleteAdditiveInstance where
+
+data Numero = Zero | Uno | Dos | Tres
+
+data Expr = Add (Expr, Expr)
+          | Neg Expr
+          | Const Numero
+
+instance Additive Expr where
+  (+) = curry Add
+  -- negate = Neg -- uncomment to fix!
+  aunit = Const Zero
