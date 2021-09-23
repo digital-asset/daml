@@ -164,7 +164,7 @@ object UpdateToDbDto {
                 node_index = Some(nodeId.index),
                 event_id = Some(eventId.toLedgerString),
                 contract_id = create.coid.coid,
-                template_id = Some(create.coinst.template.toString),
+                template_id = Some(create.templateId.toString),
                 flat_event_witnesses = create.stakeholders.map(_.toString),
                 tree_event_witnesses =
                   blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
@@ -173,7 +173,7 @@ object UpdateToDbDto {
                 create_signatories = Some(create.signatories.map(_.toString)),
                 create_observers =
                   Some(create.stakeholders.diff(create.signatories).map(_.toString)),
-                create_agreement_text = Some(create.coinst.agreementText).filter(_.nonEmpty),
+                create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
                 create_key_value = createKeyValue
                   .map(compressionStrategy.createKeyValueCompression.compress),
                 create_key_hash = create.key

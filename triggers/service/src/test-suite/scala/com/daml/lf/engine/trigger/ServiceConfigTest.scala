@@ -3,6 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
+import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -67,6 +68,27 @@ class ServiceConfigTest extends AnyWordSpec with Matchers with OptionValues {
         ),
         Set(),
       ) should ===(None)
+    }
+    "default to wall-clock time" in {
+      parse(baseOpts, Set()).value.timeProviderType should ===(TimeProviderType.WallClock)
+    }
+    "safely accept -w without effects" in {
+      parse(baseOpts :+ "-w", Set()).value.timeProviderType should ===(TimeProviderType.WallClock)
+    }
+    "safely accept --wall-clock-time without effects" in {
+      parse(baseOpts :+ "--wall-clock-time", Set()).value.timeProviderType should ===(
+        TimeProviderType.WallClock
+      )
+    }
+    "optionally use static time (-s)" in {
+      parse(baseOpts :+ "-s", Set()).value.timeProviderType should ===(
+        TimeProviderType.Static
+      )
+    }
+    "optionally use static time (--static-time)" in {
+      parse(baseOpts :+ "--static-time", Set()).value.timeProviderType should ===(
+        TimeProviderType.Static
+      )
     }
   }
 }

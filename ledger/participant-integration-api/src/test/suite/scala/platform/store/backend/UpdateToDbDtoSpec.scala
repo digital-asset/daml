@@ -317,7 +317,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           node_index = Some(createNodeId.index),
           event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
           contract_id = createNode.coid.coid,
-          template_id = Some(createNode.coinst.template.toString),
+          template_id = Some(createNode.templateId.toString),
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_argument = Some(emptyArray),
@@ -390,13 +390,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           node_index = Some(createNodeId.index),
           event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
           contract_id = createNode.coid.coid,
-          template_id = Some(createNode.coinst.template.toString),
+          template_id = Some(createNode.templateId.toString),
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_argument = Some(emptyArray),
           create_signatories = Some(Set("signatory")),
           create_observers = Some(Set("observer")),
-          create_agreement_text = Some(createNode.coinst.agreementText),
+          create_agreement_text = Some(createNode.agreementText),
           create_key_value = None,
           create_key_hash = None,
           create_argument_compression = compressionAlgorithmId,
@@ -915,7 +915,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           node_index = Some(createNodeId.index),
           event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
           contract_id = createNode.coid.coid,
-          template_id = Some(createNode.coinst.template.toString),
+          template_id = Some(createNode.templateId.toString),
           flat_event_witnesses = Set("signatory", "observer"),
           tree_event_witnesses = Set("signatory", "observer"),
           create_argument = Some(emptyArray),
@@ -1211,7 +1211,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           node_index = Some(createNodeId.index),
           event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
           contract_id = createNode.coid.coid,
-          template_id = Some(createNode.coinst.template.toString),
+          template_id = Some(createNode.templateId.toString),
           flat_event_witnesses = Set("signatory", "observer"),
           tree_event_witnesses = Set("signatory", "observer"),
           create_argument = Some(emptyArray),
@@ -1342,7 +1342,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               node_index = Some(createNodeId.index),
               event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
               contract_id = createNode.coid.coid,
-              template_id = Some(createNode.coinst.template.toString),
+              template_id = Some(createNode.templateId.toString),
               flat_event_witnesses = Set("signatory", "observer"), // stakeholders
               tree_event_witnesses = Set("signatory", "observer"), // informees
               create_argument = Some(emptyArray),

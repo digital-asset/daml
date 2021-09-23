@@ -5,11 +5,12 @@ package com.daml.platform.store.backend.h2
 
 import java.sql.Connection
 import java.time.Instant
+
 import anorm.{Row, SQL, SimpleSql}
 import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.appendonlydao.events.ContractId
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -37,8 +38,9 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
-
 import javax.sql.DataSource
+
+import scala.util.control.NonFatal
 
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -52,6 +54,8 @@ private[backend] object H2StorageBackend
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
     with PartyStorageBackendTemplate {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def reset(connection: Connection): Unit = {
     SQL("""set referential_integrity false;
@@ -101,14 +105,30 @@ private[backend] object H2StorageBackend
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
-  )(connection: Connection): Int =
-    SQL(SQL_INSERT_COMMAND)
-      .on(
-        "deduplicationKey" -> key,
-        "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-        "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
-      )
-      .executeUpdate()(connection)
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Int = {
+
+    // Under the default READ_COMMITTED isolation level used for the indexdb, when a deduplication
+    // upsert is performed simultaneously from multiple threads, the query fails with
+    // JdbcSQLIntegrityConstraintViolationException: Unique index or primary key violation
+    // Simple retry helps
+    def retry[T](op: => T): T =
+      try {
+        op
+      } catch {
+        case NonFatal(e) =>
+          logger.debug(s"Caught exception while upserting a deduplication entry: $e")
+          op
+      }
+    retry(
+      SQL(SQL_INSERT_COMMAND)
+        .on(
+          "deduplicationKey" -> key,
+          "submittedAt" -> Timestamp.instantToMicros(submittedAt),
+          "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
+        )
+        .executeUpdate()(connection)
+    )
+  }
 
   override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
     H2Schema.schema.prepareData(dbDtos)

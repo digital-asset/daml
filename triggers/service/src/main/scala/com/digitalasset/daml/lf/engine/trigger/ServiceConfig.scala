@@ -172,11 +172,16 @@ private[trigger] object ServiceConfig {
         s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds."
       )
 
+    opt[Unit]('s', "static-time")
+      .optional()
+      .action((_, c) => c.copy(timeProviderType = TimeProviderType.Static))
+      .text("Use static time. When not specified, wall-clock time is used.")
+
     opt[Unit]('w', "wall-clock-time")
-      .action { (_, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
-      }
-      .text("Use wall clock time (UTC). When not provided, static time is used.")
+      .optional()
+      .text(
+        "[DEPRECATED] Wall-clock time is the default. This flag has no effect. Use `-s` to enable static time."
+      )
 
     opt[Long]("ttl")
       .action { (t, c) =>
@@ -245,7 +250,7 @@ private[trigger] object ServiceConfig {
         authCallbackTimeout = DefaultAuthCallbackTimeout,
         maxHttpEntityUploadSize = DefaultMaxHttpEntityUploadSize,
         httpEntityUploadTimeout = DefaultHttpEntityUploadTimeout,
-        timeProviderType = TimeProviderType.Static,
+        timeProviderType = TimeProviderType.WallClock,
         commandTtl = Duration.ofSeconds(30L),
         init = false,
         jdbcConfig = None,

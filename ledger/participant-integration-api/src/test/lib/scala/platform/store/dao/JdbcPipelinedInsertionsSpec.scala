@@ -47,7 +47,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
             tx.transaction.nodes.head
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs: _*)
-          created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+          created.agreementText.getOrElse("") shouldBe createNode.agreementText
           created.contractKey shouldNot be(None)
           created.createArguments shouldNot be(None)
           created.signatories should contain theSameElementsAs createNode.signatories

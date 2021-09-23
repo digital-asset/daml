@@ -160,11 +160,20 @@ tune for availability and performance.
   defaulting to a size of 1000. Increasing the page size can increase
   performance on servers with enough available memory.
 
+- ``--input-buffer-size``.
+  Upon submission, commands are placed in a queue. This parameter governs the
+  size of the queue *per distinct set of parties*, as specified in the
+  ``act_as`` property of the command. A larger queue will allow for more burst
+  traffic, but will use more memory. The default queue size is 512, after which,
+  the server will signal backpressure with the ``RESOURCE_EXHAUSTED`` gRPC
+  status code.
+
 - ``--max-commands-in-flight``.
   Increasing the maximum number of commands in flight will allow the API server
-  to support more concurrent synchronous writes *per party*, at the expense of
-  greater CPU and memory usage. The default maximum is 256, after which clients
-  will receive a ``RESOURCE_EXHAUSTED`` error.
+  to support more concurrent synchronous writes *per distinct set of parties*,
+  as specified in the ``act_as`` property of the command. This will be at the
+  expense of greater CPU and memory usage. The default maximum is 256, after
+  which new submissions will be queued.
 
   Clients can also increase the number of concurrent requests by using the
   asynchronous endpoints for command submission and completion.

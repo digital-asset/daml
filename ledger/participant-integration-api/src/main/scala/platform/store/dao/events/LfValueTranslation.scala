@@ -58,7 +58,7 @@ final class LfValueTranslation(
     )
 
   private def serializeCreateArgOrThrow(c: Create): Array[Byte] =
-    serializeCreateArgOrThrow(c.coid, c.versionedCoinst.arg)
+    serializeCreateArgOrThrow(c.coid, c.versionedArg)
 
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
     c.versionedKey.map(k =>
@@ -97,11 +97,11 @@ final class LfValueTranslation(
     cache.events.put(
       key = LfValueTranslationCache.EventCache.Key(eventId),
       value = LfValueTranslationCache.EventCache.Value
-        .Create(create.versionedCoinst.arg, create.versionedKey.map(_.key)),
+        .Create(create.versionedArg, create.versionedKey.map(_.key)),
     )
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(create.coid),
-      value = LfValueTranslationCache.ContractCache.Value(create.versionedCoinst.arg),
+      value = LfValueTranslationCache.ContractCache.Value(create.versionedArg),
     )
     (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
   }

@@ -295,10 +295,10 @@ object TransactionCoder {
                     )
                       .map(builder.setContractInstance)
                   } else {
-                    encodeValue(encodeCid, nodeVersion, nc.coinst.arg).map { arg =>
+                    encodeValue(encodeCid, nodeVersion, nc.arg).map { arg =>
                       builder.setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
                       builder.setArgUnversioned(arg)
-                      builder.setAgreement(nc.coinst.agreementText)
+                      builder.setAgreement(nc.agreementText)
                     }
                   }
                 _ <- encodeAndSetContractKey(

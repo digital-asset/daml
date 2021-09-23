@@ -1096,11 +1096,23 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             value = decodeExpr(fromAnyException.getExpr, definition),
           )
 
-        case PLF.Expr.SumCase.TO_INTERFACE => // TODO https://github.com/digital-asset/daml/issues/10810
-          throw Error.Parsing("to_interface not yet implemented")
+        case PLF.Expr.SumCase.TO_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.to_interface")
+          val toInterface = lfExpr.getToInterface
+          EToInterface(
+            iface = decodeTypeConName(toInterface.getInterfaceType),
+            tpl = decodeTypeConName(toInterface.getTemplateType),
+            value = decodeExpr(toInterface.getTemplateExpr, definition),
+          )
 
-        case PLF.Expr.SumCase.FROM_INTERFACE => // TODO https://github.com/digital-asset/daml/issues/10810
-          throw Error.Parsing("from_interface not yet implemented")
+        case PLF.Expr.SumCase.FROM_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.from_interface")
+          val fromInterface = lfExpr.getFromInterface
+          EFromInterface(
+            iface = decodeTypeConName(fromInterface.getInterfaceType),
+            tpl = decodeTypeConName(fromInterface.getTemplateType),
+            value = decodeExpr(fromInterface.getInterfaceExpr, definition),
+          )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")

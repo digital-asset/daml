@@ -8,20 +8,6 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
-    # nixpkgs ships with a very old version of openjdk on darwin
-    # because newer versions cause issues with jvmci. We don’t care
-    # about that so we upgrade it to the latest.
-    jdk8 =
-      if pkgs.stdenv.isDarwin then
-        pkgs.jdk8.overrideAttrs(oldAttrs: {
-          name = "zulu1.8.0_282-8.52.0.23";
-          src = pkgs.fetchurl {
-            url = "https://cdn.azul.com/zulu/bin/zulu8.52.0.23-ca-jdk8.0.282-macosx_x64.zip";
-            sha256 = "04azr412azqx3cyj9fda0r025hbzypwbnpb44gi15s683ns63wd2";
-            curlOpts = "-H Referer:https://www.azul.com/downloads/zulu/zulu-linux/";
-          };
-        })
-      else pkgs.jdk8;
     nodejs = pkgs.nodejs-12_x;
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''

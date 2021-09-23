@@ -500,6 +500,10 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case EThrow(_, ty, e) =>
         SBThrow(SBToAny(ty)(compile(e)))
+      case EToInterface(iface @ _, tpl @ _, e) =>
+        compile(e) // interfaces have the same representation as underlying template
+      case EFromInterface(iface @ _, tpl, e) =>
+        SBFromInterface(tpl)(compile(e))
       case EExperimental(name, _) =>
         SBExperimental(name)
 

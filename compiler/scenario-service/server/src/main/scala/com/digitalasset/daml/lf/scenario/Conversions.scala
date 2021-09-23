@@ -491,8 +491,8 @@ final class Conversions(
           proto.Node.Create.newBuilder
             .setContractInstance(
               proto.ContractInstance.newBuilder
-                .setTemplateId(convertIdentifier(create.coinst.template))
-                .setValue(convertValue(create.coinst.arg))
+                .setTemplateId(convertIdentifier(create.templateId))
+                .setValue(convertValue(create.arg))
                 .build
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
@@ -581,8 +581,8 @@ final class Conversions(
           proto.Node.Create.newBuilder
             .setContractInstance(
               proto.ContractInstance.newBuilder
-                .setTemplateId(convertIdentifier(create.coinst.template))
-                .setValue(convertValue(create.coinst.arg))
+                .setTemplateId(convertIdentifier(create.templateId))
+                .setValue(convertValue(create.arg))
                 .build
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
