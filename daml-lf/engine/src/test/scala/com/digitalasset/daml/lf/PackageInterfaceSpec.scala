@@ -22,6 +22,9 @@ class PackageInterfaceSpec
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
+  // TODO https://github.com/digital-asset/daml/issues/10810
+  //  test interfaces
+
   private[this] implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
 
