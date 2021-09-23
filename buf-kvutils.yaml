@@ -10,7 +10,8 @@ build:
     - ledger/ledger-configuration/protobuf
     - ledger/participant-state/kvutils/src/main/protobuf
   excludes:
-    # We have to exclude these to avoid duplicate definitions of e.g. Unit within the same package.
+    # We have to exclude these to avoid duplicate definitions of e.g. Unit
+    # within the same package.
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_11/
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_12/
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_13/
@@ -19,6 +20,10 @@ build:
 
 breaking:
   use:
+    # WIRE is enough here as KVUtils data is internal and will be transmitted
+    # and stored in binary protobuf format for the foreseeable future.
     - WIRE
   except:
+    # Moving an individual field into a new `one_of` retains binary backwards
+    # compatibility.
     - FIELD_SAME_ONEOF
