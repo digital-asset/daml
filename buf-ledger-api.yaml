@@ -10,5 +10,8 @@ build:
 
 breaking:
   use:
-    - WIRE_JSON
-    - FIELD_NO_DELETE
+    # Set to FILE to ensure that all breakages of the gRPC Ledger API are explicitly
+    # discussed with Engineering and Product Leadership.
+    - FILE
+  except:
+    - FILE_NO_DELETE # Avoids errors due caused by refactored buf modules.
