@@ -814,7 +814,16 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))
-      b.accumulateLeft(template.implements)(_ addImplements _)
+      b.accumulateLeft(template.implements)(_ addImplements encodeTemplateImplements(_))
+      b.build()
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/10810
+    private implicit def encodeTemplateImplements(
+        name: Ref.TypeConName
+    ): PLF.DefTemplate.Implements = {
+      val b = PLF.DefTemplate.Implements.newBuilder()
+      b.setInterface(name)
       b.build()
     }
 
