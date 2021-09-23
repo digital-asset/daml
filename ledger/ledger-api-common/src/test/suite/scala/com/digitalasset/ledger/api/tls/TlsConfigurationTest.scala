@@ -79,8 +79,6 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       "is default" in {
         getServerEnabledProtocols(None) shouldBe Seq(
           "SSLv2Hello",
-          "TLSv1",
-          "TLSv1.1",
           "TLSv1.2",
           "TLSv1.3",
         )
