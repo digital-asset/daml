@@ -927,6 +927,14 @@ message Expr {
     Expr interface_expr = 3;
   }
 
+  // Invoke an interface method.
+  // *Available in versions >= 1.dev*
+  message CallInterface {
+    TypeConName interface_type = 1;
+    int32 method_interned_name = 2;
+    Expr interface_expr = 3;
+  }
+
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -1044,6 +1052,10 @@ message Expr {
     // *Available in versions >= 1.dev*
     ToInterface to_interface = 36;
     FromInterface from_interface = 37;
+
+    // Invoke an interface method.
+    // *Available in versions >= 1.dev*
+    CallInterface call_interface = 38;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1433,6 +1445,20 @@ message DefTemplate {
     Expr maintainers = 3; // a function from the key type to [Party]
   }
 
+  // Implementation of an interface method.
+  // *Available in versions >= 1.dev*
+  message ImplementsMethod {
+    int32 method_interned_name = 1;
+    Expr value = 2;
+  }
+
+  // Implementation of an interface.
+  // *Available in versions >= 1.dev*
+  message Implements {
+    TypeConName interface = 1;
+    repeated ImplementsMethod methods = 2;
+  }
+
   // The type constructor for the template, acting as both
   // the name of the template and the type of the template argument.
   oneof tycon {
@@ -1484,13 +1510,24 @@ message DefTemplate {
   DefKey key = 10; // optional
 
   // Interfaces that this template implements.
-  repeated TypeConName implements = 13; // *Available in versions >= 1.dev*
+  repeated Implements implements = 13; // *Available in versions >= 1.dev*
 }
 
+// Interface method definition.
+// *Available in versions >= 1.dev*
+message InterfaceMethod {
+  Location location = 1;
+  int32 method_interned_name = 2;
+  Type type = 3;
+}
+
+// Interface definition.
+// *Available in versions >= 1.dev*
 message DefInterface {
   Location location = 1;
   int32 tycon_interned_dname = 2;
   repeated InterfaceChoice choices = 3;
+  repeated InterfaceMethod methods = 4;
 }
 
 // Exception definition
