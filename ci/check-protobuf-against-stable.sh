@@ -14,6 +14,12 @@ declare -a BUF_MODULES=(
 readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
 trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
+# The `SYSTEM_PULLREQUEST_TARGETBRANCH` environment variable is defined by
+# Azure Pipelines; in order to run this script locally, define it beforehand
+# as the branch being targeted. For example:
+#
+#   SYSTEM_PULLREQUEST_TARGETBRANCH=main bash -x ci/check-protobuf-against-stable.sh
+#
 echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 
 # For `main` and PRs targeting `main`, we simply check against the most recent
