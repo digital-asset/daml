@@ -189,7 +189,6 @@ private[lf] object PartialTransaction {
       contractKeyUniqueness: ContractKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
-      transactionNormalization: Boolean,
       committers: Set[Party],
   ) = PartialTransaction(
     pkg2TxVersion,
@@ -205,7 +204,6 @@ private[lf] object PartialTransaction {
     globalKeyInputs = Map.empty,
     localContracts = Set.empty,
     actionNodeLocations = BackStack.empty,
-    transactionNormalization = transactionNormalization,
   )
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
@@ -288,7 +286,6 @@ private[lf] case class PartialTransaction(
     globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
     actionNodeLocations: BackStack[Option[Location]],
-    transactionNormalization: Boolean,
 ) {
 
   import PartialTransaction._
@@ -351,20 +348,15 @@ private[lf] case class PartialTransaction(
   }
 
   /** normValue: converts a speedy value into a normalized regular value,
-    * unless 'transactionNormalization=false',
     * suitable for a transaction node of 'version' determined by 'templateId'
     */
   def normValue(templateId: TypeConName, svalue: SValue): Value = {
     val version = packageToTransactionVersion(templateId.packageId)
-    if (transactionNormalization) {
-      svalue.toNormalizedValue(version)
-    } else {
-      svalue.toUnnormalizedValue
-    }
+    svalue.toNormalizedValue(version)
   }
 
   private def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
-    if (transactionNormalization && (version < TxVersion.minByKey)) {
+    if (version < TxVersion.minByKey) {
       false
     } else {
       byKey
