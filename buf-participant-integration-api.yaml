@@ -9,4 +9,6 @@ build:
 
 breaking:
   use:
-    - WIRE
+    # Using WIRE_JSON here to ensure we have the option of also using JSON encodings of the
+    # .proto values stored in the IndexDB.
+    - WIRE_JSON
