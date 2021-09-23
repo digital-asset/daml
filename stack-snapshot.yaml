@@ -14,9 +14,7 @@ packages:
   - ghc-lib-parser-ex-8.8.5.8
   - bytestring-nums-0.3.6
   - extra-1.7.1
-  - github: awakesecurity/gRPC-haskell
-    commit: "0cb7999e9e89d0c17c5e1d917e97cc6e450b9346"
-    sha256: "531bbd4df2eca160be436074ade336a70cad3a6477df8d00d479440edfe9896b"
+  - grpc-haskell-0.0.1.0
   - grpc-haskell-core-0.0.0.0
   - fuzzy-0.1.0.0
   - lsp-1.2.0.0

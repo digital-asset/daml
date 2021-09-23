@@ -216,6 +216,7 @@ def daml_deps():
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():
+        # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
             strip_prefix = "grpc-1.36.0",

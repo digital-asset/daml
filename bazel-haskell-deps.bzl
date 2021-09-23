@@ -120,6 +120,9 @@ haskell_library(
         urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
+    cbit_dep = "fat_cbits" if is_windows else ":cbits"
+    grpc_dep = "@com_github_grpc_grpc//:grpc" if is_windows else "@grpc_nix//:grpc_lib"
+
     http_archive(
         name = "grpc_haskell_core",
         build_file_content = """
@@ -146,7 +149,7 @@ c2hs_suite(
     compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
     visibility = ["//visibility:public"],
     deps = [
-        ":fat_cbits",
+        "{cbit_dep}",
     ],
 )
 
@@ -160,10 +163,10 @@ cc_library(
   hdrs = glob(["include/*.h"]),
   includes = ["include/"],
   deps = [
-    "@com_github_grpc_grpc//:grpc",
+    "{grpc_dep}",
   ]
 )
-""",
+""".format(cbit_dep = cbit_dep, grpc_dep = grpc_dep),
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
