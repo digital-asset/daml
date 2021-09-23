@@ -49,9 +49,11 @@ object CompletionResponse {
   final case class CompletionSuccess(
       completion: Completion
   ) {
-
-    import completion.{commandId, transactionId, getStatus => originalStatus}
+    val commandId: String = completion.commandId
+    val transactionId: String = completion.transactionId
+    val originalStatus: StatusProto = completion.getStatus
   }
+
   def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] =
     completion.status match {
       case Some(grpcStatus) if Code.OK.value() == grpcStatus.code =>
