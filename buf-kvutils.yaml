@@ -18,6 +18,12 @@ build:
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_14/
     - daml-lf/archive/src/main/protobuf/com/digitalasset/
 
+lint:
+  use:
+    - DEFAULT
+  except:
+    - PACKAGE_VERSION_SUFFIX
+
 breaking:
   use:
     # WIRE is enough here as KVUtils data is internal and will be transmitted
