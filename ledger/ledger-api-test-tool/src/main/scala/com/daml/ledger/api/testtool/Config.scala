@@ -46,7 +46,7 @@ object Config {
     mustFail = false,
     verbose = false,
     timeoutScaleFactor = tests.Defaults.TimeoutScaleFactor,
-    concurrentTestRuns = Runtime.getRuntime.availableProcessors(),
+    concurrentTestRuns = tests.Defaults.ConcurrentRuns,
     extract = false,
     tlsConfig = None,
     excluded = Set.empty,

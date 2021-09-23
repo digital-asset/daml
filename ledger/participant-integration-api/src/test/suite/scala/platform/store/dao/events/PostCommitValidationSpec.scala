@@ -258,7 +258,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
             id = committedContract.coid.coid,
             ledgerEffectiveTime = committedContractLedgerEffectiveTime,
             key = committedContract.key.map(x =>
-              GlobalKey.assertBuild(committedContract.coinst.template, x.key)
+              GlobalKey.assertBuild(committedContract.templateId, x.key)
             ),
           ),
         ),

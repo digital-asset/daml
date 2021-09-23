@@ -152,33 +152,6 @@ class EngineTest
       ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
     )
 
-  "valid data variant identifier" should {
-    "found and return the argument types" in {
-      val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
-      val Right(lookupResult) = basicTestsSignatures.lookupDataVariant(id)
-      val params = lookupResult.dataType.params
-      val variants = lookupResult.dataVariant.variants
-      params should have length 1
-      variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
-    }
-  }
-
-  "valid data record identifier" should {
-    "found and return the argument types" in {
-      val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
-      lookupResult.dataRecord.fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
-    }
-  }
-
-  "valid template Identifier" should {
-    "return the right argument type" in {
-      val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
-      lookupResult.dataRecord.fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
-    }
-  }
-
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val let = Time.Timestamp.now()

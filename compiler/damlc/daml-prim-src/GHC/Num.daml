@@ -46,6 +46,7 @@ infixl 7 %
 -- * `negate` gives the additive inverse, ie: `x + negate x` = `aunit`
 --
 class Additive a  where
+    {-# MINIMAL (+), aunit, ((-) | negate) #-}
     -- | Add the two arguments together.
     (+)                 : a -> a -> a
     -- | The additive identity for the type. For example, for numbers, this is 0.

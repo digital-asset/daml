@@ -591,12 +591,17 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           .map(decodeChoice(tpl, _))
           .map(ch => (ch.name, ch)),
         observers = decodeExpr(lfTempl.getObservers, s"$tpl:observer"),
-        implements = lfImplements.map(decodeTypeConName),
+        implements = lfImplements.map(decodeTemplateImplements),
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, paramName))
           else None,
       )
     }
+
+    // TODO https://github.com/digital-asset/daml/issues/11006
+    //  Decode the rest and store it in the AST
+    private[this] def decodeTemplateImplements(impl: PLF.DefTemplate.Implements): TypeConName =
+      decodeTypeConName(impl.getInterface)
 
     private[archive] def decodeChoice(
         tpl: DottedName,
@@ -1096,11 +1101,27 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             value = decodeExpr(fromAnyException.getExpr, definition),
           )
 
-        case PLF.Expr.SumCase.TO_INTERFACE => // TODO https://github.com/digital-asset/daml/issues/10810
-          throw Error.Parsing("to_interface not yet implemented")
+        case PLF.Expr.SumCase.TO_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.to_interface")
+          val toInterface = lfExpr.getToInterface
+          EToInterface(
+            iface = decodeTypeConName(toInterface.getInterfaceType),
+            tpl = decodeTypeConName(toInterface.getTemplateType),
+            value = decodeExpr(toInterface.getTemplateExpr, definition),
+          )
 
-        case PLF.Expr.SumCase.FROM_INTERFACE => // TODO https://github.com/digital-asset/daml/issues/10810
-          throw Error.Parsing("from_interface not yet implemented")
+        case PLF.Expr.SumCase.FROM_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.from_interface")
+          val fromInterface = lfExpr.getFromInterface
+          EFromInterface(
+            iface = decodeTypeConName(fromInterface.getInterfaceType),
+            tpl = decodeTypeConName(fromInterface.getTemplateType),
+            value = decodeExpr(fromInterface.getInterfaceExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.CALL_INTERFACE =>
+          // TODO https://github.com/digital-asset/daml/issues/10810
+          throw Error.Parsing("Expr.call_interface not yet implemented")
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")

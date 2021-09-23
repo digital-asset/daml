@@ -33,7 +33,7 @@ private[lf] object CheckAuthorization {
     authorize(
       passIf = create.signatories subsetOf auth.authParties,
       failWith = FailedAuthorization.CreateMissingAuthorization(
-        templateId = create.coinst.template,
+        templateId = create.templateId,
         optLocation = optLocation,
         authorizingParties = auth.authParties,
         requiredParties = create.signatories,
@@ -41,7 +41,7 @@ private[lf] object CheckAuthorization {
     ) ++
       authorize(
         passIf = create.signatories.nonEmpty,
-        failWith = FailedAuthorization.NoSignatories(create.coinst.template, optLocation),
+        failWith = FailedAuthorization.NoSignatories(create.templateId, optLocation),
       ) ++
       (create.key match {
         case None => List()
@@ -50,7 +50,7 @@ private[lf] object CheckAuthorization {
           authorize(
             passIf = maintainers subsetOf create.signatories,
             failWith = FailedAuthorization.MaintainersNotSubsetOfSignatories(
-              templateId = create.coinst.template,
+              templateId = create.templateId,
               optLocation = optLocation,
               signatories = create.signatories,
               maintainers = maintainers,

@@ -491,7 +491,7 @@ object Engine {
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
         case _: NodeRollback[_] => "rollback"
-        case create: NodeCreate => makeDesc("create", create.coinst.template, None)
+        case create: NodeCreate => makeDesc("create", create.templateId, None)
         case exercise: NodeExercises[_] =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
         case fetch: NodeFetch => makeDesc("fetch", fetch.templateId, None)

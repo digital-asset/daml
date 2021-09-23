@@ -621,6 +621,14 @@ checkFetchInterface tpl cid = do
   void $ inWorld (lookupInterface tpl)
   checkExpr cid (TContractId (TCon tpl))
 
+-- | Check that a template implements a given interface.
+checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
+checkImplements tpl iface = do
+  void $ inWorld (lookupInterface iface)
+  Template {tplImplements} <- inWorld (lookupTemplate tpl)
+  unless (iface `elem` tplImplements) $ do
+    throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
+
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
@@ -732,10 +740,14 @@ typeOf' = \case
     checkExceptionType ty2
     checkExpr val ty2
     pure ty1
-  EToInterface _ _ _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
-    error "EToInterface not yet implemented in type checker"
-  EFromInterface _ _ _ -> -- TODO https://github.com/digital-asset/daml/issues/10810
-    error "EFromInterface not yet implemented in type checker"
+  EToInterface iface tpl val -> do
+    checkImplements tpl iface
+    checkExpr val (TCon tpl)
+    pure (TCon iface)
+  EFromInterface iface tpl val -> do
+    checkImplements tpl iface
+    checkExpr val (TCon iface)
+    pure (TOptional (TCon tpl))
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr

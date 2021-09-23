@@ -36,6 +36,14 @@ data Safety
   | Safe Int  -- number is >= 0
   deriving (Eq, Ord)
 
+-- | We define a semigroup instance for convenience. The safety s1 <> s2
+-- is unsafe if either s1 or s2 are unsafe, and otherwise it matches the
+-- safety of s2. This corresponds to the safety of a let expression, for
+-- example.
+instance Semigroup Safety where
+  Unsafe <> _ = Unsafe
+  Safe _ <> s2 = s2
+
 -- | This is used to track the necessary information for typeclass dictionary
 -- inlining and projecion. We really only want to inline typeclass projection
 -- function applied to dictionary functions, so we need to keep track of what
@@ -178,30 +186,22 @@ safetyStep = \case
       BETextIntercalate -> Safe 2
 
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
-  ERecProjF _ _ s -> s `min` Safe 0
-  ERecUpdF _ _ s1 s2 -> s1 `min` s2 `min` Safe 0
-  EVariantConF _ _ s -> s `min` Safe 0
+  ERecProjF _ _ s -> s <> Safe 0
+  ERecUpdF _ _ s1 s2 -> s1 <> s2 <> Safe 0
+  EVariantConF _ _ s -> s <> Safe 0
   EEnumConF _ _ -> Safe 0
   EStructConF fs -> minimum (Safe 0 : map snd fs)
-  EStructProjF _ s -> s `min` Safe 0
-  EStructUpdF _ s1 s2 -> s1 `min` s2 `min` Safe 0
-  ETmAppF s1 s2 ->
-    case s2 of
-      Unsafe -> Unsafe
-      Safe _ -> decrSafety s1
+  EStructProjF _ s -> s <> Safe 0
+  EStructUpdF _ s1 s2 -> s1 <> s2 <> Safe 0
+  ETmAppF s1 s2 -> s2 <> decrSafety s1
   ETyAppF s _ -> s
   ETmLamF _ s -> incrSafety s
   ETyLamF _ s -> s
-  ECaseF s1 as
-    | Safe _ <- s1 -> Safe.minimumDef Unsafe (map snd as)
-    | otherwise    -> Unsafe
-  ELetF (BindingF _ s1) s2
-    | Safe _ <- s1 -> s2
-    | otherwise    -> Unsafe
+  ECaseF _ [] -> Unsafe
+  ECaseF s1 as -> s1 <> minimum (map snd as)
+  ELetF (BindingF _ s1) s2 -> s1 <> s2
   ENilF _ -> Safe 0
-  EConsF _ s1 s2
-    | Safe _ <- s1, Safe _ <- s2 -> Safe 0
-    | otherwise                  -> Unsafe
+  EConsF _ s1 s2 -> s1 <> s2 <> Safe 0
   -- NOTE(MH): Updates and scenarios do probably not appear in positions related
   -- to the record boilerplate. If this changes, we need to revisit the next two
   -- cases.
@@ -209,25 +209,15 @@ safetyStep = \case
   EScenarioF _ -> Unsafe
   ELocationF _ s -> s
   ENoneF _ -> Safe 0
-  ESomeF _ s
-    | Safe _ <- s -> Safe 0
-    | otherwise   -> Unsafe
-  EToAnyF _ s
-    | Safe _ <- s -> Safe 0
-    | otherwise -> Unsafe
-  EFromAnyF _ s
-    | Safe _ <- s -> Safe 0
-    | otherwise -> Unsafe
+  ESomeF _ s -> s <> Safe 0
+  EToAnyF _ s -> s <> Safe 0
+  EFromAnyF _ s -> s <> Safe 0
   ETypeRepF _ -> Safe 0
-  EToAnyExceptionF _ s
-    | Safe _ <- s -> Safe 0
-    | otherwise -> Unsafe
-  EFromAnyExceptionF _ s
-    | Safe _ <- s -> Safe 0
-    | otherwise -> Unsafe
+  EToAnyExceptionF _ s -> s <> Safe 0
+  EFromAnyExceptionF _ s -> s <> Safe 0
   EThrowF _ _ _ -> Unsafe
-  EToInterfaceF _ _ s -> s `min` Safe 0
-  EFromInterfaceF _ _ s -> s `min` Safe 0
+  EToInterfaceF _ _ s -> s <> Safe 0
+  EFromInterfaceF _ _ s -> s <> Safe 0
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

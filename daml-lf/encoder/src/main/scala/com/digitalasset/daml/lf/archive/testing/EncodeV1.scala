@@ -655,6 +655,24 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setFromAnyException(
             PLF.Expr.FromAnyException.newBuilder().setType(ty).setExpr(body)
           )
+        case EToInterface(iface, tpl, value) =>
+          assertSince(LV.Features.interfaces, "Expr.ToInterface")
+          builder.setToInterface(
+            PLF.Expr.ToInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setTemplateExpr(value)
+          )
+        case EFromInterface(iface, tpl, value) =>
+          assertSince(LV.Features.interfaces, "Expr.FromInterface")
+          builder.setFromInterface(
+            PLF.Expr.FromInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setInterfaceExpr(value)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
@@ -796,7 +814,16 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))
-      b.accumulateLeft(template.implements)(_ addImplements _)
+      b.accumulateLeft(template.implements)(_ addImplements encodeTemplateImplements(_))
+      b.build()
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/11006
+    private implicit def encodeTemplateImplements(
+        name: Ref.TypeConName
+    ): PLF.DefTemplate.Implements = {
+      val b = PLF.DefTemplate.Implements.newBuilder()
+      b.setInterface(name)
       b.build()
     }
 

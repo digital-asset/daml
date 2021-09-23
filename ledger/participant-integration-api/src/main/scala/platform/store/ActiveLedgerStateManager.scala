@@ -164,7 +164,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 ),
                 signatories = nc.signatories,
                 observers = nc.stakeholders.diff(nc.signatories),
-                agreementText = nc.coinst.agreementText,
+                agreementText = nc.agreementText,
               )
               activeContract.key match {
                 case None =>

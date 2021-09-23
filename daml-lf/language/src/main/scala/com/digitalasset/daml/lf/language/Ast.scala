@@ -155,6 +155,12 @@ object Ast {
   /** Extract the payload from an AnyException if it matches the given exception type */
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
+  /** Convert template payload to interface it implements */
+  final case class EToInterface(iface: TypeConName, tpl: TypeConName, value: Expr) extends Expr
+
+  /** Convert interface back to template payload if possible */
+  final case class EFromInterface(iface: TypeConName, tpl: TypeConName, value: Expr) extends Expr
+
   //
   // Kinds
   //

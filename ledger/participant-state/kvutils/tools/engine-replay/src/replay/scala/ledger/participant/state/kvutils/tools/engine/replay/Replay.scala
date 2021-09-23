@@ -189,9 +189,7 @@ private[replay] object Replay {
         createsNodes.map(node => node.coid -> node.versionedCoinst).toMap
 
       val allContractsWithKey = createsNodes.flatMap { node =>
-        node.key.toList.map(key =>
-          node.coid -> GlobalKey.assertBuild(node.coinst.template, key.key)
-        )
+        node.key.toList.map(key => node.coid -> GlobalKey.assertBuild(node.templateId, key.key))
       }.toMap
 
       val benchmarks = transactions.flatMap { entry =>

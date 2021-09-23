@@ -207,7 +207,7 @@ private[lf] object Pretty {
       case NodeRollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: NodeCreate =>
-        val d = "create" &: prettyVersionedContractInst(create.versionedCoinst)
+        val d = "create" &: prettyContractInst(create.coinst)
         create.versionedKey match {
           case None => d
           case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)

@@ -6,7 +6,8 @@ package scenario
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultError}
+import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
@@ -15,6 +16,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -138,9 +140,6 @@ final case class ScenarioRunner(
     ScenarioSuccess(ledger, machine.traceLog, machine.warningLog, diff, steps, finalValue)
   }
 
-  private def crash(reason: String) =
-    throw Error.Internal(reason)
-
   private def getParty(partyText: String, callback: Party => Unit) = {
     val mangledPartyText = partyNameMangler(partyText)
     Party.fromString(mangledPartyText) match {
@@ -156,6 +155,9 @@ final case class ScenarioRunner(
 }
 
 object ScenarioRunner {
+
+  private def crash(reason: String) =
+    throw Error.Internal(reason)
 
   @deprecated("can be used only by sandbox classic.", since = "1.4.0")
   def getScenarioLedger(
@@ -328,9 +330,12 @@ object ScenarioRunner {
           ) match {
             case ScenarioLedger.LookupOk(_, _, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
-                // We should always be able to continue with a SKeyLookupResult.Found.
-                // Run to get side effects and assert result.
-                assert(callback(Some(acoid)))
+                // Note that even with a successful global lookup
+                // the callback can return false. This happens for a fetch-by-key
+                // if the contract got archived in the meantime.
+                // We discard the result here and rely on fetch-by-key
+                // setting up the state such that continuing interpretation fails.
+                discard(callback(Some(acoid)))
               else
                 throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
             case ScenarioLedger.LookupContractNotFound(coid) =>
@@ -404,16 +409,41 @@ object ScenarioRunner {
       traceLog = traceLog,
       warningLog = warningLog,
       commitLocation = location,
-      transactionNormalization = false,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
+
+    def enrich(tx: SubmittedTransaction): SubmittedTransaction = {
+      val config = Engine.DevEngine().config
+      val valueTranslator =
+        new ValueTranslator(
+          interface = compiledPackages.interface,
+          forbidV0ContractId = config.forbidV0ContractId,
+          requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
+        )
+      def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
+        valueTranslator.translateValue(typ, value) match {
+          case Left(err) => ResultError(err)
+          case Right(sv) => ResultDone(sv)
+        }
+      def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
+        crash(LookupError.MissingPackage.pretty(pkgId, context))
+      }
+      val enricher = new ValueEnricher(compiledPackages, translateValue, loadPackage)
+      def consume[V](res: Result[V]): V =
+        res match {
+          case ResultDone(x) => x
+          case x => crash(s"unexpected Result when enriching value: $x")
+        }
+      SubmittedTransaction(consume(enricher.enrichTransaction(tx)))
+    }
+
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
             case PartialTransaction.CompleteTransaction(tx, locationInfo, _) =>
-              ledger.commit(committers, readAs, location, tx, locationInfo) match {
+              ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, onLedger.ptxInternal)
                 case Right(r) =>
