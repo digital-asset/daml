@@ -320,7 +320,7 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
     <*> traverse decodeDefTemplateImplements (V.toList defTemplateImplements)
 
--- TODO https://github.com/digital-asset/daml/issues/10810
+-- TODO https://github.com/digital-asset/daml/issues/11006
 --   decode rest and store in AST
 decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode (Qualified TypeConName)
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} =
@@ -651,7 +651,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <*> mayDecode "expr_FromInterfaceTemplateType" expr_FromInterfaceTemplateType decodeTypeConName
     <*> mayDecode "expr_FromInterfaceInterfaceExpr" expr_FromInterfaceInterfaceExpr decodeExpr
   LF1.ExprSumCallInterface LF1.Expr_CallInterface {} ->
-    error "ECallInterface not implemented" -- TODO https://github.com/digital-asset/daml/issues/10810
+    error "ECallInterface not implemented" -- TODO https://github.com/digital-asset/daml/issues/11006
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

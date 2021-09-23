@@ -818,7 +818,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.build()
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/10810
+    // TODO https://github.com/digital-asset/daml/issues/11006
     private implicit def encodeTemplateImplements(
         name: Ref.TypeConName
     ): PLF.DefTemplate.Implements = {

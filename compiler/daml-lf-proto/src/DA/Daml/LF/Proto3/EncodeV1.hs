@@ -919,7 +919,7 @@ encodeTemplate Template{..} = do
 encodeTemplateImpl :: Qualified TypeConName -> Encode P.DefTemplate_Implements
 encodeTemplateImpl iface = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName iface
-    let defTemplate_ImplementsMethods = V.empty -- TODO https://github.com/digital-asset/daml/issues/10810
+    let defTemplate_ImplementsMethods = V.empty -- TODO https://github.com/digital-asset/daml/issues/11006
     pure P.DefTemplate_Implements {..}
 
 encodeTemplateKey :: TemplateKey -> Encode P.DefTemplate_DefKey
@@ -984,7 +984,7 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
     defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intChoices
-    let defInterfaceMethods = V.empty -- TODO https://github.com/digital-asset/daml/issues/10810
+    let defInterfaceMethods = V.empty -- TODO https://github.com/digital-asset/daml/issues/11006
     pure $ P.DefInterface{..}
 
 encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice
