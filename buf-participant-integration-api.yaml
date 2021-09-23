@@ -1,0 +1,14 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: v1beta1
+
+build:
+  roots:
+    - ledger/participant-integration-api/src/main/protobuf
+
+breaking:
+  use:
+    # Using WIRE_JSON here to ensure we have the option of also using JSON encodings of the
+    # .proto values stored in the IndexDB.
+    - WIRE_JSON
