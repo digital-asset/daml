@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.Node.{GenNode, KeyWithMaintainers}
-import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId, VersionedTransaction}
+import com.daml.lf.transaction.{Node, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.speedy.SValue
@@ -169,7 +169,7 @@ final class ValueEnricher(
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, key = key)
     }
 
-  def enrichTransaction(tx: CommittedTransaction): Result[CommittedTransaction] = {
+  def enrichTransaction(tx: VersionedTransaction[NodeId]): Result[VersionedTransaction[NodeId]] = {
     for {
       normalizedNodes <-
         tx.nodes.foldLeft[Result[Map[NodeId, GenNode[NodeId]]]](ResultDone(Map.empty)) {
@@ -179,12 +179,10 @@ final class ValueEnricher(
               normalizedNode <- enrichNode(node)
             } yield nodes.updated(nid, normalizedNode)
         }
-    } yield CommittedTransaction(
-      VersionedTransaction(
-        version = tx.version,
-        nodes = normalizedNodes,
-        roots = tx.roots,
-      )
+    } yield VersionedTransaction(
+      version = tx.version,
+      nodes = normalizedNodes,
+      roots = tx.roots,
     )
   }
 

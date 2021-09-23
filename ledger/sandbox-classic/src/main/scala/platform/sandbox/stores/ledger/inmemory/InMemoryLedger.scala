@@ -44,7 +44,12 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, TransactionCommitter}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  CommittedTransaction,
+  SubmittedTransaction,
+  TransactionCommitter,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -96,7 +101,9 @@ private[sandbox] final class InMemoryLedger(
   }
 
   private def enrichTX(tx: LedgerEntry.Transaction): LedgerEntry.Transaction = {
-    tx.copy(transaction = consumeEnricherResult(enricher.enrichTransaction(tx.transaction)))
+    tx.copy(transaction =
+      CommittedTransaction(consumeEnricherResult(enricher.enrichTransaction(tx.transaction)))
+    )
   }
 
   private val logger = ContextualizedLogger.get(this.getClass)
