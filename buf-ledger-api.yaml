@@ -6,7 +6,7 @@ version: v1beta1
 build:
   roots:
     - ledger-api/grpc-definitions
-    - ledger-api/3rdparty/grpc-definitions
+    - 3rdparty/protobuf
 
 breaking:
   use:
