@@ -32,7 +32,7 @@ proto_jars(
 compile_deps = [
     ":participant-integration-api-proto_scala",
     "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+    "//daml-lf/archive:daml_lf_archive_proto_java",
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/language",
@@ -176,8 +176,8 @@ da_scala_library(
     deps = [
         ":participant-integration-api",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",
@@ -265,8 +265,8 @@ da_scala_test_suite(
         ":participant-integration-api-proto_scala",
         ":participant-integration-api-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/encoder",
         "//daml-lf/engine",
@@ -361,8 +361,8 @@ da_scala_test_suite(
     deps = [
         ":participant-integration-api",
         ":participant-integration-api-tests-lib",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",

@@ -70,6 +70,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-assistant/scala-daml-project-config",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",

@@ -3,6 +3,7 @@
 
 package com.daml.lf
 
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.daml_lf_dev.{DamlLf, DamlLf1}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -54,9 +55,9 @@ package object archive {
       Right(cos)
     })
 
-  val ArchiveParser: GenReader[DamlLf.Archive] =
+  val ArchiveParser: GenReader[Archive] =
     Base.andThen(cos =>
-      attempt(getClass.getCanonicalName + ".ArchiveParser")(DamlLf.Archive.parseFrom(cos))
+      attempt(getClass.getCanonicalName + ".ArchiveParser")(Archive.parseFrom(cos))
     )
   val ArchiveReader: GenReader[ArchivePayload] =
     ArchiveParser.andThen(Reader.readArchive)
@@ -82,7 +83,7 @@ package object archive {
       .andThen(cos => attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf1.Package.parseFrom(cos)))
       .andThen(new DecodeV1(ver.minor).decodeScenarioModule(pkgId, _))
 
-  val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
+  val DarParser: GenDarReader[Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)
   val DarDecoder: GenDarReader[(PackageId, Ast.Package)] = GenDarReader(ArchiveDecoder)
 

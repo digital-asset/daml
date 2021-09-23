@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction.validati
 
 import java.time.{Instant, ZoneOffset, ZonedDateTime}
 import com.codahale.metrics.MetricRegistry
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, lfTuple}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
@@ -302,7 +302,7 @@ class ModelConformanceValidatorSpec
       val stateValues = Table(
         "state values",
         DamlStateValue.newBuilder.build(),
-        DamlStateValue.newBuilder.setArchive(DamlLf.Archive.newBuilder()).build(),
+        DamlStateValue.newBuilder.setArchive(Archive.newBuilder()).build(),
       )
 
       forAll(stateValues) { stateValue =>
@@ -440,7 +440,7 @@ object ModelConformanceValidatorSpec {
     "",
   )
 
-  private val anArchive: DamlLf.Archive = {
+  private val anArchive: Archive = {
     val pkg = Ast.GenPackage[Expr](
       Map.empty,
       Set.empty,

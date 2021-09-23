@@ -16,6 +16,7 @@ build:
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_12/
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_13/
     - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_14/
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_dev/
     - daml-lf/archive/src/main/protobuf/com/digitalasset/
 
 lint:

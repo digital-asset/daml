@@ -41,8 +41,8 @@ da_scala_library(
     exports = [":daml_kvutils_proto_java"],
     deps = [
         ":daml_kvutils_proto_java",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
@@ -105,8 +105,8 @@ da_scala_library(
     deps = [
         ":daml_kvutils_proto_java",
         ":kvutils",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",
@@ -170,8 +170,8 @@ da_scala_test_suite(
         ":kvutils",
         ":kvutils-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/encoder",
         "//daml-lf/engine",
@@ -233,7 +233,7 @@ proto_jars(
     maven_artifact_prefix = "participant-state-kvutils",
     maven_group = "com.daml",
     proto_deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_proto",
+        "//daml-lf/archive:daml_lf_archive_proto",
         "//daml-lf/transaction:transaction_proto",
         "//daml-lf/transaction:value_proto",
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto",

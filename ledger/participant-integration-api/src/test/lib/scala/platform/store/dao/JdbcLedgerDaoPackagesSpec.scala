@@ -9,7 +9,7 @@ import java.util.UUID
 import akka.stream.scaladsl.Sink
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.platform.indexer.IncrementalOffsetStep
@@ -100,7 +100,7 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
 
   private def storePackageEntry(
       offset: Offset,
-      packageList: List[(DamlLf.Archive, PackageDetails)],
+      packageList: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry] = None,
   ) =
     ledgerDao

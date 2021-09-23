@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,

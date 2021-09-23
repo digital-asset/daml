@@ -6,7 +6,7 @@ package com.daml.lf.iface.reader
 import java.io.BufferedInputStream
 import java.nio.file.Files
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 
 object InterfaceReaderMain extends App {
 
@@ -15,7 +15,7 @@ object InterfaceReaderMain extends App {
   val is = Files.newInputStream(lfFile.toPath)
   try {
     val bis = new BufferedInputStream(is)
-    val archive = DamlLf.Archive.parser().parseFrom(bis)
+    val archive = Archive.parser().parseFrom(bis)
     val out = InterfaceReader.readInterface(archive)
     println(s"out: $out")
   } finally {

@@ -6,7 +6,7 @@ package com.daml.platform.store.backend
 import java.time.{Duration, Instant}
 import java.util.UUID
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -45,9 +45,9 @@ private[backend] object StorageBackendTestValues {
   val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
   val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
 
-  val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
+  val someArchive: Archive = Archive.newBuilder
     .setHash("00001")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
+    .setHashFunction(Archive.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 1"))
     .build
 

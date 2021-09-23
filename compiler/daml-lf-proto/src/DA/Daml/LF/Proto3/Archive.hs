@@ -17,7 +17,7 @@ module DA.Daml.LF.Proto3.Archive
 
 import           Control.Lens             (over, _Left)
 import qualified "cryptonite" Crypto.Hash as Crypto
-import qualified Com.Daml.DamlLfDev.DamlLf as ProtoLF
+import qualified Com.Daml.DamlLf.Archive as ProtoArchive
 import Control.Monad
 import Data.List
 import           DA.Pretty
@@ -70,11 +70,11 @@ decodePackage mode packageId payloadBytes = do
 decodeArchiveHeader :: BS.ByteString -> Either ArchiveError (LF.PackageId, BS.ByteString)
 decodeArchiveHeader bytes = do
     archive <- over _Left (ProtobufError . show) $ Proto.fromByteString bytes
-    let payloadBytes = ProtoLF.archivePayload archive
-    let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
+    let payloadBytes = ProtoArchive.archivePayload archive
+    let archiveHash = TL.toStrict (ProtoArchive.archiveHash archive)
 
-    computedHash <- case ProtoLF.archiveHashFunction archive of
-      Proto.Enumerated (Right ProtoLF.HashFunctionSHA256) ->
+    computedHash <- case ProtoArchive.archiveHashFunction archive of
+      Proto.Enumerated (Right ProtoArchive.Archive_HashFunctionSHA256) ->
         Right $ encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payloadBytes) :: BS.ByteString)
       Proto.Enumerated (Left idx) ->
         Left (UnknownHashFunction idx)
@@ -101,10 +101,10 @@ encodeArchiveAndHash package =
     let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload package
         hash = encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
         archive =
-          ProtoLF.Archive
-          { ProtoLF.archivePayload = payload
-          , ProtoLF.archiveHash    = TL.fromStrict hash
-          , ProtoLF.archiveHashFunction = Proto.Enumerated (Right ProtoLF.HashFunctionSHA256)
+          ProtoArchive.Archive
+          { ProtoArchive.archivePayload = payload
+          , ProtoArchive.archiveHash    = TL.fromStrict hash
+          , ProtoArchive.archiveHashFunction = Proto.Enumerated (Right ProtoArchive.Archive_HashFunctionSHA256)
           }
     in (Proto.toLazyByteString archive, LF.PackageId hash)
 

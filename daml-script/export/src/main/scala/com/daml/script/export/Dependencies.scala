@@ -6,7 +6,7 @@ package com.daml.script.export
 import java.io.FileOutputStream
 import java.nio.file.Path
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.client.LedgerClient
@@ -122,10 +122,10 @@ object Dependencies {
   }
 
   private def encodeDalf(pkgId: PackageId, bs: ByteString) =
-    DamlLf.Archive
+    Archive
       .newBuilder()
       .setHash(pkgId)
-      .setHashFunction(DamlLf.HashFunction.SHA256)
+      .setHashFunction(Archive.HashFunction.SHA256)
       .setPayload(bs)
       .build
 

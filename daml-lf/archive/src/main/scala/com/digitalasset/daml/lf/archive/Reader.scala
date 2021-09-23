@@ -3,6 +3,7 @@
 
 package com.daml.lf.archive
 
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -19,9 +20,9 @@ object Reader {
 
   // Validate hash and version of a DamlLf.Archive
   @throws[Error.Parsing]
-  def readArchive(lf: DamlLf.Archive): Either[Error, ArchivePayload] = {
+  def readArchive(lf: Archive): Either[Error, ArchivePayload] = {
     lf.getHashFunction match {
-      case DamlLf.HashFunction.SHA256 =>
+      case Archive.HashFunction.SHA256 =>
         for {
           theirHash <- PackageId
             .fromString(lf.getHash)
@@ -41,7 +42,7 @@ object Reader {
           payload <- readArchivePayload(theirHash, proto)
 
         } yield payload
-      case DamlLf.HashFunction.UNRECOGNIZED =>
+      case Archive.HashFunction.UNRECOGNIZED =>
         Left(Error.Parsing("Unrecognized hash function"))
     }
   }

@@ -5,10 +5,11 @@ package com.daml.lf.archive.testing
 
 import java.security.MessageDigest
 
+import com.daml.daml_lf.ArchiveOuterClass.Archive
+import com.daml.daml_lf_dev.{DamlLf => PLF}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.daml_lf_dev.{DamlLf => PLF}
 
 // Important: do not use this in production code. It is designed for testing only.
 object Encode {
@@ -33,16 +34,16 @@ object Encode {
     }
   }
 
-  final def encodeArchive(pkg: (PackageId, Package), version: LanguageVersion): PLF.Archive = {
+  final def encodeArchive(pkg: (PackageId, Package), version: LanguageVersion): Archive = {
 
     val payload = encodePayloadOfVersion(pkg, version).toByteString
     val hash = PackageId.assertFromString(
       MessageDigest.getInstance("SHA-256").digest(payload.toByteArray).map("%02x" format _).mkString
     )
 
-    PLF.Archive
+    Archive
       .newBuilder()
-      .setHashFunction(PLF.HashFunction.SHA256)
+      .setHashFunction(Archive.HashFunction.SHA256)
       .setPayload(payload)
       .setHash(hash)
       .build()

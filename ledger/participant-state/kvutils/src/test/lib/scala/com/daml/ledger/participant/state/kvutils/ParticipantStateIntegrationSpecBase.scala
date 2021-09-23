@@ -9,7 +9,7 @@ import java.util.UUID
 import akka.Done
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerTimeModel}
@@ -169,7 +169,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       }
 
       "reject an empty archive" in participantState.use { ps =>
-        val badArchive = DamlLf.Archive.newBuilder
+        val badArchive = Archive.newBuilder
           .setHash("asdf")
           .build
 
@@ -766,7 +766,7 @@ object ParticipantStateIntegrationSpecBase {
   private def matchPackageUpload(
       update: Update,
       expectedSubmissionId: Ref.SubmissionId,
-      expectedArchives: List[DamlLf.Archive],
+      expectedArchives: List[Archive],
   ): Assertion =
     inside(update) {
       case PublicPackageUpload(

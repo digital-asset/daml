@@ -5,6 +5,7 @@ package com.daml.lf
 package iface
 package reader
 
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 import scalaz.{Enum => _, _}
@@ -76,7 +77,7 @@ object InterfaceReader {
   }
 
   def readInterface(
-      lf: DamlLf.Archive
+      lf: Archive
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
     readInterface(() => DamlLfArchiveReader.readPackage(lf))
 

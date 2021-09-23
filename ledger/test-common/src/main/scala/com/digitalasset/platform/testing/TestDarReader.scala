@@ -5,7 +5,7 @@ package com.daml.platform.testing
 
 import java.util.zip.ZipInputStream
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.test.TestDar
 import com.daml.lf.archive.{Dar, DarParser}
 
@@ -13,9 +13,9 @@ import scala.util.Try
 
 object TestDarReader {
 
-  def readCommonTestDar(testDar: TestDar): Try[Dar[DamlLf.Archive]] = read(testDar.path)
+  def readCommonTestDar(testDar: TestDar): Try[Dar[Archive]] = read(testDar.path)
 
-  def read(path: String): Try[Dar[DamlLf.Archive]] = {
+  def read(path: String): Try[Dar[Archive]] = {
     DarParser
       .readArchive(
         path,

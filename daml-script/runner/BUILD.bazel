@@ -36,6 +36,7 @@ da_scala_library(
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",

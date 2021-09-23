@@ -45,6 +45,7 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
+import qualified Com.Daml.DamlLf.Archive as ProtoArchive
 import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.ByteString as B
@@ -788,7 +789,7 @@ execInspect inFile outFile jsonOutput lvl =
       (bytes, _) <- getDalfBytes inFile
       if jsonOutput
       then do
-        payloadBytes <- PLF.archivePayload <$> errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
+        payloadBytes <- ProtoArchive.archivePayload <$> errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
         archive :: PLF.ArchivePayload <- errorOnLeft "Cannot decode archive payload" $ PS.fromByteString payloadBytes
         writeOutputBSL outFile
          $ Aeson.Pretty.encodePretty

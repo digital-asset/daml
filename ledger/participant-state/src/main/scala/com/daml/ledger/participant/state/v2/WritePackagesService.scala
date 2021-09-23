@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 

@@ -6,7 +6,7 @@ package com.daml.platform.indexer
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.codahale.metrics.Timer
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.{v2 => state}
@@ -149,7 +149,7 @@ trait ExecuteUpdate {
 
       case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
         val recordTimeInstant = recordTime.toInstant
-        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(archive =>
+        val packages: List[(Archive, v2.PackageDetails)] = archives.map(archive =>
           archive -> v2.PackageDetails(
             size = archive.getPayload.size.toLong,
             knownSince = recordTimeInstant,

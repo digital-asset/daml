@@ -6,7 +6,7 @@ package com.daml.platform.packages
 import java.util.concurrent.ConcurrentHashMap
 
 import com.codahale.metrics.Timer
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -26,7 +26,7 @@ private[platform] class DeduplicatingPackageLoader() {
 
   def loadPackage(
       packageId: PackageId,
-      delegate: PackageId => Future[Option[DamlLf.Archive]],
+      delegate: PackageId => Future[Option[Archive]],
       metric: Timer,
   )(implicit ec: ExecutionContext): Future[Option[Package]] = {
     var gettingPackage = false

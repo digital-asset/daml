@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Sink
 import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -413,10 +413,10 @@ final class SqlLedgerOnMutableIndexSpec
   private def createSqlLedger(ledgerId: LedgerId): Future[Ledger] =
     createSqlLedger(ledgerId = Some(ledgerId), participantId = None, packages = List.empty)
 
-  private def createSqlLedger(packages: List[DamlLf.Archive]): Future[Ledger] =
+  private def createSqlLedger(packages: List[Archive]): Future[Ledger] =
     createSqlLedger(ledgerId = None, participantId = None, packages = packages)
 
-  private def createSqlLedger(ledgerId: String, packages: List[DamlLf.Archive]): Future[Ledger] = {
+  private def createSqlLedger(ledgerId: String, packages: List[Archive]): Future[Ledger] = {
     val ledgerIdString: String = Ref.LedgerString.assertFromString(ledgerId)
     val assertedLedgerId: LedgerId = LedgerId(ledgerIdString)
     createSqlLedger(ledgerId = Some(assertedLedgerId), participantId = None, packages = packages)
@@ -428,7 +428,7 @@ final class SqlLedgerOnMutableIndexSpec
   private def createSqlLedger(
       ledgerId: Option[LedgerId],
       participantId: Option[ParticipantId],
-      packages: List[DamlLf.Archive],
+      packages: List[Archive],
       timeProvider: TimeProvider = TimeProvider.UTC,
   ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })

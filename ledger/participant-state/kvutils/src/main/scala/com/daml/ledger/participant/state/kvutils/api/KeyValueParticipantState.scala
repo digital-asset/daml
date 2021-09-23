@@ -7,7 +7,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
@@ -80,7 +80,7 @@ class KeyValueParticipantState(
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
-      archives: List[DamlLf.Archive],
+      archives: List[Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.uploadPackages(submissionId, archives, sourceDescription)

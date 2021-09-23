@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -162,7 +162,7 @@ object KVTest {
 
   def submitArchives(
       submissionId: String,
-      archives: DamlLf.Archive*
+      archives: Archive*
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     get.flatMap { testState =>
       submit(
@@ -172,7 +172,7 @@ object KVTest {
 
   def preExecuteArchives(
       submissionId: String,
-      archives: DamlLf.Archive*
+      archives: Archive*
   )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     get.flatMap { testState =>
       preExecute(
@@ -474,7 +474,7 @@ object KVTest {
   private[this] def createArchiveSubmission(
       submissionId: String,
       testState: KVTestState,
-      archives: DamlLf.Archive*
+      archives: Archive*
   ): DamlSubmission =
     testState.keyValueSubmission.archivesToSubmission(
       submissionId = submissionId,

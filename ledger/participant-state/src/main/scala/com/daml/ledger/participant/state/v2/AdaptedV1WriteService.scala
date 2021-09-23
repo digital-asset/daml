@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.v2
 import java.time.Instant
 import java.util.concurrent.CompletionStage
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
@@ -73,7 +73,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
-      archives: List[DamlLf.Archive],
+      archives: List[Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     delegate

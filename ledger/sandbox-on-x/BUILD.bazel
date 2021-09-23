@@ -24,7 +24,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/transaction",

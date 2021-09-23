@@ -3,6 +3,10 @@
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
+- target: //daml-lf/archive:daml_lf_archive_proto_jar
+  type: jar-lib
+- target: //daml-lf/archive:daml_lf_archive_proto_java
+  type: jar-proto
 - target: //daml-lf/archive:daml_lf_1.6_archive_proto_jar
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.6_archive_proto_java

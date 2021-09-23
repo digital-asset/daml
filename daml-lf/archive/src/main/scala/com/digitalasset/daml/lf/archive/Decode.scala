@@ -3,7 +3,7 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 
@@ -36,14 +36,14 @@ object Decode {
 
   // decode an Archive
   def decodeArchive(
-      archive: DamlLf.Archive,
+      archive: Archive,
       onlySerializableDataDefs: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
     Reader.readArchive(archive).flatMap(decodeArchivePayload(_, onlySerializableDataDefs))
 
   @throws[Error]
   def assertDecodeArchive(
-      archive: DamlLf.Archive,
+      archive: Archive,
       onlySerializableDataDefs: Boolean = false,
   ): (PackageId, Ast.Package) =
     assertRight(decodeArchive(archive, onlySerializableDataDefs))

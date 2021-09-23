@@ -31,6 +31,7 @@ da_scala_library(
         "//navigator:__subpackages__",
     ],
     deps = [
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
@@ -49,6 +50,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":interface",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",

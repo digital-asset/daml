@@ -5,7 +5,7 @@ package com.daml.platform.store.backend
 
 import java.time.Duration
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
@@ -1434,14 +1434,14 @@ object UpdateToDbDtoSpec {
   private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
-  private val someArchive1 = DamlLf.Archive.newBuilder
+  private val someArchive1 = Archive.newBuilder
     .setHash("00001")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
+    .setHashFunction(Archive.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 1"))
     .build
-  private val someArchive2 = DamlLf.Archive.newBuilder
+  private val someArchive2 = Archive.newBuilder
     .setHash("00002")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
+    .setHashFunction(Archive.HashFunction.SHA256)
     .setPayload(ByteString.copyFromUtf8("payload 2 (longer than the other payload)"))
     .build
   private val someCompletionInfo = state.CompletionInfo(

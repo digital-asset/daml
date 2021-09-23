@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1.metrics
 
 import java.util.concurrent.CompletionStage
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -42,7 +42,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
-      archives: List[DamlLf.Archive],
+      archives: List[Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(

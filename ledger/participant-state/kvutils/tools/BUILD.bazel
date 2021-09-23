@@ -28,7 +28,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/kv-transaction-support",
         "//daml-lf/transaction",
@@ -69,7 +69,7 @@ da_scala_test(
     ],
     deps = [
         "@maven//:org_scalatest_scalatest_compatible",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
@@ -242,8 +242,8 @@ da_scala_benchmark_jmh(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",

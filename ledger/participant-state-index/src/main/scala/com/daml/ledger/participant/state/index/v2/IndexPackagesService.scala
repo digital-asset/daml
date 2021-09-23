@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.index.v2
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package

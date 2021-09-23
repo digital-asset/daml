@@ -8,8 +8,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipInputStream
 
 import akka.stream.scaladsl.Source
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -125,7 +124,7 @@ object ApiPackageManagementServiceSpec {
   private object TestWritePackagesService extends state.WritePackagesService {
     override def uploadPackages(
         submissionId: Ref.SubmissionId,
-        archives: List[DamlLf.Archive],
+        archives: List[Archive],
         sourceDescription: Option[String],
     )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
       telemetryContext.setAttribute(

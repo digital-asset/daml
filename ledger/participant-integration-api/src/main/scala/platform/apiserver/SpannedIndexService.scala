@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -48,7 +48,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[DamlLf.Archive]] =
+  ): Future[Option[Archive]] =
     delegate.getLfArchive(packageId)
 
   override def getLfPackage(packageId: Ref.PackageId)(implicit

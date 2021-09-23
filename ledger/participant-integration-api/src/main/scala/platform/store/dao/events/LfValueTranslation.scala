@@ -40,7 +40,7 @@ final class LfValueTranslation(
     loadPackage: (
         LfPackageId,
         LoggingContext,
-    ) => Future[Option[com.daml.daml_lf_dev.DamlLf.Archive]],
+    ) => Future[Option[com.daml.daml_lf.ArchiveOuterClass.Archive]],
 ) {
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()

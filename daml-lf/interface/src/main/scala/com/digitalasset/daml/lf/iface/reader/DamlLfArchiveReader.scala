@@ -7,6 +7,7 @@ package reader
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.daml_lf_dev.DamlLf
 import scalaz.\/
 
@@ -15,7 +16,7 @@ object DamlLfArchiveReader {
   private[this] def fromEither[X](either: Either[archive.Error, X]) =
     \/.fromEither(either).leftMap(err => s"Cannot parse archive: $err")
 
-  def readPackage(lf: DamlLf.Archive): String \/ (Ref.PackageId, Ast.Package) =
+  def readPackage(lf: Archive): String \/ (Ref.PackageId, Ast.Package) =
     fromEither(archive.Reader.readArchive(lf)) flatMap readPackage
 
   def readPackage(

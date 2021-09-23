@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
@@ -158,7 +158,7 @@ private[platform] abstract class BaseLedger(
 
   override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[DamlLf.Archive]] =
+  ): Future[Option[Archive]] =
     ledgerDao.getLfArchive(packageId)
 
   override def getLfPackage(packageId: Ref.PackageId)(implicit

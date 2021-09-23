@@ -8,6 +8,7 @@ genrule(
     name = "integration-tests-mvn",
     srcs = [
         "@mvn_dev_env//:mvn",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java_pom",
         "//language-support/java/bindings:libbindings-java.jar",

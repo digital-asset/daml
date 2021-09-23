@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import org.slf4j.LoggerFactory
 import scalaz.std.either._
 import scalaz.std.list._
@@ -26,7 +26,7 @@ private[platform] object InMemoryPackageStore {
 private[platform] case class InMemoryPackageStore(
     packageInfos: Map[PackageId, PackageDetails],
     packages: Map[PackageId, Ast.Package],
-    archives: Map[PackageId, DamlLf.Archive],
+    archives: Map[PackageId, Archive],
 ) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -36,10 +36,10 @@ private[platform] case class InMemoryPackageStore(
   def listLfPackagesSync(): Map[PackageId, PackageDetails] =
     packageInfos
 
-  def getLfArchive(packageId: PackageId): Future[Option[DamlLf.Archive]] =
+  def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
     Future.successful(getLfArchiveSync(packageId))
 
-  def getLfArchiveSync(packageId: PackageId): Option[DamlLf.Archive] =
+  def getLfArchiveSync(packageId: PackageId): Option[Archive] =
     archives.get(packageId)
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
@@ -51,7 +51,7 @@ private[platform] case class InMemoryPackageStore(
   def withPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      packages: List[DamlLf.Archive],
+      packages: List[Archive],
   ): Either[String, InMemoryPackageStore] =
     addArchives(knownSince, sourceDescription, packages)
 
@@ -71,7 +71,7 @@ private[platform] case class InMemoryPackageStore(
   private[InMemoryPackageStore] def addPackage(
       pkgId: PackageId,
       details: PackageDetails,
-      archive: DamlLf.Archive,
+      archive: Archive,
       pkg: Ast.Package,
   ): InMemoryPackageStore =
     packageInfos.get(pkgId) match {
@@ -92,7 +92,7 @@ private[platform] case class InMemoryPackageStore(
   private def addArchives(
       knownSince: Instant,
       sourceDescription: Option[String],
-      archives: List[DamlLf.Archive],
+      archives: List[Archive],
   ): Either[String, InMemoryPackageStore] =
     archives
       .traverse(proto =>

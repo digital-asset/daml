@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
@@ -118,7 +118,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     }
   }
 
-  private[this] def buildSubmission(archives: DamlLf.Archive*) =
+  private[this] def buildSubmission(archives: Archive*) =
     DamlSubmission
       .newBuilder()
       .setPackageUploadEntry(

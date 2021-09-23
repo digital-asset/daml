@@ -5,7 +5,7 @@ package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref.Party

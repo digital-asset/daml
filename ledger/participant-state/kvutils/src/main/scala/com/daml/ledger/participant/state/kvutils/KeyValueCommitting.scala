@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -175,9 +175,8 @@ object KeyValueCommitting {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val packageEntry = submission.getPackageUploadEntry
-        submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
-          archive: DamlLf.Archive =>
-            DamlStateKey.newBuilder.setPackageId(archive.getHash).build
+        submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map { archive: Archive =>
+          DamlStateKey.newBuilder.setPackageId(archive.getHash).build
         } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>

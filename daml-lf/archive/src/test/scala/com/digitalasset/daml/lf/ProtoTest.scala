@@ -7,6 +7,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.zip.ZipFile
 
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -19,7 +20,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   private val darFile = Paths.get(rlocation("daml-lf/archive/DarReaderTest.dar"))
 
   decodeTest("1_6") { cis =>
-    import com.digitalasset.daml_lf_1_6.DamlLf._
+    import com.digitalasset.daml_lf_1_6.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
@@ -44,7 +45,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   )
 
   decodeTest("1_7") { cis =>
-    import com.digitalasset.daml_lf_1_7.DamlLf._
+    import com.digitalasset.daml_lf_1_7.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
@@ -67,7 +68,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   )
 
   decodeTest("1_8") { cis =>
-    import com.digitalasset.daml_lf_1_8.DamlLf._
+    import com.digitalasset.daml_lf_1_8.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
@@ -91,7 +92,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   )
 
   decodeTest("1_11") { cis =>
-    import com.daml.daml_lf_1_11.DamlLf._
+    import com.daml.daml_lf_1_11.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
@@ -111,7 +112,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   )
 
   decodeTest("1_12") { cis =>
-    import com.daml.daml_lf_1_12.DamlLf._
+    import com.daml.daml_lf_1_12.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
@@ -131,7 +132,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   )
 
   decodeTest("1_13") { cis =>
-    import com.daml.daml_lf_1_13.DamlLf._
+    import com.daml.daml_lf_1_13.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
@@ -151,7 +152,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   )
 
   decodeTest("1_14") { cis =>
-    import com.daml.daml_lf_1_14.DamlLf._
+    import com.daml.daml_lf_1_14.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
@@ -171,7 +172,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
   )
 
   decodeTest("dev") { cis =>
-    import com.daml.daml_lf_dev.DamlLf._
+    import com.daml.daml_lf_dev.DamlLf.ArchivePayload
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 

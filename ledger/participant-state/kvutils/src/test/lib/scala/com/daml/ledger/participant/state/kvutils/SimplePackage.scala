@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.test.TestDar
 import com.daml.lf.archive.Decode
 import com.daml.lf.command._
@@ -20,13 +20,13 @@ class SimplePackage(testDar: TestDar) {
 
   private val Success(dar) = TestDarReader.readCommonTestDar(testDar)
 
-  val archives: Map[Ref.PackageId, DamlLf.Archive] = dar.all.map { archive =>
+  val archives: Map[Ref.PackageId, Archive] = dar.all.map { archive =>
     (Ref.PackageId.assertFromString(archive.getHash), archive)
   }.toMap
 
   val packages: Map[Ref.PackageId, Ast.Package] = dar.all.map(Decode.assertDecodeArchive(_)).toMap
 
-  val mainArchive: DamlLf.Archive = dar.main
+  val mainArchive: Archive = dar.main
 
   val mainPackageId: Ref.PackageId = Ref.PackageId.assertFromString(mainArchive.getHash)
 

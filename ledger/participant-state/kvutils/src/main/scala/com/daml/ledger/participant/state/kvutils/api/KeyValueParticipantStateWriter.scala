@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -51,7 +51,7 @@ class KeyValueParticipantStateWriter(
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
-      archives: List[DamlLf.Archive],
+      archives: List[Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission = keyValueSubmission

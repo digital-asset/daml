@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
-import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
@@ -98,7 +98,7 @@ private[apiserver] final class ApiPackageService private (
 
   private def toGetPackageResponse(archive: Archive): GetPackageResponse = {
     val hashF: APIHashFunction = archive.getHashFunction match {
-      case HashFunction.SHA256 => APISHA256
+      case Archive.HashFunction.SHA256 => APISHA256
       case _ => APIUnrecognized(-1)
     }
     GetPackageResponse(hashF, archive.getPayload, archive.getHash)

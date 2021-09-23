@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v1
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -125,7 +125,7 @@ object Update {
     *   The submission id of the upload. Unset if this participant was not the submitter.
     */
   final case class PublicPackageUpload(
-      archives: List[DamlLf.Archive],
+      archives: List[Archive],
       sourceDescription: Option[String],
       recordTime: Timestamp,
       submissionId: Option[Ref.SubmissionId],

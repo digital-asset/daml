@@ -23,32 +23,3 @@ message ArchivePayload {
     // lf_2 = 4, lf_3 = 5, etc
   }
 }
-
-enum HashFunction {
-  SHA256 = 0;
-}
-
-message Archive {
-  HashFunction hash_function = 1;
-
-  // deprecated field (bytes hash = 2), replaced by
-  // field 4.
-
-  // Must be an encoded ArchivePayload. We store it as `bytes` to
-  // simplify hashing and in future signing.
-  bytes payload = 3;
-  // The hash is simply the ascii7 lowercase hex-encoded hash of the bytes
-  // according to the hash_function. We store it here for convenience, code
-  // reading the Archive should verify that the hash is valid.
-  //
-  // Note that the hash is computed directly on the blob and not
-  // on the decoded structure. This means that servers implementing
-  // a Daml ledger need to store the blob as-is somewhere to be able
-  // to always offer proof that they have a Daml package matching
-  // the requested hash. We decided to go for this route rather than
-  // relying on a canonical encoding of the AST since such a scheme
-  // would be extremely hard (for example protobuf encoding is not
-  // canonical) to maintain and does not buy us much.
-  string hash = 4;
-
-}

@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.actor.{ActorSystem, Scheduler}
 import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
@@ -39,7 +39,7 @@ class DeduplicatingPackageLoaderSpec
     DarParser.assertReadArchiveFromFile(fileName)
   }
 
-  private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
+  private[this] def delayedLoad(duration: FiniteDuration): Future[Option[Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
     akka.pattern.after(duration, scheduler) {
@@ -47,7 +47,7 @@ class DeduplicatingPackageLoaderSpec
     }
   }
 
-  private[this] def delayedFail(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
+  private[this] def delayedFail(duration: FiniteDuration): Future[Option[Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
     akka.pattern.after(duration, scheduler) {
@@ -55,7 +55,7 @@ class DeduplicatingPackageLoaderSpec
     }
   }
 
-  private[this] def delayedNotFound(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {
+  private[this] def delayedNotFound(duration: FiniteDuration): Future[Option[Archive]] = {
     implicit val scheduler: Scheduler = actorSystem.scheduler
     loadCount.incrementAndGet()
     akka.pattern.after(duration, scheduler) {

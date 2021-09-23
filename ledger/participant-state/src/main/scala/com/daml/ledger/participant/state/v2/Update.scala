@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v2
 
 import java.time.Duration
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
@@ -171,7 +171,7 @@ object Update {
     *                          submitter.
     */
   final case class PublicPackageUpload(
-      archives: List[DamlLf.Archive],
+      archives: List[Archive],
       sourceDescription: Option[String],
       recordTime: Timestamp,
       submissionId: Option[Ref.SubmissionId],

@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
@@ -60,7 +60,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   private val now = Instant.now()
 
-  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
+  protected final val packages: List[(Archive, v2.PackageDetails)] =
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
   private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
 

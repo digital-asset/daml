@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 import java.util.UUID
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
@@ -30,8 +30,8 @@ object TestHelpers {
 
   def party(value: String): Ref.Party = Ref.Party.assertFromString(value)
 
-  val badArchive: DamlLf.Archive =
-    DamlLf.Archive.newBuilder
+  val badArchive: Archive =
+    Archive.newBuilder
       .setHash("blablabla")
       .build
 

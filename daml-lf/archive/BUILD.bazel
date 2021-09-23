@@ -23,6 +23,16 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
+proto_jars(
+    name = "daml_lf_archive_proto",
+    srcs = ["src/main/protobuf/com/daml/daml_lf/archive.proto"],
+    javadoc_root_packages = ["com.daml.daml_lf"],
+    maven_artifact_prefix = "daml-lf-archive",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf",
+    visibility = ["//visibility:public"],
+)
+
 [
     [
         filegroup(
@@ -55,19 +65,26 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 # FIXME(JM): Clean this up
 genrule(
     name = "daml_lf_dev_archive_haskell_proto_src",
-    srcs = ["daml_lf_dev_archive_proto_srcs"],
-    outs = ["Com/Daml/DamlLfDev/DamlLf.hs"] +
-           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in LF_MAJOR_VERSIONS],
+    srcs =
+        glob(["src/main/protobuf/com/daml/daml_lf/*.proto"]) + ["daml_lf_dev_archive_proto_srcs"],
+    outs = [
+        "Com/Daml/DamlLf/Archive.hs",
+        "Com/Daml/DamlLfDev/DamlLf.hs",
+    ] + ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in LF_MAJOR_VERSIONS],
     cmd =
         "\n".join(
             [
                 """
-                   $(location @proto3-suite//:compile-proto-file)  \
+                   $(location @proto3-suite//:compile-proto-file)           \
                      --includeDir daml-lf/archive/src/main/protobuf/        \
-                     --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
+                     --proto %s                                             \
                      --out $(@D)
-                 """ % vx
-                for vx in [""] + ["_%s" % v for v in LF_MAJOR_VERSIONS]
+                 """ % s
+                for s in [
+                    "com/daml/daml_lf/archive.proto",
+                    "com/daml/daml_lf_dev/daml_lf.proto",
+                    "com/daml/daml_lf_dev/daml_lf_1.proto",
+                ]
             ],
         ),
     tools = [
@@ -108,6 +125,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        ":daml_lf_archive_proto_java",
         ":daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -156,6 +174,7 @@ da_scala_test_suite(
         ":daml_lf_1.6_archive_proto_java",
         ":daml_lf_1.7_archive_proto_java",
         ":daml_lf_1.8_archive_proto_java",
+        ":daml_lf_archive_proto_java",
         ":daml_lf_archive_reader",
         ":daml_lf_dev_archive_proto_java",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -184,6 +203,7 @@ da_scala_test_suite(
         ":daml_lf_1.6_archive_proto_java",
         ":daml_lf_1.7_archive_proto_java",
         ":daml_lf_1.8_archive_proto_java",
+        ":daml_lf_archive_proto_java",
         ":daml_lf_archive_reader",
         ":daml_lf_dev_archive_proto_java",
         "//bazel_tools/runfiles:scala_runfiles",

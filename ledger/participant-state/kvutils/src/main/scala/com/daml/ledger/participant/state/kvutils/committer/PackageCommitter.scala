@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.concurrent.Executors
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf.ArchiveOuterClass.Archive
 import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -187,7 +187,7 @@ final private[kvutils] class PackageCommitter(
   }
 
   private def decodePackages(
-      archives: Iterable[DamlLf.Archive]
+      archives: Iterable[Archive]
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
       type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
@@ -209,7 +209,7 @@ final private[kvutils] class PackageCommitter(
 
   private def decodePackagesIfNeeded(
       pkgsCache: Map[Ref.PackageId, Ast.Package],
-      archives: Iterable[DamlLf.Archive],
+      archives: Iterable[Archive],
   ): Either[String, Map[PackageId, Ast.Package]] =
     if (pkgsCache.isEmpty)
       decodePackages(archives)

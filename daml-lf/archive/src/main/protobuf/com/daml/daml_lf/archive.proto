@@ -1,0 +1,36 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package archive;
+
+option java_package = "com.daml.daml_lf";
+option csharp_namespace = "Com.Daml.Daml_Lf.Archive";
+
+message Archive {
+
+  enum HashFunction {
+    SHA256 = 0;
+  }
+
+  HashFunction hash_function = 1;
+
+  // Must be an encoded ArchivePayload. We store it as `bytes` to
+  // simplify hashing and in future signing and decouple from the
+  // LF versioning.
+  bytes payload = 3;
+  // The hash is simply the ascii7 lowercase hex-encoded hash of the bytes
+  // according to the hash_function. We store it here for convenience, code
+  // reading the Archive should verify that the hash is valid.
+  //
+  // Note that the hash is computed directly on the blob and not
+  // on the decoded structure. This means that servers implementing
+  // a Daml ledger need to store the blob as-is somewhere to be able
+  // to always offer proof that they have a Daml package matching
+  // the requested hash. We decided to go for this route rather than
+  // relying on a canonical encoding of the AST since such a scheme
+  // would be extremely hard (for example protobuf encoding is not
+  // canonical) to maintain and does not buy us much.
+  string hash = 4;
+
+}
