@@ -668,7 +668,7 @@ class CommandTrackerFlowTest
     }
 
   }
-  def failureCompletion(code: Code) =
+  private def failureCompletion(code: Code): CompletionFailure =
     NotOkResponse(Completion(commandId = commandId, status = Some(Status(code.value))))
 
   private def commandWithIds(submissionId: String, commandId: String) = {

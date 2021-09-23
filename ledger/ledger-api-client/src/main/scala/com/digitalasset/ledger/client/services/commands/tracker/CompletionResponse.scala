@@ -50,9 +50,7 @@ object CompletionResponse {
       completion: Completion
   ) {
 
-    lazy val commandId: String = completion.commandId
-    lazy val transactionId: String = completion.transactionId
-    lazy val originalStatus: StatusProto = completion.getStatus
+    import completion.{commandId, transactionId, getStatus => originalStatus}
   }
   def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] =
     completion.status match {
