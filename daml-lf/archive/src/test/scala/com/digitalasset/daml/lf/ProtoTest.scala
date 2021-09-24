@@ -175,7 +175,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
-  private[this] def decodeTest(version: String)(test: CodedInputStream => Boolean) =
+  private[this] def decodeTest(version: String)(hashPayload: CodedInputStream => Boolean) =
     s"daml_lf_$version.DamlLf" should {
       "read dalf" in {
         val zipFile = new ZipFile(darFile.toFile)
@@ -189,7 +189,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
           try {
             val cos: CodedInputStream =
               com.google.protobuf.CodedInputStream.newInstance(inputStream)
-            test(cos) shouldBe true
+            hashPayload(cos) shouldBe true
           } finally {
             inputStream.close()
           }
@@ -212,13 +212,16 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
           "daml_lf.proto" -> damlHashes,
           "daml_lf_0.proto" -> daml0Hashes,
           "daml_lf_1.proto" -> daml1Hashes,
-        ).foreach { case (file, hashes) =>
-          val relativePath = rootDir + "/" + file
-          val path = Paths.get(rlocation(relativePath))
-          if (hashes.isEmpty)
-            assert(Files.notExists(path), s"file $relativePath should not exists")
-          else
-            hashes should contain(hashFile(path))
+        ).foreach { case (file, expectedHashes) =>
+          // on Windows rlocation may return null if the file does not exists
+          val maybeHashes =
+            Option(rlocation(rootDir + "/" + file)).map(Paths.get(_)).filter(Files.exists(_))
+          maybeHashes match {
+            case Some(fullPath) =>
+              expectedHashes should contain(hashFile(fullPath))
+            case None =>
+              if (expectedHashes.nonEmpty) fail(s"""file "$file" should exist""")
+          }
         }
       }
     }
