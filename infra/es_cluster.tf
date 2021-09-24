@@ -21,11 +21,11 @@ locals {
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 5,
       init           = "[]",
       type           = "n2-highcpu-16",
       xmx            = "12g",
-      disk_size      = 200,
+      disk_size      = 300,
     },
     {
       suffix         = "-init",
