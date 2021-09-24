@@ -177,7 +177,19 @@ data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
 data ModRef = ModRef
     { modRefModule :: LF.ModuleName
     , modRefOrigin :: ImportOrigin
+    , modRefImpSpec :: ModRefImpSpec
     } deriving (Eq, Ord)
+
+data ModRefImpSpec
+    = NoImpSpec
+        -- ^ For open imports, e.g.
+        --
+        -- > import SomeModule
+    | EmptyImpSpec
+        -- ^ For instances-only imports, e.g.
+        --
+        -- > import SomeModule ()
+    deriving (Eq, Ord)
 
 modRefImport :: Config -> ModRef -> LImportDecl GhcPs
 modRefImport Config{..} ModRef{..} = noLoc ImportDecl
@@ -189,7 +201,7 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
     , ideclImplicit = False
     , ideclQualified = False
     , ideclAs = Nothing
-    , ideclHiding = Nothing
+    , ideclHiding = impSpec
     , ideclExt = noExt
     }
   where
@@ -199,6 +211,9 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
              | importPkgId == configSelfPkgId -> modRefModule
              -- The module names from the current package are the only ones that are not modified
              | otherwise -> prefixDependencyModule importPkgId modRefModule
+      impSpec = case modRefImpSpec of
+          NoImpSpec -> Nothing
+          EmptyImpSpec -> Just (False, noLoc []) -- False = not 'hiding'
 
 data GenState = GenState
     { gsModRefs :: !(Set ModRef)
@@ -746,7 +761,7 @@ prefixDependencyModule (LF.PackageId pkgId) = prefixModuleName ["Pkg_" <> pkgId]
 
 genModuleAux :: Config -> ImportOrigin -> LF.ModuleName -> Gen Module
 genModuleAux conf origin moduleName = do
-    let modRef = ModRef moduleName origin
+    let modRef = ModRef moduleName origin NoImpSpec
     let ghcModuleName = (unLoc . ideclName . unLoc . modRefImport conf) modRef
     let unitId = case origin of
             FromCurrentSdk unitId -> unitId
