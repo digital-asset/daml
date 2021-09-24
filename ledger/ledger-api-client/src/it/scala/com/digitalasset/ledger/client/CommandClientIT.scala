@@ -167,9 +167,9 @@ final class CommandClientIT
       expectedMessageSubString: String,
   ): Future[Assertion] =
     submitCommand(submitRequest).map { result =>
-      inside(result) { case Left(NotOkResponse(_, grpcStatus)) =>
-        grpcStatus.code should be(expectedErrorCode.value)
-        grpcStatus.message should include(expectedMessageSubString)
+      inside(result) { case Left(notOk: NotOkResponse) =>
+        notOk.grpcStatus.code should be(expectedErrorCode.value)
+        notOk.grpcStatus.message should include(expectedMessageSubString)
       }
     }(DirectExecutionContext)
 

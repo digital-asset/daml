@@ -332,12 +332,16 @@ private[commands] class CommandTracker[Context](
               trackingData.context,
               Left(
                 NotOkResponse(
-                  commandId,
-                  StatusProto.of(
-                    Status.Code.INTERNAL.value(),
-                    s"There are multiple pending commands with ID: $commandId for submission ID: $maybeSubmissionId. This can only happen for the mutating schema that shouldn't be used anymore, as it doesn't fully support command deduplication.",
-                    Seq.empty,
-                  ),
+                  Completion(
+                    commandId,
+                    Some(
+                      StatusProto.of(
+                        Status.Code.INTERNAL.value(),
+                        s"There are multiple pending commands with ID: $commandId for submission ID: $maybeSubmissionId. This can only happen for the mutating schema that shouldn't be used anymore, as it doesn't fully support command deduplication.",
+                        Seq.empty,
+                      )
+                    ),
+                  )
                 )
               ),
             )

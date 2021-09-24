@@ -11,6 +11,7 @@ import akka.{Done, NotUsed}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
 import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.logging.LoggingContext
@@ -110,9 +111,11 @@ object QueueBackedTrackerSpec {
       .queue[QueueInput](bufferSize, OverflowStrategy.dropNew)
       .map { in =>
         val completion = CompletionResponse.CompletionSuccess(
-          commandId = in.value.commands.commandId,
-          transactionId = "",
-          originalStatus = StatusProto.defaultInstance,
+          Completion(
+            commandId = in.value.commands.commandId,
+            status = Some(StatusProto.defaultInstance),
+            transactionId = "",
+          )
         )
         in.context.success(Right(completion))
         NotUsed

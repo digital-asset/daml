@@ -19,14 +19,18 @@ object CompletionResponse {
   /** Represents failures from executing submissions through gRPC.
     */
   sealed trait CompletionFailure
-  final case class NotOkResponse(commandId: String, grpcStatus: StatusProto)
-      extends CompletionFailure {
+  final case class NotOkResponse(completion: Completion) extends CompletionFailure {
+    val commandId: String = completion.commandId
+    val grpcStatus: StatusProto = completion.getStatus
     def metadata: Map[String, String] = Map(
       GrpcStatuses.DefiniteAnswerKey -> GrpcStatuses.isDefiniteAnswer(grpcStatus).toString
     )
   }
   final case class TimeoutResponse(commandId: String) extends CompletionFailure
-  final case class NoStatusInResponse(commandId: String) extends CompletionFailure
+
+  final case class NoStatusInResponse(completion: Completion) extends CompletionFailure {
+    val commandId: String = completion.commandId
+  }
 
   /** Represents failures of submissions throughout the execution queue.
     */
@@ -43,25 +47,21 @@ object CompletionResponse {
   private[daml] final case class QueueSubmitFailure(status: Status) extends TrackedCompletionFailure
 
   final case class CompletionSuccess(
-      commandId: String,
-      transactionId: String,
-      originalStatus: StatusProto,
-  )
+      completion: Completion
+  ) {
+    val commandId: String = completion.commandId
+    val transactionId: String = completion.transactionId
+    val originalStatus: StatusProto = completion.getStatus
+  }
 
   def apply(completion: Completion): Either[CompletionFailure, CompletionSuccess] =
     completion.status match {
       case Some(grpcStatus) if Code.OK.value() == grpcStatus.code =>
-        Right(
-          CompletionSuccess(
-            commandId = completion.commandId,
-            transactionId = completion.transactionId,
-            grpcStatus,
-          )
-        )
-      case Some(grpcStatus) =>
-        Left(NotOkResponse(completion.commandId, grpcStatus))
+        Right(CompletionSuccess(completion))
+      case Some(_) =>
+        Left(NotOkResponse(completion))
       case None =>
-        Left(NoStatusInResponse(completion.commandId))
+        Left(NoStatusInResponse(completion))
     }
 
   /** For backwards compatibility, clients that are too coupled to [[Completion]] as a type can convert back from [[Either[CompletionFailure, CompletionSuccess]]]
@@ -70,22 +70,18 @@ object CompletionResponse {
     response match {
       case Left(failure) =>
         failure match {
-          case NotOkResponse(commandId, grpcStatus) =>
-            Completion(commandId = commandId, status = Some(grpcStatus))
+          case NotOkResponse(completion) =>
+            completion
           case TimeoutResponse(commandId) =>
             Completion(
               commandId = commandId,
               status = Some(StatusProto(Code.ABORTED.value(), "Timeout")),
             )
-          case NoStatusInResponse(commandId) =>
-            Completion(commandId = commandId)
+          case NoStatusInResponse(completion) =>
+            completion
         }
       case Right(success) =>
-        Completion(
-          commandId = success.commandId,
-          transactionId = success.transactionId,
-          status = Some(success.originalStatus),
-        )
+        success.completion
     }
 
   private[daml] def toException(response: TrackedCompletionFailure): StatusException =
@@ -105,7 +101,8 @@ object CompletionResponse {
   }
 
   private def extractStatus(response: CompletionFailure): StatusJavaProto.Builder = response match {
-    case CompletionResponse.NotOkResponse(_, grpcStatus) => GrpcStatus.toJavaBuilder(grpcStatus)
+    case notOkResponse: CompletionResponse.NotOkResponse =>
+      GrpcStatus.toJavaBuilder(notOkResponse.grpcStatus)
     case CompletionResponse.TimeoutResponse(_) =>
       GrpcStatus.toJavaBuilder(Code.ABORTED.value(), Some("Timeout"), Iterable.empty)
     case CompletionResponse.NoStatusInResponse(_) =>
