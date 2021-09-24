@@ -112,65 +112,71 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
+    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+      _.cata(
+        fetchToAbsEnd(FetchContext(jwt, ledgerId, parties), templateIds, _),
+        fconn.pure(LedgerBegin),
+      )
+    }
+
+  private[this] def fetchToAbsEnd(
+      fetchContext: FetchContext,
+      templateIds: List[domain.TemplateId.RequiredPkg],
+      absEnd: Terminates.AtAbsolute,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
     cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._, doobie.implicits._
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
     // right now -- Stephen / Leo
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
-      _.cata(
-        absEnd =>
-          // traverse once, use the max _returned_ bookmark,
-          // re-traverse any that != the max returned bookmark (overriding lastOffset)
-          // fetch cannot go "too far" the second time
-          templateIds.traverse(fetchAndPersist(jwt, ledgerId, parties, false, absEnd, _)).flatMap {
-            actualAbsEnds =>
-              val newAbsEndTarget = {
-                import scalaz.std.list._, scalaz.syntax.foldable._, domain.Offset.`Offset ordering`
-                // it's fine if all yielded LedgerBegin, so we don't want to conflate the "fallback"
-                // with genuine results
-                actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
+    //
+    // traverse once, use the max _returned_ bookmark,
+    // re-traverse any that != the max returned bookmark (overriding lastOffset)
+    // fetch cannot go "too far" the second time
+    templateIds
+      .traverse(fetchAndPersist(fetchContext, false, absEnd, _))
+      .flatMap { actualAbsEnds =>
+        val newAbsEndTarget = {
+          import scalaz.std.list._, scalaz.syntax.foldable._, domain.Offset.`Offset ordering`
+          // it's fine if all yielded LedgerBegin, so we don't want to conflate the "fallback"
+          // with genuine results
+          actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
+        }
+        newAbsEndTarget match {
+          case LedgerBegin =>
+            fconn.pure(AbsoluteBookmark(absEnd))
+          case AbsoluteBookmark(feedback) =>
+            val feedbackTerminator =
+              domain.Offset.toTerminates(feedback)
+            // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
+            // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
+            // for an example of this happening.  We deal with this race condition
+            // by detecting that it has happened and rerunning any other template IDs
+            // to "catch them up" to the one that "raced" ahead
+            (actualAbsEnds zip templateIds)
+              .collect { case (`newAbsEndTarget`, templateId) => templateId }
+              .traverse_ {
+                // passing a priorBookmark prevents contractsIo_ from using the ACS,
+                // and it cannot go "too far" reading only the tx stream
+                fetchAndPersist(
+                  fetchContext,
+                  true,
+                  feedbackTerminator,
+                  _,
+                )
               }
-              newAbsEndTarget match {
-                case LedgerBegin =>
-                  fconn.pure(AbsoluteBookmark(absEnd))
-                case AbsoluteBookmark(feedback) =>
-                  val feedbackTerminator =
-                    Terminates
-                      .AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback.unwrap))
-                  // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
-                  // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
-                  // for an example of this happening.  We deal with this race condition
-                  // by detecting that it has happened and rerunning any other template IDs
-                  // to "catch them up" to the one that "raced" ahead
-                  (actualAbsEnds zip templateIds)
-                    .collect { case (`newAbsEndTarget`, templateId) => templateId }
-                    .traverse_ {
-                      // passing a priorBookmark prevents contractsIo_ from using the ACS,
-                      // and it cannot go "too far" reading only the tx stream
-                      fetchAndPersist(
-                        jwt,
-                        ledgerId,
-                        parties,
-                        true,
-                        feedbackTerminator,
-                        _,
-                      )
-                    }
-                    .as(AbsoluteBookmark(feedbackTerminator))
-              }
-          },
-        fconn.pure(LedgerBegin),
-      )
-    }
-
+              .as(AbsoluteBookmark(feedbackTerminator))
+        }
+      }
   }
 
   private[this] def fetchAndPersist(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
@@ -184,7 +190,7 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      (contractsIo_(jwt, ledgerId, parties, disableAcs, absEnd, templateId) <* fconn.commit)
+      (contractsIo_(fetchContext, disableAcs, absEnd, templateId) <* fconn.commit)
         .exceptSql {
           case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
             logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
@@ -199,9 +205,7 @@ private class ContractsFetch(
   }
 
   private def contractsIo_(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
@@ -209,20 +213,22 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[BeginBookmark[domain.Offset]] =
+  ): ConnectionIO[BeginBookmark[domain.Offset]] = {
+    import fetchContext.parties
     for {
       offsets <- ContractDao.lastOffset(parties, templateId)
       offset1 <- contractsFromOffsetIo(
-        jwt,
-        ledgerId,
-        parties,
+        fetchContext,
         templateId,
         offsets,
         disableAcs,
         absEnd,
       )
-      _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
+      _ = logger.debug(
+        s"contractsFromOffsetIo($fetchContext, $templateId, $offsets, $disableAcs, $absEnd): $offset1"
+      )
     } yield offset1
+  }
 
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent
@@ -259,9 +265,7 @@ private class ContractsFetch(
       .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
 
   private def contractsFromOffsetIo(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      fetchContext: FetchContext,
       templateId: domain.TemplateId.RequiredPkg,
       offsets: Map[domain.Party, domain.Offset],
       disableAcs: Boolean,
@@ -272,7 +276,7 @@ private class ContractsFetch(
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
-    import domain.Offset._
+    import domain.Offset._, fetchContext.{jwt, ledgerId, parties}
     val startOffset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
     val graph = RunnableGraph.fromGraph(
@@ -595,4 +599,10 @@ private[http] object ContractsFetch {
 
     TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
   }
+
+  private final case class FetchContext(
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      parties: OneAnd[Set, domain.Party],
+  )
 }
