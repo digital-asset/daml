@@ -12,7 +12,7 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 5,
+      size           = 0,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
