@@ -14,24 +14,24 @@ import com.daml.lf.value.Value.ContractId
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
-final case class VersionedTransaction[Nid] private[lf] (
+final case class VersionedTransaction private[lf] (
     version: TransactionVersion,
-    nodes: Map[Nid, GenNode[Nid]],
-    override val roots: ImmArray[Nid],
-) extends HasTxNodes[Nid]
-    with value.CidContainer[VersionedTransaction[Nid]]
+    nodes: Map[NodeId, GenNode[NodeId]],
+    override val roots: ImmArray[NodeId],
+) extends HasTxNodes[NodeId]
+    with value.CidContainer[VersionedTransaction]
     with NoCopy {
 
   override protected def self: this.type = this
 
-  override def mapCid(f: ContractId => ContractId): VersionedTransaction[Nid] =
+  override def mapCid(f: ContractId => ContractId): VersionedTransaction =
     VersionedTransaction(
       version,
       nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
       roots,
     )
 
-  def mapNodeId[Nid2](f: Nid => Nid2): VersionedTransaction[Nid2] =
+  def mapNodeId[Nid2](f: NodeId => NodeId): VersionedTransaction =
     VersionedTransaction(
       version,
       nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
@@ -39,7 +39,7 @@ final case class VersionedTransaction[Nid] private[lf] (
     )
 
   // O(1)
-  def transaction: GenTransaction[Nid] =
+  def transaction: GenTransaction[NodeId] =
     GenTransaction(nodes, roots)
 
 }
@@ -757,7 +757,7 @@ object GenTransaction {
 
   // crashes if transaction's keys contain contract Ids.
   @throws[IllegalArgumentException]
-  def duplicatedContractKeys(tx: VersionedTransaction[NodeId]): Set[GlobalKey] = {
+  def duplicatedContractKeys(tx: VersionedTransaction): Set[GlobalKey] = {
 
     import GlobalKey.{assertBuild => globalKey}
 
@@ -807,7 +807,7 @@ object Transaction {
     * transaction into party-specific ledgers and for computing
     * divulgence of contracts.
     */
-  type Transaction = VersionedTransaction[NodeId]
+  type Transaction = VersionedTransaction
   val Transaction: VersionedTransaction.type = VersionedTransaction
 
   /** Transaction meta data

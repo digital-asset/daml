@@ -645,10 +645,10 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  def encodeTransaction[Nid](
-      encodeNid: EncodeNid[Nid],
+  def encodeTransaction(
+      encodeNid: EncodeNid[NodeId],
       encodeCid: ValueCoder.EncodeCid,
-      tx: VersionedTransaction[Nid],
+      tx: VersionedTransaction,
   ): Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
       encodeNid,
@@ -665,10 +665,10 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  private[transaction] def encodeTransactionWithCustomVersion[Nid](
-      encodeNid: EncodeNid[Nid],
+  private[transaction] def encodeTransactionWithCustomVersion(
+      encodeNid: EncodeNid[NodeId],
       encodeCid: ValueCoder.EncodeCid,
-      transaction: VersionedTransaction[Nid],
+      transaction: VersionedTransaction,
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
     val builder = TransactionOuterClass.Transaction
       .newBuilder()
@@ -734,11 +734,11 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return decoded transaction
     */
-  def decodeTransaction[Nid](
-      decodeNid: DecodeNid[Nid],
+  def decodeTransaction(
+      decodeNid: DecodeNid[NodeId],
       decodeCid: ValueCoder.DecodeCid,
       protoTx: TransactionOuterClass.Transaction,
-  ): Either[DecodeError, VersionedTransaction[Nid]] =
+  ): Either[DecodeError, VersionedTransaction] =
     for {
       version <- decodeVersion(protoTx.getVersion)
       tx <- decodeTransaction(
@@ -760,21 +760,21 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return decoded transaction
     */
-  private def decodeTransaction[Nid](
-      decodeNid: DecodeNid[Nid],
+  private def decodeTransaction(
+      decodeNid: DecodeNid[NodeId],
       decodeCid: ValueCoder.DecodeCid,
       txVersion: TransactionVersion,
       protoTx: TransactionOuterClass.Transaction,
-  ): Either[DecodeError, VersionedTransaction[Nid]] = {
+  ): Either[DecodeError, VersionedTransaction] = {
     val roots = protoTx.getRootsList.asScala
-      .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
+      .foldLeft[Either[DecodeError, BackStack[NodeId]]](Right(BackStack.empty[NodeId])) {
         case (Right(acc), s) => decodeNid.fromString(s).map(acc :+ _)
         case (Left(e), _) => Left(e)
       }
       .map(_.toImmArray)
 
     val nodes = protoTx.getNodesList.asScala
-      .foldLeft[Either[DecodeError, HashMap[Nid, GenNode[Nid]]]](Right(HashMap.empty)) {
+      .foldLeft[Either[DecodeError, HashMap[NodeId, GenNode[NodeId]]]](Right(HashMap.empty)) {
         case (Left(e), _) => Left(e)
         case (Right(acc), s) =>
           decodeVersionedNode(decodeNid, decodeCid, txVersion, s).map(acc + _)

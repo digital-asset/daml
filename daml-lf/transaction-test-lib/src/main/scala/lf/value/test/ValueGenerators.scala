@@ -567,7 +567,7 @@ object ValueGenerators {
     }
   }
 
-  val noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId]] = {
+  val noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction] = {
     for {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()

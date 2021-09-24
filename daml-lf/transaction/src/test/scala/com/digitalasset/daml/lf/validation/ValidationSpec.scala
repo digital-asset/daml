@@ -56,7 +56,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private type OKWM = Option[KWM]
   private type Exe = NodeExercises[NodeId]
   private type Node = GenNode[NodeId]
-  private type VTX = VersionedTransaction[NodeId]
+  private type VTX = VersionedTransaction
 
   //--[samples]--
 

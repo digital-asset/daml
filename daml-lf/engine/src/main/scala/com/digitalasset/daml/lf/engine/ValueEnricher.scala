@@ -169,7 +169,7 @@ final class ValueEnricher(
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, key = key)
     }
 
-  def enrichTransaction(tx: VersionedTransaction[NodeId]): Result[VersionedTransaction[NodeId]] = {
+  def enrichTransaction(tx: VersionedTransaction): Result[VersionedTransaction] = {
     for {
       normalizedNodes <-
         tx.nodes.foldLeft[Result[Map[NodeId, GenNode[NodeId]]]](ResultDone(Map.empty)) {

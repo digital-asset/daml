@@ -2397,8 +2397,8 @@ object EngineTest {
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
-  private def byKeyNodes[Nid, _](tx: VersionedTransaction[Nid]) =
-    tx.nodes.collect { case (nodeId, node: GenActionNode[_]) if node.byKey => nodeId }.toSet
+  private def byKeyNodes(tx: VersionedTransaction) =
+    tx.nodes.collect { case (nodeId, node: GenActionNode[NodeId]) if node.byKey => nodeId }.toSet
 
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
@@ -2442,9 +2442,9 @@ object EngineTest {
   }
 
   private def isReplayedBy[Nid](
-      recorded: VersionedTransaction[Nid],
-      replayed: VersionedTransaction[Nid],
-  ): Either[ReplayMismatch[Nid], Unit] = {
+      recorded: VersionedTransaction,
+      replayed: VersionedTransaction,
+  ): Either[ReplayMismatch, Unit] = {
     // we normalize the LEFT arg before calling isReplayedBy to mimic the effect of serialization
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
