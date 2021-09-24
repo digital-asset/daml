@@ -26,8 +26,8 @@ class ContractDaoTest
       val one = Traverse[Map[Byte, *]]
       one compose one
     }
-    def mvo[Off: Order](expectedOffset: Off, unsynced: Unsynced[Off]) =
-      minimumViableOffsets((_: Byte) < 0, identity[Byte], expectedOffset, unsynced)
+    def mvo[TpId, Off: Order](expectedOffset: Off, unsynced: Map[TpId, Map[Byte, Off]]) =
+      minimumViableOffsets((_: Byte) >= 0, identity[TpId], expectedOffset, unsynced)
 
     "return all OK if all offsets match" in forAll { unsynced: Unsynced[Unit] =>
       val allSame = UF.map(unsynced)(_ => 0)
@@ -40,6 +40,28 @@ class ContractDaoTest
         val eitherOr = UF.map(unsynced)(b => if (b) min else max)
         mvo(min, eitherOr).value._1 should ===(max)
       }
+    }
+
+    "require update for a template ID that is caught up in a different party" in {
+      mvo(1, Map(0 -> Map((2: Byte) -> 1, (3: Byte) -> 2))) should ===(Some((2, Set(0))))
+    }
+
+    "don't require update for lagging, but unqueried, party" in {
+      mvo(3, Map(0 -> Map((2: Byte) -> 3, (-4: Byte) -> 1))) should ===(None)
+    }
+
+    "require update for ahead, albeit unqueried, party" in {
+      mvo(3, Map(0 -> Map((2: Byte) -> 3, (-4: Byte) -> 4))) should ===(Some((4, Set(0))))
+    }
+
+    "report desync, but no updates, if consistent" in {
+      mvo(3, Map(0 -> Map((2: Byte) -> 5), 1 -> Map((4: Byte) -> 5))) should ===(
+        Some((5, Set.empty))
+      )
+    }
+
+    "check lag across template IDs" in {
+      mvo(3, Map(0 -> Map((2: Byte) -> 3), 1 -> Map((4: Byte) -> 5))) should ===(Some((5, Set(0))))
     }
   }
 }
