@@ -44,6 +44,15 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       fragmentElems(frag) should ===(fragmentElems(projection))
     }
   }
+
+  "groupUnsyncedOffsets" should {
+    import Queries.groupUnsyncedOffsets
+    "not drop duplicate template IDs" in {
+      groupUnsyncedOffsets(Vector((0, (1, 2)), (0, (3, 4)))) should ===(
+        Map(0 -> Map(1 -> 2, 3 -> 4))
+      )
+    }
+  }
 }
 
 object QueriesSpec {

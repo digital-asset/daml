@@ -230,7 +230,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     q.query[(SurrogateTpId, String, String)]
       .map { case (tpid, party, offset) => (tpid, (party, offset)) }
       .to[Vector]
-      .map(_.groupBy1(_._1).transform((_, tpos) => tpos.view.map(_._2).toMap))
+      .map(groupUnsyncedOffsets)
   }
 
   /** Consistency of the whole database mostly pivots around the offset update
@@ -568,6 +568,11 @@ object Queries {
       selector = tpidSelector,
     )
   }
+
+  private[dbbackend] def groupUnsyncedOffsets[TpId, Party, Off](
+      queryResult: Vector[(TpId, (Party, Off))]
+  ) =
+    queryResult.groupBy1(_._1).transform((_, tpos) => tpos.view.map(_._2).toMap)
 
   import doobie.util.invariant.InvalidValue
 
