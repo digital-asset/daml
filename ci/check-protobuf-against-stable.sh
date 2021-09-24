@@ -20,7 +20,8 @@ trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 #
 #   SYSTEM_PULLREQUEST_TARGETBRANCH=main bash -x ci/check-protobuf-against-stable.sh
 #
-echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
+TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main}"
+echo "The target branch is '${TARGET}'."
 
 # For `main` and PRs targeting `main`, we simply check against the most recent
 # stable tag.
@@ -38,7 +39,7 @@ echo "The target branch is '${SYSTEM_PULLREQUEST_TARGETBRANCH}'."
 # they are built sequentially, so no conflicts are possible and the per-PR
 # check is enough.
 GIT_TAG_SCOPE=""
-if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
+if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
   GIT_TAG_SCOPE="--merged"
 fi
 
