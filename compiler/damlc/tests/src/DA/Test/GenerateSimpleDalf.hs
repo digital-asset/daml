@@ -105,7 +105,7 @@ main = do
             , tplAgreement = mkEmptyText
             , tplChoices = NM.fromList ([chc,chc2] <> [arc | withArchiveChoice])
             , tplKey = Nothing
-            , tplImplements = []
+            , tplImplements = NM.empty
             }
     let mod = Module
             { moduleName = ModuleName ["Module"]
