@@ -9,7 +9,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultError}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
-import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction, CommittedTransaction}
+import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SResult._
@@ -434,7 +434,7 @@ object ScenarioRunner {
           case ResultDone(x) => x
           case x => crash(s"unexpected Result when enriching value: $x")
         }
-      SubmittedTransaction(consume(enricher.enrichTransaction(CommittedTransaction(tx))))
+      SubmittedTransaction(consume(enricher.enrichTransaction(tx)))
     }
 
     @tailrec

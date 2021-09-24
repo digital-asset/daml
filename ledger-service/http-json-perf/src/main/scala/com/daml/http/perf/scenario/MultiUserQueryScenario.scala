@@ -3,7 +3,7 @@
 
 package com.daml.http.perf.scenario
 
-import com.daml.http.perf.scenario.OracleMultiUserQueryScenario._
+import com.daml.http.perf.scenario.MultiUserQueryScenario._
 import io.gatling.core.Predef._
 import io.gatling.core.structure.PopulationBuilder
 import io.gatling.http.Predef._
@@ -19,15 +19,16 @@ private[scenario] trait HasRandomCurrency {
   }
 }
 
-object OracleMultiUserQueryScenario {
+object MultiUserQueryScenario {
   sealed trait RunMode { def name: String }
   case object PopulateCache extends RunMode { val name = "populateCache" }
   case object FetchByKey extends RunMode { val name = "fetchByKey" }
   case object FetchByQuery extends RunMode { val name = "fetchByQuery" }
+  case object PopulateAndFetch extends RunMode { val name = "populateAndFetch" }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class OracleMultiUserQueryScenario
+class MultiUserQueryScenario
     extends Simulation
     with SimulationConfig
     with HasRandomAmount
@@ -48,6 +49,8 @@ class OracleMultiUserQueryScenario
       case PopulateCache.name => PopulateCache
       case FetchByKey.name => FetchByKey
       case FetchByQuery.name => FetchByQuery
+      //run everything in a single run.
+      case PopulateAndFetch.name => PopulateAndFetch
     }
   }
 
@@ -142,9 +145,25 @@ class OracleMultiUserQueryScenario
         )
       case FetchByQuery =>
         currQueryScn(numQueries / numReaders, randomCurrency).inject(
-          nothingFor(2.seconds),
-          atOnceUsers(numReaders),
+          atOnceUsers(numReaders)
         )
+      case PopulateAndFetch =>
+        writeScn
+          .inject(atOnceUsers(numWriters))
+          .andThen(
+            fetchByKeyScn(numQueries / numReaders)
+              .inject(
+                nothingFor(2.seconds),
+                atOnceUsers(numReaders),
+              )
+              .andThen(
+                currQueryScn(numQueries / numReaders, randomCurrency)
+                  .inject(
+                    nothingFor(2.seconds),
+                    atOnceUsers(numReaders),
+                  )
+              )
+          )
     }
   }
 

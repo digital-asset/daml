@@ -763,7 +763,6 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
         commitLocation: Option[Location] = None,
-        transactionNormalization: Boolean = true,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.interface.packageLanguageVersion.andThen(
@@ -786,7 +785,6 @@ private[lf] object Speedy {
               contractKeyUniqueness,
               submissionTime,
               initialSeeding,
-              transactionNormalization,
               committers,
             ),
           committers = committers,
