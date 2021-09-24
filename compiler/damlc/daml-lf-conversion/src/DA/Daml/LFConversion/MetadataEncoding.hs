@@ -1,6 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE PatternSynonyms #-}
 
 -- | Encoding/decoding of metadata (i.e. non-semantically-relevant bindings) in LF,
@@ -22,11 +23,15 @@ module DA.Daml.LFConversion.MetadataEncoding
     , encodeOverlapMode
     , decodeOverlapMode
     , mkMetadataStub
+    , moduleImportsName
+    , encodeModuleImports
+    , decodeModuleImports
     ) where
 
 import Safe (readMay)
 import Control.Monad (guard, liftM2)
 import Data.List (sortOn)
+import qualified Data.Set as S
 import qualified Data.Text as T
 
 import qualified "ghc-lib-parser" BasicTypes as GHC
@@ -104,6 +109,10 @@ minimalName (LF.TypeSynName xs) = LF.ExprValName ("$$minimal" <> T.concat xs)
 pattern TEncodedStr :: T.Text -> LF.Type
 pattern TEncodedStr x = LF.TStruct [(LF.FieldName x, LF.TUnit)]
 
+decodeText :: LF.Type -> Maybe T.Text
+decodeText (TEncodedStr x) = Just x
+decodeText _ = Nothing
+
 pattern TEncodedCon :: T.Text -> LF.Type -> LF.Type
 pattern TEncodedCon a b = LF.TStruct [(LF.FieldName a, b)]
 
@@ -153,6 +162,51 @@ decodeOverlapMode = \case
         ]
     _ -> Nothing
 
+--------------------------
+-- INSTANCE PROPAGATION --
+--------------------------
+moduleImportsName :: LF.ExprValName
+moduleImportsName = LF.ExprValName "$$imports"
+
+encodeModuleImports :: S.Set (LF.Qualified ()) -> LF.Type
+encodeModuleImports = encodeTypeList encodeModuleImport . S.toList
+
+encodeModuleImport :: LF.Qualified () -> LF.Type
+encodeModuleImport q =
+    encodeTypeList id
+        [ encodePackageRef (LF.qualPackage q)
+        , encodeModuleName (LF.qualModule q)
+        ]
+
+encodePackageRef :: LF.PackageRef -> LF.Type
+encodePackageRef = \case
+  LF.PRSelf -> LF.TUnit
+  LF.PRImport (LF.PackageId packageId) -> TEncodedStr packageId
+
+encodeModuleName :: LF.ModuleName -> LF.Type
+encodeModuleName (LF.ModuleName components) =
+    encodeTypeList TEncodedStr components
+
+decodeModuleImports :: LF.Type -> Maybe (S.Set (LF.Qualified ()))
+decodeModuleImports = fmap S.fromList . decodeTypeList decodeModuleImport
+
+decodeModuleImport :: LF.Type -> Maybe (LF.Qualified ())
+decodeModuleImport x = decodeTypeList Just x  >>= \case
+    [packageRef, moduleName] ->
+        LF.Qualified
+            <$> decodePackageRef packageRef
+            <*> decodeModuleName moduleName
+            <*> pure ()
+    _ -> Nothing
+
+decodePackageRef :: LF.Type -> Maybe LF.PackageRef
+decodePackageRef = \case
+    LF.TUnit -> pure LF.PRSelf
+    TEncodedStr packageId -> pure (LF.PRImport (LF.PackageId packageId))
+    _ -> Nothing
+
+decodeModuleName :: LF.Type -> Maybe LF.ModuleName
+decodeModuleName = fmap LF.ModuleName . decodeTypeList decodeText
 
 ---------------------
 -- STUB GENERATION --
