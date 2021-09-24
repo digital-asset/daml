@@ -626,7 +626,7 @@ checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConNam
 checkImplements tpl iface = do
   void $ inWorld (lookupInterface iface)
   Template {tplImplements} <- inWorld (lookupTemplate tpl)
-  unless (iface `elem` tplImplements) $ do
+  unless (NM.member iface tplImplements) $ do
     throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
 
 -- returns the contract id and contract type
@@ -748,6 +748,9 @@ typeOf' = \case
     checkImplements tpl iface
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
+  ECallInterface _ _ _ ->
+    -- TODO https://github.com/digital-asset/daml/issues/11006
+    error "ECallInterface not yet implemented"
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -871,9 +874,11 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
-checkIfaceImplementation tplTcon ifTcon = do
-  DefInterface {intChoices} <- inWorld $ lookupInterface ifTcon
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
+checkIfaceImplementation tplTcon TemplateImplements{..} = do
+  -- TODO https://github.com/digital-asset/daml/issues/11006
+  --  check methods, not just choices
+  DefInterface {intChoices} <- inWorld $ lookupInterface tpiInterface
   forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
     TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
       inWorld $ lookupChoice (tplTcon, ifcName)

@@ -234,6 +234,7 @@ decodeDefInterface LF1.DefInterface {..} =
     <$> traverse decodeLocation defInterfaceLocation
     <*> decodeDottedNameId TypeConName defInterfaceTyconInternedDname
     <*> decodeNM DuplicateChoice decodeInterfaceChoice defInterfaceChoices
+    <*> decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
 
 decodeInterfaceChoice :: LF1.InterfaceChoice -> Decode InterfaceChoice
 decodeInterfaceChoice LF1.InterfaceChoice {..} =
@@ -243,6 +244,15 @@ decodeInterfaceChoice LF1.InterfaceChoice {..} =
     <*> pure interfaceChoiceConsuming
     <*> mayDecode "interfaceChoiceArgType" interfaceChoiceArgType decodeType
     <*> mayDecode "interfaceChoiceRetType" interfaceChoiceRetType decodeType
+
+decodeInterfaceMethod :: LF1.InterfaceMethod -> Decode InterfaceMethod
+decodeInterfaceMethod LF1.InterfaceMethod {..} = InterfaceMethod
+  <$> traverse decodeLocation interfaceMethodLocation
+  <*> decodeMethodName interfaceMethodMethodInternedName
+  <*> mayDecode "interfaceMethodType" interfaceMethodType decodeType
+
+decodeMethodName :: Int32 -> Decode MethodName
+decodeMethodName = decodeNameId MethodName
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -318,13 +328,19 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mayDecode "defTemplateAgreement" defTemplateAgreement decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
-    <*> traverse decodeDefTemplateImplements (V.toList defTemplateImplements)
+    <*> decodeNM DuplicateImplements decodeDefTemplateImplements defTemplateImplements
 
 -- TODO https://github.com/digital-asset/daml/issues/11006
 --   decode rest and store in AST
-decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode (Qualified TypeConName)
-decodeDefTemplateImplements LF1.DefTemplate_Implements{..} =
-  mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
+decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImplements
+decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
+  <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
+  <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
+
+decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
+decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
+  <$> decodeMethodName defTemplate_ImplementsMethodMethodInternedName
+  <*> mayDecode "defTemplate_ImplementsMethodValue" defTemplate_ImplementsMethodValue decodeExpr
 
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do

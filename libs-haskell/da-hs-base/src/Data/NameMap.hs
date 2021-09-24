@@ -23,6 +23,7 @@ module Data.NameMap
   , NameMap
 
   -- * Queries
+  , null
   , names
   , namesSet
   , elems
@@ -51,7 +52,7 @@ module Data.NameMap
   , toHashMap
   ) where
 
-import Prelude hiding (lookup, map, traverse)
+import Prelude hiding (lookup, map, traverse, null)
 import qualified Prelude
 
 import           Control.DeepSeq
@@ -60,7 +61,7 @@ import           Control.Monad (void)
 import           Data.Aeson
 import           Data.Binary
 import           Data.Data
-import           Data.Foldable hiding (toList)
+import           Data.Foldable hiding (toList, null)
 import           Data.Function (on)
 import           Data.Functor.Identity
 import           Data.Hashable
@@ -138,6 +139,9 @@ instance Foldable NameMap where
 
 -- DERIVED
 
+null :: NameMap a -> Bool
+null = HMS.null . toHashMap
+
 namesSet :: Named a => NameMap a -> HS.HashSet (Name a)
 namesSet = HS.fromMap . void . toHashMap
 
@@ -177,7 +181,7 @@ lookup n = HMS.lookup n . toHashMap
 union :: Named a => NameMap a -> NameMap a -> NameMap a
 union (NameMap _ nm1) (NameMap _ nm2) =
     let m = nm1 `HMS.union` nm2
-     in NameMap (HMS.toList m) (nm1 `HMS.union` nm2)
+     in NameMap (HMS.toList m) m
 
 (!) :: (HasCallStack, Named a) => NameMap a -> Name a -> a
 (!) nm n = case lookup n nm of
