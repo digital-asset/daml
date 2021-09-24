@@ -1,0 +1,11 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- This test checks that we produce an $$imports value including all modules from which this one imports instances.
+
+-- @ERROR range=14:10-14:23; • No explicit implementation for; either ‘-’ or ‘negate’; • In the instance declaration for ‘Additive Expr’
+-- @QUERY-LF .modules[]
+
+module ModuleImports_Main () where
+
+import ModuleImports_OrphanInstance ()
