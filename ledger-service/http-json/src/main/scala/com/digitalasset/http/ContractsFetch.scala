@@ -81,25 +81,47 @@ private class ContractsFetch(
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[A] = {
     import ContractDao.laggingOffsets
-    val al = for {
-      bb <- fetchAndPersist(jwt, ledgerId, parties, templateIds)
+    val initTries = 10
+    val fetchContext = FetchContext(jwt, ledgerId, parties)
+    def go(
+        maxAttempts: Int,
+        fetchTemplateIds: List[domain.TemplateId.RequiredPkg],
+        absEnd: Terminates.AtAbsolute,
+    ): ConnectionIO[A] = for {
+      bb <- fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd)
       a <- within(bb)
+      // fetchTemplateIds can be a subset of templateIds (or even empty),
+      // but we only get away with that by checking _all_ of templateIds,
+      // which can then indicate that a larger set than fetchTemplateIds
+      // has desynchronized
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
           laggingOffsets(parties.toSet, expectedOff, tids)
         case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
       }
-    } yield (a, lagging)
-    // trying to put the loop in right-associated tail position
-    // (in free monad terms)
-    al.flatMap { case (a, lagging) =>
-      lagging.cata(
-        { case (newOff @ _, laggingTids @ _) =>
-          // TODO SC loop, at newOff/laggingTids instead of getTermination
-          fconn.pure(a)
+      retriedA <- lagging.cata(
+        { case (newOff, laggingTids) =>
+          if (maxAttempts > 1)
+            go(
+              maxAttempts - 1,
+              laggingTids.toList,
+              domain.Offset.toTerminates(newOff),
+            )
+          else
+            fconn.raiseError(
+              new IllegalStateException(
+                s"failed after $initTries attempts to synchronize database for $fetchContext, $templateIds"
+              )
+            )
         },
         fconn.pure(a),
       )
+    } yield retriedA
+
+    // we assume that if the ledger termination is LedgerBegin, then
+    // `within` will not yield concurrency-relevant results
+    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+      _.cata(go(initTries, templateIds, _), within(LedgerBegin))
     }
   }
 
