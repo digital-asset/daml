@@ -354,6 +354,11 @@ class CommonCliBase(name: LedgerName) {
           "Maximum command deduplication duration."
         )
 
+      opt[Unit]("use-error-codes-v2")
+        .optional()
+        .text("Enable new self-service errors.")
+        .action((_, config) => config.copy(enableErrorCodesV2 = true))
+
       checkConfig(c => {
         if (c.enableCompression && !c.enableAppendOnlySchema)
           failure(

@@ -58,6 +58,31 @@ final class ConfigSpec
 
   behavior of "Runner"
 
+  it should "parse error codes v2 flag" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--use-error-codes-v2",
+      )
+    )
+
+    actual should not be None
+    actual.get.enableErrorCodesV2 shouldBe true
+  }
+
+  it should "disable error codes v2 flag by default" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+      )
+    )
+
+    actual should not be None
+    actual.get.enableErrorCodesV2 shouldBe false
+  }
+
   it should "succeed when server's private key is encrypted and secret-url is provided" in {
     val actual = configParser(
       Seq(

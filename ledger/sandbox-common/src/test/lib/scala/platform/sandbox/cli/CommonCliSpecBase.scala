@@ -356,6 +356,18 @@ abstract class CommonCliSpecBase(
         _.copy(metricsReportingInterval = 90.seconds),
       )
     }
+
+    "parse error codes v2 flag" in {
+      checkOption(
+        Array("--use-error-codes-v2"),
+        _.copy(enableErrorCodesV2 = true),
+      )
+      checkOption(
+        Array(),
+        _.copy(enableErrorCodesV2 = false),
+      )
+    }
+
   }
 
   protected def checkOption(
