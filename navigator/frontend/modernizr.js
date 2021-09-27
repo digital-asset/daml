@@ -9,7 +9,6 @@ module.exports = function (options = {}, loaderContext) {
   const content = fs.readFileSync(loaderContext.resourcePath, 'utf8');
   return new Promise(function (resolve) {
     modernizr.build(JSON.parse(content), function (output) {
-      console.log(output);
       resolve({
         cacheable: true,
         code: `var modernizr; var hadGlobal = 'Modernizr' in window; var oldGlobal = window.Modernizr; ${output} modernizr = window.Modernizr; if (hadGlobal) { window.Modernizr = oldGlobal; } else { delete window.Modernizr; } export default modernizr;`,

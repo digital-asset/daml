@@ -85,7 +85,7 @@ module.exports = (env) => {
   }
 
   return {
-    mode: isProduction ? 'development' : 'development',
+    mode: isProduction ? 'production' : 'development',
     entry: {
       browsercheck: './src/browsercheck.ts',
       bundle: './src/index.tsx',

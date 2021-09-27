@@ -17,8 +17,6 @@
     "es5/specification",
     "es5/strictmode",
     "es5/string",
-    "es5/syntax",
-    "es5/undefined",
     "es6/promises",
     "history",
     "json",
