@@ -5,7 +5,6 @@ package com.daml.platform.store.cache
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.QueueOfferResult.Enqueued
@@ -20,12 +19,14 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
   ContractNotFound,
   EmptyContractIds,
   EventSequentialId,
+  SubscribeToContractStateEvents,
 }
 import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
   ContractsReaderFixture,
@@ -64,6 +65,14 @@ class MutableCacheBackedContractStoreSpec
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(2000, Millis)), interval = scaled(Span(50, Millis)))
 
+  "cache initialization" should {
+    "set the cache index to the initialization index" in {
+      val cacheInitializationIndex = Offset.fromByteArray(1337.toByteArray) -> 1337L
+      contractStore(cachesSize = 0L, startIndexExclusive = cacheInitializationIndex).asFuture
+        .map(_.cacheIndex.get shouldBe cacheInitializationIndex)
+    }
+  }
+
   "event stream consumption" should {
     "populate the caches from the contract state event stream" in {
 
@@ -88,20 +97,20 @@ class MutableCacheBackedContractStoreSpec
         _ <- eventually {
           store.contractsCache.get(cId_1) shouldBe Some(Active(contract1, Set(charlie), t1))
           store.keyCache.get(someKey) shouldBe Some(Assigned(cId_1, Set(charlie)))
-          store.cacheIndex.getSequentialId shouldBe 1L
+          store.cacheIndex.getEventSequentialId shouldBe 1L
         }
 
         _ <- archivedEvent(c1, eventSequentialId = 2L)
         _ <- eventually {
           store.contractsCache.get(cId_1) shouldBe Some(Archived(Set(charlie)))
           store.keyCache.get(someKey) shouldBe Some(Unassigned)
-          store.cacheIndex.getSequentialId shouldBe 2L
+          store.cacheIndex.getEventSequentialId shouldBe 2L
         }
 
         someOffset = Offset.fromByteArray(1337.toByteArray)
         _ <- ledgerEnd(someOffset, 3L)
         _ <- eventually {
-          store.cacheIndex.getSequentialId shouldBe 3L
+          store.cacheIndex.getEventSequentialId shouldBe 3L
           lastLedgerHead.get() shouldBe someOffset
         }
       } yield succeed
@@ -144,14 +153,13 @@ class MutableCacheBackedContractStoreSpec
         eventSequentialId = 3L,
       )
 
-      val sourceSubscriptionFixture
-          : Option[(Offset, EventSequentialId)] => Source[ContractStateEvent, NotUsed] = {
-        case None =>
+      val sourceSubscriptionFixture: SubscribeToContractStateEvents = {
+        case (Offset.beforeBegin, EventSequentialId.beforeBegin) =>
           Source
             .fromIterator(() => Iterator(created, archived, dummy))
             // Simulate the source failure at the last event
             .map(x => if (x == dummy) throw new RuntimeException("some transient failure") else x)
-        case Some((_, 2L)) =>
+        case (_, 2L) =>
           Source.fromIterator(() => Iterator(anotherCreate))
         case subscriptionOffset =>
           fail(s"Unexpected subscription offsets $subscriptionOffset")
@@ -168,7 +176,7 @@ class MutableCacheBackedContractStoreSpec
           store.contractsCache.get(cId_1) shouldBe Some(Archived(Set(charlie)))
           store.contractsCache.get(cId_2) shouldBe Some(Active(contract2, Set(alice), t2))
           store.keyCache.get(someKey) shouldBe Some(Assigned(cId_2, Set(alice)))
-          store.cacheIndex.get shouldBe Some(offset3 -> 3L)
+          store.cacheIndex.get shouldBe offset3 -> 3L
         }
       } yield succeed
     }
@@ -432,11 +440,13 @@ object MutableCacheBackedContractStoreSpec {
       cachesSize: Long,
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
       signalNewLedgerHead: Offset => Unit = _ => (),
-      sourceSubscriber: Option[(Offset, EventSequentialId)] => Source[ContractStateEvent, NotUsed] =
-        _ => Source.empty,
+      sourceSubscriber: SubscribeToContractStateEvents = _ => Source.empty,
+      startIndexExclusive: (Offset, EventSequentialId) =
+        Offset.beforeBegin -> EventSequentialId.beforeBegin,
   )(implicit loggingContext: LoggingContext, materializer: Materializer) =
     new MutableCacheBackedContractStore.OwnerWithSubscription(
       subscribeToContractStateEvents = sourceSubscriber,
+      startIndexExclusive = startIndexExclusive,
       minBackoffStreamRestart = 10.millis,
       contractsReader = readerFixture,
       signalNewLedgerHead = signalNewLedgerHead,
