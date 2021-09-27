@@ -130,7 +130,8 @@ object ServiceMain {
             case Some(c) =>
               Try(
                 Await.result(
-                  DbTriggerDao(c)(DirectExecutionContext).initialize(DirectExecutionContext),
+                  DbTriggerDao(c)(DirectExecutionContext)
+                    .initialize(DirectExecutionContext),
                   Duration(30, SECONDS),
                 )
               ) match {

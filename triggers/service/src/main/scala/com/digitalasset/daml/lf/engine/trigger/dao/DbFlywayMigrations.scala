@@ -10,17 +10,23 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
+import scala.jdk.CollectionConverters._
+
 import javax.sql.DataSource
 
-private[trigger] class DbFlywayMigrations(private val ds: DataSource, migrationsDir: String)
-    extends StrictLogging {
+private[trigger] class DbFlywayMigrations(
+    private val ds: DataSource,
+    migrationsDir: String,
+    // We use a prefix for all tables to ensure the database schema can be shared with the index.
+    tablePrefix: String,
+) extends StrictLogging {
   import DbFlywayMigrations._
 
   var flyway: Flyway = _
 
   def migrate(allowExistingSchema: Boolean = false): ConnectionIO[Unit] = {
     doobie.free.connection.delay {
-      flyway = configurationBase(migrationsDir)
+      flyway = configurationBase(tablePrefix, migrationsDir)
         .dataSource(ds)
         .baselineOnMigrate(allowExistingSchema)
         .baselineVersion(MigrationVersion.fromVersion("0"))
@@ -40,9 +46,11 @@ private[trigger] class DbFlywayMigrations(private val ds: DataSource, migrations
 }
 
 private[trigger] object DbFlywayMigrations {
-  def configurationBase(migrationsDir: String): FluentConfiguration =
+  def configurationBase(tablePrefix: String, migrationsDir: String): FluentConfiguration =
     Flyway
       .configure()
+      .placeholders(Map("table.prefix" -> tablePrefix).asJava)
+      .table(tablePrefix + Flyway.configure().getTable)
       .locations(
         s"classpath:com/daml/lf/engine/trigger/db/migration/$migrationsDir"
       )
