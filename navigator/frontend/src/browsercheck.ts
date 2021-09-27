@@ -11,7 +11,7 @@
  * advanced JavaScript language features, and uses a simple alert() to notify the user.
  */
 
-import * as Modernizr from 'modernizr';
+import Modernizr from 'modernizr';
 
 // List of required features.
 // Note that the properties on the Modernizr object have different names than
@@ -37,6 +37,10 @@ const features = [
 
 // Find all features from above list that are not supported in current browser
 const missingFeatures = [];
+console.log(typeof Modernizr);
+console.log(Object.keys(Modernizr));
+console.log(Modernizr);
+console.log(Modernizr["es5undefined"]);
 for (let i = 0; i < features.length; ++i) {
   const feature = features[i]
   if (!Modernizr[feature]) {
