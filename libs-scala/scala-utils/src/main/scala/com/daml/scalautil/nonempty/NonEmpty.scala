@@ -3,6 +3,7 @@
 
 package com.daml.scalautil.nonempty
 
+import scala.collection.compat._
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
 import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
@@ -24,7 +25,7 @@ sealed abstract class NonEmptyColl {
 
   private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
   private[nonempty] def subst[F[_[_]]](tf: F[Id]): F[NonEmpty]
-  private[nonempty] def unsafeNarrow[Self](self: Self with imm.Iterable[_]): NonEmpty[Self]
+  private[nonempty] def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self): NonEmpty[Self]
 
   /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
     * this in an upper-bound, because that would prevent us from adding implicit
@@ -69,7 +70,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
     override def apply[Self](self: Self with imm.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
-    private[nonempty] override def unsafeNarrow[Self](self: Self with imm.Iterable[_]) = self
+    private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
@@ -111,7 +112,10 @@ object NonEmptyColl extends NonEmptyCollInstances {
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
-    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
+    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf) match {
+      case is: imm.Seq[A] => is
+      case other => other.to(imm.Seq)
+    }) // can just use .toSeq in scala 2.13
     def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
     def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
     // ideas for extension: safe head/tail (not valuable unless also using

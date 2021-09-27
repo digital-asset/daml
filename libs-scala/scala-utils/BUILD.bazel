@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
@@ -20,8 +21,10 @@ da_scala_library(
     ]),
     plugins = [
         "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
     ],
     scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,
