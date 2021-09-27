@@ -203,6 +203,10 @@ encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
             then P.PackageRefSumPackageIdInternedStr <$> allocString pkgId
             else pure $ P.PackageRefSumPackageIdStr $ encodeString pkgId
 
+-- | Interface method names are always interned, since interfaces were
+-- introduced after name interning.
+encodeMethodName :: MethodName -> Encode Int32
+encodeMethodName = encodeNameId unMethodName
 
 ------------------------------------------------------------------------
 -- Simple encodings
@@ -709,6 +713,11 @@ encodeExpr' = \case
         expr_FromInterfaceTemplateType <- encodeQualTypeConName ty2
         expr_FromInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromInterface P.Expr_FromInterface{..}
+    ECallInterface ty mth val -> do
+        expr_CallInterfaceInterfaceType <- encodeQualTypeConName ty
+        expr_CallInterfaceMethodInternedName <- encodeMethodName mth
+        expr_CallInterfaceInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumCallInterface P.Expr_CallInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty
@@ -913,14 +922,20 @@ encodeTemplate Template{..} = do
     defTemplateChoices <- encodeNameMap encodeTemplateChoice tplChoices
     defTemplateLocation <- traverse encodeSourceLoc tplLocation
     defTemplateKey <- traverse encodeTemplateKey tplKey
-    defTemplateImplements <- encodeList encodeTemplateImpl tplImplements
+    defTemplateImplements <- encodeNameMap encodeTemplateImplements tplImplements
     pure P.DefTemplate{..}
 
-encodeTemplateImpl :: Qualified TypeConName -> Encode P.DefTemplate_Implements
-encodeTemplateImpl iface = do
-    defTemplate_ImplementsInterface <- encodeQualTypeConName iface
-    let defTemplate_ImplementsMethods = V.empty -- TODO https://github.com/digital-asset/daml/issues/11006
+encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implements
+encodeTemplateImplements TemplateImplements{..} = do
+    defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
+    defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
     pure P.DefTemplate_Implements {..}
+
+encodeTemplateImplementsMethod :: TemplateImplementsMethod -> Encode P.DefTemplate_ImplementsMethod
+encodeTemplateImplementsMethod TemplateImplementsMethod{..} = do
+    defTemplate_ImplementsMethodMethodInternedName <- encodeMethodName tpiMethodName
+    defTemplate_ImplementsMethodValue <- encodeExpr tpiMethodExpr
+    pure P.DefTemplate_ImplementsMethod {..}
 
 encodeTemplateKey :: TemplateKey -> Encode P.DefTemplate_DefKey
 encodeTemplateKey TemplateKey{..} = do
@@ -984,7 +999,7 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
     defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intChoices
-    let defInterfaceMethods = V.empty -- TODO https://github.com/digital-asset/daml/issues/11006
+    defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     pure $ P.DefInterface{..}
 
 encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice
@@ -995,6 +1010,13 @@ encodeInterfaceChoice InterfaceChoice {..} = do
     interfaceChoiceArgType <- encodeType ifcArgType
     interfaceChoiceRetType <- encodeType ifcRetType
     pure $ P.InterfaceChoice{..}
+
+encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
+encodeInterfaceMethod InterfaceMethod {..} = do
+    interfaceMethodLocation <- traverse encodeSourceLoc ifmLocation
+    interfaceMethodMethodInternedName <- encodeMethodName ifmName
+    interfaceMethodType <- encodeType ifmType
+    pure $ P.InterfaceMethod{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do

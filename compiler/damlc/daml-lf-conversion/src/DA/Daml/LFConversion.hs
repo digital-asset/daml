@@ -436,6 +436,7 @@ convertInterfaces env tyThings = interfaceClasses
         { intLocation = Nothing
         , intName = mkTypeCon [name]
         , intChoices = NM.fromList choices
+        , intMethods = NM.empty -- TODO https://github.com/digital-asset/daml/issues/11006
         }
     convertChoice :: TyCoRep.Type -> TyCoRep.Type -> ConvertM InterfaceChoice
     convertChoice arg res = do
@@ -827,10 +828,13 @@ useSingleMethodDict env (Cast ghcExpr _) f = do
 useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
-convertImplements :: Env -> LF.TypeConName -> ConvertM [Qualified TypeConName]
-convertImplements env tplTypeCon =
+convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
+convertImplements env tplTypeCon = NM.fromList . map stub <$>
     mapM convertInterfaceCon (MS.findWithDefault [] tplTypeCon (envImplements env))
   where
+    stub tcon = TemplateImplements tcon NM.empty
+        -- TODO https://github.com/digital-asset/daml/issues/11006
+        --  convert methods
     convertInterfaceCon ty = do
         ty' <- convertType env ty
         case ty' of
