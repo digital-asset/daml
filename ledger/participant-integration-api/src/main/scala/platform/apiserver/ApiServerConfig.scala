@@ -3,16 +3,15 @@
 
 package com.daml.platform.apiserver
 
-import java.io.File
-import java.nio.file.Path
-import java.time.Duration
-
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration}
 import com.daml.ports.Port
 
+import java.io.File
+import java.nio.file.Path
+import java.time.Duration
 import scala.concurrent.duration.FiniteDuration
 
 case class ApiServerConfig(
