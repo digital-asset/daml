@@ -742,13 +742,16 @@ isConstraint = \case
 
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
 genModule env pkgRef modName = do
-    let Config{..} = envConfig env
-        origin = case pkgRef of
-            LF.PRImport pkgId
-                | Just unitId <- MS.lookup pkgId configStablePackages -> FromCurrentSdk unitId
-                | otherwise -> FromPackage pkgId
-            LF.PRSelf -> FromPackage configSelfPkgId
-    genModuleAux (envConfig env) origin modName
+    let config = envConfig env
+        origin = importOriginFromPackageRef config pkgRef
+    genModuleAux config origin modName
+
+importOriginFromPackageRef :: Config -> LF.PackageRef -> ImportOrigin
+importOriginFromPackageRef Config {..} = \case
+    LF.PRImport pkgId
+        | Just unitId <- MS.lookup pkgId configStablePackages -> FromCurrentSdk unitId
+        | otherwise -> FromPackage pkgId
+    LF.PRSelf -> FromPackage configSelfPkgId
 
 genStableModule :: Env -> UnitId -> LF.ModuleName -> Gen Module
 genStableModule env currentSdkPkg = genModuleAux (envConfig env) (FromCurrentSdk currentSdkPkg)
