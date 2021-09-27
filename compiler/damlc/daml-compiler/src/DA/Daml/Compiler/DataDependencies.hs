@@ -282,10 +282,21 @@ generateSrcFromLf env = noLoc mod
     exports :: [LIE GhcPs]
     genState :: GenState
     ((exports, decls), genState) = runGen
-        ((,) <$> genExports <*> genDecls)
+        ((,) <$> genExports <*> genDecls <* genOrphanDepImports)
 
     modRefs :: Set ModRef
     modRefs = gsModRefs genState
+
+    genOrphanDepImports :: Gen ()
+    genOrphanDepImports = sequence_ $ do
+        Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.moduleImportsName . LF.moduleValues $ envMod env]
+        Just quals <- [LFC.decodeModuleImports ty]
+        LF.Qualified { LF.qualModule, LF.qualPackage } <- Set.toList quals
+        pure $ emitModRef ModRef
+            { modRefModule = qualModule
+            , modRefOrigin = importOriginFromPackageRef (envConfig env) qualPackage
+            , modRefImpSpec = EmptyImpSpec
+            }
 
     genExports :: Gen [LIE GhcPs]
     genExports = sequence $ selfReexport : classReexports
