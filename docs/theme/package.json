@@ -20,8 +20,7 @@
     "grunt-contrib-uglify": "~3.3.0",
     "grunt-contrib-watch": "^1.1.0",
     "grunt-exec": "~1.0.1",
-    "grunt-open": "^0.2.4",
-    "matchdep": "~1.0.1"
+    "grunt-open": "^0.2.4"
   },
   "scripts": {
     "bower": "bower install",
