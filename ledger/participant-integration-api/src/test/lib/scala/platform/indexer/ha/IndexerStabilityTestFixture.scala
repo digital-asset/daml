@@ -45,6 +45,8 @@ case class Indexers(indexers: List[ReadServiceAndIndexer]) {
 
 object IndexerStabilityTestFixture {
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   def owner(
       updatesPerSecond: Int,
       indexerCount: Int,
@@ -82,7 +84,7 @@ object IndexerStabilityTestFixture {
           .acquire()
 
         // Start N indexers that all compete for the same database
-        _ = println(s"Starting $indexerCount indexers")
+        _ = logger.info(s"Starting $indexerCount indexers")
         indexers <- Resource
           .sequence(
             (1 to indexerCount).toList
