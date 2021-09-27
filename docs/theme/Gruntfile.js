@@ -4,7 +4,16 @@
 module.exports = function(grunt) {
 
   // load all grunt tasks
-  require('matchdep').filterDev('grunt-*').forEach(grunt.loadNpmTasks);
+  ["banner",
+   "browserify",
+   "contrib-clean",
+   "contrib-connect",
+   "contrib-copy",
+   "contrib-sass",
+   "contrib-uglify",
+   "contrib-watch",
+   "exec",
+   "open"].forEach(name => grunt.loadNpmTasks(`grunt-${name}`));
 
   grunt.initConfig({
     // Read package.json
