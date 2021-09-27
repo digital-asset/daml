@@ -76,7 +76,7 @@ sealed abstract class Value extends CidContainer[Value] with Product with Serial
 
   def cids[Cid2 >: ContractId] = {
     val cids = Set.newBuilder[Cid2]
-    foreach1(cids += _)
+    foreach1(cids += _)(this)
     cids.result()
   }
 
