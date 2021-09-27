@@ -1,0 +1,39 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+option java_outer_classname = "ExperimentalFeaturesOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+/*
+ IMPORTANT: in contrast to other parts of the Ledger API, only json-wire backwards
+            compatibility guarantees are given for the messages in this file.
+*/
+
+// See the feature message definitions for descriptions.
+message ExperimentalFeatures {
+    ExperimentalNonUniqueContractKeys non_unique_contract_keys = 1;
+    ExperimentalNoConflictDetection no_conflict_detection = 2;
+    ExperimentalRankBasedCommandDeduplication rank_based_command_deduplication = 3;
+}
+
+// The ledger does not enforce contract key uniqueness constraints.
+message ExperimentalNonUniqueContractKeys {}
+  
+// The ledger does not do conflict detection. Used for testing purposes only.
+message ExperimentalNoConflictDetection {}
+
+// Rank-based command deduplication is a feature that is rolled out in multiple
+// increments. We expect more an more flags to be added to enable ledgers to
+// communicate to the test tooling, which features they implement
+message ExperimentalRankBasedCommandDeduplication { 
+    // Set if the completions include submission-ids.
+    //
+    // This enables for example to run tests that check that multiple completions 
+    // are reported when submitting multiple commands with the same change-id 
+    bool completions_include_submission_ids = 1;
+}

@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
+import "com/daml/ledger/api/v1/experimental_features.proto";
+
 option java_outer_classname = "VersionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
@@ -26,6 +28,106 @@ message GetLedgerApiVersionRequest {
 
 message GetLedgerApiVersionResponse {
 
-  // The version of the ledger API
+  // The version of the ledger API.
   string version = 1;
+
+  // The features supported by this Ledger API endpoint.
+  //
+  // Daml applications CAN use the feature descriptor on top of 
+  // version constraints on the Ledger API version to determine
+  // whether a given Ledger API endpoint supports the features
+  // required to run the application.
+  //
+  // See the feature descriptions themselves for the relation between
+  // Ledger API versions and feature presence.
+  FeatureDescriptor features = 2;
+}
+
+message FeatureDescriptor {
+  // Features that are determined by the ledger backing the participant node
+  // that serves the Ledger API endpoint.
+  //
+  // All participant nodes connected to the same ledger are expected to report the
+  // same values for the ledger features.
+  LedgerFeatures ledger = 1;
+
+  // Features that are are specific to the participant node that serves
+  // the Ledger API endpoint. 
+  ParticipantFeatures participant = 2;
+
+  // Features under development or features that are used
+  // for ledger implementation testing purposes only.
+  //
+  // Daml applications SHOULD not depend on these in production.
+  ExperimentalFeatures experimental = 3;
+}
+
+// See the feature message definitions for descriptions.
+message LedgerFeatures {
+  FeatureOrderedContractIds ordered_contract_ids = 1;
+  FeatureMonotonicRecordTime monotonic_record_time = 2;  
+}
+
+// See the feature message definitions for descriptions.
+message ParticipantFeatures {
+  FeaturePartyAllocation party_allocation = 1;
+  FeatureParticipantPruning participant_pruning = 2;
+  FeatureLedgerConfigManagement ledger_config_management = 3;
+}
+
+// Whether the ledger builds contract-ids in a way that allows Daml code
+// to totally order them.
+//
+// Required since: v1.9
+message FeatureOrderedContractIds {}
+
+// Whether the ledger ensures that record time increases monotonically
+// for transactions.
+//
+// Applications should not rely on this feature, as it is not compatible
+// with partitioned ledger topologies: 
+// https://docs.daml.com/deploy/ledger-topologies.html#partitioned-topologies
+//
+// Optional since: v1.0
+// Deprecated since: v2.0
+message FeatureMonotonicRecordTime {}
+
+
+// Whether and what kind of party allocation the participant node supports.
+//
+// Required since: v1.0
+message FeaturePartyAllocation {
+  // True if parties are implicitly allocated by the participant node whenever
+  // an unknown party literal is encountered.
+  //
+  // Applications should not rely on this feature, as it is not compatible with
+  // production ledgers.
+  //
+  // Optional since: v1.0
+  // Deprecated since: v2.0
+  bool implicit_party_allocation = 1;
+}
+
+// Whether the participant supports pruning the historic transaction log
+// to reclaim storage space.  
+//
+// Optional since: v1.10
+message FeatureParticipantPruning {
+
+  // Whether pruning can remove all divulgence events associated to the 
+  // historic transaction log.
+  //
+  // Optional since: v.12
+  bool supports_pruning_all_divulged_events = 2;
+}
+
+
+// Whether the participant node can change the ledger configuration.
+//
+// Applications should not rely on this feature, as it cannot be
+// implemented uniformly across all ledgers.
+//
+// Optional since: v1.0
+// Deprecated since: v2.0
+message FeatureLedgerConfigManagement {
 }
