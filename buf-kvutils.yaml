@@ -1,0 +1,39 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: v1beta1
+
+build:
+  roots:
+    - daml-lf/archive/src/main/protobuf
+    - daml-lf/transaction/src/main/protobuf
+    - ledger/ledger-configuration/protobuf
+    - ledger/participant-state/kvutils/src/main/protobuf
+  excludes:
+    # We have to exclude these to avoid duplicate definitions of e.g. Unit
+    # within the same package.
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_11/
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_12/
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_13/
+    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_14/
+    - daml-lf/archive/src/main/protobuf/com/digitalasset/
+
+lint:
+  use:
+    - DEFAULT
+  except:
+    - PACKAGE_VERSION_SUFFIX
+
+breaking:
+  use:
+    # WIRE is enough here as KVUtils only needs to be able to read data persisted
+    # by previous versions of the code.
+    - WIRE
+  except:
+    # Moving an individual field into a new `one_of` retains binary backwards
+    # compatibility.
+    - FIELD_SAME_ONEOF
+  ignore:
+    # Changes in daml_lf_1.proto do not impact KV, as it never parses archive
+    # payload directly
+    - com/daml/daml_lf_dev/daml_lf_1.proto

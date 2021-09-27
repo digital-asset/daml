@@ -64,6 +64,9 @@ instance Pretty TypeConName where
 instance Pretty ChoiceName where
     pPrint = text . unChoiceName
 
+instance Pretty MethodName where
+    pPrint = text . unMethodName
+
 instance Pretty FieldName where
     pPrint = text . unFieldName
 
@@ -380,6 +383,9 @@ tplArg tpl = TyArg (TCon tpl)
 interfaceArg :: Qualified TypeConName -> Arg
 interfaceArg tpl = TyArg (TCon tpl)
 
+methodArg :: MethodName -> Arg
+methodArg = TmArg . EVar . ExprVarName . unMethodName
+
 instance Pretty Arg where
   pPrintPrec lvl _prec = \case
     TmArg e -> pPrintTmArg lvl e
@@ -541,6 +547,8 @@ instance Pretty Expr where
         [interfaceArg ty1, tplArg ty2, TmArg expr]
     EFromInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_interface"
         [interfaceArg ty1, tplArg ty2, TmArg expr]
+    ECallInterface ty mth expr -> pPrintAppKeyword lvl prec "call_interface"
+        [interfaceArg ty, methodArg mth, TmArg expr]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where
@@ -607,7 +615,7 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
   withSourceLoc lvl mbLoc $
     keyword_ "template" <-> pPrint tpl <-> pPrint param
     <-> keyword_ "where"
-    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ mbImplementsDoc ++ mbKeyDoc ++ choiceDocs))
+    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ implementsDoc ++ mbKeyDoc ++ choiceDocs))
     where
       signatoriesDoc = keyword_ "signatory" <-> pPrintPrec lvl 0 signatories
       observersDoc = keyword_ "observer" <-> pPrintPrec lvl 0 observers
@@ -621,10 +629,18 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
           , nest 2 (keyword_ "body" <-> pPrintPrec lvl 0 (tplKeyBody key))
           , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
-      mbImplementsDoc
-        | null implements = []
-        | otherwise = [keyword_ "implements" <-> hsep (map (pPrintPrec lvl 0) implements)]
+      implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
 
+pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
+pPrintTemplateImplements lvl (TemplateImplements name methods)
+  | NM.null methods = keyword_ "implements" <-> pPrintPrec lvl 0 name
+  | otherwise = vcat
+      $ (keyword_ "implements" <-> pPrintPrec lvl 0 name <-> keyword_ "where")
+      : map (nest 2 . pPrintTemplateImplementsMethod lvl) (NM.toList methods)
+
+pPrintTemplateImplementsMethod :: PrettyLevel -> TemplateImplementsMethod -> Doc ann
+pPrintTemplateImplementsMethod lvl (TemplateImplementsMethod name expr) =
+    pPrintPrec lvl 0 name <-> keyword_ "=" <-> pPrintPrec lvl 0 expr
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags flags

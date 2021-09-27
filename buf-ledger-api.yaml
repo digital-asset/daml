@@ -1,0 +1,17 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: v1beta1
+
+build:
+  roots:
+    - ledger-api/grpc-definitions
+    - 3rdparty/protobuf
+
+breaking:
+  use:
+    # Set to FILE to ensure that all breakages of the gRPC Ledger API are explicitly
+    # discussed with Engineering and Product Leadership.
+    - FILE
+  except:
+    - FILE_NO_DELETE # Avoids errors due to refactored `buf` modules.

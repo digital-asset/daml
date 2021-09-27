@@ -28,7 +28,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     ContractKeyUniquenessMode.On,
     data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
-    transactionNormalization = true,
     committers,
   )
 

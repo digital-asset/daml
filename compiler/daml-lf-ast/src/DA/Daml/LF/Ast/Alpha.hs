@@ -67,6 +67,10 @@ alphaExprVar AlphaEnv{..} x1 x2 =
 alphaTypeCon :: Qualified TypeConName -> Qualified TypeConName -> Bool
 alphaTypeCon = (==)
 
+-- | Strongly typed version of (==) for method names.
+alphaMethod :: MethodName -> MethodName -> Bool
+alphaMethod = (==)
+
 alphaType' :: AlphaEnv -> Type -> Type -> Bool
 alphaType' env = \case
     TVar x1 -> \case
@@ -222,6 +226,12 @@ alphaExpr' env = \case
         EFromInterface t2a t2b e2
             -> alphaTypeCon t1a t2a
             && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
+    ECallInterface t1 m1 e1 -> \case
+        ECallInterface t2 m2 e2
+            -> alphaTypeCon t1 t2
+            && alphaMethod m1 m2
             && alphaExpr' env e1 e2
         _ -> False
     EUpdate u1 -> \case

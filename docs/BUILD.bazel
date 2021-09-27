@@ -24,7 +24,6 @@ nodejs_binary(
     name = "grunt",
     data = [
         "@npm//grunt-cli",
-        "@npm//matchdep",
     ],
     entry_point = "@npm//:node_modules/grunt-cli/bin/grunt",
 )

@@ -602,6 +602,7 @@ message MissingInputState {
 }
 message InvalidParticipantState {
   string details = 1;
+  map<string, string> metadata = 2;
 }
 message RecordTimeOutOfRange {
   google.protobuf.Timestamp minimum_record_time = 1;

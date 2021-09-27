@@ -247,11 +247,11 @@ class PlatformSubscriber(
             log.info("Command '{}' completed successfully.", commandId)
           case Left(error) =>
             error match {
-              case CompletionResponse.NotOkResponse(_, grpcStatus) =>
+              case notOk: CompletionResponse.NotOkResponse =>
                 // Command completed with an error
                 val status = CommandStatusError(
-                  code.Code.fromValue(grpcStatus.code).toString(),
-                  grpcStatus.message,
+                  code.Code.fromValue(notOk.grpcStatus.code).toString(),
+                  notOk.grpcStatus.message,
                 )
                 party.addCommandStatus(commandId, status)
                 log.info("Command '{}' completed with status '{}'.", commandId, status)

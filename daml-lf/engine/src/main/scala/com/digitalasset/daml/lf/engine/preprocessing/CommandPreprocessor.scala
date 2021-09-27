@@ -36,17 +36,25 @@ private[lf] final class CommandPreprocessor(
     speedy.Command.Create(templateId, arg)
   }
 
-  @throws[Error.Preprocessing.Error]
   def unsafePreprocessExercise(
-      templateId: Ref.Identifier,
+      identifier: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
   ): speedy.Command.Exercise = {
     val cid = valueTranslator.unsafeTranslateCid(contractId)
-    val choice = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
+    val choice =
+      // TODO https://github.com/digital-asset/daml/issues/10810
+      //  Push this lookup logic in PackageInterface and extend
+      //  com.daml.lf.language.LookupError accordingly
+      interface.lookupInterfaceChoice(identifier, choiceId) match {
+        case Left(_) =>
+          handleLookup(interface.lookupChoice(identifier, choiceId)).argBinder._2
+        case Right(interfaceChoice) =>
+          interfaceChoice.argType
+      }
     val arg = valueTranslator.unsafeTranslateValue(choice, argument)
-    speedy.Command.Exercise(templateId, cid, choiceId, arg)
+    speedy.Command.Exercise(identifier, cid, choiceId, arg)
   }
 
   @throws[Error.Preprocessing.Error]
@@ -119,6 +127,8 @@ private[lf] final class CommandPreprocessor(
           choiceArgument,
         )
       case command.FetchCommand(templateId, coid) =>
+        // TODO https://github.com/digital-asset/daml/issues/10810
+        //  -- handle the case where templateId is an interface
         handleLookup(interface.lookupTemplate(templateId))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.Fetch(templateId, cid)

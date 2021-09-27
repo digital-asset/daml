@@ -149,6 +149,7 @@ da_scala_test_suite(
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
     },
     deps = [
+        ":daml_lf_1.11_archive_proto_java",
         ":daml_lf_1.12_archive_proto_java",
         ":daml_lf_1.13_archive_proto_java",
         ":daml_lf_1.14_archive_proto_java",

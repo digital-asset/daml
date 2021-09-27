@@ -19,6 +19,7 @@ module DA.Daml.LF.Ast.World(
     lookupDataType,
     lookupChoice,
     lookupInterfaceChoice,
+    lookupInterfaceMethod,
     lookupValue,
     lookupModule,
     lookupInterface,
@@ -100,6 +101,7 @@ data LookupError
   | LEException !(Qualified TypeConName)
   | LEChoice !(Qualified TypeConName) !ChoiceName
   | LEInterface !(Qualified TypeConName)
+  | LEInterfaceMethod !(Qualified TypeConName) !MethodName
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
@@ -154,11 +156,18 @@ lookupChoice (tplRef, chName) world = do
 
 lookupInterfaceChoice ::
      (Qualified TypeConName, ChoiceName) -> World -> Either LookupError InterfaceChoice
-lookupInterfaceChoice (tplRef, chName) world = do
-  iface <- lookupInterface tplRef world
+lookupInterfaceChoice (ifaceRef, chName) world = do
+  iface <- lookupInterface ifaceRef world
   case NM.lookup chName (intChoices iface) of
-    Nothing -> Left (LEChoice tplRef chName)
+    Nothing -> Left (LEChoice ifaceRef chName)
     Just choice -> Right choice
+
+lookupInterfaceMethod :: (Qualified TypeConName, MethodName) -> World -> Either LookupError InterfaceMethod
+lookupInterfaceMethod (ifaceRef, methodName) world = do
+  iface <- lookupInterface ifaceRef world
+  case NM.lookup methodName (intMethods iface) of
+      Nothing -> Left (LEInterfaceMethod ifaceRef methodName)
+      Just method -> Right method
 
 instance Pretty LookupError where
   pPrint = \case
@@ -171,4 +180,5 @@ instance Pretty LookupError where
     LETemplate tplRef -> "unknown template:" <-> pretty tplRef
     LEException exnRef -> "unknown exception:" <-> pretty exnRef
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
-    LEInterface ifaceRef -> "unknown interface" <-> pretty ifaceRef
+    LEInterface ifaceRef -> "unknown interface:" <-> pretty ifaceRef
+    LEInterfaceMethod ifaceRef methodName -> "unknown interface method:" <-> pretty ifaceRef <> "." <> pretty methodName

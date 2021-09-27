@@ -93,7 +93,7 @@ module.exports = (env) => {
     context: in_dir,
     output: {
       path: out_dir,
-      filename: '[name]-[hash].js',
+      filename: '[name]-[fullhash].js',
       // In production, we serve static assets under /assets and publicPath
       // makes WebPack set file references relative to this and because this is
       // a root path, file references will all be relative to the root, which is
@@ -111,7 +111,12 @@ module.exports = (env) => {
       rules: [
         {
           test: /\.modernizrrc$/,
-          loader: "modernizr-loader!json-loader",
+          use: [{
+            loader: 'val-loader',
+            options: {
+              executableFile: path.resolve(__dirname, "modernizr.js")
+            }
+          }]
         },
         {
           test: /\.tsx?$/,
@@ -124,14 +129,14 @@ module.exports = (env) => {
         },
         {
           test: /\.css$/,
-          loader: 'style-loader!css-loader'
+          use: ['style-loader', 'css-loader']
         },
-        { test: /\.(png|jpg)$/, loader: 'url-loader?limit=8192' },
+        { test: /\.(png|jpg)$/, use: { loader: 'url-loader', options: { limit: 8192 } } },
         {
           test: /\.(woff|woff2)$/, use: {
             loader: 'url-loader',
             options: {
-              name: 'fonts/[hash].[ext]',
+              name: 'fonts/[contenthash].[ext]',
               limit: 5000,
               mimetype: 'application/font-woff'
             }
@@ -141,7 +146,7 @@ module.exports = (env) => {
           test: /\.(ttf|eot|svg)$/, use: {
             loader: 'file-loader',
             options: {
-              name: 'fonts/[hash].[ext]'
+              name: 'fonts/[contenthash].[ext]'
             }
           }
         }
@@ -166,7 +171,7 @@ module.exports = (env) => {
       port: 8000,
       // host: '0.0.0.0', // enable to allow remote computers to connect
       // disableHostCheck: true, // enable to allow remote computers to connect
-      contentBase: out_dir,
+      static: out_dir,
       historyApiFallback: { index: '/' },
       compress: true,
       proxy: {

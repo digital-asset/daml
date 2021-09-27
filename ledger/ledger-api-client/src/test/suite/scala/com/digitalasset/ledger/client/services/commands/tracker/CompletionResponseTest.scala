@@ -87,11 +87,15 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         val exception = CompletionResponse.toException(
           QueueCompletionFailure(
             NotOkResponse(
-              commandId,
-              Status(
-                Code.CANCELLED.value(),
-                details = Seq.empty,
-              ),
+              Completion(
+                commandId = commandId,
+                status = Some(
+                  Status(
+                    Code.CANCELLED.value(),
+                    details = Seq.empty,
+                  )
+                ),
+              )
             )
           )
         )
@@ -107,15 +111,19 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         val exception = CompletionResponse.toException(
           QueueCompletionFailure(
             NotOkResponse(
-              commandId,
-              Status(
-                Code.CANCELLED.value(),
-                details = Seq(
-                  Any.pack(
-                    errorInfo
+              Completion(
+                commandId = commandId,
+                status = Some(
+                  Status(
+                    Code.CANCELLED.value(),
+                    details = Seq(
+                      Any.pack(
+                        errorInfo
+                      )
+                    ),
                   )
                 ),
-              ),
+              )
             )
           )
         )
@@ -132,14 +140,18 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         val exception = CompletionResponse.toException(
           QueueCompletionFailure(
             NotOkResponse(
-              commandId,
-              Status(
-                Code.INTERNAL.value(),
-                details = Seq(
-                  Any.pack(errorInfo),
-                  Any.pack(requestInfo),
+              Completion(
+                commandId = commandId,
+                status = Some(
+                  Status(
+                    Code.INTERNAL.value(),
+                    details = Seq(
+                      Any.pack(errorInfo),
+                      Any.pack(requestInfo),
+                    ),
+                  )
                 ),
-              ),
+              )
             )
           )
         )

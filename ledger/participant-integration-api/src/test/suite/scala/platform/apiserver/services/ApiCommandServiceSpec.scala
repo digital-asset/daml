@@ -11,6 +11,7 @@ import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
@@ -36,6 +37,13 @@ class ApiCommandServiceSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "the command service" should {
+    val completionSuccess = CompletionResponse.CompletionSuccess(
+      Completion(
+        commandId = "command ID",
+        status = Some(OkStatus),
+        transactionId = "transaction ID",
+      )
+    )
     "submit a request, and wait for a response" in {
       val commands = someCommands()
       val submissionTracker = mock[Tracker]
@@ -43,7 +51,7 @@ class ApiCommandServiceSpec
         submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
       ).thenReturn(
         Future.successful(
-          Right(CompletionResponse.CompletionSuccess("command ID", "transaction ID", OkStatus))
+          Right(completionSuccess)
         )
       )
 
@@ -74,7 +82,7 @@ class ApiCommandServiceSpec
         submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
       ).thenReturn(
         Future.successful(
-          Right(CompletionResponse.CompletionSuccess("command ID", "transaction ID", OkStatus))
+          Right(completionSuccess)
         )
       )
 

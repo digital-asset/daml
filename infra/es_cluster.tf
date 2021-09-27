@@ -16,6 +16,7 @@ locals {
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
+      disk_size      = 300,
     },
     {
       suffix         = "-green",
@@ -24,6 +25,7 @@ locals {
       init           = "[]",
       type           = "n2-highcpu-16",
       xmx            = "12g",
+      disk_size      = 300,
     },
     {
       suffix         = "-init",
@@ -32,6 +34,7 @@ locals {
       init           = "[\"$(hostname)\"]",
       type           = "e2-standard-2",
       xmx            = "6g",
+      disk_size      = 200,
     },
   ]
 
@@ -129,7 +132,7 @@ resource "google_compute_instance_template" "es" {
 
   disk {
     boot         = true
-    disk_size_gb = 200
+    disk_size_gb = local.es_clusters[count.index].disk_size
     source_image = "ubuntu-os-cloud/ubuntu-${local.es_clusters[count.index].ubuntu_version}-lts"
   }
 

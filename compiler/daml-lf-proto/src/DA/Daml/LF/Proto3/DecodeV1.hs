@@ -234,6 +234,7 @@ decodeDefInterface LF1.DefInterface {..} =
     <$> traverse decodeLocation defInterfaceLocation
     <*> decodeDottedNameId TypeConName defInterfaceTyconInternedDname
     <*> decodeNM DuplicateChoice decodeInterfaceChoice defInterfaceChoices
+    <*> decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
 
 decodeInterfaceChoice :: LF1.InterfaceChoice -> Decode InterfaceChoice
 decodeInterfaceChoice LF1.InterfaceChoice {..} =
@@ -243,6 +244,15 @@ decodeInterfaceChoice LF1.InterfaceChoice {..} =
     <*> pure interfaceChoiceConsuming
     <*> mayDecode "interfaceChoiceArgType" interfaceChoiceArgType decodeType
     <*> mayDecode "interfaceChoiceRetType" interfaceChoiceRetType decodeType
+
+decodeInterfaceMethod :: LF1.InterfaceMethod -> Decode InterfaceMethod
+decodeInterfaceMethod LF1.InterfaceMethod {..} = InterfaceMethod
+  <$> traverse decodeLocation interfaceMethodLocation
+  <*> decodeMethodName interfaceMethodMethodInternedName
+  <*> mayDecode "interfaceMethodType" interfaceMethodType decodeType
+
+decodeMethodName :: Int32 -> Decode MethodName
+decodeMethodName = decodeNameId MethodName
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -318,7 +328,17 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mayDecode "defTemplateAgreement" defTemplateAgreement decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
-    <*> traverse decodeTypeConName (V.toList defTemplateImplements)
+    <*> decodeNM DuplicateImplements decodeDefTemplateImplements defTemplateImplements
+
+decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImplements
+decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
+  <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
+  <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
+
+decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
+decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
+  <$> decodeMethodName defTemplate_ImplementsMethodMethodInternedName
+  <*> mayDecode "defTemplate_ImplementsMethodValue" defTemplate_ImplementsMethodValue decodeExpr
 
 decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do
@@ -644,6 +664,10 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_FromInterfaceInterfaceType" expr_FromInterfaceInterfaceType decodeTypeConName
     <*> mayDecode "expr_FromInterfaceTemplateType" expr_FromInterfaceTemplateType decodeTypeConName
     <*> mayDecode "expr_FromInterfaceInterfaceExpr" expr_FromInterfaceInterfaceExpr decodeExpr
+  LF1.ExprSumCallInterface LF1.Expr_CallInterface {..} -> ECallInterface
+    <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConName
+    <*> decodeMethodName expr_CallInterfaceMethodInternedName
+    <*> mayDecode "expr_CallInterfaceInterfaceExpr" expr_CallInterfaceInterfaceExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

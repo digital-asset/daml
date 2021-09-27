@@ -10,7 +10,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction.Transaction
@@ -101,8 +101,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
 
-  private val engine: Engine =
-    new Engine(EngineConfig(LanguageVersion.DevVersions, transactionNormalization = false))
+  private val engine = Engine.DevEngine()
 
   List(5000, 50000, 500000)
     .foreach { txSize =>
@@ -269,6 +268,15 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       seed: crypto.Hash,
   ): Transaction = {
     val effectiveAt = Time.Timestamp.now()
+    def enrich(tx: SubmittedTransaction): SubmittedTransaction = {
+      val enricher = new ValueEnricher(engine)
+      def consume[V](res: Result[V]): V =
+        res match {
+          case ResultDone(x) => x
+          case x => fail(s"unexpected Result when enriching value: $x")
+        }
+      SubmittedTransaction(consume(enricher.enrichTransaction(tx)))
+    }
     engine
       .submit(
         submitters = Set(submitter),
@@ -287,7 +295,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       case Left(err) =>
         fail(s"Unexpected error: $err")
       case Right((tx, _)) =>
-        ledger.commit(submitter, effectiveAt, tx)
+        ledger.commit(submitter, effectiveAt, enrich(tx))
     }
   }
 

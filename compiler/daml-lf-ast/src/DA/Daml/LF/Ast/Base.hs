@@ -80,6 +80,13 @@ newtype ChoiceName = ChoiceName{unChoiceName :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
+-- | Name for an interface method.  Must match the regex
+--
+-- > [a-z_][a-zA-Z0-9_]*
+newtype MethodName = MethodName{unMethodName :: T.Text}
+    deriving stock (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
+
 -- | Name for a type variable. Must match the regex
 --
 -- > [a-z_][a-zA-Z0-9_]*
@@ -558,6 +565,12 @@ data Expr
     , fromInterfaceTemplate :: !(Qualified TypeConName)
     , fromInterfaceExpr :: !Expr
     }
+  -- | Invoke an interface method
+  | ECallInterface
+    { callInterfaceType :: !(Qualified TypeConName)
+    , callInterfaceMethod :: !MethodName
+    , callInterfaceExpr :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.
@@ -879,7 +892,26 @@ data Template = Template
     -- ^ Choices of the template.
   , tplKey             :: !(Maybe TemplateKey)
     -- ^ Template key definition, if any.
-  , tplImplements      :: ![Qualified TypeConName]
+  , tplImplements      :: !(NM.NameMap TemplateImplements)
+    -- ^ The interfaces that this template implements.
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Template implementation of an interface.
+data TemplateImplements = TemplateImplements
+  { tpiInterface :: !(Qualified TypeConName)
+    -- ^ Interface name for implementation.
+  , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Template implementation of an interface's method.
+data TemplateImplementsMethod = TemplateImplementsMethod
+  { tpiMethodName :: !MethodName
+    -- ^ Name of method.
+  , tpiMethodExpr :: !Expr
+    -- ^ Method expression, has type @tpl -> mty@ where @tpl@ is the template type,
+    -- and @mty@ is the method's type as defined in the interface.
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -895,6 +927,7 @@ data DefInterface = DefInterface
   { intLocation :: !(Maybe SourceLoc)
   , intName :: !TypeConName
   , intChoices :: !(NM.NameMap InterfaceChoice)
+  , intMethods :: !(NM.NameMap InterfaceMethod)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -904,6 +937,13 @@ data InterfaceChoice = InterfaceChoice
   , ifcConsuming :: !Bool
   , ifcArgType :: !Type
   , ifcRetType :: !Type
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+data InterfaceMethod = InterfaceMethod
+  { ifmLocation :: !(Maybe SourceLoc)
+  , ifmName :: !MethodName
+  , ifmType :: !Type
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -1016,6 +1056,10 @@ instance NM.Named InterfaceChoice where
   type Name InterfaceChoice = ChoiceName
   name = ifcName
 
+instance NM.Named InterfaceMethod where
+  type Name InterfaceMethod = MethodName
+  name = ifmName
+
 instance NM.Named DefTypeSyn where
   type Name DefTypeSyn = TypeSynName
   name = synName
@@ -1039,6 +1083,14 @@ instance NM.Named DefInterface where
 instance NM.Named Template where
   type Name Template = TypeConName
   name = tplTypeCon
+
+instance NM.Named TemplateImplements where
+  type Name TemplateImplements = Qualified TypeConName
+  name = tpiInterface
+
+instance NM.Named TemplateImplementsMethod where
+  type Name TemplateImplementsMethod = MethodName
+  name = tpiMethodName
 
 instance NM.Named Module where
   type Name Module = ModuleName

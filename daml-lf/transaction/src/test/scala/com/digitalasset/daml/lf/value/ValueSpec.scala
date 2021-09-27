@@ -67,6 +67,14 @@ class ValueSpec
 
     }
 
+    "finds cid in contract id value" in {
+      val hash = crypto.Hash.hashPrivateKey("some other hash")
+      val cid = ContractId.V1(hash)
+      val value = Value.ValueContractId(cid)
+
+      value.cids shouldBe Set(cid)
+    }
+
   }
 
   "Equal" - {
