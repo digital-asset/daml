@@ -84,7 +84,7 @@ object IndexerStabilityTestFixture {
           .acquire()
 
         // Start N indexers that all compete for the same database
-        _ = logger.info(s"Starting $indexerCount indexers")
+        _ = logger.info(s"Starting $indexerCount indexers for database $jdbcUrl")
         indexers <- Resource
           .sequence(
             (1 to indexerCount).toList

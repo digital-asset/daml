@@ -9,6 +9,7 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.StorageBackend
+import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -29,7 +30,7 @@ trait IndexerStabilitySpec
   implicit val ec: ExecutionContext = system.dispatcher
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  behavior of "redundant parallel indexers"
+  behavior of "concurrently running indexers"
 
   it should "correctly work in high availability mode" in {
     val updatesPerSecond = 10 // Number of updates per second produced by the read service
@@ -50,16 +51,11 @@ trait IndexerStabilitySpec
         var abortedIndexer: Option[ReadServiceAndIndexer] = None
         (1 to restartIterations).foreach(_ => {
           // Assert that there is exactly one indexer running
-          val activeIndexer = eventuallyAfterRecovery { indexers.runningIndexer }
+          val activeIndexer = findActiveIndexer(indexers)
           info(s"Indexer ${activeIndexer.readService.name} is running")
 
           // The indexer should appear "healthy"
-          eventually {
-            assert(
-              activeIndexer.indexing.currentHealth() == HealthStatus.healthy,
-              "Running indexer should be healthy",
-            )
-          }
+          assertHealthStatus(activeIndexer, HealthStatus.healthy)
           info(s"Indexer ${activeIndexer.readService.name} appears to be healthy")
 
           // At this point, the indexer that was aborted by the previous iteration can be reset,
@@ -75,20 +71,13 @@ trait IndexerStabilitySpec
           info(s"ReadService ${activeIndexer.readService.name} was aborted")
 
           // The indexer should appear "unhealthy"
-          eventually {
-            assert(
-              activeIndexer.indexing.currentHealth() == HealthStatus.unhealthy,
-              "Aborted indexer should be unhealthy",
-            )
-          }
+          assertHealthStatus(activeIndexer, HealthStatus.unhealthy)
           info(s"Indexer ${activeIndexer.readService.name} appears to be unhealthy")
         })
 
         // Stop all indexers, in order to stop all database operations
         indexers.indexers.foreach(_.readService.abort(simulatedFailure()))
-        eventually {
-          indexers.indexers.foreach(_.indexing.currentHealth() == HealthStatus.unhealthy)
-        }
+        indexers.indexers.foreach(assertHealthStatus(_, HealthStatus.unhealthy))
         info(s"All ReadServices were aborted")
 
         // Verify the integrity of the index database
@@ -104,16 +93,33 @@ trait IndexerStabilitySpec
       .map(_ => succeed)
   }
 
-  // It takes some time until a new indexer takes over after a failure,
-  // the default ScalaTest timeout for eventually() is too short for this.
-  private def eventuallyAfterRecovery[T](
-      fun: => T
-  )(implicit pos: org.scalactic.source.Position): T = {
+  // Finds the only indexer that has subscribed to the ReadService stream
+  private def findActiveIndexer(indexers: Indexers): ReadServiceAndIndexer = {
+    // It takes some time until a new indexer takes over after a failure.
+    // The default ScalaTest timeout for eventually() is too short for this.
     implicit val patienceConfig: PatienceConfig = PatienceConfig(
       timeout = scaled(Span(10, Seconds)),
       interval = scaled(Span(100, Millis)),
     )
-    eventually(fun)
+    eventually {
+      indexers.runningIndexer
+    }
+  }
+
+  // Asserts that the given indexer changes its health status to the given value
+  private def assertHealthStatus(
+      indexer: ReadServiceAndIndexer,
+      status: HealthStatus,
+  )(implicit pos: org.scalactic.source.Position): Assertion = {
+    // It takes some time until an indexer changes its health status after a failure.
+    // The default ScalaTest timeout for eventually() is too short for this.
+    implicit val patienceConfig: PatienceConfig = PatienceConfig(
+      timeout = scaled(Span(1, Seconds)),
+      interval = scaled(Span(100, Millis)),
+    )
+    eventually {
+      assert(indexer.indexing.currentHealth() == status)
+    }
   }
 
   private def simulatedFailure() = new RuntimeException("Simulated failure")
