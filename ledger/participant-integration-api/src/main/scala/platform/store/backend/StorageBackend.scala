@@ -127,10 +127,13 @@ trait ParameterStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
-  def prunedUptoInclusive(connection: Connection): Option[Offset]
+  def prunedUpToInclusive(connection: Connection): Option[Offset]
   def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit
+  def participantAllDivulgedContractsPrunedUpToInclusive(
+      connection: Connection
+  ): Option[Offset]
 
   /** Initializes the parameters table and verifies or updates ledger identity parameters.
     * This method is idempotent:
