@@ -23,7 +23,6 @@ import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
 import scalaz.{NonEmptyList, OneAnd, Order, Semigroup}
-import scalaz.std.map._
 import scalaz.std.vector._
 import scalaz.syntax.tag._
 import scalaz.syntax.order._
@@ -196,46 +195,60 @@ object ContractDao {
 
   // postprocess the output of unsyncedOffsets
   private[dbbackend] def minimumViableOffsets[ITpId, OTpId, Party, Off: Order](
-      queriedParty: Party => Boolean,
+      queriedParty: Set[Party],
       surrogatesToDomains: ITpId => OTpId,
       expectedOffset: Off,
       unsynced: Map[ITpId, Map[Party, Off]],
   ): Option[(Off, Set[OTpId])] = {
     import scalaz.syntax.foldable1.{ToFoldableOps => _, _}
-    val lagging = unsynced collect Function.unlift { case (surrogateTpId, partyOffs) =>
-      import scalaz.std.iterable._
-      partyOffs
-        .collect {
-          case (unsyncedParty, unsyncedOff)
-              if (if (queriedParty(unsyncedParty)) unsyncedOff /== expectedOffset
-                  else unsyncedOff > expectedOffset) =>
-            unsyncedOff
-        }
-        .maximum
-        // TODO SC ^ if a tpid is = to max off at all queried parties, even
-        // if that doesn't match the expected offset, it doesn't need to be updated,
-        // but the query needs to rerun. If all tpid/queried-party sets are = max off,
-        // fetch doesn't need to rerun, but query does
-        .map((surrogatesToDomains(surrogateTpId), _))
-    }
+    import scalaz.std.iterable._
+    val lagging: Option[Lagginess[OTpId, Off]] =
+      (unsynced: Iterable[(ITpId, Map[Party, Off])]) foldMap1Opt {
+        case (surrogateTpId, partyOffs) =>
+          val maxLocalOff = partyOffs
+            .collect {
+              case (unsyncedParty, unsyncedOff)
+                  if queriedParty(unsyncedParty) || unsyncedOff > expectedOffset =>
+                unsyncedOff
+            }
+            .maximum
+            .getOrElse(expectedOffset)
+          val singleton = Set(surrogatesToDomains(surrogateTpId))
+          // if a queried party is not in the map, we can safely assume that
+          // it is at expectedOffset already
+          val caughtUp = maxLocalOff <= expectedOffset ||
+            queriedParty.forall { qp => partyOffs.get(qp).exists(_ === maxLocalOff) }
+          Lagginess(
+            if (caughtUp) singleton else Set.empty,
+            if (caughtUp) Set.empty else singleton,
+            maxLocalOff max expectedOffset,
+          )
+      }
     lagging match {
-      case NonEmpty(lagging) => Some((lagging.toF.maximum1, lagging.keySet))
+      case Some(lagging) if lagging.maxOff > expectedOffset =>
+        Some((lagging.maxOff, lagging.notCaughtUp))
       case _ => None
     }
   }
 
   // allUpdated- None: vacuously true Some(true)-up to maxOff
-  private[this] final case class Lagginess[+Off](allUpdated: Option[Boolean], maxOff: Off)
+  private[this] final case class Lagginess[TpId, +Off](
+      caughtUp: Set[TpId],
+      notCaughtUp: Set[TpId],
+      maxOff: Off,
+  )
   private[this] object Lagginess {
-    implicit def semigroup[Off: Order]: Semigroup[Lagginess[Off]] =
-      Semigroup instance { case (Lagginess(upA, offA), Lagginess(upB, offB)) =>
+    implicit def semigroup[TpId, Off: Order]: Semigroup[Lagginess[TpId, Off]] =
+      Semigroup instance { case (Lagginess(cA, ncA, offA), Lagginess(cB, ncB, offB)) =>
+        import scalaz.Ordering.{LT, GT, EQ}
+        val (c, nc) = offA cmp offB match {
+          case EQ => (cA union cB, Set.empty[TpId])
+          case LT => (cB, cA)
+          case GT => (cA, cB)
+        }
         Lagginess(
-          (upA, upB) match {
-            case (None, None) => None
-            case (Some(upA), None) => Some(upA && (offA >= offB))
-            case (None, Some(upB)) => Some(upB && (offB >= offA))
-            case (Some(upA), Some(upB)) => Some(upA && upB && (offA === offB))
-          },
+          c,
+          nc union ncA union ncB,
           offA max offB,
         )
       }

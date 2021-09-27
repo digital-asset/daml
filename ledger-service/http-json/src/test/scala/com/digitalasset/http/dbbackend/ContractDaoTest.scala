@@ -26,8 +26,9 @@ class ContractDaoTest
       val one = Traverse[Map[Byte, *]]
       one compose one
     }
+    val queriedParties = (0 to Byte.MaxValue).view.map(_.toByte).toSet
     def mvo[TpId, Off: Order](expectedOffset: Off, unsynced: Map[TpId, Map[Byte, Off]]) =
-      minimumViableOffsets((_: Byte) >= 0, identity[TpId], expectedOffset, unsynced)
+      minimumViableOffsets(queriedParties, identity[TpId], expectedOffset, unsynced)
 
     "return all OK if all offsets match" in forAll { unsynced: Unsynced[Unit] =>
       val allSame = UF.map(unsynced)(_ => 0)
