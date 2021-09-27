@@ -132,11 +132,14 @@ data Error
   | EInterfaceTypeWithParams
   | EMissingInterfaceDefinition !TypeConName
   | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
+  | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
   | EMissingInterfaceChoice !ChoiceName
   | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
   | EBadInterfaceChoiceImplArgType !ChoiceName !Type !Type
   | EBadInterfaceChoiceImplRetType !ChoiceName !Type !Type
+  | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
+  | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
 
 contextLocation :: Context -> Maybe SourceLoc
@@ -380,6 +383,8 @@ instance Pretty Error where
       "Missing interface definition for interface type: " <> pretty iface
     EDuplicateInterfaceChoiceName iface choice ->
       "Duplicate choice name '" <> pretty choice <> "' in interface definition for " <> pretty iface
+    EDuplicateInterfaceMethodName iface method ->
+      "Duplicate method name '" <> pretty method <> "' in interface definition for " <> pretty iface
     EUnknownInterface tcon -> "Unknown interface: " <> pretty tcon
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
     EBadInterfaceChoiceImplConsuming ch ifaceConsuming tplConsuming ->
@@ -400,6 +405,10 @@ instance Pretty Error where
       , "Expected: " <> pretty ifaceRetType
       , "But got: " <> pretty tplRetType
       ]
+    EMissingInterfaceMethod tpl iface method ->
+      "Template " <> pretty tpl <> " is missing method " <> pretty method <> " for interface " <> pretty iface
+    EUnknownInterfaceMethod tpl iface method ->
+      "Template " <> pretty tpl <> " implements " <> pretty method <> " but interface " <> pretty iface <> " has no such method."
     ETemplateDoesNotImplementInterface tpl iface ->
       "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
 

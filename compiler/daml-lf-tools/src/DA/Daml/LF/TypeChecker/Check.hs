@@ -748,9 +748,10 @@ typeOf' = \case
     checkImplements tpl iface
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
-  ECallInterface _ _ _ ->
-    -- TODO https://github.com/digital-asset/daml/issues/11006
-    error "ECallInterface not yet implemented"
+  ECallInterface iface method val -> do
+    method <- inWorld (lookupInterfaceMethod (iface, method))
+    checkExpr val (TCon iface)
+    pure (ifmType method)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -808,14 +809,20 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 
 
 checkIface :: MonadGamma m => DefInterface -> m ()
-checkIface DefInterface{intName, intChoices} = do
+checkIface DefInterface{intName, intChoices, intMethods} = do
   checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intChoices
+  checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
   forM_ intChoices checkIfaceChoice
+  forM_ intMethods checkIfaceMethod
 
 checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
 checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
   checkType ifcArgType KStar
   checkType ifcRetType KStar
+
+checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
+checkIfaceMethod InterfaceMethod{ifmType} = do
+  checkType ifmType KStar
 
 -- | Check that a type constructor definition is well-formed.
 checkDefDataType :: MonadGamma m => Module -> DefDataType -> m ()
@@ -876,9 +883,10 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplTcon TemplateImplements{..} = do
-  -- TODO https://github.com/digital-asset/daml/issues/11006
-  --  check methods, not just choices
-  DefInterface {intChoices} <- inWorld $ lookupInterface tpiInterface
+  let tplName = qualObject tplTcon
+  DefInterface {intChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+
+  -- check choices
   forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
     TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
       inWorld $ lookupChoice (tplTcon, ifcName)
@@ -888,6 +896,17 @@ checkIfaceImplementation tplTcon TemplateImplements{..} = do
       throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
     unless (alphaType chcReturnType ifcRetType) $
       throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
+
+  -- check methods
+  let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
+  case HS.toList missingMethods of
+    [] -> pure ()
+    (methodName:_) -> throwWithContext (EMissingInterfaceMethod tplName tpiInterface methodName)
+  forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
+    case NM.lookup tpiMethodName intMethods of
+      Nothing -> throwWithContext (EUnknownInterfaceMethod tplName tpiInterface tpiMethodName)
+      Just InterfaceMethod{ifmType} ->
+        checkExpr tpiMethodExpr (TCon tplTcon :-> ifmType)
 
 _checkFeature :: MonadGamma m => Feature -> m ()
 _checkFeature feature = do
@@ -922,7 +941,9 @@ checkModule m@(Module _modName _path _flags synonyms dataTypes values templates 
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) $ checkDefDataType m) dataTypes
+  -- NOTE(SF): Interfaces should be checked before templates, because the typechecking
+  -- for templates relies on well-typed interface definitions.
+  traverse_ (with (ContextDefInterface m) checkIface) interfaces
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
   traverse_ (with (ContextDefValue m) checkDefValue) values
-  traverse_ (with (ContextDefInterface m) checkIface) interfaces
