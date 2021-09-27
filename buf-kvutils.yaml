@@ -33,3 +33,7 @@ breaking:
     # Moving an individual field into a new `one_of` retains binary backwards
     # compatibility.
     - FIELD_SAME_ONEOF
+  ignore:
+    # Changes in daml_lf_1.proto do not impact KV, as it never parses archive
+    # payload directly
+    - com/daml/daml_lf_dev/daml_lf_1.proto
