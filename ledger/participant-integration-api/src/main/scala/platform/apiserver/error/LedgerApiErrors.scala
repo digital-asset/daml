@@ -61,6 +61,26 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object CommandValidation extends ErrorGroup {
+
+    @Explanation(
+      """Event id missing PBATKO TODO"""
+    )
+    @Resolution("Ensure that your application is correctly configured to send valid event ids")
+    object EventIdMismatch
+        extends ErrorCode(
+          id = "EVENT_ID_MISMATCH",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      case class Reject(override val cause: String)(implicit
+          loggingContext: LoggingContext,
+          logger: ContextualizedLogger,
+          correlationId: CorrelationId,
+      ) extends LoggingTransactionErrorImpl(
+            cause = cause
+          )
+    }
+
     @Explanation(
       """Every ledger Api command contains a ledger-id which is verifying against the running ledger.
           This error indicates that the provided ledger-id does not match the expected one."""
