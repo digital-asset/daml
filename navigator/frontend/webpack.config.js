@@ -166,7 +166,7 @@ module.exports = (env) => {
       port: 8000,
       // host: '0.0.0.0', // enable to allow remote computers to connect
       // disableHostCheck: true, // enable to allow remote computers to connect
-      contentBase: out_dir,
+      static: out_dir,
       historyApiFallback: { index: '/' },
       compress: true,
       proxy: {
