@@ -51,7 +51,6 @@ import scalaz.syntax.apply._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.ledger.resources.ResourceContext
 import com.daml.ports.Port
 
 object AbstractHttpServiceIntegrationTestFuns {
@@ -120,8 +119,6 @@ trait AbstractHttpServiceIntegrationTestFuns
   import shapeless.tag
   import tag.@@ // used for subtyping to make `AHS ec` beat executionContext
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
-
-  implicit val resourceContext: ResourceContext = ResourceContext(`AHS ec`)
 
   override def packageFiles = List(dar1, dar2)
 

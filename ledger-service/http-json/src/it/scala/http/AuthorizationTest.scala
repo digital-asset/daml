@@ -17,7 +17,6 @@ import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
-import com.daml.ledger.resources.ResourceContext
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -43,7 +42,6 @@ final class AuthorizationTest
   implicit val mat: Materializer = Materializer(asys)
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
-  implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
   private val publicToken = "public"
   private val emptyToken = "empty"
