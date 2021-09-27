@@ -207,7 +207,7 @@ object ContractDao {
       partyOffs
         .collect {
           case (unsyncedParty, unsyncedOff)
-              if (if (queriedParty(unsyncedParty)) unsyncedOff != expectedOffset
+              if (if (queriedParty(unsyncedParty)) unsyncedOff /== expectedOffset
                   else unsyncedOff > expectedOffset) =>
             unsyncedOff
         }

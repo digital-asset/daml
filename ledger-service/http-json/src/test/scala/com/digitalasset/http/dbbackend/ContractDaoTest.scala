@@ -46,12 +46,12 @@ class ContractDaoTest
       mvo(1, Map(0 -> Map((2: Byte) -> 1, (3: Byte) -> 2))) should ===(Some((2, Set(0))))
     }
 
-    "don't require update for lagging, but unqueried, party" in {
-      mvo(3, Map(0 -> Map((2: Byte) -> 3, (-4: Byte) -> 1))) should ===(None)
+    "not require update for lagging, but unqueried, party" in {
+      mvo(3, Map(0 -> Map((-4: Byte) -> 1))) should ===(None)
     }
 
     "require update for ahead, albeit unqueried, party" in {
-      mvo(3, Map(0 -> Map((2: Byte) -> 3, (-4: Byte) -> 4))) should ===(Some((4, Set(0))))
+      mvo(3, Map(0 -> Map((-4: Byte) -> 4))) should ===(Some((4, Set(0))))
     }
 
     "report desync, but no updates, if consistent" in {
