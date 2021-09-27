@@ -202,7 +202,7 @@ object ContractDao {
   ): Option[(Off, Set[OTpId])] = {
     import scalaz.syntax.foldable1.{ToFoldableOps => _, _}
     import scalaz.std.iterable._
-    val lagging: Option[Lagginess[OTpId, Off]] =
+    val lagging: Option[Lagginess[ITpId, Off]] =
       (unsynced: Iterable[(ITpId, Map[Party, Off])]) foldMap1Opt {
         case (surrogateTpId, partyOffs) =>
           val maxLocalOff = partyOffs
@@ -213,7 +213,7 @@ object ContractDao {
             }
             .maximum
             .getOrElse(expectedOffset)
-          val singleton = Set(surrogatesToDomains(surrogateTpId))
+          val singleton = Set(surrogateTpId)
           // if a queried party is not in the map, we can safely assume that
           // it is at expectedOffset already
           val caughtUp = maxLocalOff <= expectedOffset ||
@@ -228,7 +228,7 @@ object ContractDao {
       }
     lagging match {
       case Some(lagging) if lagging.maxOff > expectedOffset =>
-        Some((lagging.maxOff, lagging.notCaughtUp))
+        Some((lagging.maxOff, lagging.notCaughtUp map surrogatesToDomains))
       case _ => None
     }
   }
