@@ -132,7 +132,8 @@ object ServiceMain {
             case Some(c) =>
               Try(
                 Await.result(
-                  DbTriggerDao(c)(DirectExecutionContext).initialize(config.allowExistingSchema)(DirectExecutionContext),
+                  DbTriggerDao(c)(DirectExecutionContext)
+                    .initialize(config.allowExistingSchema)(DirectExecutionContext),
                   Duration(30, SECONDS),
                 )
               ) match {

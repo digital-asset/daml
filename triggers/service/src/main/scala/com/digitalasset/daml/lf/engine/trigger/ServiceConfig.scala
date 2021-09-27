@@ -214,7 +214,9 @@ private[trigger] object ServiceConfig {
 
     opt[Boolean]("allow-existing-schema")
       .action((_, c) => c.copy(allowExistingSchema = true))
-      .text("Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false.")
+      .text(
+        "Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false."
+      )
 
     checkConfig { cfg =>
       if (
