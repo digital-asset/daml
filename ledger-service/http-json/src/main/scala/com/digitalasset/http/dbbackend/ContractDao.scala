@@ -22,7 +22,7 @@ import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{NonEmptyList, OneAnd, Order}
+import scalaz.{NonEmptyList, OneAnd, Order, Semigroup}
 import scalaz.std.map._
 import scalaz.std.vector._
 import scalaz.syntax.tag._
@@ -222,6 +222,23 @@ object ContractDao {
       case NonEmpty(lagging) => Some((lagging.toF.maximum1, lagging.keySet))
       case _ => None
     }
+  }
+
+  // allUpdated- None: vacuously true Some(true)-up to maxOff
+  private[this] final case class Lagginess[+Off](allUpdated: Option[Boolean], maxOff: Off)
+  private[this] object Lagginess {
+    implicit def semigroup[Off: Order]: Semigroup[Lagginess[Off]] =
+      Semigroup instance { case (Lagginess(upA, offA), Lagginess(upB, offB)) =>
+        Lagginess(
+          (upA, upB) match {
+            case (None, None) => None
+            case (Some(upA), None) => Some(upA && (offA >= offB))
+            case (None, Some(upB)) => Some(upB && (offB >= offA))
+            case (Some(upA), Some(upB)) => Some(upA && upB && (offA === offB))
+          },
+          offA max offB,
+        )
+      }
   }
 
   def updateOffset(
