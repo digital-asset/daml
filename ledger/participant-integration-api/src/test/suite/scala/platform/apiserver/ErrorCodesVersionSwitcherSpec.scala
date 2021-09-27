@@ -13,7 +13,7 @@ class ErrorCodesVersionSwitcherSpec extends AnyFlatSpec with Matchers {
 
   it should "use v2 error codes" in {
     // given
-    val tested = ErrorCodesVersionSwitcher(enableErrorCodesV2 = true)
+    val tested = new ErrorCodesVersionSwitcher(enableErrorCodesV2 = true)
     val expected = new StatusRuntimeException(Status.INTERNAL)
 
     // when
@@ -26,7 +26,7 @@ class ErrorCodesVersionSwitcherSpec extends AnyFlatSpec with Matchers {
 
   it should "use v1 error codes" in {
     // given
-    val tested = ErrorCodesVersionSwitcher(enableErrorCodesV2 = false)
+    val tested = new ErrorCodesVersionSwitcher(enableErrorCodesV2 = false)
     val expected = new StatusRuntimeException(Status.INTERNAL)
 
     // when

@@ -150,19 +150,8 @@ private[apiserver] final class ApiTransactionService private (
                 .asRuntimeException()
             },
             v2 = {
-              // TODO PBATKO This is just POC V2
-              LedgerApiErrors.CommandValidation.EventIdMismatch
-                .Reject(cause = s"invalid eventId: ${request.eventId}")(
-                  correlationId = CorrelationId.none,
-                  loggingContext = implicitly[LoggingContext],
-                  logger = logger,
-                )
-                .asGrpcErrorFromContext(
-                  correlationId = None,
-                  logger = logger,
-                )(
-                  loggingContext = implicitly[LoggingContext]
-                )
+              // TODO DPP-417, DPP-613: Use V2 error codes
+              ???
             },
           )
         )

@@ -119,7 +119,7 @@ private[daml] object ApiServices {
     )
 
     private val errorsVersionsSwitcher =
-      ErrorCodesVersionSwitcher(enableErrorCodesV2 = enableErrorCodesV2)
+      new ErrorCodesVersionSwitcher(enableErrorCodesV2 = enableErrorCodesV2)
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)

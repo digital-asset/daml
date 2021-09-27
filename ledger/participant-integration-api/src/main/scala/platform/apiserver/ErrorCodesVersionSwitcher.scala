@@ -5,7 +5,7 @@ package com.daml.platform.apiserver
 
 import io.grpc.StatusRuntimeException
 
-final case class ErrorCodesVersionSwitcher(enableErrorCodesV2: Boolean) {
+final class ErrorCodesVersionSwitcher(enableErrorCodesV2: Boolean) {
   def choose(
       v1: => StatusRuntimeException,
       v2: => StatusRuntimeException,
