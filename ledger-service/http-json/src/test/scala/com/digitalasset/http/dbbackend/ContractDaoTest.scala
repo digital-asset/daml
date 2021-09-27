@@ -26,7 +26,8 @@ class ContractDaoTest
       val one = Traverse[Map[Byte, *]]
       one compose one
     }
-    val queriedParties = (0 to Byte.MaxValue).view.map(_.toByte).toSet
+    val queriedParties = (0 to 5).view.map(_.toByte).toSet
+    def everyParty[Off](off: Off) = queriedParties.view.map((_, off)).toMap
     def mvo[TpId, Off: Order](expectedOffset: Off, unsynced: Map[TpId, Map[Byte, Off]]) =
       minimumViableOffsets(queriedParties, identity[TpId], expectedOffset, unsynced)
 
@@ -56,13 +57,13 @@ class ContractDaoTest
     }
 
     "report desync, but no updates, if consistent" in {
-      mvo(3, Map(0 -> Map((2: Byte) -> 5), 1 -> Map((4: Byte) -> 5))) should ===(
+      mvo(3, Map(0 -> everyParty(5), 1 -> everyParty(5))) should ===(
         Some((5, Set.empty))
       )
     }
 
     "check lag across template IDs" in {
-      mvo(3, Map(0 -> Map((2: Byte) -> 3), 1 -> Map((4: Byte) -> 5))) should ===(Some((5, Set(0))))
+      mvo(3, Map(0 -> Map((2: Byte) -> 3), 1 -> everyParty(5))) should ===(Some((5, Set(0))))
     }
   }
 }
