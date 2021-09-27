@@ -63,8 +63,8 @@ abstract class DbTriggerDao protected (
 
   private[this] val flywayMigrations = new DbFlywayMigrations(dataSource, migrationsDir)
 
-  private def createTables: ConnectionIO[Unit] =
-    flywayMigrations.migrate()
+  private def createTables(allowExistingSchema: Boolean): ConnectionIO[Unit] =
+    flywayMigrations.migrate(allowExistingSchema)
 
   // NOTE(RJR) Interpolation in `sql` literals:
   // Doobie provides a `Put` typeclass that allows us to interpolate values of various types in our
@@ -228,8 +228,8 @@ abstract class DbTriggerDao protected (
   def readRunningTriggers(implicit ec: ExecutionContext): Future[Vector[RunningTrigger]] =
     run(selectAllTriggers, "Failed to read running triggers from database")
 
-  def initialize(implicit ec: ExecutionContext): Future[Unit] =
-    run(createTables, "Failed to initialize database.")
+  def initialize(allowExistingSchema: Boolean)(implicit ec: ExecutionContext): Future[Unit] =
+    run(createTables(allowExistingSchema), "Failed to initialize database.")
 
   private[trigger] def destroy(implicit ec: ExecutionContext): Future[Unit] =
     run(dropTables, "Failed to remove database objects.")

@@ -18,7 +18,7 @@ private[trigger] class DbFlywayMigrations(private val ds: DataSource, migrations
 
   var flyway: Flyway = _
 
-  def migrate(allowExistingSchema: Boolean = false): ConnectionIO[Unit] = {
+  def migrate(allowExistingSchema: Boolean): ConnectionIO[Unit] = {
     doobie.free.connection.delay {
       flyway = configurationBase(migrationsDir)
         .dataSource(ds)

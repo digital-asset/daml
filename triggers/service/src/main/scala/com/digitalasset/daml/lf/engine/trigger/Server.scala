@@ -503,6 +503,7 @@ object Server {
       restartConfig: TriggerRestartConfig,
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      allowExistingSchema: Boolean,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
@@ -545,7 +546,7 @@ object Server {
         val dao = DbTriggerDao(c)
         val server = new Server(authRoutes, dao, logTriggerStatus)
         val initialize = for {
-          _ <- dao.initialize
+          _ <- dao.initialize(allowExistingSchema)
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
