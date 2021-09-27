@@ -80,6 +80,7 @@ genrule(
         "tsconfig.json",
         ".eslintrc.js",
         "package.json",
+        "modernizr.js",
         ".modernizrrc",
         ":src",
         "@navigator_frontend_deps//:node_modules",
@@ -102,6 +103,7 @@ genrule(
     cp -rL "$$(pwd)/external/navigator_frontend_deps/node_modules" "$$IN/node_modules"
     cp -L "$$(pwd)/$(execpath webpack.config.js)" "$$IN/webpack.config.js"
     cp -L "$$(pwd)/$(execpath .modernizrrc)" "$$IN/.modernizrrc"
+    cp -L "$$(pwd)/$(execpath modernizr.js)" "$$IN/modernizr.js"
     cp -L "$$(pwd)/$(execpath tsconfig.json)" "$$IN/tsconfig.json"
     cp -L "$$(pwd)/$(execpath .eslintrc.js)" "$$IN/.eslintrc.js"
     cp -L "$$(pwd)/$(execpath declarations.d.ts)" "$$IN/declarations.d.ts"

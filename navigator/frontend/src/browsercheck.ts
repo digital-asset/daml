@@ -11,7 +11,7 @@
  * advanced JavaScript language features, and uses a simple alert() to notify the user.
  */
 
-import * as Modernizr from 'modernizr';
+import Modernizr from 'modernizr';
 
 // List of required features.
 // Note that the properties on the Modernizr object have different names than
@@ -24,15 +24,18 @@ const features = [
   'es5date',
   'es5function',
   'es5object',
-  'es5',
   'strictmode',
   'es5string',
-  'es5syntax',
-  'es5undefined',
   // 'promises', - we use a polyfill for this
   'history',
   'json',
   // 'fetch', - we use a polyfill for this
+  /* These checks are not supported in strict mode and webpack doesn’t
+  provide a reasonable way to exclude modernizr from strict mode.
+  'es5',
+  'es5syntax',
+  'es5undefined',
+  */
 ];
 
 // Find all features from above list that are not supported in current browser
