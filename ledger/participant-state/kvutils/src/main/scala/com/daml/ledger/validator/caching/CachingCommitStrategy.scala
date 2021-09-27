@@ -14,6 +14,7 @@ import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
 }
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,7 +32,7 @@ final class CachingCommitStrategy[Result](
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder],
-  ): Future[Result] =
+  )(implicit loggingContext: LoggingContext): Future[Result] =
     for {
       _ <- Future {
         outputState.view.filter { case (key, _) => shouldCache(key) }.foreach { case (key, value) =>

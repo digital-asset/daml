@@ -16,6 +16,7 @@ import com.daml.ledger.validator.CommitStrategy
 import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.caching.CachingCommitStrategySpec._
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -23,6 +24,8 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.{ExecutionContext, Future}
 
 class CachingCommitStrategySpec extends AsyncWordSpec with Matchers with MockitoSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "commit" should {
     "update cache with output state upon commit if policy allows" in {
       val cache = newCache()
@@ -74,7 +77,7 @@ object CachingCommitStrategySpec {
         any[Map[DamlStateKey, Option[DamlStateValue]]],
         any[Map[DamlStateKey, DamlStateValue]],
         any[Option[SubmissionAggregator.WriteSetBuilder]],
-      )
+      )(any[LoggingContext])
     )
       .thenReturn(Future.unit)
     new CachingCommitStrategy[Unit](cache, _ => shouldCache, mockCommitStrategy)

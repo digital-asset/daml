@@ -10,7 +10,7 @@ import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.wire.{DamlSubmission, DamlSubmissionBatch}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
+import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, anyLoggingContext}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.TestHelper.{
   FakeStateAccess,
@@ -41,8 +41,11 @@ class SubmissionValidatorSpec
   "validate" should {
     "return success in case of no errors during processing of submission" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
-      when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      when(
+        mockStateOperations.readState(
+          any[Iterable[Raw.StateKey]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val metrics = new Metrics(new MetricRegistry)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
@@ -63,8 +66,11 @@ class SubmissionValidatorSpec
 
     "signal missing input in case state cannot be retrieved" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
-      when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(None)))
+      when(
+        mockStateOperations.readState(
+          any[Iterable[Raw.StateKey]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.successful(Seq(None)))
       val metrics = new Metrics(new MetricRegistry)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
@@ -110,8 +116,11 @@ class SubmissionValidatorSpec
 
     "return invalid submission in case exception is thrown during processing of submission" in {
       val mockStateOperations = mock[BatchingLedgerStateOperations[Unit]]
-      when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      when(
+        mockStateOperations.readState(
+          any[Iterable[Raw.StateKey]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.successful(Seq(Some(aStateValue()))))
 
       val failingProcessSubmission: SubmissionValidator.ProcessSubmission =
         (_, _, _, _, _) => throw new IllegalArgumentException("Validation failed")
@@ -136,14 +145,18 @@ class SubmissionValidatorSpec
     "write marshalled log entry to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       val expectedLogResult: Int = 3
-      when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      when(
+        mockStateOperations.readState(
+          any[Iterable[Raw.StateKey]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val logEntryIdCaptor = ArgCaptor[Raw.LogEntryId]
       val logEntryValueCaptor = ArgCaptor[Raw.Envelope]
       when(
-        mockStateOperations.appendToLog(logEntryIdCaptor.capture, logEntryValueCaptor.capture)(
-          anyExecutionContext
-        )
+        mockStateOperations.appendToLog(
+          logEntryIdCaptor.capture,
+          logEntryValueCaptor.capture,
+        )(anyExecutionContext, anyLoggingContext)
       ).thenReturn(Future.successful(expectedLogResult))
       val expectedLogEntryId = aLogEntryId()
       val mockLogEntryIdGenerator = mock[LogEntryIdAllocator]
@@ -165,7 +178,7 @@ class SubmissionValidatorSpec
             actualLogResult should be(expectedLogResult)
             verify(mockLogEntryIdGenerator, times(1)).allocate()
             verify(mockStateOperations, times(0))
-              .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
+              .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext, anyLoggingContext)
             logEntryValueCaptor.values should have size 1
             logEntryIdCaptor.values should be(List(Raw.LogEntryId(expectedLogEntryId)))
           }
@@ -175,17 +188,23 @@ class SubmissionValidatorSpec
     "write marshalled key-value pairs to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       val expectedLogResult: Int = 7
-      when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      when(
+        mockStateOperations.readState(
+          any[Iterable[Raw.StateKey]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val writtenKeyValuesCaptor = ArgCaptor[Seq[Raw.StateEntry]]
-      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture)(anyExecutionContext))
-        .thenReturn(Future.unit)
+      when(
+        mockStateOperations.writeState(
+          writtenKeyValuesCaptor.capture
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.unit)
       val logEntryCaptor = ArgCaptor[Raw.Envelope]
       when(
         mockStateOperations.appendToLog(
           any[Raw.LogEntryId],
           logEntryCaptor.capture,
-        )(anyExecutionContext)
+        )(anyExecutionContext, anyLoggingContext)
       ).thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry, someStateUpdates)
       val instance = new SubmissionValidator(
@@ -215,17 +234,23 @@ class SubmissionValidatorSpec
     "support batch with single submission" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       val expectedLogResult: Int = 7
-      when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      when(
+        mockStateOperations.readState(
+          any[Iterable[Raw.StateKey]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val writtenKeyValuesCaptor = ArgCaptor[Seq[Raw.StateEntry]]
-      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture)(anyExecutionContext))
-        .thenReturn(Future.unit)
+      when(
+        mockStateOperations.writeState(
+          writtenKeyValuesCaptor.capture
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.unit)
       val logEntryCaptor = ArgCaptor[Raw.Envelope]
       when(
         mockStateOperations.appendToLog(
           any[Raw.LogEntryId],
           logEntryCaptor.capture,
-        )(anyExecutionContext)
+        )(anyExecutionContext, anyLoggingContext)
       ).thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry, someStateUpdates)
       val instance = new SubmissionValidator(
@@ -299,15 +324,21 @@ class SubmissionValidatorSpec
 
     "return invalid submission if state cannot be written" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
-      when(mockStateOperations.writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext))
-        .thenThrow(new IllegalArgumentException("Write error"))
-      when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      when(
+        mockStateOperations.writeState(
+          any[Iterable[Raw.StateEntry]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenThrow(new IllegalArgumentException("Write error"))
+      when(
+        mockStateOperations.readState(
+          any[Iterable[Raw.StateKey]]
+        )(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.successful(Seq(Some(aStateValue()))))
       when(
         mockStateOperations.appendToLog(
           any[Raw.LogEntryId],
           any[Raw.Envelope],
-        )(anyExecutionContext)
+        )(anyExecutionContext, anyLoggingContext)
       ).thenReturn(Future.successful(99))
       val logEntryAndStateResult = (aLogEntry, someStateUpdates)
       val instance = new SubmissionValidator(

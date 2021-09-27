@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawPreExec
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Empty, Timestamp}
 import org.scalatest.matchers.should.Matchers
@@ -29,6 +30,8 @@ class RawPreExecutingCommitStrategySupportSpec
     extends AsyncWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "support" should {
     "commit, and provide the write set" in {
       val metrics = new Metrics(new MetricRegistry)

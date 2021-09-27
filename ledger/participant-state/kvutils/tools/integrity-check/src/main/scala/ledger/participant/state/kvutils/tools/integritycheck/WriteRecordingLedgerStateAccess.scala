@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.{WriteItem, WriteSet}
 import com.daml.ledger.validator.{LedgerStateAccess, LedgerStateOperations}
+import com.daml.logging.LoggingContext
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -16,7 +17,7 @@ class WriteRecordingLedgerStateAccess[LogResult](delegate: LedgerStateAccess[Log
 
   override def inTransaction[T](
       body: LedgerStateOperations[LogResult] => Future[T]
-  )(implicit executionContext: ExecutionContext): Future[T] =
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[T] =
     delegate.inTransaction { operations =>
       body(new WriteRecordingLedgerStateAccess.Operations(recordedWriteSet, operations))
     }
@@ -32,25 +33,31 @@ object WriteRecordingLedgerStateAccess {
   ) extends LedgerStateOperations[LogResult] {
     override def readState(
         key: Raw.StateKey
-    )(implicit executionContext: ExecutionContext): Future[Option[Raw.Envelope]] =
+    )(implicit
+        executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[Option[Raw.Envelope]] =
       delegate.readState(key)
 
     override def readState(
         keys: Iterable[Raw.StateKey]
-    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]] =
+    )(implicit
+        executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[Seq[Option[Raw.Envelope]]] =
       delegate.readState(keys)
 
     override def writeState(
         key: Raw.StateKey,
         value: Raw.Envelope,
-    )(implicit executionContext: ExecutionContext): Future[Unit] = {
+    )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] = {
       this.synchronized(recordedWriteSet.append((key, value)))
       delegate.writeState(key, value)
     }
 
     override def writeState(
         keyValuePairs: Iterable[Raw.StateEntry]
-    )(implicit executionContext: ExecutionContext): Future[Unit] = {
+    )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] = {
       this.synchronized(recordedWriteSet.appendAll(keyValuePairs))
       delegate.writeState(keyValuePairs)
     }
@@ -58,7 +65,10 @@ object WriteRecordingLedgerStateAccess {
     override def appendToLog(
         key: Raw.LogEntryId,
         value: Raw.Envelope,
-    )(implicit executionContext: ExecutionContext): Future[LogResult] = {
+    )(implicit
+        executionContext: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[LogResult] = {
       this.synchronized(recordedWriteSet.append((key, value)))
       delegate.appendToLog(key, value)
     }

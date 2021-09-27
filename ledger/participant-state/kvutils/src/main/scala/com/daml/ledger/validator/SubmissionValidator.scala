@@ -121,7 +121,10 @@ class SubmissionValidator[LogResult] private[validator] (
       ignored: Any,
       logEntryAndState: LogEntryAndState,
       stateOperations: LedgerStateOperations[LogResult],
-  )(implicit executionContext: ExecutionContext): Future[LogResult] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
     val eventualLogResult = stateOperations.appendToLog(Raw.LogEntryId(logEntryId), rawLogEntry)
     val eventualStateResult =
@@ -266,7 +269,7 @@ class SubmissionValidator[LogResult] private[validator] (
       extends LedgerStateAccess[LogResult] {
     override def inTransaction[T](
         body: LedgerStateOperations[LogResult] => Future[T]
-    )(implicit executionContext: ExecutionContext): Future[T] = {
+    )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[T] = {
       // This is necessary to ensure we capture successful and failed acquisitions separately.
       // These need to be measured separately as they may have very different characteristics.
       val acquisitionWasRecorded = new AtomicBoolean(false)

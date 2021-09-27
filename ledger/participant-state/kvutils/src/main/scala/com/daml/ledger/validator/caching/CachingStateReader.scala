@@ -5,6 +5,7 @@ package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache
 import com.daml.ledger.validator.reading.StateReader
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,7 +21,10 @@ final class CachingStateReader[Key, Value](
 ) extends StateReader[Key, Value] {
   override def read(
       keys: Iterable[Key]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Value]] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Seq[Value]] = {
     @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
     val cachedValues = keys.view
       .map(key => key -> cache.getIfPresent(key))

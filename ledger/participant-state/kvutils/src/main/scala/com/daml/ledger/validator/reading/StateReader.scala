@@ -3,6 +3,8 @@
 
 package com.daml.ledger.validator.reading
 
+import com.daml.logging.LoggingContext
+
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Generic interface for reading from the ledger.
@@ -21,7 +23,9 @@ trait StateReader[-Key, +Value] {
     * @param keys list of keys to look up
     * @return values corresponding to the requested keys, in the same order as requested
     */
-  def read(keys: Iterable[Key])(implicit executionContext: ExecutionContext): Future[Seq[Value]]
+  def read(
+      keys: Iterable[Key]
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Seq[Value]]
 
   /** Create a new StateReader that transforms the keys before reading.
     *
@@ -36,7 +40,10 @@ trait StateReader[-Key, +Value] {
     new StateReader[NewKey, Value] {
       override def read(
           keys: Iterable[NewKey]
-      )(implicit executionContext: ExecutionContext): Future[Seq[Value]] =
+      )(implicit
+          executionContext: ExecutionContext,
+          loggingContext: LoggingContext,
+      ): Future[Seq[Value]] =
         self.read(keys.map(f))
     }
 
@@ -50,7 +57,10 @@ trait StateReader[-Key, +Value] {
     new StateReader[Key, NewValue] {
       override def read(
           keys: Iterable[Key]
-      )(implicit executionContext: ExecutionContext): Future[Seq[NewValue]] =
+      )(implicit
+          executionContext: ExecutionContext,
+          loggingContext: LoggingContext,
+      ): Future[Seq[NewValue]] =
         self.read(keys).map(_.map(f))
     }
 }

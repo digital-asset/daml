@@ -48,7 +48,11 @@ class IntegrityChecker[LogResult](
   def run(
       importer: LedgerDataImporter,
       config: Config,
-  )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): Future[Unit] = {
 
     if (config.indexOnly)
       println("Running indexing only".white)
@@ -93,6 +97,7 @@ class IntegrityChecker[LogResult](
   )(implicit
       executionContext: ExecutionContext,
       materializer: Materializer,
+      loggingContext: LoggingContext,
   ): Future[Unit] =
     for {
       _ <- processSubmissions(
@@ -186,7 +191,11 @@ class IntegrityChecker[LogResult](
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       config: Config,
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Unit] = {
     println("Processing the ledger export.".white)
 
     Source(importer.read())
@@ -309,19 +318,21 @@ object IntegrityChecker {
       ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
-    new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
-      .run(importer, config)
-      .onComplete {
-        case Success(_) =>
-          sys.exit(0)
-        case Failure(exception: CheckFailedException) =>
-          println(exception.getMessage.red)
-          sys.exit(1)
-        case Failure(exception) =>
-          exception.printStackTrace()
-          sys.exit(1)
-      }(DirectExecutionContext)
+    newLoggingContext { implicit loggingContext =>
+      val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
+      new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
+        .run(importer, config)
+        .onComplete {
+          case Success(_) =>
+            sys.exit(0)
+          case Failure(exception: CheckFailedException) =>
+            println(exception.getMessage.red)
+            sys.exit(1)
+          case Failure(exception) =>
+            exception.printStackTrace()
+            sys.exit(1)
+        }(DirectExecutionContext)
+    }
   }
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
