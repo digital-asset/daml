@@ -1915,14 +1915,18 @@ rewriteStableQualified env q@(Qualified pkgRef modName obj) =
       Nothing -> q
       Just pkgId -> Qualified (PRImport pkgId) modName obj
 
-convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
-convertQualified toT env x = do
-  pkgRef <- nameToPkgRef env x
-  let modName = convertModuleName $ GHC.moduleName $ nameModule $ getName x
+convertQualifiedModuleName :: a -> Env -> GHC.Module -> ConvertM (Qualified a)
+convertQualifiedModuleName x env (GHC.Module unitId moduleName) = do
+  pkgRef <- unitIdToPkgRef env unitId
+  let modName = convertModuleName moduleName
   pure $ rewriteStableQualified env $ Qualified
     pkgRef
     modName
-    (toT $ getOccText x)
+    x
+
+convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
+convertQualified toT env x = do
+  convertQualifiedModuleName (toT (getOccText x)) env (nameModule (getName x))
 
 convertQualifiedTySyn :: NamedThing a => Env -> a -> ConvertM (Qualified TypeSynName)
 convertQualifiedTySyn = convertQualified (\t -> mkTypeSyn [t])
@@ -1932,8 +1936,12 @@ convertQualifiedTyCon = convertQualified (\t -> mkTypeCon [t])
 
 nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageRef
 nameToPkgRef env x =
-  maybe (pure LF.PRSelf) (convertUnitId thisUnitId pkgMap . moduleUnitId) $
-  Name.nameModule_maybe $ getName x
+  maybe (pure LF.PRSelf) (unitIdToPkgRef env . moduleUnitId) $
+    Name.nameModule_maybe $ getName x
+
+unitIdToPkgRef :: Env -> UnitId -> ConvertM LF.PackageRef
+unitIdToPkgRef env unitId =
+  convertUnitId thisUnitId pkgMap unitId
   where
     thisUnitId = envModuleUnitId env
     pkgMap = envPkgMap env
