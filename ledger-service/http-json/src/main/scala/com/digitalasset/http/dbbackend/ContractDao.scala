@@ -221,6 +221,8 @@ object ContractDao {
           Lagginess(
             if (caughtUp) singleton else Set.empty,
             if (caughtUp) Set.empty else singleton,
+            // also an artifact of assuming that you actually ran update
+            // to expectedOffset before using this function
             maxLocalOff max expectedOffset,
           )
       }
