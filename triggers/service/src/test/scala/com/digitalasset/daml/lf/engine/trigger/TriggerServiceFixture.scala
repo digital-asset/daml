@@ -420,7 +420,7 @@ trait TriggerDaoPostgresFixture
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    Await.result(triggerDao.initialize, Duration(30, SECONDS))
+    Await.result(triggerDao.initialize(false), Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
@@ -454,7 +454,7 @@ trait TriggerDaoOracleFixture
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    Await.result(triggerDao.initialize, Duration(31, SECONDS))
+    Await.result(triggerDao.initialize(false), Duration(31, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
@@ -523,6 +523,7 @@ trait TriggerServiceFixture
                 restartConfig,
                 encodedDars,
                 jdbcConfig,
+                false,
                 logTriggerStatus,
               )
             } yield r

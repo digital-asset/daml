@@ -50,6 +50,7 @@ object ServiceMain {
       restartConfig: TriggerRestartConfig,
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      allowExistingSchema: Boolean,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
@@ -69,6 +70,7 @@ object ServiceMain {
           restartConfig,
           encodedDars,
           jdbcConfig,
+          allowExistingSchema,
           logTriggerStatus,
         ),
         "TriggerService",
@@ -131,7 +133,7 @@ object ServiceMain {
               Try(
                 Await.result(
                   DbTriggerDao(c)(DirectExecutionContext)
-                    .initialize(DirectExecutionContext),
+                    .initialize(config.allowExistingSchema)(DirectExecutionContext),
                   Duration(30, SECONDS),
                 )
               ) match {
@@ -161,6 +163,7 @@ object ServiceMain {
               restartConfig,
               encodedDars,
               config.jdbcConfig,
+              config.allowExistingSchema,
             ),
             "TriggerService",
           )

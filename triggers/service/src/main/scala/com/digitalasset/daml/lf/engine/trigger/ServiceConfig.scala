@@ -40,6 +40,7 @@ private[trigger] final case class ServiceConfig(
     init: Boolean,
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
+    allowExistingSchema: Boolean,
 )
 
 private[trigger] object ServiceConfig {
@@ -211,6 +212,12 @@ private[trigger] object ServiceConfig {
           + JdbcConfig.help()
       )
 
+    opt[Boolean]("allow-existing-schema")
+      .action((_, c) => c.copy(allowExistingSchema = true))
+      .text(
+        "Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false."
+      )
+
     checkConfig { cfg =>
       if (
         (cfg.authBothUri.nonEmpty && (cfg.authInternalUri.nonEmpty || cfg.authExternalUri.nonEmpty))
@@ -255,6 +262,7 @@ private[trigger] object ServiceConfig {
         init = false,
         jdbcConfig = None,
         portFile = None,
+        allowExistingSchema = false,
       ),
     )
 }
