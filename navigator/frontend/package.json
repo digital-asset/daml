@@ -13,8 +13,8 @@
     "Robert Autenrieth <rautenrieth@digitalasset.com>"
   ],
   "scripts": {
-    "start": "webpack-dev-server",
-    "start-ui-core": "webpack-dev-server --config webpack.ui-core.js",
+    "start": "webpack serve",
+    "start-ui-core": "webpack serve --config webpack.ui-core.js",
     "build": "webpack --env prod",
     "test": "echo 'No frontend tests exist yet.'"
   },
@@ -58,7 +58,7 @@
     "url-loader": "^4.1.1",
     "webpack": "^4.44.2",
     "webpack-cli": "^4.2.0",
-    "webpack-dev-server": "^3.11.0"
+    "webpack-dev-server": "^4.3.0"
   },
   "dependencies": {
     "@apollo/client": "^3.3.2",
