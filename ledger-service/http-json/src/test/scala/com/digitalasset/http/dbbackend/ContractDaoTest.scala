@@ -4,7 +4,9 @@
 package com.daml.http
 package dbbackend
 
+import com.daml.scalatest.WordSpecCheckLaws
 import scalaz.{Order, Traverse}
+import scalaz.scalacheck.{ScalazProperties => ZP}
 import scalaz.std.anyVal._
 import scalaz.std.map._
 import scalaz.std.set._
@@ -17,7 +19,10 @@ class ContractDaoTest
     extends AnyWordSpec
     with Matchers
     with OptionValues
-    with ScalaCheckDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks
+    with WordSpecCheckLaws {
+  import ContractDaoTest._
+
   "minimumViableOffsets" should {
     import ContractDao.minimumViableOffsets
 
@@ -66,4 +71,16 @@ class ContractDaoTest
       mvo(3, Map(0 -> Map((2: Byte) -> 3), 1 -> everyParty(5))) should ===(Some((5, Set(0))))
     }
   }
+
+  "Lagginess" should {
+    import ContractDao.Lagginess
+    checkLaws(ZP.semigroup.laws[Lagginess[Byte, Byte]])
+  }
+}
+
+object ContractDaoTest {
+  import org.scalacheck.Arbitrary, Arbitrary.arbitrary
+  import ContractDao.Lagginess
+  implicit def `arb Lagginess`[TpId: Arbitrary, Off: Arbitrary]: Arbitrary[Lagginess[TpId, Off]] =
+    Arbitrary(arbitrary[(Set[TpId], Set[TpId], Off)].map((Lagginess[TpId, Off] _).tupled))
 }

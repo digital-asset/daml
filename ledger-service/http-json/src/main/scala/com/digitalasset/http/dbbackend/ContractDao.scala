@@ -22,7 +22,8 @@ import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{NonEmptyList, OneAnd, Order, Semigroup}
+import scalaz.{Equal, NonEmptyList, OneAnd, Order, Semigroup}
+import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.syntax.tag._
 import scalaz.syntax.order._
@@ -215,7 +216,7 @@ object ContractDao {
             .getOrElse(expectedOffset)
           val singleton = Set(surrogateTpId)
           // if a queried party is not in the map, we can safely assume that
-          // it is at expectedOffset already
+          // it is exactly at expectedOffset
           val caughtUp = maxLocalOff <= expectedOffset ||
             queriedParty.forall { qp => partyOffs.get(qp).exists(_ === maxLocalOff) }
           Lagginess(
@@ -233,13 +234,12 @@ object ContractDao {
     }
   }
 
-  // allUpdated- None: vacuously true Some(true)-up to maxOff
-  private[this] final case class Lagginess[TpId, +Off](
+  private[dbbackend] final case class Lagginess[TpId, +Off](
       caughtUp: Set[TpId],
       notCaughtUp: Set[TpId],
       maxOff: Off,
   )
-  private[this] object Lagginess {
+  private[dbbackend] object Lagginess {
     implicit def semigroup[TpId, Off: Order]: Semigroup[Lagginess[TpId, Off]] =
       Semigroup instance { case (Lagginess(cA, ncA, offA), Lagginess(cB, ncB, offB)) =>
         import scalaz.Ordering.{LT, GT, EQ}
@@ -253,6 +253,18 @@ object ContractDao {
           nc union ncA union ncB,
           offA max offB,
         )
+      }
+
+    implicit def equal[TpId: Order, Off: Equal]: Equal[Lagginess[TpId, Off]] =
+      new Equal[Lagginess[TpId, Off]] {
+        override def equalIsNatural = Equal[TpId].equalIsNatural && Equal[Off].equalIsNatural
+        override def equal(a: Lagginess[TpId, Off], b: Lagginess[TpId, Off]) =
+          if (equalIsNatural) a == b
+          else
+            a match {
+              case Lagginess(caughtUp, notCaughtUp, maxOff) =>
+                caughtUp === b.caughtUp && notCaughtUp === b.notCaughtUp && maxOff === b.maxOff
+            }
       }
   }
 
