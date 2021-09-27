@@ -662,6 +662,7 @@ object Config {
 
         opt[Unit]("use-error-codes-v2")
           .optional()
+          .hidden()
           .text("Enable new self-service errors.")
           .action((_, config) => config.copy(enableErrorCodesV2 = true))
       }
