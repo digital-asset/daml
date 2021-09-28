@@ -35,7 +35,7 @@ class HaCoordinatorSpec
   private val workerLockAcquireRetryMillis = 20L
   private val mainLockCheckerPeriodMillis = 20L
   private val timeoutToleranceMillis =
-    1000L // unfortunately this needs to be a insanely big tolerance, not to render the test flaky. under normal circumstances this should pass with +5 millis
+    600000L // unfortunately this needs to be a insanely big tolerance, not to render the test flaky. under normal circumstances this should pass with +5 millis
 
   private val mainLockId = 10
   private val main = TestLockId(mainLockId)
