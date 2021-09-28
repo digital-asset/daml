@@ -738,25 +738,11 @@ emit_build_events() {
   jq -c \
      --slurpfile job_md "$job/job-md.json" \
      --arg cmd "$cmd" \
-     --arg index "$(index "$job" events)" \
+     --arg index "$(index "$job")" \
      --arg job "$job" \
      < "$file" \
      '
      { index: { _index: $index, _id: ($job + "-" + $cmd + "-events-" + (input_line_number | tostring)) } },
-     { job: $job_md[0],
-       command: { name: $cmd },
-       buildEvent: .
-     }
-     '
-  jq -c \
-     --slurpfile job_md "$job/job-md.json" \
-     --arg cmd "$cmd" \
-     --arg index "$(index "$job" jobs)" \
-     --arg job "$job" \
-     < "$file" \
-     --slurp \
-     '
-     { index: { _index: $index, _id: ($job + "-" + $cmd + "-events") } },
      { job: $job_md[0],
        command: { name: $cmd },
        buildEvent: .
@@ -772,7 +758,7 @@ emit_trace_events() {
   jq -c \
      --slurpfile job_md "$job/job-md.json" \
      --arg cmd "$cmd" \
-     --arg index "$(index "$job" events)" \
+     --arg index "$(index "$job")" \
      --arg job "$job" \
      < "$file" \
      '
@@ -783,19 +769,6 @@ emit_trace_events() {
          command: { name: $cmd },
          traceEvent: .value
        }
-     '
-  jq -c \
-     --slurpfile job_md "$job/job-md.json" \
-     --arg cmd "$cmd" \
-     --arg index "$(index "$job" jobs)" \
-     --arg job "$job" \
-     < "$file" \
-     '
-     { index: { _index: $index, _id: ($job + "-" + $cmd + "-profile") } },
-     { job: $job_md[0],
-       command: { name: $cmd },
-       traceEvent: .traceEvents
-     }
      '
 }
 
@@ -863,8 +836,7 @@ push() {
 index() {
   local job prefix
   job="$1"
-  prefix="$2"
-  echo "$prefix-$(echo $job | cut -c1-10)"
+  echo "events-$(echo $job | cut -c1-10)"
 }
 
 pid=$$
@@ -895,8 +867,7 @@ for tar in $todo; do
   job=$(basename $${tar%.tar.gz})
   cd $(dirname $tar)
   if ! [ -f $DONE/$job ]; then
-    ensure_index "$job" "$(index "$job" jobs)"
-    ensure_index "$job" "$(index "$job" events)"
+    ensure_index "$job" "$(index "$job")"
     tar --force-local -x -z -f "$(basename "$tar")"
     patch "$job"
     push "$job"
