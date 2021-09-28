@@ -257,7 +257,7 @@ object WebSocketService {
           request.queries.map(_.offset).toVector
 
         def matchesOffset(queryIndex: Int, maybeEventOffset: Option[domain.Offset]): Boolean = {
-          import domain.Offset.ordering
+          import domain.Offset.`Offset ordering`
           import scalaz.syntax.order._
           val matches =
             for {
@@ -365,7 +365,7 @@ object WebSocketService {
         )
 
       import scalaz.syntax.foldable1._
-      import domain.Offset.ordering
+      import domain.Offset.`Offset ordering`
       import scalaz.std.option.optionOrder
 
       // This is called after `adjustRequest` already filled in the blank offsets
@@ -713,18 +713,19 @@ class WebSocketService(
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
     contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
-        val tx = for {
-          bookmark <- fetch.fetchAndPersist(jwt, ledgerId, parties, predicate.resolved.toList)
-          mdContracts <- predicate.dbQuery(parties, dao)
-        } yield {
-          val acs =
-            if (mdContracts.nonEmpty) {
-              Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
-            } else {
-              Source.empty
+        val tx = fetch.fetchAndPersistBracket(jwt, ledgerId, parties, predicate.resolved.toList) {
+          bookmark =>
+            for {
+              mdContracts <- predicate.dbQuery(parties, dao)
+            } yield {
+              val acs =
+                if (mdContracts.nonEmpty)
+                  Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
+                else
+                  Source.empty
+              val liveMarker = liveBegin(bookmark.map(_.toDomain))
+              acs ++ liveMarker
             }
-          val liveMarker = liveBegin(bookmark.map(_.toDomain))
-          acs ++ liveMarker
         }
         dao.transact(tx).unsafeToFuture()
       },

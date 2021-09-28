@@ -7,21 +7,26 @@ import cats.effect._
 import cats.syntax.apply._
 import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
+import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
-import com.daml.scalautil.nonempty.+-:
+import com.daml.scalautil.nonempty.{+-:, NonEmpty, NonEmptyF}
+import domain.Offset.`Offset ordering`
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{NonEmptyList, OneAnd}
+import scalaz.{Equal, NonEmptyList, OneAnd, Order, Semigroup}
+import scalaz.std.set._
+import scalaz.std.vector._
 import scalaz.syntax.tag._
+import scalaz.syntax.order._
 import spray.json.{JsNull, JsValue}
 
 import java.io.{Closeable, IOException}
@@ -141,6 +146,126 @@ object ContractDao {
       type L[a] = Map[a, domain.Offset]
       domain.Party.subst[L, String](domain.Offset.tag.subst(offset))
     }
+  }
+
+  /** A "lagging offset" is a template-ID/party pair whose stored offset may not reflect
+    * the actual contract table state at query time.  Examples of this are described in
+    * <https://github.com/digital-asset/daml/issues/10334> .
+    *
+    * It is perfectly fine for an offset to be returned but the set of lagging template IDs
+    * be empty; this means they appear to be consistent but not at `expectedOffset`; since
+    * that means the state at query time is indeterminate, the query must be rerun anyway,
+    * but no further DB updates are needed.
+    *
+    * @param parties The party-set that must not be lagging.  We aren't concerned with
+    *          whether ''other'' parties are lagging, in fact we can't correct if they are,
+    *          but if another party got ahead, that means one of our parties lags.
+    * @param expectedOffset `fetchAndPersist` should have synchronized every template-ID/party
+    *          pair to the same offset, this one.
+    * @param templateIds The template IDs we're checking.
+    * @return Any template IDs that are lagging, and the offset to catch them up to, if defined;
+    *         otherwise everything is fine.
+    */
+  def laggingOffsets(
+      parties: Set[domain.Party],
+      expectedOffset: domain.Offset,
+      templateIds: NonEmpty[Set[domain.TemplateId.RequiredPkg]],
+  )(implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[Option[(domain.Offset, Set[domain.TemplateId.RequiredPkg])]] = {
+    type Unsynced[Party, Off] = Map[Queries.SurrogateTpId, Map[Party, Off]]
+    import scalaz.syntax.traverse._
+    import sjd.q.queries.unsyncedOffsets
+    for {
+      tpids <- {
+        import Queries.CompatImplicits.monadFromCatsMonad
+        templateIds.toVector.toF.traverse { trp => surrogateTemplateId(trp) map ((_, trp)) }
+      }: ConnectionIO[NonEmptyF[Vector, (SurrogateTpId, domain.TemplateId.RequiredPkg)]]
+      surrogatesToDomains = tpids.toMap
+      unsyncedRaw <- unsyncedOffsets(
+        domain.Offset unwrap expectedOffset,
+        surrogatesToDomains.keySet,
+      )
+      unsynced = domain.Party.subst[Unsynced[*, domain.Offset], String](
+        domain.Offset.tag.subst[Unsynced[String, *], String](unsyncedRaw)
+      ): Unsynced[domain.Party, domain.Offset]
+    } yield minimumViableOffsets(parties, surrogatesToDomains, expectedOffset, unsynced)
+  }
+
+  // postprocess the output of unsyncedOffsets
+  private[dbbackend] def minimumViableOffsets[ITpId, OTpId, Party, Off: Order](
+      queriedParty: Set[Party],
+      surrogatesToDomains: ITpId => OTpId,
+      expectedOffset: Off,
+      unsynced: Map[ITpId, Map[Party, Off]],
+  ): Option[(Off, Set[OTpId])] = {
+    import scalaz.syntax.foldable1.{ToFoldableOps => _, _}
+    import scalaz.std.iterable._
+    val lagging: Option[Lagginess[ITpId, Off]] =
+      (unsynced: Iterable[(ITpId, Map[Party, Off])]) foldMap1Opt {
+        case (surrogateTpId, partyOffs) =>
+          val maxLocalOff = partyOffs
+            .collect {
+              case (unsyncedParty, unsyncedOff)
+                  if queriedParty(unsyncedParty) || unsyncedOff > expectedOffset =>
+                unsyncedOff
+            }
+            .maximum
+            .getOrElse(expectedOffset)
+          val singleton = Set(surrogateTpId)
+          // if a queried party is not in the map, we can safely assume that
+          // it is exactly at expectedOffset
+          val caughtUp = maxLocalOff <= expectedOffset ||
+            queriedParty.forall { qp => partyOffs.get(qp).exists(_ === maxLocalOff) }
+          Lagginess(
+            if (caughtUp) singleton else Set.empty,
+            if (caughtUp) Set.empty else singleton,
+            // also an artifact of assuming that you actually ran update
+            // to expectedOffset before using this function
+            maxLocalOff max expectedOffset,
+          )
+      }
+    lagging match {
+      case Some(lagging) if lagging.maxOff > expectedOffset =>
+        Some((lagging.maxOff, lagging.notCaughtUp map surrogatesToDomains))
+      case _ => None
+    }
+  }
+
+  private[dbbackend] final case class Lagginess[TpId, +Off](
+      caughtUp: Set[TpId],
+      notCaughtUp: Set[TpId],
+      maxOff: Off,
+  )
+  private[dbbackend] object Lagginess {
+    implicit def semigroup[TpId, Off: Order]: Semigroup[Lagginess[TpId, Off]] =
+      Semigroup instance { case (Lagginess(cA, ncA, offA), Lagginess(cB, ncB, offB)) =>
+        import scalaz.Ordering.{LT, GT, EQ}
+        val (c, nc) = offA cmp offB match {
+          case EQ => (cA union cB, Set.empty[TpId])
+          case LT => (cB, cA)
+          case GT => (cA, cB)
+        }
+        Lagginess(
+          c,
+          nc union ncA union ncB,
+          offA max offB,
+        )
+      }
+
+    implicit def equal[TpId: Order, Off: Equal]: Equal[Lagginess[TpId, Off]] =
+      new Equal[Lagginess[TpId, Off]] {
+        override def equalIsNatural = Equal[TpId].equalIsNatural && Equal[Off].equalIsNatural
+        override def equal(a: Lagginess[TpId, Off], b: Lagginess[TpId, Off]) =
+          if (equalIsNatural) a == b
+          else
+            a match {
+              case Lagginess(caughtUp, notCaughtUp, maxOff) =>
+                caughtUp === b.caughtUp && notCaughtUp === b.notCaughtUp && maxOff === b.maxOff
+            }
+      }
   }
 
   def updateOffset(

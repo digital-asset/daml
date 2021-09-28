@@ -30,6 +30,7 @@ import com.daml.http.util.IdentifierConverters.apiIdentifier
 import com.daml.http.util.Logging.{InstanceUUID}
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.daml.scalautil.ExceptionOps._
+import com.daml.scalautil.nonempty.NonEmpty
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
@@ -41,6 +42,7 @@ import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.std.list._
+import scalaz.std.option.none
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
@@ -65,11 +67,85 @@ private class ContractsFetch(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
+  /** run `within` repeatedly after fetchAndPersist until the latter is
+    * consistent before and after `within`
+    */
+  def fetchAndPersistBracket[A](
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      parties: OneAnd[Set, domain.Party],
+      templateIds: List[domain.TemplateId.RequiredPkg],
+  )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[A] = {
+    import ContractDao.laggingOffsets
+    val initTries = 10
+    val fetchContext = FetchContext(jwt, ledgerId, parties)
+    def go(
+        maxAttempts: Int,
+        fetchTemplateIds: List[domain.TemplateId.RequiredPkg],
+        absEnd: Terminates.AtAbsolute,
+    ): ConnectionIO[A] = for {
+      bb <- fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd)
+      a <- within(bb)
+      // fetchTemplateIds can be a subset of templateIds (or even empty),
+      // but we only get away with that by checking _all_ of templateIds,
+      // which can then indicate that a larger set than fetchTemplateIds
+      // has desynchronized
+      lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
+        case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
+          laggingOffsets(parties.toSet, expectedOff, tids)
+        case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
+      }
+      retriedA <- lagging.cata(
+        { case (newOff, laggingTids) =>
+          if (maxAttempts > 1)
+            go(
+              maxAttempts - 1,
+              laggingTids.toList,
+              domain.Offset.toTerminates(newOff),
+            )
+          else
+            fconn.raiseError(
+              new IllegalStateException(
+                s"failed after $initTries attempts to synchronize database for $fetchContext, $templateIds"
+              )
+            )
+        },
+        fconn.pure(a),
+      )
+    } yield retriedA
+
+    // we assume that if the ledger termination is LedgerBegin, then
+    // `within` will not yield concurrency-relevant results
+    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+      _.cata(go(initTries, templateIds, _), within(LedgerBegin))
+    }
+  }
+
   def fetchAndPersist(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: OneAnd[Set, domain.Party],
       templateIds: List[domain.TemplateId.RequiredPkg],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
+    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+      _.cata(
+        fetchToAbsEnd(FetchContext(jwt, ledgerId, parties), templateIds, _),
+        fconn.pure(LedgerBegin),
+      )
+    }
+
+  private[this] def fetchToAbsEnd(
+      fetchContext: FetchContext,
+      templateIds: List[domain.TemplateId.RequiredPkg],
+      absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -80,60 +156,49 @@ private class ContractsFetch(
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
     // right now -- Stephen / Leo
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
-      _.cata(
-        absEnd =>
-          // traverse once, use the max _returned_ bookmark,
-          // re-traverse any that != the max returned bookmark (overriding lastOffset)
-          // fetch cannot go "too far" the second time
-          templateIds.traverse(fetchAndPersist(jwt, ledgerId, parties, false, absEnd, _)).flatMap {
-            actualAbsEnds =>
-              val newAbsEndTarget = {
-                import scalaz.std.list._, scalaz.syntax.foldable._,
-                domain.Offset.{ordering => `Offset ordering`}
-                // it's fine if all yielded LedgerBegin, so we don't want to conflate the "fallback"
-                // with genuine results
-                actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
+    //
+    // traverse once, use the max _returned_ bookmark,
+    // re-traverse any that != the max returned bookmark (overriding lastOffset)
+    // fetch cannot go "too far" the second time
+    templateIds
+      .traverse(fetchAndPersist(fetchContext, false, absEnd, _))
+      .flatMap { actualAbsEnds =>
+        val newAbsEndTarget = {
+          import scalaz.std.list._, scalaz.syntax.foldable._, domain.Offset.`Offset ordering`
+          // it's fine if all yielded LedgerBegin, so we don't want to conflate the "fallback"
+          // with genuine results
+          actualAbsEnds.maximum getOrElse AbsoluteBookmark(absEnd.toDomain)
+        }
+        newAbsEndTarget match {
+          case LedgerBegin =>
+            fconn.pure(AbsoluteBookmark(absEnd))
+          case AbsoluteBookmark(feedback) =>
+            val feedbackTerminator =
+              domain.Offset.toTerminates(feedback)
+            // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
+            // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
+            // for an example of this happening.  We deal with this race condition
+            // by detecting that it has happened and rerunning any other template IDs
+            // to "catch them up" to the one that "raced" ahead
+            (actualAbsEnds zip templateIds)
+              .collect { case (`newAbsEndTarget`, templateId) => templateId }
+              .traverse_ {
+                // passing a priorBookmark prevents contractsIo_ from using the ACS,
+                // and it cannot go "too far" reading only the tx stream
+                fetchAndPersist(
+                  fetchContext,
+                  true,
+                  feedbackTerminator,
+                  _,
+                )
               }
-              newAbsEndTarget match {
-                case LedgerBegin =>
-                  fconn.pure(AbsoluteBookmark(absEnd))
-                case AbsoluteBookmark(feedback) =>
-                  val feedbackTerminator =
-                    Terminates
-                      .AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback.unwrap))
-                  // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
-                  // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
-                  // for an example of this happening.  We deal with this race condition
-                  // by detecting that it has happened and rerunning any other template IDs
-                  // to "catch them up" to the one that "raced" ahead
-                  (actualAbsEnds zip templateIds)
-                    .collect { case (`newAbsEndTarget`, templateId) => templateId }
-                    .traverse_ {
-                      // passing a priorBookmark prevents contractsIo_ from using the ACS,
-                      // and it cannot go "too far" reading only the tx stream
-                      fetchAndPersist(
-                        jwt,
-                        ledgerId,
-                        parties,
-                        true,
-                        feedbackTerminator,
-                        _,
-                      )
-                    }
-                    .as(AbsoluteBookmark(feedbackTerminator))
-              }
-          },
-        fconn.pure(LedgerBegin),
-      )
-    }
-
+              .as(AbsoluteBookmark(feedbackTerminator))
+        }
+      }
   }
 
   private[this] def fetchAndPersist(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
@@ -147,7 +212,7 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      (contractsIo_(jwt, ledgerId, parties, disableAcs, absEnd, templateId) <* fconn.commit)
+      (contractsIo_(fetchContext, disableAcs, absEnd, templateId) <* fconn.commit)
         .exceptSql {
           case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
             logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
@@ -162,9 +227,7 @@ private class ContractsFetch(
   }
 
   private def contractsIo_(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
@@ -172,20 +235,22 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[BeginBookmark[domain.Offset]] =
+  ): ConnectionIO[BeginBookmark[domain.Offset]] = {
+    import fetchContext.parties
     for {
       offsets <- ContractDao.lastOffset(parties, templateId)
       offset1 <- contractsFromOffsetIo(
-        jwt,
-        ledgerId,
-        parties,
+        fetchContext,
         templateId,
         offsets,
         disableAcs,
         absEnd,
       )
-      _ = logger.debug(s"contractsFromOffsetIo($jwt, $parties, $templateId, $offsets): $offset1")
+      _ = logger.debug(
+        s"contractsFromOffsetIo($fetchContext, $templateId, $offsets, $disableAcs, $absEnd): $offset1"
+      )
     } yield offset1
+  }
 
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent
@@ -222,9 +287,7 @@ private class ContractsFetch(
       .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
 
   private def contractsFromOffsetIo(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      fetchContext: FetchContext,
       templateId: domain.TemplateId.RequiredPkg,
       offsets: Map[domain.Party, domain.Offset],
       disableAcs: Boolean,
@@ -235,8 +298,8 @@ private class ContractsFetch(
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
-    import domain.Offset._
-    val offset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
+    import domain.Offset._, fetchContext.{jwt, ledgerId, parties}
+    val startOffset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
@@ -254,7 +317,7 @@ private class ContractsFetch(
         )
 
         // include ACS iff starting at LedgerBegin
-        val (idses, lastOff) = (offset, disableAcs) match {
+        val (idses, lastOff) = (startOffset, disableAcs) match {
           case (LedgerBegin, false) =>
             val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
             stepsAndOffset.in <~ getActiveContracts(
@@ -267,7 +330,7 @@ private class ContractsFetch(
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
+            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(startOffset))
             (
               (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
               stepsAndOffset.out1,
@@ -291,12 +354,13 @@ private class ContractsFetch(
     for {
       _ <- sinkCioSequence_(acsQueue)
       offset0 <- connectionIOFuture(lastOffsetFuture)
-      offsetOrError <- offset0 match {
-        case AbsoluteBookmark(str) =>
-          val newOffset = domain.Offset(str)
+      offsetOrError <- (domain.Offset.tag.subst(offset0) max AbsoluteBookmark(
+        absEnd.toDomain
+      )) match {
+        case ab @ AbsoluteBookmark(newOffset) =>
           ContractDao
             .updateOffset(parties, templateId, newOffset, offsets)
-            .map(_ => AbsoluteBookmark(newOffset))
+            .map(_ => ab)
         case LedgerBegin =>
           fconn.pure(LedgerBegin)
       }
@@ -434,7 +498,7 @@ private[http] object ContractsFetch {
         .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
-      import domain.Offset.{ordering => `Offset ordering`}
+      import domain.Offset.`Offset ordering`
       val lastTxOff = b add last(LedgerBegin: Off)
       type EndoBookmarkFlow[A] = Flow[BeginBookmark[A], BeginBookmark[A], NotUsed]
       val maxOff = b add domain.Offset.tag.unsubst[EndoBookmarkFlow, String](
@@ -557,4 +621,10 @@ private[http] object ContractsFetch {
 
     TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
   }
+
+  private final case class FetchContext(
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+      parties: OneAnd[Set, domain.Party],
+  )
 }

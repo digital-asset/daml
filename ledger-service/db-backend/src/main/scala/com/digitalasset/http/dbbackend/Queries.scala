@@ -203,14 +203,34 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   final def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
       log: LogHandler
   ): ConnectionIO[Map[String, String]] = {
-    val partyVector =
-      cats.data.OneAnd(parties.head, parties.tail.toList)
+    import Queries.CompatImplicits.catsReducibleFromFoldable1
     val q = sql"""
       SELECT party, last_offset FROM $ledgerOffsetTableName WHERE tpid = $tpid AND
-    """ ++ Fragments.in(fr"party", partyVector)
+    """ ++ Fragments.in(fr"party", parties)
     q.query[(String, String)]
       .to[Vector]
       .map(_.toMap)
+  }
+
+  /** Template IDs, parties, and offsets that don't match expected offset values for
+    * a particular `tpid`.
+    */
+  private[http] final def unsyncedOffsets(
+      expectedOffset: String,
+      tpids: NonEmpty[Set[SurrogateTpId]],
+  ): ConnectionIO[Map[SurrogateTpId, Map[String, String]]] = {
+    val condition = {
+      import Queries.CompatImplicits.catsReducibleFromFoldable1, scalaz.std.iterable._
+      Fragments.in(fr"tpid", tpids.toSeq.toOneAnd)
+    }
+    val q = sql"""
+      SELECT tpid, party, last_offset FROM $ledgerOffsetTableName
+             WHERE last_offset <> $expectedOffset AND $condition
+    """
+    q.query[(SurrogateTpId, String, String)]
+      .map { case (tpid, party, offset) => (tpid, (party, offset)) }
+      .to[Vector]
+      .map(groupUnsyncedOffsets(tpids, _))
   }
 
   /** Consistency of the whole database mostly pivots around the offset update
@@ -549,6 +569,16 @@ object Queries {
     )
   }
 
+  private[dbbackend] def groupUnsyncedOffsets[TpId, Party, Off](
+      allTpids: Set[TpId],
+      queryResult: Vector[(TpId, (Party, Off))],
+  ): Map[TpId, Map[Party, Off]] = {
+    val grouped = queryResult.groupBy1(_._1).transform((_, tpos) => tpos.view.map(_._2).toMap)
+    // lagging offsets still needs to consider the template IDs that weren't
+    // returned by the offset table query
+    (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
+  }
+
   import doobie.util.invariant.InvalidValue
 
   @throws[InvalidValue[_, _]]
@@ -612,6 +642,12 @@ object Queries {
       override def reduceRightTo[A, B](fa: F[A])(z: A => B)(f: (A, Eval[B]) => Eval[B]) =
         F.foldMapRight1(fa)(a => Eval later z(a))((a, eb) => f(a, Eval defer eb))
     }
+
+    implicit def monadFromCatsMonad[F[_]](implicit F: cats.Monad[F]): scalaz.Monad[F] =
+      new scalaz.Monad[F] {
+        override def bind[A, B](fa: F[A])(f: A => F[B]): F[B] = F.flatMap(fa)(f)
+        override def point[A](a: => A): F[A] = F.point(a)
+      }
   }
 }
 
