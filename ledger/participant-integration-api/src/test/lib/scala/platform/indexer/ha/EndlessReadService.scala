@@ -40,10 +40,11 @@ case class EndlessReadService(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  override def currentHealth(): HealthStatus =
+  override def currentHealth(): HealthStatus = synchronized {
     if (aborted) HealthStatus.unhealthy else HealthStatus.healthy
+  }
 
-  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = synchronized {
     logger.info("EndlessReadService.ledgerInitialConditions() called")
     initialConditionCalls.incrementAndGet()
     Source
@@ -60,7 +61,7 @@ case class EndlessReadService(
     *
     *    The last two items above repeat indefinitely
     */
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = synchronized {
     logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
     stateUpdatesCalls.incrementAndGet()
     val startIndex: Int = beginAfter.map(index).getOrElse(1)

@@ -40,7 +40,7 @@ case class Indexers(indexers: List[ReadServiceAndIndexer]) {
       allRunning.head
     }
   }
-  def resetAll(): Unit = indexers.foreach(x => x.readService.reset())
+  def resetAll(): Unit = indexers.foreach(_.readService.reset())
 }
 
 object IndexerStabilityTestFixture {
