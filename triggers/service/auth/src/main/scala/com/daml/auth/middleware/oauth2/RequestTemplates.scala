@@ -100,9 +100,9 @@ private[oauth2] class RequestTemplates(
   }
 
   private lazy val config: ujson.Value = ujson.Obj(
-        "clientId" -> clientId,
-        "clientSecret" -> clientSecret.value,
-      )
+    "clientId" -> clientId,
+    "clientSecret" -> clientSecret.value,
+  )
 
   private lazy val authJsonnetSource: (String, sjsonnet.Path) =
     jsonnetSource(authTemplate, authResourcePath)
