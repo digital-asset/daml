@@ -1049,14 +1049,14 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
     (uri, encoder, _, _) =>
-      val contractId = lar.ContractId("#NonExistentContractId")
+      val contractId = lar.ContractId("0" * 66)
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
       postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
         .flatMap { case (status, output) =>
           status shouldBe StatusCodes.InternalServerError
           assertStatus(output, StatusCodes.InternalServerError)
           expectedOneErrorMessage(output) should include(
-            "Contract could not be found with id ContractId(#NonExistentContractId)"
+            s"Contract could not be found with id ContractId(${"0" * 66})"
           )
         }: Future[Assertion]
   }
