@@ -30,6 +30,7 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.ErrorCodesVersionSwitcher
+import com.daml.platform.apiserver.error.{CorrelationId, LedgerApiErrors}
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
@@ -140,21 +141,28 @@ private[apiserver] final class ApiTransactionService private (
       .map { case LfEventId(transactionId, _) =>
         lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
-      .getOrElse(
+      .getOrElse {
+        val msg = s"invalid eventId: ${request.eventId}"
         Future.failed(
           errorsVersionsSwitcher.choose(
-            v1 = {
-              Status.NOT_FOUND
-                .withDescription(s"invalid eventId: ${request.eventId}")
-                .asRuntimeException()
-            },
-            v2 = {
-              // TODO DPP-417, DPP-613: Use V2 error codes
-              ???
-            },
+            v1 = Status.NOT_FOUND
+              .withDescription(msg)
+              .asRuntimeException(),
+            v2 = LedgerApiErrors.CommandValidation.InvalidArgument
+              .Reject(msg)(
+                correlationId = CorrelationId.none,
+                loggingContext = implicitly[LoggingContext],
+                logger = logger,
+              )
+              .asGrpcErrorFromContext(
+                correlationId = None,
+                logger = logger,
+              )(
+                loggingContext = implicitly[LoggingContext]
+              ),
           )
         )
-      )
+      }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
   }
 

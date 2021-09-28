@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.io.File
-import java.time.Duration
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
@@ -13,6 +11,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
+
+import java.io.File
+import java.time.Duration
 
 final class ConfigSpec
     extends AnyFlatSpec
@@ -67,8 +68,7 @@ final class ConfigSpec
       )
     )
 
-    actual should not be None
-    actual.get.enableErrorCodesV2 shouldBe true
+    actual.value.enableErrorCodesV2 shouldBe true
   }
 
   it should "disable error codes v2 flag by default" in {
@@ -79,8 +79,7 @@ final class ConfigSpec
       )
     )
 
-    actual should not be None
-    actual.get.enableErrorCodesV2 shouldBe false
+    actual.value.enableErrorCodesV2 shouldBe false
   }
 
   it should "succeed when server's private key is encrypted and secret-url is provided" in {
