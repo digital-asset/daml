@@ -154,12 +154,7 @@ private[apiserver] final class ApiTransactionService private (
                 loggingContext = implicitly[LoggingContext],
                 logger = logger,
               )
-              .asGrpcErrorFromContext(
-                correlationId = None,
-                logger = logger,
-              )(
-                loggingContext = implicitly[LoggingContext]
-              ),
+              .asGrpcError,
           )
         )
       }
