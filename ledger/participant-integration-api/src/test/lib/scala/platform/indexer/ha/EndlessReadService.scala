@@ -123,6 +123,7 @@ case class EndlessReadService(
   }
 
   def reset(): Unit = synchronized {
+    assert(aborted)
     logger.info(s"EndlessReadService.reset() called")
     stateUpdatesCalls.set(0)
     initialConditionCalls.set(0)
