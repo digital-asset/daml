@@ -15,11 +15,11 @@ case class EventId(
     nodeId: NodeId,
 ) {
   lazy val toLedgerString: LedgerString = {
-    val builder = new StringBuilder()
-    builder += '#'
-    builder ++= transactionId
-    builder += ':'
-    builder ++= nodeId.index.toString
+    val builder = (new StringBuilder()
+      += '#'
+      ++= transactionId
+      += ':'
+      ++= nodeId.index.toString)
     LedgerString.assertFromString(builder.result())
   }
 }

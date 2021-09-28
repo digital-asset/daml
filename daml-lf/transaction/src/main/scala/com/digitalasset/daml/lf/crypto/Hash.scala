@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
 import com.daml.lf.value.Value
+import com.daml.scalautil.Statement.discard
 import scalaz.Order
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -133,16 +134,16 @@ object Hash {
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
     final def add(a: Int): this.type = {
-      intBuffer.rewind()
-      intBuffer.putInt(a).position(0)
+      discard(intBuffer.rewind())
+      discard(intBuffer.putInt(a).position(0))
       add(intBuffer)
     }
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
     final def add(a: Long): this.type = {
-      longBuffer.rewind()
-      longBuffer.putLong(a).position(0)
+      discard(longBuffer.rewind())
+      discard(longBuffer.putLong(a).position(0))
       add(longBuffer)
     }
 
@@ -172,8 +173,7 @@ object Hash {
     @throws[HashingError]
     final def addCid(cid: Value.ContractId): this.type = {
       val bytes = cid2Bytes(cid)
-      add(bytes.length)
-      add(bytes)
+      add(bytes.length).add(bytes)
     }
 
     // In order to avoid hash collision, this should be used together

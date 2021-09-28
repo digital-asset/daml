@@ -10,6 +10,10 @@ load(
     "silencer_plugin",
 )
 
+lf_scalacopts_stricter = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
 #
 # Transaction and value protocol buffers
 #
@@ -53,7 +57,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -62,6 +66,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
