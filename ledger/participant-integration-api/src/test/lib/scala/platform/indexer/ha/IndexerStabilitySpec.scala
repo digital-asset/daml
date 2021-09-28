@@ -16,6 +16,7 @@ import org.scalatest.time.{Millis, Seconds, Span}
 
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 trait IndexerStabilitySpec
     extends AsyncFlatSpec
@@ -96,21 +97,22 @@ trait IndexerStabilitySpec
         Thread.sleep(1000L)
 
         // Verify the integrity of the index database
-        if (haModeSupported) {
-          storageBackend.verifyIntegrity()(connection)
-          info(s"Integrity of the index database was checked")
-        } else {
-          val error = intercept[RuntimeException] {
-            storageBackend.verifyIntegrity()(connection)
-          }
-          assert(error.getMessage.contains("duplicate event sequential ids"))
-          info(s"Index database is corrupt, as expected")
-        }
+        storageBackend.verifyIntegrity()(connection)
+        info(s"Integrity of the index database was checked")
 
         connection.close()
         Future.successful(())
       }
       .map(_ => succeed)
+  }.transform { result =>
+    if (haModeSupported) {
+      result
+    } else {
+      // If HA mode is not supported, the test must fail, but there are multiple reasons why it can fail.
+      // E.g., duplicate parameter table initialization, or duplicate event sequential ids.
+      assert(result.isFailure, "The test must fail if HA mode is not supported")
+      Success(succeed)
+    }
   }
 
   // Finds the first non-aborted indexer that has subscribed to the ReadService stream
