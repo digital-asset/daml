@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.StatusRuntimeException
 
 trait TransactionError extends BaseError {
   def createRejection(
@@ -105,6 +106,11 @@ abstract class LoggingTransactionErrorImpl(
     logger: ContextualizedLogger,
     correlationId: CorrelationId,
 ) extends TransactionErrorImpl(cause, throwableO, definiteAnswer)(code) {
+
+  def asGrpcError: StatusRuntimeException = asGrpcErrorFromContext(
+    correlationId = correlationId.id,
+    logger = logger,
+  )(loggingContext)
 
   def log(): Unit = logWithContext(logger, correlationId.id)(loggingContext)
 

@@ -29,6 +29,8 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.ErrorCodesVersionSwitcher
+import com.daml.platform.apiserver.error.{CorrelationId, LedgerApiErrors}
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
@@ -44,6 +46,7 @@ private[apiserver] object ApiTransactionService {
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
       metrics: Metrics,
+      errorsVersionsSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -51,7 +54,7 @@ private[apiserver] object ApiTransactionService {
       loggingContext: LoggingContext,
   ): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService, metrics),
+      new ApiTransactionService(transactionsService, metrics, errorsVersionsSwitcher),
       ledgerId,
       PartyNameChecker.AllowAllParties,
     )
@@ -68,6 +71,7 @@ private[apiserver] object ApiTransactionService {
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
     metrics: Metrics,
+    errorsVersionsSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
@@ -137,13 +141,23 @@ private[apiserver] final class ApiTransactionService private (
       .map { case LfEventId(transactionId, _) =>
         lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
-      .getOrElse(
+      .getOrElse {
+        val msg = s"invalid eventId: ${request.eventId}"
         Future.failed(
-          Status.NOT_FOUND
-            .withDescription(s"invalid eventId: ${request.eventId}")
-            .asRuntimeException()
+          errorsVersionsSwitcher.choose(
+            v1 = Status.NOT_FOUND
+              .withDescription(msg)
+              .asRuntimeException(),
+            v2 = LedgerApiErrors.CommandValidation.InvalidArgument
+              .Reject(msg)(
+                correlationId = CorrelationId.none,
+                loggingContext = implicitly[LoggingContext],
+                logger = logger,
+              )
+              .asGrpcError,
+          )
         )
-      )
+      }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
   }
 

@@ -54,6 +54,7 @@ final case class Config[Extra](
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableHa: Boolean, // TODO ha: remove after stable
     extra: Extra,
+    enableErrorCodesV2: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -90,6 +91,7 @@ object Config {
       enableHa = false,
       maxDeduplicationDuration = None,
       extra = extra,
+      enableErrorCodesV2 = false,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -657,6 +659,12 @@ object Config {
             s"Use the experimental High Availability feature with the indexer. Should not be used in production."
           )
           .action((_, config) => config.copy(enableHa = true))
+
+        opt[Unit]("use-error-codes-v2")
+          .optional()
+          .hidden()
+          .text("Enable new self-service errors.")
+          .action((_, config) => config.copy(enableErrorCodesV2 = true))
       }
     extraOptions(parser)
     parser

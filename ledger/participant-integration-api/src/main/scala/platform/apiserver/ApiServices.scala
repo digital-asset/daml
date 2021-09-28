@@ -3,8 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.time.Duration
-
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -54,6 +52,7 @@ import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
 
+import java.time.Duration
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -94,6 +93,7 @@ private[daml] object ApiServices {
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: Duration,
+      enableErrorCodesV2: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -117,6 +117,9 @@ private[daml] object ApiServices {
       materializer = materializer,
       servicesExecutionContext = servicesExecutionContext,
     )
+
+    private val errorsVersionsSwitcher =
+      new ErrorCodesVersionSwitcher(enableErrorCodesV2 = enableErrorCodesV2)
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
@@ -144,7 +147,7 @@ private[daml] object ApiServices {
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
-        ApiTransactionService.create(ledgerId, transactionsService, metrics)
+        ApiTransactionService.create(ledgerId, transactionsService, metrics, errorsVersionsSwitcher)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(() => identityService.getLedgerId())
