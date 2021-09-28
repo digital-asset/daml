@@ -5,6 +5,7 @@ package com.daml.ledger.validator
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -23,7 +24,7 @@ trait LedgerStateAccess[+LogResult] {
     */
   def inTransaction[T](
       body: LedgerStateOperations[LogResult] => Future[T]
-  )(implicit executionContext: ExecutionContext): Future[T]
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[T]
 }
 
 /** Defines how the validator/committer can read from the backing store of the ledger.
@@ -37,7 +38,10 @@ trait LedgerStateReadOperations {
     */
   def readState(
       key: Raw.StateKey
-  )(implicit executionContext: ExecutionContext): Future[Option[Raw.Envelope]]
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Option[Raw.Envelope]]
 
   /** Reads values of a set of keys from the backing store.
     *
@@ -46,7 +50,10 @@ trait LedgerStateReadOperations {
     */
   def readState(
       keys: Iterable[Raw.StateKey]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]]
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Seq[Option[Raw.Envelope]]]
 }
 
 /** Defines how the validator/committer can write to the backing store of the ledger.
@@ -60,13 +67,13 @@ trait LedgerStateWriteOperations[+LogResult] {
   def writeState(
       key: Raw.StateKey,
       value: Raw.Envelope,
-  )(implicit executionContext: ExecutionContext): Future[Unit]
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit]
 
   /** Writes a list of key-value pairs to the backing store.  In case a key already exists its value is overwritten.
     */
   def writeState(
       keyValuePairs: Iterable[Raw.StateEntry]
-  )(implicit executionContext: ExecutionContext): Future[Unit]
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit]
 
   /** Writes a single log entry to the backing store.  The implementation may return Future.failed in case the key
     * (i.e., the log entry ID) already exists.
@@ -76,7 +83,7 @@ trait LedgerStateWriteOperations[+LogResult] {
   def appendToLog(
       key: Raw.LogEntryId,
       value: Raw.Envelope,
-  )(implicit executionContext: ExecutionContext): Future[LogResult]
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[LogResult]
 }
 
 /** Defines how the validator/committer can access the backing store of the ledger.
@@ -92,13 +99,16 @@ trait LedgerStateOperations[+LogResult]
 abstract class BatchingLedgerStateOperations[LogResult] extends LedgerStateOperations[LogResult] {
   override final def readState(
       key: Raw.StateKey
-  )(implicit executionContext: ExecutionContext): Future[Option[Raw.Envelope]] =
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Option[Raw.Envelope]] =
     readState(Seq(key)).map(_.head)(DirectExecutionContext)
 
   override final def writeState(
       key: Raw.StateKey,
       value: Raw.Envelope,
-  )(implicit executionContext: ExecutionContext): Future[Unit] =
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] =
     writeState(Seq(key -> value))
 }
 
@@ -109,12 +119,15 @@ abstract class NonBatchingLedgerStateOperations[LogResult]
     extends LedgerStateOperations[LogResult] {
   override final def readState(
       keys: Iterable[Raw.StateKey]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]] =
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Seq[Option[Raw.Envelope]]] =
     Future.sequence(keys.map(readState)).map(_.toSeq)
 
   override final def writeState(
       keyValuePairs: Iterable[Raw.StateEntry]
-  )(implicit executionContext: ExecutionContext): Future[Unit] =
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] =
     Future
       .sequence(keyValuePairs.map { case (key, value) =>
         writeState(key, value)
@@ -129,28 +142,37 @@ final class TimedLedgerStateOperations[LogResult](
 
   override def readState(
       key: Raw.StateKey
-  )(implicit executionContext: ExecutionContext): Future[Option[Raw.Envelope]] =
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Option[Raw.Envelope]] =
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(key))
 
   override def readState(
       keys: Iterable[Raw.StateKey]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]] =
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Seq[Option[Raw.Envelope]]] =
     Timed.future(metrics.daml.ledger.state.read, delegate.readState(keys))
 
   override def writeState(
       key: Raw.StateKey,
       value: Raw.Envelope,
-  )(implicit executionContext: ExecutionContext): Future[Unit] =
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(key, value))
 
   override def writeState(
       keyValuePairs: Iterable[Raw.StateEntry]
-  )(implicit executionContext: ExecutionContext): Future[Unit] =
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(keyValuePairs))
 
   override def appendToLog(
       key: Raw.LogEntryId,
       value: Raw.Envelope,
-  )(implicit executionContext: ExecutionContext): Future[LogResult] =
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[LogResult] =
     Timed.future(metrics.daml.ledger.log.append, delegate.appendToLog(key, value))
 }

@@ -186,8 +186,11 @@ object SqlLedgerReaderWriter {
 
   private final class SqlLedgerStateAccess(database: Database, metrics: Metrics)
       extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => sc.Future[T])(implicit
-        executionContext: sc.ExecutionContext
+    override def inTransaction[T](
+        body: LedgerStateOperations[Index] => sc.Future[T]
+    )(implicit
+        executionContext: sc.ExecutionContext,
+        loggingContext: LoggingContext,
     ): sc.Future[T] =
       database
         .inWriteTransaction("commit") { queries =>
@@ -200,18 +203,27 @@ object SqlLedgerReaderWriter {
       extends BatchingLedgerStateOperations[Index] {
     override def readState(
         keys: Iterable[Raw.StateKey]
-    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Raw.Envelope]]] =
+    )(implicit
+        executionContext: sc.ExecutionContext,
+        loggingContext: LoggingContext,
+    ): sc.Future[Seq[Option[Raw.Envelope]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys)).removeExecutionContext
 
     override def writeState(
         keyValuePairs: Iterable[Raw.StateEntry]
-    )(implicit executionContext: sc.ExecutionContext): sc.Future[Unit] =
+    )(implicit
+        executionContext: sc.ExecutionContext,
+        loggingContext: LoggingContext,
+    ): sc.Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs)).removeExecutionContext
 
     override def appendToLog(
         key: Raw.LogEntryId,
         value: Raw.Envelope,
-    )(implicit executionContext: sc.ExecutionContext): sc.Future[Index] =
+    )(implicit
+        executionContext: sc.ExecutionContext,
+        loggingContext: LoggingContext,
+    ): sc.Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value)).removeExecutionContext
   }
 

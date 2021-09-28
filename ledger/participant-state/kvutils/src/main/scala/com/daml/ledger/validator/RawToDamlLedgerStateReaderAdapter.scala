@@ -6,6 +6,7 @@ package com.daml.ledger.validator
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -18,7 +19,10 @@ final class RawToDamlLedgerStateReaderAdapter(
 
   override def read(
       keys: Iterable[DamlStateKey]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[DamlStateValue]]] =
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Seq[Option[DamlStateValue]]] =
     ledgerStateReader
       .read(keys.map(keySerializationStrategy.serializeStateKey))
       .map(_.map(_.map(deserializeDamlStateValue)))

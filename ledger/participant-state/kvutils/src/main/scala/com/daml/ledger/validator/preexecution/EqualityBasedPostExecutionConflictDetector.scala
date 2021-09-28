@@ -4,6 +4,7 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.validator.reading.StateReader
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -12,7 +13,7 @@ final class EqualityBasedPostExecutionConflictDetector[StateKey, StateValue]
   override def detectConflicts(
       preExecutionOutput: PreExecutionOutput[Map[StateKey, StateValue], Any],
       reader: StateReader[StateKey, StateValue],
-  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] = {
     val (keys, preExecutionValues) = preExecutionOutput.readSet.unzip
     reader.read(keys).map { currentValues =>
       if (preExecutionValues != currentValues) {

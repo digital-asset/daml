@@ -5,9 +5,10 @@ package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
+import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, anyLoggingContext}
 import com.daml.ledger.validator.LogAppendingCommitStrategySpec._
 import com.daml.ledger.validator.TestHelper._
+import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -20,6 +21,8 @@ final class LogAppendingCommitStrategySpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "commit" should {
     "return index from appendToLog" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
@@ -28,7 +31,7 @@ final class LogAppendingCommitStrategySpec
         mockLedgerStateOperations.appendToLog(
           any[Raw.LogEntryId],
           any[Raw.Envelope],
-        )(anyExecutionContext)
+        )(anyExecutionContext, anyLoggingContext)
       ).thenReturn(Future.successful(expectedIndex))
       val instance =
         new LogAppendingCommitStrategy[Long](
@@ -40,9 +43,12 @@ final class LogAppendingCommitStrategySpec
         .commit(aParticipantId, "a correlation ID", aLogEntryId(), aLogEntry, Map.empty, Map.empty)
         .map { actualIndex =>
           verify(mockLedgerStateOperations, times(1))
-            .appendToLog(any[Raw.LogEntryId], any[Raw.Envelope])(anyExecutionContext)
+            .appendToLog(any[Raw.LogEntryId], any[Raw.Envelope])(
+              anyExecutionContext,
+              anyLoggingContext,
+            )
           verify(mockLedgerStateOperations, times(0))
-            .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
+            .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext, anyLoggingContext)
           actualIndex should be(expectedIndex)
         }
     }
@@ -50,14 +56,14 @@ final class LogAppendingCommitStrategySpec
     "write keys serialized according to strategy" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
       when(
-        mockLedgerStateOperations.writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
-      )
-        .thenReturn(Future.unit)
+        mockLedgerStateOperations
+          .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext, anyLoggingContext)
+      ).thenReturn(Future.unit)
       when(
         mockLedgerStateOperations.appendToLog(
           any[Raw.LogEntryId],
           any[Raw.Envelope],
-        )(anyExecutionContext)
+        )(anyExecutionContext, anyLoggingContext)
       ).thenReturn(Future.successful(0L))
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
       val expectedStateKey = Raw.StateKey(ByteString.copyFromUtf8("some key"))
@@ -82,7 +88,7 @@ final class LogAppendingCommitStrategySpec
         .map { _: Long =>
           verify(mockStateKeySerializationStrategy, times(1)).serializeStateKey(aStateKey)
           verify(mockLedgerStateOperations, times(1))
-            .writeState(eqTo(expectedOutputStateBytes))(anyExecutionContext)
+            .writeState(eqTo(expectedOutputStateBytes))(anyExecutionContext, anyLoggingContext)
           succeed
         }
     }

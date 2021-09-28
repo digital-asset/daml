@@ -41,18 +41,18 @@ class PreExecutingValidatingCommitterSpec
         fixture.conflictDetector.detectConflicts(
           any[PreExecutionOutput[TestReadSet, TestWriteSet]],
           any[StateReader[DamlStateKey, TestValue]],
-        )(any[ExecutionContext])
+        )(any[ExecutionContext], any[LoggingContext])
       )
         .thenReturn(Future.unit)
       val submissionAggregator = mock[SubmissionAggregator]
       when(fixture.ledgerDataExporter.addSubmission(any[SubmissionInfo]))
         .thenReturn(submissionAggregator)
       when(
-        fixture.postExecutionWriter.write(any[TestWriteSet], any[LedgerStateWriteOperations[Long]])(
-          any[ExecutionContext]
-        )
-      )
-        .thenReturn(Future.successful(SubmissionResult.Acknowledged))
+        fixture.postExecutionWriter.write(
+          any[TestWriteSet],
+          any[LedgerStateWriteOperations[Long]],
+        )(any[ExecutionContext], any[LoggingContext])
+      ).thenReturn(Future.successful(SubmissionResult.Acknowledged))
       fixture.committer
         .commit(
           aParticipantId,
@@ -63,7 +63,10 @@ class PreExecutingValidatingCommitterSpec
         )
         .map { result =>
           verify(fixture.postExecutionWriter)
-            .write(any[TestWriteSet], any[LedgerStateWriteOperations[Long]])(any[ExecutionContext])
+            .write(any[TestWriteSet], any[LedgerStateWriteOperations[Long]])(
+              any[ExecutionContext],
+              any[LoggingContext],
+            )
           verify(submissionAggregator).finish()
           result shouldBe SubmissionResult.Acknowledged
         }
@@ -76,9 +79,8 @@ class PreExecutingValidatingCommitterSpec
         fixture.conflictDetector.detectConflicts(
           any[PreExecutionOutput[TestReadSet, TestWriteSet]],
           any[StateReader[DamlStateKey, TestValue]],
-        )(any[ExecutionContext])
-      )
-        .thenReturn(Future.failed(new ConflictDetectedException()))
+        )(any[ExecutionContext], any[LoggingContext])
+      ).thenReturn(Future.failed(new ConflictDetectedException()))
       val submissionAggregator = mock[SubmissionAggregator]
       when(fixture.ledgerDataExporter.addSubmission(any[SubmissionInfo]))
         .thenReturn(submissionAggregator)
@@ -91,8 +93,10 @@ class PreExecutingValidatingCommitterSpec
           new FakeStateAccess(mock[LedgerStateOperations[Unit]]),
         )
         .map { result =>
-          verify(fixture.postExecutionWriter, never)
-            .write(any[TestWriteSet], any[LedgerStateWriteOperations[Long]])(any[ExecutionContext])
+          verify(fixture.postExecutionWriter, never).write(
+            any[TestWriteSet],
+            any[LedgerStateWriteOperations[Long]],
+          )(any[ExecutionContext], any[LoggingContext])
           verify(submissionAggregator, never).finish()
           result shouldBe SubmissionResult.Acknowledged
         }
