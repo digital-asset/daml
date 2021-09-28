@@ -230,7 +230,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     q.query[(SurrogateTpId, String, String)]
       .map { case (tpid, party, offset) => (tpid, (party, offset)) }
       .to[Vector]
-      .map(groupUnsyncedOffsets)
+      .map(groupUnsyncedOffsets(tpids, _))
   }
 
   /** Consistency of the whole database mostly pivots around the offset update
@@ -570,9 +570,14 @@ object Queries {
   }
 
   private[dbbackend] def groupUnsyncedOffsets[TpId, Party, Off](
-      queryResult: Vector[(TpId, (Party, Off))]
-  ) =
-    queryResult.groupBy1(_._1).transform((_, tpos) => tpos.view.map(_._2).toMap)
+      allTpids: Set[TpId],
+      queryResult: Vector[(TpId, (Party, Off))],
+  ): Map[TpId, Map[Party, Off]] = {
+    val grouped = queryResult.groupBy1(_._1).transform((_, tpos) => tpos.view.map(_._2).toMap)
+    // lagging offsets still needs to consider the template IDs that weren't
+    // returned by the offset table query
+    (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
+  }
 
   import doobie.util.invariant.InvalidValue
 

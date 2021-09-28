@@ -48,8 +48,14 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
   "groupUnsyncedOffsets" should {
     import Queries.groupUnsyncedOffsets
     "not drop duplicate template IDs" in {
-      groupUnsyncedOffsets(Vector((0, (1, 2)), (0, (3, 4)))) should ===(
+      groupUnsyncedOffsets(Set.empty, Vector((0, (1, 2)), (0, (3, 4)))) should ===(
         Map(0 -> Map(1 -> 2, 3 -> 4))
+      )
+    }
+
+    "add empty maps for template IDs missing from the input" in {
+      groupUnsyncedOffsets(Set(0, 1, 2), Vector((0, (1, 2)), (0, (3, 4)))) should ===(
+        Map(0 -> Map(1 -> 2, 3 -> 4), 1 -> Map.empty, 2 -> Map.empty)
       )
     }
   }

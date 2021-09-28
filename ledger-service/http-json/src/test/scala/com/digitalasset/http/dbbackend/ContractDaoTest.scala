@@ -70,6 +70,10 @@ class ContractDaoTest
     "check lag across template IDs" in {
       mvo(3, Map(0 -> Map((2: Byte) -> 3), 1 -> everyParty(5))) should ===(Some((5, Set(0))))
     }
+
+    "update an expected-offset template ID when another template ID is ahead" in {
+      mvo(3, Map(0 -> Map.empty[Byte, Int], 1 -> everyParty(5))) should ===(Some((5, Set(0))))
+    }
   }
 
   "Lagginess" should {
