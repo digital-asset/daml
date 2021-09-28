@@ -9,6 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
+import com.daml.scalautil.Statement.discard
 import com.google.protobuf
 import com.google.protobuf.{ByteString, CodedInputStream}
 
@@ -93,10 +94,12 @@ object ValueCoder {
     * @return wire format identifier
     */
   def encodeIdentifier(id: Identifier): proto.Identifier = {
-    val builder = proto.Identifier.newBuilder().setPackageId(id.packageId)
-    builder.addAllModuleName((id.qualifiedName.module.segments.toSeq: Seq[String]).asJava)
-    builder.addAllName((id.qualifiedName.name.segments.toSeq: Seq[String]).asJava)
-    builder.build()
+    proto.Identifier
+      .newBuilder()
+      .setPackageId(id.packageId)
+      .addAllModuleName((id.qualifiedName.module.segments.toSeq: Seq[String]).asJava)
+      .addAllName((id.qualifiedName.name.segments.toSeq: Seq[String]).asJava)
+      .build()
   }
 
   /** Decode identifier from wire format
@@ -173,7 +176,7 @@ object ValueCoder {
   private[this] def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
     Try {
       val cis = CodedInputStream.newInstance(bytes.asReadOnlyByteBuffer())
-      cis.setRecursionLimit(MAXIMUM_PROTO_RECURSION_LIMIT)
+      discard(cis.setRecursionLimit(MAXIMUM_PROTO_RECURSION_LIMIT))
       proto.Value.parseFrom(cis)
     } match {
       case Failure(exception: Error) =>
@@ -438,8 +441,7 @@ object ValueCoder {
           case ValueList(elems) =>
             val listBuilder = proto.List.newBuilder()
             elems.foreach(elem => {
-              listBuilder.addElements(go(newNesting, elem))
-              ()
+              discard(listBuilder.addElements(go(newNesting, elem)))
             })
             builder.setList(listBuilder).build()
 
@@ -447,19 +449,20 @@ object ValueCoder {
             val recordBuilder = proto.Record.newBuilder()
             fields.foreach { case (fieldName, field) =>
               val b = proto.RecordField.newBuilder()
-              if (valueVersion < TransactionVersion.minTypeErasure) fieldName.map(b.setLabel)
-              b.setValue(go(newNesting, field))
-              recordBuilder.addFields(b)
-              ()
+              if (valueVersion < TransactionVersion.minTypeErasure)
+                discard(fieldName.map(b.setLabel))
+              discard(b.setValue(go(newNesting, field)))
+              discard(recordBuilder.addFields(b))
             }
             if (valueVersion < TransactionVersion.minTypeErasure)
               id.foreach(i => recordBuilder.setRecordId(encodeIdentifier(i)))
             builder.setRecord(recordBuilder).build()
 
           case ValueVariant(id, con, arg) =>
-            val protoVar = proto.Variant.newBuilder()
-            protoVar.setConstructor(con)
-            protoVar.setValue(go(newNesting, arg))
+            val protoVar = proto.Variant
+              .newBuilder()
+              .setConstructor(con)
+              .setValue(go(newNesting, arg))
             if (valueVersion < TransactionVersion.minTypeErasure)
               id.foreach(i => protoVar.setVariantId(encodeIdentifier(i)))
             builder.setVariant(protoVar).build()
@@ -480,13 +483,14 @@ object ValueCoder {
           case ValueTextMap(map) =>
             val protoMap = proto.Map.newBuilder()
             map.toImmArray.foreach { case (key, value) =>
-              protoMap.addEntries(
-                proto.Map.Entry
-                  .newBuilder()
-                  .setKey(key)
-                  .setValue(go(newNesting, value))
+              discard(
+                protoMap.addEntries(
+                  proto.Map.Entry
+                    .newBuilder()
+                    .setKey(key)
+                    .setValue(go(newNesting, value))
+                )
               )
-              ()
             }
             builder.setMap(protoMap).build()
 
@@ -494,13 +498,14 @@ object ValueCoder {
             assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
             val protoMap = proto.GenMap.newBuilder()
             entries.foreach { case (key, value) =>
-              protoMap.addEntries(
-                proto.GenMap.Entry
-                  .newBuilder()
-                  .setKey(go(newNesting, key))
-                  .setValue(go(newNesting, value))
+              discard(
+                protoMap.addEntries(
+                  proto.GenMap.Entry
+                    .newBuilder()
+                    .setKey(go(newNesting, key))
+                    .setValue(go(newNesting, value))
+                )
               )
-              ()
             }
             builder.setGenMap(protoMap).build()
 

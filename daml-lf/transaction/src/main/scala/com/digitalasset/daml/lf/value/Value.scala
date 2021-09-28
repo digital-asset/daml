@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.TransactionVersion
+import com.daml.scalautil.Statement.discard
 import data.ScalazEqual._
 
 import scalaz.{@@, Equal, Order, Tag}
@@ -76,7 +77,7 @@ sealed abstract class Value extends CidContainer[Value] with Product with Serial
 
   def cids[Cid2 >: ContractId] = {
     val cids = Set.newBuilder[Cid2]
-    foreach1(cids += _)(this)
+    foreach1(x => discard(cids += x))(this)
     cids.result()
   }
 
