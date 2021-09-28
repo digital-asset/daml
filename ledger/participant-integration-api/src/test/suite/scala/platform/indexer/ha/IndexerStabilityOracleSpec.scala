@@ -8,4 +8,5 @@ import com.daml.testing.oracle.OracleAroundAll
 final class IndexerStabilityOracleSpec extends IndexerStabilitySpec with OracleAroundAll {
 
   override def jdbcUrl: String = oracleJdbcUrl
+  override def haModeSupported: Boolean = true
 }

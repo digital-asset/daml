@@ -7,7 +7,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
@@ -25,21 +25,9 @@ case class ReadServiceAndIndexer(
 )
 
 case class Indexers(indexers: List[ReadServiceAndIndexer]) {
-  private val rng = new scala.util.Random(123456789)
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  def randomIndexer: ReadServiceAndIndexer = indexers(rng.nextInt(indexers.length))
-  def runningIndexer(implicit loggingContext: LoggingContext): ReadServiceAndIndexer = {
-    val allRunning =
-      indexers.filter(x => x.readService.stateUpdatesCalls.get() > 0 && !x.readService.aborted)
-    if (allRunning.length != 1) {
-      val message = s"Expected 1 running indexer, found ${allRunning.length}"
-      logger.info(message)
-      throw new RuntimeException(message)
-    } else {
-      allRunning.head
-    }
-  }
+  // The list of all indexers that are running (determined by whether they have subscribed to the read service)
+  def runningIndexers: List[ReadServiceAndIndexer] =
+    indexers.filter(x => x.readService.stateUpdatesCalls.get() > 0 && !x.readService.aborted)
   def resetAll(): Unit = indexers.foreach(_.readService.reset())
 }
 
