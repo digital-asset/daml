@@ -19,6 +19,7 @@ import com.daml.ledger.validator.batch.{
   ConflictDetection,
 }
 import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,7 +47,7 @@ final class LogAppendingCommitStrategySupport(
 
   override def commit(
       submissionInfo: SubmissionInfo
-  )(implicit materializer: Materializer): Future[WriteSet] = {
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): Future[WriteSet] = {
     val access = new WriteRecordingLedgerStateAccess(new InMemoryLedgerStateAccess(state, metrics))
     access.inTransaction { operations =>
       val (ledgerStateReader, commitStrategy) =

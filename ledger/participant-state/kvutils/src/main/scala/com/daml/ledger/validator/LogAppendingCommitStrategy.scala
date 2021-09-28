@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -30,7 +31,7 @@ class LogAppendingCommitStrategy[Index](
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       writeSetBuilder: Option[SubmissionAggregator.WriteSetBuilder] = None,
-  ): Future[Index] = {
+  )(implicit loggingContext: LoggingContext): Future[Index] = {
     val rawLogEntryId = Raw.LogEntryId(entryId)
     for {
       (serializedKeyValuePairs, envelopedLogEntry) <- inParallel(

@@ -319,7 +319,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   private def fetchSubmissionInputs(
       correlatedSubmission: CorrelatedSubmission,
       ledgerStateReader: DamlLedgerStateReader,
-  )(implicit executionContext: ExecutionContext): Future[FetchedInput] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[FetchedInput] = {
     val inputKeys = correlatedSubmission.submission.getInputDamlStateList.asScala
     withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
@@ -407,23 +410,22 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       logEntryAndState: LogEntryAndState,
       commitStrategy: CommitStrategy[CommitResult],
       exporterWriteSet: SubmissionAggregator.WriteSetBuilder,
-  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] = {
     val (logEntry, outputState) = logEntryAndState
     withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed
         .timedAndTrackedFuture(
           metrics.commit,
           metrics.commitRunning,
-          commitStrategy
-            .commit(
-              participantId,
-              correlatedSubmission.correlationId,
-              correlatedSubmission.logEntryId,
-              logEntry,
-              inputState,
-              outputState,
-              Some(exporterWriteSet),
-            ),
+          commitStrategy.commit(
+            participantId,
+            correlatedSubmission.correlationId,
+            correlatedSubmission.logEntryId,
+            logEntry,
+            inputState,
+            outputState,
+            Some(exporterWriteSet),
+          ),
         )
         .map(_ => ())
     }

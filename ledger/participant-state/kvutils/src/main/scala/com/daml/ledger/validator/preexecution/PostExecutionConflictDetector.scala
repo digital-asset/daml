@@ -4,6 +4,7 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.validator.reading.StateReader
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,7 +27,7 @@ trait PostExecutionConflictDetector[StateKey, StateValue, -ReadSet, -WriteSet] {
   def detectConflicts(
       preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet],
       reader: StateReader[StateKey, StateValue],
-  )(implicit executionContext: ExecutionContext): Future[Unit]
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit]
 
   /** Transforms the reader to widen the state value, allowing it to handle any value that can be
     * converted to `StateValue`.
@@ -44,7 +45,7 @@ trait PostExecutionConflictDetector[StateKey, StateValue, -ReadSet, -WriteSet] {
       override def detectConflicts(
           preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet],
           reader: StateReader[StateKey, NewStateValue],
-      )(implicit executionContext: ExecutionContext): Future[Unit] =
+      )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] =
         self.detectConflicts(preExecutionOutput, reader.mapValues(transformValue))
     }
 }

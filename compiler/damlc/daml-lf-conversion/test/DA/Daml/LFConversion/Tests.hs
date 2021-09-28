@@ -10,6 +10,7 @@ import Test.Tasty.HUnit
 import Data.Either.Combinators (whenLeft, whenRight)
 import Data.Maybe (isNothing)
 import Data.Ratio
+import qualified Data.Set as S
 import qualified Data.Text as T
 
 import DA.Daml.LFConversion
@@ -58,7 +59,32 @@ metadataEncodingTests = testGroup "MetadataEncoding"
         , ("overlaps", GHC.Overlaps GHC.NoSourceText)
         , ("incoherent", GHC.Incoherent GHC.NoSourceText)
         ]
+    , roundtripTests "module imports" encodeModuleImports decodeModuleImports
+        [ ("()", S.empty)
+        , ("(Foo.Bar)"
+          , S.fromList
+            [ mkImport Nothing ["Foo", "Bar"]])
+        , ("(\"foo\" Foo.Bar)"
+          , S.fromList
+            [ mkImport (Just "foo") ["Foo", "Bar"]])
+        , ("(Foo.Bar, Baz.Qux.Florp)"
+          , S.fromList
+            [ mkImport Nothing ["Foo", "Bar"]
+            , mkImport Nothing ["Baz", "Qux", "Florp"]])
+        , ("(\"foo\" Foo.Bar, \"baz\" Baz.Qux.Florp)"
+          , S.fromList
+            [ mkImport (Just "foo") ["Foo", "Bar"]
+            , mkImport (Just "baz") ["Baz", "Qux", "Florp"]])
+        ]
     ]
+
+mkImport :: Maybe T.Text -> [T.Text] -> LF.Qualified ()
+mkImport mPackage moduleComponents =
+  LF.Qualified
+    { qualPackage = maybe LF.PRSelf (LF.PRImport . LF.PackageId) mPackage
+    , qualModule = LF.ModuleName moduleComponents
+    , qualObject = ()
+    }
 
 roundtripTests :: (Eq a) => String -> (a -> b) -> (b -> Maybe a) -> [(String, a)] -> TestTree
 roundtripTests groupName encode decode examples =

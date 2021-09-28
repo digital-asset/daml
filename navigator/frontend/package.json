@@ -98,6 +98,7 @@
     "**/ws": "^7.4.6",
     "**/css-what": "^5.0.1",
     "**/glob-parent": "^6.0.0",
-    "**/set-value": "^4.0.1"
+    "**/set-value": "^4.0.1",
+    "html-webpack-plugin/**/strip-ansi": "^6.0.0"
   }
 }

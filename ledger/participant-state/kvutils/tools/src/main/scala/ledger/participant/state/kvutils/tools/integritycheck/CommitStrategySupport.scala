@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.validator.StateKeySerializationStrategy
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
@@ -14,7 +15,7 @@ trait CommitStrategySupport[LogResult] {
 
   def commit(
       submissionInfo: SubmissionInfo
-  )(implicit materializer: Materializer): Future[WriteSet]
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): Future[WriteSet]
 
   def newReadServiceFactory(): ReplayingReadServiceFactory
 

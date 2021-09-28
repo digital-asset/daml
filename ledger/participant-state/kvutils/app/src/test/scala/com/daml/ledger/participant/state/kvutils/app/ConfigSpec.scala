@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.io.File
-import java.time.Duration
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
@@ -13,6 +11,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
+
+import java.io.File
+import java.time.Duration
 
 final class ConfigSpec
     extends AnyFlatSpec
@@ -57,6 +58,29 @@ final class ConfigSpec
     )
 
   behavior of "Runner"
+
+  it should "parse error codes v2 flag" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--use-error-codes-v2",
+      )
+    )
+
+    actual.value.enableErrorCodesV2 shouldBe true
+  }
+
+  it should "disable error codes v2 flag by default" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+      )
+    )
+
+    actual.value.enableErrorCodesV2 shouldBe false
+  }
 
   it should "succeed when server's private key is encrypted and secret-url is provided" in {
     val actual = configParser(
