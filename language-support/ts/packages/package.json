@@ -31,6 +31,7 @@
     "marked": "^2.0.0",
     "**/y18n": "^4.0.1",
     "**/@types/react-test-renderer": "^16.9.3",
-    "**/hosted-git-info": "^4.0.2"
+    "**/hosted-git-info": "^4.0.2",
+    "**/string-width": "^4.2.3"
   }
 }
