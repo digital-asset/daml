@@ -50,7 +50,7 @@ trait StorageBackend[DB_BATCH]
     with EventStorageBackend
     with DataSourceStorageBackend
     with DBLockStorageBackend
-    with DebugStorageBackend {
+    with IntegrityStorageBackend {
 
   /** Truncates all storage backend tables, EXCEPT the packages table.
     * Does not touch other tables, like the Flyway history table.
@@ -341,7 +341,7 @@ object DBLockStorageBackend {
   }
 }
 
-trait DebugStorageBackend {
+trait IntegrityStorageBackend {
 
   /** Verifies the integrity of the index database, throwing an exception if any issue is found.
     * This operation is allowed to take some time to finish.

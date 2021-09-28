@@ -8,9 +8,9 @@ import anorm.{RowParser, SQL}
 import java.sql.Connection
 import anorm.SqlParser.long
 import anorm.~
-import com.daml.platform.store.backend.DebugStorageBackend
+import com.daml.platform.store.backend.IntegrityStorageBackend
 
-private[backend] trait DebugStorageBackendTemplate extends DebugStorageBackend {
+private[backend] trait IntegrityStorageBackendTemplate extends IntegrityStorageBackend {
 
   private val allSequentialIds: String =
     s"""
