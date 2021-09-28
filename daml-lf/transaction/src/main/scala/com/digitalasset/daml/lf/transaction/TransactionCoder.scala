@@ -204,7 +204,7 @@ object TransactionCoder {
   ) = {
     key match {
       case Some(key) =>
-        encodeKeyWithMaintainers(encodeCid, version, key).map { k => discard(setKey(k)) }
+        encodeKeyWithMaintainers(encodeCid, version, key).map(k => discard(setKey(k)))
       case None =>
         Right(())
     }
@@ -218,13 +218,9 @@ object TransactionCoder {
       setUnversioned: ByteString => GeneratedMessageV3.Builder[_],
   ): Either[EncodeError, Unit] = {
     if (version < TransactionVersion.minNoVersionValue) {
-      encodeVersionedValue(encodeCid, version, value).map { v =>
-        discard(setVersioned(v))
-      }
+      encodeVersionedValue(encodeCid, version, value).map(v => discard(setVersioned(v)))
     } else {
-      encodeValue(encodeCid, version, value).map { v =>
-        discard(setUnversioned(v))
-      }
+      encodeValue(encodeCid, version, value).map(v => discard(setUnversioned(v)))
     }
   }
 
@@ -254,7 +250,7 @@ object TransactionCoder {
     node match {
       case NodeRollback(children) =>
         val builder = TransactionOuterClass.NodeRollback.newBuilder()
-        children.foreach { id => discard(builder.addChildren(encodeNid.asString(id))) }
+        children.foreach(id => discard(builder.addChildren(encodeNid.asString(id))))
         for {
           _ <- Either.cond(
             test = enclosingVersion >= TransactionVersion.minExceptions || disableVersionCheck,
@@ -294,12 +290,12 @@ object TransactionCoder {
                     )
                       .map(builder.setContractInstance)
                   } else {
-                    encodeValue(encodeCid, nodeVersion, nc.arg).map { arg =>
+                    encodeValue(encodeCid, nodeVersion, nc.arg).map(arg =>
                       builder
                         .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
                         .setArgUnversioned(arg)
                         .setAgreement(nc.agreementText)
-                    }
+                    )
                   }
                 _ <- encodeAndSetContractKey(
                   encodeCid,
@@ -338,7 +334,7 @@ object TransactionCoder {
                   .setConsuming(ne.consuming)
               )
               ne.actingParties.foreach(builder.addActors)
-              ne.children.foreach { id => discard(builder.addChildren(encodeNid.asString(id))) }
+              ne.children.foreach(id => discard(builder.addChildren(encodeNid.asString(id))))
               ne.signatories.foreach(builder.addSignatories)
               ne.stakeholders.foreach(builder.addStakeholders)
               ne.choiceObservers.foreach(builder.addObservers)
@@ -572,7 +568,7 @@ object TransactionCoder {
                 nodeVersion,
                 protoExe.getResultVersioned,
                 protoExe.getResultUnversioned,
-              ).map { v => Some(v) }
+              ).map(v => Some(v))
             }
           keyWithMaintainers <-
             decodeOptionalKeyWithMaintainers(decodeCid, nodeVersion, protoExe.getKeyWithMaintainers)
@@ -678,9 +674,7 @@ object TransactionCoder {
     val builder = TransactionOuterClass.Transaction
       .newBuilder()
       .setVersion(transaction.version.protoValue)
-    transaction.roots.foreach { nid =>
-      discard(builder.addRoots(encodeNid.asString(nid)))
-    }
+    transaction.roots.foreach(nid => discard(builder.addRoots(encodeNid.asString(nid))))
 
     transaction
       .fold[Either[EncodeError, TransactionOuterClass.Transaction.Builder]](
