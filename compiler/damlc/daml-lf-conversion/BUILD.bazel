@@ -47,6 +47,7 @@ da_haskell_test(
     srcs = glob(["test/**/*.hs"]),
     hackage_deps = [
         "base",
+        "containers",
         "either",
         "ghc-lib-parser",
         "ghc-lib",
