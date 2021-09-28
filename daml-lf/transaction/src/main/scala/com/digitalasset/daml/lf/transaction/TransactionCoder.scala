@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, GeneratedMessageV3, ProtocolStringList}
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -203,7 +204,7 @@ object TransactionCoder {
   ) = {
     key match {
       case Some(key) =>
-        encodeKeyWithMaintainers(encodeCid, version, key).map { k => setKey(k); () }
+        encodeKeyWithMaintainers(encodeCid, version, key).map { k => discard(setKey(k)); () }
       case None =>
         Right(())
     }
@@ -218,13 +219,11 @@ object TransactionCoder {
   ): Either[EncodeError, Unit] = {
     if (version < TransactionVersion.minNoVersionValue) {
       encodeVersionedValue(encodeCid, version, value).map { v =>
-        setVersioned(v);
-        {}
+        discard(setVersioned(v))
       }
     } else {
       encodeValue(encodeCid, version, value).map { v =>
-        setUnversioned(v)
-        ()
+        discard(setUnversioned(v))
       }
     }
   }
@@ -255,7 +254,7 @@ object TransactionCoder {
     node match {
       case NodeRollback(children) =>
         val builder = TransactionOuterClass.NodeRollback.newBuilder()
-        children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
+        children.foreach { id => discard(builder.addChildren(encodeNid.asString(id))) }
         for {
           _ <- Either.cond(
             test = enclosingVersion >= TransactionVersion.minExceptions || disableVersionCheck,
@@ -274,7 +273,7 @@ object TransactionCoder {
           )
         else {
           if (enclosingVersion >= TransactionVersion.minNodeVersion)
-            nodeBuilder.setVersion(nodeVersion.protoValue)
+            discard(nodeBuilder.setVersion(nodeVersion.protoValue))
 
           node match {
 
@@ -282,7 +281,7 @@ object TransactionCoder {
               val builder = TransactionOuterClass.NodeCreate.newBuilder()
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
-              builder.setContractIdStruct(encodeCid.encode(nc.coid))
+              discard(builder.setContractIdStruct(encodeCid.encode(nc.coid)))
               for {
                 _ <-
                   if (nodeVersion < TransactionVersion.minNoVersionValue) {
@@ -296,9 +295,10 @@ object TransactionCoder {
                       .map(builder.setContractInstance)
                   } else {
                     encodeValue(encodeCid, nodeVersion, nc.arg).map { arg =>
-                      builder.setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
-                      builder.setArgUnversioned(arg)
-                      builder.setAgreement(nc.agreementText)
+                      builder
+                        .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
+                        .setArgUnversioned(arg)
+                        .setAgreement(nc.agreementText)
                     }
                   }
                 _ <- encodeAndSetContractKey(
@@ -311,12 +311,12 @@ object TransactionCoder {
 
             case nf @ NodeFetch(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
-              builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId))
+              discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
               nf.stakeholders.foreach(builder.addStakeholders)
               nf.signatories.foreach(builder.addSignatories)
-              builder.setContractIdStruct(encodeCid.encode(nf.coid))
+              discard(builder.setContractIdStruct(encodeCid.encode(nf.coid)))
               if (nodeVersion >= TransactionVersion.minByKey) {
-                builder.setByKey(nf.byKey)
+                discard(builder.setByKey(nf.byKey))
               }
               nf.actingParties.foreach(builder.addActors)
               for {
@@ -330,17 +330,20 @@ object TransactionCoder {
 
             case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
-              builder.setContractIdStruct(encodeCid.encode(ne.targetCoid))
-              builder.setChoice(ne.choiceId)
-              builder.setTemplateId(ValueCoder.encodeIdentifier(ne.templateId))
-              builder.setConsuming(ne.consuming)
+              discard(
+                builder
+                  .setContractIdStruct(encodeCid.encode(ne.targetCoid))
+                  .setChoice(ne.choiceId)
+                  .setTemplateId(ValueCoder.encodeIdentifier(ne.templateId))
+                  .setConsuming(ne.consuming)
+              )
               ne.actingParties.foreach(builder.addActors)
-              ne.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
+              ne.children.foreach { id => discard(builder.addChildren(encodeNid.asString(id))) }
               ne.signatories.foreach(builder.addSignatories)
               ne.stakeholders.foreach(builder.addStakeholders)
               ne.choiceObservers.foreach(builder.addObservers)
               if (nodeVersion >= TransactionVersion.minByKey) {
-                builder.setByKey(ne.byKey)
+                discard(builder.setByKey(ne.byKey))
               }
               for {
                 _ <- Either.cond(
@@ -382,12 +385,14 @@ object TransactionCoder {
 
             case nlbk @ NodeLookupByKey(_, _, _, _) =>
               val builder = TransactionOuterClass.NodeLookupByKey.newBuilder()
-              builder.setTemplateId(ValueCoder.encodeIdentifier(nlbk.templateId))
-              nlbk.result.foreach(cid => builder.setContractIdStruct(encodeCid.encode(cid)))
+              discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nlbk.templateId)))
+              nlbk.result.foreach(cid =>
+                discard(builder.setContractIdStruct(encodeCid.encode(cid)))
+              )
               for {
                 encodedKey <- encodeKeyWithMaintainers(encodeCid, nlbk.version, nlbk.key)
               } yield {
-                builder.setKeyWithMaintainers(encodedKey)
+                discard(builder.setKeyWithMaintainers(encodedKey))
                 nodeBuilder.setLookupByKey(builder).build()
               }
           }
@@ -674,8 +679,7 @@ object TransactionCoder {
       .newBuilder()
       .setVersion(transaction.version.protoValue)
     transaction.roots.foreach { nid =>
-      builder.addRoots(encodeNid.asString(nid))
-      ()
+      discard(builder.addRoots(encodeNid.asString(nid)))
     }
 
     transaction

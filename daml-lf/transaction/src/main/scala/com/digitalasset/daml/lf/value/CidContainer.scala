@@ -5,6 +5,7 @@ package com.daml.lf
 package value
 
 import com.daml.lf.data.Bytes
+import com.daml.scalautil.Statement.discard
 import Value.ContractId
 
 import scala.util.control.NoStackTrace
@@ -16,11 +17,10 @@ trait CidContainer[+A] {
   def mapCid(f: ContractId => ContractId): A
 
   def foreachCid(f: ContractId => Unit) = {
-    mapCid(cid => {
+    discard(mapCid(cid => {
       f(cid)
       cid
-    })
-    ()
+    }))
   }
 
   // We cheat using exceptions, to get a cheap implementation of traverse using the `map` function above.
