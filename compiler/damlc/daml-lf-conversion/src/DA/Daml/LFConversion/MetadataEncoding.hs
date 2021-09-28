@@ -191,13 +191,11 @@ decodeModuleImports :: LF.Type -> Maybe (S.Set (LF.Qualified ()))
 decodeModuleImports = fmap S.fromList . decodeTypeList decodeModuleImport
 
 decodeModuleImport :: LF.Type -> Maybe (LF.Qualified ())
-decodeModuleImport x = decodeTypeList Just x  >>= \case
-    [packageRef, moduleName] ->
-        LF.Qualified
-            <$> decodePackageRef packageRef
-            <*> decodeModuleName moduleName
-            <*> pure ()
-    _ -> Nothing
+decodeModuleImport x = do
+    [p, m] <- decodeTypeList Just x
+    packageRef <- decodePackageRef p
+    moduleName <- decodeModuleName m
+    pure (LF.Qualified packageRef moduleName ())
 
 decodePackageRef :: LF.Type -> Maybe LF.PackageRef
 decodePackageRef = \case
