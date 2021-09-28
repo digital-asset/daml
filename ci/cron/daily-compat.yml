@@ -382,7 +382,6 @@ jobs:
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
           --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
-          --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
           --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.timeout=1500
