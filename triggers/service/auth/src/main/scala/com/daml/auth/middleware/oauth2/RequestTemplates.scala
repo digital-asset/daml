@@ -18,7 +18,7 @@ import scala.util.Try
 
 private[oauth2] class RequestTemplates(
     clientId: String,
-    clientSecret: String,
+    clientSecret: SecretString,
     authTemplate: Option[Path],
     tokenTemplate: Option[Path],
     refreshTemplate: Option[Path],
@@ -99,6 +99,11 @@ private[oauth2] class RequestTemplates(
     interpretJsonnet(jsonnet_src, jsonnet_path, args).flatMap(toRequestParams)
   }
 
+  private lazy val config: ujson.Value = ujson.Obj(
+        "clientId" -> clientId,
+        "clientSecret" -> clientSecret.value,
+      )
+
   private lazy val authJsonnetSource: (String, sjsonnet.Path) =
     jsonnetSource(authTemplate, authResourcePath)
   private def authArguments(
@@ -107,10 +112,7 @@ private[oauth2] class RequestTemplates(
       redirectUri: Uri,
   ): Map[String, ujson.Value] =
     Map(
-      "config" -> ujson.Obj(
-        "clientId" -> clientId,
-        "clientSecret" -> clientSecret,
-      ),
+      "config" -> config,
       "request" -> ujson.Obj(
         "claims" -> ujson.Obj(
           "admin" -> claims.admin,
@@ -136,10 +138,7 @@ private[oauth2] class RequestTemplates(
   private lazy val tokenJsonnetSource: (String, sjsonnet.Path) =
     jsonnetSource(tokenTemplate, tokenResourcePath)
   private def tokenArguments(code: String, redirectUri: Uri): Map[String, ujson.Value] = Map(
-    "config" -> ujson.Obj(
-      "clientId" -> clientId,
-      "clientSecret" -> clientSecret,
-    ),
+    "config" -> config,
     "request" -> ujson.Obj(
       "code" -> code,
       "redirectUri" -> redirectUri.toString,
@@ -151,10 +150,7 @@ private[oauth2] class RequestTemplates(
   private lazy val refreshJsonnetSource: (String, sjsonnet.Path) =
     jsonnetSource(refreshTemplate, refreshResourcePath)
   private def refreshArguments(refreshToken: RefreshToken): Map[String, ujson.Value] = Map(
-    "config" -> ujson.Obj(
-      "clientId" -> clientId,
-      "clientSecret" -> clientSecret,
-    ),
+    "config" -> config,
     "request" -> ujson.Obj(
       "refreshToken" -> RefreshToken.unwrap(refreshToken)
     ),
@@ -168,7 +164,7 @@ object RequestTemplates {
 
   def apply(
       clientId: String,
-      clientSecret: String,
+      clientSecret: SecretString,
       authTemplate: Option[Path],
       tokenTemplate: Option[Path],
       refreshTemplate: Option[Path],

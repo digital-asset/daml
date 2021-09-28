@@ -107,7 +107,7 @@ trait TestFixture
             oauthTokenTemplate = None,
             oauthRefreshTemplate = None,
             clientId = "middleware",
-            clientSecret = "middleware-secret",
+            clientSecret = SecretString("middleware-secret"),
             tokenVerifier = new JwtVerifier(
               JWT
                 .require(Algorithm.HMAC256(jwtSecret))

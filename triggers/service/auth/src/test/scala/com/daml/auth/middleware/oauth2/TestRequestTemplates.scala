@@ -22,7 +22,7 @@ class TestRequestTemplates
     with TryValues
     with PartialFunctionValues {
   private val clientId = "client-id"
-  private val clientSecret = "client-secret"
+  private val clientSecret = SecretString("client-secret")
 
   private def getTemplates(
       authTemplate: Option[Path] = None,
@@ -191,7 +191,7 @@ class TestRequestTemplates
       val params = templates.createTokenRequest(code, redirectUri).success.value
       params shouldBe Map(
         "client_id" -> clientId,
-        "client_secret" -> clientSecret,
+        "client_secret" -> clientSecret.value,
         "code" -> code,
         "grant_type" -> "authorization_code",
         "redirect_uri" -> redirectUri.toString,
@@ -205,7 +205,7 @@ class TestRequestTemplates
       val params = templates.createRefreshRequest(refreshToken).success.value
       params shouldBe Map(
         "client_id" -> clientId,
-        "client_secret" -> clientSecret,
+        "client_secret" -> clientSecret.value,
         "grant_type" -> "refresh_code",
         "refresh_token" -> refreshToken,
       )
