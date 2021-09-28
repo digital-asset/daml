@@ -115,10 +115,10 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
     ): ResourceOwner[ReadOnlySqlLedgerWithMutableCache] =
       for {
         contractStore <- new MutableCacheBackedContractStore.OwnerWithSubscription(
-          subscribeToContractStateEvents = maybeOffsetSeqId =>
+          subscribeToContractStateEvents = cacheIndex =>
             cacheUpdatesDispatcher
               .startingAt(
-                maybeOffsetSeqId.getOrElse(startExclusive),
+                cacheIndex,
                 RangeSource(
                   ledgerDao.transactionsReader.getContractStateEvents(_, _)
                 ),
@@ -126,6 +126,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
               .map(_._2),
           contractsReader = ledgerDao.contractsReader,
           signalNewLedgerHead = dispatcherLagMeter,
+          startIndexExclusive = startExclusive,
           metrics = metrics,
           maxContractsCacheSize = maxContractStateCacheSize,
           maxKeyCacheSize = maxContractKeyStateCacheSize,
@@ -162,6 +163,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       val contractStore = MutableCacheBackedContractStore(
         ledgerDao.contractsReader,
         dispatcherLagMeter,
+        startExclusive,
         metrics,
         maxContractStateCacheSize,
         maxContractKeyStateCacheSize,
