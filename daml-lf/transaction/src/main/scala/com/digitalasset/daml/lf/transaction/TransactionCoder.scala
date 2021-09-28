@@ -204,7 +204,7 @@ object TransactionCoder {
   ) = {
     key match {
       case Some(key) =>
-        encodeKeyWithMaintainers(encodeCid, version, key).map { k => discard(setKey(k)); () }
+        encodeKeyWithMaintainers(encodeCid, version, key).map { k => discard(setKey(k)) }
       case None =>
         Right(())
     }
