@@ -20,7 +20,7 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
-  DebugStorageBackendTemplate,
+  IntegrityStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
@@ -55,7 +55,7 @@ private[backend] object PostgresStorageBackend
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
     with PartyStorageBackendTemplate
-    with DebugStorageBackendTemplate {
+    with IntegrityStorageBackendTemplate {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
