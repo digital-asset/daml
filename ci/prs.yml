@@ -1,14 +1,19 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-trigger: none
-
-pr:
-  autoCancel: true # cancel previous builds on push
+#trigger: none
+trigger:
   branches:
-    include:
-      - main
-      - release/*
+    exclude:
+    - main
+    - release/*
+
+pr: none
+# autoCancel: true # cancel previous builds on push
+# branches:
+#   include:
+#     - main
+#     - release/*
 
 jobs:
 - template: build.yml
