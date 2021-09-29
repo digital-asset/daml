@@ -319,7 +319,11 @@ private[lf] final class Compiler(
       addDef(compileKey(identifier, tmpl))
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
-      tmpl.implements.foreach(x => addDef(compileImplements(identifier, x)))
+      tmpl.implements.values.foreach { impl =>
+        addDef(compileImplements(identifier, impl.interface))
+      // TODO https://github.com/digital-asset/daml/issues/11006
+      //  compile methods also
+      }
 
       tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl, x)))
 
@@ -503,6 +507,9 @@ private[lf] final class Compiler(
         compile(e) // interfaces have the same representation as underlying template
       case EFromInterface(iface @ _, tpl, e) =>
         SBFromInterface(tpl)(compile(e))
+      case ECallInterface(_, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/11006
+        throw CompilationError("ECallInterface not implemented")
       case EExperimental(name, _) =>
         SBExperimental(name)
 

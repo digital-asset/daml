@@ -246,6 +246,10 @@ object Ref {
   type ChoiceName = Name
   val ChoiceName = Name
 
+  /* Method name in an interface */
+  type MethodName = Name
+  val MethodName = Name
+
   type ModuleName = DottedName
   val ModuleName = DottedName
 

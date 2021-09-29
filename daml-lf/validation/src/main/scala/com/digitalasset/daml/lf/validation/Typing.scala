@@ -454,7 +454,7 @@ private[validation] object Typing {
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
-      implementations.foreach(env.checkIfaceImplementation(tplName, _))
+      implementations.values.foreach(env.checkIfaceImplementation(tplName, _))
     }
 
     def checkIfaceChoice(choice: InterfaceChoice): Unit = {
@@ -462,14 +462,15 @@ private[validation] object Typing {
       checkType(choice.returnType, KStar)
     }
 
-    def checkIfaceImplementation(tplTcon: TypeConName, ifaceTcon: TypeConName): Unit = {
-      val DefInterface(choices) = handleLookup(ctx, interface.lookupInterface(ifaceTcon))
+    def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
+      val DefInterface(choices, methods @ _) =
+        handleLookup(ctx, interface.lookupInterface(impl.interface))
       choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
         if (tplChoice.consuming != consuming)
           throw EBadInterfaceChoiceImplConsuming(
             ctx,
-            ifaceTcon,
+            impl.interface,
             tplTcon,
             name,
             consuming,
@@ -478,7 +479,7 @@ private[validation] object Typing {
         if (!alphaEquiv(tplChoice.argBinder._2, argType))
           throw EBadInterfaceChoiceImplArgType(
             ctx,
-            ifaceTcon,
+            impl.interface,
             tplTcon,
             name,
             argType,
@@ -487,13 +488,15 @@ private[validation] object Typing {
         if (!alphaEquiv(tplChoice.returnType, returnType))
           throw EBadInterfaceChoiceImplRetType(
             ctx,
-            ifaceTcon,
+            impl.interface,
             tplTcon,
             name,
             returnType,
             tplChoice.returnType,
           )
       }
+      // TODO https://github.com/digital-asset/daml/issues/11006
+      //   check methods as well
     }
 
     def checkDefException(excepName: TypeConName, defException: DefException): Unit = {
@@ -1151,6 +1154,10 @@ private[validation] object Typing {
         checkImplements(tpl, iface)
         checkExpr(value, TTyCon(iface))
         TOptional(TTyCon(tpl))
+      case ECallInterface(iface, methodName, value) =>
+        val method = handleLookup(ctx, interface.lookupInterfaceMethod(iface, methodName))
+        checkExpr(value, TTyCon(iface))
+        method.returnType
       case EExperimental(_, typ) =>
         typ
     }

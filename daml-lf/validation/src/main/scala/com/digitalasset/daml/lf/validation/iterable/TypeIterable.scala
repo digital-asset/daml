@@ -82,6 +82,8 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(iface), TTyCon(tpl)) ++ iterator(value)
       case EFromInterface(iface, tpl, value) =>
         Iterator(TTyCon(iface), TTyCon(tpl)) ++ iterator(value)
+      case ECallInterface(iface, _, value) =>
+        Iterator(TTyCon(iface)) ++ iterator(value)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>
@@ -191,7 +193,7 @@ private[validation] object TypeIterable {
           choices.values.flatMap(iterator(_)) ++
           iterator(observers) ++
           key.iterator.flatMap(iterator(_)) ++
-          implements.iterator.map(TTyCon(_))
+          implements.values.flatMap(iterator(_))
     }
 
   private[validation] def iterator(choice: TemplateChoice): Iterator[Type] =
@@ -221,6 +223,38 @@ private[validation] object TypeIterable {
           iterator(maintainers)
     }
 
+  private[validation] def iterator(impl: TemplateImplements): Iterator[Type] =
+    impl match {
+      case TemplateImplements(interface, methods) =>
+        Iterator(TTyCon(interface)) ++
+          methods.values.flatMap(iterator(_))
+    }
+
+  private[validation] def iterator(method: TemplateImplementsMethod): Iterator[Type] =
+    method match {
+      case TemplateImplementsMethod(name @ _, value) =>
+        iterator(value)
+    }
+
+  private[validation] def iterator(interface: DefInterface): Iterator[Type] =
+    interface match {
+      case DefInterface(choices, methods) =>
+        choices.values.iterator.flatMap(iterator(_)) ++
+          methods.values.iterator.flatMap(iterator(_))
+    }
+
+  private[validation] def iterator(ichoice: InterfaceChoice): Iterator[Type] =
+    ichoice match {
+      case InterfaceChoice(name @ _, consuming @ _, argType, retType) =>
+        Iterator(argType, retType)
+    }
+
+  private[validation] def iterator(imethod: InterfaceMethod): Iterator[Type] =
+    imethod match {
+      case InterfaceMethod(name @ _, retType) =>
+        Iterator(retType)
+    }
+
   def apply(typ: Type): Iterable[Type] =
     new Iterable[Type] {
       override def iterator = that.iterator(typ)
@@ -235,6 +269,7 @@ private[validation] object TypeIterable {
     new Iterable[Type] {
       override def iterator: Iterator[Type] =
         module.definitions.values.iterator.flatMap(that.iterator(_)) ++
+          module.interfaces.values.iterator.flatMap(that.iterator(_)) ++
           module.templates.values.iterator.flatMap(that.iterator(_))
     }
 }
