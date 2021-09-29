@@ -37,3 +37,6 @@ breaking:
     # Changes in daml_lf_1.proto do not impact KV, as it never parses archive
     # payload directly
     - com/daml/daml_lf_dev/daml_lf_1.proto
+    # Stability in transaction/value is checked independently
+    - com/daml/lf/transaction.proto
+    - com/daml/lf/value.proto
