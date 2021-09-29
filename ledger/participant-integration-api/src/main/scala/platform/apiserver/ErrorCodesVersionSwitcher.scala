@@ -5,9 +5,9 @@ package com.daml.platform.apiserver
 
 import io.grpc.StatusRuntimeException
 
-/** A mechanism to switch between the previous error codes (v1) and the new self-service error codes (v2).
+/** A mechanism to switch between the legacy error codes (v1) and the new self-service error codes (v2).
   * This class is intended to facilitate transition to self-service error codes.
-  * Once the previous error codes are remvoed and this class should be dropped as well.
+  * Once the previous error codes are removed, this class should be dropped as well.
   */
 final class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean) {
   def choose(

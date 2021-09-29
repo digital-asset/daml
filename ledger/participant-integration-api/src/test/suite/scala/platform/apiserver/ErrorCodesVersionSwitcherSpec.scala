@@ -24,7 +24,7 @@ class ErrorCodesVersionSwitcherSpec extends AnyFlatSpec with Matchers {
     actual shouldBe expected
   }
 
-  it should "use previous (v1) error codes" in {
+  it should "use legacy (v1) error codes" in {
     // given
     val tested = new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
     val expected = new StatusRuntimeException(Status.INTERNAL)
