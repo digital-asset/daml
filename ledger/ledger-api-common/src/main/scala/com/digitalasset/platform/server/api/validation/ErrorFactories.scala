@@ -17,7 +17,7 @@ trait ErrorFactories {
 
   import ErrorFactories._
 
-  def duplicateCommandException: StatusRuntimeException =
+  def duplicateCommandException(): StatusRuntimeException =
     grpcError(
       Status
         .newBuilder()

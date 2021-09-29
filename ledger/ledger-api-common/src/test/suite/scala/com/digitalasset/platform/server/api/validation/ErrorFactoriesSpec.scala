@@ -17,7 +17,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
   "ErrorFactories" should {
     "return the DuplicateCommandException" in {
-      val status = StatusProto.fromThrowable(duplicateCommandException)
+      val status = StatusProto.fromThrowable(duplicateCommandException())
       status.getCode shouldBe Code.ALREADY_EXISTS.value()
       status.getMessage shouldBe "Duplicate command"
       status.getDetailsList.asScala shouldBe Seq(definiteAnswers(false))
