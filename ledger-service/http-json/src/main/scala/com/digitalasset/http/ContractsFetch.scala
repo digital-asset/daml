@@ -63,6 +63,7 @@ private class ContractsFetch(
 )(implicit dblog: doobie.LogHandler, sjd: SupportedJdbcDriver.TC) {
 
   import ContractsFetch._
+  import com.daml.fetchcontracts.util.AkkaStreamsDoobie.{connectionIOFuture, sinkCIOSequence_}
   import sjd.retrySqlStates
 
   private[this] val logger = ContextualizedLogger.get(getClass)
@@ -370,43 +371,9 @@ private class ContractsFetch(
 
 private[http] object ContractsFetch {
 
+  import com.daml.fetchcontracts.util.AkkaStreamsDoobie.{last, project2}
+
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
-
-  def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
-    GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
-      val split = b.add(
-        Partition[A \/ B](
-          2,
-          {
-            case -\/(_) => 0
-            case \/-(_) => 1
-          },
-        )
-      )
-      val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
-      val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
-      discard { split ~> as }
-      discard { split ~> bs }
-      new FanOutShape2(split.in, as.out, bs.out)
-    }
-
-  def project2[A, B]: Graph[FanOutShape2[(A, B), A, B], NotUsed] =
-    GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
-      val split = b add Broadcast[(A, B)](2)
-      val left = b add Flow.fromFunction((_: (A, B))._1)
-      val right = b add Flow.fromFunction((_: (A, B))._2)
-      discard { split ~> left }
-      discard { split ~> right }
-      new FanOutShape2(split.in, left.out, right.out)
-    }
-
-  def last[A](ifEmpty: A): Flow[A, A, NotUsed] =
-    Flow[A].fold(ifEmpty)((_, later) => later)
-
-  private def max[A: Order](ifEmpty: A): Flow[A, A, NotUsed] =
-    Flow[A].fold(ifEmpty)(_ max _)
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
@@ -423,27 +390,6 @@ private[http] object ContractsFetch {
     }
     val as = asb.result()
     InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
-  }
-
-  object GraphExtensions {
-    implicit final class `Graph FOS2 funs`[A, Y, Z, M](
-        private val g: Graph[FanOutShape2[A, Y, Z], M]
-    ) extends AnyVal {
-      private def divertToMat[N, O](oz: Sink[Z, N])(mat: (M, N) => O): Flow[A, Y, O] =
-        Flow fromGraph GraphDSL.create(g, oz)(mat) { implicit b => (gs, zOut) =>
-          import GraphDSL.Implicits._
-          gs.out1 ~> zOut
-          new FlowShape(gs.in, gs.out0)
-        }
-
-      /** Several of the graphs here have a second output guaranteed to deliver only one value.
-        * This turns such a graph into a flow with the value materialized.
-        */
-      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] = {
-        type CK[-T] = (T, Future[Z]) => Future[Z]
-        divertToMat(Sink.head)(noM.subst[CK](Keep.right[NotUsed, Future[Z]]))
-      }
-    }
   }
 
   /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince`
@@ -553,30 +499,6 @@ private[http] object ContractsFetch {
       .traverse(k => surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
       .map(_.toMap)
   }
-
-  private def sinkCioSequence_[Ign](
-      f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]]
-  )(implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
-    import doobie.ConnectionIO
-    import doobie.free.{connection => fconn}
-    def go(): ConnectionIO[Unit] = {
-      val next = f.pull()
-      connectionIOFuture(next)
-        .flatMap(_.cata(cio => cio flatMap (_ => go()), fconn.pure(())))
-    }
-    fconn.handleErrorWith(
-      go(),
-      t => {
-        f.cancel()
-        fconn.raiseError(t)
-      },
-    )
-  }
-
-  private def connectionIOFuture[A](
-      fa: Future[A]
-  )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
-    fconn.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(

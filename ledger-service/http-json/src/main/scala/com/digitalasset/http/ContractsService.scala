@@ -514,7 +514,7 @@ class ContractsService(
       )
 
     import ContractsFetch.{acsFollowingAndBoundary, transactionsFollowingBoundary},
-    ContractsFetch.GraphExtensions._
+    com.daml.fetchcontracts.util.GraphExtensions._
     val contractsAndBoundary = startOffset.cata(
       so =>
         Source
