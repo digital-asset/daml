@@ -77,7 +77,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
           // only one submission is therefore sent to the ledger.
           completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(requestA1, party)
-          _ <- submitRequestAndAssertDeduplication(ledger)(requestA1)
+          _ <- submitRequestAndAssertDeduplication(ledger)(requestA1, party)
           // Wait until the end of first deduplication window
           _ <- Delayed.by(deduplicationWait)(())
 
