@@ -24,6 +24,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -197,7 +198,7 @@ private[lf] object Speedy {
 
     @inline
     private[speedy] def pushKont(k: Kont): Unit = {
-      kontStack.add(k)
+      discard[Boolean](kontStack.add(k))
       if (enableInstrumentation) {
         track.countPushesKont += 1
         if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
@@ -229,7 +230,7 @@ private[lf] object Speedy {
     private[speedy] def getEnvFree(i: Int): SValue = frame(i)
 
     @inline def pushEnv(v: SValue): Unit = {
-      env.add(v)
+      discard[Boolean](env.add(v))
       if (enableInstrumentation) {
         track.countPushesEnv += 1
         if (env.size > track.maxDepthEnv) track.maxDepthEnv = env.size
@@ -316,7 +317,7 @@ private[lf] object Speedy {
         // complete stack trace at the use site. Thus, we store the stack traces
         // of top level values separately during their execution.
         case Some(KCacheVal(machine, v, defn, stack_trace)) =>
-          kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)); ()
+          discard(kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)))
         case _ => pushKont(KLocation(this, loc))
       }
     }
@@ -334,7 +335,7 @@ private[lf] object Speedy {
       val s = ImmArray.newBuilder[Location]
       kontStack.forEach { k =>
         k match {
-          case KLocation(_, location) => s += location
+          case KLocation(_, location) => discard(s += location)
           case _ => ()
         }
       }
@@ -470,7 +471,7 @@ private[lf] object Speedy {
           val newArgsLimit = Math.min(missing, newArgs.length)
 
           val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-          actuals.addAll(actualsSoFar)
+          discard[Boolean](actuals.addAll(actualsSoFar))
 
           val othersLength = newArgs.length - missing
 
@@ -479,7 +480,7 @@ private[lf] object Speedy {
           while (i < newArgsLimit) {
             val newArg = newArgs(i)
             val v = newArg.lookupValue(this)
-            actuals.add(v)
+            discard[Boolean](actuals.add(v))
             i += 1
           }
 
@@ -528,7 +529,7 @@ private[lf] object Speedy {
           val newArgsLimit = Math.min(missing, newArgs.length)
 
           val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-          actuals.addAll(actualsSoFar)
+          discard[Boolean](actuals.addAll(actualsSoFar))
 
           val othersLength = newArgs.length - missing
 
@@ -700,8 +701,9 @@ private[lf] object Speedy {
                 val values = new util.ArrayList[SValue](n)
                 (lookupResult.dataRecord.fields.iterator zip fields.iterator).foreach {
                   case ((_, fieldType), (_, fieldValue)) =>
-                    values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
-                    ()
+                    discard[Boolean](
+                      values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
+                    )
                 }
                 SValue.SRecord(tyCon, lookupResult.dataRecord.fields.map(_._1), values)
               case V.ValueVariant(_, constructor, value) =>
@@ -912,7 +914,7 @@ private[lf] object Speedy {
 
   private[this] def initialKontStack(): util.ArrayList[Kont] = {
     val kontStack = new util.ArrayList[Kont](128)
-    kontStack.add(KFinished)
+    discard[Boolean](kontStack.add(KFinished))
     kontStack
   }
 
@@ -976,7 +978,7 @@ private[lf] object Speedy {
     private[this] val savedBase = machine.markBase()
 
     def execute(v: SValue) = {
-      actuals.add(v)
+      discard[Boolean](actuals.add(v))
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(closure.frame, actuals)
@@ -1002,7 +1004,7 @@ private[lf] object Speedy {
     private[this] val savedBase = machine.markBase()
 
     def execute(v: SValue) = {
-      actuals.add(v)
+      discard[Boolean](actuals.add(v))
       // A builtin has no free-vars, so we set the frame to null.
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(null, actuals)
@@ -1019,7 +1021,7 @@ private[lf] object Speedy {
   ) extends Kont {
 
     def execute(v: SValue) = {
-      actuals.add(v)
+      discard[Boolean](actuals.add(v))
       machine.returnValue = SValue.SPAP(prim, actuals, arity)
     }
   }
@@ -1139,7 +1141,7 @@ private[lf] object Speedy {
     def execute(v: SValue) = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
-      to.add(v)
+      discard[Boolean](to.add(v))
       machine.ctrl = next
     }
   }

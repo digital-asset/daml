@@ -10,6 +10,10 @@ load(
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 
+lf_scalacopts_stricter = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
 da_scala_library(
     name = "interpreter",
     srcs = glob(["src/main/**/*.scala"]),
@@ -19,7 +23,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-interpreter:__VERSION__"],
     visibility = [
         "//compiler/repl-service:__subpackages__",

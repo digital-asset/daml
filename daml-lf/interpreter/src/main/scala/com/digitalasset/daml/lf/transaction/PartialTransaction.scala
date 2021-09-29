@@ -19,6 +19,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 import scala.collection.immutable.HashMap
 import scala.Ordering.Implicits.infixOrderingOps
@@ -306,13 +307,14 @@ private[lf] case class PartialTransaction(
           node: Node,
           rootPrefix: String,
       ): Unit = {
-        sb.append(rootPrefix)
-          .append("node ")
-          .append(nid)
-          .append(": ")
-          .append(node.toString)
-          .append(", ")
-        ()
+        discard(
+          sb.append(rootPrefix)
+            .append("node ")
+            .append(nid)
+            .append(": ")
+            .append(node.toString)
+            .append(", ")
+        )
       }
 
       def removeTrailingComma(): Unit = {

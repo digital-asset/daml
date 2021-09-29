@@ -19,6 +19,8 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import Value._
 
+import com.daml.scalautil.Statement.discard
+
 import scala.annotation.tailrec
 import scala.collection.compat._
 import scala.collection.immutable
@@ -325,7 +327,7 @@ object ScenarioLedger {
         case ValueList(vs) =>
           vs.foreach(collect)
         case ValueContractId(coid) =>
-          coids += coid
+          discard(coids += coid)
         case _: ValueCidlessLeaf => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueTextMap(map) => map.values.foreach(collect)

@@ -6,6 +6,7 @@ package com.daml.lf.speedy
 import org.slf4j.Logger
 import scala.collection.mutable.ArrayBuffer
 import com.daml.lf.data.Ref.Location
+import com.daml.scalautil.Statement.discard
 
 private[lf] final case class Warning(
     commitLocation: Option[Location],
@@ -20,7 +21,7 @@ private[lf] final class WarningLog(logger: Logger) {
 
   def add(warning: Warning): Unit = {
     logger.warn(warning.messageWithLocation)
-    buffer += warning
+    discard(buffer += warning)
   }
 
   def iterator: Iterator[Warning] = buffer.iterator
