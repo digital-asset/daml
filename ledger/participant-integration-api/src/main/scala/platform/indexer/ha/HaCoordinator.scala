@@ -58,8 +58,8 @@ case class HaConfig(
     workerLockAcquireRetryMillis: Long = 500,
     workerLockAcquireMaxRetry: Long = 1000,
     mainLockCheckerPeriodMillis: Long = 1000,
-    indexerLockId: Int = 0x646d6c00, // note 0x646d6c equals ASCII encoded "dml"
-    indexerWorkerLockId: Int = 0x646d6c01,
+    indexerLockId: Int = 0x646d6c0, // note 0x646d6c equals ASCII encoded "dml"
+    indexerWorkerLockId: Int = 0x646d6c1,
     enable: Boolean = false, // TODO ha: remove as stable
 )
 
