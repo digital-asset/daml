@@ -5,7 +5,6 @@ package com.daml.platform.store.backend.h2
 
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.{Row, SQL, SimpleSql}
 import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
@@ -20,6 +19,7 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
+  IntegrityStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
@@ -38,8 +38,8 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
-import javax.sql.DataSource
 
+import javax.sql.DataSource
 import scala.util.control.NonFatal
 
 private[backend] object H2StorageBackend
@@ -53,7 +53,8 @@ private[backend] object H2StorageBackend
     with EventStorageBackendTemplate
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
-    with PartyStorageBackendTemplate {
+    with PartyStorageBackendTemplate
+    with IntegrityStorageBackendTemplate {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
