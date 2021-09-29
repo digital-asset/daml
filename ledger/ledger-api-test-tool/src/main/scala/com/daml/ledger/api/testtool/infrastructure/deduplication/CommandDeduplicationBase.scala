@@ -237,35 +237,18 @@ private[testtool] abstract class CommandDeduplicationBase(
     for {
       // Submit a command as alice
       _ <- ledger.submit(aliceRequest)
-      failure1 <- ledger
-        .submit(aliceRequest)
-        .mustFail("submitting a request as Alice for the second time")
+      _ <- ledger.firstCompletions(alice)
+      _ <- submitRequestAndAssertAsyncDeduplication(ledger)(aliceRequest, alice)
 
       // Submit another command that uses same commandId, but is submitted by Bob
       _ <- ledger.submit(bobRequest)
-      failure2 <- ledger
-        .submit(bobRequest)
-        .mustFail("submitting the same request as Bob, for the second time")
-
-      // Wait for command completions and inspect the ledger state
-      _ <- ledger.firstCompletions(alice)
       _ <- ledger.firstCompletions(bob)
+      _ <- submitRequestAndAssertAsyncDeduplication(ledger)(bobRequest, bob)
+
+      // Inspect the ledger state
       aliceContracts <- ledger.activeContracts(alice)
       bobContracts <- ledger.activeContracts(bob)
     } yield {
-      assertGrpcError(
-        failure1,
-        Status.Code.ALREADY_EXISTS,
-        exceptionMessageSubstring = None,
-        checkDefiniteAnswerMetadata = true,
-      )
-      assertGrpcError(
-        failure2,
-        Status.Code.ALREADY_EXISTS,
-        exceptionMessageSubstring = None,
-        checkDefiniteAnswerMetadata = true,
-      )
-
       assert(
         aliceContracts.length == 1,
         s"Only one contract was expected to be seen by $alice but ${aliceContracts.length} appeared",
