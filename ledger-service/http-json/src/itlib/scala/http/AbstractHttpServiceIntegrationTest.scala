@@ -1732,7 +1732,7 @@ abstract class AbstractHttpServiceIntegrationTest
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
-    val numContracts: Long = 10000
+    val numContracts: Long = 1500
     val helperId = domain.TemplateId(None, "Account", "Helper")
     val payload = v.Record(
       fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(alice.unwrap)))))
