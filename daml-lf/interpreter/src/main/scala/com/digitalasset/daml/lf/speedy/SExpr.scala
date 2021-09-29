@@ -476,7 +476,11 @@ object SExpr {
   /** ImplementsMethodDefRef(ref=templateId, ifaceId, method) invokes the template's
     * implementation of an interface method.
     */
-  final case class ImplementsMethodDefRef(ref: DefinitionRef, ifaceId: TypeConName, methodName: MethodName) extends SDefinitionRef
+  final case class ImplementsMethodDefRef(
+      ref: DefinitionRef,
+      ifaceId: TypeConName,
+      methodName: MethodName,
+  ) extends SDefinitionRef
 
   //
   // List builtins (equalList) are implemented as recursive

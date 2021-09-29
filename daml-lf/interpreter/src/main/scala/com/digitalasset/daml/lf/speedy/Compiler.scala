@@ -321,7 +321,7 @@ private[lf] final class Compiler(
       addDef(compileObservers(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
         addDef(compileImplements(identifier, impl.interface))
-        impl.methods.values.foreach( method =>
+        impl.methods.values.foreach(method =>
           addDef(compileImplementsMethod(identifier, impl.interface, method))
         )
       }

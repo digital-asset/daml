@@ -1197,9 +1197,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBCallInterface (
-    ifaceId: TypeConName,
-    methodName: MethodName,
+  final case class SBCallInterface(
+      ifaceId: TypeConName,
+      methodName: MethodName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val record = getSRecord(args, 0)
