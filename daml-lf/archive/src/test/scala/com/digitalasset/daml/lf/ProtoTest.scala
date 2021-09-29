@@ -206,7 +206,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     s"daml_lf_1_$version files" should {
 
       val pkg = if (version < 11) "digitalasset" else "daml"
-      val rootDir = s"daml-lf/archive/src/main/protobuf/com/$pkg/daml_lf_1_$version"
+      val rootDir = s"daml-lf/archive/src/snapshot/protobuf/com/$pkg/daml_lf_1_$version"
       "not be modified" in {
         List(
           "daml_lf.proto" -> damlHashes,
