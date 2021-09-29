@@ -9,7 +9,7 @@ function check_lf_protos() {
     readonly stable_snapshot_dir="daml-lf/transaction/src/stable/protobuf"
 
     declare -a checkSums=(
-      "397f3f8ca2e58cf6b4df903c0ed7346a2895585e4d8362fe5ac4506abf1b3514  ${stable_snapshot_dir}/com/daml/lf/value.proto"
+      "73572a9d1a8985a611a5d8c94c983bd3d03617ddf7782161fdba5f90c3b20672  ${stable_snapshot_dir}/com/daml/lf/value.proto"
       "e29470fb6077a5872cf4ffb5bc12a4b307aed81879f3b93bac1646c08dcdb8e2  ${stable_snapshot_dir}/com/daml/lf/transaction.proto"
     )
 

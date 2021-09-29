@@ -5,9 +5,12 @@
 // which describes the semantics of Daml-LF values in more detail.
 //
 // [one-line] version summary
-// * 10: initial version
-// * 11: Generic Map
-// * 12: type erasure
+// * 10 -- new field key_with_maintainers in NodeFetch
+// * 11 -- add choice observer
+// * 12 -- drop value version in profit of node version
+// * 13 -- no change w.r.t. 12
+// * 14 -- add rollback nodes
+//         add byKey flag to fetch and exercise node
 syntax = "proto3";
 
 package com.daml.lf.value;
