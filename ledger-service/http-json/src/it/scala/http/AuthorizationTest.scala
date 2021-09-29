@@ -11,7 +11,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.util.TestUtil.requiredFile
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.http.util.SandboxNextTestLedger
+import com.daml.http.util.SandboxTestLedger
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
 import com.daml.ledger.api.domain.LedgerId
@@ -29,7 +29,7 @@ final class AuthorizationTest
     extends AsyncFlatSpec
     with BeforeAndAfterAll
     with Matchers
-    with SandboxNextTestLedger
+    with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
 
   private val dar = requiredFile(rlocation("docs/quickstart-model.dar"))

@@ -22,7 +22,7 @@ import org.scalatest.Suite
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait SandboxNextTestLedger extends SandboxNextFixture {
+trait SandboxTestLedger extends SandboxNextFixture {
   self: Suite =>
 
   protected def testId: String

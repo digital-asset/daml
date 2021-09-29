@@ -22,7 +22,7 @@ import com.daml.http.json.SprayJson.{decode, decode1, objectField}
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
 import com.daml.http.util.FutureUtil.toFuture
-import com.daml.http.util.{FutureUtil, SandboxNextTestLedger}
+import com.daml.http.util.{FutureUtil, SandboxTestLedger}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -80,7 +80,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns
     extends StrictLogging
-    with SandboxNextTestLedger
+    with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
   import AbstractHttpServiceIntegrationTestFuns._
@@ -122,8 +122,11 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   override def packageFiles = List(dar1, dar2)
 
-  protected def partyAndAuthHeaders(name: String): (String, List[HttpHeader]) =
-    (name, headersWithPartyAuth(List(name)))
+  protected def getUniqueParty(name: String) = getUniquePartyAndAuthHeaders(name)._1
+  protected def getUniquePartyAndAuthHeaders(name: String): (domain.Party, List[HttpHeader]) = {
+    val partyName = s"${name}_${uniqueId()}"
+    (domain.Party(partyName), headersWithPartyAuth(List(partyName)))
+  }
 
   protected def withHttpServiceAndClient[A](
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
@@ -289,9 +292,9 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateCommand(
+      partyName: String,
       amount: String = "999.9900000000",
       currency: String = "USD",
-      partyName: String = "Alice",
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val party = Ref.Party assertFromString partyName
@@ -321,15 +324,16 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateAndExerciseTransferCommand(
+      partyName: String,
       amount: String = "999.9900000000",
       currency: String = "USD",
   ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-    val alice = Ref.Party assertFromString "Alice"
+    val party = Ref.Party assertFromString partyName
     val payload = argToApi(iouVA)(
       ShRecord(
-        issuer = alice,
-        owner = alice,
+        issuer = party,
+        owner = party,
         currency = currency,
         amount = LfNumeric assertFromString amount,
         observers = Vector.empty,
@@ -549,19 +553,20 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def initialIouCreate(
       serviceUri: Uri,
-      party: String = "Alice",
-      headers: List[HttpHeader] = headersWithAuth,
+      party: domain.Party,
+      headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = {
+    val partyJson = party.unwrap
     val payload =
       s"""
         |{
         |  "templateId": "Iou:Iou",
         |  "payload": {
         |    "observers": [],
-        |    "issuer": "$party",
+        |    "issuer": "$partyJson",
         |    "amount": "999.99",
         |    "currency": "USD",
-        |    "owner": "$party"
+        |    "owner": "$partyJson"
         |  }
         |}
         |""".stripMargin
@@ -575,10 +580,10 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def initialAccountCreate(
       serviceUri: Uri,
       encoder: DomainJsonEncoder,
-      owner: String = "Alice",
-      headers: List[HttpHeader] = headersWithAuth,
+      owner: domain.Party,
+      headers: List[HttpHeader],
   ): Future[(StatusCode, JsValue)] = {
-    val command = accountCreateCommand(domain.Party(owner), "abc123")
+    val command = accountCreateCommand(owner, "abc123")
     postCreateCommand(command, encoder, serviceUri, headers)
   }
 
@@ -643,28 +648,31 @@ abstract class AbstractHttpServiceIntegrationTest
   override final def useTls = UseTls.NoTls
 
   "query GET empty results" in withHttpService { (uri: Uri, _, _, _) =>
-    searchAllExpectOk(uri).flatMap { case vector =>
+    val (_, headers) = getUniquePartyAndAuthHeaders("Alice")
+    searchAllExpectOk(uri, headers).flatMap { case vector =>
       vector should have size 0L
     }
-
   }
 
   protected def genSearchDataSet(
-      party: String = "Alice"
-  ): List[domain.CreateCommand[v.Record, OptionalPkg]] =
+      party: domain.Party
+  ): List[domain.CreateCommand[v.Record, OptionalPkg]] = {
+    val partyName = party.unwrap
     List(
-      iouCreateCommand(amount = "111.11", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "222.22", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "333.33", currency = "GBP", partyName = party),
-      iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
+      iouCreateCommand(amount = "111.11", currency = "EUR", partyName = partyName),
+      iouCreateCommand(amount = "222.22", currency = "EUR", partyName = partyName),
+      iouCreateCommand(amount = "333.33", currency = "GBP", partyName = partyName),
+      iouCreateCommand(amount = "444.44", currency = "BTC", partyName = partyName),
     )
+  }
 
   "query GET" in withHttpService { (uri: Uri, encoder, _, _) =>
-    val searchDataSet = genSearchDataSet()
-    searchDataSet.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val searchDataSet = genSearchDataSet(alice)
+    searchDataSet.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
-      getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
+      getRequest(uri = uri.withPath(Uri.Path("/v1/query")), headers)
         .flatMap { case (status, output) =>
           status shouldBe StatusCodes.OK
           assertStatus(output, StatusCodes.OK)
@@ -678,34 +686,32 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "multi-party query GET" in withHttpService { (uri, encoder, _, _) =>
+    val (alice, aliceHeaders) = getUniquePartyAndAuthHeaders("Alice")
+    val (bob, bobHeaders) = getUniquePartyAndAuthHeaders("Alice")
     for {
       _ <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Carol"), number = "42"),
+        accountCreateCommand(owner = alice, number = "42"),
         encoder,
         uri,
-        headers = headersWithPartyAuth(List("Carol")),
+        headers = aliceHeaders,
       ).map(r => r._1 shouldBe StatusCodes.OK)
       _ <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Ted"), number = "23"),
+        accountCreateCommand(owner = bob, number = "23"),
         encoder,
         uri,
-        headers = headersWithPartyAuth(List("Ted")),
+        headers = bobHeaders,
       ).map(r => r._1 shouldBe StatusCodes.OK)
-      _ <- searchAllExpectOk(uri, headersWithPartyAuth(List("Carol"))).map(cs =>
-        cs should have size 1
-      )
-      _ <- searchAllExpectOk(uri, headersWithPartyAuth(List("Ted"))).map(cs =>
-        cs should have size 1
-      )
-      _ <- searchAllExpectOk(uri, headersWithPartyAuth(List("Carol", "Ted"))).map(cs =>
+      _ <- searchAllExpectOk(uri, aliceHeaders).map(cs => cs should have size 1)
+      _ <- searchAllExpectOk(uri, bobHeaders).map(cs => cs should have size 1)
+      _ <- searchAllExpectOk(uri, headersWithPartyAuth(List(alice.unwrap, bob.unwrap))).map(cs =>
         cs should have size 2
       )
     } yield succeed
   }
 
   "query POST with empty query" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Trent")
-    val searchDataSet = genSearchDataSet(party)
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val searchDataSet = genSearchDataSet(alice)
     searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"]}"""),
@@ -718,18 +724,21 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "multi-party query POST with empty query" in withHttpService { (uri, encoder, _, _) =>
+    val (alice, aliceHeaders) = getUniquePartyAndAuthHeaders("Alice")
+    val (bob, bobHeaders) = getUniquePartyAndAuthHeaders("Alice")
     for {
       aliceAccountResp <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
+        accountCreateCommand(owner = alice, number = "42"),
         encoder,
         uri,
+        aliceHeaders,
       )
       _ = aliceAccountResp._1 shouldBe StatusCodes.OK
       bobAccountResp <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
+        accountCreateCommand(owner = bob, number = "23"),
         encoder,
         uri,
-        headers = headersWithPartyAuth(List("Bob")),
+        bobHeaders,
       )
       _ = bobAccountResp._1 shouldBe StatusCodes.OK
       _ <- searchExpectOk(
@@ -737,7 +746,7 @@ abstract class AbstractHttpServiceIntegrationTest
         jsObject("""{"templateIds": ["Account:Account"]}"""),
         uri,
         encoder,
-        headers = headersWithPartyAuth(List("Alice")),
+        aliceHeaders,
       )
         .map(acl => acl.size shouldBe 1)
       _ <- searchExpectOk(
@@ -745,7 +754,7 @@ abstract class AbstractHttpServiceIntegrationTest
         jsObject("""{"templateIds": ["Account:Account"]}"""),
         uri,
         encoder,
-        headers = headersWithPartyAuth(List("Bob")),
+        bobHeaders,
       )
         .map(acl => acl.size shouldBe 1)
       _ <- searchExpectOk(
@@ -753,7 +762,7 @@ abstract class AbstractHttpServiceIntegrationTest
         jsObject("""{"templateIds": ["Account:Account"]}"""),
         uri,
         encoder,
-        headers = headersWithPartyAuth(List("Alice", "Bob")),
+        headers = headersWithPartyAuth(List(alice.unwrap, bob.unwrap)),
       )
         .map(acl => acl.size shouldBe 2)
     } yield {
@@ -762,8 +771,8 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, one field" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Steve")
-    val searchDataSet = genSearchDataSet(party)
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val searchDataSet = genSearchDataSet(alice)
     searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
@@ -797,11 +806,13 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "query returns unknown Template IDs as warnings and error" in withHttpService {
     (uri, encoder, _, _) =>
+      val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       search(
-        genSearchDataSet(),
+        genSearchDataSet(alice),
         jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
         uri,
         encoder,
+        headers,
       ).map { response =>
         inside(response) { case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest) =>
           errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
@@ -819,8 +830,8 @@ abstract class AbstractHttpServiceIntegrationTest
     (uri, encoder, _, _) =>
       import scalaz.std.scalaFuture._
 
-      val (party, headers) = partyAndAuthHeaders("Mike")
-      val searchDataSet = genSearchDataSet(party)
+      val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+      val searchDataSet = genSearchDataSet(alice)
       searchDataSet.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap {
         rs: List[(StatusCode, JsValue)] =>
           rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
@@ -867,9 +878,12 @@ abstract class AbstractHttpServiceIntegrationTest
   ).foreach { case (testLbl, testCurrency) =>
     s"query record contains handles '$testLbl' strings properly" in withHttpService {
       (uri, encoder, _, _) =>
-        val (party, headers) = partyAndAuthHeaders("Ana")
+        val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
         searchExpectOk(
-          genSearchDataSet(party) :+ iouCreateCommand(currency = testCurrency, partyName = party),
+          genSearchDataSet(alice) :+ iouCreateCommand(
+            currency = testCurrency,
+            partyName = alice.unwrap,
+          ),
           jsObject(
             s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
           ),
@@ -883,8 +897,8 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, two fields" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Dom")
-    val searchDataSet = genSearchDataSet(party)
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val searchDataSet = genSearchDataSet(alice)
     searchExpectOk(
       searchDataSet,
       jsObject(
@@ -901,8 +915,8 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, no results" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Phil")
-    val searchDataSet = genSearchDataSet(party)
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val searchDataSet = genSearchDataSet(alice)
     searchExpectOk(
       searchDataSet,
       jsObject(
@@ -943,9 +957,10 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "create IOU" in withHttpService { (uri, encoder, _, _) =>
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
-    postCreateCommand(command, encoder, uri).flatMap { case (status, output) =>
+    postCreateCommand(command, encoder, uri, headers).flatMap { case (status, output) =>
       status shouldBe StatusCodes.OK
       assertStatus(output, StatusCodes.OK)
       val activeContract = getResult(output)
@@ -955,8 +970,8 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "create IOU should fail if authorization header is missing" in withHttpService {
     (uri, encoder, _, _) =>
-      val command: domain.CreateCommand[v.Record, OptionalPkg] =
-        iouCreateCommand()
+      val alice = getUniqueParty("Alice")
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
       postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input, List()).flatMap {
@@ -970,13 +985,14 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "create IOU should support extra readAs parties" in withHttpService { (uri, encoder, _, _) =>
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
+    val alice = getUniqueParty("Alice")
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     postJsonRequest(
       uri.withPath(Uri.Path("/v1/create")),
       input,
-      headers = headersWithPartyAuth(actAs = List("Alice"), readAs = List("Bob")),
+      headers = headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob")),
     ).flatMap { case (status, output) =>
       status shouldBe StatusCodes.OK
       assertStatus(output, StatusCodes.OK)
@@ -987,11 +1003,12 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "create IOU with unsupported templateId should return proper error" in withHttpService {
     (uri, encoder, _, _) =>
+      val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       val command: domain.CreateCommand[v.Record, OptionalPkg] =
-        iouCreateCommand().copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
+        iouCreateCommand(alice.unwrap).copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
-      postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input).flatMap {
+      postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input, headers).flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.BadRequest
           assertStatus(output, StatusCodes.BadRequest)
@@ -1004,8 +1021,9 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "exercise IOU_Transfer" in withHttpService { (uri, encoder, decoder, ledgerId) =>
-    val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
-    postCreateCommand(create, encoder, uri)
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    postCreateCommand(create, encoder, uri, headers)
       .flatMap { case (createStatus, createOutput) =>
         createStatus shouldBe StatusCodes.OK
         assertStatus(createOutput, StatusCodes.OK)
@@ -1015,7 +1033,7 @@ abstract class AbstractHttpServiceIntegrationTest
           iouExerciseTransferCommand(contractId)
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-        postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
+        postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson, headers)
           .flatMap { case (exerciseStatus, exerciseOutput) =>
             exerciseStatus shouldBe StatusCodes.OK
             assertStatus(exerciseOutput, StatusCodes.OK)
@@ -1026,18 +1044,20 @@ abstract class AbstractHttpServiceIntegrationTest
               decoder,
               uri,
               ledgerId,
+              headers,
             )
           }
       }: Future[Assertion]
   }
 
   "create-and-exercise IOU_Transfer" in withHttpService { (uri, encoder, _, _) =>
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
-      iouCreateAndExerciseTransferCommand()
+      iouCreateAndExerciseTransferCommand(alice.unwrap)
 
     val json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
-    postJsonRequest(uri.withPath(Uri.Path("/v1/create-and-exercise")), json)
+    postJsonRequest(uri.withPath(Uri.Path("/v1/create-and-exercise")), json, headers)
       .flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         inside(
@@ -1068,6 +1088,7 @@ abstract class AbstractHttpServiceIntegrationTest
       decoder: DomainJsonDecoder,
       uri: Uri,
       ledgerId: LedgerId,
+      headers: List[HttpHeader],
   ): Future[Assertion] = {
     inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](exerciseResponse)) {
       case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) =>
@@ -1087,7 +1108,7 @@ abstract class AbstractHttpServiceIntegrationTest
               Some(domain.TemplateId(None, "Iou", "IouTransfer")),
               domain.ContractId(exerciseResult),
             )
-            postContractsLookup(newContractLocator, uri).flatMap { case (status, output) =>
+            postContractsLookup(newContractLocator, uri, headers).flatMap { case (status, output) =>
               status shouldBe StatusCodes.OK
               assertStatus(output, StatusCodes.OK)
               getContractId(getResult(output)) shouldBe newContractLocator.contractId
@@ -1098,7 +1119,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
     (uri, encoder, _, _) =>
-      val contractIdString = List.fill(66)("0").mkString("")
+      val contractIdString = "0" * 66
       val contractId = lar.ContractId(contractIdString)
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
       postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
@@ -1112,8 +1133,9 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "exercise Archive" in withHttpService { (uri, encoder, _, _) =>
-    val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
-    postCreateCommand(create, encoder, uri)
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
+    postCreateCommand(create, encoder, uri, headers)
       .flatMap { case (createStatus, createOutput) =>
         createStatus shouldBe StatusCodes.OK
         assertStatus(createOutput, StatusCodes.OK)
@@ -1124,7 +1146,7 @@ abstract class AbstractHttpServiceIntegrationTest
         val exercise = archiveCommand(reference)
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-        postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
+        postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson, headers)
           .flatMap { case (exerciseStatus, exerciseOutput) =>
             exerciseStatus shouldBe StatusCodes.OK
             assertStatus(exerciseOutput, StatusCodes.OK)
@@ -1214,7 +1236,7 @@ abstract class AbstractHttpServiceIntegrationTest
     import json.JsonProtocol._
     import util.ErrorOps._
 
-    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
+    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand("Alice")
 
     type F[A] = EitherT[Future, JsonError, A]
     val x: F[Assertion] = for {
@@ -1254,7 +1276,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "parties endpoint should return all known parties" in withHttpServiceAndClient {
     (uri, _, _, client, _) =>
       import scalaz.std.vector._
-      val partyIds = Vector("Party1", "Party2", "Party3", "Party4")
+      val partyIds = Vector("P1", "P2", "P3", "P4")
       val partyManagement = client.partyManagementClient
 
       partyIds
@@ -1282,10 +1304,10 @@ abstract class AbstractHttpServiceIntegrationTest
     (uri, _, _, client, _) =>
       import scalaz.std.vector._
 
-      val gavin = domain.Party("Gavin")
-      val knownParties = domain.Party.subst(Vector("Party5", "Party6", "Party7")) :+ gavin
-      val erin = domain.Party("Erin")
-      val requestedPartyIds: Vector[domain.Party] = knownParties.filterNot(_ == gavin) :+ erin
+      val charlie = getUniqueParty("Charlie")
+      val knownParties = Vector(getUniqueParty("Alice"), getUniqueParty("Bob")) :+ charlie
+      val erin = getUniqueParty("Erin")
+      val requestedPartyIds: Vector[domain.Party] = knownParties.filterNot(_ == charlie) :+ erin
 
       val partyManagement = client.partyManagementClient
 
@@ -1308,7 +1330,7 @@ abstract class AbstractHttpServiceIntegrationTest
               actualIds shouldBe requestedPartyIds.toSet - erin // Erin is not known
               val expected: Set[domain.PartyDetails] = allocatedParties.toSet
                 .map(domain.PartyDetails.fromLedgerApi)
-                .filterNot(_.identifier == gavin)
+                .filterNot(_.identifier == charlie)
               response.result.toSet shouldBe expected
             }
           }
@@ -1348,8 +1370,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "parties endpoint returns empty result with warnings and OK status if nothing found" in withHttpServiceAndClient {
     (uri, _, _, _, _) =>
       val requestedPartyIds: Vector[domain.Party] =
-        domain.Party.subst(Vector("Party8", "Party9", "Party10"))
-
+        Vector(getUniqueParty("Alice"), getUniqueParty("Bob"))
       postJsonRequest(
         uri = uri.withPath(Uri.Path("/v1/parties")),
         JsArray(requestedPartyIds.map(x => JsString(x.unwrap))),
@@ -1442,9 +1463,8 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "fetch by contractId" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Matt")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] =
-      iouCreateCommand(partyName = party)
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
 
     postCreateCommand(command, encoder, uri, headers).flatMap { case (status, output) =>
       status shouldBe StatusCodes.OK
@@ -1457,13 +1477,13 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "fetch returns {status:200, result:null} when contract is not found" in withHttpService {
     (uri, _, _, _) =>
-      val owner = domain.Party("Alice")
+      val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       val accountNumber = "abc123"
       val locator = domain.EnrichedContractKey(
         domain.TemplateId(None, "Account", "Account"),
-        JsArray(JsString(owner.unwrap), JsString(accountNumber)),
+        JsArray(JsString(alice.unwrap), JsString(accountNumber)),
       )
-      postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch"))).flatMap {
+      postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
           assertStatus(output, StatusCodes.OK)
@@ -1475,32 +1495,32 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "fetch by key" in withHttpService { (uri, encoder, _, _) =>
-    val owner = domain.Party("Alice")
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val accountNumber = "abc123"
     val command: domain.CreateCommand[v.Record, OptionalPkg] =
-      accountCreateCommand(owner, accountNumber)
+      accountCreateCommand(alice, accountNumber)
 
-    postCreateCommand(command, encoder, uri).flatMap { case (status, output) =>
+    postCreateCommand(command, encoder, uri, headers).flatMap { case (status, output) =>
       status shouldBe StatusCodes.OK
       assertStatus(output, StatusCodes.OK)
       val contractId: ContractId = getContractId(getResult(output))
       val locator = domain.EnrichedContractKey(
         domain.TemplateId(None, "Account", "Account"),
-        JsArray(JsString(owner.unwrap), JsString(accountNumber)),
+        JsArray(JsString(alice.unwrap), JsString(accountNumber)),
       )
-      lookupContractAndAssert(locator)(contractId, command, encoder, uri)
+      lookupContractAndAssert(locator)(contractId, command, encoder, uri, headers)
     }: Future[Assertion]
   }
 
   "commands/exercise Archive by key" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Gemma")
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val accountNumber = "abc123"
     val create: domain.CreateCommand[v.Record, OptionalPkg] =
-      accountCreateCommand(domain.Party(party), accountNumber)
+      accountCreateCommand(alice, accountNumber)
 
     val keyRecord = v.Record(
       fields = Seq(
-        v.RecordField(value = Some(v.Value(v.Value.Sum.Party(party)))),
+        v.RecordField(value = Some(v.Value(v.Value.Sum.Party(alice.unwrap)))),
         v.RecordField(value = Some(v.Value(v.Value.Sum.Text(accountNumber)))),
       )
     )
@@ -1526,33 +1546,36 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "fetch by key containing variant and record, encoded as array with number num" in withHttpService {
     (uri, _, _, _) =>
+      val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       testFetchByCompositeKey(
         uri,
-        jsObject("""{
+        jsObject(s"""{
             "templateId": "Account:KeyedByVariantAndRecord",
             "key": [
-              "Alice",
+              "$alice",
               {"tag": "Bar", "value": 42},
               {"baz": "another baz value"}
             ]
           }"""),
+        alice,
+        headers,
       )
   }
 
   "fetch by key containing variant and record, encoded as record with string num" in withHttpService {
     (uri, _, _, _) =>
-      val (party, headers) = partyAndAuthHeaders("Ollie")
+      val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       testFetchByCompositeKey(
         uri,
         jsObject(s"""{
             "templateId": "Account:KeyedByVariantAndRecord",
             "key": {
-              "_1": "$party",
+              "_1": "$alice",
               "_2": {"tag": "Bar", "value": "42"},
               "_3": {"baz": "another baz value"}
             }
           }"""),
-        party,
+        alice,
         headers,
       )
   }
@@ -1560,14 +1583,14 @@ abstract class AbstractHttpServiceIntegrationTest
   private def testFetchByCompositeKey(
       uri: Uri,
       request: JsObject,
-      party: String = "Alice",
-      headers: List[HttpHeader] = headersWithAuth,
+      party: domain.Party,
+      headers: List[HttpHeader],
   ) = {
     val createCommand = jsObject(s"""{
         "templateId": "Account:KeyedByVariantAndRecord",
         "payload": {
           "name": "ABC DEF",
-          "party": "$party",
+          "party": "${party.unwrap}",
           "age": 123,
           "fooVariant": {"tag": "Bar", "value": 42},
           "bazRecord": {"baz": "another baz value"}
@@ -1589,12 +1612,12 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query by a variant field" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Harry")
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val accountNumber = "abc123"
     val now = TimestampConversion.instantToMicros(Instant.now)
     val nowStr = TimestampConversion.microsToInstant(now).toString
     val command: domain.CreateCommand[v.Record, OptionalPkg] =
-      accountCreateCommand(domain.Party(party), accountNumber, now)
+      accountCreateCommand(alice, accountNumber, now)
 
     val packageId: Ref.PackageId = MetadataReader
       .templateByName(metadata2)(Ref.QualifiedName.assertFromString("Account:Account"))
@@ -1684,10 +1707,10 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "package list is updated when a query request is made" in withLedger2[Assertion] {
     (ledgerPort: Port, _, _) =>
-      val (party, headers) = partyAndAuthHeaders("James")
+      val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       for {
         _ <- withHttpServiceOnly(ledgerPort) { (uri, encoder, _) =>
-          val searchDataSet = genSearchDataSet(party)
+          val searchDataSet = genSearchDataSet(alice)
           searchDataSet.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap { rs =>
             rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
           }
@@ -1708,11 +1731,11 @@ abstract class AbstractHttpServiceIntegrationTest
   "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Kyle")
+    val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val numContracts: Long = 10000
     val helperId = domain.TemplateId(None, "Account", "Helper")
     val payload = v.Record(
-      fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(party)))))
+      fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(alice.unwrap)))))
     )
     val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
       domain.CreateAndExerciseCommand(

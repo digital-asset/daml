@@ -20,7 +20,7 @@ class HttpServiceWithPostgresIntTest
   override def wsConfig: Option[WebsocketConfig] = None
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _, _) =>
-    val (party, headers) = partyAndAuthHeaders("Ian")
+    val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
     val searchDataSet = genSearchDataSet(party)
     searchExpectOk(
       searchDataSet,
