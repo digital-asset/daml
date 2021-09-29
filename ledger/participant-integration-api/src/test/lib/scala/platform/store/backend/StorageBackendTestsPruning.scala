@@ -17,15 +17,58 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
   import StorageBackendTestValues._
 
   it should "correctly update the pruning offset" in {
-    val someOffset = offset(3)
+    val offset_1 = offset(3)
+    val offset_2 = offset(2)
+    val offset_3 = offset(4)
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      initialPruningOffset <- executeSql(backend.prunedUptoInclusive)
-      _ <- executeSql(backend.updatePrunedUptoInclusive(someOffset))
-      updatedPruningOffset <- executeSql(backend.prunedUptoInclusive)
+      initialPruningOffset <- executeSql(backend.prunedUpToInclusive)
+
+      _ <- executeSql(backend.updatePrunedUptoInclusive(offset_1))
+      updatedPruningOffset_1 <- executeSql(backend.prunedUpToInclusive)
+
+      _ <- executeSql(backend.updatePrunedUptoInclusive(offset_2))
+      updatedPruningOffset_2 <- executeSql(backend.prunedUpToInclusive)
+
+      _ <- executeSql(backend.updatePrunedUptoInclusive(offset_3))
+      updatedPruningOffset_3 <- executeSql(backend.prunedUpToInclusive)
     } yield {
       initialPruningOffset shouldBe empty
-      updatedPruningOffset shouldBe Some(someOffset)
+      updatedPruningOffset_1 shouldBe Some(offset_1)
+      // The pruning offset is not updated if lower than the existing offset
+      updatedPruningOffset_2 shouldBe Some(offset_1)
+      updatedPruningOffset_3 shouldBe Some(offset_3)
+    }
+  }
+
+  it should "correctly update the pruning offset of all divulged contracts" in {
+    val offset_1 = offset(3)
+    val offset_2 = offset(2)
+    val offset_3 = offset(4)
+    for {
+      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      initialPruningOffset <- executeSql(backend.participantAllDivulgedContractsPrunedUpToInclusive)
+
+      _ <- executeSql(backend.updatePrunedAllDivulgedContractsUpToInclusive(offset_1))
+      updatedPruningOffset_1 <- executeSql(
+        backend.participantAllDivulgedContractsPrunedUpToInclusive
+      )
+
+      _ <- executeSql(backend.updatePrunedAllDivulgedContractsUpToInclusive(offset_2))
+      updatedPruningOffset_2 <- executeSql(
+        backend.participantAllDivulgedContractsPrunedUpToInclusive
+      )
+
+      _ <- executeSql(backend.updatePrunedAllDivulgedContractsUpToInclusive(offset_3))
+      updatedPruningOffset_3 <- executeSql(
+        backend.participantAllDivulgedContractsPrunedUpToInclusive
+      )
+    } yield {
+      initialPruningOffset shouldBe empty
+      updatedPruningOffset_1 shouldBe Some(offset_1)
+      // The pruning offset is not updated if lower than the existing offset
+      updatedPruningOffset_2 shouldBe Some(offset_1)
+      updatedPruningOffset_3 shouldBe Some(offset_3)
     }
   }
 

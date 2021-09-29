@@ -6,7 +6,6 @@ package com.daml.platform.store.backend.common
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
@@ -35,6 +34,11 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
 
   def eventStrategy: EventStrategy
   def queryStrategy: QueryStrategy
+  // TODO Refactoring: This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
+  //                   Remove with the break-out of pruneEvents.
+  def participantAllDivulgedContractsPrunedUpToInclusive(
+      connection: Connection
+  ): Option[Offset]
 
   private val selectColumnsForFlatTransactions =
     Seq(
@@ -402,6 +406,8 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     )(connection)
   }
 
+  // TODO Refactoring: This method is too complex for StorageBackend.
+  //                   Break the method into its constituents and trigger them from the caller of this method.
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -492,14 +498,6 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             delete_events.event_offset <= $pruneUpToInclusive"""
     }(connection, loggingContext)
   }
-
-  private def participantAllDivulgedContractsPrunedUpToInclusive(
-      connection: Connection
-  ): Option[Offset] =
-    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
-      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
-        connection
-      )
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
       connection: Connection,

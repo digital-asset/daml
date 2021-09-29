@@ -37,7 +37,7 @@ case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends Q
   ): T = {
     val result = query
 
-    storageBackend.prunedUptoInclusive(conn) match {
+    storageBackend.prunedUpToInclusive(conn) match {
       case None =>
         result
 
