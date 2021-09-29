@@ -321,8 +321,9 @@ private[lf] final class Compiler(
       addDef(compileObservers(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
         addDef(compileImplements(identifier, impl.interface))
-      // TODO https://github.com/digital-asset/daml/issues/11006
-      //  compile methods also
+        impl.methods.values.foreach( method =>
+          addDef(compileImplementsMethod(identifier, impl.interface, method))
+        )
       }
 
       tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl, x)))
@@ -507,9 +508,8 @@ private[lf] final class Compiler(
         compile(e) // interfaces have the same representation as underlying template
       case EFromInterface(iface @ _, tpl, e) =>
         SBFromInterface(tpl)(compile(e))
-      case ECallInterface(_, _, _) =>
-        // TODO https://github.com/digital-asset/daml/issues/11006
-        throw CompilationError("ECallInterface not implemented")
+      case ECallInterface(iface, methodName, e) =>
+        SBCallInterface(iface, methodName)(compile(e))
       case EExperimental(name, _) =>
         SBExperimental(name)
 
@@ -1481,6 +1481,16 @@ private[lf] final class Compiler(
     topLevelFunction(ImplementsDefRef(tmplId, ifaceId), 1) { case List(tmplPos) =>
       svar(tmplPos)
     }
+
+  // Compile the implementation of an interface method.
+  private[this] def compileImplementsMethod(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      method: TemplateImplementsMethod,
+  ): (SDefinitionRef, SDefinition) = {
+    val ref = ImplementsMethodDefRef(tmplId, ifaceId, method.name)
+    ref -> SDefinition(withLabel(ref, unsafeCompile(method.value)))
+  }
 
   private[this] def compileCreate(
       tmplId: Identifier,
