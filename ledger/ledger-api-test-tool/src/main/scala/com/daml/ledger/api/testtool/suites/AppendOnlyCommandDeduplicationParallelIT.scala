@@ -97,13 +97,10 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
       val expectedDuplicateResponses = numberOfParallelRequests - 1
       val okResponses = responses.getOrElse(Code.OK, 0)
       val alreadyExistsResponses = responses.getOrElse(Code.ALREADY_EXISTS, 0)
-      // Participant-based command de-duplication can currently also reject duplicates via a SQL exception when using the CommandSubmissionService
-      val internalResponses = responses.getOrElse(Code.INTERNAL, 0)
       // Canton can return ABORTED for duplicate submissions
-      // Participant based command de-duplication can currently also return ABORTED when using the CommandService
       val abortedResponses = responses.getOrElse(Code.ABORTED, 0)
       val duplicateResponses =
-        alreadyExistsResponses + internalResponses + abortedResponses
+        alreadyExistsResponses + abortedResponses
       assert(
         okResponses == 1 && duplicateResponses == numberOfParallelRequests - 1,
         s"Expected $expectedDuplicateResponses duplicate responses and one accepted, got $responses",
