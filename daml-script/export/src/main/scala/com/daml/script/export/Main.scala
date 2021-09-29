@@ -84,5 +84,6 @@ object Main {
     commandClient = CommandClientConfiguration.default,
     sslContext = config.tlsConfig.client(),
     token = config.accessToken.flatMap(_.token),
+    maxInboundMessageSize = config.maxInboundMessageSize,
   )
 }

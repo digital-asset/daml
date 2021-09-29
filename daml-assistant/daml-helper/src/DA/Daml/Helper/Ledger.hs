@@ -510,9 +510,11 @@ runLedgerExport flags remainingArguments = do
         pure []
       else do
         args <- getDefaultArgs flags
+        let maxSizeArgs size = ["--max-inbound-message-size", show size]
+            extras = maybe [] maxSizeArgs $ fMaxReceiveLengthM flags
         -- TODO[AH]: Use parties from daml.yaml by default.
         -- TODO[AH]: Use SDK version from daml.yaml by default.
-        pure ["--host", host args, "--port", show (port args)]
+        pure $ ["--host", host args, "--port", show (port args)] <> extras
     withJar
       damlSdkJar
       [logbackArg]

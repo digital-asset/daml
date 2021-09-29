@@ -20,6 +20,7 @@ final case class Config(
     start: LedgerOffset,
     end: LedgerOffset,
     exportType: Option[ExportType],
+    maxInboundMessageSize: Int,
 )
 
 sealed trait ExportType
@@ -39,6 +40,8 @@ final case class PartyConfig(
 )
 
 object Config {
+  val DefaultMaxInboundMessageSize: Int = 4194304
+
   def parse(args: Array[String]): Option[Config] =
     parser.parse(args, Empty)
 
@@ -99,6 +102,12 @@ object Config {
       .action((x, c) => c.copy(end = parseLedgerOffset(x)))
       .text(
         "The transaction offset (inclusive) for the end position of the export. Optional, by default the export includes the current end of the ledger."
+      )
+    opt[Int]("max-inbound-message-size")
+      .optional()
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize"
       )
     cmd("script")
       .action((_, c) => c.copy(exportType = Some(EmptyExportScript)))
@@ -172,5 +181,6 @@ object Config {
     start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
     exportType = None,
+    maxInboundMessageSize = DefaultMaxInboundMessageSize,
   )
 }
