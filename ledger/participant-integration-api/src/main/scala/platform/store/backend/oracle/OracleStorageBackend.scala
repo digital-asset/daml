@@ -271,8 +271,8 @@ private[backend] object OracleStorageBackend
 
   case class OracleLockId(id: Int) extends DBLockStorageBackend.LockId {
     // respecting Oracle limitations: https://docs.oracle.com/cd/B19306_01/appdev.102/b14258/d_lock.htm#ARPLS021
-    assert(id >= 0)
-    assert(id <= 1073741823)
+    assert(id >= 0, s"Lock id $id is too small for Oracle")
+    assert(id <= 1073741823, s"Lock id $id is too large for Oracle")
   }
 
   private def oracleIntLockId(lockId: DBLockStorageBackend.LockId): Int =
