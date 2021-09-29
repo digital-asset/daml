@@ -53,7 +53,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
     for version in PROTO_LF_VERSIONS
     for package in [lf_version_package(version)]
     for mangled_version in [mangle_for_java(version)]
-    for directory in ["main" if version == "dev" else "snapshot"]
+    for directory in ["main" if version == "dev" else "stable"]
 ]
 
 # FIXME(JM): Clean this up
