@@ -15,6 +15,8 @@ import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.google.protobuf
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
@@ -136,6 +138,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "DUPLICATE_COMMAND",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
         ) {
+
+      override def extraDetails: Seq[protobuf.Any] =
+        Seq(ErrorFactories.definiteAnswers(false))
 
       case class Reject()(implicit
           loggingContext: LoggingContext,

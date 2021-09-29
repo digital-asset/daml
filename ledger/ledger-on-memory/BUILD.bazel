@@ -229,6 +229,36 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-append-only-multi-participant-with-self-service-error-codes",
+    ports = [
+        6865,
+        6866,
+    ],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--participant=participant-id=example1,port=6865",
+        "--participant=participant-id=example2,port=6866",
+        "--max-deduplication-duration=PT5S",
+        "--tracker-retention-period=PT5S",  # lower the command timeout duration, this is a workaround DPP-609
+        "--use-error-codes-v2",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--additional=ParticipantPruningIT",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        # The following two tests don't actually care about multi-participant but they do need append-only.
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ConfigManagementServiceIT",
+    ],
+)
+
+conformance_test(
     name = "conformance-test-split-participant",
     ports = [
         6865,

@@ -6,6 +6,8 @@ package com.daml.error
 import com.daml.error.ErrorCode.{StatusInfo, loggingValueToString, truncateResourceForTransport}
 import com.daml.logging.entries.LoggingValue
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.google.protobuf
+import com.google.rpc.ErrorInfo
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -67,10 +69,10 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       getStatusInfo(err, correlationId, logger)(loggingContext)
 
     // Provide error id and context via ErrorInfo
-    val errInfoBuilder = com.google.rpc.ErrorInfo
+    val errInfoBuilder: ErrorInfo.Builder = com.google.rpc.ErrorInfo
       .newBuilder()
       .setReason(id)
-    val errInfoPrep =
+    val errInfoPrep: ErrorInfo.Builder =
       if (!code.category.securitySensitive) {
         contextMap
           .foldLeft(errInfoBuilder) { case (bld, (k, v)) =>
@@ -123,7 +125,9 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       .setCode(codeInt.value())
       .setMessage(message)
 
-    (Seq(errInfo) ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfo)
+    val x: Seq[protobuf.Any] =
+      Seq(errInfo) ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfo ++ extraDetails
+    x
       .foldLeft(statusBuilder) { case (acc, item) =>
         acc.addDetails(item)
       }
@@ -133,6 +137,8 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     // Strip stack trace from exception
     new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
   }
+
+  def extraDetails: Seq[protobuf.Any] = Seq.empty
 
   def formatContextAsString(contextMap: Map[String, String]): String =
     contextMap.view

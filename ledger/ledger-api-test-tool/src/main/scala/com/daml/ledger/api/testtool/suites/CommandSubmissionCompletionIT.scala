@@ -101,6 +101,15 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       wrongRequest = ledger.submitRequest(party, wrongExercise)
       failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")
     } yield {
+
+      /** - [CommandSubmissionCompletionIT:CSCRefuseBadChoice] The submission of an exercise of a choice that does not exist should yield INVALID_ARGUMENT ... Assertion failed
+        *
+        * The error did not contain a definite answer.
+        * Metadata was: [
+        * {err=Lookup(LookupError(Choice(b781a81d940df95625dc610857cc32411953c1061189b159b3a370548764fca8:Test:Dummy,THIS_IS_NOT_A_VALID_CHOICE),Choice(b781a81d940df95625dc610857cc32411953c1061189b159b3a370548764fca8:Test:Dummy,THIS_IS_NOT_A_VALID_CHOICE))), category=8}
+        * ]
+        *  java.lang.AssertionError: The error did not contain a definite answer. Metadata was: [{err=Lookup(LookupError(Choice(b781a81d940df95625dc610857cc32411953c1061189b159b3a370548764fca8:Test:Dummy,THIS_IS_NOT_A_VALID_CHOICE),Choice(b781a81d940df95625dc610857cc32411953c1061189b159b3a370548764fca8:Test:Dummy,THIS_IS_NOT_A_VALID_CHOICE))), category=8}]
+        */
       assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
