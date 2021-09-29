@@ -370,20 +370,6 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        # Tests got renamed AGAIN in
-        # https://github.com/digital-asset/daml/commit/60ffb79fb16b507d4143cfc991da342efea504a7
-        "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
-        "platform_ranges": [
-            {
-                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
-                "exclusions": [
-                    "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic",
-                    "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationCommandClient",
-                ],
-            },
-        ],
-    },
-    {
         "end": last_nongranular_test_tool,
         "platform_ranges": [
             {
