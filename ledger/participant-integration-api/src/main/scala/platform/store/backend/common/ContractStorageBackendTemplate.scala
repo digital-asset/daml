@@ -5,7 +5,8 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 import java.time.Instant
-import anorm.SqlParser.{binaryStream, int, long, str}
+
+import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.Conversions.{
@@ -138,7 +139,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   private val fullDetailsContractRowParser: RowParser[StorageBackend.RawContractState] =
     (str("template_id").?
       ~ flatEventWitnessesColumn("flat_event_witnesses")
-      ~ binaryStream("create_argument").?
+      ~ byteArray("create_argument").?
       ~ int("create_argument_compression").?
       ~ int("event_kind") ~ instantFromMicros("ledger_effective_time").?)
       .map(SqlParser.flatten)
@@ -171,9 +172,9 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       contractId("contract_id") ~
       identifier("template_id").? ~
       instantFromMicros("ledger_effective_time").? ~
-      binaryStream("create_key_value").? ~
+      byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
-      binaryStream("create_argument").? ~
+      byteArray("create_argument").? ~
       int("create_argument_compression").? ~
       long("event_sequential_id") ~
       flatEventWitnessesColumn("flat_event_witnesses") ~
@@ -221,10 +222,12 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
 
   private val contractRowParser: RowParser[StorageBackend.RawContract] =
     (str("template_id")
-      ~ binaryStream("create_argument")
+      ~ byteArray("create_argument")
       ~ int("create_argument_compression").?)
       .map(SqlParser.flatten)
-      .map(StorageBackend.RawContract.tupled)
+      .map { case (templateId, createArgument, createArgumentCompression) =>
+        new StorageBackend.RawContract(templateId, createArgument, createArgumentCompression)
+      }
 
   protected def activeContractSqlLiteral(
       contractId: ContractId,
