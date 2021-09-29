@@ -7,12 +7,11 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 
-lf_scalacopts_stricter = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+print(lf_scalacopts_stricter)
 
 da_scala_library(
     name = "interpreter",
