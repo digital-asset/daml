@@ -38,5 +38,5 @@ case class ApiServerConfig(
     enableMutableContractStateCache: Boolean,
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
-    enableErrorCodesV2: Boolean,
+    enableSelfServiceErrorCodes: Boolean,
 )

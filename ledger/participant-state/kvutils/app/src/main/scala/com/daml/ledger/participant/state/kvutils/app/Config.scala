@@ -54,7 +54,7 @@ final case class Config[Extra](
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableHa: Boolean, // TODO ha: remove after stable
     extra: Extra,
-    enableErrorCodesV2: Boolean,
+    enableSelfServiceErrorCodes: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -91,7 +91,7 @@ object Config {
       enableHa = false,
       maxDeduplicationDuration = None,
       extra = extra,
-      enableErrorCodesV2 = false,
+      enableSelfServiceErrorCodes = false,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -660,11 +660,11 @@ object Config {
           )
           .action((_, config) => config.copy(enableHa = true))
 
-        opt[Unit]("use-error-codes-v2")
+        opt[Unit]("use-self-service-error-codes")
           .optional()
           .hidden()
-          .text("Enable new self-service errors.")
-          .action((_, config) => config.copy(enableErrorCodesV2 = true))
+          .text("Enable self-service error codes.")
+          .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
       }
     extraOptions(parser)
     parser
