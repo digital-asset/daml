@@ -641,14 +641,14 @@ object Ast {
   object TemplateKeySignature extends GenTemplateKeyCompanion[Unit]
 
   final case class DefInterface(
-    choices: Map[ChoiceName, InterfaceChoice],
-    methods: Map[MethodName, InterfaceMethod],
+      choices: Map[ChoiceName, InterfaceChoice],
+      methods: Map[MethodName, InterfaceMethod],
   )
 
   object DefInterface {
     def apply(
         choices: Iterable[(ChoiceName, InterfaceChoice)],
-        methods: Iterable[(MethodName, InterfaceMethod)]
+        methods: Iterable[(MethodName, InterfaceMethod)],
     ): DefInterface = {
       val choiceMap = toMapWithoutDuplicate(
         choices,
@@ -710,7 +710,7 @@ object Ast {
       val implementsMap = toMapWithoutDuplicate(
         implements,
         (ifaceName: TypeConName) =>
-          throw PackageError(s"repeated interface implementation ${ifaceName.toString}")
+          throw PackageError(s"repeated interface implementation ${ifaceName.toString}"),
       )
 
       new GenTemplate[E](
@@ -826,31 +826,31 @@ object Ast {
   object TemplateChoiceSignature extends GenTemplateChoiceCompanion[Unit]
 
   case class GenTemplateImplements[E] private[Ast] (
-    interface: TypeConName,
-    methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+      interface: TypeConName,
+      methods: Map[MethodName, GenTemplateImplementsMethod[E]],
   )
 
   sealed class GenTemplateImplementsCompanion[E] {
     def apply(
-      interface: TypeConName,
-      methods: Iterable[(MethodName, GenTemplateImplementsMethod[E])],
+        interface: TypeConName,
+        methods: Iterable[(MethodName, GenTemplateImplementsMethod[E])],
     ): GenTemplateImplements[E] = {
       val methodMap = toMapWithoutDuplicate(
         methods,
         (methodName: MethodName) =>
-          throw PackageError(s"repeated method implementation ${methodName.toString}")
+          throw PackageError(s"repeated method implementation ${methodName.toString}"),
       )
       new GenTemplateImplements[E](interface, methodMap)
     }
 
     def apply(
-      interface: TypeConName,
-      methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+        interface: TypeConName,
+        methods: Map[MethodName, GenTemplateImplementsMethod[E]],
     ): GenTemplateImplements[E] =
       GenTemplateImplements[E](interface, methods)
 
     def unapply(
-      arg: GenTemplateImplements[E]
+        arg: GenTemplateImplements[E]
     ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
       Some((arg.interface, arg.methods))
   }
@@ -862,19 +862,19 @@ object Ast {
   object TemplateImplementsSignature extends GenTemplateImplementsCompanion[Unit]
 
   case class GenTemplateImplementsMethod[E] private[Ast] (
-    name: MethodName,
-    value: E
+      name: MethodName,
+      value: E,
   )
 
   sealed class GenTemplateImplementsMethodCompanion[E] {
     def apply(
-      name: MethodName,
-      value: E,
+        name: MethodName,
+        value: E,
     ): GenTemplateImplementsMethod[E] =
       GenTemplateImplementsMethod[E](name, value)
 
     def unapply(
-      arg: GenTemplateImplementsMethod[E]
+        arg: GenTemplateImplementsMethod[E]
     ): Some[(MethodName, E)] =
       Some((arg.name, arg.value))
   }

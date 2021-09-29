@@ -463,7 +463,8 @@ private[validation] object Typing {
     }
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterface(choices, methods @ _) = handleLookup(ctx, interface.lookupInterface(impl.interface))
+      val DefInterface(choices, methods @ _) =
+        handleLookup(ctx, interface.lookupInterface(impl.interface))
       choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
         if (tplChoice.consuming != consuming)

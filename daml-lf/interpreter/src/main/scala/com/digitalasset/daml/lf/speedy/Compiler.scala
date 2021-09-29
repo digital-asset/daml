@@ -321,8 +321,8 @@ private[lf] final class Compiler(
       addDef(compileObservers(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
         addDef(compileImplements(identifier, impl.interface))
-        // TODO https://github.com/digital-asset/daml/issues/11006
-        //  compile methods also
+      // TODO https://github.com/digital-asset/daml/issues/11006
+      //  compile methods also
       }
 
       tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl, x)))

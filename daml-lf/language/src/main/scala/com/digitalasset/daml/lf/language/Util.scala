@@ -201,7 +201,9 @@ object Util {
         TemplateKeySignature(typ, (), ())
     }
 
-  private[this] def toSignature(implementsMethod: TemplateImplementsMethod): TemplateImplementsMethodSignature =
+  private[this] def toSignature(
+      implementsMethod: TemplateImplementsMethod
+  ): TemplateImplementsMethodSignature =
     implementsMethod match {
       case TemplateImplementsMethod(name, _) =>
         TemplateImplementsMethodSignature(name, ())

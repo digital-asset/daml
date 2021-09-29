@@ -228,12 +228,14 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       context: => Reference,
   ): Either[LookupError, InterfaceMethod] =
     lookupInterface(ifaceName, context).flatMap(
-      _.methods.get(methodName).toRight(LookupError(Reference.Method(ifaceName, methodName), context))
+      _.methods
+        .get(methodName)
+        .toRight(LookupError(Reference.Method(ifaceName, methodName), context))
     )
 
   def lookupInterfaceMethod(
       ifaceName: TypeConName,
-      methodName: MethodName
+      methodName: MethodName,
   ): Either[LookupError, InterfaceMethod] =
     lookupInterfaceMethod(ifaceName, methodName, Reference.Method(ifaceName, methodName))
 

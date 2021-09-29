@@ -598,18 +598,22 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       )
     }
 
-    private[this] def decodeTemplateImplements(lfImpl: PLF.DefTemplate.Implements): TemplateImplements =
+    private[this] def decodeTemplateImplements(
+        lfImpl: PLF.DefTemplate.Implements
+    ): TemplateImplements =
       TemplateImplements(
         interface = decodeTypeConName(lfImpl.getInterface),
         methods = lfImpl.getMethodsList.asScala
           .map(decodeTemplateImplementsMethod)
-          .map(method => (method.name, method))
+          .map(method => (method.name, method)),
       )
 
-    private[this] def decodeTemplateImplementsMethod(lfMethod: PLF.DefTemplate.ImplementsMethod): TemplateImplementsMethod =
+    private[this] def decodeTemplateImplementsMethod(
+        lfMethod: PLF.DefTemplate.ImplementsMethod
+    ): TemplateImplementsMethod =
       TemplateImplementsMethod(
         name = getInternedName(lfMethod.getMethodInternedName, "TemplateImplementsMethod.name"),
-        value = decodeExpr(lfMethod.getValue, "TemplateImplementsMethod.value")
+        value = decodeExpr(lfMethod.getValue, "TemplateImplementsMethod.value"),
       )
 
     private[archive] def decodeChoice(
@@ -684,7 +688,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): InterfaceMethod =
       InterfaceMethod(
         name = getInternedName(lfMethod.getMethodInternedName, "InterfaceMethod.name"),
-        returnType = decodeType(lfMethod.getType)
+        returnType = decodeType(lfMethod.getType),
       )
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
