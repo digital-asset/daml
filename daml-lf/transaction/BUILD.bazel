@@ -7,12 +7,9 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
     "silencer_plugin",
 )
-
-lf_scalacopts_stricter = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
 
 #
 # Transaction and value protocol buffers

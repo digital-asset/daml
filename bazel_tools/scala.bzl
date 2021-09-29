@@ -168,6 +168,10 @@ plugin_scalacopts = [
 lf_scalacopts = [
 ]
 
+lf_scalacopts_stricter = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
 default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
