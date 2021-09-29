@@ -7,7 +7,6 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicInteger
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails, SubmissionId}
@@ -19,6 +18,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexSubmissionService,
 }
+import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf
@@ -34,7 +34,7 @@ import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayMismatch}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.SeedService
+import com.daml.platform.apiserver.{ErrorCodesVersionSwitcher, SeedService}
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.apiserver.services.ApiSubmissionServiceSpec._
@@ -43,12 +43,12 @@ import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.Inside
+import org.scalatest.{Assertion, Inside}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class ApiSubmissionServiceSpec
     extends AsyncFlatSpec
@@ -230,18 +230,29 @@ class ApiSubmissionServiceSpec
   behavior of "submit"
 
   it should "return proper gRPC status codes for DamlLf errors" in {
-    val partyManagementService = mock[IndexPartyManagementService]
-    val writeService = mock[state.WriteService]
+    testProperGrpcStatusCodesForDamlLfErrors(useSelfServiceErrorCodes = false)
+  }
 
+  it should "return proper gRPC status codes for DamlLf errors (self service error codes a.k.a v2 error codes)" in {
+    testProperGrpcStatusCodesForDamlLfErrors(useSelfServiceErrorCodes = true)
+  }
+
+  private def testProperGrpcStatusCodesForDamlLfErrors(
+      useSelfServiceErrorCodes: Boolean
+  ): Future[Assertion] = {
+    // given
+    val partyManagementService = mock[IndexPartyManagementService]
+    val writeService = mock[WriteService]
+    val mockCommandExecutor = mock[CommandExecutor]
     val tmplId = toIdentifier("M:T")
 
-    val errorsToStatuses = List(
+    val errorsToExpectedStatuses: Seq[(ErrorCause, Status)] = List(
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(LfInterpretationError.ContractNotFound("#cid")),
           None,
         )
-      ) -> Status.ABORTED,
+      ) -> ((Status.ABORTED, Status.ABORTED)),
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(
@@ -251,12 +262,12 @@ class ApiSubmissionServiceSpec
           ),
           None,
         )
-      ) -> Status.ABORTED,
+      ) -> ((Status.ABORTED, Status.ALREADY_EXISTS)),
       ErrorCause.DamlLf(
         LfError.Validation(
           LfError.Validation.ReplayMismatch(ReplayMismatch(null, null))
         )
-      ) -> Status.ABORTED,
+      ) -> ((Status.ABORTED, Status.INTERNAL)),
       ErrorCause.DamlLf(
         LfError.Preprocessing(
           LfError.Preprocessing.Lookup(
@@ -266,7 +277,7 @@ class ApiSubmissionServiceSpec
             )
           )
         )
-      ) -> Status.INVALID_ARGUMENT,
+      ) -> ((Status.INVALID_ARGUMENT, Status.INVALID_ARGUMENT)),
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(
@@ -277,20 +288,27 @@ class ApiSubmissionServiceSpec
           ),
           None,
         )
-      ) -> Status.INVALID_ARGUMENT,
-      ErrorCause.LedgerTime(0) -> Status.ABORTED,
-    )
-    val mockCommandExecutor = mock[CommandExecutor]
+      ) -> ((Status.INVALID_ARGUMENT, Status.INVALID_ARGUMENT)),
+      ErrorCause.LedgerTime(0) -> ((Status.ABORTED, Status.ABORTED)),
+    ).map { case (key, (status_v1, status_v2)) =>
+      if (useSelfServiceErrorCodes) {
+        (key, status_v2)
+      } else {
+        (key, status_v1)
+      }
+    }
 
     val service = newSubmissionService(
       writeService,
       partyManagementService,
       implicitPartyAllocation = true,
       commandExecutor = mockCommandExecutor,
+      useSelfServiceErrorCodes = useSelfServiceErrorCodes,
     )
 
-    Future
-      .sequence(errorsToStatuses.map { case (error, code) =>
+    // when
+    val results: Seq[Future[(Status, Try[Unit])]] = errorsToExpectedStatuses
+      .map { case (error, expectedStatus) =>
         val submitRequest = newSubmitRequest()
         when(
           mockCommandExecutor.execute(
@@ -299,17 +317,21 @@ class ApiSubmissionServiceSpec
             any[Configuration],
           )(any[ExecutionContext], any[LoggingContext])
         ).thenReturn(Future.successful(Left(error)))
-
-        service.submit(submitRequest).transform(result => Success(code -> result))
-      })
-      .map { results =>
-        results.foreach { case (code, result) =>
-          inside(result) { case Failure(exception) =>
-            exception.getMessage should startWith(code.getCode.toString)
-          }
-        }
-        succeed
+        service
+          .submit(submitRequest)
+          .transform(result => Success(expectedStatus -> result))
       }
+    val sequencedResults: Future[Seq[(Status, Try[Unit])]] = Future.sequence(results)
+
+    // then
+    sequencedResults.map { results: Seq[(Status, Try[Unit])] =>
+      results.foreach { case (expectedStatus: Status, result: Try[Unit]) =>
+        inside(result) { case Failure(exception) =>
+          exception.getMessage should startWith(expectedStatus.getCode.toString)
+        }
+      }
+      succeed
+    }
   }
 
   behavior of "command deduplication"
@@ -432,6 +454,7 @@ object ApiSubmissionServiceSpec {
       commandExecutor: CommandExecutor = null,
       deduplicationEnabled: Boolean = true,
       mockIndexSubmissionService: IndexSubmissionService = mock[IndexSubmissionService],
+      useSelfServiceErrorCodes: Boolean = false,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -469,6 +492,9 @@ object ApiSubmissionServiceSpec {
       configuration = ApiSubmissionService
         .Configuration(implicitPartyAllocation, enableDeduplication = true),
       metrics = new Metrics(new MetricRegistry),
+      errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
+        enableErrorCodesV2 = useSelfServiceErrorCodes
+      ),
     )
   }
 }

@@ -35,7 +35,7 @@ object RejectionGenerators {
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
       correlationId: CorrelationId,
-  ): Option[StatusRuntimeException] = {
+  ): StatusRuntimeException = {
 
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
       case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
@@ -138,7 +138,7 @@ object RejectionGenerators {
       case x: ErrorCauseExport.LedgerTime =>
         toGrpc(LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain))
     }
-    Some(rej)
+    rej
   }
 
   def submissionResult(result: Try[state.v2.SubmissionResult]): Option[Try[Unit]] = {
