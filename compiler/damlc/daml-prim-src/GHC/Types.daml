@@ -21,7 +21,7 @@ module GHC.Types (
         Text, Decimal,
         Opaque,
         ifThenElse,
-        primitive, magic, external,
+        primitive, primitiveInterface, magic, external,
         DamlEnum,
         DamlInterface,
 
@@ -148,6 +148,9 @@ external = external --deleted by the compiler
 -- | HIDE A Daml-LF primitive
 primitive : forall (f : Symbol) b. b
 primitive = primitive -- deleted by the compiler
+
+primitiveInterface : forall (f : Symbol) b. b
+primitiveInterface = primitiveInterface -- deleted by the compiler
 
 -- | HIDE Handled actually in the guts of the compiler
 magic : forall (f : Symbol) b. b

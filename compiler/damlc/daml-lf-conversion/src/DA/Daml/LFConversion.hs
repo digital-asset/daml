@@ -1,6 +1,5 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 {-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
@@ -91,7 +90,7 @@ import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
 import           Development.IDE.GHC.Util
 
-import           Control.Lens
+import           Control.Lens hiding (MethodName)
 import           Control.Monad.Except
 import           Control.Monad.Extra
 import           Control.Monad.Reader
@@ -175,7 +174,8 @@ data Env = Env
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envImplements :: MS.Map TypeConName [GHC.Type]
+    ,envImplements :: MS.Map TypeConName [GHC.TyCon]
+    ,envInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
     ,envInterfaces :: S.Set TypeConName
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -432,11 +432,13 @@ convertInterfaces env tyThings = interfaceClasses
         [ convertChoice arg res
         |
           TypeCon (NameIn DA_Internal_Template_Functions "HasExercise") [_, arg, res] <- classSCTheta cls]
+      -- Drop toIface/fromIface/toIfaceContractId/fromIfaceContractId to get only user-defined methods.
+      methods <- mapM convertMethod (drop 4 $ classMethods cls)
       pure DefInterface
         { intLocation = Nothing
         , intName = mkTypeCon [name]
         , intChoices = NM.fromList choices
-        , intMethods = NM.empty -- TODO https://github.com/digital-asset/daml/issues/11006
+        , intMethods = NM.fromList methods
         }
     convertChoice :: TyCoRep.Type -> TyCoRep.Type -> ConvertM InterfaceChoice
     convertChoice arg res = do
@@ -448,6 +450,17 @@ convertInterfaces env tyThings = interfaceClasses
           , ifcConsuming = True
           , ifcArgType = arg
           , ifcRetType = res
+          }
+    convertMethod :: Var -> ConvertM InterfaceMethod
+    convertMethod method = do
+        retTy <- convertType env (varType method) >>= \case
+            TForall _ (_dict :-> _iface :-> retTy) -> pure retTy
+            ty -> unsupported "Interface method must be a function" (varType method)
+        let methodName = occNameString (getOccName (varName method))
+        pure InterfaceMethod
+          { ifmLocation = Nothing
+          , ifmName = MethodName (T.pack methodName)
+          , ifmType = retTy
           }
 
 convertModule
@@ -486,7 +499,16 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
            [ (mkTypeCon [getOccText tplTy], [ifaceTy])
            | (name, _) <- binds
            , "_implements_" `T.isPrefixOf` getOccText name
-           , TypeCon _ [TypeCon tplTy [], ifaceTy] <- [varType name]
+           , TypeCon _ [TypeCon tplTy [], TypeCon ifaceTy []] <- [varType name]
+           ]
+        tplInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
+        tplInterfaceInstances = MS.fromList
+           [ ((mod, mkTypeCon [iface], mkTypeCon [getOccText tpl]), val)
+           | (name, val) <- binds
+           , DFunId _ <- [idDetails name]
+           , TypeCon ifaceCls [TypeCon tpl []] <- [varType name]
+           , Just iface <- [T.stripPrefix "Is" $ getOccText ifaceCls]
+           , Just mod <- [nameModule_maybe (getName ifaceCls)]
            ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
@@ -513,6 +535,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
           , envTemplateBinds = templateBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
+          , envInterfaceInstances = tplInterfaceInstances
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -829,17 +852,30 @@ useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
 convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
-convertImplements env tplTypeCon = NM.fromList . map stub <$>
-    mapM convertInterfaceCon (MS.findWithDefault [] tplTypeCon (envImplements env))
+convertImplements env tplTypeCon = NM.fromList <$>
+    mapM convertInterface (MS.findWithDefault [] tplTypeCon (envImplements env))
   where
-    stub tcon = TemplateImplements tcon NM.empty
-        -- TODO https://github.com/digital-asset/daml/issues/11006
-        --  convert methods
-    convertInterfaceCon ty = do
-        ty' <- convertType env ty
-        case ty' of
+    convertInterface ty = do
+        ty' <- convertTyCon env ty
+        con <- case ty' of
             TCon con -> pure con
             _ -> unhandled "interface type" ty
+        let mod = nameModule (getName ty)
+        dictExpr <- case MS.lookup (mod, qualObject con, tplTypeCon) (envInterfaceInstances env) of
+            Just e -> pure e
+            Nothing -> unhandled ("missing interface instance for " <> show con) ()
+        fields <- convertExpr env dictExpr >>= \case
+            EStructCon fields -> pure fields
+            e -> unhandled ("Expected struct for interface dict but got " <> show e) ()
+        -- Drop superclass constraints and to/fromIface & to/fromIfaceContractId
+        -- which are always at the beginning.
+        let methodFields = drop 4 (filter (\(FieldName f, _) -> "m_" `T.isPrefixOf` f) fields)
+        let methods = NM.fromList
+                [ TemplateImplementsMethod (MethodName methodName) e
+                | (FieldName fieldName, e) <- methodFields
+                , Just methodName <- [T.stripPrefix "m_" fieldName]
+                ]
+        pure (TemplateImplements con methods)
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =
@@ -1050,6 +1086,17 @@ convertExpr env0 e = do
             pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+    go env (VarIn GHC_Types "primitiveInterface") (LType (isStrLitTy -> Just y) : LType t : args)
+        = do
+        ty <- convertType env t
+        case ty of
+            TCon iface :-> _ ->
+                pure
+                  ( ETmLam (mkVar "i", TCon iface) $
+                    ECallInterface iface (MethodName $ T.pack $ unpackFS y) (EVar $ mkVar "i")
+                  , args
+                  )
+            _ -> unsupported "primitiveInterface was not applied to function from interface" t
     -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
     -- preprocessor to magically implement the `HasField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
