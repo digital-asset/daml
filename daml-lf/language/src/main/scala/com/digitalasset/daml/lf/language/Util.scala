@@ -201,6 +201,18 @@ object Util {
         TemplateKeySignature(typ, (), ())
     }
 
+  private[this] def toSignature(implementsMethod: TemplateImplementsMethod): TemplateImplementsMethodSignature =
+    implementsMethod match {
+      case TemplateImplementsMethod(name, _) =>
+        TemplateImplementsMethodSignature(name, ())
+    }
+
+  private[this] def toSignature(implements: TemplateImplements): TemplateImplementsSignature =
+    implements match {
+      case TemplateImplements(name, methods) =>
+        TemplateImplementsSignature(name, methods.transform((_, v) => toSignature(v)))
+    }
+
   private[this] def toSignature(template: Template): TemplateSignature =
     template match {
       case Template(param, _, _, _, choices, _, key, implements) =>
@@ -212,7 +224,7 @@ object Util {
           choices.transform((_, v) => toSignature(v)),
           (),
           key.map(toSignature),
-          implements,
+          implements.transform((_, v) => toSignature(v)),
         )
     }
 

@@ -208,19 +208,34 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupChoice(tmpName, chName, Reference.Choice(tmpName, chName))
 
   private[this] def lookupInterfaceChoice(
-      tmpName: TypeConName,
+      ifaceName: TypeConName,
       chName: ChoiceName,
       context: => Reference,
   ): Either[LookupError, InterfaceChoice] =
-    lookupInterface(tmpName, context).flatMap(
-      _.choices.get(chName).toRight(LookupError(Reference.Choice(tmpName, chName), context))
+    lookupInterface(ifaceName, context).flatMap(
+      _.choices.get(chName).toRight(LookupError(Reference.Choice(ifaceName, chName), context))
     )
 
   def lookupInterfaceChoice(
-      tmpName: TypeConName,
+      ifaceName: TypeConName,
       chName: ChoiceName,
   ): Either[LookupError, InterfaceChoice] =
-    lookupInterfaceChoice(tmpName, chName, Reference.Choice(tmpName, chName))
+    lookupInterfaceChoice(ifaceName, chName, Reference.Choice(ifaceName, chName))
+
+  private[this] def lookupInterfaceMethod(
+      ifaceName: TypeConName,
+      methodName: MethodName,
+      context: => Reference,
+  ): Either[LookupError, InterfaceMethod] =
+    lookupInterface(ifaceName, context).flatMap(
+      _.methods.get(methodName).toRight(LookupError(Reference.Method(ifaceName, methodName), context))
+    )
+
+  def lookupInterfaceMethod(
+      ifaceName: TypeConName,
+      methodName: MethodName
+  ): Either[LookupError, InterfaceMethod] =
+    lookupInterfaceMethod(ifaceName, methodName, Reference.Method(ifaceName, methodName))
 
   private[this] def lookupTemplateKey(
       name: TypeConName,

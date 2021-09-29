@@ -161,6 +161,9 @@ object Ast {
   /** Convert interface back to template payload if possible */
   final case class EFromInterface(iface: TypeConName, tpl: TypeConName, value: Expr) extends Expr
 
+  /** Invoke an interface method */
+  final case class ECallInterface(iface: TypeConName, method: MethodName, value: Expr) extends Expr
+
   //
   // Kinds
   //
@@ -637,18 +640,27 @@ object Ast {
   type TemplateKeySignature = GenTemplateKey[Unit]
   object TemplateKeySignature extends GenTemplateKeyCompanion[Unit]
 
-  final case class DefInterface(choices: Map[ChoiceName, InterfaceChoice])
+  final case class DefInterface(
+    choices: Map[ChoiceName, InterfaceChoice],
+    methods: Map[MethodName, InterfaceMethod],
+  )
 
   object DefInterface {
     def apply(
-        choices: Iterable[(ChoiceName, InterfaceChoice)]
+        choices: Iterable[(ChoiceName, InterfaceChoice)],
+        methods: Iterable[(MethodName, InterfaceMethod)]
     ): DefInterface = {
       val choiceMap = toMapWithoutDuplicate(
         choices,
         (name: ChoiceName) =>
           throw PackageError(s"collision on interface choice name ${name.toString}"),
       )
-      DefInterface(choiceMap)
+      val methodMap = toMapWithoutDuplicate(
+        methods,
+        (name: MethodName) =>
+          throw PackageError(s"collision on interface method name ${name.toString}"),
+      )
+      DefInterface(choiceMap, methodMap)
     }
   }
 
@@ -660,6 +672,11 @@ object Ast {
       // TODO interfaces Should observers or controllers be part of the interface?
   )
 
+  case class InterfaceMethod(
+      name: MethodName,
+      returnType: Type,
+  )
+
   case class GenTemplate[E] private[Ast] (
       param: ExprVarName, // Binder for template argument.
       precond: E, // Template creation precondition.
@@ -668,7 +685,7 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
-      implements: Set[TypeConName],
+      implements: Map[TypeConName, GenTemplateImplements[E]],
   ) extends NoCopy
 
   sealed class GenTemplateCompanion[E] {
@@ -681,7 +698,7 @@ object Ast {
         choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         observers: E,
         key: Option[GenTemplateKey[E]],
-        implements: Iterable[TypeConName],
+        implements: Iterable[(TypeConName, GenTemplateImplements[E])],
     ): GenTemplate[E] = {
 
       val choiceMap = toMapWithoutDuplicate(
@@ -690,11 +707,10 @@ object Ast {
           throw PackageError(s"collision on choice name ${choiceName.toString}"),
       )
 
-      val implementsSet = implements.foldLeft(Set.empty[TypeConName])((acc, implement) =>
-        if (acc.contains(implement))
-          throw PackageError(s"repeated implementation ${implements.toString}")
-        else
-          acc + implement
+      val implementsMap = toMapWithoutDuplicate(
+        implements,
+        (ifaceName: TypeConName) =>
+          throw PackageError(s"repeated interface implementation ${ifaceName.toString}")
       )
 
       new GenTemplate[E](
@@ -705,7 +721,7 @@ object Ast {
         choiceMap,
         observers,
         key,
-        implementsSet,
+        implementsMap,
       )
     }
 
@@ -718,7 +734,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
-          Set[TypeConName],
+          Map[TypeConName, GenTemplateImplements[E]],
       )
     ] = GenTemplate.unapply(arg)
 
@@ -731,7 +747,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
-          Set[TypeConName],
+          Map[TypeConName, GenTemplateImplements[E]],
       )
     ] = Some(
       (
@@ -808,6 +824,66 @@ object Ast {
 
   type TemplateChoiceSignature = GenTemplateChoice[Unit]
   object TemplateChoiceSignature extends GenTemplateChoiceCompanion[Unit]
+
+  case class GenTemplateImplements[E] private[Ast] (
+    interface: TypeConName,
+    methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+  )
+
+  sealed class GenTemplateImplementsCompanion[E] {
+    def apply(
+      interface: TypeConName,
+      methods: Iterable[(MethodName, GenTemplateImplementsMethod[E])],
+    ): GenTemplateImplements[E] = {
+      val methodMap = toMapWithoutDuplicate(
+        methods,
+        (methodName: MethodName) =>
+          throw PackageError(s"repeated method implementation ${methodName.toString}")
+      )
+      new GenTemplateImplements[E](interface, methodMap)
+    }
+
+    def apply(
+      interface: TypeConName,
+      methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+    ): GenTemplateImplements[E] =
+      GenTemplateImplements[E](interface, methods)
+
+    def unapply(
+      arg: GenTemplateImplements[E]
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
+      Some((arg.interface, arg.methods))
+  }
+
+  type TemplateImplements = GenTemplateImplements[Expr]
+  object TemplateImplements extends GenTemplateImplementsCompanion[Expr]
+
+  type TemplateImplementsSignature = GenTemplateImplements[Unit]
+  object TemplateImplementsSignature extends GenTemplateImplementsCompanion[Unit]
+
+  case class GenTemplateImplementsMethod[E] private[Ast] (
+    name: MethodName,
+    value: E
+  )
+
+  sealed class GenTemplateImplementsMethodCompanion[E] {
+    def apply(
+      name: MethodName,
+      value: E,
+    ): GenTemplateImplementsMethod[E] =
+      GenTemplateImplementsMethod[E](name, value)
+
+    def unapply(
+      arg: GenTemplateImplementsMethod[E]
+    ): Some[(MethodName, E)] =
+      Some((arg.name, arg.value))
+  }
+
+  type TemplateImplementsMethod = GenTemplateImplementsMethod[Expr]
+  object TemplateImplementsMethod extends GenTemplateImplementsMethodCompanion[Expr]
+
+  type TemplateImplementsMethodSignature = GenTemplateImplementsMethod[Unit]
+  object TemplateImplementsMethodSignature extends GenTemplateImplementsMethodCompanion[Unit]
 
   final case class GenDefException[E](message: E)
 
