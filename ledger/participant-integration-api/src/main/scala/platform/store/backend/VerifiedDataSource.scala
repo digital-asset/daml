@@ -38,8 +38,8 @@ object VerifiedDataSource {
             storageBackend.checkDatabaseAvailable
           )
           createdDatasource
-        }.andThen {
-          case Failure(exception) => logger.warn(exception.getMessage)
+        }.andThen { case Failure(exception) =>
+          logger.warn(exception.getMessage)
         }
       }
       _ <- Future {
