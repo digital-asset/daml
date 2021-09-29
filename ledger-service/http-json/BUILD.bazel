@@ -12,7 +12,7 @@ load(
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@scala_version//:index.bzl", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -326,6 +326,10 @@ alias(
             "src/it/scala/**/*.scala",
             "src/it/edition/{}/**/*.scala".format(edition),
         ]),
+        args = [
+            "-l",
+            "skip_scala_2_12",
+        ] if scala_major_version == "2.12" else [],
         data = [
             ":Account.dar",
             "//docs:quickstart-model.dar",

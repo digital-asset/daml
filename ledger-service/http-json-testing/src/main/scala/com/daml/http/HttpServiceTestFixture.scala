@@ -160,12 +160,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     val ledgerF: Future[(Resource[Port], Port)] = for {
-      x <- Future(
+      dbUrlResource <- Future(
         SandboxBackend.H2Database.owner
           .map(info => Some(info.jdbcUrl))
           .acquire()
       )
-      url <- x.asFuture
+      jdbcUrl <- dbUrlResource.asFuture
       ledger <- Future(
         new Runner(
           ledgerConfig(
@@ -174,7 +174,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
             ledgerId,
             useTls = useTls,
             authService = authService,
-            jdbcUrl = url,
+            jdbcUrl = jdbcUrl,
           )
         ).acquire()
       )
