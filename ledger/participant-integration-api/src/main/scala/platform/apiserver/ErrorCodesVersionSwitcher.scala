@@ -8,8 +8,6 @@ import io.grpc.StatusRuntimeException
 /** A mechanism to switch between the previous error codes (v1) and the new self-service error codes (v2).
   * This class is intended to facilitate transition to self-service error codes.
   * Once the previous error codes are remvoed and this class should be dropped as well.
-  *
-  * See related epic: https://digitalasset.atlassian.net/browse/DPP-417
   */
 final class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean) {
   def choose(
