@@ -493,7 +493,7 @@ object ApiSubmissionServiceSpec {
         .Configuration(implicitPartyAllocation, enableDeduplication = true),
       metrics = new Metrics(new MetricRegistry),
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-        enableErrorCodesV2 = useSelfServiceErrorCodes
+        enableSelfServiceErrorCodes = useSelfServiceErrorCodes
       ),
     )
   }
