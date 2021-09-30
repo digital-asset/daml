@@ -11,9 +11,9 @@ class ErrorCodesVersionSwitcherSpec extends AnyFlatSpec with Matchers {
 
   behavior of classOf[ErrorCodesVersionSwitcher].getSimpleName
 
-  it should "use v2 error codes" in {
+  it should "use self-service (v2) error codes" in {
     // given
-    val tested = new ErrorCodesVersionSwitcher(enableErrorCodesV2 = true)
+    val tested = new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
     val expected = new StatusRuntimeException(Status.INTERNAL)
 
     // when
@@ -24,9 +24,9 @@ class ErrorCodesVersionSwitcherSpec extends AnyFlatSpec with Matchers {
     actual shouldBe expected
   }
 
-  it should "use v1 error codes" in {
+  it should "use legacy (v1) error codes" in {
     // given
-    val tested = new ErrorCodesVersionSwitcher(enableErrorCodesV2 = false)
+    val tested = new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
     val expected = new StatusRuntimeException(Status.INTERNAL)
 
     // when
