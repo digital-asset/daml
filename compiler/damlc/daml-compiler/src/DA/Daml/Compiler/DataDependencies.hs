@@ -177,7 +177,19 @@ data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
 data ModRef = ModRef
     { modRefModule :: LF.ModuleName
     , modRefOrigin :: ImportOrigin
+    , modRefImpSpec :: ModRefImpSpec
     } deriving (Eq, Ord)
+
+data ModRefImpSpec
+    = NoImpSpec
+        -- ^ For open imports, e.g.
+        --
+        -- > import SomeModule
+    | EmptyImpSpec
+        -- ^ For instances-only imports, e.g.
+        --
+        -- > import SomeModule ()
+    deriving (Eq, Ord)
 
 modRefImport :: Config -> ModRef -> LImportDecl GhcPs
 modRefImport Config{..} ModRef{..} = noLoc ImportDecl
@@ -189,7 +201,7 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
     , ideclImplicit = False
     , ideclQualified = False
     , ideclAs = Nothing
-    , ideclHiding = Nothing
+    , ideclHiding = impSpec
     , ideclExt = noExt
     }
   where
@@ -199,6 +211,9 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
              | importPkgId == configSelfPkgId -> modRefModule
              -- The module names from the current package are the only ones that are not modified
              | otherwise -> prefixDependencyModule importPkgId modRefModule
+      impSpec = case modRefImpSpec of
+          NoImpSpec -> Nothing
+          EmptyImpSpec -> Just (False, noLoc []) -- False = not 'hiding'
 
 data GenState = GenState
     { gsModRefs :: !(Set ModRef)
@@ -267,10 +282,21 @@ generateSrcFromLf env = noLoc mod
     exports :: [LIE GhcPs]
     genState :: GenState
     ((exports, decls), genState) = runGen
-        ((,) <$> genExports <*> genDecls)
+        ((,) <$> genExports <*> genDecls <* genOrphanDepImports)
 
     modRefs :: Set ModRef
     modRefs = gsModRefs genState
+
+    genOrphanDepImports :: Gen ()
+    genOrphanDepImports = sequence_ $ do
+        Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.moduleImportsName . LF.moduleValues $ envMod env]
+        Just quals <- [LFC.decodeModuleImports ty]
+        LF.Qualified { LF.qualModule, LF.qualPackage } <- Set.toList quals
+        pure $ emitModRef ModRef
+            { modRefModule = qualModule
+            , modRefOrigin = importOriginFromPackageRef (envConfig env) qualPackage
+            , modRefImpSpec = EmptyImpSpec
+            }
 
     genExports :: Gen [LIE GhcPs]
     genExports = sequence $ selfReexport : classReexports
@@ -727,13 +753,16 @@ isConstraint = \case
 
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
 genModule env pkgRef modName = do
-    let Config{..} = envConfig env
-        origin = case pkgRef of
-            LF.PRImport pkgId
-                | Just unitId <- MS.lookup pkgId configStablePackages -> FromCurrentSdk unitId
-                | otherwise -> FromPackage pkgId
-            LF.PRSelf -> FromPackage configSelfPkgId
-    genModuleAux (envConfig env) origin modName
+    let config = envConfig env
+        origin = importOriginFromPackageRef config pkgRef
+    genModuleAux config origin modName
+
+importOriginFromPackageRef :: Config -> LF.PackageRef -> ImportOrigin
+importOriginFromPackageRef Config {..} = \case
+    LF.PRImport pkgId
+        | Just unitId <- MS.lookup pkgId configStablePackages -> FromCurrentSdk unitId
+        | otherwise -> FromPackage pkgId
+    LF.PRSelf -> FromPackage configSelfPkgId
 
 genStableModule :: Env -> UnitId -> LF.ModuleName -> Gen Module
 genStableModule env currentSdkPkg = genModuleAux (envConfig env) (FromCurrentSdk currentSdkPkg)
@@ -746,7 +775,7 @@ prefixDependencyModule (LF.PackageId pkgId) = prefixModuleName ["Pkg_" <> pkgId]
 
 genModuleAux :: Config -> ImportOrigin -> LF.ModuleName -> Gen Module
 genModuleAux conf origin moduleName = do
-    let modRef = ModRef moduleName origin
+    let modRef = ModRef moduleName origin NoImpSpec
     let ghcModuleName = (unLoc . ideclName . unLoc . modRefImport conf) modRef
     let unitId = case origin of
             FromCurrentSdk unitId -> unitId
