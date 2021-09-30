@@ -42,6 +42,7 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.Runner
 import com.daml.platform.services.time.TimeProviderType
@@ -159,9 +160,22 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     val ledgerF = for {
+      urlResource <- Future(
+        SandboxBackend.H2Database.owner
+          .map(info => Some(info.jdbcUrl))
+          .acquire()
+      )
+      jdbcUrl <- urlResource.asFuture
       ledger <- Future(
         new Runner(
-          ledgerConfig(Port.Dynamic, dars, ledgerId, useTls = useTls, authService = authService)
+          ledgerConfig(
+            Port.Dynamic,
+            dars,
+            ledgerId,
+            useTls = useTls,
+            authService = authService,
+            jdbcUrl = jdbcUrl,
+          )
         )
           .acquire()
       )
@@ -196,12 +210,15 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ledgerId: LedgerId,
       authService: Option[AuthService],
       useTls: UseTls,
+      jdbcUrl: Option[String],
   ): SandboxConfig =
     SandboxConfig.defaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
+      jdbcUrl = jdbcUrl,
       timeProviderType = Some(TimeProviderType.WallClock),
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
+      engineMode = SandboxConfig.EngineMode.Dev,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService,
       seeding = Some(Seeding.Weak),
