@@ -23,7 +23,7 @@ class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: F
 
   override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
     DeduplicationFeatures(
-      participantDeduplication = true,
+      participantDeduplication = false,
       appendOnlySchema = false,
     )
 }

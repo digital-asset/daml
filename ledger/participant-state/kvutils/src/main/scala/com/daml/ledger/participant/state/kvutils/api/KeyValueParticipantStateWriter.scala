@@ -25,7 +25,7 @@ class KeyValueParticipantStateWriter(
     metrics: Metrics,
 ) extends WriteService {
 
-  override def isApiDeduplicationEnabled: Boolean = true
+  override def isApiDeduplicationEnabled: Boolean = false
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
