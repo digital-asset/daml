@@ -171,26 +171,26 @@ class TransactionSpec
    */
 
   "isReplayedBy" - {
-    def genTrans(node: GenNode[NodeId]) = {
+    def genTrans(node: GenNode) = {
       val nid = NodeId(1)
       val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
-        n1: GenNode[NodeId],
-        n2: GenNode[NodeId],
+        n1: GenNode,
+        n2: GenNode,
     ) = Validation.isReplayedBy(genTrans(n1), genTrans(n2))
 
     // the whole-transaction-relevant parts are handled by equalForest testing
-    val genEmptyNode: Gen[GenNode[Nothing]] =
+    val genEmptyNode: Gen[GenNode] =
       for {
         entry <- danglingRefGenNode
         node = entry match {
-          case (_, nr: Node.NodeRollback[_]) =>
+          case (_, nr: Node.NodeRollback) =>
             nr.copy(children = ImmArray.Empty)
           case (_, n: Node.LeafOnlyActionNode) => n
-          case (_, ne: Node.NodeExercises[_]) =>
+          case (_, ne: Node.NodeExercises) =>
             ne.copy(children = ImmArray.Empty)
         }
       } yield node
@@ -211,8 +211,8 @@ class TransactionSpec
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
         n match {
-          case _: NodeRollback[_] => ()
-          case n: Node.GenActionNode[_] =>
+          case _: NodeRollback => ()
+          case n: Node.GenActionNode =>
             val m = n.updateVersion(diffVersion(version))
             isReplayedBy(n, m) shouldBe Symbol("left")
         }
@@ -648,15 +648,15 @@ object TransactionSpec {
 
   import TransactionBuilder.Implicits._
 
-  type Transaction = GenTransaction[NodeId]
+  type Transaction = GenTransaction
   def mkTransaction(
-      nodes: HashMap[NodeId, GenNode[NodeId]],
+      nodes: HashMap[NodeId, GenNode],
       roots: ImmArray[NodeId],
   ): Transaction = GenTransaction(nodes, roots)
 
   def dummyRollbackNode(
       children: ImmArray[NodeId]
-  ): NodeRollback[NodeId] =
+  ): NodeRollback =
     NodeRollback(
       children = children
     )
@@ -665,7 +665,7 @@ object TransactionSpec {
       cid: V.ContractId,
       children: ImmArray[NodeId],
       hasExerciseResult: Boolean = true,
-  ): NodeExercises[NodeId] =
+  ): NodeExercises =
     NodeExercises(
       targetCoid = cid,
       templateId = "DummyModule:dummyName",

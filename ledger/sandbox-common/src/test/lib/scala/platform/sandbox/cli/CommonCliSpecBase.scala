@@ -359,12 +359,12 @@ abstract class CommonCliSpecBase(
 
     "parse error codes v2 flag" in {
       checkOption(
-        Array("--use-error-codes-v2"),
-        _.copy(enableErrorCodesV2 = true),
+        Array("--use-self-service-error-codes"),
+        _.copy(enableSelfServiceErrorCodes = true),
       )
       checkOption(
         Array(),
-        _.copy(enableErrorCodesV2 = false),
+        _.copy(enableSelfServiceErrorCodes = false),
       )
     }
 

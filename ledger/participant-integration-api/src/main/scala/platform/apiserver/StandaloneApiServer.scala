@@ -117,7 +117,7 @@ final class StandaloneApiServer(
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
         managementServiceTimeout = config.managementServiceTimeout,
-        enableErrorCodesV2 = config.enableErrorCodesV2,
+        enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

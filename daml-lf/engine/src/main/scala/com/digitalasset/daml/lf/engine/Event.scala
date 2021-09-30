@@ -6,6 +6,7 @@ package engine
 
 import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
 import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -14,7 +15,7 @@ import com.daml.lf.value.Value.ContractId
 // Emitted events for the API
 // --------------------------
 
-sealed trait Event[+Nid] extends Product with Serializable {
+sealed trait Event extends Product with Serializable {
   def witnesses: Set[Party]
 }
 
@@ -37,7 +38,7 @@ final case class CreateEvent(
     signatories: Set[Party],
     observers: Set[Party],
     witnesses: Set[Party],
-) extends Event[Nothing] {
+) extends Event {
 
   /** Note that the stakeholders of each event node will always be a subset of the event witnesses. We perform this
     * narrowing since usually when consuming these events we only care about the parties that were included in the
@@ -62,33 +63,33 @@ final case class CreateEvent(
   *  @param witnesses additional witnesses induced by parent exercises
   *  @param exerciseResult result of exercise of the choice. Optional since this feature was introduced in transaction version 6.
   */
-final case class ExerciseEvent[Nid](
+final case class ExerciseEvent(
     contractId: ContractId,
     templateId: Identifier,
     choice: ChoiceName,
     choiceArgument: Value,
     actingParties: Set[Party],
     isConsuming: Boolean,
-    children: ImmArray[Nid],
+    children: ImmArray[NodeId],
     stakeholders: Set[Party],
     witnesses: Set[Party],
     exerciseResult: Option[Value],
-) extends Event[Nid]
+) extends Event
 
 object Event {
-  case class Events[Nid](roots: ImmArray[Nid], events: Map[Nid, Event[Nid]]) {
+  case class Events(roots: ImmArray[NodeId], events: Map[NodeId, Event]) {
     // filters from the leaves upwards: if any any exercise node returns false all its children will be purged, too
-    def filter(f: Event[Nid] => Boolean): Events[Nid] = {
-      val liveEvts = scala.collection.mutable.Map[Nid, Event[Nid]]()
-      def go(evtids: ImmArray[Nid]): Unit = {
-        evtids.foreach((evtid: Nid) => {
+    def filter(f: Event => Boolean): Events = {
+      val liveEvts = scala.collection.mutable.Map[NodeId, Event]()
+      def go(evtids: ImmArray[NodeId]): Unit = {
+        evtids.foreach((evtid: NodeId) => {
           val evt = events(evtid)
           evt match {
             case ce: CreateEvent =>
               if (f(ce)) {
                 liveEvts += (evtid -> ce)
               }
-            case ee: ExerciseEvent[Nid] =>
+            case ee: ExerciseEvent =>
               if (f(ee)) {
                 go(ee.children)
                 liveEvts += (evtid -> ee.copy(children = ee.children.filter(liveEvts.contains)))

@@ -227,7 +227,7 @@ object LfEngineToApi {
   def lfNodeExercisesToEvent(
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeExercises[NodeId],
+      node: NodeExercises,
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
@@ -274,7 +274,7 @@ object LfEngineToApi {
       trId: Ref.LedgerString,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises[NodeId],
+      node: NodeExercises,
       filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {

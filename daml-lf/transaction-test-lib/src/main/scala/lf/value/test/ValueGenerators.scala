@@ -357,7 +357,7 @@ object ValueGenerators {
   }
 
   /** Makes rollback node with some random child IDs. */
-  val danglingRefRollbackNodeGen: Gen[NodeRollback[NodeId]] = {
+  val danglingRefRollbackNodeGen: Gen[NodeRollback] = {
     for {
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
@@ -367,7 +367,7 @@ object ValueGenerators {
   }
 
   /** Makes exercise nodes with the given version and some random child IDs. */
-  val danglingRefExerciseNodeGen: Gen[NodeExercises[NodeId]] =
+  val danglingRefExerciseNodeGen: Gen[NodeExercises] =
     for {
       version <- transactionVersionGen()
       node <- danglingRefExerciseNodeGenWithVersion(version)
@@ -376,7 +376,7 @@ object ValueGenerators {
   /** Makes exercise nodes with the given version and some random child IDs. */
   def danglingRefExerciseNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[NodeExercises[NodeId]] = {
+  ): Gen[NodeExercises] = {
     for {
       targetCoid <- coidGen
       templateId <- idGen
@@ -491,7 +491,7 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[GenTransaction[NodeId]] = {
+  val malformedGenTransaction: Gen[GenTransaction] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
@@ -509,7 +509,7 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction[NodeId]] = {
+  val noDanglingRefGenTransaction: Gen[GenTransaction] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
@@ -528,13 +528,13 @@ object ValueGenerators {
             2 -> fetchNodeGen,
           )
           nodeWithChildren <- node match {
-            case node: NodeExercises[NodeId] =>
+            case node: NodeExercises =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
                 (children, nodes) = nodeWithChildren
               } yield node.copy(children = children) -> nodes
-            case node: NodeRollback[NodeId] =>
+            case node: NodeRollback =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
@@ -567,16 +567,15 @@ object ValueGenerators {
     }
   }
 
-  val noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId]] = {
+  val noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction] = {
     for {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()
       nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
-      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode[NodeId]])) {
-        case (acc, (nodeId, node)) =>
-          for {
-            hashMap <- acc
-          } yield hashMap.updated(nodeId, node)
+      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode])) { case (acc, (nodeId, node)) =>
+        for {
+          hashMap <- acc
+        } yield hashMap.updated(nodeId, node)
       }
     } yield VersionedTransaction(txVer, nodes, tx.roots)
 

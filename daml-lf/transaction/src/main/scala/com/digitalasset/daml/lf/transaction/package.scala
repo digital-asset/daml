@@ -24,10 +24,10 @@ package object transaction {
       Right(b.result())
     }
 
-  val SubmittedTransaction = DiscriminatedSubtype[VersionedTransaction[NodeId]]
+  val SubmittedTransaction = DiscriminatedSubtype[VersionedTransaction]
   type SubmittedTransaction = SubmittedTransaction.T
 
-  val CommittedTransaction = DiscriminatedSubtype[VersionedTransaction[NodeId]]
+  val CommittedTransaction = DiscriminatedSubtype[VersionedTransaction]
   type CommittedTransaction = CommittedTransaction.T
 
 }
