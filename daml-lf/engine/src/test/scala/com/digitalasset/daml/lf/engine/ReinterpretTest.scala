@@ -193,11 +193,11 @@ object ReinterpretTest {
     final case class Rollback(x: List[Shape]) extends Shape
     final case class Create() extends Shape
 
-    def ofTransaction(tx: GenTransaction[NodeId]): Top = {
+    def ofTransaction(tx: GenTransaction): Top = {
       def ofNid(nid: NodeId): Shape = {
         tx.nodes(nid) match {
-          case node: NodeExercises[_] => Exercise(node.children.toList.map(ofNid))
-          case node: NodeRollback[_] => Rollback(node.children.toList.map(ofNid))
+          case node: NodeExercises => Exercise(node.children.toList.map(ofNid))
+          case node: NodeRollback => Rollback(node.children.toList.map(ofNid))
           case _: NodeCreate => Create()
           case _ => sys.error(s"Shape.ofTransaction, unexpected tx node")
         }

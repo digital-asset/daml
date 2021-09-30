@@ -13,7 +13,6 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.daml.lf.value.Value
-import com.daml.platform.store.appendonlydao.events.NodeId
 import com.daml.platform.store.entries.LedgerEntry
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import org.scalatest._
@@ -138,7 +137,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualCreated.createAgreementText.value shouldBe nodeCreate.agreementText
           actualCreated.nodeIndex shouldBe nodeId.index
           actualCreated.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
-        case nodeExercises: NodeExercises[NodeId] =>
+        case nodeExercises: NodeExercises =>
           val expectedEventId = EventId(expected.transactionId, nodeId)
           val Some(actualExercised: TransactionLogUpdate.ExercisedEvent) =
             actualEventsById.get(expectedEventId)

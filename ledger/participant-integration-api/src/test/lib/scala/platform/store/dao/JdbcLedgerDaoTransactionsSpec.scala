@@ -13,7 +13,6 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.transaction.NodeId
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
@@ -99,7 +98,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
         transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
-          val (nodeId, exerciseNode: NodeExercises[NodeId]) =
+          val (nodeId, exerciseNode: NodeExercises) =
             exercise.transaction.nodes.head
           archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
           archived.witnessParties should contain only (exercise.actAs: _*)

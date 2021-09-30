@@ -16,7 +16,7 @@ import com.daml.lf.transaction.Node.{
   NodeRollback,
 }
 
-class Normalization[Nid] {
+class Normalization {
 
   /** This class provides methods to normalize a transaction and embedded values.
     *
@@ -39,8 +39,8 @@ class Normalization[Nid] {
     */
 
   private type KWM = KeyWithMaintainers[Val]
-  private type Node = GenNode[Nid]
-  private type VTX = VersionedTransaction[Nid]
+  private type Node = GenNode
+  private type VTX = VersionedTransaction
 
   def normalizeTx(vtx: VTX): VTX = {
     vtx match {
@@ -76,7 +76,7 @@ class Normalization[Nid] {
             key = old.key.map(normKWM(old.version))
           )
 
-      case old: NodeExercises[_] =>
+      case old: NodeExercises =>
         (if (old.version >= TransactionVersion.minByKey) {
            old
          } else {
@@ -93,7 +93,7 @@ class Normalization[Nid] {
           key = normKWM(old.version)(old.key)
         )
 
-      case old: NodeRollback[_] => old
+      case old: NodeRollback => old
 
     }
   }
@@ -112,7 +112,7 @@ class Normalization[Nid] {
 }
 
 object Normalization {
-  def normalizeTx[Nid](tx: VersionedTransaction[Nid]): VersionedTransaction[Nid] = {
+  def normalizeTx(tx: VersionedTransaction): VersionedTransaction = {
     new Normalization().normalizeTx(tx)
   }
 }

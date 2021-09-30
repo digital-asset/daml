@@ -34,7 +34,7 @@ private[platform] object TransactionConversion {
   private type Transaction = CommittedTransaction
   private type Node = Tx.Node
   private type Create = NodeCreate
-  private type Exercise = NodeExercises[NodeId]
+  private type Exercise = NodeExercises
 
   private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] = {
     def handle(acc: Vector[A], nodeId: NodeId, node: Node): Vector[A] =

@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref
 
 object PlatformTypes {
 
-  type GenNode[Nid] = N.GenNode[Nid]
+  type GenNode = N.GenNode
 
   type NodeCreate = N.NodeCreate
   val NodeCreate: N.NodeCreate.type = N.NodeCreate
@@ -20,18 +20,18 @@ object PlatformTypes {
   type NodeFetch = N.NodeFetch
   val NodeFetch: N.NodeFetch.type = N.NodeFetch
 
-  type NodeExercises[Nid] = N.NodeExercises[Nid]
+  type NodeExercises = N.NodeExercises
   val NodeExercises: N.NodeExercises.type = N.NodeExercises
 
-  type Event[Nid] = E.Event[Nid]
+  type Event = E.Event
 
-  type Events[Nid] = E.Event.Events[Nid]
+  type Events = E.Event.Events
   val Events: E.Event.Events.type = E.Event.Events
 
   type CreateEvent = E.CreateEvent
   val CreateEvent: E.CreateEvent.type = E.CreateEvent
 
-  type ExerciseEvent[Nid] = E.ExerciseEvent[Nid]
+  type ExerciseEvent = E.ExerciseEvent
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
 
   def packageId(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)

@@ -14,24 +14,24 @@ import com.daml.lf.value.Value.ContractId
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
-final case class VersionedTransaction[Nid] private[lf] (
+final case class VersionedTransaction private[lf] (
     version: TransactionVersion,
-    nodes: Map[Nid, GenNode[Nid]],
-    override val roots: ImmArray[Nid],
-) extends HasTxNodes[Nid]
-    with value.CidContainer[VersionedTransaction[Nid]]
+    nodes: Map[NodeId, GenNode],
+    override val roots: ImmArray[NodeId],
+) extends HasTxNodes
+    with value.CidContainer[VersionedTransaction]
     with NoCopy {
 
   override protected def self: this.type = this
 
-  override def mapCid(f: ContractId => ContractId): VersionedTransaction[Nid] =
+  override def mapCid(f: ContractId => ContractId): VersionedTransaction =
     VersionedTransaction(
       version,
       nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
       roots,
     )
 
-  def mapNodeId[Nid2](f: Nid => Nid2): VersionedTransaction[Nid2] =
+  def mapNodeId(f: NodeId => NodeId): VersionedTransaction =
     VersionedTransaction(
       version,
       nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
@@ -39,7 +39,7 @@ final case class VersionedTransaction[Nid] private[lf] (
     )
 
   // O(1)
-  def transaction: GenTransaction[Nid] =
+  def transaction: GenTransaction =
     GenTransaction(nodes, roots)
 
 }
@@ -55,18 +55,18 @@ final case class VersionedTransaction[Nid] private[lf] (
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-final case class GenTransaction[Nid](
-    nodes: Map[Nid, Node.GenNode[Nid]],
-    roots: ImmArray[Nid],
-) extends HasTxNodes[Nid]
-    with value.CidContainer[GenTransaction[Nid]] {
+final case class GenTransaction(
+    nodes: Map[NodeId, Node.GenNode],
+    roots: ImmArray[NodeId],
+) extends HasTxNodes
+    with value.CidContainer[GenTransaction] {
 
   import GenTransaction._
 
   override protected def self: this.type = this
-  override def mapCid(f: ContractId => ContractId): GenTransaction[Nid] =
+  override def mapCid(f: ContractId => ContractId): GenTransaction =
     copy(nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) })
-  def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2] =
+  def mapNodeId(f: NodeId => NodeId): GenTransaction =
     copy(
       nodes = nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
       roots = roots.map(f),
@@ -79,15 +79,15 @@ final case class GenTransaction[Nid](
     * * No aliasing -- every node id in the node map is mentioned exactly once, in the roots list or as a child of
     *   another node.
     */
-  def isWellFormed: Set[NotWellFormedError[Nid]] = {
+  def isWellFormed: Set[NotWellFormedError] = {
     // note that we cannot implement this with fold because fold itself crashes on bad
     // transactions
     @tailrec
     def go(
-        errors: Set[NotWellFormedError[Nid]],
-        visited: Set[Nid],
-        toVisit: FrontStack[Nid],
-    ): (Set[NotWellFormedError[Nid]], Set[Nid]) =
+        errors: Set[NotWellFormedError],
+        visited: Set[NodeId],
+        toVisit: FrontStack[NodeId],
+    ): (Set[NotWellFormedError], Set[NodeId]) =
       toVisit match {
         case FrontStack() => (errors, visited)
         case FrontStackCons(nid, nids) =>
@@ -103,7 +103,7 @@ final case class GenTransaction[Nid](
               go(newErrors + NotWellFormedError(nid, DanglingNodeId), newVisited, nids)
             case Some(node) =>
               node match {
-                case nr: Node.NodeRollback[Nid] =>
+                case nr: Node.NodeRollback =>
                   go(
                     newErrors,
                     newVisited,
@@ -114,7 +114,7 @@ final case class GenTransaction[Nid](
                     },
                   )
                 case _: Node.LeafOnlyActionNode => go(newErrors, newVisited, nids)
-                case ne: Node.NodeExercises[Nid] =>
+                case ne: Node.NodeExercises =>
                   go(
                     newErrors,
                     newVisited,
@@ -135,29 +135,29 @@ final case class GenTransaction[Nid](
   /** Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
     */
-  def equalForest(other: GenTransaction[_]): Boolean =
+  def equalForest(other: GenTransaction): Boolean =
     compareForest(other)(_ == _)
 
   /** Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
     * Nid is irrelevant to the content of the transaction.
     */
-  def compareForest[Nid2](other: GenTransaction[Nid2])(
-      compare: (Node.GenNode[Nothing], Node.GenNode[Nothing]) => Boolean
+  def compareForest(other: GenTransaction)(
+      compare: (Node.GenNode, Node.GenNode) => Boolean
   ): Boolean = {
     @tailrec
-    def go(toCompare: FrontStack[(Nid, Nid2)]): Boolean =
+    def go(toCompare: FrontStack[(NodeId, NodeId)]): Boolean =
       toCompare match {
         case FrontStack() => true
         case FrontStackCons((nid1, nid2), rest) =>
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
-            case nr1: Node.NodeRollback[Nid] => //TODO: can this be NodeRollback[_] ?
+            case nr1: Node.NodeRollback => //TODO: can this be NodeRollback ?
               node2 match {
-                case nr2: Node.NodeRollback[Nid2] => //TODO: and here
-                  val blankedNr1: Node.NodeRollback[Nothing] =
+                case nr2: Node.NodeRollback => //TODO: and here
+                  val blankedNr1: Node.NodeRollback =
                     nr1.copy(children = ImmArray.Empty)
-                  val blankedNr2: Node.NodeRollback[Nothing] =
+                  val blankedNr2: Node.NodeRollback =
                     nr2.copy(children = ImmArray.Empty)
                   compare(blankedNr1, blankedNr2) &&
                   nr1.children.length == nr2.children.length &&
@@ -175,12 +175,12 @@ final case class GenTransaction[Nid](
                   compare(nc1, nc2) && go(rest)
                 case _ => false
               }
-            case ne1: Node.NodeExercises[Nid] =>
+            case ne1: Node.NodeExercises =>
               node2 match {
-                case ne2: Node.NodeExercises[Nid2] =>
-                  val blankedNe1: Node.NodeExercises[Nothing] =
+                case ne2: Node.NodeExercises =>
+                  val blankedNe1: Node.NodeExercises =
                     ne1.copy(children = ImmArray.Empty)
-                  val blankedNe2: Node.NodeExercises[Nothing] =
+                  val blankedNe2: Node.NodeExercises =
                     ne2.copy(children = ImmArray.Empty)
                   compare(blankedNe1, blankedNe2) &&
                   ne1.children.length == ne2.children.length &&
@@ -215,7 +215,7 @@ final case class GenTransaction[Nid](
             case None => ImmArray.Empty
             case Some(key) => f(key.key)
           })
-        case ne: Node.NodeExercises[Nid] => errs :++ f(ne.chosenValue)
+        case ne: Node.NodeExercises => errs :++ f(ne.chosenValue)
         case nlbk: Node.NodeLookupByKey => errs :++ f(nlbk.key.key)
       }
     }.toImmArray
@@ -235,7 +235,7 @@ final case class GenTransaction[Nid](
           }
           z2
         case nf: Node.NodeFetch => nf.key.fold(z)(k => f(z, k.key))
-        case e: Node.NodeExercises[_] => f(z, e.chosenValue)
+        case e: Node.NodeExercises => f(z, e.chosenValue)
         case lk: Node.NodeLookupByKey => f(z, lk.key.key)
       }
     }
@@ -246,7 +246,7 @@ final case class GenTransaction[Nid](
    */
 }
 
-sealed abstract class HasTxNodes[Nid] {
+sealed abstract class HasTxNodes {
 
   import Transaction.{
     KeyInput,
@@ -258,15 +258,15 @@ sealed abstract class HasTxNodes[Nid] {
     InconsistentKeys,
   }
 
-  def nodes: Map[Nid, Node.GenNode[Nid]]
+  def nodes: Map[NodeId, Node.GenNode]
 
-  def roots: ImmArray[Nid]
+  def roots: ImmArray[NodeId]
 
   /** The union of the informees of a all the action nodes. */
   lazy val informees: Set[Ref.Party] =
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
-      case (acc, node: Node.GenActionNode[_]) => acc | node.informeesOfNode
-      case (acc, _: Node.NodeRollback[_]) => acc
+      case (acc, node: Node.GenActionNode) => acc | node.informeesOfNode
+      case (acc, _: Node.NodeRollback) => acc
     }
 
   // We assume that rollback node cannot be a root of a transaction.
@@ -274,12 +274,12 @@ sealed abstract class HasTxNodes[Nid] {
   // Canton handles rollback nodes itself so this is assumption still holds
   // within the Engine.
   @throws[IllegalArgumentException]
-  def rootNodes: ImmArray[Node.GenActionNode[Nid]] =
+  def rootNodes: ImmArray[Node.GenActionNode] =
     roots.map(nid =>
       nodes(nid) match {
-        case action: Node.GenActionNode[Nid] =>
+        case action: Node.GenActionNode =>
           action
-        case _: Node.NodeRollback[_] =>
+        case _: Node.NodeRollback =>
           throw new IllegalArgumentException(
             s"invalid transaction, root refers to a Rollback node $nid"
           )
@@ -290,18 +290,18 @@ sealed abstract class HasTxNodes[Nid] {
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  final def foreach(f: (Nid, Node.GenNode[Nid]) => Unit): Unit = {
+  final def foreach(f: (NodeId, Node.GenNode) => Unit): Unit = {
 
     @tailrec
-    def go(toVisit: FrontStack[Nid]): Unit = toVisit match {
+    def go(toVisit: FrontStack[NodeId]): Unit = toVisit match {
       case FrontStack() =>
       case FrontStackCons(nodeId, toVisit) =>
         val node = nodes(nodeId)
         f(nodeId, node)
         node match {
-          case nr: Node.NodeRollback[Nid] => go(nr.children ++: toVisit)
+          case nr: Node.NodeRollback => go(nr.children ++: toVisit)
           case _: Node.LeafOnlyActionNode => go(toVisit)
-          case ne: Node.NodeExercises[Nid] => go(ne.children ++: toVisit)
+          case ne: Node.NodeExercises => go(ne.children ++: toVisit)
         }
     }
 
@@ -312,7 +312,7 @@ sealed abstract class HasTxNodes[Nid] {
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  final def fold[A](z: A)(f: (A, (Nid, Node.GenNode[Nid])) => A): A = {
+  final def fold[A](z: A)(f: (A, (NodeId, Node.GenNode)) => A): A = {
     var acc = z
     foreach((nodeId, node) => acc = f(acc, (nodeId, node)))
     acc
@@ -325,22 +325,22 @@ sealed abstract class HasTxNodes[Nid] {
     * transaction.
     */
   final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
-      op: (A, B, Nid, Node.GenNode[Nid]) => (A, B)
+      op: (A, B, NodeId, Node.GenNode) => (A, B)
   ): A = {
     var globalState = globalState0
 
     @tailrec
-    def go(toVisit: FrontStack[(Nid, B)]): Unit = toVisit match {
+    def go(toVisit: FrontStack[(NodeId, B)]): Unit = toVisit match {
       case FrontStack() =>
       case FrontStackCons((nodeId, pathState), toVisit) =>
         val node = nodes(nodeId)
         val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
         globalState = globalState1
         node match {
-          case nr: Node.NodeRollback[Nid] =>
+          case nr: Node.NodeRollback =>
             go(nr.children.map(_ -> newPathState) ++: toVisit)
           case _: Node.LeafOnlyActionNode => go(toVisit)
-          case ne: Node.NodeExercises[Nid] =>
+          case ne: Node.NodeExercises =>
             go(ne.children.map(_ -> newPathState) ++: toVisit)
         }
     }
@@ -349,8 +349,8 @@ sealed abstract class HasTxNodes[Nid] {
     globalState
   }
 
-  final def localContracts[Cid2 >: ContractId]: Map[Cid2, (Nid, Node.NodeCreate)] =
-    fold(Map.empty[Cid2, (Nid, Node.NodeCreate)]) {
+  final def localContracts[Cid2 >: ContractId]: Map[Cid2, (NodeId, Node.NodeCreate)] =
+    fold(Map.empty[Cid2, (NodeId, Node.NodeCreate)]) {
       case (acc, (nid, create: Node.NodeCreate)) =>
         acc.updated(create.coid, nid -> create)
       case (acc, _) => acc
@@ -451,19 +451,17 @@ sealed abstract class HasTxNodes[Nid] {
     * This includes the keys created, exercised, fetched, or looked up, even those
     * that refer transient contracts or that appear under a rollback node.
     */
-  final def contractKeys(implicit
-      evidence: HasTxNodes[Nid] <:< HasTxNodes[_]
-  ): Set[GlobalKey] = {
-    evidence(this).fold(Set.empty[GlobalKey]) {
+  final def contractKeys: Set[GlobalKey] = {
+    fold(Set.empty[GlobalKey]) {
       case (acc, (_, node: Node.NodeCreate)) =>
         node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
-      case (acc, (_, node: Node.NodeExercises[_])) =>
+      case (acc, (_, node: Node.NodeExercises)) =>
         node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
       case (acc, (_, node: Node.NodeFetch)) =>
         node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
       case (acc, (_, node: Node.NodeLookupByKey)) =>
         acc + GlobalKey.assertBuild(node.templateId, node.key.key)
-      case (acc, (_, _: Node.NodeRollback[_])) =>
+      case (acc, (_, _: Node.NodeRollback)) =>
         acc
     }
   }
@@ -483,11 +481,7 @@ sealed abstract class HasTxNodes[Nid] {
   @throws[IllegalArgumentException](
     "If a contract key contains a contract id"
   )
-  final def contractKeyInputs(implicit
-      evidence: HasTxNodes[Nid] <:< HasTxNodes[_]
-  ): Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    val evThis = evidence(this)
-    val localContracts = evThis.localContracts
+  final def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
     final case class State(
         keys: Map[GlobalKey, Option[Value.ContractId]],
         rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
@@ -524,7 +518,7 @@ sealed abstract class HasTxNodes[Nid] {
               }
           }
         }
-      def handleExercise(exe: Node.NodeExercises[_]) =
+      def handleExercise(exe: Node.NodeExercises) =
         assertKeyMapping(exe.templateId, exe.targetCoid, exe.key).map { state =>
           exe.key.fold(state) { key =>
             val gk = GlobalKey.assertBuild(exe.templateId, key.key)
@@ -590,16 +584,15 @@ sealed abstract class HasTxNodes[Nid] {
           rollbackStack = rollbackStack.tail,
         )
     }
-    evThis
-      .foldInExecutionOrder[Either[KeyInputError, State]](
-        Right(State(Map.empty, List.empty, Map.empty))
-      )(
-        exerciseBegin = (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), true),
-        exerciseEnd = (acc, _, _) => acc,
-        rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback), true),
-        rollbackEnd = (acc, _, _) => acc.map(_.endRollback),
-        leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
-      )
+    foldInExecutionOrder[Either[KeyInputError, State]](
+      Right(State(Map.empty, List.empty, Map.empty))
+    )(
+      exerciseBegin = (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), true),
+      exerciseEnd = (acc, _, _) => acc,
+      rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback), true),
+      rollbackEnd = (acc, _, _) => acc.map(_.endRollback),
+      leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
+    )
       .map(_.keyInputs)
   }
 
@@ -607,10 +600,8 @@ sealed abstract class HasTxNodes[Nid] {
     *  This includes updates to transient contracts (by mapping them to None)
     *  but it does not include any updates under rollback nodes.
     */
-  final def updatedContractKeys(implicit
-      ev: HasTxNodes[Nid] <:< HasTxNodes[_]
-  ): Map[GlobalKey, Option[Value.ContractId]] = {
-    ev(this).foldInExecutionOrder(Map.empty[GlobalKey, Option[Value.ContractId]])(
+  final def updatedContractKeys: Map[GlobalKey, Option[Value.ContractId]] = {
+    foldInExecutionOrder(Map.empty[GlobalKey, Option[Value.ContractId]])(
       exerciseBegin = {
         case (acc, _, exec) if exec.consuming =>
           (
@@ -638,29 +629,29 @@ sealed abstract class HasTxNodes[Nid] {
   // Exercise/rollback nodes are visited twice: when execution reaches them and when execution leaves their body.
   // On the first visit of an execution/rollback node, the caller can prevent traversal of the children
   final def foreachInExecutionOrder(
-      exerciseBegin: (Nid, Node.NodeExercises[Nid]) => Boolean,
-      rollbackBegin: (Nid, Node.NodeRollback[Nid]) => Boolean,
-      leaf: (Nid, Node.LeafOnlyActionNode) => Unit,
-      exerciseEnd: (Nid, Node.NodeExercises[Nid]) => Unit,
-      rollbackEnd: (Nid, Node.NodeRollback[Nid]) => Unit,
+      exerciseBegin: (NodeId, Node.NodeExercises) => Boolean,
+      rollbackBegin: (NodeId, Node.NodeRollback) => Boolean,
+      leaf: (NodeId, Node.LeafOnlyActionNode) => Unit,
+      exerciseEnd: (NodeId, Node.NodeExercises) => Unit,
+      rollbackEnd: (NodeId, Node.NodeRollback) => Unit,
   ): Unit = {
     @tailrec
     def loop(
-        currNodes: FrontStack[Nid],
+        currNodes: FrontStack[NodeId],
         stack: FrontStack[
-          ((Nid, Either[Node.NodeRollback[Nid], Node.NodeExercises[Nid]]), FrontStack[Nid])
+          ((NodeId, Either[Node.NodeRollback, Node.NodeExercises]), FrontStack[NodeId])
         ],
     ): Unit =
       currNodes match {
         case FrontStackCons(nid, rest) =>
           nodes(nid) match {
-            case rb: Node.NodeRollback[_] =>
+            case rb: Node.NodeRollback =>
               if (rollbackBegin(nid, rb)) {
                 loop(rb.children.toFrontStack, ((nid, Left(rb)), rest) +: stack)
               } else {
                 loop(rest, stack)
               }
-            case exe: Node.NodeExercises[Nid] =>
+            case exe: Node.NodeExercises =>
               if (exerciseBegin(nid, exe)) {
                 loop(exe.children.toFrontStack, ((nid, Right(exe)), rest) +: stack)
               } else {
@@ -691,11 +682,11 @@ sealed abstract class HasTxNodes[Nid] {
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
   final def foldInExecutionOrder[A](z: A)(
-      exerciseBegin: (A, Nid, Node.NodeExercises[Nid]) => (A, Boolean),
-      rollbackBegin: (A, Nid, Node.NodeRollback[Nid]) => (A, Boolean),
-      leaf: (A, Nid, Node.LeafOnlyActionNode) => A,
-      exerciseEnd: (A, Nid, Node.NodeExercises[Nid]) => A,
-      rollbackEnd: (A, Nid, Node.NodeRollback[Nid]) => A,
+      exerciseBegin: (A, NodeId, Node.NodeExercises) => (A, Boolean),
+      rollbackBegin: (A, NodeId, Node.NodeRollback) => (A, Boolean),
+      leaf: (A, NodeId, Node.LeafOnlyActionNode) => A,
+      exerciseEnd: (A, NodeId, Node.NodeExercises) => A,
+      rollbackEnd: (A, NodeId, Node.NodeRollback) => A,
   ): A = {
     var acc = z
     foreachInExecutionOrder(
@@ -717,8 +708,8 @@ sealed abstract class HasTxNodes[Nid] {
   }
 
   // This method returns all node-ids reachable from the roots of a transaction.
-  final def reachableNodeIds: Set[Nid] = {
-    foldInExecutionOrder[Set[Nid]](Set.empty)(
+  final def reachableNodeIds: Set[NodeId] = {
+    foldInExecutionOrder[Set[NodeId]](Set.empty)(
       (acc, nid, _) => (acc + nid, true),
       (acc, nid, _) => (acc + nid, true),
       (acc, nid, _) => acc + nid,
@@ -743,13 +734,13 @@ sealed abstract class HasTxNodes[Nid] {
 
 object GenTransaction {
 
-  type WithTxValue[Nid] = GenTransaction[Nid]
+  type WithTxValue = GenTransaction
 
-  private[this] val Empty = GenTransaction[Nothing](HashMap.empty, ImmArray.Empty)
+  private[this] val Empty = GenTransaction(HashMap.empty, ImmArray.Empty)
 
-  private[lf] def empty[A]: GenTransaction[A] = Empty.asInstanceOf[GenTransaction[A]]
+  private[lf] def empty: GenTransaction = Empty
 
-  private[lf] case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
+  private[lf] case class NotWellFormedError(nid: NodeId, reason: NotWellFormedErrorReason)
   private[lf] sealed trait NotWellFormedErrorReason
   private[lf] case object DanglingNodeId extends NotWellFormedErrorReason
   private[lf] case object OrphanedNode extends NotWellFormedErrorReason
@@ -757,7 +748,7 @@ object GenTransaction {
 
   // crashes if transaction's keys contain contract Ids.
   @throws[IllegalArgumentException]
-  def duplicatedContractKeys(tx: VersionedTransaction[NodeId]): Set[GlobalKey] = {
+  def duplicatedContractKeys(tx: VersionedTransaction): Set[GlobalKey] = {
 
     import GlobalKey.{assertBuild => globalKey}
 
@@ -796,8 +787,8 @@ object Transaction {
   type ContractInst = Value.ContractInst[Value]
 
   /** Transaction nodes */
-  type Node = Node.GenNode[NodeId]
-  type ActionNode = Node.GenActionNode[NodeId]
+  type Node = Node.GenNode
+  type ActionNode = Node.GenActionNode
   type LeafNode = Node.LeafOnlyActionNode
 
   /** (Complete) transactions, which are the result of interpreting a
@@ -807,7 +798,7 @@ object Transaction {
     * transaction into party-specific ledgers and for computing
     * divulgence of contracts.
     */
-  type Transaction = VersionedTransaction[NodeId]
+  type Transaction = VersionedTransaction
   val Transaction: VersionedTransaction.type = VersionedTransaction
 
   /** Transaction meta data

@@ -271,9 +271,9 @@ object ExceptionTest {
           }
         case _: LeafNode =>
           Nil
-        case node: NodeExercises[_] =>
+        case node: NodeExercises =>
           List(X(node.children.toList.flatMap(nid => trees(nid))))
-        case node: NodeRollback[_] =>
+        case node: NodeRollback =>
           List(R(node.children.toList.flatMap(nid => trees(nid))))
       }
     }
