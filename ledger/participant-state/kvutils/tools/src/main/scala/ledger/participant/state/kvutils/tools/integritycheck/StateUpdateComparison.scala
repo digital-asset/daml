@@ -89,15 +89,31 @@ object ReadServiceStateUpdateComparison {
     )
 
     if (expectedNormalizedUpdate != actualNormalizedUpdate) {
-      Future.failed(
-        new ComparisonFailureException(
-          "State update mismatch.",
-          "Expected:",
-          expectedNormalizedUpdate.toString,
-          "Actual:",
-          actualNormalizedUpdate.toString,
+      if (expectedNormalizedUpdate == expectedUpdate && actualNormalizedUpdate == actualUpdate) {
+        Future.failed(
+          new ComparisonFailureException(
+            "State update mismatch.",
+            "Expected:",
+            expectedNormalizedUpdate.toString,
+            "Actual:",
+            actualNormalizedUpdate.toString,
+          )
         )
-      )
+      } else {
+        Future.failed(
+          new ComparisonFailureException(
+            "State update mismatch.",
+            "Expected (before normalization):",
+            expectedUpdate.toString,
+            "Expected (after normalization):",
+            expectedNormalizedUpdate.toString,
+            "Actual (before normalization):",
+            actualUpdate.toString,
+            "Actual (after normalization):",
+            actualNormalizedUpdate.toString,
+          )
+        )
+      }
     } else {
       Future.unit
     }
