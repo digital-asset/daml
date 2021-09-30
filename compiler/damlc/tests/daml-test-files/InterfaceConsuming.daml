@@ -2,25 +2,19 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR Choice implementation and interface definition for Transfer differ in consuming/non-consuming behaviour.
 
-module Interface where
-
-import DA.Assert ((===))
+module InterfaceConsuming where
 
 interface Token where
-  getAmount : Int
-
   choice Split : (ContractId Token, ContractId Token)
     with
       splitAmount : Int
 
-  choice Transfer : ContractId Token
+  nonconsuming choice Transfer : ContractId Token
     with
       newOwner : Party
 
-  nonconsuming choice Noop : ()
-    with
-      nothing : ()
 
 template Asset
   with
@@ -30,8 +24,6 @@ template Asset
   where
     signatory issuer, owner
     implements Token where
-      let getAmount = amount
-
       choice Split : (ContractId Token, ContractId Token)
         with
           splitAmount : Int
@@ -49,34 +41,3 @@ template Asset
         do
           cid <- create this with owner = newOwner
           pure (toTokenContractId cid)
-
-      nonconsuming choice Noop : ()
-        with
-          nothing : ()
-        controller owner
-        do
-          pure ()
-
-main = scenario do
-  p <- getParty "Alice"
-  p `submit` do
-    cidAsset1 <- create Asset with
-      issuer = p
-      owner = p
-      amount = 15
-    let cidToken1 = toTokenContractId cidAsset1
-    _ <- exercise cidToken1 (Noop ())
-    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
-    token2 <- fetch cidToken2
-    getAmount token2 === 10
-    case fromToken token2 of
-      None -> abort "expected Asset"
-      Some Asset {amount} ->
-        amount === 10
-    token3 <- fetch cidToken3
-    getAmount token3 === 5
-    case fromToken token3 of
-      None -> abort "expected Asset"
-      Some Asset {amount} ->
-        amount === 5
-    pure ()

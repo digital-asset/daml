@@ -176,6 +176,7 @@ data Env = Env
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
     ,envInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
+    ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: S.Set TypeConName
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -420,34 +421,32 @@ convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
 convertInterfaces env tyThings = interfaceClasses
   where
     interfaceClasses = sequence
-        [ DInterface <$> convertInterface interface cls
+        [ DInterface <$> convertInterface interface cls choiceData
         | ATyCon t <- tyThings
         , Just cls <- [tyConClass_maybe t]
         , Just interface <- [T.stripPrefix "Is" (getOccText t)]
         , TypeConName [interface] `S.member` (envInterfaces env)
+        , choiceData <- [MS.findWithDefault [] (TypeConName [interface]) $ envInterfaceChoiceData env]
         ]
-    convertInterface :: T.Text -> Class -> ConvertM DefInterface
-    convertInterface name cls = do
-      choices <- sequence
-        [ convertChoice arg res
-        |
-          TypeCon (NameIn DA_Internal_Template_Functions "HasExercise") [_, arg, res] <- classSCTheta cls]
-      -- Drop toIface/fromIface/toIfaceContractId/fromIfaceContractId to get only user-defined methods.
+    convertInterface :: T.Text -> Class -> [ChoiceData] -> ConvertM DefInterface
+    convertInterface name cls choiceData = do
       methods <- mapM convertMethod (drop 4 $ classMethods cls)
+      choices <- mapM convertChoice choiceData
       pure DefInterface
         { intLocation = Nothing
         , intName = mkTypeCon [name]
         , intChoices = NM.fromList choices
         , intMethods = NM.fromList methods
         }
-    convertChoice :: TyCoRep.Type -> TyCoRep.Type -> ConvertM InterfaceChoice
-    convertChoice arg res = do
-        arg@(TCon (Qualified { qualObject = TypeConName[choice]})) <- convertType env arg
-        res <- convertType env res
+    convertChoice :: ChoiceData -> ConvertM InterfaceChoice
+    convertChoice (ChoiceData ty _expr) = do
+        TConApp _ [_ :-> _ :-> arg@(TConApp choiceTyCon _) :-> TUpdate res, consumingTy] <- convertType env ty
+        let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
+        consuming <- convertConsuming consumingTy
         pure InterfaceChoice
           { ifcLocation = Nothing
-          , ifcName = ChoiceName choice
-          , ifcConsuming = True
+          , ifcName = choiceName
+          , ifcConsuming = consuming == Consuming
           , ifcArgType = arg
           , ifcRetType = res
           }
@@ -462,6 +461,15 @@ convertInterfaces env tyThings = interfaceClasses
           , ifmName = MethodName (T.pack methodName)
           , ifmType = retTy
           }
+
+convertConsuming :: LF.Type -> ConvertM Consuming
+convertConsuming consumingTy = case consumingTy of
+      TConApp Qualified { qualObject = TypeConName con } _
+          | con == ["NonConsuming"] -> pure NonConsuming
+          | con == ["PreConsuming"] -> pure PreConsuming
+          | con == ["Consuming"] -> pure Consuming
+          | con == ["PostConsuming"] -> pure PostConsuming
+      _ -> unhandled "choice consumption type" (show consumingTy)
 
 convertModule
     :: LF.Version
@@ -518,6 +526,12 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             , "_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
             ]
+        ifChoiceData = MS.fromListWith (++)
+            [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
+            | (name, v) <- binds
+            , "_interface_choice_" `T.isPrefixOf` getOccText name
+            , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
+            ]
         templateBinds = scrapeTemplateBinds binds
         exceptionBinds
             | lfVersion `supports` featureExceptions =
@@ -534,6 +548,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , envStablePackages = stablePackages
           , envLfVersion = lfVersion
           , envInterfaces = interfaceCons
+          , envInterfaceChoiceData = ifChoiceData
           , envTemplateBinds = templateBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
@@ -909,13 +924,7 @@ convertChoice env tbinds (ChoiceData ty expr)
         ESome{someBody} -> pure $ Just someBody
         _ -> unhandled "choice observers function" optObservers
 
-    consuming <- case consumingTy of
-        TConApp Qualified { qualObject = TypeConName con } _
-            | con == ["NonConsuming"] -> pure NonConsuming
-            | con == ["PreConsuming"] -> pure PreConsuming
-            | con == ["Consuming"] -> pure Consuming
-            | con == ["PostConsuming"] -> pure PostConsuming
-        _ -> unhandled "choice consumption type" (show consumingTy)
+    consuming <- convertConsuming consumingTy
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
     archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
     update <- pure $
@@ -948,7 +957,9 @@ convertBind env (name, x)
     -- This is inlined in the choice in the template so we can just drop this.
     | "_choice_" `T.isPrefixOf` getOccText name
     = pure []
-
+    -- We only need this to get additional info for interface choices.
+    | "_interface_choice_" `T.isPrefixOf` getOccText name
+    = pure []
     -- These are only used as markers for the LF conversion.
     | "_implements_" `T.isPrefixOf` getOccText name
     = pure []
