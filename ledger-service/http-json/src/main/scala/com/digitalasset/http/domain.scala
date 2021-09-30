@@ -38,7 +38,7 @@ import spray.json.JsValue
 
 import scala.annotation.tailrec
 
-object domain {
+object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   case class Error(id: Symbol, message: String)
 
@@ -105,8 +105,6 @@ object domain {
     }
   }
 
-  case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
-
   case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
 
   type InputContractRef[LfV] =
@@ -114,16 +112,6 @@ object domain {
 
   type ResolvedContractRef[LfV] =
     (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
-
-  case class ActiveContract[+LfV](
-      contractId: ContractId,
-      templateId: TemplateId.RequiredPkg,
-      key: Option[LfV],
-      payload: LfV,
-      signatories: Seq[Party],
-      observers: Seq[Party],
-      agreementText: String,
-  )
 
   case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
 
@@ -203,41 +191,12 @@ object domain {
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
   }
 
-  sealed trait OffsetTag
-
-  type Offset = String @@ OffsetTag
-
-  object Offset {
-    private[http] val tag = Tag.of[OffsetTag]
-
-    def apply(s: String): Offset = tag(s)
-
-    def unwrap(x: Offset): String = tag.unwrap(x)
-
-    def fromLedgerApi(
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse
-    ): Option[Offset] =
-      Option(gacr.offset).filter(_.nonEmpty).map(x => Offset(x))
-
-    def fromLedgerApi(
-        gler: lav1.transaction_service.GetLedgerEndResponse
-    ): Option[Offset] =
-      gler.offset.flatMap(_.value.absolute).filter(_.nonEmpty).map(x => Offset(x))
-
-    def fromLedgerApi(tx: lav1.transaction.Transaction): Offset = Offset(tx.offset)
-
-    def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
-      lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
-
+  /* TODO SC Offset where?
     def toTerminates(o: Offset): LedgerClientJwt.Terminates.AtAbsolute =
       LedgerClientJwt.Terminates.AtAbsolute(
         lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o))
       )
-
-    implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
-    implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
-
-  }
+   */
 
   final case class StartingOffset(offset: Offset)
 
@@ -252,39 +211,9 @@ object domain {
   type Choice = lar.Choice
   val Choice = lar.Choice
 
-  type ContractIdTag = lar.ContractIdTag
-  type ContractId = lar.ContractId
-  val ContractId = lar.ContractId
-
   type CommandIdTag = lar.CommandIdTag
   type CommandId = lar.CommandId
   val CommandId = lar.CommandId
-
-  type PartyTag = lar.PartyTag
-  type Party = lar.Party
-  val Party = lar.Party
-
-  object TemplateId {
-    type OptionalPkg = TemplateId[Option[String]]
-    type RequiredPkg = TemplateId[String]
-    type NoPkg = TemplateId[Unit]
-
-    def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
-      TemplateId(in.packageId, in.moduleName, in.entityName)
-
-    def qualifiedName(a: TemplateId[_]): Ref.QualifiedName =
-      Ref.QualifiedName(
-        Ref.DottedName.assertFromString(a.moduleName),
-        Ref.DottedName.assertFromString(a.entityName),
-      )
-
-    def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
-      val qfName = qualifiedName(a)
-      val packageId = Ref.PackageId.assertFromString(a.packageId)
-      Ref.Identifier(packageId, qfName)
-    }
-
-  }
 
   object Contract {
 
@@ -365,46 +294,7 @@ object domain {
     }
   }
 
-  object ActiveContract {
-
-    def matchesKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
-      a.key.fold(false)(_ == k)
-
-    def fromLedgerApi(
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse
-    ): Error \/ List[ActiveContract[lav1.value.Value]] = {
-      gacr.activeContracts.toList.traverse(fromLedgerApi(_))
-    }
-
-    def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
-      for {
-        templateId <- in.templateId required "templateId"
-        payload <- in.createArguments required "createArguments"
-      } yield ActiveContract(
-        contractId = ContractId(in.contractId),
-        templateId = TemplateId fromLedgerApi templateId,
-        key = in.contractKey,
-        payload = boxedRecord(payload),
-        signatories = Party.subst(in.signatories),
-        observers = Party.subst(in.observers),
-        agreementText = in.agreementText getOrElse "",
-      )
-
-    implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
-
-      override def map[A, B](fa: ActiveContract[A])(f: A => B): ActiveContract[B] =
-        fa.copy(key = fa.key map f, payload = f(fa.payload))
-
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: ActiveContract[A]
-      )(f: A => G[B]): G[ActiveContract[B]] = {
-        import scalaz.syntax.apply._
-        val gk: G[Option[B]] = fa.key traverse f
-        val ga: G[B] = f(fa.payload)
-        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
-      }
-    }
-
+  /* TODO SC where HasTemplateId?
     implicit val hasTemplateId: HasTemplateId[ActiveContract] = new HasTemplateId[ActiveContract] {
       override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
         TemplateId(
@@ -423,7 +313,7 @@ object domain {
         f(templateId)
           .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
     }
-  }
+   */
 
   object ArchivedContract {
     def fromLedgerApi(in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =

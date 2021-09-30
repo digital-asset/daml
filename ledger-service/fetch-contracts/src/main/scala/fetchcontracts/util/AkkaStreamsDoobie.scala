@@ -4,13 +4,7 @@
 package com.daml.fetchcontracts.util
 
 import akka.NotUsed
-import akka.stream.scaladsl.{
-  Broadcast,
-  Flow,
-  GraphDSL,
-  Partition,
-  SinkQueueWithCancel,
-}
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Partition, SinkQueueWithCancel}
 import akka.stream.{FanOutShape2, Graph}
 import com.daml.scalautil.Statement.discard
 import doobie.free.{connection => fconn}
@@ -56,12 +50,12 @@ private[daml] object AkkaStreamsDoobie {
   def last[A](ifEmpty: A): Flow[A, A, NotUsed] =
     Flow[A].fold(ifEmpty)((_, later) => later)
 
-  /*private*/ def max[A: Order](ifEmpty: A): Flow[A, A, NotUsed] =
+  /*private*/
+  def max[A: Order](ifEmpty: A): Flow[A, A, NotUsed] =
     Flow[A].fold(ifEmpty)(_ max _)
 
-
-
-  /*private*/ def sinkCioSequence_[Ign](
+  /*private*/
+  def sinkCioSequence_[Ign](
       f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]]
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
     import doobie.ConnectionIO
@@ -80,7 +74,8 @@ private[daml] object AkkaStreamsDoobie {
     )
   }
 
-  /*private*/ def connectionIOFuture[A](
+  /*private*/
+  def connectionIOFuture[A](
       fa: Future[A]
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
     fconn.async[A](k => fa.onComplete(ta => k(ta.toEither)))

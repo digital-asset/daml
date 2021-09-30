@@ -21,7 +21,7 @@ import util.{
   InsertDeleteStep,
   toLedgerId,
 }
-import com.daml.http.util.ContractStreamStep.{Acs, LiveBegin}
+import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt

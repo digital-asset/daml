@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.http
+package com.daml.fetchcontracts
 package util
 
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -12,7 +12,7 @@ import scalaz.Order
 import scalaz.syntax.order._
 import spray.json.{JsNull, JsonWriter}
 
-private[http] sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
+private[daml] sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
   def toLedgerApi(implicit ev: Off <~< domain.Offset): LedgerOffset =
     this match {
       case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
@@ -29,10 +29,10 @@ private[http] sealed abstract class BeginBookmark[+Off] extends Product with Ser
     case LedgerBegin => None
   }
 }
-private[http] final case class AbsoluteBookmark[+Off](offset: Off) extends BeginBookmark[Off]
-private[http] case object LedgerBegin extends BeginBookmark[Nothing]
+private[daml] final case class AbsoluteBookmark[+Off](offset: Off) extends BeginBookmark[Off]
+private[daml] case object LedgerBegin extends BeginBookmark[Nothing]
 
-private[http] object BeginBookmark {
+private[daml] object BeginBookmark {
   implicit def jsonWriter[Off: JsonWriter]: JsonWriter[BeginBookmark[Off]] =
     (obj: BeginBookmark[Off]) => {
       val ev = implicitly[JsonWriter[Off]]
