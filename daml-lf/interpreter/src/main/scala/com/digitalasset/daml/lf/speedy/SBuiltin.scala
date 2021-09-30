@@ -1197,6 +1197,16 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBCallInterface(
+      ifaceId: TypeConName,
+      methodName: MethodName,
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val record = getSRecord(args, 0)
+      machine.ctrl = ImplementsMethodDefRef(record.id, ifaceId, methodName)(SEValue(record))
+    }
+  }
+
   /** $insertFetch[tid]
     *    :: ContractId a
     *    -> List Party    (signatories)

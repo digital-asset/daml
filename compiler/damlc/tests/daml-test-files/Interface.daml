@@ -8,7 +8,8 @@ module Interface where
 import DA.Assert ((===))
 
 interface Token where
---  getAmount : Decimal
+  getAmount : Int
+
   choice Split : (ContractId Token, ContractId Token)
     with
       splitAmount : Int
@@ -25,6 +26,8 @@ template Asset
   where
     signatory issuer, owner
     implements Token where
+      let getAmount = amount
+
       choice Split : (ContractId Token, ContractId Token)
         with
           splitAmount : Int
@@ -53,11 +56,13 @@ main = scenario do
     let cidToken1 = toTokenContractId cidAsset1
     (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
     token2 <- fetch cidToken2
+    getAmount token2 === 10
     case fromToken token2 of
       None -> abort "expected Asset"
       Some Asset {amount} ->
         amount === 10
     token3 <- fetch cidToken3
+    getAmount token3 === 5
     case fromToken token3 of
       None -> abort "expected Asset"
       Some Asset {amount} ->
