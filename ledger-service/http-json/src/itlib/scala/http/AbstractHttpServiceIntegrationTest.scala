@@ -63,6 +63,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private[http] val dar3 = requiredResource(SemanticTestDar.path)
 
+  private[http] val userDar = requiredResource("ledger-service/http-json/User.dar")
+
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import java.security.MessageDigest
     import javax.xml.bind.DatatypeConverter
@@ -103,6 +105,9 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected val metadata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
+  protected val metadataUser: MetadataReader.LfMetadata =
+    MetadataReader.readFromDar(userDar).valueOr(e => fail(s"Cannot read userDar metadata: $e"))
+
   protected val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
 
   protected val jwtAdminNoParty: Jwt = {
@@ -123,7 +128,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   import tag.@@ // used for subtyping to make `AHS ec` beat executionContext
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
-  override def packageFiles = List(dar1, dar2)
+  override def packageFiles = List(dar1, dar2, userDar)
 
   protected def getUniqueParty(name: String) = getUniquePartyAndAuthHeaders(name)._1
   protected def getUniquePartyAndAuthHeaders(name: String): (domain.Party, List[HttpHeader]) = {
@@ -269,7 +274,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       at[K :->>: V]((fn.value.name, _))
   }
 
-  private[this] def recordFromFields[L <: HList, I <: HList](hlist: L)(implicit
+  protected[this] def recordFromFields[L <: HList, I <: HList](hlist: L)(implicit
       mapper: shapeless.ops.hlist.Mapper.Aux[RecordFromFields.type, L, I],
       lister: shapeless.ops.hlist.ToTraversable.Aux[I, Seq, (String, v.Value.Sum)],
   ): v.Record = v.Record(fields = hlist.map(RecordFromFields).to[Seq].map { case (n, vs) =>
