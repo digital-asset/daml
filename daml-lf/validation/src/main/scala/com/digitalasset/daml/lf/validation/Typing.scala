@@ -510,7 +510,7 @@ private[validation] object Typing {
           case None =>
             throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interface, tplMethod.name)
           case Some(method) =>
-            checkExpr(tplMethod.value, method.returnType)
+            checkExpr(tplMethod.value, TFun(TTyCon(tplTcon), method.returnType))
         }
       }
     }
