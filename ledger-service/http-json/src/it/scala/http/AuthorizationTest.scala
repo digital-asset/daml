@@ -8,11 +8,14 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.util.TestUtil.requiredFile
 import com.daml.http.util.Logging.instanceUUIDLogCtx
+import com.daml.http.util.SandboxTestLedger
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -22,12 +25,18 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with Matchers {
+final class AuthorizationTest
+    extends AsyncFlatSpec
+    with BeforeAndAfterAll
+    with Matchers
+    with SandboxTestLedger
+    with SuiteResourceManagementAroundAll {
 
   private val dar = requiredFile(rlocation("docs/quickstart-model.dar"))
     .fold(e => throw new IllegalStateException(e), identity)
 
-  private val testId: String = this.getClass.getSimpleName
+  protected val testId: String = this.getClass.getSimpleName
+  override def useTls = UseTls.NoTls
 
   implicit val asys: ActorSystem = ActorSystem(testId)
   implicit val mat: Materializer = Materializer(asys)
@@ -43,6 +52,9 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
 
+  override def authService = mockedAuthService
+  override def packageFiles = List(dar)
+
   override protected def afterAll(): Unit = {
     super.afterAll()
     try {
@@ -55,11 +67,11 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
     }
   }
 
-  protected def withLedger[A](testFn: DamlLedgerClient => LedgerId => Future[A]): Future[A] =
-    HttpServiceTestFixture
-      .withLedger[A](List(dar), testId, Option(publicToken), authService = mockedAuthService) {
-        case (_, client, ledgerId) => testFn(client)(ledgerId)
-      }
+  protected def withLedger[A](testFn: DamlLedgerClient => LedgerId => Future[A]): Future[A] = {
+    usingLedger[A](testId, Some(publicToken)) { case (_, client, ledgerId) =>
+      testFn(client)(ledgerId)
+    }
+  }
 
   private def packageService(client: DamlLedgerClient): PackageService =
     new PackageService(HttpService.doLoad(client.packageClient))

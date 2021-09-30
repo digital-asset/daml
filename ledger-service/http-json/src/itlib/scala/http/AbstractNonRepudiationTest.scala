@@ -9,7 +9,6 @@ import java.time.Clock
 
 import akka.http.scaladsl.model.Uri
 import com.daml.doobie.logging.Slf4jLogHandler
-import com.daml.http.AbstractHttpServiceIntegrationTestFuns.{dar1, dar2}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
@@ -85,7 +84,7 @@ abstract class AbstractNonRepudiationTest
     }
 
   private def withParticipant[A] =
-    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) _
+    usingLedger[A](testId) _
 
   private def withJsonApi[A](participantPort: Port) =
     HttpServiceTestFixture.withHttpService[A](

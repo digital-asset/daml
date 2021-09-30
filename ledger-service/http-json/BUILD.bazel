@@ -12,7 +12,7 @@ load(
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@scala_version//:index.bzl", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -283,7 +283,12 @@ alias(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger/ledger-resources",
             "//ledger/metrics",
+            "//ledger/sandbox:sandbox-scala-tests-lib",
+            "//ledger/sandbox-common",
+            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/db-backend",
@@ -326,6 +331,10 @@ alias(
             "src/it/scala/**/*.scala",
             "src/it/edition/{}/**/*.scala".format(edition),
         ]),
+        args = [
+            "-l",
+            "skip_scala_2_12",
+        ] if scala_major_version == "2.12" else [],
         data = [
             ":Account.dar",
             "//docs:quickstart-model.dar",
@@ -369,17 +378,23 @@ alias(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
             "//ledger-service/db-backend",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-resources",
             "//ledger/metrics",
+            "//ledger/sandbox:sandbox-scala-tests-lib",
+            "//ledger/sandbox-common",
+            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/jwt",
             "//ledger-service/utils",
-            "//ledger/ledger-api-auth",
             "//libs-scala/contextualized-logging",
             "//libs-scala/db-utils",
             "//libs-scala/ports",
             "//libs-scala/postgresql-testing",
+            "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
