@@ -58,14 +58,14 @@ private[backend] trait StorageBackendSpec
         .acquire()
     } yield dispatcher
 
-    dbDispatcher = Await.result(dbDispatcherResource.asFuture, 30.seconds)
+    dbDispatcher = Await.result(dbDispatcherResource.asFuture, 60.seconds)
     logger.info(
       s"Finished setting up database $jdbcUrl for tests. You can now connect to this database to debug failed tests. Note that tables are truncated between each test."
     )
   }
 
   override protected def afterAll(): Unit = {
-    Await.result(dbDispatcherResource.release(), 30.seconds)
+    Await.result(dbDispatcherResource.release(), 60.seconds)
     super.afterAll()
   }
 
@@ -81,7 +81,7 @@ private[backend] trait StorageBackendSpec
       runningTests.incrementAndGet() == 1,
       "StorageBackendSpec tests must not run in parallel, as they all run against the same database.",
     )
-    Await.result(executeSql(backend.resetAll), 10.seconds)
+    Await.result(executeSql(backend.resetAll), 60.seconds)
   }
 
   override protected def afterEach(): Unit = {
