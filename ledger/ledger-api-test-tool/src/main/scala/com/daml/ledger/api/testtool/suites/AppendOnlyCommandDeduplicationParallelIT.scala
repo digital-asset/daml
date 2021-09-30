@@ -39,13 +39,14 @@ import scala.util.control.NonFatal
 class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
 
   private val deduplicationDuration = 3.seconds
+  private val numberOfParallelRequests = 10
 
   test(
     s"DeduplicateParallelSubmissionsUsingCommandSubmissionService",
     "Commands submitted at the same, in parallel, using the CommandSubmissionService, should be deduplicated",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    lazy val request = submitRequest(ledger, party)
+    lazy val request = buildSubmitRequest(ledger, party)
     runTestWithSubmission[SubmitRequest](
       ledger,
       party,
@@ -59,7 +60,7 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
     allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = submitAndWaitRequest(ledger, party)
+    val request = buildSubmitAndWaitRequest(ledger, party)
     runTestWithSubmission[SubmitAndWaitRequest](
       ledger,
       party,
@@ -73,8 +74,8 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
     allocate(SingleParty),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val submitAndWaitRequest = submitAndWaitRequest(ledger, party)
-    val submitRequest = submitRequest(ledger, party)
+    val submitAndWaitRequest = buildSubmitAndWaitRequest(ledger, party)
+    val submitRequest = buildSubmitRequest(ledger, party)
     runTestWithSubmission[SubmitAndWaitRequest](
       ledger,
       party,
@@ -92,7 +93,6 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
   )(implicit
       ec: ExecutionContext
   ) = {
-    val numberOfParallelRequests = 10
     for {
       responses <- Future
         .traverse(Seq.fill(numberOfParallelRequests)(()))(_ => {
@@ -116,35 +116,31 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
     }
   }
 
-  private def submitRequest(
+  private def buildSubmitRequest(
       ledger: ParticipantTestContext,
       party: client.binding.Primitive.Party,
-  ) = {
-    ledger
-      .submitRequest(
-        party,
-        DummyWithAnnotation(party, "Duplicate Using CommandSubmissionService").create.command,
+  ) = ledger
+    .submitRequest(
+      party,
+      DummyWithAnnotation(party, "Duplicate Using CommandSubmissionService").create.command,
+    )
+    .update(
+      _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationDuration(
+        deduplicationDuration.asProtobuf
       )
-      .update(
-        _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationDuration(
-          deduplicationDuration.asProtobuf
-        )
-      )
-  }
+    )
 
-  private def submitAndWaitRequest(
+  private def buildSubmitAndWaitRequest(
       ledger: ParticipantTestContext,
       party: binding.Primitive.Party,
-  ) = {
-    ledger
-      .submitAndWaitRequest(
-        party,
-        DummyWithAnnotation(party, "Duplicate using CommandService").create.command,
-      )
-      .update(
-        _.commands.deduplicationDuration := deduplicationDuration.asProtobuf
-      )
-  }
+  ) = ledger
+    .submitAndWaitRequest(
+      party,
+      DummyWithAnnotation(party, "Duplicate using CommandService").create.command,
+    )
+    .update(
+      _.commands.deduplicationDuration := deduplicationDuration.asProtobuf
+    )
 
   private def submitAndWaitRequestAndGetStatusCode(
       ledger: ParticipantTestContext
@@ -154,6 +150,7 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
     val submitResult = ledger.submitAndWait(requestWithSubmissionId)
     submissionResultToFinalStatusCode(ledger)(submitResult, submissionId, parties: _*)
   }
+
   protected def submitRequestAndGetStatusCode(
       ledger: ParticipantTestContext
   )(request: SubmitRequest, parties: Party*)(implicit ec: ExecutionContext): Future[Code] = {
@@ -168,27 +165,25 @@ class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
       ledger: ParticipantTestContext
   )(submitResult: Future[Unit], submissionId: String, parties: Primitive.Party*)(implicit
       ec: ExecutionContext
-  ) = {
-    submitResult
-      .transformWith {
-        case Failure(exception) =>
-          exception match {
-            case GrpcException(status, _) =>
-              Future.successful(status.getCode)
-            case NonFatal(otherException) =>
-              fail(s"Not a GRPC exception $otherException", otherException)
+  ) = submitResult
+    .transformWith {
+      case Failure(exception) =>
+        exception match {
+          case GrpcException(status, _) =>
+            Future.successful(status.getCode)
+          case NonFatal(otherException) =>
+            fail(s"Not a GRPC exception $otherException", otherException)
+        }
+      case Success(_) =>
+        ledger
+          .findCompletion(parties: _*)(completion => {
+            completion.submissionId == submissionId
+          })
+          .map {
+            case Some(completion) =>
+              Status.fromCodeValue(completion.getStatus.code).getCode
+            case None =>
+              fail(s"Did not find completion for request with submission id $submissionId")
           }
-        case Success(_) =>
-          ledger
-            .findCompletion(parties: _*)(completion => {
-              completion.submissionId == submissionId
-            })
-            .map {
-              case Some(completion) =>
-                Status.fromCodeValue(completion.getStatus.code).getCode
-              case None =>
-                fail(s"Did not find completion for request with submission id $submissionId")
-            }
-      }
-  }
+    }
 }
