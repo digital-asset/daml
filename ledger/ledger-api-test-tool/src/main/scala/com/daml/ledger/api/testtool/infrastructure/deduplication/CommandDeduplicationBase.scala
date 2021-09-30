@@ -20,6 +20,7 @@ import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
 import com.daml.timer.Delayed
+import io.grpc.Status
 import io.grpc.Status.Code
 
 import scala.annotation.nowarn
@@ -234,11 +235,11 @@ private[testtool] abstract class CommandDeduplicationBase(
     for {
       // Submit a command as alice
       _ <- ledger.submitAndWait(aliceRequest)
-      _ <- submitAndWaitRequestAndAssertDeduplication(ledger)(aliceRequest)
+      failure1 <- submitAndWaitRequestAndAssertDeduplication(ledger)(aliceRequest)
 
       // Submit another command that uses same commandId, but is submitted by Bob
       _ <- ledger.submitAndWait(bobRequest)
-      _ <- submitAndWaitRequestAndAssertDeduplication(ledger)(bobRequest)
+      failure2 <- submitAndWaitRequestAndAssertDeduplication(ledger)(bobRequest)
       // Inspect the ledger state
       _ <- assertPartyHasActiveContracts(ledger)(
         party = alice,
@@ -259,7 +260,7 @@ private[testtool] abstract class CommandDeduplicationBase(
       .map(contracts =>
         assert(
           contracts.length == noOfActiveContracts,
-          s"Expected $noOfActiveContracts active contracts for $party but found ${contracts.length} active contracts",
+          s"Expected ${noOfActiveContracts} active contracts for $party but found ${contracts.length} active contracts",
         )
       )
   }
