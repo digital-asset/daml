@@ -26,7 +26,7 @@ import io.grpc.Status.Code
 import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 @nowarn("msg=deprecated")
 private[testtool] abstract class CommandDeduplicationBase(
@@ -193,6 +193,56 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   )
 
+  testGivenAllParticipants(
+    s"${testNamingPrefix}SimpleDeduplicationMixedClients",
+    "Deduplicate commands within the deduplication time window using the command client and the command submission client",
+    allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      val submitAndWaitRequest = ledger
+        .submitAndWaitRequest(party, Dummy(party).create.command)
+        .update(
+          _.commands.deduplicationTime := deduplicationDuration.asProtobuf
+        )
+      val submitRequest = ledger
+        .submitRequest(party, Dummy(party).create.command)
+        .update(_.commands.commandId := submitAndWaitRequest.getCommands.commandId)
+      val firstSubmitAndWait = Random.nextBoolean()
+      runGivenDeduplicationWait(configuredParticipants) {
+        def submitAndAssertAccepted(submitAndWait: Boolean) = {
+          if (submitAndWait) ledger.submitAndWait(submitAndWaitRequest)
+          else submitRequestAndAssertCompletionAccepted(ledger)(submitRequest, party)
+        }
+
+        def submitAndAssertDeduplicated(submitAndWait: Boolean) = {
+          if (submitAndWait)
+            submitAndWaitRequestAndAssertDeduplication(ledger)(submitAndWaitRequest)
+          else submitRequestAndAssertDeduplication(ledger)(submitRequest, party)
+        }
+
+        deduplicationWait =>
+          for {
+            // Submit command (first deduplication window)
+            _ <- submitAndAssertAccepted(firstSubmitAndWait)
+            _ <- submitAndAssertDeduplicated(firstSubmitAndWait)
+
+            // Wait until the end of first deduplication window
+            _ <- Delayed.by(deduplicationWait)(())
+
+            // Submit command (second deduplication window)
+            _ <- submitAndAssertAccepted(!firstSubmitAndWait)
+            _ <- submitAndAssertDeduplicated(!firstSubmitAndWait)
+
+            // Inspect created contracts
+            _ <- assertPartyHasActiveContracts(ledger)(
+              party = party,
+              noOfActiveContracts = 2,
+            )
+          } yield {}
+      }
+    }
+  )
   test(
     s"${testNamingPrefix}DeduplicateSubmitterBasic",
     "Commands with identical submitter and command identifier should be deduplicated by the submission client",
@@ -235,11 +285,11 @@ private[testtool] abstract class CommandDeduplicationBase(
     for {
       // Submit a command as alice
       _ <- ledger.submitAndWait(aliceRequest)
-      failure1 <- submitAndWaitRequestAndAssertDeduplication(ledger)(aliceRequest)
+      _ <- submitAndWaitRequestAndAssertDeduplication(ledger)(aliceRequest)
 
       // Submit another command that uses same commandId, but is submitted by Bob
       _ <- ledger.submitAndWait(bobRequest)
-      failure2 <- submitAndWaitRequestAndAssertDeduplication(ledger)(bobRequest)
+      _ <- submitAndWaitRequestAndAssertDeduplication(ledger)(bobRequest)
       // Inspect the ledger state
       _ <- assertPartyHasActiveContracts(ledger)(
         party = alice,
@@ -260,7 +310,7 @@ private[testtool] abstract class CommandDeduplicationBase(
       .map(contracts =>
         assert(
           contracts.length == noOfActiveContracts,
-          s"Expected ${noOfActiveContracts} active contracts for $party but found ${contracts.length} active contracts",
+          s"Expected $noOfActiveContracts active contracts for $party but found ${contracts.length} active contracts",
         )
       )
   }
