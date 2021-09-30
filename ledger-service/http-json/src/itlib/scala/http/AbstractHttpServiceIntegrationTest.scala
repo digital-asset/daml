@@ -1660,7 +1660,8 @@ abstract class AbstractHttpServiceIntegrationTest
   "archiving a large number of contracts should succeed" taggedAs (SkipScala212) in withHttpServiceAndClient(
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
-    val numContracts: Long = 10000
+    //The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
+    val numContracts: Long = 2000
     val helperId = domain.TemplateId(None, "Account", "Helper")
     val payload = v.Record(
       fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))))
