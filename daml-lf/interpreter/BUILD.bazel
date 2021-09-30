@@ -11,8 +11,6 @@ load(
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 
-print(lf_scalacopts_stricter)
-
 da_scala_library(
     name = "interpreter",
     srcs = glob(["src/main/**/*.scala"]),
