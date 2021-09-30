@@ -309,6 +309,7 @@ private[validation] object Typing {
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
       val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
       defInterface.choices.values.foreach { env.checkIfaceChoice(_) }
+      defInterface.methods.values.foreach { env.checkIfaceMethod(_) }
     }
   }
 
@@ -462,8 +463,12 @@ private[validation] object Typing {
       checkType(choice.returnType, KStar)
     }
 
+    def checkIfaceMethod(method: InterfaceMethod): Unit = {
+      checkType(method.returnType, KStar)
+    }
+
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterface(choices, methods @ _) =
+      val DefInterface(choices, methods) =
         handleLookup(ctx, interface.lookupInterface(impl.interface))
       choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
@@ -495,8 +500,19 @@ private[validation] object Typing {
             tplChoice.returnType,
           )
       }
-      // TODO https://github.com/digital-asset/daml/issues/11006
-      //   check methods as well
+
+      methods.values.foreach { (method: InterfaceMethod) =>
+        if (!impl.methods.contains(method.name))
+          throw EMissingInterfaceMethod(ctx, tplTcon, impl.interface, method.name)
+      }
+      impl.methods.values.foreach { (tplMethod: TemplateImplementsMethod) =>
+        methods.get(tplMethod.name) match {
+          case None =>
+            throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interface, tplMethod.name)
+          case Some(method) =>
+            checkExpr(tplMethod.value, TFun(TTyCon(tplTcon), method.returnType))
+        }
+      }
     }
 
     def checkDefException(excepName: TypeConName, defException: DefException): Unit = {
