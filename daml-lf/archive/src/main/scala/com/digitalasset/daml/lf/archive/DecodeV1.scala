@@ -1144,6 +1144,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.CALL_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
           ECallInterface(
             iface = decodeTypeConName(callInterface.getInterfaceType),
