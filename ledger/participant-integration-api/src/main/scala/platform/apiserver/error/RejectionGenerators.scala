@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.error
 
-import com.daml.error.BaseError
+import com.daml.error.{BaseError, ErrorCode}
 import com.daml.ledger.participant.state
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
@@ -12,17 +12,49 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.ErrorCause
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
+import io.grpc.protobuf.StatusProto
 
 import scala.util.{Failure, Success, Try}
 
-object RejectionGenerators {
+trait RejectionGenerators {
+  // TODO Tudor: Add as parameter
+  def conformanceMode: Boolean
+
+  private val adjustErrors = Map(
+    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
+    LedgerApiErrors.InterpreterErrors.ContractNotActive -> Code.INVALID_ARGUMENT,
+    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound -> Code.ABORTED,
+    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
+    LedgerApiErrors.InterpreterErrors.GenericInterpretationError -> Code.INVALID_ARGUMENT,
+  )
+
+  private def enforceConformance(ex: StatusRuntimeException): StatusRuntimeException =
+    if (!conformanceMode) ex
+    else {
+      adjustErrors
+        .find { case (k, _) =>
+          ex.getStatus.getDescription.startsWith(k.id + "(")
+        }
+        .fold(ex) { case (_, newGrpcCode) =>
+          val parsed = StatusProto.fromThrowable(ex)
+          // rewrite status to use "conformance" code
+          val bld = com.google.rpc.Status
+            .newBuilder()
+            .setCode(newGrpcCode.value())
+            .setMessage(parsed.getMessage)
+            .addAllDetails(parsed.getDetailsList)
+          val newEx = StatusProto.toStatusRuntimeException(bld.build())
+          // strip stack trace from exception
+          new ErrorCode.ApiException(newEx.getStatus, newEx.getTrailers)
+        }
+    }
 
   def toGrpc(reject: BaseError)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
       correlationId: CorrelationId,
   ): StatusRuntimeException =
-    reject.asGrpcErrorFromContext(correlationId.id, logger)(loggingContext)
+    enforceConformance(reject.asGrpcErrorFromContext(correlationId.id, logger)(loggingContext))
 
   def duplicateCommand(implicit
       logger: ContextualizedLogger,
@@ -66,6 +98,7 @@ object RejectionGenerators {
     def processDamlException(
         err: com.daml.lf.interpretation.Error,
         renderedMessage: String,
+        detailMessage: Option[String],
     ): BaseError = {
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
@@ -85,25 +118,41 @@ object RejectionGenerators {
         case LfInterpretationError.DuplicateContractKey(key) =>
           LedgerApiErrors.InterpreterErrors.DuplicateContractKey.Reject(renderedMessage, key)
         case _: LfInterpretationError.UnhandledException =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(
+            renderedMessage + detailMessage.fold("")(x => ". Details: " + x)
+          )
         case _: LfInterpretationError.UserError =>
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
         case _: LfInterpretationError.TemplatePreconditionViolated =>
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
         case _: LfInterpretationError.CreateEmptyContractKeyMaintainers =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
+            renderedMessage
+          )
         case _: LfInterpretationError.FetchEmptyContractKeyMaintainers =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
+            renderedMessage
+          )
         case _: LfInterpretationError.WronglyTypedContract =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
+            renderedMessage
+          )
         case LfInterpretationError.NonComparableValues =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
+            renderedMessage
+          )
         case _: LfInterpretationError.ContractIdInContractKey =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
+            renderedMessage
+          )
         case LfInterpretationError.ValueExceedsMaxNesting =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
+            renderedMessage
+          )
         case _: LfInterpretationError.ContractIdComparability =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
+            renderedMessage
+          )
       }
     }
 
@@ -114,7 +163,8 @@ object RejectionGenerators {
       err match {
         case Interpretation.Internal(location, message) =>
           LedgerApiErrors.InternalError.Interpretation(location, message, detailMessage)
-        case m @ Interpretation.DamlException(error) => processDamlException(error, m.message)
+        case m @ Interpretation.DamlException(error) =>
+          processDamlException(error, m.message, detailMessage)
       }
 
     def processLfError(error: LfError) = {
