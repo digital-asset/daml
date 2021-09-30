@@ -257,7 +257,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   enableMutableContractStateCache = false,
                   maxTransactionsInMemoryFanOutBufferSize = 0L,
                   enableInMemoryFanOutForLedgerApi = false,
-                  enableErrorCodesV2 = config.enableErrorCodesV2,
+                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
                 ),
                 engine = engine,
                 commandConfig = config.commandConfig,

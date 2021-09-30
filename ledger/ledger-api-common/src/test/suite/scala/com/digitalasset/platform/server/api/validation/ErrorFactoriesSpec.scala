@@ -27,12 +27,6 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       permissionDenied().getStatus.getCode shouldBe Code.PERMISSION_DENIED
     }
 
-    "return a notFound error" in {
-      val exception = notFound("my message").getStatus
-      exception.getCode shouldBe Code.NOT_FOUND
-      exception.getDescription shouldBe "my message"
-    }
-
     "return a missingLedgerConfig error" in {
       val testCases = Table(
         ("definite answer", "expected details"),

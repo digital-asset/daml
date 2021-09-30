@@ -10,7 +10,7 @@ import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
-import scala.util.Using
+import scala.util.{Failure, Using}
 
 /** Returns a DataSource that is guaranteed to be connected to a responsive, compatible database. */
 object VerifiedDataSource {
@@ -38,6 +38,8 @@ object VerifiedDataSource {
             storageBackend.checkDatabaseAvailable
           )
           createdDatasource
+        }.andThen { case Failure(exception) =>
+          logger.warn(exception.getMessage)
         }
       }
       _ <- Future {

@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.backend
 
-import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
 
@@ -49,7 +48,8 @@ trait StorageBackend[DB_BATCH]
     with ContractStorageBackend
     with EventStorageBackend
     with DataSourceStorageBackend
-    with DBLockStorageBackend {
+    with DBLockStorageBackend
+    with IntegrityStorageBackend {
 
   /** Truncates all storage backend tables, EXCEPT the packages table.
     * Does not touch other tables, like the Flyway history table.
@@ -343,20 +343,29 @@ object DBLockStorageBackend {
   }
 }
 
+trait IntegrityStorageBackend {
+
+  /** Verifies the integrity of the index database, throwing an exception if any issue is found.
+    * This operation is allowed to take some time to finish.
+    * It is not expected that it is used during regular index/indexer operation.
+    */
+  def verifyIntegrity()(connection: Connection): Unit
+}
+
 object StorageBackend {
   case class RawContractState(
       templateId: Option[String],
       flatEventWitnesses: Set[Ref.Party],
-      createArgument: Option[InputStream],
+      createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
       eventKind: Int,
       ledgerEffectiveTime: Option[Instant],
   )
 
-  case class RawContract(
-      templateId: String,
-      createArgument: InputStream,
-      createArgumentCompression: Option[Int],
+  class RawContract(
+      val templateId: String,
+      val createArgument: Array[Byte],
+      val createArgumentCompression: Option[Int],
   )
 
   case class RawContractStateEvent(
@@ -364,9 +373,9 @@ object StorageBackend {
       contractId: ContractId,
       templateId: Option[Ref.Identifier],
       ledgerEffectiveTime: Option[Instant],
-      createKeyValue: Option[InputStream],
+      createKeyValue: Option[Array[Byte]],
       createKeyCompression: Option[Int],
-      createArgument: Option[InputStream],
+      createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
       flatEventWitnesses: Set[Ref.Party],
       eventSequentialId: Long,
@@ -386,17 +395,17 @@ object StorageBackend {
       createSignatories: Option[Array[String]],
       createObservers: Option[Array[String]],
       createAgreementText: Option[String],
-      createKeyValue: Option[InputStream],
+      createKeyValue: Option[Array[Byte]],
       createKeyCompression: Option[Int],
-      createArgument: Option[InputStream],
+      createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
       submitters: Set[String],
       exerciseChoice: Option[String],
-      exerciseArgument: Option[InputStream],
+      exerciseArgument: Option[Array[Byte]],
       exerciseArgumentCompression: Option[Int],
-      exerciseResult: Option[InputStream],
+      exerciseResult: Option[Array[Byte]],
       exerciseResultCompression: Option[Int],
       exerciseActors: Option[Array[String]],
       exerciseChildEventIds: Option[Array[String]],

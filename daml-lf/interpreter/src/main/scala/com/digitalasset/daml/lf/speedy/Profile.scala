@@ -6,6 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
+import com.daml.scalautil.Statement.discard
 import java.lang.System
 import java.nio.file.{Files, Path}
 import java.util.ArrayList
@@ -43,14 +44,14 @@ final class Profile {
   private[lf] val events: ArrayList[Event] = new ArrayList()
   var name: String = "Daml Engine profile"
 
-  def addOpenEvent(label: Label) = {
+  def addOpenEvent(label: Label): Unit = {
     val time = System.nanoTime()
-    events.add(Event(true, label, time))
+    discard(events.add(Event(true, label, time)))
   }
 
-  def addCloseEvent(label: Label) = {
+  def addCloseEvent(label: Label): Unit = {
     val time = System.nanoTime()
-    events.add(Event(false, label, time))
+    discard(events.add(Event(false, label, time)))
   }
 
   def writeSpeedscopeJson(path: Path) = {
@@ -66,39 +67,41 @@ object Profile {
 
   private[speedy] def unmangleLenient(str: String): String = {
     val builder = new StringBuilder(str.length)
+    def append(c: Char) = discard(builder.append(c))
+    def appendAll(cs: Array[Char]) = discard(builder.appendAll(cs))
     var i = 0
     while (i < str.length) {
       if (str(i) == '$' && i + 1 < str.length) {
         str(i + 1) match {
           case '$' =>
-            builder.append('$')
+            append('$')
             i += 2
           case 'u' if i + 5 < str.length =>
             try {
               val cp = Integer.parseUnsignedInt(str.substring(i + 2, i + 6), 16)
-              builder.appendAll(Character.toChars(cp))
+              appendAll(Character.toChars(cp))
               i += 6
             } catch {
               case _: NumberFormatException =>
-                builder.append('$')
+                append('$')
                 i += 1
             }
           case 'U' if i + 9 < str.length =>
             try {
               val cp = Integer.parseUnsignedInt(str.substring(i + 2, i + 10), 16)
-              builder.appendAll(Character.toChars(cp))
+              appendAll(Character.toChars(cp))
               i += 10
             } catch {
               case _: NumberFormatException =>
-                builder.append('$')
+                append('$')
                 i += 1
             }
           case _ =>
-            builder.append('$')
+            append('$')
             i += 1
         }
       } else {
-        builder.append(str(i))
+        append(str(i))
         i += 1
       }
     }
@@ -161,8 +164,8 @@ object Profile {
             case Some(index) => index
             case None =>
               val index = frames.size()
-              frames.add(FrameJson(unmangleLenient(label)))
-              frameIndices.put(label, index)
+              discard(frames.add(FrameJson(unmangleLenient(label))))
+              discard(frameIndices.put(label, index))
               index
           }
           val at = event.time - profile.start

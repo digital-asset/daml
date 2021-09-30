@@ -15,6 +15,7 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
+import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
@@ -297,6 +298,7 @@ private[lf] final class Compiler(
       module: Module,
   ): Iterable[(SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(SDefinitionRef, SDefinition)]
+    def addDef(binding: (SDefinitionRef, SDefinition)) = discard(builder += binding)
 
     module.exceptions.foreach { case (defName, GenDefException(message)) =>
       val ref = ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
@@ -312,28 +314,29 @@ private[lf] final class Compiler(
 
     module.templates.foreach { case (tmplName, tmpl) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
-      builder += compileCreate(identifier, tmpl)
-      builder += compileFetch(identifier, tmpl)
-      builder += compileKey(identifier, tmpl)
-      builder += compileSignatories(identifier, tmpl)
-      builder += compileObservers(identifier, tmpl)
-      tmpl.implements.foreach(builder += compileImplements(identifier, _))
+      addDef(compileCreate(identifier, tmpl))
+      addDef(compileFetch(identifier, tmpl))
+      addDef(compileKey(identifier, tmpl))
+      addDef(compileSignatories(identifier, tmpl))
+      addDef(compileObservers(identifier, tmpl))
+      tmpl.implements.values.foreach { impl =>
+        addDef(compileImplements(identifier, impl.interface))
+      // TODO https://github.com/digital-asset/daml/issues/11006
+      //  compile methods also
+      }
 
-      tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
+      tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl, x)))
 
       tmpl.key.foreach { tmplKey =>
-        builder += compileFetchByKey(identifier, tmpl, tmplKey)
-        builder += compileLookupByKey(identifier, tmplKey)
-        tmpl.choices.values.foreach(
-          builder +=
-            compileChoiceByKey(identifier, tmpl, tmplKey, _)
-        )
+        addDef(compileFetchByKey(identifier, tmpl, tmplKey))
+        addDef(compileLookupByKey(identifier, tmplKey))
+        tmpl.choices.values.foreach(x => addDef(compileChoiceByKey(identifier, tmpl, tmplKey, x)))
       }
     }
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
-      builder += compileFetchInterface(identifier)
+      addDef(compileFetchInterface(identifier))
       iface.choices.values.foreach(
         builder += compileChoiceInterface(identifier, _)
       )
@@ -504,6 +507,9 @@ private[lf] final class Compiler(
         compile(e) // interfaces have the same representation as underlying template
       case EFromInterface(iface @ _, tpl, e) =>
         SBFromInterface(tpl)(compile(e))
+      case ECallInterface(_, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/11006
+        throw CompilationError("ECallInterface not implemented")
       case EExperimental(name, _) =>
         SBExperimental(name)
 
@@ -1613,7 +1619,7 @@ private[lf] final class Compiler(
               // we cannot process `rest` recursively without exposing ourselves to stack overflow.
               val exprs = rest.iterator.map { cmd =>
                 val expr = app(compileCommand(cmd), svar(tokenPos))
-                nextPosition()
+                discard(nextPosition())
                 expr
               }.toList
               SELet(exprs, SEValue.Unit)

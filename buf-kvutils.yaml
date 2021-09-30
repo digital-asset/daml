@@ -9,14 +9,6 @@ build:
     - daml-lf/transaction/src/main/protobuf
     - ledger/ledger-configuration/protobuf
     - ledger/participant-state/kvutils/src/main/protobuf
-  excludes:
-    # We have to exclude these to avoid duplicate definitions of e.g. Unit
-    # within the same package.
-    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_11/
-    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_12/
-    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_13/
-    - daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_14/
-    - daml-lf/archive/src/main/protobuf/com/digitalasset/
 
 lint:
   use:

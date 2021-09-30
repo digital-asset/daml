@@ -93,7 +93,7 @@ private[daml] object ApiServices {
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: Duration,
-      enableErrorCodesV2: Boolean,
+      enableSelfServiceErrorCodes: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -119,7 +119,7 @@ private[daml] object ApiServices {
     )
 
     private val errorsVersionsSwitcher =
-      new ErrorCodesVersionSwitcher(enableErrorCodesV2 = enableErrorCodesV2)
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = enableSelfServiceErrorCodes)
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)

@@ -711,7 +711,7 @@ private[lf] object SBuiltin {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
       val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      values2.set(field, args.get(1))
+      discard(values2.set(field, args.get(1)))
       record.copy(values = values2)
     }
   }
@@ -727,7 +727,7 @@ private[lf] object SBuiltin {
       val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
       var i = 0
       while (i < updateFields.length) {
-        values2.set(updateFields(i), args.get(i + 1))
+        discard(values2.set(updateFields(i), args.get(i + 1)))
         i += 1
       }
       record.copy(values = values2)
@@ -774,7 +774,7 @@ private[lf] object SBuiltin {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
       val struct = getSStruct(args, 0)
       val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      values2.set(fieldIndex, args.get(1))
+      discard(values2.set(fieldIndex, args.get(1)))
       struct.copy(values = values2)
     }
   }
@@ -786,7 +786,7 @@ private[lf] object SBuiltin {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
       val struct = getSStruct(args, 0)
       val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      values2.set(struct.fieldNames.indexOf(field), args.get(1))
+      discard(values2.set(struct.fieldNames.indexOf(field), args.get(1)))
       struct.copy(values = values2)
     }
   }

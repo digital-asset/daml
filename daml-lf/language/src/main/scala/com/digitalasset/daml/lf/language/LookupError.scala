@@ -107,8 +107,12 @@ object Reference {
     override def pretty: String = s"choice $choiceName in template $tyCon"
   }
 
+  final case class Method(tyCon: TypeConName, methodName: MethodName) extends Reference {
+    override def pretty: String = s"method $methodName in interface $tyCon"
+  }
+
   final case class Exception(tyCon: TypeConName) extends Reference {
-    override def pretty: String = s"exception: $tyCon"
+    override def pretty: String = s"exception $tyCon"
   }
 
 }
