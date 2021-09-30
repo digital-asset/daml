@@ -470,15 +470,17 @@ convertModule
     -> Bool
     -> NormalizedFilePath
     -> CoreModule
+    -> [GHC.Module]
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap stablePackages isGenerated file x details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
+    depOrphanModules <- convertDepOrphanModules env depOrphanModules
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
     interfaces <- convertInterfaces env (eltsUFM (cm_types x))
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces))
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces ++ depOrphanModules))
     where
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
@@ -708,6 +710,14 @@ convertClassDef env tycon
         ++ [minimalDef | not minimalIsDefault && newStyle]
         -- NOTE (SF): No reason to generate fundep & minimal metadata with old-style typeclasses,
         -- since data-dependencies support for old-style typeclasses is extremely limited.
+
+convertDepOrphanModules :: Env -> [GHC.Module] -> ConvertM [Definition]
+convertDepOrphanModules env orphanModules = do
+    qualifiedDepOrphanModules <- S.fromList <$>
+        mapM (convertQualifiedModuleName () env) orphanModules
+    let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
+        moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
+    pure [moduleImportsDef]
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
@@ -1915,14 +1925,18 @@ rewriteStableQualified env q@(Qualified pkgRef modName obj) =
       Nothing -> q
       Just pkgId -> Qualified (PRImport pkgId) modName obj
 
-convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
-convertQualified toT env x = do
-  pkgRef <- nameToPkgRef env x
-  let modName = convertModuleName $ GHC.moduleName $ nameModule $ getName x
+convertQualifiedModuleName :: a -> Env -> GHC.Module -> ConvertM (Qualified a)
+convertQualifiedModuleName x env (GHC.Module unitId moduleName) = do
+  pkgRef <- unitIdToPkgRef env unitId
+  let modName = convertModuleName moduleName
   pure $ rewriteStableQualified env $ Qualified
     pkgRef
     modName
-    (toT $ getOccText x)
+    x
+
+convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
+convertQualified toT env x = do
+  convertQualifiedModuleName (toT (getOccText x)) env (nameModule (getName x))
 
 convertQualifiedTySyn :: NamedThing a => Env -> a -> ConvertM (Qualified TypeSynName)
 convertQualifiedTySyn = convertQualified (\t -> mkTypeSyn [t])
@@ -1932,8 +1946,12 @@ convertQualifiedTyCon = convertQualified (\t -> mkTypeCon [t])
 
 nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageRef
 nameToPkgRef env x =
-  maybe (pure LF.PRSelf) (convertUnitId thisUnitId pkgMap . moduleUnitId) $
-  Name.nameModule_maybe $ getName x
+  maybe (pure LF.PRSelf) (unitIdToPkgRef env . moduleUnitId) $
+    Name.nameModule_maybe $ getName x
+
+unitIdToPkgRef :: Env -> UnitId -> ConvertM LF.PackageRef
+unitIdToPkgRef env unitId =
+  convertUnitId thisUnitId pkgMap unitId
   where
     thisUnitId = envModuleUnitId env
     pkgMap = envPkgMap env
