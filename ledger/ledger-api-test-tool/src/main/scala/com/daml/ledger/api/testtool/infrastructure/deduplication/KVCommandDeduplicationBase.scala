@@ -62,7 +62,10 @@ abstract class KVCommandDeduplicationBase(
           // Deduplication has finished
           completion2 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           // Inspect created contracts
-          activeContracts <- ledger.activeContracts(party)
+          _ <- assertPartyHasActiveContracts(ledger)(
+            party = party,
+            noOfActiveContracts = 2,
+          )
         } yield {
           assert(
             completion1.commandId == request.commands.get.commandId,
@@ -95,10 +98,6 @@ abstract class KVCommandDeduplicationBase(
               s"Second completion deduplication period [${completion1.deduplicationPeriod}] is not the max deduplication",
             )
           }
-          assert(
-            activeContracts.size == 2,
-            s"There should be 2 active contracts, but received $activeContracts",
-          )
         }
       }
     }
