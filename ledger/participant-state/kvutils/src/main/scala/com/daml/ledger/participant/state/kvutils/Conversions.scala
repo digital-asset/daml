@@ -31,9 +31,17 @@ import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
-
 import java.io.StringWriter
 import java.time.{Duration, Instant}
+
+import com.daml.ledger.participant.state.kvutils.DamlState.{
+  DamlCommandDedupKey,
+  DamlContractKey,
+  DamlStateKey,
+  DamlSubmissionDedupKey,
+}
+import com.daml.ledger.participant.state.kvutils.RejectionReason._
+
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._

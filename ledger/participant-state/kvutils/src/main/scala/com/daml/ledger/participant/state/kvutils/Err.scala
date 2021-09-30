@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.DamlState.DamlStateKey
 import com.daml.lf.data.Ref
 
 /** Errors thrown by kvutils.

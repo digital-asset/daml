@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.DamlState.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.Raw
 
 /** Default state key serialization strategy that does not prefix keys.

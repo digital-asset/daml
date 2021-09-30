@@ -31,8 +31,19 @@ import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.time.{Duration, Instant}
+
+import com.daml.ledger.participant.state.kvutils.DamlState.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.RejectionReason.{
+  Disputed,
+  Duplicate,
+  Inconsistent,
+  InvalidLedgerTime,
+  PartyNotKnownOnLedger,
+  ResourcesExhausted,
+  SubmitterCannotActViaParticipant,
+}
+
 import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.collection.mutable

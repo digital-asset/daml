@@ -4,14 +4,17 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlContractState,
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry,
+}
+import com.daml.ledger.participant.state.kvutils.DamlState.{
+  DamlContractState,
   DamlStateKey,
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Raw}
+import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.kvutils.RejectionReason.Duplicate
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.TestHelper.{
   aLogEntry,
@@ -114,7 +117,7 @@ object RawPreExecutingCommitStrategySpec {
   private val aRejectionLogEntry = DamlLogEntry.newBuilder
     .setPartyAllocationRejectionEntry(
       DamlPartyAllocationRejectionEntry.newBuilder
-        .setDuplicateSubmission(DamlKvutils.Duplicate.getDefaultInstance)
+        .setDuplicateSubmission(Duplicate.getDefaultInstance)
         .setParticipantId("a participant ID")
         .setSubmissionId("a submission")
     )

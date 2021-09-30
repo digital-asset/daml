@@ -9,7 +9,23 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   configDedupKey,
   configurationStateKey,
 }
+import com.daml.ledger.participant.state.kvutils.DamlConfiguration.{
+  DamlConfigurationEntry,
+  DamlConfigurationSubmission,
+}
+import com.daml.ledger.participant.state.kvutils.DamlConfigurationRejection.DamlConfigurationRejectionEntry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.DamlState.{
+  DamlStateValue,
+  DamlSubmissionDedupValue,
+}
+import com.daml.ledger.participant.state.kvutils.RejectionReason.{
+  Duplicate,
+  GenerationMismatch,
+  Invalid,
+  ParticipantNotAuthorized,
+  TimedOut,
+}
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Time.Timestamp

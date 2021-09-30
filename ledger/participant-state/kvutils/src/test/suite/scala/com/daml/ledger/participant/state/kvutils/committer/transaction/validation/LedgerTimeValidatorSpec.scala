@@ -9,11 +9,8 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlCommandDedupValue,
-  DamlConfigurationEntry,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlConfiguration.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.DamlState.{DamlCommandDedupValue, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createEmptyTransactionEntry,

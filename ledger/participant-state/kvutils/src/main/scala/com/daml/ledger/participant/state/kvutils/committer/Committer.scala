@@ -6,13 +6,12 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.codahale.metrics.Timer
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.DamlConfiguration.DamlConfigurationEntry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationEntry,
   DamlLogEntry,
   DamlOutOfTimeBoundsEntry,
-  DamlStateKey,
-  DamlStateValue,
 }
+import com.daml.ledger.participant.state.kvutils.DamlState.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils._
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission

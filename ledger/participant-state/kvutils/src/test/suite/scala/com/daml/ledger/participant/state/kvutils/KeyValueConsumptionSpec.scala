@@ -4,9 +4,12 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Instant
+
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
+import com.daml.ledger.participant.state.kvutils.DamlConfiguration.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.DamlConfigurationRejection.DamlConfigurationRejectionEntry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{

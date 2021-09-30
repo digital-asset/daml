@@ -4,12 +4,14 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.ledger.configuration.protobuf.LedgerConfiguration
+import com.daml.ledger.participant.state.kvutils.DamlConfiguration.DamlConfigurationEntry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationEntry,
   DamlLogEntry,
   DamlLogEntryId,
-  DamlPartyAllocation,
   DamlPartyAllocationEntry,
+}
+import com.daml.ledger.participant.state.kvutils.DamlState.{
+  DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
 }

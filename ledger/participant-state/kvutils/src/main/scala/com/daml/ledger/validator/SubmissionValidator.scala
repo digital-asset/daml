@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.DamlState.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Envelope, KeyValueCommitting, Raw}

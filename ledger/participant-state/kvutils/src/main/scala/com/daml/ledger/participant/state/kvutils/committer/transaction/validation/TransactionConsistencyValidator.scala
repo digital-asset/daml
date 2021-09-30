@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.DamlState.{
   DamlContractKey,
   DamlContractKeyState,
   DamlContractState,

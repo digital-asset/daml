@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.wire._
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, DamlState => ProtoState}
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,7 +22,7 @@ class EnvelopeSpec extends AnyWordSpec with Matchers {
       Envelope.open(Envelope.enclose(logEntry)) shouldEqual
         Right(Envelope.LogEntryMessage(logEntry))
 
-      val stateValue = Proto.DamlStateValue.getDefaultInstance
+      val stateValue = ProtoState.DamlStateValue.getDefaultInstance
       Envelope.open(Envelope.enclose(stateValue)) shouldEqual
         Right(Envelope.StateValueMessage(stateValue))
     }

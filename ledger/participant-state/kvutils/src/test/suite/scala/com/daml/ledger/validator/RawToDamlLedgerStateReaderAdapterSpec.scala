@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.DamlState.{
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,

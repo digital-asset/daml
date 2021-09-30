@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 import java.time.Instant
 
 import com.daml.ledger.configuration.LedgerTimeModel
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.DamlState.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.lf
 import com.daml.lf.data.Ref

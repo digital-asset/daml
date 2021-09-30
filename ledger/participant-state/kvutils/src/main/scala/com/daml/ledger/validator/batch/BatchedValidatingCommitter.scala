@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.stream.Materializer
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlState.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator._

@@ -8,6 +8,13 @@ import java.util.UUID
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.DamlState.{
+  DamlContractKey,
+  DamlContractKeyState,
+  DamlContractState,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createTransactionEntry,

@@ -4,7 +4,7 @@
 package com.daml.ledger.validator.batch
 
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlState.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,

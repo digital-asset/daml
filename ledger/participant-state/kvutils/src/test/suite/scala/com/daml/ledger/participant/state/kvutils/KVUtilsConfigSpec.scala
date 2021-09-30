@@ -7,6 +7,7 @@ import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.participant.state.kvutils.DamlConfigurationRejection.DamlConfigurationRejectionEntry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
