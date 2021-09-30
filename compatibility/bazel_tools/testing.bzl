@@ -700,6 +700,15 @@ def sdk_platform_test(sdk_version, platform_version):
     # for older versions we still have to disable ClosedWorldIT
     (extra_sandbox_next_args, extra_sandbox_next_exclusions) = (["--implicit-party-allocation=false"], []) if versions.is_at_least("1.2.0", platform_version) else ([], ["--exclude=ClosedWorldIT"])
 
+    if versions.is_at_least("1.17.0", platform_version):
+        extra_sandbox_next_args += ["--max-deduplication-duration=PT5S"]
+
+    # https://github.com/digital-asset/daml/commit/60ffb79fb16b507d4143cfc991da342efea504a7
+    # introduced a KV specific dedup test and we need to disable the non-kv test in return.
+    kv_dedup_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
+    if versions.is_at_least(kv_dedup_version, sdk_version) and versions.is_at_least(kv_dedup_version, platform_version):
+        extra_sandbox_next_exclusions += ["--exclude=CommandDeduplicationIT", "--additional=KVCommandDeduplicationIT"]
+
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
         sdk_version = version_to_name(sdk_version),

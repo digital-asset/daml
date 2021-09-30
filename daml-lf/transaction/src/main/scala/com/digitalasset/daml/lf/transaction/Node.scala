@@ -16,28 +16,25 @@ import scalaz.syntax.equal._
   */
 object Node {
 
-  sealed abstract class GenNode[+Nid]
-      extends Product
-      with Serializable
-      with CidContainer[GenNode[Nid]] {
+  sealed abstract class GenNode extends Product with Serializable with CidContainer[GenNode] {
 
     def optVersion: Option[TransactionVersion] = this match {
-      case node: GenActionNode[_] => Some(node.version)
-      case _: NodeRollback[_] => None
+      case node: GenActionNode => Some(node.version)
+      case _: NodeRollback => None
     }
 
-    def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2]
+    def mapNodeId(f: NodeId => NodeId): GenNode
   }
 
   /** action nodes parametrized over identifier type */
-  sealed abstract class GenActionNode[+Nid]
-      extends GenNode[Nid]
+  sealed abstract class GenActionNode
+      extends GenNode
       with ActionNodeInfo
-      with CidContainer[GenActionNode[Nid]] {
+      with CidContainer[GenActionNode] {
 
     def version: TransactionVersion
 
-    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid]
+    private[lf] def updateVersion(version: TransactionVersion): GenNode
 
     def templateId: TypeConName
 
@@ -60,9 +57,9 @@ object Node {
       VersionedValue(version, v)
   }
 
-  /** A transaction node that can't possibly refer to `Nid`s. */
-  sealed trait LeafOnlyActionNode extends GenActionNode[Nothing] {
-    override def mapNodeId[Nid2](f: Nothing => Nid2): GenNode[Nid2] = this
+  /** A transaction node with no children */
+  sealed trait LeafOnlyActionNode extends GenActionNode {
+    override def mapNodeId(f: NodeId => NodeId): GenNode = this
   }
 
   /** Denotes the creation of a contract instance. */
@@ -128,7 +125,7 @@ object Node {
     * to allow segregating the graph afterwards into party-specific
     * ledgers.
     */
-  final case class NodeExercises[+Nid](
+  final case class NodeExercises(
       targetCoid: ContractId,
       override val templateId: TypeConName,
       choiceId: ChoiceName,
@@ -138,28 +135,28 @@ object Node {
       stakeholders: Set[Party],
       signatories: Set[Party],
       choiceObservers: Set[Party],
-      children: ImmArray[Nid],
+      children: ImmArray[NodeId],
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers[Value]],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends GenActionNode[Nid]
+  ) extends GenActionNode
       with ActionNodeInfo.Exercise {
 
     override private[lf] def updateVersion(
         version: TransactionVersion
-    ): NodeExercises[Nid] =
+    ): NodeExercises =
       copy(version = version)
 
-    final override def mapCid(f: ContractId => ContractId): NodeExercises[Nid] = copy(
+    final override def mapCid(f: ContractId => ContractId): NodeExercises = copy(
       targetCoid = f(targetCoid),
       chosenValue = chosenValue.mapCid(f),
       exerciseResult = exerciseResult.map(_.mapCid(f)),
       key = key.map(_.mapCid(f)),
     )
 
-    override def mapNodeId[Nid2](f: Nid => Nid2): NodeExercises[Nid2] =
+    override def mapNodeId(f: NodeId => NodeId): NodeExercises =
       copy(children = children.map(f))
 
     def versionedChosenValue: Value.VersionedValue =
@@ -217,15 +214,15 @@ object Node {
       }
   }
 
-  final case class NodeRollback[+Nid](
-      children: ImmArray[Nid]
-  ) extends GenNode[Nid] {
+  final case class NodeRollback(
+      children: ImmArray[NodeId]
+  ) extends GenNode {
 
-    final override def mapCid(f: ContractId => ContractId): NodeRollback[Nid] = this
-    override def mapNodeId[Nid2](f: Nid => Nid2): NodeRollback[Nid2] =
+    final override def mapCid(f: ContractId => ContractId): NodeRollback = this
+    override def mapNodeId(f: NodeId => NodeId): NodeRollback =
       copy(children.map(f))
 
-    override protected def self: GenNode[Nid] = this
+    override protected def self: GenNode = this
   }
 
 }

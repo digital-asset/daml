@@ -25,9 +25,9 @@ private[replay] final class Adapter(
     ).buildSubmitted()
 
   // drop value version and children
-  private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId] =
+  private[this] def adapt(node: Tx.Node): Node.GenNode =
     node match {
-      case rollback: Node.NodeRollback[_] =>
+      case rollback: Node.NodeRollback =>
         rollback.copy(children = ImmArray.Empty)
       case create: Node.NodeCreate =>
         create.copy(
@@ -35,7 +35,7 @@ private[replay] final class Adapter(
           arg = adapt(create.arg),
           key = create.key.map(adapt),
         )
-      case exe: Node.NodeExercises[NodeId] =>
+      case exe: Node.NodeExercises =>
         exe.copy(
           templateId = adapt(exe.templateId),
           chosenValue = adapt(exe.chosenValue),

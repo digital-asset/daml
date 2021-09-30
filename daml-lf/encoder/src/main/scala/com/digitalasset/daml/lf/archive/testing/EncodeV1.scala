@@ -725,6 +725,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.DefInterface.newBuilder()
       builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
       builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
+      // TODO https://github.com/digital-asset/daml/issues/11006
+      //   encode interface methods as well
       builder.build()
     }
 
@@ -814,16 +816,17 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))
-      b.accumulateLeft(template.implements)(_ addImplements encodeTemplateImplements(_))
+      b.accumulateLeft(template.implements.values)(_ addImplements encodeTemplateImplements(_))
       b.build()
     }
 
     // TODO https://github.com/digital-asset/daml/issues/11006
+    //  encode rest of TemplateImplements
     private implicit def encodeTemplateImplements(
-        name: Ref.TypeConName
+        impl: TemplateImplements
     ): PLF.DefTemplate.Implements = {
       val b = PLF.DefTemplate.Implements.newBuilder()
-      b.setInterface(name)
+      b.setInterface(impl.interface)
       b.build()
     }
 

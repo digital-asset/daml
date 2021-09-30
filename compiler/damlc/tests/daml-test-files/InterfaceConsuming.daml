@@ -1,0 +1,43 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR Choice implementation and interface definition for Transfer differ in consuming/non-consuming behaviour.
+
+module InterfaceConsuming where
+
+interface Token where
+  choice Split : (ContractId Token, ContractId Token)
+    with
+      splitAmount : Int
+
+  nonconsuming choice Transfer : ContractId Token
+    with
+      newOwner : Party
+
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+    implements Token where
+      choice Split : (ContractId Token, ContractId Token)
+        with
+          splitAmount : Int
+        controller owner
+        do
+          assert (splitAmount < amount)
+          cid1 <- create this with amount = splitAmount
+          cid2 <- create this with amount = amount - splitAmount
+          pure (toTokenContractId cid1, toTokenContractId cid2)
+
+      choice Transfer : ContractId Token
+        with
+          newOwner : Party
+        controller owner, newOwner
+        do
+          cid <- create this with owner = newOwner
+          pure (toTokenContractId cid)

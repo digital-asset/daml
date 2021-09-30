@@ -68,6 +68,8 @@ private[validation] object ExprIterable {
         Iterator(value)
       case EFromInterface(iface @ _, tpl @ _, value) =>
         Iterator(value)
+      case ECallInterface(iface @ _, method @ _, value) =>
+        Iterator(value)
     }
   }
 
@@ -139,7 +141,7 @@ private[validation] object ExprIterable {
             choices,
             observers,
             key,
-            implements @ _,
+            implements @ _, // TODO https://github.com/digital-asset/daml/issues/11006
           ) =>
         Iterator(precond, signatories, agreementText) ++
           choices.values.iterator.flatMap(iterator(_)) ++

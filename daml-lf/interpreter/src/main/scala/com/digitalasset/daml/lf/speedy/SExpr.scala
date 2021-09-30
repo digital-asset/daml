@@ -20,6 +20,7 @@ import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -160,7 +161,7 @@ object SExpr {
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        actuals.add(v)
+        discard(actuals.add(v))
         i += 1
       }
       builtin.execute(actuals, machine)
@@ -295,7 +296,7 @@ object SExpr {
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        actuals.add(v)
+        discard(actuals.add(v))
         i += 1
       }
       val v = builtin.executePure(actuals)
@@ -318,7 +319,7 @@ object SExpr {
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        actuals.add(v)
+        discard(actuals.add(v))
         i += 1
       }
       builtin.compute(actuals) match {
@@ -471,6 +472,15 @@ object SExpr {
     * The existence of this definition signals that the template implements the interface.
     */
   final case class ImplementsDefRef(ref: DefinitionRef, ifaceId: TypeConName) extends SDefinitionRef
+
+  /** ImplementsMethodDefRef(ref=templateId, ifaceId, method) invokes the template's
+    * implementation of an interface method.
+    */
+  final case class ImplementsMethodDefRef(
+      ref: DefinitionRef,
+      ifaceId: TypeConName,
+      methodName: MethodName,
+  ) extends SDefinitionRef
 
   //
   // List builtins (equalList) are implemented as recursive

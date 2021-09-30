@@ -19,6 +19,8 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import Value._
 
+import com.daml.scalautil.Statement.discard
+
 import scala.annotation.tailrec
 import scala.collection.compat._
 import scala.collection.immutable
@@ -49,7 +51,7 @@ object ScenarioLedger {
     * transaction node in the node identifier, where here the identifier
     * is an eventId.
     */
-  type Node = GenNode[NodeId]
+  type Node = GenNode
 
   /** A transaction as it is committed to the ledger.
     *
@@ -325,7 +327,7 @@ object ScenarioLedger {
         case ValueList(vs) =>
           vs.foreach(collect)
         case ValueContractId(coid) =>
-          coids += coid
+          discard(coids += coid)
         case _: ValueCidlessLeaf => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueTextMap(map) => map.values.foreach(collect)
@@ -461,7 +463,7 @@ object ScenarioLedger {
                   val idsToProcess = processingNode.copy(children = restOfNodeIds) :: restENPs
 
                   node match {
-                    case rollback: NodeRollback[NodeId] =>
+                    case rollback: NodeRollback =>
                       val rollbackState =
                         RollbackBeginState(eventId, newCache.activeContracts, newCache.activeKeys)
                       processNodes(
@@ -497,7 +499,7 @@ object ScenarioLedger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises[NodeId] =>
+                    case ex: NodeExercises =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
                           info.copy(
@@ -671,7 +673,7 @@ case class ScenarioLedger(
             else
               LookupOk(coid, create.versionedCoinst, create.stakeholders)
 
-          case _: NodeExercises[_] | _: NodeFetch | _: NodeLookupByKey | _: NodeRollback[_] =>
+          case _: NodeExercises | _: NodeFetch | _: NodeLookupByKey | _: NodeRollback =>
             LookupContractNotFound(coid)
         }
     }

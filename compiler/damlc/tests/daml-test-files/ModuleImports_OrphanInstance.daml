@@ -1,0 +1,11 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# OPTIONS_GHC -Wno-orphans #-}
+
+module ModuleImports_OrphanInstance (T (..)) where
+
+import ModuleImports_Datatype (T (..))
+
+instance Show T where
+    show T = "T"

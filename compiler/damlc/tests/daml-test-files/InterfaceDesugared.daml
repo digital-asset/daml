@@ -108,3 +108,20 @@ _choice_AssetSplit :
   )
 _choice_AssetSplit =
   (error "abc", error "abc", error "abc", DA.Internal.Desugar.None)
+
+_interface_choice_TokenTransfer :
+  (DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> Transfer -> DA.Internal.Desugar.Update (ContractId Token),
+   DA.Internal.Desugar.Consuming Token)
+_interface_choice_TokenTransfer
+  = (error "", DA.Internal.Desugar.Consuming)
+_interface_choice_TokenSplit :
+  (DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> Split
+         -> DA.Internal.Desugar.Update ((ContractId Token,
+                                         ContractId Token)),
+   DA.Internal.Desugar.Consuming Token)
+_interface_choice_TokenSplit
+  = (error "", DA.Internal.Desugar.Consuming)

@@ -20,9 +20,9 @@ package object events {
 
   import com.daml.lf.{transaction => lftx}
   type NodeId = lftx.NodeId
-  type Node = lftx.Node.GenNode[NodeId]
+  type Node = lftx.Node.GenNode
   type Create = lftx.Node.NodeCreate
-  type Exercise = lftx.Node.NodeExercises[NodeId]
+  type Exercise = lftx.Node.NodeExercises
   type Fetch = lftx.Node.NodeFetch
   type LookupByKey = lftx.Node.NodeLookupByKey
   type Key = lftx.GlobalKey

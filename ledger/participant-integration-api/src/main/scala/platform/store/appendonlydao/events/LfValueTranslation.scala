@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
+import java.io.ByteArrayInputStream
 
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.{
@@ -255,8 +255,8 @@ final class LfValueTranslation(
   private def eventKey(s: String) =
     LfValueTranslationCache.EventCache.Key(EventId.assertFromString(s))
 
-  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
-    ValueSerializer.deserializeValue(algorithm.decompress(value))
+  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
+    ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
   def enricher: ValueEnricher = {
     // Note: LfValueTranslation is used by JdbcLedgerDao for both serialization and deserialization.

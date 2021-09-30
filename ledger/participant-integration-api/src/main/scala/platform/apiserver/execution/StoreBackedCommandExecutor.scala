@@ -92,7 +92,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               Some(meta.nodeSeeds),
               Some(
                 updateTx.nodes
-                  .collect { case (nodeId, node: Node.GenActionNode[_]) if node.byKey => nodeId }
+                  .collect { case (nodeId, node: Node.GenActionNode) if node.byKey => nodeId }
                   .to(ImmArray)
               ),
             ),

@@ -27,15 +27,6 @@ trait ErrorFactories {
         .build()
     )
 
-  def notFound(message: String): StatusRuntimeException =
-    grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.NOT_FOUND.value())
-        .setMessage(message)
-        .build()
-    )
-
   /** @param expected Expected ledger id.
     * @param received Received ledger id.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.

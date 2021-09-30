@@ -55,7 +55,7 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Compile (compileModule, typecheckModule, RunSimplifier(..))
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getDamlLfVersion, getExternalPackages, ideErrorPretty)
+import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getDamlLfVersion, getExternalPackages, ideErrorPretty, modInfoDepOrphanModules)
 import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
@@ -497,7 +497,8 @@ runRepl importPkgs opts replClient logger ideState = do
             let core = cgGutsToCoreModule safeMode cgGuts details
             PackageMap pkgMap <- useE' GeneratePackageMap file
             stablePkgs <- lift $ useNoFile_ GenerateStablePackages
-            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core details of
+            let depOrphanModules = modInfoDepOrphanModules (tmrModInfo tm)
+            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core depOrphanModules details of
                 Left diag -> handleIdeResult ([diag], Nothing)
                 Right v -> do
                    pkgs <- lift $ getExternalPackages file

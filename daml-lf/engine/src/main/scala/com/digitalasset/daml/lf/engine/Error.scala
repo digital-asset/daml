@@ -175,7 +175,7 @@ object Error {
     }
 
     final case class ReplayMismatch(
-        mismatch: transaction.ReplayMismatch[transaction.NodeId]
+        mismatch: transaction.ReplayMismatch
     ) extends Error {
       override def message: String = mismatch.message
     }

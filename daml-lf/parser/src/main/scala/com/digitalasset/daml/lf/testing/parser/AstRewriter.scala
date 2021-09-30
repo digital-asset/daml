@@ -129,6 +129,8 @@ private[daml] class AstRewriter(
           EToInterface(apply(iface), apply(tpl), apply(value))
         case EFromInterface(iface, tpl, value) =>
           EFromInterface(apply(iface), apply(tpl), apply(value))
+        case ECallInterface(iface, method, value) =>
+          ECallInterface(apply(iface), method, apply(value))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -245,7 +247,7 @@ private[daml] class AstRewriter(
           },
           apply(observers),
           key.map(apply),
-          implements.map(apply),
+          implements.transform((_, x) => apply(x)),
         )
     }
 
@@ -273,6 +275,29 @@ private[daml] class AstRewriter(
         )
     }
 
+  def apply(x: TemplateImplements): TemplateImplements =
+    x match {
+      case TemplateImplements(
+            interface,
+            methods,
+          ) =>
+        TemplateImplements(
+          interface,
+          methods.transform((_, x) => apply(x)),
+        )
+    }
+  def apply(x: TemplateImplementsMethod): TemplateImplementsMethod =
+    x match {
+      case TemplateImplementsMethod(
+            name,
+            value,
+          ) =>
+        TemplateImplementsMethod(
+          name,
+          apply(value),
+        )
+    }
+
   def apply(x: TemplateKey): TemplateKey =
     x match {
       case TemplateKey(typ, body, maintainers) =>
@@ -290,9 +315,19 @@ private[daml] class AstRewriter(
         InterfaceChoice(name, consuming, apply(argType), returnType = apply(returnType))
     }
 
+  def apply(x: InterfaceMethod): InterfaceMethod =
+    x match {
+      case InterfaceMethod(name, returnType) =>
+        InterfaceMethod(name, apply(returnType))
+    }
+
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(choices) => DefInterface(choices.transform((_, x) => apply(x)))
+      case DefInterface(choices, methods) =>
+        DefInterface(
+          choices.transform((_, x) => apply(x)),
+          methods.transform((_, x) => apply(x)),
+        )
     }
 }
 

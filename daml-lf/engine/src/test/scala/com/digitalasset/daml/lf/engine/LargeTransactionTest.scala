@@ -14,7 +14,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction.Transaction
-import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
@@ -249,9 +249,9 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       expectedNumberOfContracts: Int,
   ): Assertion = {
 
-    val newContracts: List[N.GenNode[NodeId]] =
+    val newContracts: List[N.GenNode] =
       firstRootNode(exerciseCmdTx) match {
-        case ne: N.NodeExercises[_] => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
+        case ne: N.NodeExercises => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
         case n @ _ => fail(s"Unexpected match: $n")
       }
 
@@ -394,8 +394,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
 
-    val createNode: N.GenNode[NodeId] = firstRootNode(exerciseCmdTx) match {
-      case ne: N.NodeExercises[_] => exerciseCmdTx.nodes(ne.children.head)
+    val createNode: N.GenNode = firstRootNode(exerciseCmdTx) match {
+      case ne: N.NodeExercises => exerciseCmdTx.nodes(ne.children.head)
       case n @ _ => fail(s"Unexpected match: $n")
     }
 

@@ -271,7 +271,7 @@ class TransactionCoderSpec
         val shouldFail = node.choiceObservers.nonEmpty
 
         val normalized = normalizeNode(node) match {
-          case exe: NodeExercises[NodeId] =>
+          case exe: NodeExercises =>
             exe.copy(
               choiceObservers = node.choiceObservers,
               exerciseResult = Some(Value.ValueText("not-missing")),
@@ -836,43 +836,43 @@ class TransactionCoderSpec
     }
   }
 
-  def withoutExerciseResult[Nid](gn: GenNode[Nid]): GenNode[Nid] =
+  def withoutExerciseResult(gn: GenNode): GenNode =
     gn match {
-      case ne: NodeExercises[Nid] => ne copy (exerciseResult = None)
+      case ne: NodeExercises => ne copy (exerciseResult = None)
       case _ => gn
     }
-  def withoutContractKeyInExercise[Nid](gn: GenNode[Nid]): GenNode[Nid] =
+  def withoutContractKeyInExercise(gn: GenNode): GenNode =
     gn match {
-      case ne: NodeExercises[Nid] => ne copy (key = None)
+      case ne: NodeExercises => ne copy (key = None)
       case _ => gn
     }
-  def withoutMaintainersInExercise[Nid](gn: GenNode[Nid]): GenNode[Nid] =
+  def withoutMaintainersInExercise(gn: GenNode): GenNode =
     gn match {
-      case ne: NodeExercises[Nid] =>
+      case ne: NodeExercises =>
         ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
       case _ => gn
     }
 
-  def withoutChoiceObservers[Nid](gn: GenNode[Nid]): GenNode[Nid] =
+  def withoutChoiceObservers(gn: GenNode): GenNode =
     gn match {
-      case ne: NodeExercises[Nid] =>
+      case ne: NodeExercises =>
         ne.copy(choiceObservers = Set.empty)
       case _ => gn
     }
 
-  def hasChoiceObserves(tx: GenTransaction[_]): Boolean =
+  def hasChoiceObserves(tx: GenTransaction): Boolean =
     tx.nodes.values.exists {
-      case ne: NodeExercises[_] => ne.choiceObservers.nonEmpty
+      case ne: NodeExercises => ne.choiceObservers.nonEmpty
       case _ => false
     }
 
   private def absCid(s: String): ContractId =
     ContractId.assertFromString(s)
 
-  def versionNodes[Nid](
+  def versionNodes(
       version: TransactionVersion,
-      nodes: Map[Nid, GenNode[Nid]],
-  ): Map[Nid, GenNode[Nid]] =
+      nodes: Map[NodeId, GenNode],
+  ): Map[NodeId, GenNode] =
     nodes.view.mapValues(updateVersion(_, version)).toMap
 
   private def versionInIncreasingOrder(
@@ -891,10 +891,10 @@ class TransactionCoderSpec
       v2 <- Gen.oneOf(versions.filter(_ > v1))
     } yield (v1, v2)
 
-  private[this] def normalizeNode[Nid](node: Node.GenNode[Nid]) =
+  private[this] def normalizeNode(node: Node.GenNode) =
     node match {
-      case rb: NodeRollback[Nid] => rb //nothing to normalize
-      case exe: NodeExercises[Nid] => normalizeExe(exe)
+      case rb: NodeRollback => rb //nothing to normalize
+      case exe: NodeExercises => normalizeExe(exe)
       case fetch: NodeFetch => normalizeFetch(fetch)
       case create: NodeCreate => normalizeCreate(create)
       case lookup: NodeLookupByKey => lookup
@@ -918,7 +918,7 @@ class TransactionCoderSpec
         else false,
     )
 
-  private[this] def normalizeExe[Nid](exe: Node.NodeExercises[Nid]) =
+  private[this] def normalizeExe(exe: Node.NodeExercises) =
     exe.copy(
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult match {
@@ -963,12 +963,12 @@ class TransactionCoderSpec
       version: TransactionVersion,
   ): Value = Util.assertNormalizeValue(value0, version)
 
-  private def updateVersion[Nid](
-      node: GenNode[Nid],
+  private def updateVersion(
+      node: GenNode,
       version: TransactionVersion,
-  ): GenNode[Nid] = node match {
-    case node: GenActionNode[_] => node.updateVersion(version)
-    case node: Node.NodeRollback[_] => node
+  ): GenNode = node match {
+    case node: GenActionNode => node.updateVersion(version)
+    case node: Node.NodeRollback => node
   }
 
 }

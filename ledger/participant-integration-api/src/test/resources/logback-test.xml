@@ -39,8 +39,21 @@
         <test>com.daml.platform.indexer.JdbcIndexerSpec</test>
     </appender>
 
+    <appender name="IndexerStabilitySpecAppender" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.indexer.ha.IndexerStabilitySpec</test>
+    </appender>
+
     <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
         <appender-ref ref="JdbcIndexerSpecAppender"/>
+        <appender-ref ref="IndexerStabilitySpecAppender"/>
+    </logger>
+
+    <logger name="org.flywaydb" level="INFO">
+        <appender-ref ref="IndexerStabilitySpecAppender"/>
+    </logger>
+
+    <logger name="com.zaxxer.hikari" level="INFO">
+        <appender-ref ref="IndexerStabilitySpecAppender"/>
     </logger>
 
     <root level="DEBUG">

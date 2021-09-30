@@ -480,7 +480,7 @@ final class Conversions(
       .map(eventId => builder.setParent(convertEventId(eventId)))
 
     nodeInfo.node match {
-      case rollback: N.NodeRollback[_] =>
+      case rollback: N.NodeRollback =>
         val rollbackBuilder = proto.Node.Rollback.newBuilder
           .addAllChildren(
             rollback.children.map(convertNodeId(eventId.transactionId, _)).toSeq.asJava
@@ -509,7 +509,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises[NodeId] =>
+      case ex: N.NodeExercises =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         val exerciseBuilder =
           proto.Node.Exercise.newBuilder
@@ -558,7 +558,7 @@ final class Conversions(
 
   def convertIncompleteTransactionNode(
       locationInfo: Map[NodeId, Ref.Location]
-  )(nodeWithId: (NodeId, N.GenNode[NodeId])): proto.Node = {
+  )(nodeWithId: (NodeId, N.GenNode)): proto.Node = {
     val (nodeId, node) = nodeWithId
     val optLocation = locationInfo.get(nodeId)
     val builder = proto.Node.newBuilder
@@ -566,7 +566,7 @@ final class Conversions(
       .setNodeId(proto.NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
-      case rollback: N.NodeRollback[_] =>
+      case rollback: N.NodeRollback =>
         val rollbackBuilder =
           proto.Node.Rollback.newBuilder
             .addAllChildren(
@@ -601,7 +601,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises[NodeId] =>
+      case ex: N.NodeExercises =>
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           proto.Node.Exercise.newBuilder

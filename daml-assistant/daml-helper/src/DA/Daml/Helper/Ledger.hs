@@ -510,9 +510,11 @@ runLedgerExport flags remainingArguments = do
         pure []
       else do
         args <- getDefaultArgs flags
+        let maxSizeArgs size = ["--max-inbound-message-size", show size]
+            extras = maybe [] maxSizeArgs $ fMaxReceiveLengthM flags
         -- TODO[AH]: Use parties from daml.yaml by default.
         -- TODO[AH]: Use SDK version from daml.yaml by default.
-        pure ["--host", host args, "--port", show (port args)]
+        pure $ ["--host", host args, "--port", show (port args)] <> extras
     withJar
       damlSdkJar
       [logbackArg]
@@ -584,8 +586,24 @@ instance A.ToJSON AllocatePartyRequest
 httpJsonRequest :: A.FromJSON a => LedgerArgs -> Method -> Path -> (Request -> Request) -> IO a
 httpJsonRequest args method path modify = do
   req <- makeRequest args method path modify
-  resp <- runHttp httpJSON req
-  pure $ result resp
+  respOrErr <- runHttp httpJSONEither req
+  case respOrErr of
+    Right resp -> pure $ result resp
+    Left err ->
+      case err of
+        JSONParseException _req resp parseErr -> handleError resp parseErr
+        JSONConversionException _req resp convErr -> handleError resp convErr
+  where
+    handleError resp err = do
+      let contentType = getResponseHeader "Content-Type" resp
+      if BSC.pack "application/json" `elem` contentType
+        then fail $ "Response could not be parsed: " <> show err
+        else fail $
+             unlines
+               [ "The service returned an error response: "
+               , show $ getResponseStatus resp
+               , show $ getResponseBody resp
+               ]
 
 httpBsRequest :: LedgerArgs -> Method -> Path -> (Request -> Request) -> IO BS.ByteString
 httpBsRequest args method path modify = do

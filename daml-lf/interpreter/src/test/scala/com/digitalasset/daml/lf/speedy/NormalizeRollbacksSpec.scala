@@ -171,11 +171,10 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
 
 object NormalizeRollbackSpec {
 
-  type Nid = NodeId
   type Cid = V.ContractId
-  type TX = GenTransaction[Nid]
-  type Node = GenNode[Nid]
-  type RB = NodeRollback[Nid]
+  type TX = GenTransaction
+  type Node = GenNode
+  type RB = NodeRollback
 
   def preOrderNidsOfTxIsIncreasingFromZero(tx: TX): Boolean = {
     def check(x1: Int, xs: List[Int]): Boolean = {
@@ -191,7 +190,7 @@ object NormalizeRollbackSpec {
   }
 
   def preOrderNidsOfTx(tx: TX): List[Int] = {
-    def fromNids(acc: List[Int], xs: List[Nid]): List[Int] = {
+    def fromNids(acc: List[Int], xs: List[NodeId]): List[Int] = {
       xs match {
         case Nil => acc
         case x :: xs =>
@@ -202,8 +201,8 @@ object NormalizeRollbackSpec {
     def fromNode(acc: List[Int], node: Node): List[Int] = {
       node match {
         case _: LeafNode => acc
-        case node: NodeExercises[_] => fromNids(acc, node.children.toList)
-        case node: NodeRollback[_] => fromNids(acc, node.children.toList)
+        case node: NodeExercises => fromNids(acc, node.children.toList)
+        case node: NodeRollback => fromNids(acc, node.children.toList)
       }
     }
     fromNids(Nil, tx.roots.toList).reverse
@@ -217,7 +216,7 @@ object NormalizeRollbackSpec {
 
   def forallRB(tx: TX)(pred: RB => Boolean): Boolean = {
     forallNode(tx) {
-      case rb: NodeRollback[_] => pred(rb)
+      case rb: NodeRollback => pred(rb)
       case _ => true
     }
   }
@@ -227,7 +226,7 @@ object NormalizeRollbackSpec {
       case GenTransaction(nodes, _) =>
         def isRB(node: Node): Boolean = {
           node match {
-            case _: NodeRollback[_] => true
+            case _: NodeRollback => true
             case _ => false
           }
         }
@@ -254,13 +253,13 @@ object NormalizeRollbackSpec {
 
     def toTransaction(top: Top): TX = {
       val ids = Iterator.from(0).map(NodeId(_))
-      var nodes: Map[Nid, Node] = Map.empty
-      def add(node: Node): Nid = {
+      var nodes: Map[NodeId, Node] = Map.empty
+      def add(node: Node): NodeId = {
         val nodeId = ids.next()
         nodes += (nodeId -> node)
         nodeId
       }
-      def toNid(shape: Shape): Nid = {
+      def toNid(shape: Shape): NodeId = {
         shape match {
           case Create(n) => add(dummyCreateNode(n))
           case Exercise(shapes) =>
@@ -268,10 +267,10 @@ object NormalizeRollbackSpec {
             add(dummyExerciseNode(children.to(ImmArray)))
           case Rollback(shapes) =>
             val children = shapes.map(toNid)
-            add(NodeRollback[Nid](children = children.to(ImmArray)))
+            add(NodeRollback(children = children.to(ImmArray)))
         }
       }
-      val roots: List[Nid] = top.xs.map(toNid)
+      val roots: List[NodeId] = top.xs.map(toNid)
       GenTransaction(nodes, roots.to(ImmArray))
     }
 
@@ -284,8 +283,8 @@ object NormalizeRollbackSpec {
               case _ => sys.error(s"unexpected create.arg: ${create.arg}")
             }
           case leaf: LeafNode => sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
-          case node: NodeExercises[_] => Exercise(node.children.toList.map(ofNid))
-          case node: NodeRollback[_] => Rollback(node.children.toList.map(ofNid))
+          case node: NodeExercises => Exercise(node.children.toList.map(ofNid))
+          case node: NodeRollback => Rollback(node.children.toList.map(ofNid))
         }
       }
       Top(tx.roots.toList.map(nid => ofNid(nid)))
@@ -309,7 +308,7 @@ object NormalizeRollbackSpec {
 
   private def dummyExerciseNode(
       children: ImmArray[NodeId]
-  ): NodeExercises[NodeId] =
+  ): NodeExercises =
     NodeExercises(
       targetCoid = toCid("dummyTargetCoid"),
       templateId = Ref.Identifier(

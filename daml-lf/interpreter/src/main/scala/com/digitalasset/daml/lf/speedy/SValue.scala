@@ -12,6 +12,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
+import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
@@ -218,8 +219,7 @@ object SValue {
     @throws[SError.SError]
     // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
     def comparable(k: SValue): Unit = {
-      `SMap Ordering`.compare(k, k)
-      ()
+      discard[Int](`SMap Ordering`.compare(k, k))
     }
 
     def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
@@ -254,8 +254,10 @@ object SValue {
     val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
       val array = new util.ArrayList[SValue](1)
-      array.add(
-        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+      discard(
+        array.add(
+          SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+        )
       )
       SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
     }
@@ -378,8 +380,8 @@ object SValue {
 
   private def entry(key: SValue, value: SValue) = {
     val args = new util.ArrayList[SValue](2)
-    args.add(key)
-    args.add(value)
+    discard(args.add(key))
+    discard(args.add(value))
     SStruct(entryFields, args)
   }
 
@@ -398,7 +400,7 @@ object SValue {
   ): util.ArrayList[SValue] = {
     val bs = new util.ArrayList[SValue](as.size)
     as.forEach { a =>
-      val _ = bs.add(f(a))
+      discard(bs.add(f(a)))
     }
     bs
   }

@@ -3,11 +3,9 @@
 
 package com.daml.platform.store.backend.common
 
-import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-
-import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
+import anorm.SqlParser.{array, bool, byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -35,6 +33,11 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
 
   def eventStrategy: EventStrategy
   def queryStrategy: QueryStrategy
+  // TODO Refactoring: This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
+  //                   Remove with the break-out of pruneEvents.
+  def participantAllDivulgedContractsPrunedUpToInclusive(
+      connection: Connection
+  ): Option[Offset]
 
   private val selectColumnsForFlatTransactions =
     Seq(
@@ -74,21 +77,21 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       array[String]("event_witnesses")
 
   private type CreatedEventRow =
-    SharedRow ~ InputStream ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
-      Option[InputStream] ~ Option[Int]
+    SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
+      Option[Array[Byte]] ~ Option[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
-      binaryStream("create_argument") ~
+      byteArray("create_argument") ~
       int("create_argument_compression").? ~
       array[String]("create_signatories") ~
       array[String]("create_observers") ~
       str("create_agreement_text").? ~
-      binaryStream("create_key_value").? ~
+      byteArray("create_key_value").? ~
       int("create_key_value_compression").?
 
   private type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
+    SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
       Array[String] ~ Array[String]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
@@ -96,9 +99,9 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
-      binaryStream("exercise_argument") ~
+      byteArray("exercise_argument") ~
       int("exercise_argument_compression").? ~
-      binaryStream("exercise_result").? ~
+      byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
@@ -402,6 +405,8 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     )(connection)
   }
 
+  // TODO Refactoring: This method is too complex for StorageBackend.
+  //                   Break the method into its constituents and trigger them from the caller of this method.
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -493,14 +498,6 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     }(connection, loggingContext)
   }
 
-  private def participantAllDivulgedContractsPrunedUpToInclusive(
-      connection: Connection
-  ): Option[Offset] =
-    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
-      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
-        connection
-      )
-
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
       connection: Connection,
       loggingContext: LoggingContext,
@@ -523,17 +520,17 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       array[String]("create_signatories").? ~
       array[String]("create_observers").? ~
       str("create_agreement_text").? ~
-      binaryStream("create_key_value").? ~
+      byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
-      binaryStream("create_argument").? ~
+      byteArray("create_argument").? ~
       int("create_argument_compression").? ~
       array[String]("tree_event_witnesses") ~
       array[String]("flat_event_witnesses") ~
       array[String]("submitters").? ~
       str("exercise_choice").? ~
-      binaryStream("exercise_argument").? ~
+      byteArray("exercise_argument").? ~
       int("exercise_argument_compression").? ~
-      binaryStream("exercise_result").? ~
+      byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[String]("exercise_actors").? ~
       array[String]("exercise_child_event_ids").? ~
