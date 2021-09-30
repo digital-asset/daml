@@ -1,0 +1,41 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+//
+// Protocol buffer messages used by the participant state key-value utilities
+// for implementing a Daml ledger backed by a key-value store.
+//
+// These messages should only be produced and consumed by the methods in
+// `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` objects.
+//
+
+syntax = "proto3";
+
+package com.daml.ledger.participant.state.kvutils;
+
+option java_package = "com.daml.ledger.participant.state.kvutils";
+option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
+
+import "com/daml/ledger/configuration/ledger_configuration.proto";
+import "com/daml/ledger/participant/state/kvutils/rejection_reason.proto";
+
+// A log entry describing a rejected configuration change.
+message DamlConfigurationRejectionEntry {
+  // A unique string scoped to a particular participant for matching the
+  // request with the result.
+  string submission_id = 1;
+
+  // Submitting participant's id.
+  string participant_id = 2;
+
+  // The new proposed configuration that was rejected.
+  com.daml.ledger.configuration.LedgerConfiguration configuration = 3;
+
+  oneof reason {
+    com.daml.ledger.participant.state.kvutils.ParticipantNotAuthorized participant_not_authorized = 4;
+    com.daml.ledger.participant.state.kvutils.GenerationMismatch generation_mismatch = 5;
+    com.daml.ledger.participant.state.kvutils.Invalid invalid_configuration = 6;
+    com.daml.ledger.participant.state.kvutils.TimedOut timed_out = 7;
+    com.daml.ledger.participant.state.kvutils.Duplicate duplicate_submission = 8;
+  }
+}

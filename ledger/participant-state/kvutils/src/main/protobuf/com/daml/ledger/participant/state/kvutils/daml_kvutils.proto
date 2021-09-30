@@ -21,9 +21,9 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "com/daml/daml_lf_dev/daml_lf.proto";
 import "com/daml/lf/transaction.proto";
-import "com/daml/lf/value.proto";
-import "com/daml/ledger/configuration/ledger_configuration.proto";
-
+import "com/daml/ledger/participant/state/kvutils/rejection_reason.proto";
+import "com/daml/ledger/participant/state/kvutils/daml_configuration.proto";
+import "com/daml/ledger/participant/state/kvutils/daml_configuration_rejection.proto";
 // Envelope with which we wrap all kvutils messages that are sent over the network
 // or persisted on disk. The envelope specifies the kvutils version that defines how
 // a message is decoded and processed. Optionally the message payload may be stored
@@ -203,34 +203,34 @@ message DamlTransactionRejectionEntry {
   oneof reason {
 
     // Rejections used by both participant.state v1 and v2 API.
-    Duplicate duplicate_command = 6;
-    SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
-    InvalidLedgerTime invalid_ledger_time = 9;
+    com.daml.ledger.participant.state.kvutils.Duplicate duplicate_command = 6;
+    com.daml.ledger.participant.state.kvutils.SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
+    com.daml.ledger.participant.state.kvutils.InvalidLedgerTime invalid_ledger_time = 9;
 
     //
     // Rejections used by participant.state.v1 API.
     // Note that these are deprecated.
     //
-    Inconsistent inconsistent = 2 [deprecated = true];
-    Disputed disputed = 3 [deprecated = true];
-    ResourcesExhausted resources_exhausted = 4 [deprecated = true];
-    PartyNotKnownOnLedger party_not_known_on_ledger = 7 [deprecated = true];
+    com.daml.ledger.participant.state.kvutils.Inconsistent inconsistent = 2 [deprecated = true];
+    com.daml.ledger.participant.state.kvutils.Disputed disputed = 3 [deprecated = true];
+    com.daml.ledger.participant.state.kvutils.ResourcesExhausted resources_exhausted = 4 [deprecated = true];
+    com.daml.ledger.participant.state.kvutils.PartyNotKnownOnLedger party_not_known_on_ledger = 7 [deprecated = true];
 
     //
     // Rejections used by participant.state.v2 API.
     //
-    ValidationFailure validation_failure = 10;
-    DuplicateKeys internally_duplicate_keys = 11;
-    InconsistentKeys internally_inconsistent_keys = 12;
-    InconsistentContracts externally_inconsistent_contracts = 13;
-    DuplicateKeys externally_duplicate_keys = 14;
-    InconsistentKeys externally_inconsistent_keys = 15;
-    MissingInputState missing_input_state = 16;
-    RecordTimeOutOfRange record_time_out_of_range = 17;
-    CausalMonotonicityViolated causal_monotonicity_violated = 18;
-    SubmittingPartyNotKnownOnLedger submitting_party_not_known_on_ledger = 19;
-    PartiesNotKnownOnLedger parties_not_known_on_ledger = 20;
-    InvalidParticipantState invalid_participant_state = 21;
+    com.daml.ledger.participant.state.kvutils.ValidationFailure validation_failure = 10;
+    com.daml.ledger.participant.state.kvutils.DuplicateKeys internally_duplicate_keys = 11;
+    com.daml.ledger.participant.state.kvutils.InconsistentKeys internally_inconsistent_keys = 12;
+    com.daml.ledger.participant.state.kvutils.InconsistentContracts externally_inconsistent_contracts = 13;
+    com.daml.ledger.participant.state.kvutils.DuplicateKeys externally_duplicate_keys = 14;
+    com.daml.ledger.participant.state.kvutils.InconsistentKeys externally_inconsistent_keys = 15;
+    com.daml.ledger.participant.state.kvutils.MissingInputState missing_input_state = 16;
+    com.daml.ledger.participant.state.kvutils.RecordTimeOutOfRange record_time_out_of_range = 17;
+    com.daml.ledger.participant.state.kvutils.CausalMonotonicityViolated causal_monotonicity_violated = 18;
+    com.daml.ledger.participant.state.kvutils.SubmittingPartyNotKnownOnLedger submitting_party_not_known_on_ledger = 19;
+    com.daml.ledger.participant.state.kvutils.PartiesNotKnownOnLedger parties_not_known_on_ledger = 20;
+    com.daml.ledger.participant.state.kvutils.InvalidParticipantState invalid_participant_state = 21;
   }
 }
 // A public package upload.
@@ -267,64 +267,10 @@ message DamlPackageUploadRejectionEntry {
   string participant_id = 2;
 
   oneof reason {
-    Invalid invalid_package = 3;
-    ParticipantNotAuthorized participant_not_authorized = 4;
-    Duplicate duplicate_submission = 5;
+    com.daml.ledger.participant.state.kvutils.Invalid invalid_package = 3;
+    com.daml.ledger.participant.state.kvutils.ParticipantNotAuthorized participant_not_authorized = 4;
+    com.daml.ledger.participant.state.kvutils.Duplicate duplicate_submission = 5;
   }
-}
-
-// Configuration change request to change the ledger configuration.
-message DamlConfigurationSubmission {
-  // A unique string scoped to a particular participant for matching the
-  // request with the result.
-  // Implementers are free to select adequate mechanism e.g. UUID or similar.
-  string submission_id = 1;
-
-  // Submitting participant's id.
-  string participant_id = 2;
-
-  // The maximum record time after which the submission will be rejected.
-  // Allows submitter to control when the request times out and to retry.
-  google.protobuf.Timestamp maximum_record_time = 3;
-
-  // The new configuration that replaces the current configuration.
-  com.daml.ledger.configuration.LedgerConfiguration configuration = 4;
-}
-
-// A log entry describing a rejected configuration change.
-message DamlConfigurationRejectionEntry {
-  // A unique string scoped to a particular participant for matching the
-  // request with the result.
-  string submission_id = 1;
-
-  // Submitting participant's id.
-  string participant_id = 2;
-
-  // The new proposed configuration that was rejected.
-  com.daml.ledger.configuration.LedgerConfiguration configuration = 3;
-
-  oneof reason {
-    ParticipantNotAuthorized participant_not_authorized = 4;
-    GenerationMismatch generation_mismatch = 5;
-    Invalid invalid_configuration = 6;
-    TimedOut timed_out = 7;
-    Duplicate duplicate_submission = 8;
-  }
-}
-
-// Configuration entry that records a configuration change.
-// Also used in state to look up latest configuration.
-// When a configuration exists, only the participant that
-// submitted previously can change it.
-message DamlConfigurationEntry {
-  // The submission from which this configuration originated.
-  string submission_id = 1;
-
-  // Submitting participant's id.
-  string participant_id = 2;
-
-  // The ledger configuration.
-  com.daml.ledger.configuration.LedgerConfiguration configuration = 3;
 }
 
 // An allocation of party name and assignment of a party to a given
@@ -356,10 +302,10 @@ message DamlPartyAllocationRejectionEntry {
   string participant_id = 2;
 
   oneof reason {
-    AlreadyExists already_exists = 3;
-    Invalid invalid_name = 4;
-    ParticipantNotAuthorized participant_not_authorized = 5;
-    Duplicate duplicate_submission = 6;
+    com.daml.ledger.participant.state.kvutils.AlreadyExists already_exists = 3;
+    com.daml.ledger.participant.state.kvutils.Invalid invalid_name = 4;
+    com.daml.ledger.participant.state.kvutils.ParticipantNotAuthorized participant_not_authorized = 5;
+    com.daml.ledger.participant.state.kvutils.Duplicate duplicate_submission = 6;
   }
 }
 
@@ -374,245 +320,3 @@ message DamlOutOfTimeBoundsEntry {
   google.protobuf.Timestamp too_late_from = 4;
 }
 
-// Daml state key. [[KeyValueCommitting]] produces effects that are committed
-// to the ledger from the `DamlSubmission`: a log entry to be created, and
-// the set of Daml state updates.
-// The field numbers below must match with the corresponding entries in `DamlStateValue`.
-message DamlStateKey {
-  oneof key {
-    string package_id = 1;
-    string contract_id = 2;
-    DamlCommandDedupKey command_dedup = 3;
-    string party = 4;
-    DamlContractKey contract_key = 5;
-    google.protobuf.Empty configuration = 6;
-    DamlSubmissionDedupKey submission_dedup = 7;
-  }
-}
-
-// Daml state values pointed to by `DamlStateKey`.
-// The field numbers below must match with the corresponding entries in `DamlStateKey`.
-message DamlStateValue {
-  oneof value {
-    daml_lf_dev.Archive archive = 1;
-    DamlContractState contract_state = 2;
-    DamlCommandDedupValue command_dedup = 3;
-    DamlPartyAllocation party = 4;
-    DamlContractKeyState contract_key_state = 5;
-    DamlConfigurationEntry configuration_entry = 6;
-    DamlSubmissionDedupValue submission_dedup = 7;
-  }
-}
-
-message DamlCommandDedupKey {
-  repeated string submitters = 1;
-  string application_id = 2;
-  string command_id = 3;
-}
-
-message DamlCommandDedupValue {
-  reserved 1; // was record_time
-  // the time until when future commands with the same
-  // deduplication key will be rejected due to a duplicate submission
-  google.protobuf.Timestamp deduplicated_until = 2;
-}
-
-message DamlSubmissionDedupKey {
-  enum SubmissionKind {
-    PARTY_ALLOCATION = 0;
-    PACKAGE_UPLOAD = 1;
-    CONFIGURATION = 2;
-  }
-
-  SubmissionKind submission_kind = 1;
-
-  // A unique string scoped to a particular participant.
-  string submission_id = 2;
-
-  // Uploading participant's id.
-  string participant_id = 3;
-}
-
-message DamlSubmissionDedupValue {
-  reserved 1; // was record_time
-}
-
-// Daml contract state, recording the activeness state of a contract.
-// The contract instance itself is stored within the transaction in a log entry.
-// See https://github.com/digital-asset/daml/issues/734 for future work on contract
-// instance storage.
-message DamlContractState {
-  // The time from which the contract is active.
-  // This is the same value as the ledger_effective_time of the transaction
-  // that created this contract.
-  google.protobuf.Timestamp active_at = 1;
-
-  // Optional, if set the contract has been archived.
-  google.protobuf.Timestamp archived_at = 2;
-
-  reserved 3; // was archived_by_entry
-
-  // The parties to which this contract has been explicitly disclosed, that is,
-  // the parties which witnessed the creation of the contract.
-  repeated string locally_disclosed_to = 4;
-
-  // The parties to which this contract has been disclosed to after the creation
-  // of the contract (i.e. divulged to).
-  // https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
-  repeated string divulged_to = 5;
-
-  // The contract key set by the contract. Optional.
-  DamlContractKey contract_key = 6;
-
-  // The contract instance.
-  com.daml.lf.transaction.ContractInstance contract_instance = 7;
-}
-
-message DamlContractKey {
-  // The Daml template identifier of the contract that created this key.
-  com.daml.lf.value.Identifier template_id = 1;
-
-  reserved 2; // This was key serialized as a VersionedValue. Replaced by hash.
-
-  // Hash of the contract key value, produced by KeyHasher.
-  bytes hash = 3;
-}
-
-// Stored information about a given party.
-// Party tenancy is immutable and cannot change once recorded.
-// TODO: Add concept of party allocation time. It would have to follow similar pattern
-// as LET for transactions, so that party allocation submissions remain verifiable by
-// the committers/validators.
-message DamlPartyAllocation {
-  // Id of participant where the party is hosted.
-  string participant_id = 1;
-  // A display name associated with the given party.
-  string display_name = 2;
-}
-
-// The state of a contract key.
-message DamlContractKeyState {
-  // The contract to which the key points to.
-  // If unset the key is inactive.
-  string contract_id = 1;
-
-  // The time from which the contract is active.
-  // This is the same value as the ledger_effective_time of the transaction
-  // that created this contract.
-  google.protobuf.Timestamp active_at = 2;
-}
-
-// Errors
-
-//
-// Used by participant.state.v1 API.
-//
-
-// The transaction relied on contracts or keys being active that were no longer active.
-message Inconsistent {
-  string details = 1;
-}
-
-// The transaction has been disputed.
-// Dispute occurs when the Daml model conformance or authorization fails.
-message Disputed {
-  string details = 1;
-}
-
-// Committer did not have sufficient resources to process the transaction.
-message ResourcesExhausted {
-  string details = 1;
-}
-
-// The transaction submission exceeded its maximum record time.
-message MaximumRecordTimeExceeded {
-  string details = 1;
-}
-
-// The ledger time of the transaction submission violates some constraint.
-message InvalidLedgerTime {
-  string details = 1;
-  google.protobuf.Timestamp ledger_time = 2;
-  google.protobuf.Timestamp lower_bound = 3;
-  google.protobuf.Timestamp upper_bound = 4;
-}
-
-// The committer has already seen a command/submission with the same deduplication
-// key during its implementation specific deduplication window.
-message Duplicate {
-  string details = 1;
-}
-
-// A party mentioned as a stakeholder or actor has not been on-boarded on
-// the ledger.
-message PartyNotKnownOnLedger {
-  string details = 1;
-}
-
-// The submitting party cannot act via the participant to which the request has been sent.
-message SubmitterCannotActViaParticipant {
-  string details = 1;
-  string submitter_party = 2;
-  string participant_id = 3;
-}
-
-// Submitted request content was not valid: a Daml package, a party name
-// or a configuration.
-message Invalid {
-  string details = 1;
-}
-
-// Participant not authorized to submit the request.
-message ParticipantNotAuthorized {
-  string details = 1;
-}
-
-// A mismatch in the configuration generation, that is, the
-// new configuration did not carry a generation that was one
-// larger than previous generation.
-message GenerationMismatch {
-  int64 expected_generation = 1;
-}
-
-// The request timed out, e.g. record time exceeded maximum record time.
-message TimedOut {
-  google.protobuf.Timestamp record_time = 1;
-  google.protobuf.Timestamp maximum_record_time = 2;
-}
-
-// The requested entity already exists.
-message AlreadyExists {
-  string details = 1;
-}
-
-//
-// Rejections used by participant.state.v2 API.
-//
-message ValidationFailure {
-  string details = 1;
-}
-message DuplicateKeys {
-}
-message InconsistentKeys {
-}
-message InconsistentContracts {
-}
-message MissingInputState {
-  DamlStateKey key = 1;
-}
-message InvalidParticipantState {
-  string details = 1;
-  map<string, string> metadata = 2;
-}
-message RecordTimeOutOfRange {
-  google.protobuf.Timestamp minimum_record_time = 1;
-  google.protobuf.Timestamp maximum_record_time = 2;
-}
-message CausalMonotonicityViolated {
-}
-message SubmittingPartyNotKnownOnLedger {
-  string submitter_party = 1;
-}
-message PartiesNotKnownOnLedger {
-  repeated string parties = 1;
-}
