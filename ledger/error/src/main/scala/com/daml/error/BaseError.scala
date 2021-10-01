@@ -46,18 +46,6 @@ trait BaseError extends LocationMixin {
     */
   def resources: Seq[(ErrorResource, String)] = Seq()
 
-  def logWithContext(
-      logger: ContextualizedLogger,
-      correlationId: Option[String],
-      extra: Map[String, String] = Map(),
-  )(implicit loggingContext: LoggingContext): Unit =
-    code.log(logger, this, correlationId, extra)
-
-  def asGrpcErrorFromContext(correlationId: Option[String], logger: ContextualizedLogger)(
-      loggingContext: LoggingContext
-  ): StatusRuntimeException =
-    code.asGrpcError(this, logger, correlationId)(loggingContext)
-
   /** Returns retryability information of this particular error
     *
     * In some cases, error instances would like to provide custom retry intervals.
@@ -102,33 +90,24 @@ object BaseError {
   }
 
   abstract class Impl(
-      correlationId: Option[String],
       override val cause: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit override val code: ErrorCode)
-      extends BaseError {
+      extends BaseError
 
-    /** The logging context obtained when we created the error, usually passed in as implicit */
-    def loggingContext: LoggingContext
+  implicit class EnrichedBaseError(error: BaseError) {
+    def asGrpcError(correlationId: Option[String] = None)(implicit
+        logger: ContextualizedLogger,
+        loggingContext: LoggingContext,
+    ): StatusRuntimeException =
+      ErrorCodeUtils.asGrpcError(error, logger, correlationId, loggingContext)
 
-    def logger: ContextualizedLogger
-
-    /** Flag to control if an error should be logged at creation
-      *
-      * Generally, we do want to log upon creation, except in the case of "nested" or combined errors,
-      * where we just nest the error but don't want it to be logged twice.
-      */
-    def logOnCreation: Boolean = true
-
-    def log(): Unit = logWithContext(logger, correlationId)(loggingContext)
-
-    def asGrpcError: StatusRuntimeException = {
-      code.asGrpcError(this, logger, correlationId)(loggingContext)
-    }
-
-    // Automatically log the error on generation
-    if (logOnCreation) {
-      log()
+    def log(
+        correlationId: Option[String] = None,
+        extra: Map[String, String] = Map(),
+    )(implicit logger: ContextualizedLogger, loggingContext: LoggingContext): BaseError = {
+      ErrorCodeUtils.log(logger, error, correlationId, extra)
+      error
     }
   }
 }

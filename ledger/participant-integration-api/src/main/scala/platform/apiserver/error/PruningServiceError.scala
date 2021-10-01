@@ -3,8 +3,7 @@
 
 package com.daml.platform.apiserver.error
 
-import com.daml.error.{BaseError, ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.error._
 import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 
 sealed trait PruningServiceError extends BaseError
@@ -16,13 +15,9 @@ object PruningServiceError extends PruningServiceErrorGroup {
         id = "INTERNAL_PRUNING_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-    final case class Error(reason: String)(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
-    ) extends BaseError.Impl(
-          cause = "Internal error such as the inability to write to the database",
-          correlationId = correlationId.id,
+    final case class Error(reason: String)
+        extends BaseError.Impl(
+          cause = "Internal error such as the inability to write to the database"
         )
         with PruningServiceError
   }

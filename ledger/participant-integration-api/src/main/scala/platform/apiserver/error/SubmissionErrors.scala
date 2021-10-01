@@ -36,7 +36,7 @@ object SubmissionErrors extends SubmissionErrorGroup {
         id = "PARTICIPANT_BACKPRESSURE",
         ErrorCategory.ContentionOnSharedResources,
       ) {
-    override protected def logLevel: Level = Level.WARN
+    override def logLevel: Level = Level.WARN
 
     case class Rejection(reason: String)
         extends TransactionErrorImpl(cause = "The participant is overloaded")

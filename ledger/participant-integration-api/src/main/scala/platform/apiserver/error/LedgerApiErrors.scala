@@ -13,7 +13,6 @@ import com.daml.lf.language.{LanguageVersion, LookupError, Reference}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
@@ -32,11 +31,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "UNAUTHENTICATED",
           ErrorCategory.AuthInterceptorInvalidAuthenticationCredentials,
         ) {
-      case class Reject()(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject()
+          extends TransactionErrorImpl(
             cause = "The command is missing a JWT token"
           )
     }
@@ -50,11 +46,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )
     object PermissionDenied
         extends ErrorCode(id = "PERMISSION_DENIED", ErrorCategory.InsufficientPermission) {
-      case class Reject()(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject()
+          extends TransactionErrorImpl(
             cause = "The provided JWT token is not sufficient to authorize the intended command"
           )
     }
@@ -71,11 +64,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "LEDGER_ID_MISMATCH",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      case class Reject(override val cause: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject(override val cause: String)
+          extends TransactionErrorImpl(
             cause = cause
           )
     }
@@ -86,11 +76,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution("Inspect the reason given and correct your application.")
     object MissingField
         extends ErrorCode(id = "MISSING_FIELDS", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(_reason: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject(_reason: String)
+          extends TransactionErrorImpl(
             cause = s"The submitted command is missing a mandatory field: ${_reason}"
           )
     }
@@ -101,11 +88,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidArgument
         extends ErrorCode(id = "INVALID_ARGUMENT", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(_reason: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject(_reason: String)
+          extends TransactionErrorImpl(
             cause = s"The submitted command has invalid arguments: ${_reason}"
           )
     }
@@ -116,11 +100,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidField
         extends ErrorCode(id = "INVALID_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(_reason: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject(_reason: String)
+          extends TransactionErrorImpl(
             cause = s"The submitted command has a field with invalid value: ${_reason}"
           )
     }
@@ -137,11 +118,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
         ) {
 
-      case class Reject()(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject()
+          extends TransactionErrorImpl(
             cause = "A command with the given command id has already been successfully processed"
           )
     }
@@ -159,11 +137,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.ContentionOnSharedResources,
         ) {
 
-      case class Reject(_reason: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject(_reason: String)
+          extends TransactionErrorImpl(
             cause =
               s"The participant failed to determine the max ledger time for this command: ${_reason}"
           )
@@ -196,11 +171,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           packageId: Ref.PackageId,
           languageVersion: language.LanguageVersion,
           allowedLanguageVersions: VersionRange[language.LanguageVersion],
-      )(implicit
-          val loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      ) extends TransactionErrorImpl(
             cause = buildCause(packageId, languageVersion, allowedLanguageVersions)
           )
     }
@@ -217,11 +188,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           packageId: PackageId,
           reference: Reference,
-      )(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      ) extends TransactionErrorImpl(
             cause = LookupError.MissingPackage.pretty(packageId, reference)
           )
 
@@ -236,11 +203,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PACKAGE_VALIDATION_FAILED",
           ErrorCategory.MaliciousOrFaultyBehaviour,
         ) {
-      case class Reject(validationErrorCause: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject(validationErrorCause: String)
+          extends TransactionErrorImpl(
             cause = validationErrorCause
           )
     }
@@ -256,11 +220,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(
           err: LfError.Preprocessing.Error
-      )(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      ) extends TransactionErrorImpl(
             cause = err.message
           )
     }
@@ -277,11 +237,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState, // (is INVALID_ARGUMENT, should be PRECONDITION_FAILED)
         ) {
 
-      case class Error(override val cause: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Error(override val cause: String)
+          extends TransactionErrorImpl(
             cause = cause
           )
 
@@ -301,11 +258,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           override val cause: String,
           _err: LfInterpretationError.ContractNotActive,
-      )(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      ) extends TransactionErrorImpl(
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -327,11 +280,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           override val cause: String,
           _key: GlobalKey,
-      )(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      ) extends TransactionErrorImpl(
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -358,11 +307,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         case class Reject(
             override val cause: String,
             _cid: Value.ContractId,
-        )(implicit
-            loggingContext: LoggingContext,
-            logger: ContextualizedLogger,
-            correlationId: CorrelationId,
-        ) extends LoggingTransactionErrorImpl(
+        ) extends TransactionErrorImpl(
               cause = cause
             ) {
           override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -388,11 +333,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         case class Reject(
             override val cause: String,
             _key: GlobalKey,
-        )(implicit
-            loggingContext: LoggingContext,
-            logger: ContextualizedLogger,
-            correlationId: CorrelationId,
-        ) extends LoggingTransactionErrorImpl(
+        ) extends TransactionErrorImpl(
               cause = cause
             ) {
           override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -414,11 +355,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
 
-      case class Reject(override val cause: String)(implicit
-          loggingContext: LoggingContext,
-          logger: ContextualizedLogger,
-          correlationId: CorrelationId,
-      ) extends LoggingTransactionErrorImpl(
+      case class Reject(override val cause: String)
+          extends TransactionErrorImpl(
             cause = cause
           )
     }
@@ -434,37 +372,22 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency
-    )(implicit
-        loggingContext: LoggingContext,
-        logger: ContextualizedLogger,
-        correlationId: CorrelationId,
-    ) extends LoggingTransactionErrorImpl(
+    ) extends TransactionErrorImpl(
           cause = err.message
         )
 
     case class PackageInternal(
         err: LfError.Package.Internal
-    )(implicit
-        loggingContext: LoggingContext,
-        logger: ContextualizedLogger,
-        correlationId: CorrelationId,
-    ) extends LoggingTransactionErrorImpl(
+    ) extends TransactionErrorImpl(
           cause = err.message
         )
 
     case class Preprocessing(
         err: LfError.Preprocessing.Internal
-    )(implicit
-        loggingContext: LoggingContext,
-        logger: ContextualizedLogger,
-        correlationId: CorrelationId,
-    ) extends LoggingTransactionErrorImpl(cause = err.message)
+    ) extends TransactionErrorImpl(cause = err.message)
 
-    case class Validation(reason: ReplayMismatch)(implicit
-        loggingContext: LoggingContext,
-        logger: ContextualizedLogger,
-        correlationId: CorrelationId,
-    ) extends LoggingTransactionErrorImpl(
+    case class Validation(reason: ReplayMismatch)
+        extends TransactionErrorImpl(
           cause = s"Observed un-expected replay mismatch: ${reason}"
         )
 
@@ -472,14 +395,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         where: String,
         message: String,
         detailMessage: Option[String],
-    )(implicit
-        loggingContext: LoggingContext,
-        logger: ContextualizedLogger,
-        correlationId: CorrelationId,
-    ) extends LoggingTransactionErrorImpl(
+    ) extends TransactionErrorImpl(
           cause = s"Daml-Engine interpretation failed with internal error: ${where} / ${message}"
         )
-
   }
 
   // The "NonHexOffset" error code is currently only used by canton, but should also be used by the ledger api services,
@@ -496,14 +414,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         fieldName: String,
         offsetValue: String,
         message: String,
-    )(implicit
-        val loggingContext: LoggingContext,
-        override val logger: ContextualizedLogger,
-        correlationId: CorrelationId,
     ) extends BaseError.Impl(
-          cause =
-            s"Offset in ${fieldName} not specified in hexadecimal: ${offsetValue}: ${message}",
-          correlationId = correlationId.id,
+          cause = s"Offset in ${fieldName} not specified in hexadecimal: ${offsetValue}: ${message}"
         )
   }
 }

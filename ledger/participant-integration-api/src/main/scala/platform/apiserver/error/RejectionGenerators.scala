@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.error.LedgerApiErrors.CommandPreparation.DuplicateCommand
 import com.daml.platform.store.ErrorCause
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -16,26 +16,10 @@ import io.grpc.StatusRuntimeException
 import scala.util.{Failure, Success, Try}
 
 object RejectionGenerators {
+  def duplicateCommand: DuplicateCommand.Reject =
+    LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject()
 
-  def toGrpc(reject: BaseError)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
-  ): StatusRuntimeException =
-    reject.asGrpcErrorFromContext(correlationId.id, logger)(loggingContext)
-
-  def duplicateCommand(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
-  ): StatusRuntimeException =
-    toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
-
-  def commandExecutorError(cause: ErrorCauseExport)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
-  ): Option[StatusRuntimeException] = {
+  def commandExecutorError(cause: ErrorCauseExport): BaseError = {
 
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
       case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
@@ -130,15 +114,14 @@ object RejectionGenerators {
             ) => // Keeping this around as a string match as daml is not yet generating LfError.InterpreterErrors.Validation
           LedgerApiErrors.InterpreterErrors.AuthorizationError.Reject(e.message)
       }
-      toGrpc(transformed)
+      transformed
     }
 
-    val rej = cause match {
+    cause match {
       case ErrorCauseExport.DamlLf(error) => processLfError(error)
       case x: ErrorCauseExport.LedgerTime =>
-        toGrpc(LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain))
+        LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain)
     }
-    Some(rej)
   }
 
   def submissionResult(result: Try[state.v2.SubmissionResult]): Option[Try[Unit]] = {
@@ -153,29 +136,26 @@ object RejectionGenerators {
   // TODO error codes: This converter is deprecated and should be removed
   //                   Instead of using this, construct proper validation errors in callers of this method
   //                   and only convert to StatusRuntimeExceptions when dispatched (e.g. in ApiSubmissionService)
-  def validationFailure(reject: StatusRuntimeException)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
-  ): StatusRuntimeException = {
+  def validationFailure(reject: StatusRuntimeException): Object = {
     val description = reject.getStatus.getDescription
     reject.getStatus.getCode match {
       case Code.INVALID_ARGUMENT =>
         if (description.startsWith("Missing field:")) {
-          toGrpc(LedgerApiErrors.CommandValidation.MissingField.Reject(description))
+          LedgerApiErrors.CommandValidation.MissingField.Reject(description)
         } else if (description.startsWith("Invalid argument:")) {
-          toGrpc(LedgerApiErrors.CommandValidation.InvalidArgument.Reject(description))
+          LedgerApiErrors.CommandValidation.InvalidArgument.Reject(description)
         } else if (description.startsWith("Invalid field:")) {
-          toGrpc(LedgerApiErrors.CommandValidation.InvalidField.Reject(description))
+          LedgerApiErrors.CommandValidation.InvalidField.Reject(description)
         } else {
-          logger.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
-          reject
+          // TODO error codes: Don't log here since we will tie the API to a specific stack
+//          logger.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
+          throw reject // TODO error codes: Handle and convert to BaseError
         }
       case Code.NOT_FOUND if description.startsWith("Ledger ID") =>
-        toGrpc(LedgerApiErrors.CommandValidation.LedgerIdMismatch.Reject(description))
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch.Reject(description)
       case _ =>
-        logger.warn(s"Unknown rejection: ${reject.getStatus}")
-        reject
+//        logger.warn(s"Unknown rejection: ${reject.getStatus}")
+        throw reject // TODO error codes: Handle and convert to BaseError
     }
   }
 

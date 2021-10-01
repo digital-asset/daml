@@ -3,18 +3,13 @@
 
 package com.daml.platform.apiserver.error
 
-import com.daml.error.{BaseError, ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.error._
 import com.daml.platform.apiserver.error.ErrorGroups.ProtoDeserializationErrorGroup
 import com.daml.platform.apiserver.error.ProtoDeserializationError.ProtoDeserializationFailure
 import com.google.protobuf.InvalidProtocolBufferException
 
 sealed trait ProtoDeserializationError extends Product with Serializable {
-  def toAdminError(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
-  ): BaseError =
+  def toAdminError: BaseError =
     ProtoDeserializationFailure.Wrap(this)
 }
 object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
@@ -53,13 +48,9 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
         id = "PROTO_DESERIALIZATION_FAILURE",
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
-    case class Wrap(reason: ProtoDeserializationError)(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
-    ) extends BaseError.Impl(
-          cause = "Deserialization of protobuf message failed",
-          correlationId = correlationId.id,
+    case class Wrap(reason: ProtoDeserializationError)
+        extends BaseError.Impl(
+          cause = "Deserialization of protobuf message failed"
         )
         with BaseError
   }

@@ -4,14 +4,13 @@
 package com.daml.platform.apiserver.error
 
 import com.daml.error.ErrorCode.truncateResourceForTransport
-import com.daml.error.{BaseError, ErrorCode}
+import com.daml.error.{BaseError, ErrorCode, ErrorCodeUtils}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
   FinalReason,
   RejectionReasonTemplate,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.rpc.status.{Status => RpcStatus}
-import io.grpc.StatusRuntimeException
 
 trait TransactionError extends BaseError {
   def createRejection(
@@ -39,12 +38,12 @@ trait TransactionError extends BaseError {
     // therefore, we have to compose the status code a second time here ...
     // the ideal fix would be to extend scalapb accordingly ...
     val ErrorCode.StatusInfo(codeGrpc, messageWithoutContext, contextMap, _) =
-      code.getStatusInfo(this, correlationId, logger)(loggingContext)
+      ErrorCodeUtils.getStatusInfo(this, correlationId, logger)(loggingContext)
 
     // TODO error codes: avoid appending the context to the description. right now, we need to do that as the ledger api server is throwing away any error details
     val message =
       if (code.category.securitySensitive) messageWithoutContext
-      else messageWithoutContext + "; " + code.formatContextAsString(contextMap)
+      else messageWithoutContext + "; " + ErrorCodeUtils.formatContextAsString(contextMap)
 
     val definiteAnswerKey =
       "definite_answer" // TODO error codes: Can we use a constant from some upstream class?
@@ -95,25 +94,3 @@ abstract class TransactionErrorImpl(
     override val definiteAnswer: Boolean = false,
 )(implicit override val code: ErrorCode)
     extends TransactionError
-
-abstract class LoggingTransactionErrorImpl(
-    cause: String,
-    throwableO: Option[Throwable] = None,
-    definiteAnswer: Boolean = false,
-)(implicit
-    code: ErrorCode,
-    loggingContext: LoggingContext,
-    logger: ContextualizedLogger,
-    correlationId: CorrelationId,
-) extends TransactionErrorImpl(cause, throwableO, definiteAnswer)(code) {
-
-  def asGrpcError: StatusRuntimeException = asGrpcErrorFromContext(
-    correlationId = correlationId.id,
-    logger = logger,
-  )(loggingContext)
-
-  def log(): Unit = logWithContext(logger, correlationId.id)(loggingContext)
-
-  // Automatically log the error on generation
-  log()
-}

@@ -3,7 +3,7 @@
 
 package com.daml.error
 
-import com.daml.error.ErrorCode.{StatusInfo, loggingValueToString, truncateResourceForTransport}
+import com.daml.error.ErrorCode.{StatusInfo, truncateResourceForTransport}
 import com.daml.logging.entries.LoggingValue
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.Status.Code
@@ -60,9 +60,102 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   def toMsg(cause: => String, correlationId: Option[String]): String =
     s"${codeStr(correlationId)}: ${ErrorCode.truncateCause(cause)}"
 
-  def asGrpcError(err: BaseError, logger: ContextualizedLogger, correlationId: Option[String])(
-      loggingContext: LoggingContext
+  /** log level of the error code
+    *
+    * Generally, the log level is defined by the error category. In rare cases, it might be overridden
+    * by the error code.
+    */
+  def logLevel: Level = category.logLevel
+
+  /** True if this error may appear on the API */
+  protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
+
+  /** The error conveyance doc string provides a statement about the form this error will be returned to the user */
+  private[error] def errorConveyanceDocString: Option[String] = {
+    val loggedAs = s"This error is logged with log-level $logLevel on the server side."
+    val apiLevel = (category.grpcCode, exposedViaApi) match {
+      case (Some(code), true) =>
+        if (category.securitySensitive)
+          s"\nThis error is exposed on the API with grpc-status $code without any details due to security reasons"
+        else
+          s"\nThis error is exposed on the API with grpc-status $code including a detailed error message"
+      case _ => ""
+    }
+    Some(loggedAs ++ apiLevel)
+  }
+}
+
+object ErrorCode {
+  private[error] val MaxCauseLogLength = 512
+
+  class ApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
+      extends StatusRuntimeException(status, metadata)
+      with NoStackTrace
+
+  case class StatusInfo(
+      codeGrpc: io.grpc.Status.Code,
+      message: String,
+      contextMap: Map[String, String],
+      correlationId: Option[String],
+  )
+
+  /** Truncate resource information such that we don't exceed a max error size */
+  def truncateResourceForTransport(
+      res: Seq[(ErrorResource, String)]
+  ): Seq[(ErrorResource, String)] = {
+    res
+      .foldLeft((Seq.empty[(ErrorResource, String)], 0)) { case ((acc, spent), elem) =>
+        val tot = elem._1.asString.length + elem._2.length
+        val newSpent = tot + spent
+        if (newSpent < ErrorCodeUtils.MaxContentBytes) {
+          (acc :+ elem, newSpent)
+        } else {
+          // TODO error codes: Here we silently drop resource info.
+          //                   Signal that it was truncated by logs or truncate only expensive fields?
+          (acc, spent)
+        }
+      }
+      ._1
+  }
+
+  private[error] def truncateCause(cause: String): String =
+    if (cause.length > MaxCauseLogLength) {
+      cause.take(MaxCauseLogLength) + "..."
+    } else cause
+}
+
+// Use these annotations to add more information to the documentation for an error on the website
+case class Explanation(explanation: String) extends StaticAnnotation
+case class Resolution(resolution: String) extends StaticAnnotation
+
+object ErrorCodeUtils {
+  private val ValidMetadataKeyRegex: Regex = "[^(a-zA-Z0-9-_)]".r
+  // TODO error-codes: Extract this function into `LoggingContext` companion (and test)
+  private val loggingValueToString: LoggingValue => String = {
+    case LoggingValue.Empty => ""
+    case LoggingValue.False => "false"
+    case LoggingValue.True => "true"
+    case LoggingValue.OfString(value) => s"'$value'"
+    case LoggingValue.OfInt(value) => value.toString
+    case LoggingValue.OfLong(value) => value.toString
+    case LoggingValue.OfIterable(sequence) =>
+      sequence.map(loggingValueToString).mkString("[", ", ", "]")
+    case LoggingValue.Nested(entries) =>
+      entries.contents.view
+        .map { case (key, value) => s"$key: ${loggingValueToString(value)}" }
+        .mkString("{", ", ", "}")
+    case LoggingValue.OfJson(json) => json.toString()
+  }
+  val MaxContentBytes = 2000
+
+  def asGrpcError(
+      err: BaseError,
+      logger: ContextualizedLogger,
+      correlationId: Option[String],
+      loggingContext: LoggingContext,
   ): StatusRuntimeException = {
+    val id = err.code.id
+
     val StatusInfo(codeInt, message, contextMap, _) =
       getStatusInfo(err, correlationId, logger)(loggingContext)
 
@@ -71,7 +164,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       .newBuilder()
       .setReason(id)
     val errInfoPrep =
-      if (!code.category.securitySensitive) {
+      if (!err.code.category.securitySensitive) {
         contextMap
           .foldLeft(errInfoBuilder) { case (bld, (k, v)) =>
             bld.putMetadata(k, v)
@@ -104,7 +197,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
     // Build (truncated) resource infos
     val resourceInfo =
-      if (code.category.securitySensitive) Seq()
+      if (err.code.category.securitySensitive) Seq()
       else
         truncateResourceForTransport(err.resources).map { case (rs, item) =>
           com.google.protobuf.Any
@@ -134,24 +227,8 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
   }
 
-  def formatContextAsString(contextMap: Map[String, String]): String =
-    contextMap.view
-      .filter(_._2.nonEmpty)
-      .map { case (k, v) => s"$k=$v" }
-      .mkString(", ")
-
-  /** log level of the error code
-    *
-    * Generally, the log level is defined by the error category. In rare cases, it might be overridden
-    * by the error code.
-    */
-  protected def logLevel: Level = category.logLevel
-
-  /** True if this error may appear on the API */
-  protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
-
   // TODO error codes: support polymorphic logging/tracing
-  private[error] def log(
+  def log(
       logger: ContextualizedLogger,
       err: BaseError,
       correlationId: Option[String],
@@ -159,12 +236,14 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   )(implicit
       loggingContext: LoggingContext
   ): Unit = {
+    val logLevel = err.code.logLevel
+
     val mergedContext = err.context ++ err.location.map(("location", _)).toList.toMap ++ extra
 
     LoggingContext.withEnrichedLoggingContext(
       "err-context" -> ("{" + formatContextAsString(mergedContext) + "}")
     ) { implicit loggingContext =>
-      val message = toMsg(err.cause, correlationId)
+      val message = err.code.toMsg(err.cause, correlationId)
       (logLevel, err.throwableO) match {
         case (Level.INFO, None) => logger.info(message)
         case (Level.INFO, Some(tr)) => logger.info(message, tr)
@@ -177,30 +256,13 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     }
   }
 
-  def getStatusInfo(
-      err: BaseError,
-      correlationId: Option[String],
-      logger: ContextualizedLogger,
-  )(loggingContext: LoggingContext): StatusInfo = {
-    val message =
-      if (code.category.securitySensitive)
-        s"${BaseError.SECURITY_SENSITIVE_MESSAGE_ON_API}: ${correlationId.getOrElse("<no-correlation-id>")}"
-      else
-        code.toMsg(err.cause, correlationId)
+  def formatContextAsString(contextMap: Map[String, String]): String =
+    contextMap.view
+      .filter(_._2.nonEmpty)
+      .map { case (k, v) => s"$k=$v" }
+      .mkString(", ")
 
-    val codeInt = category.grpcCode
-      .getOrElse {
-        logger.warn(s"Passing non-grpc error via grpc $id ")(loggingContext)
-        Code.INTERNAL
-      }
-
-    val contextMap =
-      getTruncatedContext(err, loggingContext) + ("category" -> category.asInt.toString)
-
-    StatusInfo(codeInt, message, contextMap, correlationId)
-  }
-
-  private[error] def getTruncatedContext(
+  def getTruncatedContext(
       err: BaseError,
       loggingContext: LoggingContext,
   ): Map[String, String] = {
@@ -210,11 +272,11 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       }
     val raw =
       (err.context ++ loggingContextEntries).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
-    val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)
+    val maxPerEntry = MaxContentBytes / Math.max(1, raw.size)
     // truncate smart, starting with the smallest value strings such that likely only truncate the largest args
     raw
       .foldLeft((Map.empty[String, String], 0)) { case ((map, free), (k, v)) =>
-        val adjustedKey = ErrorCode.ValidMetadataKeyRegex.replaceAllIn(k, "").take(63)
+        val adjustedKey = ValidMetadataKeyRegex.replaceAllIn(k, "").take(63)
         val maxSize = free + maxPerEntry - adjustedKey.length
         val truncatedValue = if (maxSize >= v.length || v.isEmpty) v else v.take(maxSize) + "..."
         // note that we silently discard empty context values and we automatically make the
@@ -230,79 +292,28 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       ._1
   }
 
-  /** The error conveyance doc string provides a statement about the form this error will be returned to the user */
-  private[error] def errorConveyanceDocString: Option[String] = {
-    val loggedAs = s"This error is logged with log-level $logLevel on the server side."
-    val apiLevel = (category.grpcCode, exposedViaApi) match {
-      case (Some(code), true) =>
-        if (category.securitySensitive)
-          s"\nThis error is exposed on the API with grpc-status $code without any details due to security reasons"
-        else
-          s"\nThis error is exposed on the API with grpc-status $code including a detailed error message"
-      case _ => ""
-    }
-    Some(loggedAs ++ apiLevel)
-  }
-}
-
-object ErrorCode {
-  private val ValidMetadataKeyRegex: Regex = "[^(a-zA-Z0-9-_)]".r
-  private val MaxContentBytes = 2000
-  private[error] val MaxCauseLogLength = 512
-
-  // TODO error-codes: Extract this function into `LoggingContext` companion (and test)
-  private val loggingValueToString: LoggingValue => String = {
-    case LoggingValue.Empty => ""
-    case LoggingValue.False => "false"
-    case LoggingValue.True => "true"
-    case LoggingValue.OfString(value) => s"'$value'"
-    case LoggingValue.OfInt(value) => value.toString
-    case LoggingValue.OfLong(value) => value.toString
-    case LoggingValue.OfIterable(sequence) =>
-      sequence.map(loggingValueToString).mkString("[", ", ", "]")
-    case LoggingValue.Nested(entries) =>
-      entries.contents.view
-        .map { case (key, value) => s"$key: ${loggingValueToString(value)}" }
-        .mkString("{", ", ", "}")
-    case LoggingValue.OfJson(json) => json.toString()
-  }
-
-  class ApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
-      extends StatusRuntimeException(status, metadata)
-      with NoStackTrace
-
-  case class StatusInfo(
-      codeGrpc: io.grpc.Status.Code,
-      message: String,
-      contextMap: Map[String, String],
+  def getStatusInfo(
+      err: BaseError,
       correlationId: Option[String],
-  )
+      logger: ContextualizedLogger,
+  )(loggingContext: LoggingContext): StatusInfo = {
+    val category = err.code.category
+    val id = err.code.id
+    val message =
+      if (err.code.category.securitySensitive)
+        s"${BaseError.SECURITY_SENSITIVE_MESSAGE_ON_API}: ${correlationId.getOrElse("<no-correlation-id>")}"
+      else
+        err.code.toMsg(err.cause, correlationId)
 
-  /** Truncate resource information such that we don't exceed a max error size */
-  def truncateResourceForTransport(
-      res: Seq[(ErrorResource, String)]
-  ): Seq[(ErrorResource, String)] = {
-    res
-      .foldLeft((Seq.empty[(ErrorResource, String)], 0)) { case ((acc, spent), elem) =>
-        val tot = elem._1.asString.length + elem._2.length
-        val newSpent = tot + spent
-        if (newSpent < ErrorCode.MaxContentBytes) {
-          (acc :+ elem, newSpent)
-        } else {
-          // TODO error codes: Here we silently drop resource info.
-          //                   Signal that it was truncated by logs or truncate only expensive fields?
-          (acc, spent)
-        }
+    val codeInt = category.grpcCode
+      .getOrElse {
+        logger.warn(s"Passing non-grpc error via grpc $id ")(loggingContext)
+        Code.INTERNAL
       }
-      ._1
+
+    val contextMap =
+      getTruncatedContext(err, loggingContext) + ("category" -> category.asInt.toString)
+
+    StatusInfo(codeInt, message, contextMap, correlationId)
   }
-
-  private[error] def truncateCause(cause: String): String =
-    if (cause.length > MaxCauseLogLength) {
-      cause.take(MaxCauseLogLength) + "..."
-    } else cause
 }
-
-// Use these annotations to add more information to the documentation for an error on the website
-case class Explanation(explanation: String) extends StaticAnnotation
-case class Resolution(resolution: String) extends StaticAnnotation
