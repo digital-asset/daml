@@ -5,6 +5,7 @@ package com.daml
 
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.platform.server.api.validation.ErrorFactories._
+import com.google.rpc.Status
 import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import org.scalatest.matchers.should.Matchers
@@ -166,6 +167,12 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         status.getMessage shouldBe "Invalid argument: my message"
         status.getDetailsList.asScala shouldBe expectedDetails
       }
+    }
+
+    "should create an ApiException without the stack trace" in {
+      val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
+      val exception = grpcError(status)
+      exception.getStackTrace shouldBe Array.empty
     }
   }
 }

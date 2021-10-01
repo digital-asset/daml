@@ -23,6 +23,8 @@ message Completion {
   // Identifies the exact type of the error.
   // For example, malformed or double spend transactions will result in a ``INVALID_ARGUMENT`` status.
   // Transactions with invalid time time windows (which may be valid at a later date) will result in an ``ABORTED`` error.
+  // Contains easily parsable metadata packed as an ``ErrorInfo`` object in the details.
+  // Synchronous errors (``io.grpc.StatusException``), on the other hand, provide metadata in the trailers.
   // Optional
   google.rpc.Status status = 2;
 
