@@ -273,7 +273,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     object GenericInterpretationError
         extends ErrorCode(
           id = "DAML_INTERPRETATION_ERROR",
-          // TODO error codes: this is a bad error message and needs to be fixed by also adjusting the expected ledger-api conformance tests
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
