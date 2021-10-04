@@ -40,13 +40,7 @@ import scala.annotation.tailrec
 
 object domain extends com.daml.fetchcontracts.domain.Aliases {
 
-  case class Error(id: Symbol, message: String)
-
-  object Error {
-    implicit val errorShow: Show[Error] = Show shows { e =>
-      s"domain.Error, ${e.id: Symbol}: ${e.message: String}"
-    }
-  }
+  import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
 
   type LfValue = lf.value.Value
 
@@ -409,11 +403,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
     implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, *]] =
       HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
-  }
-
-  private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
-    def required(label: String): Error \/ A =
-      o toRightDisjunction Error(Symbol("ErrorOps_required"), s"Missing required field $label")
   }
 
   type LfType = iface.Type

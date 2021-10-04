@@ -5,11 +5,11 @@ package com.daml.fetchcontracts
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.lf
-import com.daml.lf.data.Ref
-import com.daml.lf.iface
-import com.daml.http.util.ClientUtil.boxedRecord
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import lf.data.Ref
+import lf.iface
+import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
@@ -50,9 +50,22 @@ package object domain {
   val Party = lar.Party
 
   type Offset = String @@ OffsetTag
+
+  private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A]) extends AnyVal {
+    def required(label: String): Error \/ A =
+      o toRightDisjunction Error(Symbol("ErrorOps_required"), s"Missing required field $label")
+  }
 }
 
 package domain {
+  final case class Error(id: Symbol, message: String)
+
+  object Error {
+    implicit val errorShow: Show[Error] = Show shows { e =>
+      s"domain.Error, ${e.id: Symbol}: ${e.message: String}"
+    }
+  }
+
   sealed trait OffsetTag
 
   object Offset {
@@ -165,6 +178,8 @@ package domain {
 
   private[daml] trait Aliases {
     import com.daml.fetchcontracts.{domain => here}
+    type Error = here.Error
+    final val Error = here.Error
     type LfValue = here.LfValue
     type TemplateId[+PkgId] = here.TemplateId[PkgId]
     final val TemplateId = here.TemplateId
