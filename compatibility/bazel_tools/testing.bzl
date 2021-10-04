@@ -27,10 +27,11 @@ load("//:versions.bzl", "latest_stable_version")
 #
 # An example scenario is a change to both a ledger and the Ledger API Test Tool that makes the
 # latter incompatible with previous versions of the ledger.
-# In this case, you'll want to set the platform `end` to be the latest released snapshot
-# (you can obtain it e.g. from `LATEST`), the platform `start` to be unbounded as to cover
-# all previous versions and the test tool `start` to be the upcoming snapshot, which you
-# can denote by using the "intermediate version" trick above.
+# In this case, you'll want to set the platform `start` and `end` to be unbounded as to cover
+# all existing platform versions (including HEAD) and the test tool `start` to be the upcoming
+# snapshot, which you can denote by using the "intermediate version" trick above.
+# After your change is merged, you'll need a further change to set the platform `end` to the
+# latest released snapshot, so that HEAD and subsequent versions are cross-checked again.
 #
 # Note that 0.0.0 (i.e., current HEAD) is considered greater than all other versions.
 #
