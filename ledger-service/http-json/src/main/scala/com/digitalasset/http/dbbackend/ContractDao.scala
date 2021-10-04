@@ -123,7 +123,7 @@ object ContractDao {
       metrics: Metrics
   ) =
     driver.configure(
-      tablePrefix = cfg.tablePrefix,
+      tablePrefix = cfg.baseConfig.tablePrefix,
       extraConf = cfg.backendSpecificConf,
       tpIdCacheMaxEntries,
     )

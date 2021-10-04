@@ -27,9 +27,14 @@ object OracleIntTest {
       pwd: => String,
       disableContractPayloadIndexing: DisableContractPayloadIndexing = false,
   ) = JdbcConfig(
-    dbutils.JdbcConfig(driver = "oracle.jdbc.OracleDriver", url = url, user = user, password = pwd),
+    dbutils.JdbcConfig(
+      driver = "oracle.jdbc.OracleDriver",
+      url = url,
+      user = user,
+      password = pwd,
+      tablePrefix = "some_nice_prefix_",
+    ),
     dbStartupMode = DbStartupMode.CreateOnly,
-    tablePrefix = "some_nice_prefix_",
     backendSpecificConf =
       if (disableContractPayloadIndexing) Map(DisableContractPayloadIndexing -> "true")
       else Map.empty,

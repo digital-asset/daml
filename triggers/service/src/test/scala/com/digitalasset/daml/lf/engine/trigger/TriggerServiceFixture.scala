@@ -420,7 +420,7 @@ trait TriggerDaoPostgresFixture
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    Await.result(triggerDao.initialize, Duration(30, SECONDS))
+    Await.result(triggerDao.initialize(false), Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
@@ -443,7 +443,7 @@ trait TriggerDaoOracleFixture
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
-  // Lazy because the postgresDatabase is only available once the tests start
+  // Lazy because the oracleDatabase is only available once the tests start
   private lazy val jdbcConfig_ =
     JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, oracleUser, oraclePwd)
   // TODO For whatever reason we need a larger pool here, otherwise
@@ -454,7 +454,7 @@ trait TriggerDaoOracleFixture
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    Await.result(triggerDao.initialize, Duration(31, SECONDS))
+    Await.result(triggerDao.initialize(false), Duration(31, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
@@ -523,6 +523,7 @@ trait TriggerServiceFixture
                 restartConfig,
                 encodedDars,
                 jdbcConfig,
+                false,
                 logTriggerStatus,
               )
             } yield r
