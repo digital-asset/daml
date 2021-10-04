@@ -192,6 +192,70 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   )
 
+  // Without the submission id we cannot assert the received completions for parallel submissions
+  if (deduplicationFeatures.appendOnlySchema)
+    testGivenAllParticipants(
+      s"${testNamingPrefix}SimpleDeduplicationMixedClients",
+      "Deduplicate commands within the deduplication time window using the command client and the command submission client",
+      allocate(SingleParty),
+    )(implicit ec =>
+      configuredParticipants => { case Participants(Participant(ledger, party)) =>
+        def generateVariations(elements: List[List[Boolean]]): List[List[Boolean]] =
+          elements match {
+            case Nil => List(Nil)
+            case currentElement :: tail =>
+              currentElement.flatMap(value => generateVariations(tail).map(value :: _))
+          }
+        runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+          {
+            val numberOfCalls = 4
+            Future // cover all the different generated variations of submit and submitAndWait
+              .traverse(generateVariations(List.fill(numberOfCalls)(List(true, false)))) {
+                case firstCall :: secondCall :: thirdCall :: fourthCall :: Nil =>
+                  val submitAndWaitRequest = ledger
+                    .submitAndWaitRequest(party, Dummy(party).create.command)
+                    .update(
+                      _.commands.deduplicationTime := deduplicationDuration.asProtobuf
+                    )
+                  val submitRequest = ledger
+                    .submitRequest(party, Dummy(party).create.command)
+                    .update(_.commands.commandId := submitAndWaitRequest.getCommands.commandId)
+                  def submitAndAssertAccepted(submitAndWait: Boolean) = {
+                    if (submitAndWait) ledger.submitAndWait(submitAndWaitRequest)
+                    else
+                      submitRequestAndAssertCompletionAccepted(ledger)(submitRequest, party)
+                        .map(_ => ())
+                  }
+                  def submitAndAssertDeduplicated(submitAndWait: Boolean) = {
+                    if (submitAndWait)
+                      submitAndWaitRequestAndAssertDeduplication(ledger)(submitAndWaitRequest)
+                    else submitRequestAndAssertDeduplication(ledger)(submitRequest, party)
+                  }
+                  for {
+                    // Submit command (first deduplication window)
+                    _ <- submitAndAssertAccepted(firstCall)
+                    _ <- submitAndAssertDeduplicated(secondCall)
+
+                    // Wait until the end of first deduplication window
+                    _ <- Delayed.by(deduplicationWait)(())
+
+                    // Submit command (second deduplication window)
+                    _ <- submitAndAssertAccepted(thirdCall)
+                    _ <- submitAndAssertDeduplicated(fourthCall)
+                  } yield {}
+                case _ => throw new IllegalArgumentException("Wrong call list constructed")
+              }
+              .flatMap { _ =>
+                assertPartyHasActiveContracts(ledger)(
+                  party = party,
+                  noOfActiveContracts = 32, // 16 test cases, with 2 contracts per test case
+                )
+              }
+          }
+        }
+      }
+    )
+
   test(
     s"${testNamingPrefix}DeduplicateSubmitterBasic",
     "Commands with identical submitter and command identifier should be deduplicated by the submission client",
@@ -344,17 +408,18 @@ private[testtool] abstract class CommandDeduplicationBase(
     val submissionId = UUID.randomUUID().toString
     submitRequest(ledger)(request.update(_.commands.submissionId := submissionId))
       .flatMap(ledgerEnd => {
-        ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd)(parties: _*))
+        if (deduplicationFeatures.appendOnlySchema)
+          // The [[Completion.submissionId]] is set only for append-only ledgers
+          ledger
+            .findCompletion(ledger.completionStreamRequest(ledgerEnd)(parties: _*))(
+              _.submissionId == submissionId
+            )
+            .map[Seq[Completion]](_.toList)
+        else
+          ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd)(parties: _*))
       })
       .map { completions =>
-        val completion = assertSingleton("Expected only one completion", completions)
-        // The [[Completion.submissionId]] is set only for append-only ledgers
-        if (deduplicationFeatures.appendOnlySchema)
-          assert(
-            completion.submissionId == submissionId,
-            s"Submission id is different for completion. Completion has submission id [${completion.submissionId}], request has submission id [$submissionId]",
-          )
-        completion
+        assertSingleton("Expected only one completion", completions)
       }
   }
 

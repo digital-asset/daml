@@ -28,6 +28,7 @@ final case class JdbcConfig(
     minIdle: Int = JdbcConfig.MinIdle,
     connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
     idleTimeout: Long = JdbcConfig.IdleTimeout,
+    tablePrefix: String = "",
 )
 
 abstract class ConfigCompanion[A, ReadCtx](name: String) {
@@ -109,12 +110,14 @@ object JdbcConfig
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
+      s"${indent}tablePrefix -- prefix for table names to avoid collisions, empty by default,\n" +
       otherOptions +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
+        "table_prefix_",
       )
 
   private[daml] def create(x: Map[String, String])(implicit
@@ -138,11 +141,13 @@ object JdbcConfig
     url <- requiredField("url")
     user <- requiredField("user")
     password <- requiredField("password")
+    tablePrefix <- optionalStringField("tablePrefix").map(_ getOrElse "")
   } yield JdbcConfig(
     driver = driver,
     url = url,
     user = user,
     password = password,
+    tablePrefix = tablePrefix,
   )
 
   private def helpString(
@@ -150,6 +155,7 @@ object JdbcConfig
       url: String,
       user: String,
       password: String,
+      tablePrefix: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix\""""
 }

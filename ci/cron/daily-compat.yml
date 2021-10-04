@@ -104,7 +104,7 @@ jobs:
 
           gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
 
-          setvar speedy_perf "$perf"
+          setvar speedy_perf "$perf ms/op"
 
         displayName: measure perf
         name: out

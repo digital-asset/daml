@@ -13,7 +13,6 @@ import com.daml.dbutils, dbutils.DBConfig
 
 private[http] final case class JdbcConfig(
     baseConfig: dbutils.JdbcConfig,
-    tablePrefix: String = "",
     dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
     backendSpecificConf: Map[String, String] = Map.empty,
 )
@@ -35,8 +34,7 @@ private[http] object JdbcConfig
 
   def help(implicit jcd: DBConfig.JdbcConfigDefaults): String =
     dbutils.JdbcConfig.help(otherOptions =
-      s"${indent}tablePrefix -- prefix for table names to avoid collisions, empty by default,\n" +
-        s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by start-mode, however if set it will always overrule start-mode.\n" +
+      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately. This is deprecated and replaced by start-mode, however if set it will always overrule start-mode.\n" +
         s"${indent}start-mode -- option setting how the schema should be handled. Valid options are ${DbStartupMode.allConfigValues
           .mkString(",")}.\n" +
         (if (jcd.supportedJdbcDrivers exists (_ contains "oracle"))
@@ -59,7 +57,6 @@ private[http] object JdbcConfig
   ): Fields[JdbcConfig] =
     for {
       baseConfig <- dbutils.JdbcConfig.create
-      tablePrefix <- optionalStringField("tablePrefix")
       createSchema <- optionalBooleanField("createSchema").map(
         _.map { createSchema =>
           import DbStartupMode._
@@ -75,7 +72,6 @@ private[http] object JdbcConfig
       remainingConf <- StateT.get: Fields[Map[String, String]]
     } yield JdbcConfig(
       baseConfig = baseConfig,
-      tablePrefix = tablePrefix getOrElse "",
       dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
       backendSpecificConf = remainingConf,
     )

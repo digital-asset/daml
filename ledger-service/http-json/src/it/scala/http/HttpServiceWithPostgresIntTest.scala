@@ -20,11 +20,14 @@ class HttpServiceWithPostgresIntTest
   override def wsConfig: Option[WebsocketConfig] = None
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _, _) =>
+    val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val searchDataSet = genSearchDataSet(party)
     searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
       encoder,
+      headers,
     ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
       discard { searchResult should have size 2 }
       discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }

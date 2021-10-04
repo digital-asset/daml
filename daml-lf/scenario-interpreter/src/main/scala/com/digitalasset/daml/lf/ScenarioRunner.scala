@@ -398,6 +398,7 @@ object ScenarioRunner {
       seed: crypto.Hash,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      doEnrichment: Boolean = true,
   ): SubmissionResult[R] = {
     val ledgerMachine = Speedy.Machine(
       compiledPackages = compiledPackages,
@@ -442,8 +443,9 @@ object ScenarioRunner {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
-            case PartialTransaction.CompleteTransaction(tx, locationInfo, _) =>
-              ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
+            case PartialTransaction.CompleteTransaction(tx0, locationInfo, _) =>
+              val tx = if (doEnrichment) enrich(tx0) else tx0
+              ledger.commit(committers, readAs, location, tx, locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, onLedger.ptxInternal)
                 case Right(r) =>

@@ -8,14 +8,15 @@ import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import qualified Data.Text.IO as T
+import Data.Text (pack)
 import Safe (readMay)
 import System.Exit
 import System.IO
 import System.IO.Error
 
 readPortFile :: Int -> String -> IO Int
-readPortFile 0 _file = do
-  T.hPutStrLn stderr "Port file was not written to in time."
+readPortFile 0 file = do
+  T.hPutStrLn stderr ("Port file was not written to '" <> pack file <> "' in time.")
   exitFailure
 readPortFile n file = do
   fileContent <- catchJust (guard . shouldCatch) (readFile file) (const $ pure "")

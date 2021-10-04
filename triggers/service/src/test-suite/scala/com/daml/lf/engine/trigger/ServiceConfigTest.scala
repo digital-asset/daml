@@ -90,5 +90,20 @@ class ServiceConfigTest extends AnyWordSpec with Matchers with OptionValues {
         TimeProviderType.Static
       )
     }
+    "defaults to empty table prefix for backwards compatibility" in {
+      parse(
+        baseOpts ++ Seq("--jdbc", "driver=custom,url=url,user=user,password=password"),
+        Set("custom"),
+      ).value.jdbcConfig.value.tablePrefix shouldBe empty
+    }
+    "optionally use a table prefix to avoid collisions" in {
+      parse(
+        baseOpts ++ Seq(
+          "--jdbc",
+          "driver=custom,url=url,user=user,password=password,tablePrefix=trigger_service_",
+        ),
+        Set("custom"),
+      ).value.jdbcConfig.value.tablePrefix shouldBe "trigger_service_"
+    }
   }
 }
