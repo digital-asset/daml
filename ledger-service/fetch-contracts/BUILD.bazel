@@ -3,15 +3,11 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_benchmark_jmh",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
     "silencer_plugin",
 )
-load("//rules_daml:daml.bzl", "daml_compile")
-load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
