@@ -3,40 +3,17 @@
 
 package com.daml.fetchcontracts
 
-import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.lf
 import lf.data.Ref
-import lf.iface
 import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.string._
-import scalaz.std.vector._
-import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{
-  -\/,
-  @@,
-  Applicative,
-  Bitraverse,
-  NonEmptyList,
-  OneAnd,
-  Order,
-  Semigroup,
-  Show,
-  Tag,
-  Tags,
-  Traverse,
-  \/,
-  \/-,
-}
-import spray.json.JsValue
-
-import scala.annotation.tailrec
+import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
 
 package object domain {
   type LfValue = lf.value.Value

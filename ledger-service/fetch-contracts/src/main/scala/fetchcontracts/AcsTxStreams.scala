@@ -4,51 +4,19 @@
 package com.daml.fetchcontracts
 
 import akka.NotUsed
-import akka.stream.scaladsl.{
-  Broadcast,
-  Concat,
-  Flow,
-  GraphDSL,
-  Keep,
-  Partition,
-  RunnableGraph,
-  Sink,
-  SinkQueueWithCancel,
-  Source,
-}
-import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
+import akka.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
+import akka.stream.{FanOutShape2, Graph}
 import com.daml.scalautil.Statement.discard
-import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import domain.TemplateId
-import com.daml.http.util.Logging.{InstanceUUID}
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import util.IdentifierConverters.apiIdentifier
-import com.daml.scalautil.ExceptionOps._
-import com.daml.scalautil.nonempty.NonEmpty
-import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
-import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import doobie.free.{connection => fconn}
-import fconn.ConnectionIO
-import scalaz.Order
 import scalaz.OneAnd._
 import scalaz.std.set._
-import scalaz.std.vector._
-import scalaz.std.list._
-import scalaz.std.option.none
-import scalaz.syntax.show._
 import scalaz.syntax.tag._
-import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
-import scalaz.syntax.order._
-import scalaz.syntax.std.option._
-import scalaz.{-\/, OneAnd, \/, \/-}
-import spray.json.{JsNull, JsValue}
-import scalaz.Liskov.<~<
-
-import scala.concurrent.{ExecutionContext, Future}
-import com.daml.ledger.api.{domain => LedgerApiDomain}
+import scalaz.OneAnd
 
 private[daml] object AcsTxStreams {
   import util.AkkaStreamsDoobie.{last, max, project2}
