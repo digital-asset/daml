@@ -200,16 +200,17 @@ private[testtool] abstract class CommandDeduplicationBase(
       allocate(SingleParty),
     )(implicit ec =>
       configuredParticipants => { case Participants(Participant(ledger, party)) =>
-        def combinations(elements: List[List[Boolean]]): List[List[Boolean]] = elements match {
-          case Nil => List(Nil)
-          case currentElement :: tail =>
-            currentElement.flatMap(value => combinations(tail).map(value :: _))
-        }
+        def generateVariations(elements: List[List[Boolean]]): List[List[Boolean]] =
+          elements match {
+            case Nil => List(Nil)
+            case currentElement :: tail =>
+              currentElement.flatMap(value => generateVariations(tail).map(value :: _))
+          }
         runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
           {
             val numberOfCalls = 4
-            Future // cover all the different combinations of submit and submitAndWait
-              .traverse(combinations(List.fill(numberOfCalls)(List(true, false)))) {
+            Future // cover all the different generated variations of submit and submitAndWait
+              .traverse(generateVariations(List.fill(numberOfCalls)(List(true, false)))) {
                 case firstCall :: secondCall :: thirdCall :: fourthCall :: Nil =>
                   val submitAndWaitRequest = ledger
                     .submitAndWaitRequest(party, Dummy(party).create.command)
@@ -413,12 +414,12 @@ private[testtool] abstract class CommandDeduplicationBase(
             .findCompletion(ledger.completionStreamRequest(ledgerEnd)(parties: _*))(
               _.submissionId == submissionId
             )
-            .map(_.toList)
+            .map[Seq[Completion]](_.toList)
         else
           ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd)(parties: _*))
       })
       .map { completions =>
-        assertSingleton("Expected only one completion", completions.toSeq)
+        assertSingleton("Expected only one completion", completions)
       }
   }
 
