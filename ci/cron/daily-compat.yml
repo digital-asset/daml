@@ -308,7 +308,7 @@ jobs:
           fi
 
           RESULT=${RESULT%"\n"}
-          setvar ${QUERY_STORE}_perf_results "$RESULT x"
+          setvar ${QUERY_STORE}_perf_results "$RESULT"
 
           GZIP=-9 tar -zcf ${OUT}.tgz ${OUT}
 
