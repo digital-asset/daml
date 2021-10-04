@@ -3,6 +3,7 @@
 
 package com.daml.http.util
 
+import com.daml.fetchcontracts.util.{IdentifierConverters => FC}
 import com.daml.lf
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
@@ -36,20 +37,13 @@ object IdentifierConverters {
   }
 
   def apiIdentifier(a: lf.data.Ref.Identifier): lav1.value.Identifier =
-    lav1.value.Identifier(
-      packageId = a.packageId,
-      moduleName = a.qualifiedName.module.dottedName,
-      entityName = a.qualifiedName.name.dottedName,
-    )
+    FC.apiIdentifier(a)
 
-  def apiIdentifier(a: lar.TemplateId): lav1.value.Identifier = lar.TemplateId.unwrap(a)
+  @deprecated("TemplateId is a tag, use unwrap or unsubst instead", since = "1.18.0")
+  def apiIdentifier(a: lar.TemplateId): lav1.value.Identifier = FC.apiIdentifier(a)
 
   def apiIdentifier(a: http.domain.TemplateId.RequiredPkg): lav1.value.Identifier =
-    lav1.value.Identifier(
-      packageId = a.packageId,
-      moduleName = a.moduleName,
-      entityName = a.entityName,
-    )
+    FC.apiIdentifier(a)
 
   def refApiIdentifier(a: http.domain.TemplateId.RequiredPkg): lar.TemplateId =
     lar.TemplateId(apiIdentifier(a))

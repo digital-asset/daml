@@ -51,7 +51,8 @@ package object domain {
 
   type Offset = String @@ OffsetTag
 
-  private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A]) extends AnyVal {
+  private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A])
+      extends AnyVal {
     def required(label: String): Error \/ A =
       o toRightDisjunction Error(Symbol("ErrorOps_required"), s"Missing required field $label")
   }

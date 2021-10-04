@@ -22,6 +22,7 @@ import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import domain.TemplateId
 import com.daml.http.util.Logging.{InstanceUUID}
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
+import util.IdentifierConverters.apiIdentifier
 import com.daml.scalautil.ExceptionOps._
 import com.daml.scalautil.nonempty.NonEmpty
 import com.daml.jwt.domain.Jwt
@@ -160,5 +161,18 @@ private[daml] object AcsTxStreams {
   ): (ContractStreamStep.Txn.LAV1, domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
+  }
+
+  private[daml] def transactionFilter(
+      parties: OneAnd[Set, domain.Party],
+      templateIds: List[TemplateId.RequiredPkg],
+  ): lav1.transaction_filter.TransactionFilter = {
+    import lav1.transaction_filter._
+
+    val filters =
+      if (templateIds.isEmpty) Filters.defaultInstance
+      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
+
+    TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
   }
 }

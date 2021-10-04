@@ -429,19 +429,6 @@ private[http] object ContractsFetch {
     }.void
   }
 
-  private def transactionFilter(
-      parties: OneAnd[Set, domain.Party],
-      templateIds: List[TemplateId.RequiredPkg],
-  ): lav1.transaction_filter.TransactionFilter = {
-    import lav1.transaction_filter._
-
-    val filters =
-      if (templateIds.isEmpty) Filters.defaultInstance
-      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
-
-    TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
-  }
-
   private final case class FetchContext(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
