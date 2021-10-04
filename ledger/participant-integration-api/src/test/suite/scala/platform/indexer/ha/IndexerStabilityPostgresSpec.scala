@@ -8,5 +8,4 @@ import com.daml.testing.postgresql.PostgresAroundEach
 final class IndexerStabilityPostgresSpec extends IndexerStabilitySpec with PostgresAroundEach {
 
   override def jdbcUrl: String = postgresDatabase.url
-  override def haModeSupported: Boolean = true
 }
