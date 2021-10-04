@@ -720,7 +720,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       s"""
         INSERT INTO $contractTableNameRaw
         VALUES (?, ?, ?::jsonb, ?, ?::jsonb, ?, ?, ?)
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (key_hash) DO NOTHING
       """
     ).updateMany(dbcs)
   }
@@ -885,7 +885,7 @@ private final class OracleQueries(
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, DBContractKey, JsValue, JsValue]](
       s"""
-        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id)) */
+        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(key_hash)) */
         INTO $contractTableNameRaw (contract_id, tpid, key, key_hash, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       """
