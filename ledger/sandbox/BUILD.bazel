@@ -285,7 +285,12 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Command deduplication doesn't work with static time
+        "--exclude=CommandDeduplicationIT",
+        "--exclude=CommandServiceIT:CSduplicateSubmitAndWaitBasic",
+        "--exclude=CommandServiceIT:CSduplicateSubmitAndWaitForTransactionId",
+        "--exclude=CommandServiceIT:CSduplicateSubmitAndWaitForTransactionData",
+        "--exclude=CommandServiceIT:CSduplicateSubmitAndWaitForTransactionTree",
         "--exclude=ClosedWorldIT",
     ],
 )
