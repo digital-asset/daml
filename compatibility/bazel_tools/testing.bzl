@@ -9,19 +9,36 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
-# Each exclusion in the list above is an object with a range of ledger API test tool versions
-# described by `start` and `end` and a list of platform (ledger) ranges. Each platform range
-# is again described by `start` and `end` as well as the actual list of --exclude flags that
-# should be passed to the ledger API test tool.
-# Start and end are always inclusive and can be omitted if you only need an upper or lower bound.
-# Usually, you'll want to set the latest release from the `LATEST` file to one of the boundaries
-# and use the next version in another one. For example, `1.17.0-snapshot.20210910.7786.0.976ca400`
-# could be the end, while `1.17.0-snapshot.20210910.7786.1` would be the next version.
-# Note that 0.0.0, i.e., current HEAD is considered to come after all other versions.
+# Each exclusion in the list below is defined in terms of:
+#
+# - A range of ledger API test tool versions described by `start` and `end` (both inclusive).
+# - A list of platform (ledger) ranges, each described by `start` and `end` (both inclusive),
+#   as well as the actual list of `--exclude` flags to be passed to the ledger API test tool.
+#
+# Start and end can be omitted and are always inclusive; an interval extreme can be
+# excluded by setting it to a non-existing version that is guaranteed to be between two
+# existing ones, according to version ordering. This is especially useful to denote the
+# upcoming (yet unknown) snapshot version.
+#
+# For example, if the current snapshot is `1.17.0-snapshot.20210811.7565.0.f1a55aa4`, then
+# `1.17.0-snapshot.20210811.7565.1` will be greater than the current snapshot version but
+# smaller than the upcoming snapshot version (because either the date or the commits count
+# or both will increase).
+#
+# An example scenario is a change to both a ledger and the Ledger API Test Tool that makes the
+# latter incompatible with previous versions of the ledger.
+# In this case, you'll want to set the platform `end` to be the latest released snapshot
+# (you can obtain it e.g. from `LATEST`), the platform `start` to be unbounded as to cover
+# all previous versions and the test tool `start` to be the upcoming snapshot, which you
+# can denote by using the "intermediate version" trick above.
+#
+# Note that 0.0.0 (i.e., current HEAD) is considered greater than all other versions.
+#
 # Also, note that before 1.3 the granularity for disabling tests
 # was sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
 # for details.
+#
 # PRs that resulted in exclusions:
 # - ContractKeysIT:
 #   - https://github.com/digital-asset/daml/pull/5608
