@@ -1830,7 +1830,6 @@ abstract class AbstractHttpServiceIntegrationTest
       import scalaz.syntax.traverse._
       import scalaz.std.scalaFuture._
       import shapeless.record.{Record => ShRecord}
-      import scalaz.std.option.some
       import com.daml.ledger.api.refinements.{ApiTypes => lar}
 
       val partyIds = Vector("Alice", "Bob").map(getUniqueParty)
@@ -1845,13 +1844,10 @@ abstract class AbstractHttpServiceIntegrationTest
       ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
         val templateId = domain.TemplateId(None, "User", "User")
         val followingList = following.map(party => v.Value(v.Value.Sum.Party(party.unwrap)))
-        val arg = v.Record(
-          fields = List(
-            v.RecordField("username", Some(v.Value(v.Value.Sum.Party(username.unwrap)))),
-            v.RecordField(
-              "following",
-              some(v.Value(v.Value.Sum.List(v.List.of(followingList)))),
-            ),
+        val arg = recordFromFields(
+          ShRecord(
+            username = v.Value.Sum.Party(username.unwrap),
+            following = v.Value.Sum.List(v.List.of(followingList)),
           )
         )
 
