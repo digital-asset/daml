@@ -360,9 +360,6 @@ private class ContractsFetch(
 
 private[http] object ContractsFetch {
 
-  import com.daml.fetchcontracts.AcsTxStreams._
-  import com.daml.fetchcontracts.util.AkkaStreamsDoobie.{last, project2}
-
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
 
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
