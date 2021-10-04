@@ -213,7 +213,7 @@ private[trigger] object ServiceConfig {
       )
 
     opt[Boolean]("allow-existing-schema")
-      .action((_, c) => c.copy(allowExistingSchema = true))
+      .action((x, c) => c.copy(allowExistingSchema = x))
       .text(
         "Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false."
       )
