@@ -115,7 +115,12 @@ trait AbstractHttpServiceIntegrationTestFuns
       .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  implicit val `AHS asys`: ActorSystem = ActorSystem(testId)
+  import com.typesafe.config.ConfigFactory
+  private val customConf = ConfigFactory.parseString("""
+    akka.http.server.request-timeout = 60s
+  """)
+
+  implicit val `AHS asys`: ActorSystem = ActorSystem(testId, ConfigFactory.load(customConf))
   implicit val `AHS mat`: Materializer = Materializer(`AHS asys`)
   implicit val `AHS aesf`: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool(testId)(`AHS asys`)
