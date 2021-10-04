@@ -36,17 +36,8 @@ object IdentifierConverters {
     )
   }
 
-  def apiIdentifier(a: lf.data.Ref.Identifier): lav1.value.Identifier =
-    FC.apiIdentifier(a)
-
-  @deprecated("TemplateId is a tag, use unwrap or unsubst instead", since = "1.18.0")
-  def apiIdentifier(a: lar.TemplateId): lav1.value.Identifier = FC.apiIdentifier(a)
-
-  def apiIdentifier(a: http.domain.TemplateId.RequiredPkg): lav1.value.Identifier =
-    FC.apiIdentifier(a)
-
   def refApiIdentifier(a: http.domain.TemplateId.RequiredPkg): lar.TemplateId =
-    lar.TemplateId(apiIdentifier(a))
+    lar.TemplateId(FC.apiIdentifier(a))
 
   def apiLedgerId(a: com.daml.ledger.api.domain.LedgerId): lar.LedgerId =
     lar.LedgerId(com.daml.ledger.api.domain.LedgerId.unwrap(a))
