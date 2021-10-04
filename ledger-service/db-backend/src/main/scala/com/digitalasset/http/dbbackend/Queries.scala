@@ -684,7 +684,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
-    sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
+    sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
   protected[this] override def extraDatabaseDdls =
@@ -720,7 +720,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       s"""
         INSERT INTO $contractTableNameRaw
         VALUES (?, ?, ?::jsonb, ?, ?::jsonb, ?, ?, ?)
-        ON CONFLICT (key_hash) DO NOTHING
+        ON CONFLICT (contract_id) DO NOTHING
       """
     ).updateMany(dbcs)
   }
@@ -845,7 +845,7 @@ private final class OracleQueries(
 
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
-    sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
+    sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
   private[this] val indexPayload = CreateIndex(sql"""
@@ -885,7 +885,7 @@ private final class OracleQueries(
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, DBContractKey, JsValue, JsValue]](
       s"""
-        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(key_hash)) */
+        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id)) */
         INTO $contractTableNameRaw (contract_id, tpid, key, key_hash, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       """
