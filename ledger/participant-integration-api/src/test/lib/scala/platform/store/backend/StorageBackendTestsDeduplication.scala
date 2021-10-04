@@ -33,9 +33,11 @@ private[backend] trait StorageBackendTestsDeduplication
           executeSql(backend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil))
         )
       )
+      foundDeduplicateUntil <- executeSql(backend.deduplicatedUntil(key))
     } yield {
       insertedRows.count(_ == 1) shouldBe 1 // One of the calls inserts a new row
       insertedRows.count(_ == 0) shouldBe (n - 1) // All other calls don't write anything
+      foundDeduplicateUntil shouldBe deduplicateUntil
       succeed
     }
   }
@@ -53,17 +55,21 @@ private[backend] trait StorageBackendTestsDeduplication
       insertedRows <- executeSql(
         backend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
       )
+      foundDeduplicateUntil <- executeSql(backend.deduplicatedUntil(key))
       updatedRows <- Future.sequence(
         Vector.fill(n)(
           executeSql(backend.upsertDeduplicationEntry(key, submittedAt2, deduplicateUntil2))
         )
       )
+      foundDeduplicateUntil2 <- executeSql(backend.deduplicatedUntil(key))
     } yield {
       insertedRows shouldBe 1 // First call inserts a new row
       updatedRows.count(
         _ == 1
       ) shouldBe 1 // One of the subsequent calls updates the now expired row
       updatedRows.count(_ == 0) shouldBe (n - 1) // All other calls don't write anything
+      foundDeduplicateUntil shouldBe deduplicateUntil
+      foundDeduplicateUntil2 shouldBe deduplicateUntil2
       succeed
     }
   }
@@ -71,19 +77,25 @@ private[backend] trait StorageBackendTestsDeduplication
   it should "not update or insert anything if there is an existing active entry" in {
     val key = "deduplication key"
     val submittedAt = Instant.EPOCH
-    val deduplicateUntil = submittedAt.plusSeconds(1)
+    val deduplicateUntil = submittedAt.plusSeconds(10)
+    val submittedAt2 = submittedAt.plusSeconds(1)
+    val deduplicateUntil2 = submittedAt2.plusSeconds(10)
 
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
       insertedRows <- executeSql(
         backend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
       )
+      foundDeduplicateUntil <- executeSql(backend.deduplicatedUntil(key))
       updatedRows <- executeSql(
-        backend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
+        backend.upsertDeduplicationEntry(key, submittedAt2, deduplicateUntil2)
       )
+      foundDeduplicateUntil2 <- executeSql(backend.deduplicatedUntil(key))
     } yield {
       insertedRows shouldBe 1 // First call inserts a new row
       updatedRows shouldBe 0 // Second call doesn't write anything
+      foundDeduplicateUntil shouldBe deduplicateUntil
+      foundDeduplicateUntil2 shouldBe deduplicateUntil
       succeed
     }
   }
