@@ -77,7 +77,7 @@ abstract class DbTriggerDao protected (
 
   private def insertRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
     val insert: Fragment =
-      sql"insert into " ++ Fragment.const(s"${tablePrefix}running_triggers") ++ sql"""
+      sql"""insert into ${Fragment.const(s"${tablePrefix}running_triggers")}
           (trigger_instance, trigger_party, full_trigger_name, access_token, refresh_token, application_id)
         values
           (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerAccessToken}, ${t.triggerRefreshToken}, ${t.triggerApplicationId})
