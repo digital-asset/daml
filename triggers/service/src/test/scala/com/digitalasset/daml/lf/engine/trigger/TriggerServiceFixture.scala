@@ -443,7 +443,7 @@ trait TriggerDaoOracleFixture
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
-  // Lazy because the postgresDatabase is only available once the tests start
+  // Lazy because the oracleDatabase is only available once the tests start
   private lazy val jdbcConfig_ =
     JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, oracleUser, oraclePwd)
   // TODO For whatever reason we need a larger pool here, otherwise
