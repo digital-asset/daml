@@ -13,6 +13,8 @@ LATEST       @gerolf-da @bame-da @cocreature
 /infra/             @garyverhaegen-da
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
+/release/           @garyverhaegen-da
+/release.sh         @garyverhaegen-da
 
 # Blackduck
 NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
@@ -57,7 +59,7 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/sandbox/                    @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Owned by KV Participant except for IndexDB schema which is jointly owned with @meiersi-da
-/ledger/participant-integration-api/                    @digital-asset/kv-participant @meiersi-da 
+/ledger/participant-integration-api/                    @digital-asset/kv-participant @meiersi-da
 
 
 # KV Committer
