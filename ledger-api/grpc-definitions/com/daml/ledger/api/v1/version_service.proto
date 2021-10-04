@@ -64,15 +64,13 @@ message FeatureDescriptor {
 
 // See the feature message definitions for descriptions.
 message LedgerFeatures {
-  FeatureOrderedContractIds ordered_contract_ids = 1;
-  FeatureMonotonicRecordTime monotonic_record_time = 2;  
+  FeatureOrderedContractIds ordered_contract_ids = 2;
 }
 
 // See the feature message definitions for descriptions.
 message ParticipantFeatures {
-  FeaturePartyAllocation party_allocation = 1;
+  FeatureDamlLf daml_lf = 1;
   FeatureParticipantPruning participant_pruning = 2;
-  FeatureLedgerConfigManagement ledger_config_management = 3;
 }
 
 // Whether the ledger builds contract-ids in a way that allows Daml code
@@ -81,31 +79,12 @@ message ParticipantFeatures {
 // Required since: v1.9
 message FeatureOrderedContractIds {}
 
-// Whether the ledger ensures that record time increases monotonically
-// for transactions.
-//
-// Applications should not rely on this feature, as it is not compatible
-// with partitioned ledger topologies: 
-// https://docs.daml.com/deploy/ledger-topologies.html#partitioned-topologies
-//
-// Optional since: v1.0
-// Deprecated since: v2.0
-message FeatureMonotonicRecordTime {}
-
-
-// Whether and what kind of party allocation the participant node supports.
+// The stable DAML-LF versions supported by this participant node.
 //
 // Required since: v1.0
-message FeaturePartyAllocation {
-  // True if parties are implicitly allocated by the participant node whenever
-  // an unknown party literal is encountered.
-  //
-  // Applications should not rely on this feature, as it is not compatible with
-  // production ledgers.
-  //
-  // Optional since: v1.0
-  // Deprecated since: v2.0
-  bool implicit_party_allocation = 1;
+message FeatureDamlLf {
+  // All supported DAML-LF versions, e.g., ["1.14","1.15"]
+  repeated string supported_daml_lf_versions = 1;
 }
 
 // Whether the participant supports pruning the historic transaction log
@@ -119,15 +98,4 @@ message FeatureParticipantPruning {
   //
   // Optional since: v.12
   bool supports_pruning_all_divulged_events = 2;
-}
-
-
-// Whether the participant node can change the ledger configuration.
-//
-// Applications should not rely on this feature, as it cannot be
-// implemented uniformly across all ledgers.
-//
-// Optional since: v1.0
-// Deprecated since: v2.0
-message FeatureLedgerConfigManagement {
 }

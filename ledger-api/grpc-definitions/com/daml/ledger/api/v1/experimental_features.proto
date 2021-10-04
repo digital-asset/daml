@@ -16,10 +16,30 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // See the feature message definitions for descriptions.
 message ExperimentalFeatures {
-    ExperimentalNonUniqueContractKeys non_unique_contract_keys = 1;
-    ExperimentalNoConflictDetection no_conflict_detection = 2;
-    ExperimentalRankBasedCommandDeduplication rank_based_command_deduplication = 3;
+    // Features only implementable on centralized ledgers
+    ExperimentalMonotonicRecordTime monotonic_record_time = 1;
+    ExperimentalLedgerConfigManagement ledger_config_management = 2;
+
+    // Legacy features
+    ExperimentalImplicitPartyAllocation implicit_party_allocation = 100;
+
+    // Testing-only features
+    ExperimentalNoConflictDetection no_conflict_detection = 200;
+
+    // Features in development
+    ExperimentalRankBasedCommandDeduplication rank_based_command_deduplication = 300;
+    ExperimentalNonUniqueContractKeys non_unique_contract_keys = 301;
 }
+
+// Whether the ledger ensures that record time increases monotonically
+// for transactions.
+message ExperimentalMonotonicRecordTime {}
+
+// Whether the participant node can change the ledger configuration.
+message ExperimentalLedgerConfigManagement {}
+
+// Whether the participant node supports implicit party allocation.
+message ExperimentalImplicitPartyAllocation {}
 
 // The ledger does not enforce contract key uniqueness constraints.
 message ExperimentalNonUniqueContractKeys {}
