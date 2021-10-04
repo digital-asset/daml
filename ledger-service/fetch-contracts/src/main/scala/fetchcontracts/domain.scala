@@ -68,12 +68,8 @@ package domain {
     def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
 
-    /* TODO SC bring Terminates?
-    def toTerminates(o: Offset): LedgerClientJwt.Terminates.AtAbsolute =
-      LedgerClientJwt.Terminates.AtAbsolute(
-        lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o))
-      )
-     */
+    @annotation.compileTimeOnly("use Terminates.fromDomain instead")
+    def toTerminates(o: Offset): Nothing = sys.error(s"wrong function $o")
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))

@@ -96,7 +96,7 @@ private class ContractsFetch(
             go(
               maxAttempts - 1,
               laggingTids.toList,
-              domain.Offset.toTerminates(newOff),
+              Terminates fromDomain newOff,
             )
           else
             fconn.raiseError(
@@ -164,8 +164,7 @@ private class ContractsFetch(
           case LedgerBegin =>
             fconn.pure(AbsoluteBookmark(absEnd))
           case AbsoluteBookmark(feedback) =>
-            val feedbackTerminator =
-              domain.Offset.toTerminates(feedback)
+            val feedbackTerminator = Terminates fromDomain feedback
             // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
             // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
             // for an example of this happening.  We deal with this race condition
