@@ -104,7 +104,7 @@ jobs:
 
           gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
 
-          setvar speedy_perf "$perf"
+          setvar speedy_perf "$perf ms/op"
 
         displayName: measure perf
         name: out
@@ -308,7 +308,7 @@ jobs:
           fi
 
           RESULT=${RESULT%"\n"}
-          setvar ${QUERY_STORE}_perf_results "$RESULT"
+          setvar ${QUERY_STORE}_perf_results "$RESULT x"
 
           GZIP=-9 tar -zcf ${OUT}.tgz ${OUT}
 
