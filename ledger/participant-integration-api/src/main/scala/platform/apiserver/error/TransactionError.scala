@@ -58,8 +58,7 @@ trait TransactionError extends BaseError {
     val ErrorCode.StatusInfo(codeGrpc, message, contextMap, _) =
       code.getStatusInfo(this, correlationId, logger)(loggingContext)
 
-    val definiteAnswerKey =
-      "definite_answer" // TODO error codes: Can we use a constant from some upstream class?
+    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
 
     val metadata = if (code.category.securitySensitive) Map.empty[String, String] else contextMap
     val errorInfo = com.google.rpc.error_details.ErrorInfo(
