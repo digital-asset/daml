@@ -3,21 +3,8 @@
 
 package com.daml.http
 
-import akka.NotUsed
-import akka.stream.scaladsl.{
-  Broadcast,
-  Concat,
-  Flow,
-  GraphDSL,
-  Keep,
-  Partition,
-  RunnableGraph,
-  Sink,
-  SinkQueueWithCancel,
-  Source,
-}
-import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
-import com.daml.scalautil.Statement.discard
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
+import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
@@ -26,7 +13,6 @@ import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
-import com.daml.http.util.IdentifierConverters.apiIdentifier
 import com.daml.http.util.Logging.{InstanceUUID}
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
@@ -38,12 +24,10 @@ import com.daml.fetchcontracts.util.{
 import com.daml.scalautil.ExceptionOps._
 import com.daml.scalautil.nonempty.NonEmpty
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
-import scalaz.Order
 import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.std.vector._
@@ -55,11 +39,10 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, OneAnd, \/, \/-}
+import scalaz.{OneAnd, \/}
 import spray.json.{JsNull, JsValue}
-import scalaz.Liskov.<~<
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 private class ContractsFetch(
@@ -70,7 +53,7 @@ private class ContractsFetch(
 
   import ContractsFetch._
   import com.daml.fetchcontracts.AcsTxStreams._
-  import com.daml.fetchcontracts.util.AkkaStreamsDoobie.{connectionIOFuture, sinkCIOSequence_}
+  import com.daml.fetchcontracts.util.AkkaStreamsDoobie.{connectionIOFuture, sinkCioSequence_}
   import sjd.retrySqlStates
 
   private[this] val logger = ContextualizedLogger.get(getClass)

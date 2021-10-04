@@ -42,8 +42,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
 
-  type LfValue = lf.value.Value
-
   private def oneAndSet[A](p: A, sp: Set[A]) =
     OneAnd(p, sp - p)
 

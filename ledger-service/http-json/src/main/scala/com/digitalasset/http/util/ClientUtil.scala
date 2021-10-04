@@ -17,6 +17,8 @@ private[http] object ClientUtil {
   def transactionFilter(ps: Party*): TransactionFilter =
     TransactionFilter(Party.unsubst(ps).map((_, Filters.defaultInstance)).toMap)
 
+  import com.daml.fetchcontracts.util.{ClientUtil => FC}
+
   def boxedRecord(a: lav1.value.Record): lav1.value.Value =
-    com.daml.fetchcontracts.util.boxedRecord(a)
+    FC.boxedRecord(a)
 }
