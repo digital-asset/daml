@@ -9,6 +9,7 @@ import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validat
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.error.RejectionGenerators.ErrorCauseExport
 import com.daml.platform.store.ErrorCause
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -16,10 +17,7 @@ import io.grpc.protobuf.StatusProto
 
 import scala.util.{Failure, Success, Try}
 
-trait RejectionGenerators {
-  // TODO Tudor: Add as parameter
-  def conformanceMode: Boolean
-
+class RejectionGenerators(conformanceMode: Boolean) {
   private val adjustErrors = Map(
     LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
     LedgerApiErrors.InterpreterErrors.ContractNotActive -> Code.INVALID_ARGUMENT,
@@ -228,7 +226,9 @@ trait RejectionGenerators {
         reject
     }
   }
+}
 
+object RejectionGenerators {
   sealed trait ErrorCauseExport
   object ErrorCauseExport {
     final case class DamlLf(error: LfError) extends ErrorCauseExport
