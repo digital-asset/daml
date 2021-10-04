@@ -150,6 +150,9 @@ package domain {
     }
   }
 
+  // This allows us to avoid rewriting all the imports and references
+  // to http.domain.  We can snap the indirections and remove these
+  // as convenient
   private[daml] trait Aliases {
     import com.daml.fetchcontracts.{domain => here}
     type Error = here.Error
