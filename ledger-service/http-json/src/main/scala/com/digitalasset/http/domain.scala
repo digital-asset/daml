@@ -266,26 +266,28 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     }
   }
 
-  /* TODO SC where HasTemplateId?
-    implicit val hasTemplateId: HasTemplateId[ActiveContract] = new HasTemplateId[ActiveContract] {
-      override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
-        TemplateId(
-          Some(fa.templateId.packageId),
-          fa.templateId.moduleName,
-          fa.templateId.entityName,
-        )
+  private[http] object ActiveContractExtras {
+    // only used in integration tests
+    implicit val `AcC hasTemplateId`: HasTemplateId[ActiveContract] =
+      new HasTemplateId[ActiveContract] {
+        override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
+          TemplateId(
+            Some(fa.templateId.packageId),
+            fa.templateId.moduleName,
+            fa.templateId.entityName,
+          )
 
-      override def lfType(
-          fa: ActiveContract[_],
-          templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveTemplateRecordType,
-          g: PackageService.ResolveChoiceArgType,
-          h: PackageService.ResolveKeyType,
-      ): Error \/ LfType =
-        f(templateId)
-          .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
-    }
-   */
+        override def lfType(
+            fa: ActiveContract[_],
+            templateId: TemplateId.RequiredPkg,
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceArgType,
+            h: PackageService.ResolveKeyType,
+        ): Error \/ LfType =
+          f(templateId)
+            .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
+      }
+  }
 
   object ArchivedContract {
     def fromLedgerApi(in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =

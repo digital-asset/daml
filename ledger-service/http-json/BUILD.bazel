@@ -383,6 +383,7 @@ alias(
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
             "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-resources",
             "//ledger/metrics",

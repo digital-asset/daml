@@ -495,6 +495,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       exercise: domain.ExerciseCommand[v.Value, _],
       ledgerId: LedgerId,
   ): Future[Assertion] = {
+    import domain.ActiveContractExtras._
 
     val expectedContractFields: Seq[v.RecordField] = create.payload.fields
     val expectedNewOwner: v.Value = exercise.argument.sum.record
