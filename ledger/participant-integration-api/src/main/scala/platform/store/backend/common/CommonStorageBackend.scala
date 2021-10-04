@@ -198,7 +198,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   private val SQL_UPDATE_MOST_RECENT_PRUNING_INCLUDING_ALL_DIVULGED_CONTRACTS =
     SQL("""
         |update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive={prune_all_divulged_contracts_up_to_inclusive}
-        |where participant_pruned_up_to_inclusive < {prune_all_divulged_contracts_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
+        |where participant_all_divulged_contracts_pruned_up_to_inclusive < {prune_all_divulged_contracts_up_to_inclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
         |""".stripMargin)
 
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
@@ -207,6 +207,18 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
       .execute()(connection)
     ()
+  }
+
+  private val SQL_SELECT_MOST_RECENT_PRUNING_ALL_DIVULGED_CONTRACTS =
+    SQL("select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters")
+
+  def participantAllDivulgedContractsPrunedUpToInclusive(
+      connection: Connection
+  ): Option[Offset] = {
+    SQL_SELECT_MOST_RECENT_PRUNING_ALL_DIVULGED_CONTRACTS
+      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
+        connection
+      )
   }
 
   def updatePrunedAllDivulgedContractsUpToInclusive(
@@ -224,7 +236,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     "select participant_pruned_up_to_inclusive from parameters"
   )
 
-  def prunedUptoInclusive(connection: Connection): Option[Offset] =
+  def prunedUpToInclusive(connection: Connection): Option[Offset] =
     SQL_SELECT_MOST_RECENT_PRUNING
       .as(offset("participant_pruned_up_to_inclusive").?.single)(connection)
 
@@ -569,14 +581,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
             delete_events.event_offset <= $pruneUpToInclusive"""
     }(connection, loggingContext)
   }
-
-  private def participantAllDivulgedContractsPrunedUpToInclusive(
-      connection: Connection
-  ): Option[Offset] =
-    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
-      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
-        connection
-      )
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
       connection: Connection,
