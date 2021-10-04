@@ -36,7 +36,7 @@ private[daml] object AkkaStreamsDoobie {
       new FanOutShape2(split.in, as.out, bs.out)
     }
 
-  def project2[A, B]: Graph[FanOutShape2[(A, B), A, B], NotUsed] =
+  private[fetchcontracts] def project2[A, B]: Graph[FanOutShape2[(A, B), A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       val split = b add Broadcast[(A, B)](2)
@@ -47,14 +47,12 @@ private[daml] object AkkaStreamsDoobie {
       new FanOutShape2(split.in, left.out, right.out)
     }
 
-  def last[A](ifEmpty: A): Flow[A, A, NotUsed] =
+  private[fetchcontracts] def last[A](ifEmpty: A): Flow[A, A, NotUsed] =
     Flow[A].fold(ifEmpty)((_, later) => later)
 
-  /*private*/
-  def max[A: Order](ifEmpty: A): Flow[A, A, NotUsed] =
+  private[fetchcontracts] def max[A: Order](ifEmpty: A): Flow[A, A, NotUsed] =
     Flow[A].fold(ifEmpty)(_ max _)
 
-  /*private*/
   def sinkCioSequence_[Ign](
       f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]]
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
@@ -74,7 +72,6 @@ private[daml] object AkkaStreamsDoobie {
     )
   }
 
-  /*private*/
   def connectionIOFuture[A](
       fa: Future[A]
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
