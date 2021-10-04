@@ -87,8 +87,8 @@ abstract class DbTriggerDao protected (
 
   private def queryRunningTrigger(triggerInstance: UUID): ConnectionIO[Option[RunningTrigger]] = {
     val select: Fragment = sql"""
-        select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token from """ ++ Fragment
-      .const(s"${tablePrefix}running_triggers") ++ sql"""
+        select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token
+        from ${Fragment.const(s"${tablePrefix}running_triggers")}
         where trigger_instance = $triggerInstance
       """
     select
@@ -103,7 +103,7 @@ abstract class DbTriggerDao protected (
       refreshToken: Option[RefreshToken],
   ) = {
     val update: Fragment =
-      sql"update " ++ Fragment.const(s"${tablePrefix}running_triggers") ++ sql"""
+      sql"""update ${Fragment.const(s"${tablePrefix}running_triggers")}
         set access_token = $accessToken, refresh_token = $refreshToken
         where trigger_instance = $triggerInstance
       """
@@ -113,16 +113,16 @@ abstract class DbTriggerDao protected (
   // trigger_instance is the primary key on running_triggers so this deletes
   // at most one row. Return whether or not it deleted.
   private def deleteRunningTrigger(triggerInstance: UUID): ConnectionIO[Boolean] = {
-    val delete = sql"delete from " ++ Fragment.const(
-      s"${tablePrefix}running_triggers"
-    ) ++ sql" where trigger_instance = $triggerInstance"
+    val delete =
+      sql"""delete from ${Fragment.const(s"${tablePrefix}running_triggers")}
+        where trigger_instance = $triggerInstance
+      """
     delete.update.run.map(_ == 1)
   }
 
   private def selectRunningTriggers(party: Party): ConnectionIO[Vector[UUID]] = {
     val select: Fragment = sql"""
-        select trigger_instance from """ ++ Fragment
-      .const(s"${tablePrefix}running_triggers") ++ sql"""
+        select trigger_instance from ${Fragment.const(s"${tablePrefix}running_triggers")}
         where trigger_party = $party
       """
     // We do not use an `order by` clause because we sort the UUIDs afterwards using Scala's
@@ -139,7 +139,7 @@ abstract class DbTriggerDao protected (
 
   private def selectPackages: ConnectionIO[List[(String, Array[Byte])]] = {
     val select: Fragment =
-      sql"select * from " ++ Fragment.const(s"${tablePrefix}dalfs") ++ sql" order by package_id"
+      sql"select * from ${Fragment.const(s"${tablePrefix}dalfs")} order by package_id"
     select.query[(String, Array[Byte])].to[List]
   }
 
@@ -157,8 +157,9 @@ abstract class DbTriggerDao protected (
 
   private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {
     val select: Fragment = sql"""
-      select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token from """ ++ Fragment
-      .const(s"${tablePrefix}running_triggers") ++ sql""" order by trigger_instance
+      select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token
+      from ${Fragment.const(s"${tablePrefix}running_triggers")}
+      order by trigger_instance
     """
     select
       .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken], Option[RefreshToken])]
@@ -270,8 +271,8 @@ final class DbTriggerDaoPostgreSQL(
       pkg: DamlLf.ArchivePayload,
   ): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
-      insert into """ ++ Fragment
-      .const(s"${tablePrefix}dalfs") ++ sql""" values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
+      insert into ${Fragment.const(s"${tablePrefix}dalfs")}
+      values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
     """
     insert.update.run.void
   }
@@ -290,10 +291,10 @@ final class DbTriggerDaoOracle(
       pkg: DamlLf.ArchivePayload,
   ): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
-      insert /*+  ignore_row_on_dupkey_index ( """ ++ Fragment
-      .const(s"${tablePrefix}dalfs") ++ sql""" ( package_id ) ) */
-      into """ ++ Fragment
-      .const(s"${tablePrefix}dalfs") ++ sql""" values (${packageId.toString}, ${pkg.toByteArray})
+      insert /*+  ignore_row_on_dupkey_index ( ${Fragment
+      .const(s"${tablePrefix}dalfs")} ( package_id ) ) */
+      into ${Fragment
+      .const(s"${tablePrefix}dalfs")} values (${packageId.toString}, ${pkg.toByteArray})
     """
     insert.update.run.void
   }
