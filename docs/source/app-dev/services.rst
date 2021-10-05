@@ -89,7 +89,6 @@ The command submission service deduplicates submitted commands based on their :r
 
   - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication period of a previous command with the same :ref`change ID <change-id>` on the same participant.
   - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication period of a previous command with the same :ref`change ID <change-id>`.
-  - Additional metadata (in case of errors), which should be easily parsable. An example is ``definite_answer`` telling whether a different response may be expected when resubmitting the same command.
 
 - If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
 
