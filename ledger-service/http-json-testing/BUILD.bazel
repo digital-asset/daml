@@ -44,6 +44,7 @@ hj_scalacopts = lf_scalacopts + [
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
+            "//ledger-service/fetch-contracts",
             "@maven//:org_scalatest_scalatest_compatible",
             "//ledger-service/http-json:http-json-{}".format(edition),
             "//ledger-service/http-json-cli:{}".format(edition),

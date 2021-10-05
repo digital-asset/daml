@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.http
+package com.daml.fetchcontracts
 package util
 
 import com.daml.http.dbbackend.Queries.DBContract
@@ -13,7 +13,7 @@ import scalaz.syntax.tag._
 import scala.collection.compat._
 import scala.runtime.AbstractFunction1
 
-private[http] final case class InsertDeleteStep[+D, +C](
+private[daml] final case class InsertDeleteStep[+D, +C](
     inserts: InsertDeleteStep.Inserts[C],
     deletes: Map[String, D],
 ) {
@@ -52,7 +52,7 @@ private[http] final case class InsertDeleteStep[+D, +C](
   }
 }
 
-private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
+private[daml] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
   type Inserts[+C] = Vector[C]
   val Inserts: Vector.type = Vector
 
@@ -79,6 +79,6 @@ private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
      else leftInserts.filter(c => !right.deletes.isDefinedAt(cid(c)))) ++ right.inserts
 }
 
-private[http] trait WithLAV1[F[_, _]] {
+private[daml] trait WithLAV1[F[_, _]] {
   type LAV1 = F[evv1.ArchivedEvent, evv1.CreatedEvent]
 }

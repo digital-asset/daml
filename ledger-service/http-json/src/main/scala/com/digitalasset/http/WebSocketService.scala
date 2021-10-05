@@ -7,12 +7,18 @@ import akka.NotUsed
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.Materializer
+import com.daml.fetchcontracts.util.{
+  AbsoluteBookmark,
+  BeginBookmark,
+  ContractStreamStep,
+  InsertDeleteStep,
+}
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest, StartingOffset}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
-import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep, toLedgerId}
+import util.toLedgerId
 import ContractStreamStep.{Acs, LiveBegin, Txn}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
@@ -861,7 +867,7 @@ class WebSocketService(
   ): Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
 
     val zero = (
-      offset.map(o => util.AbsoluteBookmark(o.offset)): Option[BeginBookmark[domain.Offset]],
+      offset.map(o => AbsoluteBookmark(o.offset)): Option[BeginBookmark[domain.Offset]],
       TickTrigger: TickTriggerOrStep[Pos],
     )
 

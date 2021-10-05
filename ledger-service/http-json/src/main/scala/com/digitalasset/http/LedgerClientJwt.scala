@@ -126,6 +126,10 @@ object LedgerClientJwt {
     final case class AtAbsolute(off: LedgerOffset.Value.Absolute) extends Terminates {
       def toDomain: domain.Offset = domain.Offset(off.value)
     }
+    def fromDomain(o: domain.Offset): AtAbsolute =
+      AtAbsolute(
+        LedgerOffset.Value.Absolute(domain.Offset unwrap o)
+      )
   }
 
   private val ledgerEndOffset =

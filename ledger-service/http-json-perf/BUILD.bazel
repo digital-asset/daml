@@ -56,6 +56,7 @@ perf_runtime_deps = {
         deps = [
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger-service/fetch-contracts",
             "@maven//:io_gatling_gatling_netty_util",
             "@maven//:io_netty_netty_common",
             "@maven//:io_netty_netty_transport",

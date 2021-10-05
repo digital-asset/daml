@@ -21,7 +21,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     taggedJsonFormat[String, lar.ApplicationIdTag]
 
   implicit val PartyFormat: JsonFormat[domain.Party] =
-    taggedJsonFormat[String, domain.PartyTag]
+    taggedJsonFormat
 
   implicit val CommandIdFormat: JsonFormat[lar.CommandId] =
     taggedJsonFormat[String, lar.CommandIdTag]
@@ -29,7 +29,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
   implicit val DomainContractIdFormat: JsonFormat[domain.ContractId] =
-    taggedJsonFormat[String, domain.ContractIdTag]
+    taggedJsonFormat
 
   implicit val ContractIdFormat: JsonFormat[ContractId] =
     new JsonFormat[ContractId] {
@@ -43,7 +43,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     }
 
   implicit val OffsetFormat: JsonFormat[domain.Offset] =
-    taggedJsonFormat[String, domain.OffsetTag]
+    taggedJsonFormat
 
   implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
     case JsArray(hd +: tl) =>
