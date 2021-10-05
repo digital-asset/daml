@@ -22,6 +22,7 @@ da_scala_test(
     data = [
         "//docs:quickstart-model.dar",
         "//ledger-service/http-json:Account.dar",
+        "//ledger-service/http-json:User.dar",
         "//ledger/test-common:dar-files",
         "//ledger/test-common/test-certificates",
     ],
