@@ -77,23 +77,7 @@ class CollectAuthorityState {
       step += 1
       machine.run() match {
         case SResultScenarioGetParty(_, callback) => callback(cachedParty(step))
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
-          assert(!mustFail)
-          val api = new CannedLedgerApi(step, cachedContract)
-          ScenarioRunner.submit(
-            machine.compiledPackages,
-            api,
-            committers,
-            Set.empty,
-            SExpr.SEValue(commands),
-            location,
-            crypto.Hash.hashPrivateKey(step.toString),
-            doEnrichment = false,
-          ) match {
-            case ScenarioRunner.Commit(_, value, _) =>
-              callback(value)
-            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
-          }
+        case SResultScenarioSubmit(_, _, _, _, callback) => callback(cachedCommit(step))
         case SResultNeedContract(_, _, _, _) =>
           crash("Off-ledger need contract callback")
         case SResultFinalValue(v) => finalValue = v
