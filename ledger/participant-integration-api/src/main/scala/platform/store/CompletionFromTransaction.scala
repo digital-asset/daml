@@ -28,10 +28,10 @@ private[platform] object CompletionFromTransaction {
       commandId: String,
       transactionId: String,
       applicationId: String,
-      maybeSubmissionId: Option[String] = None,
-      maybeDeduplicationOffset: Option[String] = None,
-      maybeDeduplicationDurationSeconds: Option[Long] = None,
-      maybeDeduplicationDurationNanos: Option[Int] = None,
+      optSubmissionId: Option[String] = None,
+      optDeduplicationOffset: Option[String] = None,
+      optDeduplicationDurationSeconds: Option[Long] = None,
+      optDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
@@ -40,11 +40,11 @@ private[platform] object CompletionFromTransaction {
           commandId = commandId,
           transactionId = transactionId,
           applicationId = applicationId,
-          maybeStatus = Some(OkStatus),
-          maybeSubmissionId = maybeSubmissionId,
-          maybeDeduplicationOffset = maybeDeduplicationOffset,
-          maybeDeduplicationDurationSeconds = maybeDeduplicationDurationSeconds,
-          maybeDeduplicationDurationNanos = maybeDeduplicationDurationNanos,
+          optStatus = Some(OkStatus),
+          optSubmissionId = optSubmissionId,
+          optDeduplicationOffset = optDeduplicationOffset,
+          optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
+          optDeduplicationDurationNanos = optDeduplicationDurationNanos,
         )
       ),
     )
@@ -55,10 +55,10 @@ private[platform] object CompletionFromTransaction {
       commandId: String,
       status: StatusProto,
       applicationId: String,
-      maybeSubmissionId: Option[String] = None,
-      maybeDeduplicationOffset: Option[String] = None,
-      maybeDeduplicationDurationSeconds: Option[Long] = None,
-      maybeDeduplicationDurationNanos: Option[Int] = None,
+      optSubmissionId: Option[String] = None,
+      optDeduplicationOffset: Option[String] = None,
+      optDeduplicationDurationSeconds: Option[Long] = None,
+      optDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
       checkpoint = Some(toApiCheckpoint(recordTime, offset)),
@@ -67,11 +67,11 @@ private[platform] object CompletionFromTransaction {
           commandId = commandId,
           transactionId = RejectionTransactionId,
           applicationId = applicationId,
-          maybeStatus = Some(status),
-          maybeSubmissionId = maybeSubmissionId,
-          maybeDeduplicationOffset = maybeDeduplicationOffset,
-          maybeDeduplicationDurationSeconds = maybeDeduplicationDurationSeconds,
-          maybeDeduplicationDurationNanos = maybeDeduplicationDurationNanos,
+          optStatus = Some(status),
+          optSubmissionId = optSubmissionId,
+          optDeduplicationOffset = optDeduplicationOffset,
+          optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
+          optDeduplicationDurationNanos = optDeduplicationDurationNanos,
         )
       ),
     )
@@ -86,24 +86,24 @@ private[platform] object CompletionFromTransaction {
       commandId: String,
       transactionId: String,
       applicationId: String,
-      maybeStatus: Option[StatusProto],
-      maybeSubmissionId: Option[String],
-      maybeDeduplicationOffset: Option[String],
-      maybeDeduplicationDurationSeconds: Option[Long],
-      maybeDeduplicationDurationNanos: Option[Int],
+      optStatus: Option[StatusProto],
+      optSubmissionId: Option[String],
+      optDeduplicationOffset: Option[String],
+      optDeduplicationDurationSeconds: Option[Long],
+      optDeduplicationDurationNanos: Option[Int],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
       commandId = commandId,
-      status = maybeStatus,
+      status = optStatus,
       transactionId = transactionId,
       applicationId = applicationId,
     )
-    val maybeDeduplicationPeriod = toApiDeduplicationPeriod(
-      maybeDeduplicationOffset = maybeDeduplicationOffset,
-      maybeDeduplicationDurationSeconds = maybeDeduplicationDurationSeconds,
-      maybeDeduplicationDurationNanos = maybeDeduplicationDurationNanos,
+    val optDeduplicationPeriod = toApiDeduplicationPeriod(
+      optDeduplicationOffset = optDeduplicationOffset,
+      optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
+      optDeduplicationDurationNanos = optDeduplicationDurationNanos,
     )
-    (maybeSubmissionId, maybeDeduplicationPeriod) match {
+    (optSubmissionId, optDeduplicationPeriod) match {
       case (Some(submissionId), Some(deduplicationPeriod)) =>
         completionWithMandatoryFields.copy(
           submissionId = submissionId,
@@ -123,15 +123,15 @@ private[platform] object CompletionFromTransaction {
   }
 
   private def toApiDeduplicationPeriod(
-      maybeDeduplicationOffset: Option[String],
-      maybeDeduplicationDurationSeconds: Option[Long],
-      maybeDeduplicationDurationNanos: Option[Int],
+      optDeduplicationOffset: Option[String],
+      optDeduplicationDurationSeconds: Option[Long],
+      optDeduplicationDurationNanos: Option[Int],
   ): Option[Completion.DeduplicationPeriod] =
     // The only invariant that should hold, considering legacy data, is that either
     // the deduplication duration seconds and nanos are both populated, or neither is.
     (
-      maybeDeduplicationOffset,
-      (maybeDeduplicationDurationSeconds, maybeDeduplicationDurationNanos),
+      optDeduplicationOffset,
+      (optDeduplicationDurationSeconds, optDeduplicationDurationNanos),
     ) match {
       case (None, (None, None)) => None
       case (Some(offset), _) =>
