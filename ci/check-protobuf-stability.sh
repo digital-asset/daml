@@ -85,7 +85,7 @@ USAGE
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
   echo "Using head target"
-  BUF_TAG_TO_CHECK=".git#branch=${TARGET}"
+  BUF_TAG_TO_CHECK="https://github.com/digital-asset/daml.git#branch=${TARGET}"
   ;;
 *)
   echo "unknown argument $1" >&2
