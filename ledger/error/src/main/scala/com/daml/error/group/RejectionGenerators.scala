@@ -1,15 +1,15 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml
+package error.group
 
-import com.daml.error.BaseError
-import com.daml.ledger.participant.state
-import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.ErrorCause
+import error.{BaseError, ErrorCause, ErrorCodeLoggingContext}
+import ledger.participant.state
+import lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
+import lf.engine.{Error => LfError}
+import lf.interpretation.{Error => LfInterpretationError}
+
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 
@@ -18,23 +18,17 @@ import scala.util.{Failure, Success, Try}
 object RejectionGenerators {
 
   def toGrpc(reject: BaseError)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
+      loggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException =
-    reject.asGrpcErrorFromContext(correlationId.id, logger)(loggingContext)
+    reject.asGrpcErrorFromContext
 
   def duplicateCommand(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
+      loggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException =
     toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
 
   def commandExecutorError(cause: ErrorCauseExport)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
+      loggingContext: ErrorCodeLoggingContext
   ): Option[StatusRuntimeException] = {
 
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
@@ -154,9 +148,7 @@ object RejectionGenerators {
   //                   Instead of using this, construct proper validation errors in callers of this method
   //                   and only convert to StatusRuntimeExceptions when dispatched (e.g. in ApiSubmissionService)
   def validationFailure(reject: StatusRuntimeException)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException = {
     val description = reject.getStatus.getDescription
     reject.getStatus.getCode match {
@@ -168,13 +160,13 @@ object RejectionGenerators {
         } else if (description.startsWith("Invalid field:")) {
           toGrpc(LedgerApiErrors.CommandValidation.InvalidField.Reject(description))
         } else {
-          logger.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
+          errorCodeLoggingContext.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
           reject
         }
       case Code.NOT_FOUND if description.startsWith("Ledger ID") =>
         toGrpc(LedgerApiErrors.CommandValidation.LedgerIdMismatch.Reject(description))
       case _ =>
-        logger.warn(s"Unknown rejection: ${reject.getStatus}")
+        errorCodeLoggingContext.warn(s"Unknown rejection: ${reject.getStatus}")
         reject
     }
   }
@@ -184,7 +176,7 @@ object RejectionGenerators {
     final case class DamlLf(error: LfError) extends ErrorCauseExport
     final case class LedgerTime(retries: Int, explain: String) extends ErrorCauseExport
 
-    private[platform] def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
+    def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
       case ErrorCause.DamlLf(error) => DamlLf(error)
       case x: ErrorCause.LedgerTime => LedgerTime(x.retries, x.explain)
     }

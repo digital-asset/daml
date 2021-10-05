@@ -1,15 +1,17 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store
+package com.daml
+package error
 
-import com.daml.lf.engine.{Error => LfError}
+import lf.engine.{Error => LfError}
 
-private[platform] sealed abstract class ErrorCause extends Product with Serializable {
+// TODO error codes: Extract into //ledger/error
+sealed abstract class ErrorCause extends Product with Serializable {
   def explain: String
 }
 
-private[platform] object ErrorCause {
+object ErrorCause {
 
   final case class DamlLf(error: LfError) extends ErrorCause {
 

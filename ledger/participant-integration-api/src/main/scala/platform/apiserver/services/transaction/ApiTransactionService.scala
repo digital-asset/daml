@@ -30,7 +30,6 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.ErrorCodesVersionSwitcher
-import com.daml.platform.apiserver.error.{CorrelationId, LedgerApiErrors}
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
@@ -38,6 +37,8 @@ import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
+import com.daml.error.DamlErrorCodeLoggingContext.asDamlErrorCodeLoggingContext
+import com.daml.error.group.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -75,7 +76,7 @@ private[apiserver] final class ApiTransactionService private (
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
@@ -149,11 +150,7 @@ private[apiserver] final class ApiTransactionService private (
               .withDescription(msg)
               .asRuntimeException(),
             v2 = LedgerApiErrors.CommandValidation.InvalidArgument
-              .Reject(msg)(
-                correlationId = CorrelationId.none,
-                loggingContext = implicitly[LoggingContext],
-                logger = logger,
-              )
+              .Reject(msg)
               .asGrpcError,
           )
         )

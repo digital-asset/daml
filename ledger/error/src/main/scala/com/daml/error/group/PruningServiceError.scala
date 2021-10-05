@@ -1,11 +1,11 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml
+package error.group
 
-import com.daml.error.{BaseError, ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
+import error._
+import error.group.ErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 
 sealed trait PruningServiceError extends BaseError
 object PruningServiceError extends PruningServiceErrorGroup {
@@ -17,12 +17,9 @@ object PruningServiceError extends PruningServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Error(reason: String)(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
+        val loggingContext: ErrorCodeLoggingContext
     ) extends BaseError.Impl(
-          cause = "Internal error such as the inability to write to the database",
-          correlationId = correlationId.id,
+          cause = "Internal error such as the inability to write to the database"
         )
         with PruningServiceError
   }

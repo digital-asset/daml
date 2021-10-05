@@ -1,27 +1,21 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml
+package error.group
 
-import com.daml.error.ErrorCode.truncateResourceForTransport
-import com.daml.error.{BaseError, ErrorCode}
-import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
-  FinalReason,
-  RejectionReasonTemplate,
-}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import error.ErrorCode.truncateResourceForTransport
+import error.{BaseError, ErrorCode, ErrorCodeLoggingContext}
+import ledger.participant.state.v2.Update.CommandRejected.{FinalReason, RejectionReasonTemplate}
+
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.StatusRuntimeException
 
 trait TransactionError extends BaseError {
   def createRejection(
       correlationId: Option[String]
-  )(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-  ): RejectionReasonTemplate = {
+  )(implicit loggingContext: ErrorCodeLoggingContext): RejectionReasonTemplate =
     FinalReason(rpcStatus(correlationId))
-  }
 
   // Determines the value of the `definite_answer` key in the error details
   def definiteAnswer: Boolean = false
@@ -30,7 +24,7 @@ trait TransactionError extends BaseError {
 
   def rpcStatus(
       correlationId: Option[String]
-  )(implicit logger: ContextualizedLogger, loggingContext: LoggingContext): RpcStatus = {
+  )(implicit loggingContext: ErrorCodeLoggingContext): RpcStatus = {
 
     // yes, this is a horrible duplication of ErrorCode.asGrpcError. why? because
     // scalapb does not really support grpc rich errors. there is literally no method
@@ -39,7 +33,7 @@ trait TransactionError extends BaseError {
     // therefore, we have to compose the status code a second time here ...
     // the ideal fix would be to extend scalapb accordingly ...
     val ErrorCode.StatusInfo(codeGrpc, messageWithoutContext, contextMap, _) =
-      code.getStatusInfo(this, correlationId, logger)(loggingContext)
+      code.getStatusInfo(this)
 
     // TODO error codes: avoid appending the context to the description. right now, we need to do that as the ledger api server is throwing away any error details
     val message =
@@ -102,17 +96,12 @@ abstract class LoggingTransactionErrorImpl(
     definiteAnswer: Boolean = false,
 )(implicit
     code: ErrorCode,
-    loggingContext: LoggingContext,
-    logger: ContextualizedLogger,
-    correlationId: CorrelationId,
+    loggingContext: ErrorCodeLoggingContext,
 ) extends TransactionErrorImpl(cause, throwableO, definiteAnswer)(code) {
 
-  def asGrpcError: StatusRuntimeException = asGrpcErrorFromContext(
-    correlationId = correlationId.id,
-    logger = logger,
-  )(loggingContext)
+  def asGrpcError: StatusRuntimeException = asGrpcErrorFromContext
 
-  def log(): Unit = logWithContext(logger, correlationId.id)(loggingContext)
+  def log(): Unit = logWithContext()
 
   // Automatically log the error on generation
   log()
