@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
+import java.io.ByteArrayInputStream
 import java.time.Instant
 
 import com.codahale.metrics.Timer
@@ -174,7 +174,7 @@ private[appendonlydao] object ContractsReader {
   private def toContract(
       contractId: ContractId,
       templateId: String,
-      createArgument: InputStream,
+      createArgument: Array[Byte],
       createArgumentCompression: Compression.Algorithm,
       decompressionTimer: Timer,
       deserializationTimer: Timer,
@@ -182,7 +182,7 @@ private[appendonlydao] object ContractsReader {
     val decompressed =
       Timed.value(
         timer = decompressionTimer,
-        value = createArgumentCompression.decompress(createArgument),
+        value = createArgumentCompression.decompress(new ByteArrayInputStream(createArgument)),
       )
     val deserialized =
       Timed.value(

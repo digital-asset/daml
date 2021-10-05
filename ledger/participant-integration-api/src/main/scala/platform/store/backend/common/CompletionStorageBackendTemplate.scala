@@ -3,11 +3,10 @@
 
 package com.daml.platform.store.backend.common
 
-import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{binaryStream, int, long, str}
+import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{~, RowParser}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
@@ -101,8 +100,8 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
 
   private val rejectionStatusCodeColumn: RowParser[Int] = int("rejection_status_code")
   private val rejectionStatusMessageColumn: RowParser[String] = str("rejection_status_message")
-  private val rejectionStatusDetailsColumn: RowParser[Option[InputStream]] =
-    binaryStream("rejection_status_details").?
+  private val rejectionStatusDetailsColumn: RowParser[Option[Array[Byte]]] =
+    byteArray("rejection_status_details").?
 
   private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
     sharedColumns ~
@@ -136,7 +135,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
   private def buildStatusProto(
       rejectionStatusCode: Int,
       rejectionStatusMessage: String,
-      rejectionStatusDetails: Option[InputStream],
+      rejectionStatusDetails: Option[Array[Byte]],
   ): StatusProto =
     StatusProto.of(
       rejectionStatusCode,
@@ -145,9 +144,10 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
     )
 
   private def parseRejectionStatusDetails(
-      rejectionStatusDetails: Option[InputStream]
+      rejectionStatusDetails: Option[Array[Byte]]
   ): Seq[any.Any] =
     rejectionStatusDetails
-      .map(stream => StatusDetails.parseFrom(stream).details)
+      .map(StatusDetails.parseFrom)
+      .map(_.details)
       .getOrElse(Seq.empty)
 }
