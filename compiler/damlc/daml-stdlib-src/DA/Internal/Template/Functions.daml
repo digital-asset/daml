@@ -24,6 +24,11 @@ import DA.Internal.Template
 import GHC.Types (primitive)
 #endif
 
+type TemplateOrInterface t =
+  ( HasTemplateTypeRep t
+  , HasToAnyTemplate t
+  , HasFromAnyTemplate t
+  )
 -- | Constraint satisfied by templates.
 type Template t =
   ( HasSignatory t
@@ -99,7 +104,7 @@ stakeholder t = signatory t ++ observer t
 
 -- | Constraint satisfied by choices.
 type Choice t c r =
-  ( Template t
+  ( TemplateOrInterface t
   , HasExercise t c r
   , HasToAnyChoice t c r
   , HasFromAnyChoice t c r
