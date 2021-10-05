@@ -59,12 +59,12 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/participant-integration-api",
             "//ledger/sandbox",
             "//ledger/sandbox:sandbox-scala-tests-lib",
+            "//ledger/sandbox-classic",
             "//ledger/sandbox-common",
             "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//libs-scala/contextualized-logging",
             "//libs-scala/db-utils",
             "//libs-scala/ports",
-            "//libs-scala/resources",
             "@maven//:io_dropwizard_metrics_metrics_core",
         ],
     )
