@@ -12,7 +12,7 @@ set -euo pipefail
 TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main}"
 echo "The target branch is '${TARGET}'."
 
-BUF_TAG_TO_CHECK=""
+BUF_GIT_TARGET_TO_CHECK=""
 # The `buf.yml` file was split into multiple files after v1.17
 # This flag indicates if the against target we use for buf is before or after the split
 # Will be removed once we have a stable tag released after the split point
@@ -49,16 +49,16 @@ function check_non_lf_protos() {
   readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
   trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
-  echo "Checking protobufs against target '${BUF_TAG_TO_CHECK}'"
+  echo "Checking protobufs against target '${BUF_GIT_TARGET_TO_CHECK}'"
   eval "$(dev-env/bin/dade assist)"
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
     # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
     # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
     if [[ $BUF_CONFIG_UPDATED ]]
     then
-      buf breaking --config "${buf_module}" --against "$BUF_TAG_TO_CHECK" --against-config "${buf_module}"
+      buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
     else
-      buf breaking --config "${buf_module}" --against "$BUF_TAG_TO_CHECK"
+      buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK"
     fi
   done
 
@@ -91,7 +91,7 @@ USAGE
   readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
   # For the latest stable snapshot the config is still the default "buf.yaml"
   BUF_CONFIG_UPDATED=false
-  BUF_TAG_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
+  BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
   ;;
 --head)
   # Check against the head of the target branch.
@@ -102,7 +102,7 @@ USAGE
   # The files are always split for head targets
   BUF_CONFIG_UPDATED=true
   # This lets buf checkout the head commit of the TARGET
-  BUF_TAG_TO_CHECK=".git#branch=${TARGET}"
+  BUF_GIT_TARGET_TO_CHECK=".git#branch=${TARGET}"
   ;;
 *)
   echo "unknown argument $1" >&2
