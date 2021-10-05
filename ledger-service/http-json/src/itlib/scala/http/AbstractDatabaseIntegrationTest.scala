@@ -27,12 +27,15 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
 
   // has to be lazy because jdbcConfig is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(
-    jdbcConfig.copy(tablePrefix = "some_fancy_prefix_"),
+    jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "some_fancy_prefix_")),
     poolSize = PoolSize.Integration,
   )
 
   protected lazy val daoWithoutPrefix =
-    dbbackend.ContractDao(jdbcConfig.copy(tablePrefix = ""), poolSize = PoolSize.Integration)
+    dbbackend.ContractDao(
+      jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "")),
+      poolSize = PoolSize.Integration,
+    )
 
   override protected def afterAll(): Unit = {
     dao.close()

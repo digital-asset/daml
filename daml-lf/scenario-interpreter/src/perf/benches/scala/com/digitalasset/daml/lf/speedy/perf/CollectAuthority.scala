@@ -88,6 +88,7 @@ class CollectAuthorityState {
             SExpr.SEValue(commands),
             location,
             crypto.Hash.hashPrivateKey(step.toString),
+            doEnrichment = false,
           ) match {
             case ScenarioRunner.Commit(_, value, _) =>
               callback(value)

@@ -51,6 +51,8 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/9218
 # - DeeplyNestedValueIT
 #   - https://github.com/digital-asset/daml/pull/10393
+# - KVCommandDeduplicationIT (only some test cases):
+#   - https://github.com/digital-asset/daml/pull/11095
 
 last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
 first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
@@ -449,6 +451,32 @@ excluded_test_tool_tests = [
                 "end": "1.17.0-snapshot.20210910.7786.0.976ca400 ",
                 "exclusions": [
                     "CommandDeduplicationIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.18.0-snapshot.20210928.7948.1",
+        "platform_ranges": [
+            {
+                "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+                "exclusions": [
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
+                ],
+            },
+        ],
+    },
+    {
+        "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20210928.7948.1",
+                "exclusions": [
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
                 ],
             },
         ],

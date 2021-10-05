@@ -419,7 +419,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/check-protobuf-against-stable.sh
+    - bash: ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
 - job: check_for_release
