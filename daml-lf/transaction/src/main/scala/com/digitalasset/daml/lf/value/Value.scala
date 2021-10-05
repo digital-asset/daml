@@ -225,6 +225,27 @@ object Value {
       }
   }
 
+  final case class VersionedContractInstance(
+      version: TransactionVersion,
+      template: Identifier,
+      arg: Value,
+      agreementText: String,
+  ) {
+    def coinst = ContractInst(template, arg, agreementText)
+    def versionedArg = VersionedValue(version, arg)
+  }
+
+  object VersionedContractInstance {
+    def apply(version: TransactionVersion, coinst: ContractInst[Value]): VersionedContractInstance =
+      VersionedContractInstance(version, coinst.template, coinst.arg, coinst.agreementText)
+    def apply(
+        template: Identifier,
+        arg: VersionedValue,
+        agreementText: String,
+    ): VersionedContractInstance =
+      VersionedContractInstance(arg.version, template, arg.value, agreementText)
+  }
+
   type NodeIdx = Int
 
   sealed abstract class ContractId extends Product with Serializable {

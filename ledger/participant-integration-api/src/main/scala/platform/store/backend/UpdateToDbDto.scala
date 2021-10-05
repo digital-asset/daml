@@ -245,7 +245,7 @@ object UpdateToDbDto {
               template_id = contractInst.map(_.template.toString),
               tree_event_witnesses = visibleToParties.map(_.toString),
               create_argument = contractInst
-                .map(_.arg)
+                .map(_.versionedArg)
                 .map(translation.serialize(contractId, _))
                 .map(compressionStrategy.createArgumentCompression.compress),
               create_argument_compression = compressionStrategy.createArgumentCompression.id,

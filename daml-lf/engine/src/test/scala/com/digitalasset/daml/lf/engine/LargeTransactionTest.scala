@@ -62,7 +62,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
 
     def get(submitter: Party, effectiveAt: Time.Timestamp)(
         id: ContractId
-    ): Option[ContractInst[VersionedValue]] = {
+    ): Option[VersionedContractInstance] = {
       ledger.lookupGlobalContract(
         ParticipantView(Set(submitter), Set.empty),
         effectiveAt,

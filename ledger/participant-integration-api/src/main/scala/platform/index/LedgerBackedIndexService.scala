@@ -38,8 +38,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
@@ -214,7 +213,7 @@ private[platform] final class LedgerBackedIndexService(
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue]]] =
+  ): Future[Option[VersionedContractInstance]] =
     ledger.lookupContract(contractId, readers)
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit

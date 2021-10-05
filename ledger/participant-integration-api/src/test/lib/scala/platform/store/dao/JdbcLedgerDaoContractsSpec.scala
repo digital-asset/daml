@@ -8,7 +8,7 @@ import java.util.UUID
 
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance, ValueText}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -86,7 +86,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       contractId = nonTransient(tx).loneElement
       result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie, emma), contractId)
     } yield {
-      result.value shouldBe a[ContractInst[_]]
+      result.value shouldBe a[VersionedContractInstance]
     }
   }
 
@@ -105,7 +105,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupActiveContractAndLoadArgument(Set(david, emma), contractId)
     } yield {
-      result.value shouldBe a[ContractInst[_]]
+      result.value shouldBe a[VersionedContractInstance]
     }
   }
 

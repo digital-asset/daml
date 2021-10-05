@@ -133,7 +133,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       contractId: Value.ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Value.ContractInst[Value.VersionedValue]]] =
+  ): Future[Option[Value.VersionedContractInstance]] =
     delegate.lookupActiveContract(readers, contractId)
 
   override def lookupContractKey(

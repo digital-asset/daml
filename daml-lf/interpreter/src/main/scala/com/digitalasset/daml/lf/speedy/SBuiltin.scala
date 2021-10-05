@@ -1040,7 +1040,7 @@ private[lf] object SBuiltin {
               coid,
               templateId,
               onLedger.committers,
-              { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
+              { case V.VersionedContractInstance(_, actualTmplId, arg, _) =>
                 if (actualTmplId != templateId) {
                   machine.ctrl =
                     SEDamlException(IE.WronglyTypedContract(coid, templateId, actualTmplId))
@@ -1072,7 +1072,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  // Similar to SBUFetch but and is never performed "by key".
+  // Similar to SBUFetch but is never performed "by key".
   final case class SBUFetchInterface(ifaceId: TypeConName) extends OnLedgerBuiltin(1) {
     override protected def execute(
         args: util.ArrayList[SValue],
@@ -1098,9 +1098,9 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(
             SResultNeedContract(
               coid,
-              ifaceId, // not actually used, maybe this param should be dropped from SResultNeedContract
+              ifaceId,
               onLedger.committers,
-              { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
+              { case V.VersionedContractInstance(_, actualTmplId, arg, _) =>
                 machine.compiledPackages.getDefinition(
                   ImplementsDefRef(actualTmplId, ifaceId)
                 ) match {
