@@ -402,6 +402,27 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       }
 
+      @Explanation(
+        """TODO: fill it in"""
+      )
+      @Resolution("""TODO: fill it in""")
+      object LedgerConfigurationNotFound
+          extends ErrorCode(
+            id = "LEDGER_CONFIGURATION_NOT_FOUND",
+            ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+          ) {
+
+        case class Reject(
+            override val cause: String
+        )(implicit
+            loggingContext: LoggingContext,
+            logger: ContextualizedLogger,
+            correlationId: CorrelationId,
+        ) extends LoggingTransactionErrorImpl(
+              cause = cause
+            )
+      }
+
     }
 
     @Explanation("""This error occurs if the Daml transaction fails due to an authorization error.

@@ -19,11 +19,11 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.apiserver.{ErrorCodesVersionSwitcher, SeedService}
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.error.RejectionGenerators.ErrorCauseExport
-import com.daml.platform.apiserver.error.{CorrelationId, RejectionGenerators}
+import com.daml.platform.apiserver.error.{CorrelationId, LedgerApiErrors, RejectionGenerators}
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
+import com.daml.platform.apiserver.{ErrorCodesVersionSwitcher, SeedService}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -128,7 +128,16 @@ private[apiserver] final class ApiSubmissionService private[services] (
               .transform(handleSubmissionResult)
           }
         case None =>
-          Future.failed[Unit](ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)))
+          errorCodesVersionSwitcher.chooseAsFailedFuture(
+            v1 = ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)),
+            v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
+              .Reject(cause = "The ledger configuration is not available.")(
+                correlationId = CorrelationId.none,
+                loggingContext = loggingContext,
+                logger = logger,
+              )
+              .asGrpcError,
+          )
       }
       evaluatedCommand
         .andThen(logger.logErrorsOnCall[Unit])
