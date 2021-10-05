@@ -1,0 +1,83 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module InterfaceScripts where
+
+import DA.Assert ((===))
+import Daml.Script
+
+interface Token where
+  getAmount : Int
+
+  choice Split : (ContractId Token, ContractId Token)
+    with
+      splitAmount : Int
+
+  choice Transfer : ContractId Token
+    with
+      newOwner : Party
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+    implements Token where
+      let getAmount = amount
+
+      choice Split : (ContractId Token, ContractId Token)
+        with
+          splitAmount : Int
+        controller owner
+        do
+          assert (splitAmount < amount)
+          cid1 <- create this with amount = splitAmount
+          cid2 <- create this with amount = amount - splitAmount
+          pure (toTokenContractId cid1, toTokenContractId cid2)
+
+      choice Transfer : ContractId Token
+        with
+          newOwner : Party
+        controller owner, newOwner
+        do
+          cid <- create this with owner = newOwner
+          pure (toTokenContractId cid)
+
+      nonconsuming choice Noop : ()
+        with
+          nothing : ()
+        controller owner
+        do
+          pure ()
+
+main = script do
+  p <- getParty "Alice"
+  p `submit` do
+    cidAsset1 <- create Asset with
+      issuer = p
+      owner = p
+      amount = 15
+    let cidToken1 = toTokenContractId cidAsset1
+    _ <- exercise cidToken1 (Noop ())
+    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
+    token2 <- fetch cidToken2
+    getAmount token2 === 10
+    case fromToken token2 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 10
+    token3 <- fetch cidToken3
+    getAmount token3 === 5
+    case fromToken token3 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 5
+    pure ()
