@@ -163,13 +163,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
   }
 
-  /* TODO SC Offset where?
-    def toTerminates(o: Offset): LedgerClientJwt.Terminates.AtAbsolute =
-      LedgerClientJwt.Terminates.AtAbsolute(
-        lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o))
-      )
-   */
-
   final case class StartingOffset(offset: Offset)
 
   type LedgerIdTag = lar.LedgerIdTag
