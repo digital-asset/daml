@@ -60,6 +60,7 @@ import DA.Validation
 
 #ifdef DAML_EXPERIMENTAL
 import DA.Experimental.Example
+import DA.Experimental.Interface
 #endif
 
 import Prelude
