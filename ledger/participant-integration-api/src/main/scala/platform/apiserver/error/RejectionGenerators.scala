@@ -133,12 +133,11 @@ object RejectionGenerators {
       toGrpc(transformed)
     }
 
-    val rej = cause match {
+    cause match {
       case ErrorCauseExport.DamlLf(error) => processLfError(error)
       case x: ErrorCauseExport.LedgerTime =>
         toGrpc(LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain))
     }
-    rej
   }
 
   def submissionResult(result: Try[state.v2.SubmissionResult]): Option[Try[Unit]] = {

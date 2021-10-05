@@ -166,15 +166,11 @@ private[apiserver] final class ApiSubmissionService private[services] (
               logger.debug(exception.getMessage)
               exception
             },
-            v2 = {
-              val exception = RejectionGenerators.duplicateCommand(
-                logger = logger,
-                loggingContext = implicitly[LoggingContext],
-                correlationId = CorrelationId.none,
-              )
-              logger.debug(exception.getMessage)
-              exception
-            },
+            v2 = RejectionGenerators.duplicateCommand(
+              logger = logger,
+              loggingContext = loggingContext,
+              correlationId = CorrelationId.none,
+            ),
           )
       }
 
@@ -201,31 +197,11 @@ private[apiserver] final class ApiSubmissionService private[services] (
       result: Either[ErrorCause, CommandExecutionResult]
   ): Future[CommandExecutionResult] = {
 
-    def toStatusException_V1(errorCause: ErrorCause): StatusRuntimeException =
-      errorCause match {
-        case cause @ ErrorCause.DamlLf(error: LfError) =>
-          error match {
-            case LfError.Interpretation(
-                  LfError.Interpretation.DamlException(
-                    InterpretationError.ContractNotFound(_) |
-                    InterpretationError.DuplicateContractKey(_)
-                  ),
-                  _,
-                ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
-              ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-            case _ =>
-              ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
-          }
-        case cause: ErrorCause.LedgerTime =>
-          ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-
-      }
-
     result.fold(
       error => {
         metrics.daml.commands.failedCommandInterpretations.mark()
         errorCodesVersionSwitcher.chooseAsFailedFuture(
-          v1 = toStatusException_V1(error),
+          v1 = toStatusExceptionV1(error),
           v2 = RejectionGenerators
             .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))(
               logger = logger,
@@ -331,6 +307,28 @@ private[apiserver] final class ApiSubmissionService private[services] (
       )
       .toScala
   }
+
+  /** This method encodes logic related to legacy error codes (V1).
+    * Cf. self-service error codes (V2) in //ledger/error
+    */
+  def toStatusExceptionV1(errorCause: ErrorCause): StatusRuntimeException =
+    errorCause match {
+      case cause @ ErrorCause.DamlLf(error: LfError) =>
+        error match {
+          case LfError.Interpretation(
+                LfError.Interpretation.DamlException(
+                  InterpretationError.ContractNotFound(_) |
+                  InterpretationError.DuplicateContractKey(_)
+                ),
+                _,
+              ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
+            ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
+          case _ =>
+            ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
+        }
+      case cause: ErrorCause.LedgerTime =>
+        ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
+    }
 
   override def close(): Unit = ()
 

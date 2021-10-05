@@ -26,7 +26,5 @@ final class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean) {
   def chooseAsFailedFuture[T](
       v1: => StatusRuntimeException,
       v2: => StatusRuntimeException,
-  ): Future[T] = {
-    Future.failed(choose(v1 = v1, v2 = v2))
-  }
+  ): Future[T] = Future.failed(choose(v1 = v1, v2 = v2))
 }

@@ -290,11 +290,11 @@ class ApiSubmissionServiceSpec
         )
       ) -> ((Status.INVALID_ARGUMENT, Status.INVALID_ARGUMENT)),
       ErrorCause.LedgerTime(0) -> ((Status.ABORTED, Status.ABORTED)),
-    ).map { case (key, (status_v1, status_v2)) =>
+    ).map { case (key, (statusV1, statusV2)) =>
       if (useSelfServiceErrorCodes) {
-        (key, status_v2)
+        (key, statusV2)
       } else {
-        (key, status_v1)
+        (key, statusV1)
       }
     }
 
