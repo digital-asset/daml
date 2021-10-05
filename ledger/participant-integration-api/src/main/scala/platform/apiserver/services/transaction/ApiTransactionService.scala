@@ -73,8 +73,7 @@ private[apiserver] final class ApiTransactionService private (
     metrics: Metrics,
     errorsVersionsSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends TransactionService
-    with ErrorFactories {
+    extends TransactionService {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =

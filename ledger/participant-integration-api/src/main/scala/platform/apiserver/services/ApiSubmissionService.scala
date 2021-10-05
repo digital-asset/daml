@@ -98,7 +98,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
-    with ErrorFactories
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -155,7 +154,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
             }
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
-          val exception = duplicateCommandException
+          val exception = ErrorFactories.duplicateCommandException
           logger.debug(exception.getMessage)
           Future.failed(exception)
       }

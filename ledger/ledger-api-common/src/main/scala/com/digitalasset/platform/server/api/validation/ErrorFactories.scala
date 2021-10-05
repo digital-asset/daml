@@ -13,9 +13,12 @@ import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import scalaz.syntax.tag._
 
-trait ErrorFactories {
-
-  import ErrorFactories._
+@deprecated(
+  message =
+    "Prefer self-service error codes from com.daml.platform.apiserver.error.LedgerApiErrors",
+  since = "1.19.0",
+)
+object ErrorFactories {
 
   def duplicateCommandException: StatusRuntimeException =
     grpcError(
@@ -176,9 +179,7 @@ trait ErrorFactories {
   def grpcError(status: Status): StatusRuntimeException = new ApiException(
     StatusProto.toStatusRuntimeException(status)
   )
-}
 
-object ErrorFactories extends ErrorFactories {
   private[daml] lazy val definiteAnswers = Map(
     true -> AnyProto.pack[ErrorInfo](
       ErrorInfo.newBuilder().putMetadata(GrpcStatuses.DefiniteAnswerKey, "true").build()

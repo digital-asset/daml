@@ -31,7 +31,6 @@ final class GrpcTransactionService(
     executionContext: ExecutionContext,
 ) extends TransactionServiceAkkaGrpc
     with GrpcApiService
-    with ErrorFactories
     with FieldValidations {
 
   protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
