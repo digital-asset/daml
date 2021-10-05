@@ -3,11 +3,9 @@
 
 package com.daml.platform.store.backend.common
 
-import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-
-import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
+import anorm.SqlParser.{array, bool, byteArray, int, long, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -64,21 +62,21 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       array[String]("event_witnesses")
 
   private type CreatedEventRow =
-    SharedRow ~ InputStream ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
-      Option[InputStream] ~ Option[Int]
+    SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
+      Option[Array[Byte]] ~ Option[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
-      binaryStream("create_argument") ~
+      byteArray("create_argument") ~
       int("create_argument_compression").? ~
       array[String]("create_signatories") ~
       array[String]("create_observers") ~
       str("create_agreement_text").? ~
-      binaryStream("create_key_value").? ~
+      byteArray("create_key_value").? ~
       int("create_key_value_compression").?
 
   private type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
+    SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
       Array[String] ~ Array[String]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
@@ -86,9 +84,9 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
-      binaryStream("exercise_argument") ~
+      byteArray("exercise_argument") ~
       int("exercise_argument_compression").? ~
-      binaryStream("exercise_result").? ~
+      byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
