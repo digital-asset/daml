@@ -1,12 +1,10 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
+module TestInterfaces where
 
-module InterfaceScripts where
-
-import DA.Assert ((===))
 import Daml.Script
+import DA.Assert
 
 interface Token where
   getAmount : Int
@@ -58,26 +56,22 @@ template Asset
         do
           pure ()
 
-main = script do
-  p <- getParty "Alice"
-  p `submit` do
-    cidAsset1 <- create Asset with
+test : Script ()
+test = script do
+  p <- allocateParty "Alice"
+  cidAsset1 <- p `submit`  createCmd Asset with
       issuer = p
       owner = p
       amount = 15
-    let cidToken1 = toTokenContractId cidAsset1
-    _ <- exercise cidToken1 (Noop ())
-    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
-    token2 <- fetch cidToken2
-    getAmount token2 === 10
-    case fromToken token2 of
-      None -> abort "expected Asset"
-      Some Asset {amount} ->
-        amount === 10
-    token3 <- fetch cidToken3
-    getAmount token3 === 5
-    case fromToken token3 of
-      None -> abort "expected Asset"
-      Some Asset {amount} ->
-        amount === 5
-    pure ()
+  let cidToken1 = toTokenContractId cidAsset1
+
+  _ <- p `submit` exerciseCmd cidToken1 (Noop ())
+
+  (cidToken2, cidToken3) <- p `submit` do
+    exerciseCmd cidToken1 (Split 10)
+
+  Some asset2 <- queryContractId p (coerceContractId cidToken2 : ContractId Asset)
+  Some asset3 <- queryContractId p (coerceContractId cidToken3 : ContractId Asset)
+  asset2 === Asset with {issuer = p, owner = p, amount = 10}
+  asset3 === Asset with {issuer = p, owner = p, amount = 5}
+  pure ()
