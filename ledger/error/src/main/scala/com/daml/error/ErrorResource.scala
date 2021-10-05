@@ -21,18 +21,18 @@ object ErrorResource {
   def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)
 
   object ContractId extends ErrorResource {
-    def asString: String = "contract-id"
+    def asString: String = "CONTRACT_ID"
   }
   object ContractKey extends ErrorResource {
-    def asString: String = "contract-key"
+    def asString: String = "CONTRACT_KEY"
   }
   object DalfPackage extends ErrorResource {
-    def asString: String = "lf-package"
+    def asString: String = "PACKAGE"
   }
   object LedgerId extends ErrorResource {
-    def asString: String = "ledger-id"
+    def asString: String = "LEDGER_ID"
   }
   object CommandId extends ErrorResource {
-    def asString: String = "command-id"
+    def asString: String = "COMMAND_ID"
   }
 }

@@ -11,9 +11,20 @@ import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.rpc.status.{Status => RpcStatus}
-import io.grpc.StatusRuntimeException
+import io.grpc.{Status, StatusRuntimeException}
 
 trait TransactionError extends BaseError {
+  @Deprecated
+  def createRejectionDeprecated(
+      rewrite: Map[ErrorCode, Status.Code]
+  )(implicit
+      logger: ContextualizedLogger,
+      loggingContext: LoggingContext,
+      correlationId: Option[String],
+  ): RejectionReasonTemplate = {
+    FinalReason(_rpcStatus(rewrite.get(this.code), correlationId))
+  }
+
   def createRejection(
       correlationId: Option[String]
   )(implicit
@@ -30,6 +41,12 @@ trait TransactionError extends BaseError {
 
   def rpcStatus(
       correlationId: Option[String]
+  )(implicit logger: ContextualizedLogger, loggingContext: LoggingContext): RpcStatus =
+    _rpcStatus(None, correlationId)
+
+  def _rpcStatus(
+      overrideCode: Option[Status.Code],
+      correlationId: Option[String],
   )(implicit logger: ContextualizedLogger, loggingContext: LoggingContext): RpcStatus = {
 
     // yes, this is a horrible duplication of ErrorCode.asGrpcError. why? because
@@ -38,16 +55,10 @@ trait TransactionError extends BaseError {
     // objects. however, the sync-api uses the scala variant whereas we have to return StatusRuntimeExceptions.
     // therefore, we have to compose the status code a second time here ...
     // the ideal fix would be to extend scalapb accordingly ...
-    val ErrorCode.StatusInfo(codeGrpc, messageWithoutContext, contextMap, _) =
+    val ErrorCode.StatusInfo(codeGrpc, message, contextMap, _) =
       code.getStatusInfo(this, correlationId, logger)(loggingContext)
 
-    // TODO error codes: avoid appending the context to the description. right now, we need to do that as the ledger api server is throwing away any error details
-    val message =
-      if (code.category.securitySensitive) messageWithoutContext
-      else messageWithoutContext + "; " + code.formatContextAsString(contextMap)
-
-    val definiteAnswerKey =
-      "definite_answer" // TODO error codes: Can we use a constant from some upstream class?
+    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
 
     val metadata = if (code.category.securitySensitive) Map.empty[String, String] else contextMap
     val errorInfo = com.google.rpc.error_details.ErrorInfo(
@@ -82,7 +93,7 @@ trait TransactionError extends BaseError {
     ) ++ retryInfoO.toList ++ requestInfoO.toList ++ resourceInfos
 
     com.google.rpc.status.Status(
-      codeGrpc.value(),
+      overrideCode.getOrElse(codeGrpc).value(),
       message,
       details,
     )
