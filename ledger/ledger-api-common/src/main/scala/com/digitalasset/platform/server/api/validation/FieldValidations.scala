@@ -127,17 +127,17 @@ trait FieldValidations {
     */
   def validateDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriodProto,
-      maxDeduplicationTimeO: Option[Duration],
+      optMaxDeduplicationTime: Option[Duration],
       fieldName: String,
   ): Either[StatusRuntimeException, DeduplicationPeriod] = {
 
-    maxDeduplicationTimeO.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
+    optMaxDeduplicationTime.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig(definiteAnswer = Some(false)))
-    )(maxDeduplicationDuration => {
+    )(maxDeduplicationTime => {
       def validateDuration(duration: Duration, exceedsMaxDurationMessage: String) = {
         if (duration.isNegative)
           Left(invalidField(fieldName, "Duration must be positive", definiteAnswer = Some(false)))
-        else if (duration.compareTo(maxDeduplicationDuration) > 0)
+        else if (duration.compareTo(maxDeduplicationTime) > 0)
           Left(invalidField(fieldName, exceedsMaxDurationMessage, definiteAnswer = Some(false)))
         else Right(duration)
       }
@@ -146,13 +146,13 @@ trait FieldValidations {
         val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
         validateDuration(
           result,
-          s"The given deduplication duration of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
+          s"The given deduplication duration of $result exceeds the maximum deduplication time of $maxDeduplicationTime",
         ).map(DeduplicationPeriod.DeduplicationDuration)
       }
 
       deduplicationPeriod match {
         case DeduplicationPeriodProto.Empty =>
-          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
+          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationTime))
         case DeduplicationPeriodProto.DeduplicationTime(duration) =>
           protoDurationToDurationPeriod(duration)
         case DeduplicationPeriodProto.DeduplicationDuration(duration) =>

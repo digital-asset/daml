@@ -63,6 +63,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private[http] val dar3 = requiredResource(SemanticTestDar.path)
 
+  private[http] val userDar = requiredResource("ledger-service/http-json/User.dar")
+
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import java.security.MessageDigest
     import javax.xml.bind.DatatypeConverter
@@ -103,6 +105,9 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected val metadata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
+  protected val metadataUser: MetadataReader.LfMetadata =
+    MetadataReader.readFromDar(userDar).valueOr(e => fail(s"Cannot read userDar metadata: $e"))
+
   protected val jwt: Jwt = jwtForParties(List("Alice"), List(), testId)
 
   protected val jwtAdminNoParty: Jwt = {
@@ -128,7 +133,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   import tag.@@ // used for subtyping to make `AHS ec` beat executionContext
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
-  override def packageFiles = List(dar1, dar2)
+  override def packageFiles = List(dar1, dar2, userDar)
 
   protected def getUniqueParty(name: String) = getUniquePartyAndAuthHeaders(name)._1
   protected def getUniquePartyAndAuthHeaders(name: String): (domain.Party, List[HttpHeader]) = {
@@ -274,7 +279,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       at[K :->>: V]((fn.value.name, _))
   }
 
-  private[this] def recordFromFields[L <: HList, I <: HList](hlist: L)(implicit
+  protected[this] def recordFromFields[L <: HList, I <: HList](hlist: L)(implicit
       mapper: shapeless.ops.hlist.Mapper.Aux[RecordFromFields.type, L, I],
       lister: shapeless.ops.hlist.ToTraversable.Aux[I, Seq, (String, v.Value.Sum)],
   ): v.Record = v.Record(fields = hlist.map(RecordFromFields).to[Seq].map { case (n, vs) =>
@@ -1822,5 +1827,107 @@ abstract class AbstractHttpServiceIntegrationTest
 
       _ <- queryN(0)
     } yield succeed
+  }
+
+  "Should ignore conflicts on contract key hash constraint violation" in withHttpServiceAndClient {
+    (uri, encoder, _, _, _) =>
+      import scalaz.std.vector._
+      import scalaz.syntax.tag._
+      import scalaz.syntax.traverse._
+      import scalaz.std.scalaFuture._
+      import shapeless.record.{Record => ShRecord}
+      import com.daml.ledger.api.refinements.{ApiTypes => lar}
+
+      val partyIds = Vector("Alice", "Bob").map(getUniqueParty)
+      val packageId: Ref.PackageId = MetadataReader
+        .templateByName(metadataUser)(Ref.QualifiedName.assertFromString("User:User"))
+        .collectFirst { case (pkgid, _) => pkgid }
+        .getOrElse(fail(s"Cannot retrieve packageId"))
+
+      def userCreateCommand(
+          username: domain.Party,
+          following: Seq[domain.Party] = Seq.empty,
+      ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
+        val templateId = domain.TemplateId(None, "User", "User")
+        val followingList = following.map(party => v.Value(v.Value.Sum.Party(party.unwrap)))
+        val arg = recordFromFields(
+          ShRecord(
+            username = v.Value.Sum.Party(username.unwrap),
+            following = v.Value.Sum.List(v.List.of(followingList)),
+          )
+        )
+
+        domain.CreateCommand(templateId, arg, None)
+      }
+      def userExerciseFollowCommand(
+          contractId: lar.ContractId,
+          toFollow: domain.Party,
+      ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+        val templateId = domain.TemplateId(None, "User", "User")
+        val reference = domain.EnrichedContractId(Some(templateId), contractId)
+        val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
+        val choice = lar.Choice("Follow")
+
+        domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+      }
+
+      def followUser(contractId: lar.ContractId, actAs: domain.Party, toFollow: domain.Party) = {
+        val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
+          userExerciseFollowCommand(contractId, toFollow)
+        val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
+
+        postJsonRequest(
+          uri.withPath(Uri.Path("/v1/exercise")),
+          exerciseJson,
+          headers = headersWithPartyAuth(actAs = List(actAs.unwrap)),
+        )
+          .map { case (exerciseStatus, exerciseOutput) =>
+            exerciseStatus shouldBe StatusCodes.OK
+            assertStatus(exerciseOutput, StatusCodes.OK)
+            ()
+          }
+
+      }
+
+      def queryUsers(fromPerspectiveOfParty: domain.Party) = {
+        val query = jsObject(s"""{
+             "templateIds": ["$packageId:User:User"],
+             "query": {}
+          }""")
+
+        postJsonRequest(
+          uri.withPath(Uri.Path("/v1/query")),
+          query,
+          headers = headersWithPartyAuth(actAs = List(fromPerspectiveOfParty.unwrap)),
+        ).map { case (searchStatus, searchOutput) =>
+          searchStatus shouldBe StatusCodes.OK
+          assertStatus(searchOutput, StatusCodes.OK)
+        }
+      }
+      val commands = partyIds.map { p =>
+        (p, userCreateCommand(p))
+      }
+
+      for {
+        users <- commands.traverse { case (party, command) =>
+          val fut = postCreateCommand(
+            command,
+            encoder,
+            uri,
+            headers = headersWithPartyAuth(actAs = List(party.unwrap)),
+          ).map { case (status, output) =>
+            status shouldBe StatusCodes.OK
+            assertStatus(output, StatusCodes.OK)
+            getContractId(getResult(output))
+          }: Future[ContractId]
+          fut.map(cid => (party, cid))
+        }
+        (alice, aliceUserId) = users(0)
+        (bob, bobUserId) = users(1)
+        _ <- followUser(aliceUserId, alice, bob)
+        _ <- queryUsers(bob)
+        _ <- followUser(bobUserId, bob, alice)
+        _ <- queryUsers(alice)
+      } yield succeed
   }
 }

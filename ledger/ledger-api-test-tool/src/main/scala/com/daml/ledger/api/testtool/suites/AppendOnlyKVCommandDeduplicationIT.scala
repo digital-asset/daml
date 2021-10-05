@@ -23,7 +23,7 @@ class AppendOnlyKVCommandDeduplicationIT(
 
   override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
     DeduplicationFeatures(
-      participantDeduplication = true,
+      participantDeduplication = false,
       appendOnlySchema = true,
     )
 }

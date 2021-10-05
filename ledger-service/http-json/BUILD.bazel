@@ -186,6 +186,12 @@ daml_compile(
     visibility = ["//ledger-service:__subpackages__"],
 )
 
+daml_compile(
+    name = "User",
+    srcs = ["src/it/daml/User.daml"],
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
 [
     da_scala_test(
         name = "tests-{}".format(edition),
@@ -340,6 +346,7 @@ alias(
         ] if scala_major_version == "2.12" else [],
         data = [
             ":Account.dar",
+            ":User.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",
             "//ledger/test-common/test-certificates",
