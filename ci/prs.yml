@@ -79,7 +79,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/check-protobuf-compatibility.sh --head
+    - bash: ci/check-protobuf-stability.sh --head
 
 # required for collect_build_data
 - job: release
