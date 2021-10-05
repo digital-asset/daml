@@ -438,10 +438,25 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.18.0-snapshot.20210928.7948.1",
+        "start": "0.0.0",
+        "end": "0.0.0",
         "platform_ranges": [
             {
                 "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+                "exclusions": [
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
+                ],
+            },
+        ],
+    },
+    {
+        "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+        "platform_ranges": [
+            {
+                "start": "0.0.0",
+                "end": "0.0.0",
                 "exclusions": [
                     "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
