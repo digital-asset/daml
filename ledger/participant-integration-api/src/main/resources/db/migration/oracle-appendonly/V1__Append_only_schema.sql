@@ -110,13 +110,13 @@ CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, l
 
 CREATE TABLE participant_command_completions
 (
-    completion_offset               VARCHAR2(4000)  NOT NULL,
-    record_time                     NUMBER          NOT NULL,
-    application_id                  NVARCHAR2(1000) NOT NULL,
+    completion_offset           VARCHAR2(4000)  NOT NULL,
+    record_time                 NUMBER          NOT NULL,
+    application_id              NVARCHAR2(1000) NOT NULL,
 
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     -- Nullable to support historical data.
-    submission_id                   NVARCHAR2(1000),
+    submission_id               NVARCHAR2(1000),
 
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
     -- interval could have specified by the application as one of:
@@ -128,13 +128,13 @@ CREATE TABLE participant_command_completions
     deduplication_duration_nanos    NUMBER,
     deduplication_start             NUMBER,
 
-    submitters                      CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
-    command_id                      NVARCHAR2(1000) NOT NULL,
+    submitters                  CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
+    command_id                  NVARCHAR2(1000) NOT NULL,
 
-    transaction_id                  NVARCHAR2(1000), -- null for rejected transactions and checkpoints
-    rejection_status_code           INTEGER,         -- null for accepted transactions and checkpoints
-    rejection_status_message        CLOB,            -- null for accepted transactions and checkpoints
-    rejection_status_details        BLOB             -- null for accepted transactions and checkpoints
+    transaction_id              NVARCHAR2(1000), -- null for rejected transactions and checkpoints
+    rejection_status_code       INTEGER,         -- null for accepted transactions and checkpoints
+    rejection_status_message    CLOB,            -- null for accepted transactions and checkpoints
+    rejection_status_details    BLOB             -- null for accepted transactions and checkpoints
 );
 
 CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
