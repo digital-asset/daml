@@ -450,6 +450,19 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20210928.7948.1",
+                "exclusions": [
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
