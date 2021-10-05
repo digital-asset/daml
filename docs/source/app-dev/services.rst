@@ -79,16 +79,16 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Command deduplication
 ---------------------
 
-The command submission service deduplicates submitted commands based on their :ref`change ID <change-id>`:
+The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`:
 
 - Applications can provide a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` for each command. If this parameter is not set, the default maximum deduplication period is used.
-- A command submission is considered a duplicate submission if the ledger API server is aware of another command within the deduplication period and with the same :ref`change ID <change-id>`.
+- A command submission is considered a duplicate submission if the ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
 - Duplicate command submissions will be ignored until either the deduplication period of the original command has passed or the original submission was rejected (i.e. the command failed and resulted in a rejected transaction), whichever comes first.
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
 - A command submission will return:
 
-  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication period of a previous command with the same :ref`change ID <change-id>` on the same participant.
-  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication period of a previous command with the same :ref`change ID <change-id>`.
+  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication period of a previous command with the same :ref:`change ID <change-id>` on the same participant.
+  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication period of a previous command with the same :ref:`change ID <change-id>`.
 
 - If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
 
