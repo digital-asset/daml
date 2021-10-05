@@ -269,11 +269,11 @@ private[testtool] abstract class CommandDeduplicationBase(
     for {
       // Submit a command as alice
       _ <- submitRequestAndAssertCompletionAccepted(ledger)(aliceRequest, alice)
-      _ <- submitRequestAndAssertDeduplication(ledger)(aliceRequest)
+      _ <- submitRequestAndAssertDeduplication(ledger)(aliceRequest, alice)
 
       // Submit another command that uses same commandId, but is submitted by Bob
       _ <- submitRequestAndAssertCompletionAccepted(ledger)(bobRequest, bob)
-      _ <- submitRequestAndAssertDeduplication(ledger)(bobRequest)
+      _ <- submitRequestAndAssertDeduplication(ledger)(bobRequest, bob)
       _ <- assertPartyHasActiveContracts(ledger)(
         party = alice,
         noOfActiveContracts = 1,

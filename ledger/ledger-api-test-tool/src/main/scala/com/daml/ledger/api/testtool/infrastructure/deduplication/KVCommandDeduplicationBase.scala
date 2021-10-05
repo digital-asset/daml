@@ -23,7 +23,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 /** Command deduplication tests for KV ledgers
-  * KV ledgers have both participant side deduplication and committer side deduplication.
+  * KV ledgers have committer side deduplication.
   * The committer side deduplication period adds `minSkew` to the participant-side one, so we have to account for that as well.
   * If updating the time model fails then the tests will assume a `minSkew` of 1 second.
   */
@@ -50,15 +50,10 @@ abstract class KVCommandDeduplicationBase(
       runWithConfig(configuredParticipants) { (maxDeduplicationDuration, minSkew) =>
         for {
           completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
-          // participant side deduplication, sync result
-          _ <- submitRequestAndAssertSyncDeduplication(ledger, request)
-          // Wait for the end of participant deduplication
-          // We also add min skew to also validate the committer deduplication duration
-          _ <- Delayed.by(deduplicationDuration.plus(minSkew))(())
           // Validate committer deduplication
           duplicateCompletion <- submitRequestAndAssertAsyncDeduplication(ledger)(request, party)
-          // Wait for the end of committer deduplication, we already waited for minSkew
-          _ <- Delayed.by(maxDeduplicationDuration.minus(deduplicationDuration))(())
+          // Wait for the end of committer deduplication
+          _ <- Delayed.by(maxDeduplicationDuration.plus(minSkew))(())
           // Deduplication has finished
           completion2 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           // Inspect created contracts
