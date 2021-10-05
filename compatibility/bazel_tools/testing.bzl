@@ -15,27 +15,39 @@ load("//:versions.bzl", "latest_stable_version")
 # - A list of platform (ledger) ranges, each described by `start` and `end` (both inclusive),
 #   as well as the actual list of `--exclude` flags to be passed to the ledger API test tool.
 #
-# Start and end can be omitted and are always inclusive; an interval extreme can be
-# excluded by setting it to a non-existing version that is guaranteed to be between two
-# existing ones, according to version ordering. This is especially useful to denote the
-# upcoming (yet unknown) snapshot version.
+# The "0.0.0" special version corresponds the current HEAD and is considered greater than
+# all other versions. Also, HEAD corresponds to different commits in different CI runs:
 #
-# For example, if the current snapshot is `1.17.0-snapshot.20210811.7565.0.f1a55aa4`, then
-# `1.17.0-snapshot.20210811.7565.1` will be greater than the current snapshot version but
-# smaller than the upcoming snapshot version (because either the date or the commits count
-# or both will increase).
+# - In a PR, HEAD is the result of merging the latest PR commit with the tip of `main`
+#   at the time the build starts.
+# - In a nightly run, HEAD is the tip of `main` at the time the build starts.
 #
-# An example scenario is a change to both a ledger and the Ledger API Test Tool that makes the
-# latter incompatible with previous versions of the ledger.
-# In this case, you'll want to set the platform `start` and `end` to be unbounded as to cover
-# all existing platform versions (including HEAD) and the test tool `start` to be the upcoming
-# snapshot, which you can denote by using the "intermediate version" trick above.
-# After your change is merged, you'll need a further change to set the platform `end` to the
-# latest released snapshot, so that HEAD and subsequent versions are cross-checked again.
+# Either or both `start` and `end` can be omitted and, if present, are always inclusive.
+# An interval extreme can be excluded by setting it to a non-existing version that is
+# guaranteed to be between two existing ones, according to version ordering. This is
+# especially useful to denote the upcoming (yet unknown) release; for example, if the
+# current release is `1.17.0-snapshot.20210811.7565.0.f1a55aa4`, then
+# `1.17.0-snapshot.20210811.7565.1` will be greater than the current release but
+# smaller than HEAD and the upcoming release.
 #
-# Note that 0.0.0 (i.e., current HEAD) is considered greater than all other versions.
+# Here are some change types that require adding exclusions:
 #
-# Also, note that before 1.3 the granularity for disabling tests
+# 1. A platform feature is added and new tests for it are provided that make the new
+#    ledger API test tool incompatible with previous platforms, hence, the new tests
+#    should be excluded for ledger API test tool versions greater than the current
+#    release but less than HEAD and the upcoming release (i.e., start = last release
+#    excluded) on all platforms up to and including the last release (i.e., end = last
+#    release included).
+# 2. An implementation-specific behavior is changed in a not backwards compatible
+#    way, together with its accompanying implementation-specific API-level tests,
+#    hence, the new ledger API test tool is incompatible with all released platforms
+#    and the new platform is incompatible with all released ledger API tests.
+#    This case requires, for the changed tests, both the exclusion above and its
+#    dual (i.e., excluding such tests on ledger API test tool versions up to and
+#    including the latest release, against platform versions greater than the
+#    current release but less than HEAD and the next release).
+#
+# Finally, note that before 1.3 the granularity for disabling tests
 # was sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
 # for details.
