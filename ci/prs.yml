@@ -73,7 +73,7 @@ jobs:
             exit 1
         fi
 
-- job: check_compatibility_protobuf
+- job: compatiblity_head_protobuf
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
@@ -158,7 +158,7 @@ jobs:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     build_status: $[ dependencies.collect_build_data.result ]
     changelog_status: $[ dependencies.check_changelog_entry.result ]
-    check_compat_proto: $[ dependencies.check_compatibility_protobuf.result ]
+    check_compat_proto: $[ dependencies.compatibility_head_protobuf.result ]
   steps:
     - template: bash-lib.yml
       parameters:

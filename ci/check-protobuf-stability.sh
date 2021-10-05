@@ -13,6 +13,10 @@ TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main}"
 echo "The target branch is '${TARGET}'."
 
 BUF_TAG_TO_CHECK=""
+# The `buf.yml` file was split into multiple files after v1.17
+# This flag indicates if the against target we use for buf is before or after the split
+# Will be removed once we have a stable tag released after the split point
+BUF_CONFIG_UPDATED=true
 
 # LF protobufs are checked against local snapshosts.
 function check_lf_protos() {
@@ -45,9 +49,17 @@ function check_non_lf_protos() {
   readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
   trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
-  echo "Checking protobufs against tag '${BUF_TAG_TO_CHECK}'"
+  echo "Checking protobufs against target '${BUF_TAG_TO_CHECK}'"
+  eval "$(dev-env/bin/dade assist)"
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
-    (eval "$(dev-env/bin/dade assist)" ; buf breaking --config "${buf_module}" --against "$BUF_TAG_TO_CHECK")
+    # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
+    # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
+    if [[ $BUF_CONFIG_UPDATED ]]
+    then
+      buf breaking --config "${buf_module}" --against "$BUF_TAG_TO_CHECK" --against-config "${buf_module}"
+    else
+      buf breaking --config "${buf_module}" --against "$BUF_TAG_TO_CHECK"
+    fi
   done
 
 }
@@ -77,6 +89,8 @@ USAGE
     GIT_TAG_SCOPE="--merged"
   fi
   readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
+  # For the latest stable snapshot the config is still the default "buf.yaml"
+  BUF_CONFIG_UPDATED=false
   BUF_TAG_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
   ;;
 --head)
@@ -85,7 +99,10 @@ USAGE
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
   echo "Using head target"
-  BUF_TAG_TO_CHECK="https://github.com/digital-asset/daml.git#branch=${TARGET}"
+  # The files are always split for head targets
+  BUF_CONFIG_UPDATED=true
+  # This lets buf checkout the head commit of the TARGET
+  BUF_TAG_TO_CHECK=".git#branch=${TARGET}"
   ;;
 *)
   echo "unknown argument $1" >&2
