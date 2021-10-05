@@ -403,9 +403,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       }
 
       @Explanation(
-        """TODO: fill it in"""
+        "The ledger configuration could not be retrieved. This could happen due to incomplete initialization of the participant or due to an internal system error."
       )
-      @Resolution("""TODO: fill it in""")
+      @Resolution("Contact the participant operator.")
       object LedgerConfigurationNotFound
           extends ErrorCode(
             id = "LEDGER_CONFIGURATION_NOT_FOUND",
