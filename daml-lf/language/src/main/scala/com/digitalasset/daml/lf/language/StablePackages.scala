@@ -9,7 +9,7 @@ object StablePackages {
   // Based on compiler/damlc/tests/src/stable-packages.sh
   // TODO: Use this map to generate the mapping used in the test,
   // or generate both from a single source.
-  private val nameToIdMap = Map[PackageName, PackageId](
+  private[this] def nameToIdMap: Map[PackageName, PackageId] = Map(
     PackageName.assertFromString(
       "daml-prim-DA-Exception-ArithmeticError-cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a"
     ) -> PackageId.assertFromString(
@@ -116,5 +116,5 @@ object StablePackages {
       "99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235"
     ),
   )
-  val Ids = nameToIdMap.values.toSet
+  val Ids: Set[PackageId] = nameToIdMap.values.toSet
 }
