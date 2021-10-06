@@ -97,5 +97,5 @@ message FeatureParticipantPruning {
   // historic transaction log.
   //
   // Optional since: v.12
-  bool supports_pruning_all_divulged_events = 2;
+  bool supports_pruning_all_divulged_events = 1;
 }
