@@ -77,7 +77,6 @@ USAGE
   exit
   ;;
 --stable)
-  echo "Using stable target"
   # Check against the most recent stable tag.
   #
   # This check does not need to run on release branch commits because
@@ -85,6 +84,10 @@ USAGE
   # check is enough.
   readonly RELEASE_BRANCH_REGEX="^release/.*"
   GIT_TAG_SCOPE=""
+  # For PRs targeting release branches, we should really check against
+  # all the most recent stable tags reachable from either the current branch or
+  # from previous release branches (say, against both 1.17.1 and 1.16.2
+  # created after the release/1.17.x branch).
   if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
     GIT_TAG_SCOPE="--merged"
   fi
@@ -98,8 +101,8 @@ USAGE
   #
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
-  echo "Using head target"
-  # The files are always split for head targets
+  #
+  # The files are always split for versions > 1.17, and there is no way of opening a PR against a target <= 1.17 which includes this check
   BUF_CONFIG_UPDATED=true
   # This lets buf checkout the head commit of the TARGET
   BUF_GIT_TARGET_TO_CHECK=".git#branch=${TARGET}"
