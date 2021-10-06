@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.time.Instant
+import com.daml.api.util.TimestampConversion.fromInstant
 
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -60,7 +60,7 @@ private[events] object TransactionLogUpdatesConversions {
                     transactionId = first.transactionId,
                     commandId = getCommandId(events, requestingParties),
                     workflowId = first.workflowId,
-                    effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+                    effectiveAt = Some(timestampToTimestamp(first.ledgerEffectiveTime)),
                     events = flatEvents,
                     offset = ApiOffset.toApiString(tx.offset),
                   )
@@ -227,7 +227,7 @@ private[events] object TransactionLogUpdatesConversions {
                 transactionId = tx.transactionId,
                 commandId = getCommandId(filteredForVisibility, requestingParties),
                 workflowId = tx.workflowId,
-                effectiveAt = Some(instantToTimestamp(tx.effectiveAt)),
+                effectiveAt = Some(timestampToTimestamp(tx.effectiveAt)),
                 offset = ApiOffset.toApiString(tx.offset),
                 eventsById = eventsById,
                 rootEventIds = rootEventIds,
@@ -389,8 +389,8 @@ private[events] object TransactionLogUpdatesConversions {
       }
   }
 
-  private def instantToTimestamp(t: Instant): Timestamp =
-    Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
+  private def timestampToTimestamp(t: com.daml.lf.data.Time.Timestamp): Timestamp =
+    fromInstant(t.toInstant)
 
   private def getCommandId(
       flatTransactionEvents: Vector[TransactionLogUpdate.Event],

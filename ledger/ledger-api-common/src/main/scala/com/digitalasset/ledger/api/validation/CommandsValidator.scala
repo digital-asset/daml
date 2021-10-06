@@ -75,7 +75,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       submissionId = submissionId,
       actAs = submitters.actAs,
       readAs = submitters.readAs,
-      submittedAt = currentUtcTime,
+      submittedAt = Time.Timestamp.assertFromInstant(currentUtcTime),
       deduplicationPeriod = deduplicationPeriod,
       commands = Commands(
         commands = validatedCommands.to(ImmArray),

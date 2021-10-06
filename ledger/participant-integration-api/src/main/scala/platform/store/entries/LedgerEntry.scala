@@ -3,11 +3,10 @@
 
 package com.daml.platform.store.entries
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.RejectionReason
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 
 private[platform] sealed abstract class LedgerEntry extends Product with Serializable
@@ -15,7 +14,7 @@ private[platform] sealed abstract class LedgerEntry extends Product with Seriali
 private[platform] object LedgerEntry {
 
   final case class Rejection(
-      recordTime: Instant,
+      recordTime: Timestamp,
       commandId: Ref.CommandId,
       applicationId: Ref.ApplicationId,
       submissionId: Ref.SubmissionId,
@@ -30,8 +29,8 @@ private[platform] object LedgerEntry {
       submissionId: Option[Ref.SubmissionId],
       actAs: List[Ref.Party],
       workflowId: Option[Ref.WorkflowId],
-      ledgerEffectiveTime: Instant,
-      recordedAt: Instant,
+      ledgerEffectiveTime: Timestamp,
+      recordedAt: Timestamp,
       transaction: CommittedTransaction,
       explicitDisclosure: Relation[NodeId, Ref.Party],
   ) extends LedgerEntry

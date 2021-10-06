@@ -3,21 +3,22 @@
 
 package com.daml.ledger.api
 
-import java.time.{Duration, Instant}
+import com.daml.lf.data.Time.Timestamp
 
+import java.time.Duration
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class DeduplicationPeriodSpec extends AnyWordSpec with Matchers {
   "calculating deduplication until" should {
-    val time = Instant.ofEpochSecond(100)
+    val time = Timestamp.assertFromLong(100 * 1000 * 1000)
 
     "return expected result when sending duration" in {
       val deduplicateUntil = DeduplicationPeriod.deduplicateUntil(
         time,
         DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(3)),
       )
-      deduplicateUntil shouldEqual time.plusSeconds(3)
+      deduplicateUntil shouldEqual Timestamp.assertFromInstant(time.toInstant.plusSeconds(3))
     }
 
   }

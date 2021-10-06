@@ -66,8 +66,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           else
             contractStore
               .lookupMaximumLedgerTime(usedContractIds)
-              .flatMap { maxUsedInstant =>
-                val maxUsedTime = maxUsedInstant.map(Time.Timestamp.assertFromInstant)
+              .flatMap { maxUsedTime =>
                 if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
                   Future.successful(Right(cer))
                 } else if (!cer.dependsOnLedgerTime) {

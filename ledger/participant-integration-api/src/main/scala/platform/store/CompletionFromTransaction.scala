@@ -3,13 +3,12 @@
 
 package com.daml.platform.store
 
-import java.time.Instant
-
 import com.daml.api.util.TimestampConversion.fromInstant
 import com.daml.ledger.api.v1.command_completion_service.{Checkpoint, CompletionStreamResponse}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.google.protobuf.duration.Duration
 import com.google.rpc.status.{Status => StatusProto}
@@ -23,7 +22,7 @@ private[platform] object CompletionFromTransaction {
   private val RejectionTransactionId = ""
 
   def acceptedCompletion(
-      recordTime: Instant,
+      recordTime: Timestamp,
       offset: Offset,
       commandId: String,
       transactionId: String,
@@ -50,7 +49,7 @@ private[platform] object CompletionFromTransaction {
     )
 
   def rejectedCompletion(
-      recordTime: Instant,
+      recordTime: Timestamp,
       offset: Offset,
       commandId: String,
       status: StatusProto,
@@ -76,9 +75,9 @@ private[platform] object CompletionFromTransaction {
       ),
     )
 
-  private def toApiCheckpoint(recordTime: Instant, offset: Offset): Checkpoint =
+  private def toApiCheckpoint(recordTime: Timestamp, offset: Offset): Checkpoint =
     Checkpoint.of(
-      recordTime = Some(fromInstant(recordTime)),
+      recordTime = Some(fromInstant(recordTime.toInstant)),
       offset = Some(LedgerOffset.of(LedgerOffset.Value.Absolute(offset.toApiString))),
     )
 

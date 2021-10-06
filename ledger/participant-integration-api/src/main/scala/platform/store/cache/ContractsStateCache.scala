@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.cache
-import java.time.Instant
-
 import com.daml.caching.SizedCache
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
@@ -32,7 +31,7 @@ object ContractStateValue {
   final case class Active(
       contract: Contract,
       stakeholders: Set[Party],
-      createLedgerEffectiveTime: Instant,
+      createLedgerEffectiveTime: Timestamp,
   ) extends ExistingContractValue
 
   final case class Archived(stakeholders: Set[Party]) extends ExistingContractValue

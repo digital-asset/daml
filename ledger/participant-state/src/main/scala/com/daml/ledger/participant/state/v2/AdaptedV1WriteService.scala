@@ -3,15 +3,14 @@
 
 package com.daml.ledger.participant.state.v2
 
-import java.time.Instant
 import java.util.concurrent.CompletionStage
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v1
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.telemetry.TelemetryContext
@@ -90,14 +89,14 @@ private[v2] object AdaptedV1WriteService {
 
   def adaptSubmitterInfo(submitterInfo: SubmitterInfo): v1.SubmitterInfo = {
     val deduplicateUntil = DeduplicationPeriod.deduplicateUntil(
-      Instant.now(),
+      Timestamp.now(),
       submitterInfo.deduplicationPeriod,
     )
     v1.SubmitterInfo(
       actAs = submitterInfo.actAs,
       applicationId = submitterInfo.applicationId,
       commandId = submitterInfo.commandId,
-      deduplicateUntil = deduplicateUntil,
+      deduplicateUntil = deduplicateUntil.toInstant,
     )
   }
 

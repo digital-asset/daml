@@ -4,9 +4,8 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.io.ByteArrayInputStream
-import java.time.Instant
-
 import com.codahale.metrics.Timer
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
@@ -27,7 +26,7 @@ private[appendonlydao] sealed class ContractsReader(
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Instant]] =
+  ): Future[Option[Timestamp]] =
     Timed.future(
       metrics.daml.index.db.lookupMaximumLedgerTime,
       dispatcher
