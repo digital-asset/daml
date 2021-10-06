@@ -609,7 +609,7 @@ private[lf] case class PartialTransaction(
           case _ => keys
         },
       ),
-    ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, ec), auth)
+    ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
 
   /** Close normally an exercise context.

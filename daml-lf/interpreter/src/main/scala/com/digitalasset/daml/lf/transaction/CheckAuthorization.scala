@@ -7,9 +7,7 @@ package speedy
 import com.daml.lf.data.Ref.Location
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey}
-
-import PartialTransaction.ExercisesContextInfo
+import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey, NodeExercises}
 
 private[lf] object CheckAuthorization {
 
@@ -95,7 +93,7 @@ private[lf] object CheckAuthorization {
 
   private[lf] def authorizeExercise(
       optLocation: Option[Location],
-      ex: ExercisesContextInfo,
+      ex: NodeExercises,
   )(
       auth: Authorize
   ): List[FailedAuthorization] = {

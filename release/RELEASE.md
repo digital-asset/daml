@@ -306,6 +306,9 @@ patches we backport to the 1.0 release branch).
 1. If the release is bad, delete the release from the [releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
 
+   Note that **the Standard-Change label must remain on the PR**, even if the
+   release has failed.
+
 1. Announce the release on the relevant internal Slack channels (`#product-daml`,
    `#team-daml`). For a stable release, direct people to the release blog post;
    for a prerelease, you can include the raw output of the `unreleased.sh`
