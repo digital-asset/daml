@@ -278,7 +278,10 @@ class IdeLedgerClient(
           }
         } else {
           // Allocate a fresh name based on the display name.
-          val candidates = displayName #:: LazyList.from(1).map(displayName + _.toString())
+          // Empty party ids are not allowed, fall back to "party" on empty display name.
+          val namePrefix = if (displayName.isEmpty) { "party" }
+          else { displayName }
+          val candidates = namePrefix #:: LazyList.from(1).map(namePrefix + _.toString())
           Success(candidates.find(s => !(usedNames contains s)).get)
         }
       // Create and store the new party.
