@@ -5,7 +5,6 @@ package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.io.File
 import java.time.{Duration, Instant}
-
 import akka.stream.scaladsl.Sink
 import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
@@ -21,6 +20,7 @@ import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, Tr
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -248,7 +248,7 @@ final class SqlLedgerSpec
     }
 
     "publish a transaction" in {
-      val now = Time.Timestamp.assertFromInstant(Instant.now())
+      val now = Time.Timestamp.now()
       for {
         sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
@@ -288,7 +288,7 @@ final class SqlLedgerSpec
     }
 
     "reject a transaction if no configuration is found" in {
-      val now = Time.Timestamp.assertFromInstant(Instant.now())
+      val now = Time.Timestamp.now()
       for {
         sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
@@ -454,7 +454,7 @@ final class SqlLedgerSpec
         participantId = participantId.getOrElse(DefaultParticipantId),
         timeProvider = timeProvider,
         packages = InMemoryPackageStore.empty
-          .withPackages(Instant.EPOCH, None, packages)
+          .withPackages(Timestamp.Epoch, None, packages)
           .fold(sys.error, identity),
         initialLedgerEntries = ImmArray.Empty,
         queueDepth = queueDepth,

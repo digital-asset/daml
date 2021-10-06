@@ -7,6 +7,7 @@ import java.time.Duration
 import java.util.zip.ZipInputStream
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
@@ -29,7 +30,6 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
-import com.google.protobuf.timestamp.Timestamp
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.std.list._
@@ -83,7 +83,7 @@ private[apiserver] final class ApiPackageManagementService private (
           PackageDetails(
             pkgId.toString,
             details.size,
-            Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
+            Some(TimestampConversion.fromLf(details.knownSince)),
             details.sourceDescription.getOrElse(""),
           )
         })

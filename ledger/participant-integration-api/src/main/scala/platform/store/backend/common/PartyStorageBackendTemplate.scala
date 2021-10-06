@@ -4,13 +4,12 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-
 import anorm.{RowParser, SQL, ~}
 import anorm.SqlParser.{bool, flatten, str}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{ledgerString, instantFromMicros, offset, party}
+import com.daml.platform.store.Conversions.{ledgerString, offset, party, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PartyStorageBackend
@@ -32,7 +31,7 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     (offset("ledger_offset") ~
-      instantFromMicros("recorded_at") ~
+      timestampFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
       party("party").? ~
       str("display_name").? ~

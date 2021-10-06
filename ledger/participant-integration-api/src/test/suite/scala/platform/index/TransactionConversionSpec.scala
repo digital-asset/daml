@@ -3,13 +3,12 @@
 
 package com.daml.platform.index
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref.LedgerString
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -123,8 +122,8 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
         submissionId = Some(Ref.SubmissionId.assertFromString("submissionId")),
         actAs = List(party),
         workflowId = None,
-        ledgerEffectiveTime = Instant.EPOCH,
-        recordedAt = Instant.EPOCH,
+        ledgerEffectiveTime = Timestamp.Epoch,
+        recordedAt = Timestamp.Epoch,
         transaction = transaction,
         explicitDisclosure = Map.empty,
       )

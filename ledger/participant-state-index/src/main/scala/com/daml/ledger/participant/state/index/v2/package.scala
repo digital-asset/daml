@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.index
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -12,6 +12,8 @@ import com.daml.lf.value.Value
 import com.daml.ledger.api.domain._
 
 package v2 {
+
+  import com.daml.lf.data.Time.Timestamp
 
   object AcsUpdateEvent {
 
@@ -83,8 +85,8 @@ package v2 {
   final case class TransactionMeta(
       transactionId: TransactionId,
       offset: LedgerOffset.Absolute,
-      ledgerEffectiveTime: Instant,
-      recordTime: Instant,
+      ledgerEffectiveTime: Timestamp,
+      recordTime: Timestamp,
       workflowId: WorkflowId,
   )
 
@@ -102,7 +104,7 @@ package v2 {
     */
   final case class PackageDetails(
       size: Long,
-      knownSince: Instant,
+      knownSince: Timestamp,
       sourceDescription: Option[String],
   )
 
@@ -112,6 +114,6 @@ package v2 {
   case object CommandDeduplicationNew extends CommandDeduplicationResult
 
   /** This command was submitted before. */
-  final case class CommandDeduplicationDuplicate(deduplicateUntil: Instant)
+  final case class CommandDeduplicationDuplicate(deduplicateUntil: Timestamp)
       extends CommandDeduplicationResult
 }

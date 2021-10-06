@@ -4,8 +4,8 @@
 package com.daml.ledger.configuration
 
 import java.time.{Duration, Instant}
-
 import com.daml.ledger.configuration.LedgerTimeModel._
+import com.daml.lf.data.Time.Timestamp
 
 import scala.util.Try
 
@@ -41,6 +41,13 @@ case class LedgerTimeModel private (
     } else {
       Right(())
     }
+  }
+
+  def checkTime(
+      ledgerTime: Timestamp,
+      recordTime: Timestamp,
+  ): Either[OutOfRange, Unit] = {
+    checkTime(ledgerTime.toInstant, recordTime.toInstant)
   }
 
   private[ledger] def minLedgerTime(recordTime: Instant): Instant =

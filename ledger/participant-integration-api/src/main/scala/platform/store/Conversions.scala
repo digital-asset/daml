@@ -4,10 +4,7 @@
 package com.daml.platform.store
 
 import java.io.BufferedReader
-import java.sql.{PreparedStatement, Timestamp, Types}
-import java.time.Instant
-import java.util.Date
-import java.util.concurrent.TimeUnit
+import java.sql.{PreparedStatement, Types}
 import java.util.stream.Collectors
 
 import anorm.Column.nonNull
@@ -95,16 +92,6 @@ private[platform] object JdbcArrayConversions {
   implicit object ByteArrayArrayToStatement extends ArrayToStatement[Array[Byte]]("BYTEA")
 
   implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR")
-
-  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP")
-
-  implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
-      s.setArray(index, ts)
-    }
-  }
 
 }
 
@@ -318,20 +305,10 @@ private[platform] object Conversions {
         .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
     )
 
-  // Instant
+  // Timestamp
 
-  // TODO append-only: Delete after removing the mutating schema. The append-only schema only uses BIGINT for timestamps.
-  def instantFromTimestamp(name: String): RowParser[Instant] =
-    SqlParser.get[Date](name).map(_.toInstant)
-
-  def instantFromMicros(name: String): RowParser[Instant] =
-    SqlParser.get[Long](name).map(instantFromMicros)
-
-  def instantFromMicros(micros: Long): Instant = {
-    val seconds = TimeUnit.MICROSECONDS.toSeconds(micros)
-    val microsOfSecond = micros - TimeUnit.SECONDS.toMicros(seconds)
-    Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(microsOfSecond))
-  }
+  def timestampFromMicros(name: String): RowParser[com.daml.lf.data.Time.Timestamp] =
+    SqlParser.get[Long](name).map(com.daml.lf.data.Time.Timestamp.assertFromLong)
 
   // Hash
 

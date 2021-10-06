@@ -3,13 +3,12 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.FetchTransactions
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReaderSpec.{
@@ -198,7 +197,7 @@ object BufferedTransactionsReaderSpec {
     TransactionLogUpdate.Transaction(
       transactionId = discriminator,
       workflowId = "",
-      effectiveAt = Instant.EPOCH,
+      effectiveAt = Timestamp.Epoch,
       offset = Offset.beforeBegin,
       events = Vector(null),
     )

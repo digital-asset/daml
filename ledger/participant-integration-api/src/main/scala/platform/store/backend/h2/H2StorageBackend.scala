@@ -4,11 +4,11 @@
 package com.daml.platform.store.backend.h2
 
 import java.sql.Connection
-import java.time.Instant
 import anorm.{Row, SQL, SimpleSql}
 import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.appendonlydao.events.ContractId
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
@@ -19,17 +19,16 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
-  IntegrityStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   IngestionStorageBackendTemplate,
   InitHookDataSourceProxy,
+  IntegrityStorageBackendTemplate,
   PackageStorageBackendTemplate,
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
-  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -104,8 +103,8 @@ private[backend] object H2StorageBackend
 
   override def upsertDeduplicationEntry(
       key: String,
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(connection: Connection)(implicit loggingContext: LoggingContext): Int = {
 
     // Under the default READ_COMMITTED isolation level used for the indexdb, when a deduplication
@@ -124,8 +123,8 @@ private[backend] object H2StorageBackend
       SQL(SQL_INSERT_COMMAND)
         .on(
           "deduplicationKey" -> key,
-          "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-          "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
+          "submittedAt" -> submittedAt.micros,
+          "deduplicateUntil" -> deduplicateUntil.micros,
         )
         .executeUpdate()(connection)
     )

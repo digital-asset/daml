@@ -3,8 +3,6 @@
 
 package com.daml.platform.sandbox.stores.ledger
 
-import java.time.Instant
-
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.{v2 => state}
@@ -43,7 +41,7 @@ private[sandbox] trait Ledger extends ReadOnlyLedger {
   // Package management
   def uploadPackages(
       submissionId: Ref.SubmissionId,
-      knownSince: Instant,
+      knownSince: Timestamp,
       sourceDescription: Option[String],
       payload: List[Archive],
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult]

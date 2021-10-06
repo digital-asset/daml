@@ -4,7 +4,6 @@
 package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
-import java.time.Instant
 
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
@@ -140,7 +139,7 @@ object SequentialWriteDaoSpec {
   private def someUpdate(key: String) = Some(
     state.Update.PublicPackageUploadRejected(
       submissionId = Ref.SubmissionId.assertFromString("abc"),
-      recordTime = Timestamp.assertFromInstant(Instant.now),
+      recordTime = Timestamp.now(),
       rejectionReason = key,
     )
   )
