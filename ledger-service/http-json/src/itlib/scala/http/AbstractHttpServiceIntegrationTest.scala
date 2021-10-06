@@ -124,7 +124,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def withHttpServiceAndClient[A](
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
   ): Future[A] =
-    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) {
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2, userDar), testId, None, useTls) {
       case (ledgerPort, _, ledgerId) =>
         HttpServiceTestFixture.withHttpService[A](
           testId,
@@ -1748,7 +1748,7 @@ abstract class AbstractHttpServiceIntegrationTest
       import shapeless.record.{Record => ShRecord}
       import com.daml.ledger.api.refinements.{ApiTypes => lar}
 
-      val partyIds = Vector("Alice", "Bob").map(getUniqueParty)
+      val partyIds = Vector("Alice", "Bob").map(domain.Party(_))
       val packageId: Ref.PackageId = MetadataReader
         .templateByName(metadataUser)(Ref.QualifiedName.assertFromString("User:User"))
         .collectFirst { case (pkgid, _) => pkgid }
