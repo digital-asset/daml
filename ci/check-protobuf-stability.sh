@@ -88,6 +88,10 @@ USAGE
   # all the most recent stable tags reachable from either the current branch or
   # from previous release branches (say, against both 1.17.1 and 1.16.2
   # created after the release/1.17.x branch).
+  #
+  # Check against the most recent stable (non-snapshot) tag reachable from the current branch,
+  # under the assumption that if a previous release branch contains a protobuf change,
+  # then it will also be present in former ones (previous/former with regards to versioning).
   if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
     GIT_TAG_SCOPE="--merged"
   fi
@@ -113,6 +117,6 @@ USAGE
   exit 1
   ;;
 esac
-if [[ is_check_skipped ]]
+
 check_lf_protos
 check_non_lf_protos
