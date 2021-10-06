@@ -84,13 +84,13 @@ USAGE
   #
   # We rather check against the most recent stable (non-snapshot) tag reachable from the current branch,
   # under the assumption that if a previous release branch contains a protobuf change,
-  # then it will also be present in former ones (previous/former with regards to versioning).
+  # then it will also be present in later ones (previous/later with regards to versioning).
   if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
     GIT_TAG_SCOPE="--merged"
   fi
   readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
   # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
-  # Starting with the v1.18 release we have multiple buf config files and this check can be removed. (KVL-1131)
+  # Starting with v1.18 we have multiple buf config files.
   if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
     BUF_CONFIG_UPDATED=false
   else
