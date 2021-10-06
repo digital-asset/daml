@@ -92,8 +92,9 @@ USAGE
     GIT_TAG_SCOPE="--merged"
   fi
   readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
-  # For the latest stable snapshot the config is still the default "buf.yaml"
-  BUF_CONFIG_UPDATED=false
+  # The current stable release is v1.17 and it includes the buf config file with the default name `buf.yml`.
+  # Once we have the v1.18 release we can remove this check for the updated config (KVL-1131)
+  BUF_CONFIG_UPDATED=[[ $LATEST_STABLE_TAG =~ "1.17."* ]]
   BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
   ;;
 --target)
@@ -112,5 +113,6 @@ USAGE
   exit 1
   ;;
 esac
+if [[ is_check_skipped ]]
 check_lf_protos
 check_non_lf_protos
