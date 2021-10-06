@@ -44,7 +44,7 @@ message GetLedgerApiVersionResponse {
 }
 
 message FeatureDescriptor {
-  // Features that are determined by the ledger backing the participant node
+  // Features that are determined by the Daml driver the participant node
   // that serves the Ledger API endpoint.
   //
   // All participant nodes connected to the same ledger are expected to report the
@@ -71,6 +71,7 @@ message LedgerFeatures {
 message ParticipantFeatures {
   FeatureDamlLf daml_lf = 1;
   FeatureParticipantPruning participant_pruning = 2;
+  FeatureCausalOrdering causal_ordering = 3;
 }
 
 // Whether the ledger builds contract-ids in a way that allows Daml code
