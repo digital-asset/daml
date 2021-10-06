@@ -53,6 +53,7 @@ client_server_build(
     server_args = [
         "--port=0",
         "--port-file=%PORT_FILE%",
+        "--enable-append-only-schema",
     ],
     server_files = ["//daml-script/test:script-test.dar"],
 )

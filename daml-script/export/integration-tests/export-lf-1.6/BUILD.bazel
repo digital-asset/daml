@@ -65,6 +65,7 @@ client_server_build(
         "--ledgerid=lf16-export-ledger",
         "--port=0",
         "--port-file=%PORT_FILE%",
+        "--enable-append-only-schema",
     ],
     server_files = ["lf16.build"],
 )
