@@ -134,7 +134,7 @@ jobs:
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
         if [ "$msg" = "This PR has been created by a script, which is not very smart" ]; then
-            pr_handler="<@$(head -1 release/rotation | awk '{print $1}')>"
+            pr_handler="<@$(awk '/^[^#]/ {print $1}' release/rotation | head -n 1)>"
         else
             pr_handler=""
         fi
