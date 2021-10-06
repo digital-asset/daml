@@ -14,12 +14,6 @@ eval "$(dev-env/bin/dade assist)"
 TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main}"
 echo "The target branch is '${TARGET}'."
 
-BUF_GIT_TARGET_TO_CHECK=""
-# The `buf.yml` file was split into multiple files after v1.17
-# This flag indicates if the against target we use for buf is before or after the split
-# Will be removed once we have a stable tag released after the split point
-BUF_CONFIG_UPDATED=true
-
 # LF protobufs are checked against local snapshots.
 function check_lf_protos() {
 
