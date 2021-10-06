@@ -114,7 +114,7 @@ USAGE
   #
   # The files are always split for versions > 1.17, and there is no way of opening a PR against a target <= 1.17 which includes this check
   BUF_CONFIG_UPDATED=true
-  BUF_GIT_TARGET_TO_CHECK=".git#branch=${TARGET}"
+  BUF_GIT_TARGET_TO_CHECK=".git#branch=origin/${TARGET}"
   ;;
 *)
   echo "unknown argument $1" >&2
