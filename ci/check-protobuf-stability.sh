@@ -54,7 +54,7 @@ function check_non_lf_protos() {
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
     # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
     # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
-    if [[ $BUF_CONFIG_UPDATED = true ]]; then
+    if [[ $BUF_CONFIG_UPDATED == true ]]; then
       buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
     else
       buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK"
@@ -95,8 +95,8 @@ USAGE
     GIT_TAG_SCOPE="--merged"
   fi
   readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
-  # The current stable release is v1.17 and it includes the buf config file with the default name `buf.yml`.
-  # Once we have the v1.18 release we can remove this check for the updated config (KVL-1131)
+  # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
+  # Starting with the v1.18 release we have multiple buf config files and this check can be removed. (KVL-1131)
   if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
     BUF_CONFIG_UPDATED=false
   else
