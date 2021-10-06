@@ -149,7 +149,7 @@ jobs:
     - collect_build_data
     - check_for_release
     - check_changelog_entry
-    - check_compatibility_protobuf
+    - compatibility_head_protobuf
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
