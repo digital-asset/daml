@@ -509,7 +509,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.13.0",
-        "end": "1.17.0",
+        "end": "1.16.0",
         "platform_ranges": [
             {
                 "start": "1.18.0-snapshot.20210928.7948.1",
