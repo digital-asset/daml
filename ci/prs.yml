@@ -73,13 +73,13 @@ jobs:
             exit 1
         fi
 
-- job: compatiblity_head_protobuf
+- job: compatiblity_target_protobuf
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/check-protobuf-stability.sh --head
+    - bash: ci/check-protobuf-stability.sh --target
 
 # required for collect_build_data
 - job: release
@@ -149,7 +149,7 @@ jobs:
     - collect_build_data
     - check_for_release
     - check_changelog_entry
-    - compatibility_head_protobuf
+    - compatibility_target_protobuf
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
