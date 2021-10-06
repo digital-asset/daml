@@ -7,7 +7,7 @@ package error.group
 import error._
 import error.group.ErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 
-sealed trait PruningServiceError extends BaseError
+trait PruningServiceError extends BaseError
 object PruningServiceError extends PruningServiceErrorGroup {
   @Explanation("""Pruning has failed because of an internal server error.""")
   @Resolution("Identify the error in the server log.")

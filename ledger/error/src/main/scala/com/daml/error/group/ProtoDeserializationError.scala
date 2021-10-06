@@ -10,7 +10,7 @@ import error.group.ProtoDeserializationError.ProtoDeserializationFailure
 
 import com.google.protobuf.InvalidProtocolBufferException
 
-sealed trait ProtoDeserializationError extends Product with Serializable {
+trait ProtoDeserializationError extends Product with Serializable {
   def toAdminError(implicit
       loggingContext: ErrorCodeLoggingContext
   ): BaseError =

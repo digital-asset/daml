@@ -15,7 +15,7 @@ import cats.data.EitherT
 
 import scala.concurrent.{ExecutionContext, Future}
 
-sealed trait PackageServiceError extends BaseError
+trait PackageServiceError extends BaseError
 object PackageServiceError extends PackageServiceErrorGroup {
 
   object Reading extends ErrorGroup {
