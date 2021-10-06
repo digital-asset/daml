@@ -54,7 +54,7 @@ function check_non_lf_protos() {
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
     # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
     # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
-    if [[ $BUF_CONFIG_UPDATED ]]; then
+    if [[ $BUF_CONFIG_UPDATED = true ]]; then
       buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
     else
       buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK"
